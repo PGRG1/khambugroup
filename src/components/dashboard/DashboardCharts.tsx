@@ -4,40 +4,40 @@ import { getDayOfWeekStats, getPaymentBreakdown, getVenueComparison, formatCurre
 import ChartCard from "./ChartCard";
 
 const COLORS = [
-  "hsl(38, 92%, 55%)",
-  "hsl(16, 80%, 55%)",
-  "hsl(180, 60%, 50%)",
-  "hsl(260, 60%, 60%)",
-  "hsl(120, 50%, 50%)",
-  "hsl(330, 70%, 55%)",
-  "hsl(50, 80%, 50%)",
+  "hsl(24, 80%, 50%)",
+  "hsl(14, 70%, 52%)",
+  "hsl(175, 55%, 42%)",
+  "hsl(258, 50%, 55%)",
+  "hsl(145, 45%, 42%)",
+  "hsl(330, 60%, 50%)",
+  "hsl(50, 70%, 45%)",
 ];
 
 const MONTH_COLORS = [
-  "hsl(38, 92%, 55%)",
-  "hsl(16, 80%, 55%)",
-  "hsl(180, 60%, 50%)",
-  "hsl(260, 60%, 60%)",
+  "hsl(24, 80%, 50%)",
+  "hsl(14, 70%, 52%)",
+  "hsl(175, 55%, 42%)",
+  "hsl(258, 50%, 55%)",
 ];
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: "hsl(220, 18%, 12%)",
-    border: "1px solid hsl(220, 14%, 18%)",
+    backgroundColor: "hsl(35, 25%, 95%)",
+    border: "1px solid hsl(30, 15%, 85%)",
     borderRadius: "8px",
-    color: "hsl(40, 20%, 95%)",
+    color: "hsl(25, 20%, 15%)",
     fontSize: "12px",
   },
 };
 
-const axisStyle = { fontSize: 11, fill: "hsl(220, 10%, 55%)" };
+const axisStyle = { fontSize: 11, fill: "hsl(25, 10%, 50%)" };
+const gridColor = "hsl(30, 15%, 85%)";
 
 interface ChartsProps {
   data: SalesRecord[];
 }
 
 const DashboardCharts = ({ data }: ChartsProps) => {
-  // Daily sales
   const dailySales = data
     .reduce((acc, r) => {
       const existing = acc.find((a) => a.date === r.date);
@@ -83,63 +83,58 @@ const DashboardCharts = ({ data }: ChartsProps) => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      {/* 1. Daily Sales */}
       <ChartCard title="Daily Sales">
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={dailySales}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 18%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
             <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Sales"]} labelFormatter={formatDate} />
-            <Line type="monotone" dataKey="totalSales" stroke="hsl(38, 92%, 55%)" strokeWidth={2} dot={{ r: 3, fill: "hsl(38, 92%, 55%)" }} />
+            <Line type="monotone" dataKey="totalSales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 3, fill: "hsl(24, 80%, 50%)" }} />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 2. Daily Customers */}
       <ChartCard title="Daily Number of Customers">
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={dailySales}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 18%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} />
             <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests"]} labelFormatter={formatDate} />
-            <Line type="monotone" dataKey="guests" stroke="hsl(180, 60%, 50%)" strokeWidth={2} dot={{ r: 3, fill: "hsl(180, 60%, 50%)" }} />
+            <Line type="monotone" dataKey="guests" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={{ r: 3, fill: "hsl(175, 55%, 42%)" }} />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 3. Avg Spend Per Customer */}
       <ChartCard title="Average Spend Per Customer">
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={spendData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 18%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
             <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Per Guest"]} labelFormatter={formatDate} />
-            <Bar dataKey="perGuest" fill="hsl(38, 92%, 55%)" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="perGuest" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 4. Avg Spend Per Order */}
       <ChartCard title="Average Spend Per Order">
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={spendData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 18%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
             <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Per Order"]} labelFormatter={formatDate} />
-            <Bar dataKey="perOrder" fill="hsl(16, 80%, 55%)" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="perOrder" fill="hsl(14, 70%, 52%)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 5. Avg Customers by Day of Week (MoM) */}
       <ChartCard title="Avg Customers by Day of Week (MoM)">
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={dayStats}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 18%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="day" tick={axisStyle} />
             <YAxis tick={axisStyle} />
             <Tooltip {...tooltipStyle} />
@@ -151,11 +146,10 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 6. Avg Spend Per Customer by Day of Week (MoM) */}
       <ChartCard title="Avg Spend/Customer by Day of Week (MoM)">
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={dayStats}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 18%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="day" tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
             <Tooltip {...tooltipStyle} />
@@ -167,11 +161,10 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 7. Avg Spend Per Order by Day of Week (MoM) */}
       <ChartCard title="Avg Spend/Order by Day of Week (MoM)">
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={dayStats}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 18%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="day" tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
             <Tooltip {...tooltipStyle} />
@@ -183,7 +176,6 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 8. Venue Comparative Performance */}
       <ChartCard title="Venue Comparative Performance">
         <div className="grid grid-cols-2 gap-4">
           {venueData.map((v) => (
@@ -216,7 +208,6 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         </div>
       </ChartCard>
 
-      {/* 9. Payment Method Breakdown */}
       <ChartCard title="Payment Method Breakdown">
         <ResponsiveContainer width="100%" height={280}>
           <PieChart>
@@ -230,17 +221,16 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         </ResponsiveContainer>
       </ChartCard>
 
-      {/* 10. Discount Report */}
       <ChartCard title="Discount Report">
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={discountData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 18%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis yAxisId="left" tick={axisStyle} tickFormatter={(v) => `$${v}`} />
             <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} />
             <Tooltip {...tooltipStyle} />
-            <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 72%, 51%)" radius={[3, 3, 0, 0]} />
-            <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount %" stroke="hsl(38, 92%, 55%)" strokeWidth={2} />
+            <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
+            <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount %" stroke="hsl(24, 80%, 50%)" strokeWidth={2} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
