@@ -1,15 +1,17 @@
 import { VenueFilter } from "@/types/sales";
+import { Database } from "lucide-react";
 
 interface DashboardHeaderProps {
   venue: VenueFilter;
   onVenueChange: (v: VenueFilter) => void;
   onToggleUpload: () => void;
   onToggleManual: () => void;
+  onToggleTable: () => void;
 }
 
 const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente"];
 
-const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual }: DashboardHeaderProps) => {
+const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual, onToggleTable }: DashboardHeaderProps) => {
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -34,6 +36,13 @@ const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual 
             </button>
           ))}
         </div>
+        <button
+          onClick={onToggleTable}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+        >
+          <Database className="h-4 w-4" />
+          View Data
+        </button>
         <button
           onClick={onToggleUpload}
           className="px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"

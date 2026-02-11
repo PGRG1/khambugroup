@@ -8,6 +8,7 @@ import DataUpload from "@/components/dashboard/DataUpload";
 import ManualInput from "@/components/dashboard/ManualInput";
 import KPICards from "@/components/dashboard/KPICards";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
+import DataTable from "@/components/dashboard/DataTable";
 
 const Index = () => {
   const [data, setData] = useState<SalesRecord[]>(sampleData);
@@ -16,6 +17,7 @@ const Index = () => {
   const [to, setTo] = useState<Date | undefined>();
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [showTable, setShowTable] = useState(false);
 
   const months = useMemo(() => {
     const keys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
@@ -55,6 +57,14 @@ const Index = () => {
     });
   };
 
+  const handleUpdateRecord = (index: number, record: SalesRecord) => {
+    setData((prev) => prev.map((r, i) => (i === index ? record : r)));
+  };
+
+  const handleDeleteRecord = (index: number) => {
+    setData((prev) => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
       <div className="max-w-[1400px] mx-auto space-y-6">
@@ -63,6 +73,7 @@ const Index = () => {
           onVenueChange={setVenue}
           onToggleUpload={() => { setShowUpload(!showUpload); setShowManual(false); }}
           onToggleManual={() => { setShowManual(!showManual); setShowUpload(false); }}
+          onToggleTable={() => setShowTable(!showTable)}
         />
 
         <DateFilter
@@ -83,6 +94,10 @@ const Index = () => {
         )}
 
         <KPICards {...kpi} />
+
+        {showTable && (
+          <DataTable data={data} onUpdate={handleUpdateRecord} onDelete={handleDeleteRecord} />
+        )}
 
         {filtered.length > 0 ? (
           <DashboardCharts data={filtered} />
