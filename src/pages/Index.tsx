@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
 import { SalesRecord, VenueFilter } from "@/types/sales";
-import { sampleData } from "@/data/sampleData";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DateFilter from "@/components/dashboard/DateFilter";
@@ -17,10 +16,10 @@ function loadData(): SalesRecord[] {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
-  return sampleData;
+  return [];
 }
 
 function saveData(data: SalesRecord[]) {
