@@ -101,6 +101,8 @@ export function mergeWithActuals(
       forecastedServiceCharge: 0,
       forecastedTotalSales: 0,
       comment: "",
+      forecastNotes: "",
+      postEventNotes: "",
       createdAt: "",
       actualCustomers: totalGuests,
       actualAvgSpend: avgSpend,

@@ -3,6 +3,8 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,8 +20,8 @@ interface ForecastChartsProps {
 }
 
 const COLORS = {
-  forecast: "hsl(var(--primary))",
-  actual: "hsl(var(--chart-2))",
+  forecast: "#6366f1",   // indigo
+  actual: "#f59e0b",     // amber
   positive: "#22c55e",
   negative: "#ef4444",
 };
@@ -57,6 +59,21 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
     return item ? `${label} (${item.day})` : label;
   };
 
+  const cumulativeData = useMemo(() => {
+    let cumFcst = 0;
+    let cumAct = 0;
+    return chartData.map((d) => {
+      cumFcst += d.fcstSales ?? 0;
+      cumAct += d.actSales ?? 0;
+      return {
+        date: d.date,
+        day: d.day,
+        cumForecast: cumFcst,
+        cumActual: d.actSales !== null ? cumAct : null,
+      };
+    });
+  }, [chartData]);
+
   if (chartData.length === 0) {
     return (
       <div className="card-glass rounded-xl p-12 text-center">
@@ -67,6 +84,21 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* Cumulative Sales */}
+      <ChartCard title="Cumulative Sales" subtitle="Running total: forecast vs actual" className="lg:col-span-2">
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={cumulativeData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+            <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+            <Tooltip labelFormatter={tooltipLabel} formatter={(v: number) => formatCurrency(v)} />
+            <Legend />
+            <Line type="monotone" dataKey="cumForecast" name="Forecast" stroke={COLORS.forecast} strokeWidth={2.5} dot={false} />
+            <Line type="monotone" dataKey="cumActual" name="Actual" stroke={COLORS.actual} strokeWidth={2.5} dot={false} connectNulls />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
       {/* Forecast vs Actual Sales */}
       <ChartCard title="Forecast vs Actual Sales" subtitle="Total sales comparison">
         <ResponsiveContainer width="100%" height={280}>

@@ -15,8 +15,8 @@ import {
 
 const navItems = [
   { title: "Revenue", url: "/", icon: BarChart3 },
+  { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList },
   { title: "Data", url: "/data", icon: Database },
-  { title: "Forecast", url: "/forecast/assembly", icon: ClipboardList },
 ];
 
 export function AppSidebar() {

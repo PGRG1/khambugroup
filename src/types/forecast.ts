@@ -9,6 +9,8 @@ export interface ForecastRecord {
   forecastedServiceCharge: number;
   forecastedTotalSales: number;
   comment: string;
+  forecastNotes: string;
+  postEventNotes: string;
   createdAt: string;
 }
 
