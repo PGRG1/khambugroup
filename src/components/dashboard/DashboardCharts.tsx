@@ -204,11 +204,11 @@ const DashboardCharts = ({ data }: ChartsProps) => {
 
       <ChartCard title="Discount Report">
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={discountData} margin={{ top: 5, right: 10, left: 5, bottom: 5 }}>
+          <BarChart data={discountData}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis yAxisId="left" tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-            <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} />
+            <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} width={0} mirror />
             <Tooltip {...tooltipStyle} labelFormatter={dayTooltipLabel} />
             <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
             <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount %" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
