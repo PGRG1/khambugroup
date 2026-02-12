@@ -1,6 +1,5 @@
 import { VenueFilter } from "@/types/sales";
-import { Database, ClipboardList } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Database } from "lucide-react";
 
 interface DashboardHeaderProps {
   venue: VenueFilter;
@@ -44,13 +43,6 @@ const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual,
           <Database className="h-4 w-4" />
           View Data
         </button>
-        <Link
-          to="/forecast/assembly"
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-        >
-          <ClipboardList className="h-4 w-4" />
-          Forecast
-        </Link>
         <button
           onClick={onToggleUpload}
           className="px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
