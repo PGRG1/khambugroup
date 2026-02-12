@@ -204,7 +204,7 @@ const DashboardCharts = ({ data }: ChartsProps) => {
 
       <ChartCard title="Discount Report">
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={discountData}>
+          <BarChart data={discountData} margin={{ top: 5, right: 10, left: 5, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis yAxisId="left" tick={axisStyle} tickFormatter={(v) => `$${v}`} />
