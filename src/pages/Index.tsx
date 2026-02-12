@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
-import { SalesRecord, VenueFilter } from "@/types/sales";
+import { useState, useMemo } from "react";
+import { VenueFilter } from "@/types/sales";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
+import { useSalesData } from "@/hooks/useSalesData";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DateFilter from "@/components/dashboard/DateFilter";
 import DataUpload from "@/components/dashboard/DataUpload";
@@ -9,35 +10,14 @@ import KPICards from "@/components/dashboard/KPICards";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
 import DataTable from "@/components/dashboard/DataTable";
 
-const STORAGE_KEY = "khambu_sales_data";
-
-function loadData(): SalesRecord[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch {}
-  return [];
-}
-
-function saveData(data: SalesRecord[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
 const Index = () => {
-  const [data, setData] = useState<SalesRecord[]>(loadData);
+  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord } = useSalesData();
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [showTable, setShowTable] = useState(false);
-
-  useEffect(() => {
-    saveData(data);
-  }, [data]);
 
   const months = useMemo(() => {
     const keys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
@@ -50,7 +30,7 @@ const Index = () => {
       setTo(undefined);
       return;
     }
-    if (period === "Custom") return; // handled by calendar pickers
+    if (period === "Custom") return;
     const month = months.find((m) => m.label === period);
     if (!month) return;
     const [y, m] = month.key.split("-");
@@ -75,21 +55,27 @@ const Index = () => {
     };
   }, [filtered]);
 
-  const handleUpload = (records: SalesRecord[]) => {
-    setData((prev) => {
-      const existing = new Set(prev.map((r) => `${r.date}-${r.venue}-${r.reportNumber}`));
-      const newRecords = records.filter((r) => !existing.has(`${r.date}-${r.venue}-${r.reportNumber}`));
-      return [...prev, ...newRecords];
-    });
+  const handleUpload = async (records: typeof data) => {
+    await uploadRecords(records);
   };
 
-  const handleUpdateRecord = (index: number, record: SalesRecord) => {
-    setData((prev) => prev.map((r, i) => (i === index ? record : r)));
+  const handleUpdateRecord = async (index: number, record: typeof data[0]) => {
+    const oldRecord = data[index];
+    if (oldRecord) await updateRecord(oldRecord, record);
   };
 
-  const handleDeleteRecord = (index: number) => {
-    setData((prev) => prev.filter((_, i) => i !== index));
+  const handleDeleteRecord = async (index: number) => {
+    const record = data[index];
+    if (record) await deleteRecord(record);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -114,7 +100,7 @@ const Index = () => {
         {showUpload && <DataUpload onUpload={handleUpload} onClose={() => setShowUpload(false)} />}
         {showManual && (
           <ManualInput
-            onAdd={(record) => setData((prev) => [...prev, record])}
+            onAdd={async (record) => { await addRecord(record); }}
             onClose={() => setShowManual(false)}
           />
         )}

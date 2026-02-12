@@ -14,7 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      sales_records: {
+        Row: {
+          alipay: number
+          amex: number
+          card_tips: number
+          cash: number
+          created_at: string
+          date: string
+          day: string
+          discount: number
+          guests: number
+          id: string
+          mastercard: number
+          orders: number
+          report_number: string
+          service_charge: number
+          subtotal: number
+          total_sales: number
+          union_pay: number
+          venue: string
+          visa: number
+          wechat: number
+        }
+        Insert: {
+          alipay?: number
+          amex?: number
+          card_tips?: number
+          cash?: number
+          created_at?: string
+          date: string
+          day: string
+          discount?: number
+          guests?: number
+          id?: string
+          mastercard?: number
+          orders?: number
+          report_number: string
+          service_charge?: number
+          subtotal?: number
+          total_sales?: number
+          union_pay?: number
+          venue: string
+          visa?: number
+          wechat?: number
+        }
+        Update: {
+          alipay?: number
+          amex?: number
+          card_tips?: number
+          cash?: number
+          created_at?: string
+          date?: string
+          day?: string
+          discount?: number
+          guests?: number
+          id?: string
+          mastercard?: number
+          orders?: number
+          report_number?: string
+          service_charge?: number
+          subtotal?: number
+          total_sales?: number
+          union_pay?: number
+          venue?: string
+          visa?: number
+          wechat?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
