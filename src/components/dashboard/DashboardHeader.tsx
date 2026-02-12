@@ -1,6 +1,8 @@
 import { VenueFilter } from "@/types/sales";
-import { Database, ClipboardList } from "lucide-react";
+import { Database, ClipboardList, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import ResetDataButton from "./ResetDataButton";
 
 interface DashboardHeaderProps {
   venue: VenueFilter;
@@ -8,11 +10,14 @@ interface DashboardHeaderProps {
   onToggleUpload: () => void;
   onToggleManual: () => void;
   onToggleTable: () => void;
+  onDataReset: () => void;
 }
 
 const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente"];
 
-const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual, onToggleTable }: DashboardHeaderProps) => {
+const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual, onToggleTable, onDataReset }: DashboardHeaderProps) => {
+  const { user, signOut } = useAuth();
+
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -20,6 +25,9 @@ const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual,
           <span className="text-gradient-gold">KHAMBU</span>
           <span className="text-muted-foreground ml-3 text-lg font-normal">Analytics</span>
         </h1>
+        {user && (
+          <p className="text-xs text-muted-foreground mt-1">{user.email}</p>
+        )}
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex rounded-lg border border-border overflow-hidden">
@@ -62,6 +70,14 @@ const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual,
           className="px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
         >
           Manual Entry
+        </button>
+        <ResetDataButton onReset={onDataReset} />
+        <button
+          onClick={signOut}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign Out
         </button>
       </div>
     </header>
