@@ -22,7 +22,7 @@ const DeleteConfirmDialog = ({
   onOpenChange,
   onConfirm,
   title = "Delete Record",
-  description = "Are you sure you want to delete this record? This action cannot be undone and will be logged in the audit trail.",
+  description = "Are you sure? This record will be permanently removed and cannot be recovered.",
 }: DeleteConfirmDialogProps) => {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -31,9 +31,6 @@ const DeleteConfirmDialog = ({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-          ⚠️ This deletion will be permanently recorded in the audit log with your user details.
-        </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
