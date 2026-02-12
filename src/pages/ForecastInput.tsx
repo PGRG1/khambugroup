@@ -14,6 +14,7 @@ import {
 import { formatCurrency } from "@/utils/salesUtils";
 import { supabase } from "@/lib/supabase";
 import ForecastCharts from "@/components/forecast/ForecastCharts";
+import ForecastKPICards from "@/components/forecast/ForecastKPICards";
 
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
@@ -337,6 +338,9 @@ const ForecastInput = () => {
             )}
           </div>
         )}
+
+        {/* KPI Summary */}
+        <ForecastKPICards data={forecastsWithActuals} />
 
         {/* Charts - always visible */}
         <ForecastCharts data={forecastsWithActuals} />
