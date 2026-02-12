@@ -11,10 +11,11 @@ import {
   calculateForecast,
   mergeWithActuals,
 } from "@/utils/forecastUtils";
-import { formatCurrency } from "@/utils/salesUtils";
+import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { supabase } from "@/lib/supabase";
 import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
+import DateFilter from "@/components/dashboard/DateFilter";
 
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
@@ -24,6 +25,8 @@ const ForecastInput = () => {
   const [salesData, setSalesData] = useState<SalesRecord[]>([]);
   const [showEntry, setShowEntry] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [from, setFrom] = useState<Date | undefined>();
+  const [to, setTo] = useState<Date | undefined>();
 
   const [date, setDate] = useState("");
   const [customers, setCustomers] = useState<number>(0);
@@ -82,6 +85,36 @@ const ForecastInput = () => {
     () => mergeWithActuals(venueForecasts, venueSalesData).sort((a, b) => b.date.localeCompare(a.date)),
     [venueForecasts, venueSalesData]
   );
+
+  // Period filter: derive available months from merged data
+  const months = useMemo(() => {
+    const allDates = forecastsWithActuals.map((d) => d.date);
+    const keys = [...new Set(allDates.map((d) => getMonthKey(d)))].sort();
+    return keys.map((k) => ({ key: k, label: getMonthLabel(k) }));
+  }, [forecastsWithActuals]);
+
+  const handlePeriodSelect = (period: string) => {
+    if (period === "All Time") {
+      setFrom(undefined);
+      setTo(undefined);
+      return;
+    }
+    if (period === "Custom") return;
+    const month = months.find((m) => m.label === period);
+    if (!month) return;
+    const [y, m] = month.key.split("-");
+    setFrom(new Date(parseInt(y), parseInt(m) - 1, 1));
+    setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
+  };
+
+  const filteredData = useMemo(() => {
+    return forecastsWithActuals.filter((d) => {
+      const date = new Date(d.date);
+      if (from && date < from) return false;
+      if (to && date > to) return false;
+      return true;
+    });
+  }, [forecastsWithActuals, from, to]);
 
   const preview = useMemo(() => calculateForecast(customers, avgSpend), [customers, avgSpend]);
 
@@ -203,6 +236,16 @@ const ForecastInput = () => {
           </div>
         </header>
 
+        {/* Period Filter */}
+        <DateFilter
+          from={from}
+          to={to}
+          onFromChange={setFrom}
+          onToChange={setTo}
+          months={months.map((m) => m.label)}
+          onPeriodSelect={handlePeriodSelect}
+        />
+
         {/* Input Form - toggled */}
         {showEntry && (
           <div className="card-glass rounded-xl p-6 animate-fade-in">
@@ -288,9 +331,9 @@ const ForecastInput = () => {
         {showTable && (
           <div className="card-glass rounded-xl p-6 animate-fade-in">
             <h3 className="text-sm font-display font-semibold text-foreground mb-4">
-              Forecast vs Actuals — {venueName} ({forecastsWithActuals.length} records)
+              Forecast vs Actuals — {venueName} ({filteredData.length} records)
             </h3>
-            {forecastsWithActuals.length === 0 ? (
+            {filteredData.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-8">
                 No forecasts yet for {venueName}. Click "New Entry" to add one.
               </p>
@@ -316,7 +359,7 @@ const ForecastInput = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {forecastsWithActuals.map((f) => (
+                    {filteredData.map((f) => (
                       <tr key={f.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
                         <td className="py-2.5 px-2 font-medium">{f.date}</td>
                         <td className="py-2.5 px-2 text-muted-foreground">{f.day}</td>
@@ -345,10 +388,10 @@ const ForecastInput = () => {
         )}
 
         {/* KPI Summary */}
-        <ForecastKPICards data={forecastsWithActuals} />
+        <ForecastKPICards data={filteredData} />
 
         {/* Charts - always visible */}
-        <ForecastCharts data={forecastsWithActuals} />
+        <ForecastCharts data={filteredData} />
       </div>
     </div>
   );
