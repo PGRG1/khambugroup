@@ -65,7 +65,7 @@ const Index = () => {
           <span className="text-gradient-gold">Revenue</span>
           <span className="text-muted-foreground ml-2 text-base font-normal">Overview</span>
         </h1>
-        <div className="inline-flex rounded-lg border border-border overflow-hidden">
+        <div className="self-start inline-flex rounded-lg border border-border overflow-hidden">
           {venues.map((v) => (
             <button
               key={v}
