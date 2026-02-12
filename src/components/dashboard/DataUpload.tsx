@@ -12,8 +12,11 @@ interface DataUploadProps {
 const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [pendingRecords, setPendingRecords] = useState<SalesRecord[] | null>(null);
+  const [fileName, setFileName] = useState<string>("");
 
   const processFile = useCallback((file: File) => {
+    setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -22,7 +25,6 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
         
-        // Skip header row
         const records = rows.slice(1)
           .map(parseExcelRow)
           .filter((r): r is SalesRecord => r !== null);
@@ -32,15 +34,23 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
           return;
         }
 
-        onUpload(records);
-        setStatus(`Successfully imported ${records.length} records.`);
-        setTimeout(onClose, 1500);
+        setPendingRecords(records);
+        setStatus(`${records.length} records ready to upload from "${file.name}".`);
       } catch {
         setStatus("Error reading file. Please check the format.");
       }
     };
     reader.readAsArrayBuffer(file);
-  }, [onUpload, onClose]);
+  }, []);
+
+  const handleConfirmUpload = () => {
+    if (pendingRecords) {
+      onUpload(pendingRecords);
+      setStatus(`Successfully imported ${pendingRecords.length} records.`);
+      setPendingRecords(null);
+      setTimeout(onClose, 1500);
+    }
+  };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -88,6 +98,14 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
         <p className={`mt-3 text-sm ${status.includes("Error") || status.includes("No valid") ? "text-destructive" : "text-primary"}`}>
           {status}
         </p>
+      )}
+      {pendingRecords && (
+        <button
+          onClick={handleConfirmUpload}
+          className="mt-3 w-full px-4 py-2.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          Upload Data ({pendingRecords.length} records)
+        </button>
       )}
     </div>
   );
