@@ -1,4 +1,26 @@
 import { SalesRecord, VenueFilter } from "@/types/sales";
+import { z } from "zod";
+
+const SalesRecordSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  day: z.string().trim().min(1).max(10),
+  venue: z.enum(["Assembly", "Caliente"]),
+  reportNumber: z.string().trim().max(50),
+  orders: z.number().int().min(0).max(100000),
+  guests: z.number().int().min(0).max(100000),
+  subtotal: z.number().min(0).max(100000000),
+  serviceCharge: z.number().min(0).max(100000000),
+  discount: z.number().min(0).max(100000000),
+  totalSales: z.number().min(0).max(100000000),
+  visa: z.number().min(0).max(100000000),
+  mastercard: z.number().min(0).max(100000000),
+  amex: z.number().min(0).max(100000000),
+  unionPay: z.number().min(0).max(100000000),
+  alipay: z.number().min(0).max(100000000),
+  wechat: z.number().min(0).max(100000000),
+  cash: z.number().min(0).max(100000000),
+  cardTips: z.number().min(0).max(100000000),
+});
 
 export function filterData(
   data: SalesRecord[],
@@ -94,29 +116,30 @@ export function getVenueComparison(data: SalesRecord[]) {
 export function parseExcelRow(row: any[]): SalesRecord | null {
   try {
     const parseNum = (v: any) => {
-      if (typeof v === "number") return v;
-      if (typeof v === "string") return parseFloat(v.replace(/,/g, "")) || 0;
+      if (typeof v === "number") return Math.max(0, v);
+      if (typeof v === "string") return Math.max(0, parseFloat(v.replace(/,/g, "")) || 0);
       return 0;
     };
     
     const dateVal = row[0];
     let dateStr: string;
-    if (typeof dateVal === "number") {
-      // Excel serial date
+    if (dateVal instanceof Date) {
+      dateStr = dateVal.toISOString().split("T")[0];
+    } else if (typeof dateVal === "number") {
       const d = new Date((dateVal - 25569) * 86400 * 1000);
       dateStr = d.toISOString().split("T")[0];
     } else {
-      dateStr = String(dateVal).split("T")[0];
+      dateStr = String(dateVal).trim().split("T")[0];
     }
 
     const venue = String(row[2]).trim();
     if (venue !== "Assembly" && venue !== "Caliente") return null;
 
-    return {
+    const record = {
       date: dateStr,
-      day: String(row[1]).trim(),
+      day: String(row[1]).trim().slice(0, 10),
       venue: venue as "Assembly" | "Caliente",
-      reportNumber: String(row[3]),
+      reportNumber: String(row[3]).trim().slice(0, 50),
       orders: parseNum(row[4]),
       guests: parseNum(row[5]),
       subtotal: parseNum(row[6]),
@@ -132,6 +155,9 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
       cash: parseNum(row[16]),
       cardTips: parseNum(row[17]),
     };
+
+    const result = SalesRecordSchema.safeParse(record);
+    return result.success ? result.data as SalesRecord : null;
   } catch {
     return null;
   }

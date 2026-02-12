@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
 import { Upload, X, FileSpreadsheet } from "lucide-react";
-import * as XLSX from "xlsx";
+import readXlsxFile from "read-excel-file";
 import { SalesRecord } from "@/types/sales";
 import { parseExcelRow } from "@/utils/salesUtils";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface DataUploadProps {
   onUpload: (records: SalesRecord[]) => void;
@@ -15,32 +17,29 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
   const [pendingRecords, setPendingRecords] = useState<SalesRecord[] | null>(null);
   const [fileName, setFileName] = useState<string>("");
 
-  const processFile = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
+    if (file.size > MAX_FILE_SIZE) {
+      setStatus("Error: File exceeds 10MB limit.");
+      return;
+    }
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-        
-        const records = rows.slice(1)
-          .map(parseExcelRow)
-          .filter((r): r is SalesRecord => r !== null);
+    try {
+      const rows = await readXlsxFile(file);
+      // Skip header row
+      const records = rows.slice(1)
+        .map((row) => parseExcelRow(row as any[]))
+        .filter((r): r is SalesRecord => r !== null);
 
-        if (records.length === 0) {
-          setStatus("No valid records found. Check column format.");
-          return;
-        }
-
-        setPendingRecords(records);
-        setStatus(`${records.length} records ready to upload from "${file.name}".`);
-      } catch {
-        setStatus("Error reading file. Please check the format.");
+      if (records.length === 0) {
+        setStatus("No valid records found. Check column format.");
+        return;
       }
-    };
-    reader.readAsArrayBuffer(file);
+
+      setPendingRecords(records);
+      setStatus(`${records.length} records ready to upload from "${file.name}".`);
+    } catch {
+      setStatus("Error reading file. Please check the format.");
+    }
   }, []);
 
   const handleConfirmUpload = () => {
