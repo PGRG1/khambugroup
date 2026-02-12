@@ -12,7 +12,7 @@ import {
   mergeWithActuals,
 } from "@/utils/forecastUtils";
 import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
 import DateFilter from "@/components/dashboard/DateFilter";

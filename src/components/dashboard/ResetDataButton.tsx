@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Trash2, AlertTriangle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 interface ResetDataButtonProps {
