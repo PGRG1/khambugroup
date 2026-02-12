@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SalesRecord, VenueFilter } from "@/types/sales";
 import { sampleData } from "@/data/sampleData";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
@@ -10,8 +10,25 @@ import KPICards from "@/components/dashboard/KPICards";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
 import DataTable from "@/components/dashboard/DataTable";
 
+const STORAGE_KEY = "khambu_sales_data";
+
+function loadData(): SalesRecord[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return sampleData;
+}
+
+function saveData(data: SalesRecord[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
 const Index = () => {
-  const [data, setData] = useState<SalesRecord[]>(sampleData);
+  const [data, setData] = useState<SalesRecord[]>(loadData);
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
@@ -19,17 +36,27 @@ const Index = () => {
   const [showManual, setShowManual] = useState(false);
   const [showTable, setShowTable] = useState(false);
 
+  useEffect(() => {
+    saveData(data);
+  }, [data]);
+
   const months = useMemo(() => {
     const keys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
     return keys.map((k) => ({ key: k, label: getMonthLabel(k) }));
   }, [data]);
 
-  const handleMonthSelect = (label: string) => {
-    const month = months.find((m) => m.label === label);
+  const handlePeriodSelect = (period: string) => {
+    if (period === "All Time") {
+      setFrom(undefined);
+      setTo(undefined);
+      return;
+    }
+    if (period === "Custom") return; // handled by calendar pickers
+    const month = months.find((m) => m.label === period);
     if (!month) return;
     const [y, m] = month.key.split("-");
     setFrom(new Date(parseInt(y), parseInt(m) - 1, 1));
-    setTo(new Date(parseInt(y), parseInt(m), 0));
+    setTo(new Date(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
   };
 
   const filtered = useMemo(() => filterData(data, venue, from, to), [data, venue, from, to]);
@@ -82,7 +109,7 @@ const Index = () => {
           onFromChange={setFrom}
           onToChange={setTo}
           months={months.map((m) => m.label)}
-          onMonthSelect={handleMonthSelect}
+          onPeriodSelect={handlePeriodSelect}
         />
 
         {showUpload && <DataUpload onUpload={handleUpload} onClose={() => setShowUpload(false)} />}

@@ -1,17 +1,9 @@
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend } from "recharts";
 import { SalesRecord } from "@/types/sales";
-import { getDayOfWeekStats, getPaymentBreakdown, getVenueComparison, formatCurrency, getMonthLabel } from "@/utils/salesUtils";
+import { getDayOfWeekStats, getPaymentBreakdown, getVenueComparison, formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
 import ChartCard from "./ChartCard";
-
-const COLORS = [
-  "hsl(24, 80%, 50%)",
-  "hsl(14, 70%, 52%)",
-  "hsl(175, 55%, 42%)",
-  "hsl(258, 50%, 55%)",
-  "hsl(145, 45%, 42%)",
-  "hsl(330, 60%, 50%)",
-  "hsl(50, 70%, 45%)",
-];
+import PaymentBreakdownChart from "./PaymentBreakdownChart";
+import VenuePerformanceChart from "./VenuePerformanceChart";
 
 const MONTH_COLORS = [
   "hsl(24, 80%, 50%)",
@@ -46,14 +38,15 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         existing.guests += r.guests;
         existing.orders += r.orders;
       } else {
-        acc.push({ date: r.date, totalSales: r.totalSales, guests: r.guests, orders: r.orders });
+        acc.push({ date: r.date, day: r.day, totalSales: r.totalSales, guests: r.guests, orders: r.orders });
       }
       return acc;
-    }, [] as { date: string; totalSales: number; guests: number; orders: number }[])
+    }, [] as { date: string; day: string; totalSales: number; guests: number; orders: number }[])
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const spendData = dailySales.map((d) => ({
     date: d.date,
+    day: d.day,
     perGuest: d.guests ? Math.round(d.totalSales / d.guests) : 0,
     perOrder: d.orders ? Math.round(d.totalSales / d.orders) : 0,
   }));
@@ -62,6 +55,17 @@ const DashboardCharts = ({ data }: ChartsProps) => {
   const paymentData = getPaymentBreakdown(data);
   const venueData = getVenueComparison(data);
 
+  // Monthly revenue
+  const monthlyRevenue = [...new Set(data.map((r) => getMonthKey(r.date)))]
+    .sort()
+    .map((key) => {
+      const records = data.filter((r) => getMonthKey(r.date) === key);
+      return {
+        month: getMonthLabel(key),
+        revenue: records.reduce((s, r) => s + r.totalSales, 0),
+      };
+    });
+
   const discountData = data
     .reduce((acc, r) => {
       const existing = acc.find((a) => a.date === r.date);
@@ -69,16 +73,22 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         existing.discount += Math.abs(r.discount);
         existing.subtotal += r.subtotal;
       } else {
-        acc.push({ date: r.date, discount: Math.abs(r.discount), subtotal: r.subtotal });
+        acc.push({ date: r.date, day: r.day, discount: Math.abs(r.discount), subtotal: r.subtotal });
       }
       return acc;
-    }, [] as { date: string; discount: number; subtotal: number }[])
+    }, [] as { date: string; day: string; discount: number; subtotal: number }[])
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((d) => ({ ...d, pct: d.subtotal ? ((d.discount / d.subtotal) * 100).toFixed(1) : "0" }));
 
   const formatDate = (d: string) => {
     const parts = d.split("-");
     return `${parts[1]}/${parts[2]}`;
+  };
+
+  const dayTooltipLabel = (d: string) => {
+    const rec = dailySales.find((r) => r.date === d) || spendData.find((r) => r.date === d) || discountData.find((r) => r.date === d);
+    const day = rec ? (rec as any).day : "";
+    return `${formatDate(d)} (${day})`;
   };
 
   return (
@@ -89,8 +99,8 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Sales"]} labelFormatter={formatDate} />
-            <Line type="monotone" dataKey="totalSales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 3, fill: "hsl(24, 80%, 50%)" }} />
+            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Sales"]} labelFormatter={dayTooltipLabel} />
+            <Line type="monotone" dataKey="totalSales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -101,8 +111,8 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} />
-            <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests"]} labelFormatter={formatDate} />
-            <Line type="monotone" dataKey="guests" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={{ r: 3, fill: "hsl(175, 55%, 42%)" }} />
+            <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests"]} labelFormatter={dayTooltipLabel} />
+            <Line type="monotone" dataKey="guests" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -113,7 +123,7 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Per Guest"]} labelFormatter={formatDate} />
+            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Per Guest"]} labelFormatter={dayTooltipLabel} />
             <Bar dataKey="perGuest" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -125,8 +135,20 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Per Order"]} labelFormatter={formatDate} />
+            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Per Order"]} labelFormatter={dayTooltipLabel} />
             <Bar dataKey="perOrder" fill="hsl(14, 70%, 52%)" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      <ChartCard title="Monthly Revenue">
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={monthlyRevenue}>
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+            <XAxis dataKey="month" tick={axisStyle} />
+            <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Revenue"]} />
+            <Bar dataKey="revenue" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -176,50 +198,9 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard title="Venue Comparative Performance">
-        <div className="grid grid-cols-2 gap-4">
-          {venueData.map((v) => (
-            <div key={v.venue} className="rounded-lg bg-secondary/50 p-4">
-              <h4 className="font-display font-semibold text-foreground mb-3">{v.venue}</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Sales</span>
-                  <span className="text-foreground font-medium">${formatCurrency(v.totalSales)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Guests</span>
-                  <span className="text-foreground font-medium">{formatCurrency(v.totalGuests)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Orders</span>
-                  <span className="text-foreground font-medium">{formatCurrency(v.totalOrders)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Avg / Guest</span>
-                  <span className="text-primary font-medium">${formatCurrency(v.avgPerGuest)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Avg / Order</span>
-                  <span className="text-primary font-medium">${formatCurrency(v.avgPerOrder)}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </ChartCard>
+      <VenuePerformanceChart data={venueData} />
 
-      <ChartCard title="Payment Method Breakdown">
-        <ResponsiveContainer width="100%" height={280}>
-          <PieChart>
-            <Pie data={paymentData} cx="50%" cy="50%" outerRadius={100} innerRadius={50} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-              {paymentData.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Amount"]} />
-          </PieChart>
-        </ResponsiveContainer>
-      </ChartCard>
+      <PaymentBreakdownChart data={paymentData} />
 
       <ChartCard title="Discount Report">
         <ResponsiveContainer width="100%" height={280}>
@@ -228,9 +209,9 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis yAxisId="left" tick={axisStyle} tickFormatter={(v) => `$${v}`} />
             <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} />
-            <Tooltip {...tooltipStyle} />
+            <Tooltip {...tooltipStyle} labelFormatter={dayTooltipLabel} />
             <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
-            <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount %" stroke="hsl(24, 80%, 50%)" strokeWidth={2} />
+            <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount %" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>

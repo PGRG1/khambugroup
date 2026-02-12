@@ -9,7 +9,12 @@ export function filterData(
   return data.filter((r) => {
     if (venue !== "All Venues" && r.venue !== venue) return false;
     if (from && new Date(r.date) < from) return false;
-    if (to && new Date(r.date) > to) return false;
+    if (to) {
+      const recordDate = new Date(r.date);
+      const toEnd = new Date(to);
+      toEnd.setHours(23, 59, 59, 999);
+      if (recordDate > toEnd) return false;
+    }
     return true;
   });
 }
