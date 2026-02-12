@@ -10,7 +10,7 @@ const SalesRecordSchema = z.object({
   guests: z.number().int().min(0).max(100000),
   subtotal: z.number().min(0).max(100000000),
   serviceCharge: z.number().min(0).max(100000000),
-  discount: z.number().min(0).max(100000000),
+  discount: z.number().min(-100000000).max(100000000),
   totalSales: z.number().min(0).max(100000000),
   visa: z.number().min(0).max(100000000),
   mastercard: z.number().min(0).max(100000000),
@@ -116,10 +116,11 @@ export function getVenueComparison(data: SalesRecord[]) {
 export function parseExcelRow(row: any[]): SalesRecord | null {
   try {
     const parseNum = (v: any) => {
-      if (typeof v === "number") return Math.max(0, v);
-      if (typeof v === "string") return Math.max(0, parseFloat(v.replace(/,/g, "")) || 0);
+      if (typeof v === "number") return v;
+      if (typeof v === "string") return parseFloat(v.replace(/,/g, "")) || 0;
       return 0;
     };
+    const parsePositive = (v: any) => Math.max(0, parseNum(v));
     
     const dateVal = row[0];
     let dateStr: string;
@@ -140,20 +141,20 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
       day: String(row[1]).trim().slice(0, 10),
       venue: venue as "Assembly" | "Caliente",
       reportNumber: String(row[3]).trim().slice(0, 50),
-      orders: parseNum(row[4]),
-      guests: parseNum(row[5]),
-      subtotal: parseNum(row[6]),
-      serviceCharge: parseNum(row[7]),
+      orders: parsePositive(row[4]),
+      guests: parsePositive(row[5]),
+      subtotal: parsePositive(row[6]),
+      serviceCharge: parsePositive(row[7]),
       discount: parseNum(row[8]),
-      totalSales: parseNum(row[9]),
-      visa: parseNum(row[10]),
-      mastercard: parseNum(row[11]),
-      amex: parseNum(row[12]),
-      unionPay: parseNum(row[13]),
-      alipay: parseNum(row[14]),
-      wechat: parseNum(row[15]),
-      cash: parseNum(row[16]),
-      cardTips: parseNum(row[17]),
+      totalSales: parsePositive(row[9]),
+      visa: parsePositive(row[10]),
+      mastercard: parsePositive(row[11]),
+      amex: parsePositive(row[12]),
+      unionPay: parsePositive(row[13]),
+      alipay: parsePositive(row[14]),
+      wechat: parsePositive(row[15]),
+      cash: parsePositive(row[16]),
+      cardTips: parsePositive(row[17]),
     };
 
     const result = SalesRecordSchema.safeParse(record);
