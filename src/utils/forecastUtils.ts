@@ -40,7 +40,9 @@ export function mergeWithActuals(
   forecasts: ForecastRecord[],
   salesData: SalesRecord[]
 ): ForecastWithActuals[] {
-  return forecasts.map((f) => {
+  const forecastDates = new Set(forecasts.map((f) => `${f.date}|${f.venue}`));
+
+  const merged: ForecastWithActuals[] = forecasts.map((f) => {
     const actuals = salesData.filter(
       (s) => s.date === f.date && s.venue === f.venue
     );
@@ -71,4 +73,43 @@ export function mergeWithActuals(
       totalSalesVariance: totalSales - f.forecastedTotalSales,
     };
   });
+
+  // Add actuals that have no matching forecast
+  const actualsGrouped = new Map<string, SalesRecord[]>();
+  for (const s of salesData) {
+    const key = `${s.date}|${s.venue}`;
+    if (!forecastDates.has(key)) {
+      if (!actualsGrouped.has(key)) actualsGrouped.set(key, []);
+      actualsGrouped.get(key)!.push(s);
+    }
+  }
+
+  for (const [, records] of actualsGrouped) {
+    const first = records[0];
+    const totalGuests = records.reduce((s, r) => s + r.guests, 0);
+    const totalSales = records.reduce((s, r) => s + r.totalSales, 0);
+    const avgSpend = totalGuests ? Math.round(totalSales / totalGuests) : 0;
+
+    merged.push({
+      id: `actual-${first.date}-${first.venue}`,
+      date: first.date,
+      day: first.day,
+      venue: first.venue as "Assembly" | "Caliente",
+      forecastedCustomers: 0,
+      forecastedAvgSpend: 0,
+      forecastedGrossSales: 0,
+      forecastedServiceCharge: 0,
+      forecastedTotalSales: 0,
+      comment: "",
+      createdAt: "",
+      actualCustomers: totalGuests,
+      actualAvgSpend: avgSpend,
+      actualTotalSales: totalSales,
+      customerVariance: null,
+      avgSpendVariance: null,
+      totalSalesVariance: null,
+    });
+  }
+
+  return merged;
 }

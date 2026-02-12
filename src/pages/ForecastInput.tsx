@@ -73,9 +73,14 @@ const ForecastInput = () => {
     [forecasts, venueName]
   );
 
+  const venueSalesData = useMemo(
+    () => salesData.filter((s) => s.venue === venueName),
+    [salesData, venueName]
+  );
+
   const forecastsWithActuals = useMemo(
-    () => mergeWithActuals(venueForecasts, salesData),
-    [venueForecasts, salesData]
+    () => mergeWithActuals(venueForecasts, venueSalesData).sort((a, b) => b.date.localeCompare(a.date)),
+    [venueForecasts, venueSalesData]
   );
 
   const preview = useMemo(() => calculateForecast(customers, avgSpend), [customers, avgSpend]);
