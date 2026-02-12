@@ -44,6 +44,8 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
         fcstAvg: d.forecastedAvgSpend,
         actAvg: d.actualAvgSpend,
         variance: d.totalSalesVariance,
+        forecastNotes: d.forecastNotes || "",
+        postEventNotes: d.postEventNotes || "",
         accuracy:
           d.actualTotalSales !== null && d.forecastedTotalSales > 0
             ? Math.round(
@@ -151,7 +153,26 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
             <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-            <Tooltip labelFormatter={tooltipLabel} formatter={(v: number) => `${v}%`} />
+            <Tooltip
+              labelFormatter={tooltipLabel}
+              formatter={(v: number) => `${v}%`}
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                const item = payload[0]?.payload;
+                return (
+                  <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl space-y-1">
+                    <p className="font-medium">{tooltipLabel(label)}</p>
+                    <p>Accuracy: <span className="font-semibold">{item?.accuracy}%</span></p>
+                    {item?.forecastNotes && (
+                      <p className="text-muted-foreground"><span className="font-medium text-foreground">Pre:</span> {item.forecastNotes}</p>
+                    )}
+                    {item?.postEventNotes && (
+                      <p className="text-muted-foreground"><span className="font-medium text-foreground">Post:</span> {item.postEventNotes}</p>
+                    )}
+                  </div>
+                );
+              }}
+            />
             <Bar dataKey="accuracy" name="Accuracy" fill={COLORS.forecast} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

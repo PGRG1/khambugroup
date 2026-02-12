@@ -413,6 +413,8 @@ const ForecastInput = () => {
                       <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground" colSpan={3}>Avg Spend</th>
                       <th className="text-center py-2 px-2 text-xs font-semibold text-muted-foreground" colSpan={3}>Total Sales</th>
                       <th className="text-left py-2 px-2 text-xs font-semibold text-muted-foreground">Comment</th>
+                      <th className="text-left py-2 px-2 text-xs font-semibold text-muted-foreground">Forecast Notes</th>
+                      <th className="text-left py-2 px-2 text-xs font-semibold text-muted-foreground">Post-Event Notes</th>
                       <th className="py-2 px-2"></th>
                     </tr>
                     <tr className="border-b border-border/50">
@@ -420,7 +422,7 @@ const ForecastInput = () => {
                       {["Fcst", "Act", "Var", "Fcst", "Act", "Var", "Fcst", "Act", "Var"].map((h, i) => (
                         <th key={i} className="text-center py-1 px-2 text-[10px] text-muted-foreground font-medium">{h}</th>
                       ))}
-                      <th className="py-1 px-2" colSpan={2}></th>
+                      <th className="py-1 px-2" colSpan={4}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -450,11 +452,23 @@ const ForecastInput = () => {
                         <td className="py-2.5 px-2 text-center font-semibold">{formatCurrency(f.forecastedTotalSales)}</td>
                         <td className="py-2.5 px-2 text-center font-semibold">{f.actualTotalSales !== null ? formatCurrency(f.actualTotalSales) : "—"}</td>
                         <td className="py-2.5 px-2 text-center"><VarianceIndicator value={f.totalSalesVariance} /></td>
-                        <td className="py-2.5 px-2 text-xs text-muted-foreground max-w-[200px] truncate" title={f.comment}>
+                        <td className="py-2.5 px-2 text-xs text-muted-foreground max-w-[150px] truncate" title={f.comment}>
                           {isEditing ? (
                             <input type="text" value={editData.comment ?? ""} onChange={(e) => setEditData({ ...editData, comment: e.target.value })}
                               className="w-full px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground" />
                           ) : (f.comment || "—")}
+                        </td>
+                        <td className="py-2.5 px-2 text-xs text-muted-foreground max-w-[150px] truncate" title={f.forecastNotes}>
+                          {isEditing ? (
+                            <input type="text" value={editData.forecastNotes ?? ""} onChange={(e) => setEditData({ ...editData, forecastNotes: e.target.value })}
+                              className="w-full px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground" />
+                          ) : (f.forecastNotes || "—")}
+                        </td>
+                        <td className="py-2.5 px-2 text-xs text-muted-foreground max-w-[150px] truncate" title={f.postEventNotes}>
+                          {isEditing ? (
+                            <input type="text" value={editData.postEventNotes ?? ""} onChange={(e) => setEditData({ ...editData, postEventNotes: e.target.value })}
+                              className="w-full px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground" />
+                          ) : (f.postEventNotes || "—")}
                         </td>
                         <td className="py-2.5 px-2">
                           {isForecastRow && (
