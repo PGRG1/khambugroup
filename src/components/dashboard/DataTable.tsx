@@ -3,7 +3,7 @@ import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Trash2, Pencil, Download, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
-import * as XLSX from "xlsx";
+
 
 interface DataTableProps {
   data: SalesRecord[];
@@ -45,17 +45,22 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   };
 
   const downloadCSV = () => {
-    const ws = XLSX.utils.json_to_sheet(data.map(r => ({
-      Date: r.date, Day: r.day, Venue: r.venue, "Report #": r.reportNumber,
-      Orders: r.orders, Guests: r.guests, Subtotal: r.subtotal,
-      "Service Charge": r.serviceCharge, Discount: r.discount,
-      "Total Sales": r.totalSales, VISA: r.visa, Mastercard: r.mastercard,
-      AMEX: r.amex, "Union Pay": r.unionPay, Alipay: r.alipay,
-      WeChat: r.wechat, Cash: r.cash, "Card Tips": r.cardTips,
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sales Data");
-    XLSX.writeFile(wb, "khambu_sales_data.xlsx");
+    const headers = ["Date","Day","Venue","Report #","Orders","Guests","Subtotal","Service Charge","Discount","Total Sales","VISA","Mastercard","AMEX","Union Pay","Alipay","WeChat","Cash","Card Tips"];
+    const sanitize = (v: string | number) => {
+      const s = String(v);
+      // CSV injection prevention: prefix formula chars with single quote
+      if (/^[=+\-@\t\r]/.test(s)) return `'${s}`;
+      return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = data.map(r => [r.date,r.day,r.venue,r.reportNumber,r.orders,r.guests,r.subtotal,r.serviceCharge,r.discount,r.totalSales,r.visa,r.mastercard,r.amex,r.unionPay,r.alipay,r.wechat,r.cash,r.cardTips].map(sanitize).join(","));
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "khambu_sales_data.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const numCell = (key: keyof SalesRecord, row: SalesRecord, idx: number) => {
@@ -81,7 +86,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
         >
           <Download className="h-3.5 w-3.5" />
-          Download Excel
+          Download CSV
         </button>
       </div>
       <div className="overflow-x-auto">
