@@ -119,5 +119,5 @@ export function useSalesData() {
     return !error;
   }, [fetchData]);
 
-  return { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord };
+  return { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch: fetchData };
 }

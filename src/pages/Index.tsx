@@ -11,7 +11,7 @@ import DashboardCharts from "@/components/dashboard/DashboardCharts";
 import DataTable from "@/components/dashboard/DataTable";
 
 const Index = () => {
-  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord } = useSalesData();
+  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch } = useSalesData();
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
@@ -86,6 +86,7 @@ const Index = () => {
           onToggleUpload={() => { setShowUpload(!showUpload); setShowManual(false); }}
           onToggleManual={() => { setShowManual(!showManual); setShowUpload(false); }}
           onToggleTable={() => setShowTable(!showTable)}
+          onDataReset={refetch}
         />
 
         <DateFilter
