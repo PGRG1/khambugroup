@@ -32,6 +32,8 @@ const ForecastInput = () => {
   const [customers, setCustomers] = useState<number>(0);
   const [avgSpend, setAvgSpend] = useState<number>(0);
   const [comment, setComment] = useState("");
+  const [forecastNotes, setForecastNotes] = useState("");
+  const [postEventNotes, setPostEventNotes] = useState("");
 
   // Load actuals from database
   useEffect(() => {
@@ -134,6 +136,8 @@ const ForecastInput = () => {
       forecastedServiceCharge: calc.serviceCharge,
       forecastedTotalSales: calc.totalSales,
       comment,
+      forecastNotes,
+      postEventNotes,
       createdAt: new Date().toISOString(),
     };
 
@@ -142,6 +146,8 @@ const ForecastInput = () => {
     setCustomers(0);
     setAvgSpend(0);
     setComment("");
+    setForecastNotes("");
+    setPostEventNotes("");
   };
 
   const handleDelete = (id: string) => {
@@ -295,15 +301,41 @@ const ForecastInput = () => {
                   </div>
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3" /> Forecast Notes <span className="text-[10px] text-muted-foreground/70">(pre-event)</span>
+                  </label>
+                  <textarea
+                    value={forecastNotes}
+                    onChange={(e) => setForecastNotes(e.target.value)}
+                    placeholder="e.g. Expected busy night due to live music event, staffing up..."
+                    rows={2}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3" /> Post-Event Notes <span className="text-[10px] text-muted-foreground/70">(after the event)</span>
+                  </label>
+                  <textarea
+                    value={postEventNotes}
+                    onChange={(e) => setPostEventNotes(e.target.value)}
+                    placeholder="e.g. Rain reduced footfall, consider weather-adjusted forecasts..."
+                    rows={2}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1">
-                  <MessageSquare className="h-3 w-3" /> Comment / Notes
+                  <MessageSquare className="h-3 w-3" /> General Comment
                 </label>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="e.g. Expected busy night due to live music event..."
-                  rows={2}
+                  placeholder="Any other notes..."
+                  rows={1}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground"
                 />
               </div>
