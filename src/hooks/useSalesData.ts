@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SalesRecord } from "@/types/sales";
+import { logAuditEvent } from "@/utils/auditLog";
 
 function toDbRecord(r: SalesRecord) {
   return {
@@ -75,6 +76,11 @@ export function useSalesData() {
       .upsert(dbRecords, { onConflict: "date,venue,report_number" });
 
     if (!error) {
+      await logAuditEvent({
+        action: "bulk_upload",
+        entityType: "sales_record",
+        details: { count: records.length },
+      });
       await fetchData();
     }
     return !error;
@@ -86,6 +92,11 @@ export function useSalesData() {
       .insert(toDbRecord(record));
 
     if (!error) {
+      await logAuditEvent({
+        action: "insert",
+        entityType: "sales_record",
+        entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
+      });
       await fetchData();
     }
     return !error;
@@ -100,6 +111,12 @@ export function useSalesData() {
       .eq("report_number", oldRecord.reportNumber);
 
     if (!error) {
+      await logAuditEvent({
+        action: "update",
+        entityType: "sales_record",
+        entityId: `${oldRecord.date}-${oldRecord.venue}-${oldRecord.reportNumber}`,
+        details: { old: oldRecord, new: newRecord },
+      });
       await fetchData();
     }
     return !error;
@@ -114,6 +131,11 @@ export function useSalesData() {
       .eq("report_number", record.reportNumber);
 
     if (!error) {
+      await logAuditEvent({
+        action: "delete",
+        entityType: "sales_record",
+        entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
+      });
       await fetchData();
     }
     return !error;

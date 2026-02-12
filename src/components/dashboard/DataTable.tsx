@@ -3,7 +3,7 @@ import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Trash2, Pencil, Download, X, Check, ChevronLeft, ChevronRight } from "lucide-react";
-
+import DeleteConfirmDialog from "./DeleteConfirmDialog";
 
 interface DataTableProps {
   data: SalesRecord[];
@@ -17,6 +17,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editRecord, setEditRecord] = useState<SalesRecord | null>(null);
   const [page, setPage] = useState(0);
+  const [deleteIdx, setDeleteIdx] = useState<number | null>(null);
 
   const totalPages = Math.ceil(data.length / PAGE_SIZE);
   const pageData = data.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -145,7 +146,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                       ) : (
                         <>
                           <button onClick={() => startEdit(globalIdx)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
-                          <button onClick={() => onDelete(globalIdx)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => setDeleteIdx(globalIdx)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
                         </>
                       )}
                     </div>
@@ -167,6 +168,19 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
           </div>
         </div>
       )}
+
+      <DeleteConfirmDialog
+        open={deleteIdx !== null}
+        onOpenChange={(open) => { if (!open) setDeleteIdx(null); }}
+        onConfirm={() => {
+          if (deleteIdx !== null && onDelete) {
+            onDelete(deleteIdx);
+            setDeleteIdx(null);
+          }
+        }}
+        title="Delete Sales Record"
+        description="Are you sure you want to delete this sales record? This action cannot be undone."
+      />
     </div>
   );
 };
