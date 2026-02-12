@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
   BarChart,
   Bar,
   XAxis,
@@ -72,45 +70,45 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
       {/* Forecast vs Actual Sales */}
       <ChartCard title="Forecast vs Actual Sales" subtitle="Total sales comparison">
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartData}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
             <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
             <Tooltip labelFormatter={tooltipLabel} formatter={(v: number) => formatCurrency(v)} />
             <Legend />
-            <Line type="monotone" dataKey="fcstSales" name="Forecast" stroke={COLORS.forecast} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="actSales" name="Actual" stroke={COLORS.actual} strokeWidth={2} dot={false} />
-          </LineChart>
+            <Bar dataKey="fcstSales" name="Forecast" fill={COLORS.forecast} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="actSales" name="Actual" fill={COLORS.actual} radius={[4, 4, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
       {/* Forecast vs Actual Customers */}
       <ChartCard title="Forecast vs Actual Customers" subtitle="Customer count comparison">
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartData}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
             <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
             <Tooltip labelFormatter={tooltipLabel} formatter={(v: number) => v} />
             <Legend />
-            <Line type="monotone" dataKey="fcstCust" name="Forecast" stroke={COLORS.forecast} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="actCust" name="Actual" stroke={COLORS.actual} strokeWidth={2} dot={false} />
-          </LineChart>
+            <Bar dataKey="fcstCust" name="Forecast" fill={COLORS.forecast} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="actCust" name="Actual" fill={COLORS.actual} radius={[4, 4, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
       {/* Forecast vs Actual Avg Spend per Customer */}
       <ChartCard title="Forecast vs Actual Avg Spend / Customer" subtitle="Per-customer spend comparison">
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartData}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
             <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
             <Tooltip labelFormatter={tooltipLabel} formatter={(v: number) => formatCurrency(v)} />
             <Legend />
-            <Line type="monotone" dataKey="fcstAvg" name="Forecast" stroke={COLORS.forecast} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="actAvg" name="Actual" stroke={COLORS.actual} strokeWidth={2} dot={false} />
-          </LineChart>
+            <Bar dataKey="fcstAvg" name="Forecast" fill={COLORS.forecast} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="actAvg" name="Actual" fill={COLORS.actual} radius={[4, 4, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
@@ -140,13 +138,11 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
               name="Variance"
               fill={COLORS.forecast}
               radius={[4, 4, 0, 0]}
-              // Color bars green/red based on value
               shape={(props: any) => {
                 const { x, y, width, height, value } = props;
                 const fill = value >= 0 ? COLORS.positive : COLORS.negative;
-                const adjustedY = value >= 0 ? y : y;
                 const adjustedHeight = Math.abs(height);
-                return <rect x={x} y={adjustedY} width={width} height={adjustedHeight} fill={fill} rx={4} />;
+                return <rect x={x} y={y} width={width} height={adjustedHeight} fill={fill} rx={4} />;
               }}
             />
           </BarChart>
