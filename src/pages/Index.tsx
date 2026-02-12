@@ -2,22 +2,17 @@ import { useState, useMemo } from "react";
 import { VenueFilter } from "@/types/sales";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { useSalesData } from "@/hooks/useSalesData";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DateFilter from "@/components/dashboard/DateFilter";
-import DataUpload from "@/components/dashboard/DataUpload";
-import ManualInput from "@/components/dashboard/ManualInput";
 import KPICards from "@/components/dashboard/KPICards";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
-import DataTable from "@/components/dashboard/DataTable";
+
+const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente"];
 
 const Index = () => {
-  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch } = useSalesData();
+  const { data, loading } = useSalesData();
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
-  const [showUpload, setShowUpload] = useState(false);
-  const [showManual, setShowManual] = useState(false);
-  const [showTable, setShowTable] = useState(false);
 
   const months = useMemo(() => {
     const keys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
@@ -55,71 +50,56 @@ const Index = () => {
     };
   }, [filtered]);
 
-  const handleUpload = async (records: typeof data) => {
-    await uploadRecords(records);
-  };
-
-  const handleUpdateRecord = async (index: number, record: typeof data[0]) => {
-    const oldRecord = data[index];
-    if (oldRecord) await updateRecord(oldRecord, record);
-  };
-
-  const handleDeleteRecord = async (index: number) => {
-    const record = data[index];
-    if (record) await deleteRecord(record);
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <p className="text-muted-foreground">Loading data...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        <DashboardHeader
-          venue={venue}
-          onVenueChange={setVenue}
-          onToggleUpload={() => { setShowUpload(!showUpload); setShowManual(false); }}
-          onToggleManual={() => { setShowManual(!showManual); setShowUpload(false); }}
-          onToggleTable={() => setShowTable(!showTable)}
-          onDataReset={refetch}
-        />
-
-        <DateFilter
-          from={from}
-          to={to}
-          onFromChange={setFrom}
-          onToChange={setTo}
-          months={months.map((m) => m.label)}
-          onPeriodSelect={handlePeriodSelect}
-        />
-
-        {showUpload && <DataUpload onUpload={handleUpload} onClose={() => setShowUpload(false)} />}
-        {showManual && (
-          <ManualInput
-            onAdd={async (record) => { await addRecord(record); }}
-            onClose={() => setShowManual(false)}
-          />
-        )}
-
-        <KPICards {...kpi} />
-
-        {showTable && (
-          <DataTable data={data} onUpdate={handleUpdateRecord} onDelete={handleDeleteRecord} />
-        )}
-
-        {filtered.length > 0 ? (
-          <DashboardCharts data={filtered} />
-        ) : (
-          <div className="card-glass rounded-xl p-12 text-center">
-            <p className="text-muted-foreground">No data for the selected filters. Adjust your date range or venue selection.</p>
-          </div>
-        )}
+    <div className="max-w-[1400px] mx-auto space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold font-display tracking-tight">
+          <span className="text-gradient-gold">Revenue</span>
+          <span className="text-muted-foreground ml-2 text-base font-normal">Overview</span>
+        </h1>
+        <div className="flex rounded-lg border border-border overflow-hidden">
+          {venues.map((v) => (
+            <button
+              key={v}
+              onClick={() => setVenue(v)}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                venue === v
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-muted"
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
+
+      <DateFilter
+        from={from}
+        to={to}
+        onFromChange={setFrom}
+        onToChange={setTo}
+        months={months.map((m) => m.label)}
+        onPeriodSelect={handlePeriodSelect}
+      />
+
+      <KPICards {...kpi} />
+
+      {filtered.length > 0 ? (
+        <DashboardCharts data={filtered} />
+      ) : (
+        <div className="card-glass rounded-xl p-12 text-center">
+          <p className="text-muted-foreground">No data for the selected filters.</p>
+        </div>
+      )}
     </div>
   );
 };

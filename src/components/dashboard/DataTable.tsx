@@ -7,8 +7,8 @@ import { Trash2, Pencil, Download, X, Check, ChevronLeft, ChevronRight } from "l
 
 interface DataTableProps {
   data: SalesRecord[];
-  onUpdate: (index: number, record: SalesRecord) => void;
-  onDelete: (index: number) => void;
+  onUpdate?: (index: number, record: SalesRecord) => void;
+  onDelete?: (index: number) => void;
 }
 
 const PAGE_SIZE = 15;
