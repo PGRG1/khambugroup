@@ -173,68 +173,58 @@ const ForecastInput = () => {
   VarianceIndicator.displayName = "VarianceIndicator";
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* Header */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+    <div className="max-w-[1400px] mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold font-display tracking-tight">
+            <span className="text-gradient-gold">{venueName}</span>
+            <span className="text-muted-foreground ml-2 text-base font-normal">Forecast</span>
+          </h1>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex rounded-lg border border-border overflow-hidden">
             <Link
-              to="/"
-              className="p-2 rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+              to="/forecast/assembly"
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                venueName === "Assembly"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-muted"
+              }`}
             >
-              <ArrowLeft className="h-4 w-4" />
+              Assembly
             </Link>
-            <div>
-              <h1 className="text-2xl font-bold font-display tracking-tight">
-                <span className="text-gradient-gold">{venueName}</span>
-                <span className="text-muted-foreground ml-2 text-base font-normal">Forecast</span>
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Forecast analytics & data entry</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex rounded-lg border border-border overflow-hidden">
-              <Link
-                to="/forecast/assembly"
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  venueName === "Assembly"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-muted"
-                }`}
-              >
-                Assembly
-              </Link>
-              <Link
-                to="/forecast/caliente"
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  venueName === "Caliente"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-muted"
-                }`}
-              >
-                Caliente
-              </Link>
-            </div>
-            <button
-              onClick={() => { setShowEntry(!showEntry); }}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                showEntry ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
+            <Link
+              to="/forecast/caliente"
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                venueName === "Caliente"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-muted"
               }`}
             >
-              <ClipboardList className="h-4 w-4" />
-              New Entry
-            </button>
-            <button
-              onClick={() => setShowTable(!showTable)}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                showTable ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
-              }`}
-            >
-              <Database className="h-4 w-4" />
-              View Data
-            </button>
+              Caliente
+            </Link>
           </div>
-        </header>
+          <button
+            onClick={() => { setShowEntry(!showEntry); }}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              showEntry ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
+            }`}
+          >
+            <ClipboardList className="h-4 w-4" />
+            New Entry
+          </button>
+          <button
+            onClick={() => setShowTable(!showTable)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              showTable ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
+            }`}
+          >
+            <Database className="h-4 w-4" />
+            View Data
+          </button>
+        </div>
+      </div>
 
         {/* Period Filter */}
         <DateFilter
@@ -392,7 +382,6 @@ const ForecastInput = () => {
 
         {/* Charts - always visible */}
         <ForecastCharts data={filteredData} />
-      </div>
     </div>
   );
 };
