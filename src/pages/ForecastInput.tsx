@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, forwardRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import {
@@ -150,8 +150,51 @@ const ForecastInput = () => {
     setPostEventNotes("");
   };
 
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Partial<ForecastRecord>>({});
+
   const handleDelete = (id: string) => {
     setForecasts((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const startEdit = (f: ForecastRecord) => {
+    setEditId(f.id);
+    setEditData({
+      forecastedCustomers: f.forecastedCustomers,
+      forecastedAvgSpend: f.forecastedAvgSpend,
+      comment: f.comment,
+      forecastNotes: f.forecastNotes,
+      postEventNotes: f.postEventNotes,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+    setEditData({});
+  };
+
+  const saveEdit = () => {
+    if (!editId) return;
+    setForecasts((prev) =>
+      prev.map((f) => {
+        if (f.id !== editId) return f;
+        const customers = editData.forecastedCustomers ?? f.forecastedCustomers;
+        const avgSpend = editData.forecastedAvgSpend ?? f.forecastedAvgSpend;
+        const calc = calculateForecast(customers, avgSpend);
+        return {
+          ...f,
+          forecastedCustomers: customers,
+          forecastedAvgSpend: avgSpend,
+          forecastedGrossSales: calc.grossSales,
+          forecastedServiceCharge: calc.serviceCharge,
+          forecastedTotalSales: calc.totalSales,
+          comment: editData.comment ?? f.comment,
+          forecastNotes: editData.forecastNotes ?? f.forecastNotes,
+          postEventNotes: editData.postEventNotes ?? f.postEventNotes,
+        };
+      })
+    );
+    cancelEdit();
   };
 
   const VarianceIndicator = forwardRef<HTMLSpanElement, { value: number | null; suffix?: string }>(
@@ -381,27 +424,58 @@ const ForecastInput = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredData.map((f) => (
+                    {filteredData.map((f) => {
+                      const isEditing = editId === f.id;
+                      const isForecastRow = !f.id.startsWith("actual-");
+                      return (
                       <tr key={f.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
                         <td className="py-2.5 px-2 font-medium">{f.date}</td>
                         <td className="py-2.5 px-2 text-muted-foreground">{f.day}</td>
-                        <td className="py-2.5 px-2 text-center">{f.forecastedCustomers}</td>
+                        <td className="py-2.5 px-2 text-center">
+                          {isEditing ? (
+                            <input type="number" value={editData.forecastedCustomers ?? 0} onChange={(e) => setEditData({ ...editData, forecastedCustomers: parseInt(e.target.value) || 0 })}
+                              className="w-16 px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground text-center" />
+                          ) : f.forecastedCustomers}
+                        </td>
                         <td className="py-2.5 px-2 text-center">{f.actualCustomers ?? "—"}</td>
                         <td className="py-2.5 px-2 text-center"><VarianceIndicator value={f.customerVariance} /></td>
-                        <td className="py-2.5 px-2 text-center">{formatCurrency(f.forecastedAvgSpend)}</td>
+                        <td className="py-2.5 px-2 text-center">
+                          {isEditing ? (
+                            <input type="number" value={editData.forecastedAvgSpend ?? 0} onChange={(e) => setEditData({ ...editData, forecastedAvgSpend: parseInt(e.target.value) || 0 })}
+                              className="w-16 px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground text-center" />
+                          ) : formatCurrency(f.forecastedAvgSpend)}
+                        </td>
                         <td className="py-2.5 px-2 text-center">{f.actualAvgSpend !== null ? formatCurrency(f.actualAvgSpend) : "—"}</td>
                         <td className="py-2.5 px-2 text-center"><VarianceIndicator value={f.avgSpendVariance} /></td>
                         <td className="py-2.5 px-2 text-center font-semibold">{formatCurrency(f.forecastedTotalSales)}</td>
                         <td className="py-2.5 px-2 text-center font-semibold">{f.actualTotalSales !== null ? formatCurrency(f.actualTotalSales) : "—"}</td>
                         <td className="py-2.5 px-2 text-center"><VarianceIndicator value={f.totalSalesVariance} /></td>
-                        <td className="py-2.5 px-2 text-xs text-muted-foreground max-w-[200px] truncate" title={f.comment}>{f.comment || "—"}</td>
+                        <td className="py-2.5 px-2 text-xs text-muted-foreground max-w-[200px] truncate" title={f.comment}>
+                          {isEditing ? (
+                            <input type="text" value={editData.comment ?? ""} onChange={(e) => setEditData({ ...editData, comment: e.target.value })}
+                              className="w-full px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground" />
+                          ) : (f.comment || "—")}
+                        </td>
                         <td className="py-2.5 px-2">
-                          <button onClick={() => handleDelete(f.id)} className="text-muted-foreground hover:text-red-500 transition-colors">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {isForecastRow && (
+                            <div className="flex items-center gap-1">
+                              {isEditing ? (
+                                <>
+                                  <button onClick={saveEdit} className="p-1 rounded hover:bg-secondary text-primary"><Check className="h-3.5 w-3.5" /></button>
+                                  <button onClick={cancelEdit} className="p-1 rounded hover:bg-secondary text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
+                                </>
+                              ) : (
+                                <>
+                                  <button onClick={() => startEdit(f)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
+                                  <button onClick={() => handleDelete(f.id)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
