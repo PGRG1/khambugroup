@@ -26,43 +26,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // Get initial session first
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        if (session?.user) {
-          // Check admin role
-          const { data } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", session.user.id)
-            .eq("role", "admin");
-          setIsAdmin(!!(data && data.length > 0));
-        } else {
-          setIsAdmin(false);
-        }
+      (_event, s) => {
+        setSession(s);
         setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", session.user.id)
-          .eq("role", "admin")
-          .then(({ data }) => {
-            setIsAdmin(!!(data && data.length > 0));
-            setLoading(false);
-          });
-      } else {
-        setLoading(false);
-      }
-    });
-
     return () => subscription.unsubscribe();
   }, []);
+
+  // Check admin role separately when session changes
+  useEffect(() => {
+    if (!session?.user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    let cancelled = false;
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .eq("role", "admin")
+      .then(({ data, error }) => {
+        if (!cancelled) {
+          setIsAdmin(!error && !!(data && data.length > 0));
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
