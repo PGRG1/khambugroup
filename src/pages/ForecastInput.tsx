@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, forwardRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList } from "lucide-react";
+import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
+import { logAuditEvent } from "@/utils/auditLog";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import {
@@ -142,6 +144,11 @@ const ForecastInput = () => {
     };
 
     setForecasts((prev) => [...prev, record]);
+    logAuditEvent({
+      action: "insert",
+      entityType: "forecast",
+      entityId: `${record.date}-${record.venue}`,
+    });
     setDate("");
     setCustomers(0);
     setAvgSpend(0);
@@ -152,9 +159,19 @@ const ForecastInput = () => {
 
   const [editId, setEditId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<ForecastRecord>>({});
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const handleDelete = (id: string) => {
+    const record = forecasts.find((f) => f.id === id);
     setForecasts((prev) => prev.filter((f) => f.id !== id));
+    if (record) {
+      logAuditEvent({
+        action: "delete",
+        entityType: "forecast",
+        entityId: `${record.date}-${record.venue}`,
+      });
+    }
+    setDeleteTargetId(null);
   };
 
   const startEdit = (f: ForecastRecord) => {
@@ -175,6 +192,7 @@ const ForecastInput = () => {
 
   const saveEdit = () => {
     if (!editId) return;
+    const original = forecasts.find((f) => f.id === editId);
     setForecasts((prev) =>
       prev.map((f) => {
         if (f.id !== editId) return f;
@@ -194,6 +212,13 @@ const ForecastInput = () => {
         };
       })
     );
+    if (original) {
+      logAuditEvent({
+        action: "update",
+        entityType: "forecast",
+        entityId: `${original.date}-${original.venue}`,
+      });
+    }
     cancelEdit();
   };
 
@@ -481,7 +506,7 @@ const ForecastInput = () => {
                               ) : (
                                 <>
                                   <button onClick={() => startEdit(f)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
-                                  <button onClick={() => handleDelete(f.id)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                                  <button onClick={() => setDeleteTargetId(f.id)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
                                 </>
                               )}
                             </div>
@@ -502,6 +527,14 @@ const ForecastInput = () => {
 
         {/* Charts - always visible */}
         <ForecastCharts data={filteredData} />
+
+        <DeleteConfirmDialog
+          open={deleteTargetId !== null}
+          onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}
+          onConfirm={() => { if (deleteTargetId) handleDelete(deleteTargetId); }}
+          title="Delete Forecast Record"
+          description="Are you sure you want to delete this forecast record? This action cannot be undone."
+        />
     </div>
   );
 };
