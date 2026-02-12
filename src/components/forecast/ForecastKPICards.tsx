@@ -10,12 +10,17 @@ interface ForecastKPICardsProps {
 const ForecastKPICards = ({ data }: ForecastKPICardsProps) => {
   const kpis = useMemo(() => {
     const withActuals = data.filter((d) => d.actualTotalSales !== null);
+    const withForecasts = data.filter((d) => d.forecastedTotalSales > 0);
 
     const totalActualSales = withActuals.reduce((s, d) => s + (d.actualTotalSales ?? 0), 0);
     const totalActualGuests = withActuals.reduce((s, d) => s + (d.actualCustomers ?? 0), 0);
     const avgPerGuest = totalActualGuests > 0 ? Math.round(totalActualSales / totalActualGuests) : 0;
 
-    if (withActuals.length === 0) return { hasActuals: false, totalActualSales: 0, totalActualGuests: 0, avgPerGuest: 0, overallAccuracy: 0, totalVariance: 0, avgError: 0, totalForecast: 0, totalActual: 0, count: 0 };
+    const totalForecastSales = withForecasts.reduce((s, d) => s + d.forecastedTotalSales, 0);
+    const totalForecastGuests = withForecasts.reduce((s, d) => s + d.forecastedCustomers, 0);
+    const avgPerGuestForecast = totalForecastGuests > 0 ? Math.round(totalForecastSales / totalForecastGuests) : 0;
+
+    if (withActuals.length === 0) return { hasActuals: false, totalActualSales: 0, totalActualGuests: 0, avgPerGuest: 0, totalForecastSales, totalForecastGuests, avgPerGuestForecast, overallAccuracy: 0, totalVariance: 0, avgError: 0, totalForecast: 0, totalActual: 0, count: 0 };
 
     const accuracies = withActuals.map((d) =>
       d.forecastedTotalSales > 0
@@ -29,38 +34,37 @@ const ForecastKPICards = ({ data }: ForecastKPICardsProps) => {
     );
     const totalForecast = withActuals.reduce((s, d) => s + d.forecastedTotalSales, 0);
 
-    return { hasActuals: true, totalActualSales, totalActualGuests, avgPerGuest, overallAccuracy, totalVariance, avgError, totalForecast, totalActual: totalActualSales, count: withActuals.length };
+    return { hasActuals: true, totalActualSales, totalActualGuests, avgPerGuest, totalForecastSales, totalForecastGuests, avgPerGuestForecast, overallAccuracy, totalVariance, avgError, totalForecast, totalActual: totalActualSales, count: withActuals.length };
   }, [data]);
 
-  // Actuals summary cards (always shown)
-  const actualCards = [
+  const summaryCards = [
     {
       label: "Total Sales",
-      value: formatCurrency(kpis.totalActualSales),
+      actual: formatCurrency(kpis.totalActualSales),
+      forecast: formatCurrency(kpis.totalForecastSales),
       icon: DollarSign,
-      color: "text-amber-600",
     },
     {
       label: "Total Guests",
-      value: kpis.totalActualGuests.toLocaleString(),
+      actual: kpis.totalActualGuests.toLocaleString(),
+      forecast: kpis.totalForecastGuests.toLocaleString(),
       icon: Users,
-      color: "text-sky-600",
     },
     {
       label: "Avg / Guest",
-      value: formatCurrency(kpis.avgPerGuest),
+      actual: formatCurrency(kpis.avgPerGuest),
+      forecast: formatCurrency(kpis.avgPerGuestForecast),
       icon: LineChart,
-      color: "text-amber-600",
     },
   ];
 
   if (!kpis.hasActuals) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {actualCards.map((card) => (
+        {summaryCards.map((card) => (
           <div key={card.label} className="card-glass rounded-xl p-5 animate-fade-in">
             <div className="flex items-center gap-1.5 mb-2">
-              <card.icon className={`h-4 w-4 ${card.color}`} />
+              <card.icon className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
             </div>
             <p className="text-xs text-muted-foreground">No actuals data yet</p>
@@ -105,13 +109,22 @@ const ForecastKPICards = ({ data }: ForecastKPICardsProps) => {
     <div className="space-y-4">
       {/* Actuals summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {actualCards.map((card) => (
+        {summaryCards.map((card) => (
           <div key={card.label} className="card-glass rounded-xl p-5 animate-fade-in">
-            <div className="flex items-center gap-1.5 mb-2">
-              <card.icon className={`h-4 w-4 ${card.color}`} />
+            <div className="flex items-center gap-1.5 mb-3">
+              <card.icon className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
             </div>
-            <p className="text-2xl font-bold font-display">{card.value}</p>
+            <div className="flex items-end justify-between gap-2">
+              <div>
+                <p className="text-[10px] text-amber-500 font-medium uppercase tracking-wider mb-0.5">Actual</p>
+                <p className="text-2xl font-bold font-display">{card.actual}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-indigo-500 font-medium uppercase tracking-wider mb-0.5">Forecast</p>
+                <p className="text-lg font-semibold text-muted-foreground">{card.forecast}</p>
+              </div>
+            </div>
           </div>
         ))}
       </div>
