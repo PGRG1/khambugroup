@@ -59,16 +59,44 @@ const DashboardCharts = ({ data }: ChartsProps) => {
   const paymentData = getPaymentBreakdown(data);
   const venueData = getVenueComparison(data);
 
-  // Monthly revenue
-  const monthlyRevenue = [...new Set(data.map((r) => getMonthKey(r.date)))]
-    .sort()
-    .map((key) => {
-      const records = data.filter((r) => getMonthKey(r.date) === key);
-      return {
-        month: getMonthLabel(key),
-        revenue: records.reduce((s, r) => s + r.totalSales, 0),
-      };
+  // Monthly revenue & averages
+  const monthKeys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
+  const monthlyRevenue = monthKeys.map((key) => {
+    const records = data.filter((r) => getMonthKey(r.date) === key);
+    return {
+      month: getMonthLabel(key),
+      revenue: records.reduce((s, r) => s + r.totalSales, 0),
+    };
+  });
+
+  const monthlyAverages = monthKeys.map((key) => {
+    const records = data.filter((r) => getMonthKey(r.date) === key);
+    // Group by date to get unique days
+    const dailyMap = new Map<string, { sales: number; guests: number; orders: number }>();
+    records.forEach((r) => {
+      const existing = dailyMap.get(r.date);
+      if (existing) {
+        existing.sales += r.totalSales;
+        existing.guests += r.guests;
+        existing.orders += r.orders;
+      } else {
+        dailyMap.set(r.date, { sales: r.totalSales, guests: r.guests, orders: r.orders });
+      }
     });
+    const days = dailyMap.size || 1;
+    const totalSales = records.reduce((s, r) => s + r.totalSales, 0);
+    const totalGuests = records.reduce((s, r) => s + r.guests, 0);
+    const totalOrders = records.reduce((s, r) => s + r.orders, 0);
+    return {
+      month: getMonthLabel(key),
+      revenuePerDay: Math.round(totalSales / days),
+      customersPerDay: Math.round(totalGuests / days),
+      ordersPerDay: Math.round(totalOrders / days),
+      customersPerOrder: totalOrders ? parseFloat((totalGuests / totalOrders).toFixed(1)) : 0,
+      spendPerCustomer: totalGuests ? Math.round(totalSales / totalGuests) : 0,
+      spendPerOrder: totalOrders ? Math.round(totalSales / totalOrders) : 0,
+    };
+  });
 
   const discountData = data
     .reduce((acc, r) => {
@@ -165,6 +193,83 @@ const DashboardCharts = ({ data }: ChartsProps) => {
         </ResponsiveContainer>
       </ChartCard>
 
+      <ChartCard title="Monthly Averages" className="lg:col-span-2">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Revenue/Day</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={monthlyAverages}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="month" tick={axisStyle} />
+                <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Rev/Day"]} />
+                <Bar dataKey="revenuePerDay" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Customers/Day</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={monthlyAverages}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="month" tick={axisStyle} />
+                <YAxis tick={axisStyle} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Customers/Day"]} />
+                <Bar dataKey="customersPerDay" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Orders/Day</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={monthlyAverages}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="month" tick={axisStyle} />
+                <YAxis tick={axisStyle} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Orders/Day"]} />
+                <Bar dataKey="ordersPerDay" fill="hsl(14, 70%, 52%)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Customers/Order</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={monthlyAverages}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="month" tick={axisStyle} />
+                <YAxis tick={axisStyle} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Customers/Order"]} />
+                <Bar dataKey="customersPerOrder" fill="hsl(258, 50%, 55%)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Spend/Customer</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={monthlyAverages}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="month" tick={axisStyle} />
+                <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Spend/Customer"]} />
+                <Bar dataKey="spendPerCustomer" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Spend/Order</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={monthlyAverages}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="month" tick={axisStyle} />
+                <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Spend/Order"]} />
+                <Bar dataKey="spendPerOrder" fill="hsl(14, 70%, 52%)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </ChartCard>
+
       <ChartCard title="Avg Customers by Day of Week (MoM)">
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={dayStats}>
@@ -220,11 +325,11 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis yAxisId="left" tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-            <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} width={0} mirror />
+            <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} width={45} />
             <Tooltip {...tooltipStyle} labelFormatter={dayTooltipLabel} />
+            <ReferenceLine yAxisId="right" y={avgDiscountPct} stroke="hsl(0, 65%, 45%)" strokeDasharray="6 4" strokeWidth={2} label={{ value: `Avg ${avgDiscountPct}%`, position: "insideTopRight", fontSize: 11, fill: "hsl(0, 65%, 45%)", fontWeight: 600 }} />
             <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
             <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount % of Revenue" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
-            <ReferenceLine yAxisId="right" y={avgDiscountPct} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg ${avgDiscountPct}%`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
