@@ -14,13 +14,72 @@ const DARK = [30, 28, 25] as const;
 const LIGHT_BG = [250, 248, 244] as const;
 const MUTED = [120, 110, 100] as const;
 
-// Chart colors
 const CHART_COLORS = {
-  sales: [194, 155, 80],      // gold
-  guests: [46, 160, 135],     // teal
-  spendGuest: [230, 120, 60], // orange
-  spendOrder: [180, 80, 60],  // rust
+  sales: [194, 155, 80],
+  cumulative: [60, 90, 130],
+  guests: [46, 160, 135],
+  spendGuest: [230, 120, 60],
+  spendOrder: [180, 80, 60],
 } as const;
+
+const VENUE_COLORS = {
+  assembly: [230, 120, 60] as readonly [number, number, number],
+  caliente: [70, 130, 180] as readonly [number, number, number],
+};
+
+// ── Nice Y-axis tick calculator ──
+function niceScale(maxVal: number, tickCount = 5): number[] {
+  if (maxVal <= 0) return [0];
+  const rough = maxVal / (tickCount - 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const residual = rough / mag;
+  let niceStep: number;
+  if (residual <= 1) niceStep = mag;
+  else if (residual <= 2) niceStep = 2 * mag;
+  else if (residual <= 5) niceStep = 5 * mag;
+  else niceStep = 10 * mag;
+
+  const ticks: number[] = [];
+  for (let v = 0; v <= maxVal + niceStep * 0.5; v += niceStep) {
+    ticks.push(Math.round(v));
+    if (ticks.length >= tickCount + 1) break;
+  }
+  return ticks;
+}
+
+function formatAxisLabel(val: number, prefix = ""): string {
+  if (val >= 1000000) return `${prefix}${(val / 1000000).toFixed(1)}M`;
+  if (val >= 10000) return `${prefix}${(val / 1000).toFixed(0)}k`;
+  if (val >= 1000) return `${prefix}${(val / 1000).toFixed(1)}k`;
+  return `${prefix}${formatCurrency(val)}`;
+}
+
+type DailyAgg = { date: string; day: string; sales: number; guests: number; orders: number };
+
+const buildDailyData = (records: SalesRecord[]): DailyAgg[] => {
+  const map = new Map<string, DailyAgg>();
+  records.forEach((r) => {
+    const existing = map.get(r.date);
+    if (existing) {
+      existing.sales += r.totalSales;
+      existing.guests += r.guests;
+      existing.orders += r.orders;
+    } else {
+      map.set(r.date, { date: r.date, day: r.day, sales: r.totalSales, guests: r.guests, orders: r.orders });
+    }
+  });
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+};
+
+function formatDateShort(date: string): string {
+  const parts = date.split("-");
+  return `${parts[1]}/${parts[2]}`;
+}
+
+interface ChartPoint {
+  label: string;
+  value: number;
+}
 
 export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -41,25 +100,25 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   doc.setFillColor(...DARK);
   doc.rect(0, 0, pageWidth, 38, "F");
   doc.setFillColor(...GOLD);
-  doc.rect(0, 38, pageWidth, 1.5, "F");
+  doc.rect(0, 38, pageWidth, 1.2, "F");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
+  doc.setFontSize(20);
   doc.setTextColor(255, 255, 255);
-  doc.text("KHAMBU GROUP", margin, 18);
+  doc.text("KHAMBU GROUP", margin, 17);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(...GOLD);
-  doc.text("Revenue Report", margin, 27);
+  doc.text("Revenue Report", margin, 26);
 
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setTextColor(200, 200, 200);
-  doc.text(`Period: ${monthLabel}`, pageWidth - margin, 16, { align: "right" });
-  doc.text(venue === "All Venues" ? "All Venues" : venue, pageWidth - margin, 22, { align: "right" });
-  doc.text(`Prepared by 77Nexus`, pageWidth - margin, 28, { align: "right" });
+  doc.text(`Period: ${monthLabel}`, pageWidth - margin, 15, { align: "right" });
+  doc.text(venue === "All Venues" ? "All Venues" : venue, pageWidth - margin, 21, { align: "right" });
+  doc.text(`Prepared by 77Nexus`, pageWidth - margin, 27, { align: "right" });
 
-  y = 48;
+  y = 47;
 
   // ── KPI SUMMARY ──
   const totalSales = data.reduce((s, r) => s + r.totalSales, 0);
@@ -99,9 +158,9 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
     doc.roundedRect(cx, cy, cardWidth, cardHeight, 2, 2, "F");
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(...MUTED);
-    doc.text(kpi.label, cx + 4, cy + 6);
+    doc.text(kpi.label.toUpperCase(), cx + 4, cy + 6);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -140,23 +199,7 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
     y = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // ── PREPARE CHART DATA ──
-  type DailyAgg = { date: string; day: string; sales: number; guests: number; orders: number };
-  const buildDailyData = (records: SalesRecord[]): DailyAgg[] => {
-    const map = new Map<string, DailyAgg>();
-    records.forEach((r) => {
-      const existing = map.get(r.date);
-      if (existing) {
-        existing.sales += r.totalSales;
-        existing.guests += r.guests;
-        existing.orders += r.orders;
-      } else {
-        map.set(r.date, { date: r.date, day: r.day, sales: r.totalSales, guests: r.guests, orders: r.orders });
-      }
-    });
-    return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
-  };
-
+  // ── PREPARE DATA ──
   const combinedDaily = buildDailyData(data);
   const assemblyDaily = buildDailyData(data.filter(r => r.venue === "Assembly"));
   const calienteDaily = buildDailyData(data.filter(r => r.venue === "Caliente"));
@@ -165,16 +208,32 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   const smallChartH = 45;
   const fullChartH = 55;
 
-  const VENUE_COLORS = {
-    assembly: [230, 120, 60] as readonly [number, number, number],
-    caliente: [70, 130, 180] as readonly [number, number, number],
+  // ── CUMULATIVE SALES ──
+  const buildCumulative = (daily: DailyAgg[]): ChartPoint[] => {
+    let running = 0;
+    return daily.map(d => {
+      running += d.sales;
+      return { label: formatDateShort(d.date), value: running };
+    });
   };
 
-  // Chart sections config
+  addNewPageIfNeeded(fullChartH + smallChartH + 35);
+  drawSectionTitle(doc, "Cumulative Sales", margin, y);
+  y += 10;
+
+  drawLineChart(doc, buildCumulative(combinedDaily), margin, y, contentWidth, fullChartH, CHART_COLORS.cumulative, "$", "Combined");
+  y += fullChartH + 5;
+
+  addNewPageIfNeeded(smallChartH + 12);
+  drawLineChart(doc, buildCumulative(assemblyDaily), margin, y, halfWidth, smallChartH, VENUE_COLORS.assembly, "$", "Assembly");
+  drawLineChart(doc, buildCumulative(calienteDaily), margin + halfWidth + 4, y, halfWidth, smallChartH, VENUE_COLORS.caliente, "$", "Caliente");
+  y += smallChartH + 12;
+
+  // ── CHART SECTIONS ──
   const chartSections = [
     {
       title: "Daily Sales",
-      type: "line" as const,
+      type: "bar" as const,
       getData: (d: DailyAgg[]) => d.map(r => ({ label: formatDateShort(r.date), value: r.sales })),
       color: CHART_COLORS.sales,
       prefix: "$",
@@ -205,24 +264,20 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   for (const section of chartSections) {
     const drawFn = section.type === "line" ? drawLineChart : drawBarChart;
 
-    // Section title (e.g. "Daily Sales")
     addNewPageIfNeeded(fullChartH + smallChartH + 35);
     drawSectionTitle(doc, section.title, margin, y);
     y += 10;
 
-    // Combined chart (full width) — title inside chart
     drawFn(doc, section.getData(combinedDaily), margin, y, contentWidth, fullChartH, section.color, section.prefix, "Combined");
     y += fullChartH + 5;
 
-    // Venue charts side by side — titles inside charts
     addNewPageIfNeeded(smallChartH + 12);
     drawFn(doc, section.getData(assemblyDaily), margin, y, halfWidth, smallChartH, VENUE_COLORS.assembly, section.prefix, "Assembly");
     drawFn(doc, section.getData(calienteDaily), margin + halfWidth + 4, y, halfWidth, smallChartH, VENUE_COLORS.caliente, section.prefix, "Caliente");
     y += smallChartH + 12;
   }
 
-
-  // ── ADD FOOTERS TO ALL PAGES ──
+  // ── FOOTERS ──
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
@@ -240,30 +295,18 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   doc.save(fileName);
 }
 
-// ── HELPER: Section Title (McKinsey style — clean, understated) ──
+// ── Section Title ──
 function drawSectionTitle(doc: jsPDF, title: string, x: number, y: number) {
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(...DARK);
   doc.text(title.toUpperCase(), x, y);
-  // Thin gold accent line
   doc.setDrawColor(...GOLD);
-  doc.setLineWidth(0.6);
-  doc.line(x, y + 2.5, x + 18, y + 2.5);
+  doc.setLineWidth(0.5);
+  doc.line(x, y + 2, x + 16, y + 2);
 }
 
-// ── HELPER: Format date ──
-function formatDateShort(date: string): string {
-  const parts = date.split("-");
-  return `${parts[1]}/${parts[2]}`;
-}
-
-// ── HELPER: Draw Line Chart ──
-interface ChartPoint {
-  label: string;
-  value: number;
-}
-
+// ── Line Chart ──
 function drawLineChart(
   doc: jsPDF,
   points: ChartPoint[],
@@ -274,13 +317,11 @@ function drawLineChart(
 ) {
   if (points.length === 0) return;
 
-  // Card background with subtle border
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(230, 228, 224);
   doc.setLineWidth(0.3);
   doc.roundedRect(x, y, w, h, 2.5, 2.5, "FD");
 
-  // Internal title
   if (chartTitle) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
@@ -289,32 +330,32 @@ function drawLineChart(
   }
 
   const titleOffset = chartTitle ? 8 : 3;
-  const chartX = x + 14;
+  const chartX = x + 16;
   const chartY = y + titleOffset + 1;
-  const chartW = w - 18;
+  const chartW = w - 20;
   const chartH = h - titleOffset - 11;
 
   const maxVal = Math.max(...points.map(p => p.value), 1);
-  const range = maxVal || 1;
+  const ticks = niceScale(maxVal, 5);
+  const scaleMax = ticks[ticks.length - 1] || 1;
 
-  // Grid lines — light, minimal
+  // Grid lines with nice ticks
   doc.setDrawColor(235, 233, 230);
   doc.setLineWidth(0.1);
-  for (let i = 0; i <= 4; i++) {
-    const gy = chartY + chartH - (i / 4) * chartH;
+  ticks.forEach(tick => {
+    const gy = chartY + chartH - (tick / scaleMax) * chartH;
     doc.line(chartX, gy, chartX + chartW, gy);
-    const val = Math.round((i / 4) * range);
     doc.setFontSize(5.5);
     doc.setTextColor(...MUTED);
-    doc.text(`${prefix}${formatCurrency(val)}`, chartX - 2, gy + 1, { align: "right" });
-  }
+    doc.text(formatAxisLabel(tick, prefix), chartX - 2, gy + 1, { align: "right" });
+  });
 
-  // Draw line
+  // Line
   doc.setDrawColor(...color);
   doc.setLineWidth(0.7);
   const getPoint = (i: number) => ({
     px: chartX + (i / Math.max(points.length - 1, 1)) * chartW,
-    py: chartY + chartH - (points[i].value / range) * chartH,
+    py: chartY + chartH - (points[i].value / scaleMax) * chartH,
   });
 
   for (let i = 0; i < points.length - 1; i++) {
@@ -334,18 +375,17 @@ function drawLineChart(
     }
   });
 
-  // Average line + label INSIDE chart (top-right corner)
+  // Average
   const avg = Math.round(points.reduce((s, p) => s + p.value, 0) / points.length);
-  const avgY = chartY + chartH - (avg / range) * chartH;
+  const avgY = chartY + chartH - (avg / scaleMax) * chartH;
   doc.setDrawColor(190, 185, 178);
   doc.setLineWidth(0.2);
   doc.setLineDashPattern([2, 2], 0);
   doc.line(chartX, avgY, chartX + chartW, avgY);
   doc.setLineDashPattern([], 0);
 
-  // Avg label inside chart area, top-right
   doc.setFillColor(255, 255, 255);
-  const avgText = `Avg: ${prefix}${formatCurrency(avg)}`;
+  const avgText = `Avg: ${formatAxisLabel(avg, prefix)}`;
   const avgTextW = doc.getTextWidth(avgText) + 3;
   doc.roundedRect(chartX + chartW - avgTextW - 2, chartY + 1, avgTextW + 2, 5, 1, 1, "F");
   doc.setFontSize(5.5);
@@ -353,7 +393,7 @@ function drawLineChart(
   doc.text(avgText, chartX + chartW - 2, chartY + 4.5, { align: "right" });
 }
 
-// ── HELPER: Draw Bar Chart ──
+// ── Bar Chart ──
 function drawBarChart(
   doc: jsPDF,
   points: ChartPoint[],
@@ -364,13 +404,11 @@ function drawBarChart(
 ) {
   if (points.length === 0) return;
 
-  // Card background with subtle border
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(230, 228, 224);
   doc.setLineWidth(0.3);
   doc.roundedRect(x, y, w, h, 2.5, 2.5, "FD");
 
-  // Internal title
   if (chartTitle) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
@@ -379,35 +417,34 @@ function drawBarChart(
   }
 
   const titleOffset = chartTitle ? 8 : 3;
-  const chartX = x + 14;
+  const chartX = x + 16;
   const chartY = y + titleOffset + 1;
-  const chartW = w - 18;
+  const chartW = w - 20;
   const chartH = h - titleOffset - 11;
 
   const maxVal = Math.max(...points.map(p => p.value), 1);
-  const range = maxVal || 1;
+  const ticks = niceScale(maxVal, 5);
+  const scaleMax = ticks[ticks.length - 1] || 1;
 
   // Grid lines
   doc.setDrawColor(235, 233, 230);
   doc.setLineWidth(0.1);
-  for (let i = 0; i <= 4; i++) {
-    const gy = chartY + chartH - (i / 4) * chartH;
+  ticks.forEach(tick => {
+    const gy = chartY + chartH - (tick / scaleMax) * chartH;
     doc.line(chartX, gy, chartX + chartW, gy);
-    const val = Math.round((i / 4) * range);
     doc.setFontSize(5.5);
     doc.setTextColor(...MUTED);
-    doc.text(`${prefix}${formatCurrency(val)}`, chartX - 2, gy + 1, { align: "right" });
-  }
+    doc.text(formatAxisLabel(tick, prefix), chartX - 2, gy + 1, { align: "right" });
+  });
 
-  // Draw bars
+  // Bars
   const barWidth = (chartW / points.length) * 0.7;
   const gap = (chartW / points.length) * 0.3;
 
   points.forEach((p, i) => {
-    const barH = (p.value / range) * chartH;
+    const barH = (p.value / scaleMax) * chartH;
     const bx = chartX + i * (barWidth + gap) + gap / 2;
     const by = chartY + chartH - barH;
-
     doc.setFillColor(...color);
     doc.roundedRect(bx, by, barWidth, barH, 0.8, 0.8, "F");
   });
@@ -423,18 +460,17 @@ function drawBarChart(
     }
   });
 
-  // Average line + label INSIDE chart (top-right corner)
+  // Average
   const avg = Math.round(points.reduce((s, p) => s + p.value, 0) / points.length);
-  const avgY = chartY + chartH - (avg / range) * chartH;
+  const avgY = chartY + chartH - (avg / scaleMax) * chartH;
   doc.setDrawColor(190, 185, 178);
   doc.setLineWidth(0.2);
   doc.setLineDashPattern([2, 2], 0);
   doc.line(chartX, avgY, chartX + chartW, avgY);
   doc.setLineDashPattern([], 0);
 
-  // Avg label inside chart area, top-right
   doc.setFillColor(255, 255, 255);
-  const avgText = `Avg: ${prefix}${formatCurrency(avg)}`;
+  const avgText = `Avg: ${formatAxisLabel(avg, prefix)}`;
   const avgTextW = doc.getTextWidth(avgText) + 3;
   doc.roundedRect(chartX + chartW - avgTextW - 2, chartY + 1, avgTextW + 2, 5, 1, 1, "F");
   doc.setFontSize(5.5);
