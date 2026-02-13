@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { SalesRecord } from "@/types/sales";
-import { formatCurrency, getPaymentBreakdown, getVenueComparison } from "@/utils/salesUtils";
+import { formatCurrency, getVenueComparison } from "@/utils/salesUtils";
 
 interface ReportOptions {
   data: SalesRecord[];
@@ -51,13 +51,13 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.setTextColor(...GOLD);
-  doc.text("Month-To-Date Revenue Report", margin, 27);
+  doc.text("Revenue Report", margin, 27);
 
   doc.setFontSize(9);
   doc.setTextColor(200, 200, 200);
-  doc.text(monthLabel, pageWidth - margin, 16, { align: "right" });
+  doc.text(`Period: ${monthLabel}`, pageWidth - margin, 16, { align: "right" });
   doc.text(venue === "All Venues" ? "All Venues" : venue, pageWidth - margin, 22, { align: "right" });
-  doc.text(`Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`, pageWidth - margin, 28, { align: "right" });
+  doc.text(`Prepared by 77Nexus`, pageWidth - margin, 28, { align: "right" });
 
   y = 48;
 
@@ -182,30 +182,6 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   drawBarChart(doc, dailyData.map(d => ({ label: formatDateShort(d.date), value: d.orders ? Math.round(d.sales / d.orders) : 0 })), margin, y, contentWidth, 55, CHART_COLORS.spendOrder, "$");
   y += 62;
 
-  // ── PAYMENT BREAKDOWN TABLE ──
-  addNewPageIfNeeded(40);
-  const paymentData = getPaymentBreakdown(data);
-  const paymentTotal = paymentData.reduce((s, p) => s + p.value, 0);
-
-  drawSectionTitle(doc, "Payment Methods", margin, y);
-  y += 10;
-
-  autoTable(doc, {
-    startY: y,
-    margin: { left: margin, right: margin },
-    head: [["Method", "Amount ($)", "% of Total"]],
-    body: paymentData.map((p) => [
-      p.name,
-      `$${formatCurrency(p.value)}`,
-      paymentTotal ? `${((p.value / paymentTotal) * 100).toFixed(1)}%` : "0%",
-    ]),
-    foot: [["Total", `$${formatCurrency(paymentTotal)}`, "100%"]],
-    headStyles: { fillColor: DARK as any, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
-    footStyles: { fillColor: LIGHT_BG as any, textColor: DARK as any, fontStyle: "bold", fontSize: 8 },
-    bodyStyles: { fontSize: 8, textColor: DARK as any },
-    alternateRowStyles: { fillColor: [252, 250, 247] },
-    styles: { cellPadding: 3 },
-  });
 
   // ── ADD FOOTERS TO ALL PAGES ──
   const totalPages = doc.getNumberOfPages();
