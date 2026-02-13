@@ -1,3 +1,5 @@
+export type ForecastStatus = "draft" | "pending_approval" | "approved";
+
 export interface ForecastRecord {
   id: string;
   date: string;
@@ -11,6 +13,11 @@ export interface ForecastRecord {
   comment: string;
   forecastNotes: string;
   postEventNotes: string;
+  pendingPostEventNotes: string | null;
+  status: ForecastStatus;
+  submittedBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
   createdAt: string;
 }
 
