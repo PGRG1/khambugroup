@@ -86,7 +86,7 @@ const DataPage = () => {
         <ManualInput onAdd={async (record) => { await addRecord(record); }} onClose={() => setShowManual(false)} />
       )}
 
-      <DataTable data={data} onUpdate={isAdmin ? handleUpdateRecord : undefined} onDelete={isAdmin ? handleDeleteRecord : undefined} />
+      <DataTable data={data} />
     </div>
   );
 };

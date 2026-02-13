@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { VenueFilter } from "@/types/sales";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { useSalesData } from "@/hooks/useSalesData";
+import { useAuth } from "@/hooks/useAuth";
 import DateFilter from "@/components/dashboard/DateFilter";
 import KPICards from "@/components/dashboard/KPICards";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
@@ -13,6 +14,7 @@ const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente"];
 
 const Index = () => {
   const { data, loading } = useSalesData();
+  const { isAdmin } = useAuth();
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
@@ -70,37 +72,10 @@ const Index = () => {
       return;
     }
 
-    // Capture chart images from SVGs in the DOM
-    const chartImages: { dailySales?: string; paymentBreakdown?: string } = {};
-
-    const captureSvg = (container: Element | null): string | undefined => {
-      if (!container) return undefined;
-      const svg = container.querySelector("svg.recharts-surface");
-      if (!svg) return undefined;
-      const clone = svg.cloneNode(true) as SVGElement;
-      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-      // Set white background
-      const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      bg.setAttribute("width", "100%");
-      bg.setAttribute("height", "100%");
-      bg.setAttribute("fill", "#FEFCF8");
-      clone.insertBefore(bg, clone.firstChild);
-      const svgData = new XMLSerializer().serializeToString(clone);
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return undefined;
-      const img = new Image();
-      const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      // Synchronous approach won't work for SVG→canvas, so skip chart images for now
-      return undefined;
-    };
-
     generateMTDReport({
       data: filtered,
       venue,
       monthLabel: currentMonthLabel,
-      chartImages,
     });
 
     toast({ title: "Report downloaded!", description: `${currentMonthLabel} MTD report saved.` });
@@ -137,13 +112,15 @@ const Index = () => {
               </button>
             ))}
           </div>
-          <button
-            onClick={handleGenerateReport}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-          >
-            <FileDown className="h-4 w-4" />
-            Generate Report
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleGenerateReport}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+            >
+              <FileDown className="h-4 w-4" />
+              Generate Report
+            </button>
+          )}
         </div>
       </div>
 
