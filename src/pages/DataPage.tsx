@@ -3,15 +3,17 @@ import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
 import DataUpload from "@/components/dashboard/DataUpload";
 import ManualInput from "@/components/dashboard/ManualInput";
+import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DataTable from "@/components/dashboard/DataTable";
 import ResetDataButton from "@/components/dashboard/ResetDataButton";
-import { Upload, PenLine } from "lucide-react";
+import { Upload, PenLine, ScanLine } from "lucide-react";
 
 const DataPage = () => {
   const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch } = useSalesData();
   const { isAdmin } = useAuth();
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   const handleUpdateRecord = async (index: number, record: typeof data[0]) => {
     const oldRecord = data[index];
@@ -43,7 +45,7 @@ const DataPage = () => {
         {isAdmin && (
           <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => { setShowUpload(!showUpload); setShowManual(false); }}
+              onClick={() => { setShowUpload(!showUpload); setShowManual(false); setShowScanner(false); }}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
                 showUpload ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
               }`}
@@ -52,7 +54,16 @@ const DataPage = () => {
               Upload Data
             </button>
             <button
-              onClick={() => { setShowManual(!showManual); setShowUpload(false); }}
+              onClick={() => { setShowScanner(!showScanner); setShowUpload(false); setShowManual(false); }}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                showScanner ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
+              }`}
+            >
+              <ScanLine className="h-4 w-4" />
+              Scan Receipt
+            </button>
+            <button
+              onClick={() => { setShowManual(!showManual); setShowUpload(false); setShowScanner(false); }}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
                 showManual ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
               }`}
@@ -67,6 +78,9 @@ const DataPage = () => {
 
       {isAdmin && showUpload && (
         <DataUpload onUpload={async (records) => { await uploadRecords(records); }} onClose={() => setShowUpload(false)} />
+      )}
+      {isAdmin && showScanner && (
+        <ReceiptScanner onSave={async (record) => { await addRecord(record); }} onClose={() => setShowScanner(false)} />
       )}
       {isAdmin && showManual && (
         <ManualInput onAdd={async (record) => { await addRecord(record); }} onClose={() => setShowManual(false)} />
