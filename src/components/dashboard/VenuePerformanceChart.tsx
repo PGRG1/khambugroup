@@ -22,11 +22,16 @@ const VenuePerformanceChart = ({ data }: VenuePerformanceChartProps) => {
   const aPct = totalSales && a ? Math.round((a.totalSales / totalSales) * 100) : 0;
   const cPct = 100 - aPct;
 
+  const guestsPerOrderA = a && a.totalOrders ? (a.totalGuests / a.totalOrders).toFixed(1) : "-";
+  const guestsPerOrderC = c && c.totalOrders ? (c.totalGuests / c.totalOrders).toFixed(1) : "-";
+
   const rows = [
     { label: "Total Sales", aVal: a ? `$${formatCurrency(a.totalSales)}` : "-", cVal: c ? `$${formatCurrency(c.totalSales)}` : "-" },
-    { label: "Orders", aVal: a ? formatCurrency(a.totalOrders) : "-", cVal: c ? formatCurrency(c.totalOrders) : "-" },
-    { label: "Guests", aVal: a ? formatCurrency(a.totalGuests) : "-", cVal: c ? formatCurrency(c.totalGuests) : "-" },
+    { label: "Total Guests", aVal: a ? formatCurrency(a.totalGuests) : "-", cVal: c ? formatCurrency(c.totalGuests) : "-" },
+    { label: "Total Orders", aVal: a ? formatCurrency(a.totalOrders) : "-", cVal: c ? formatCurrency(c.totalOrders) : "-" },
+    { label: "Guests/Order", aVal: guestsPerOrderA, cVal: guestsPerOrderC },
     { label: "Avg/Guest", aVal: a ? `$${formatCurrency(a.avgPerGuest)}` : "-", cVal: c ? `$${formatCurrency(c.avgPerGuest)}` : "-" },
+    { label: "Avg/Order", aVal: a ? `$${formatCurrency(a.avgPerOrder)}` : "-", cVal: c ? `$${formatCurrency(c.avgPerOrder)}` : "-" },
   ];
 
   return (
