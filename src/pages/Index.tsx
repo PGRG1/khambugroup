@@ -13,6 +13,7 @@ const Index = () => {
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
+  const [view, setView] = useState<"daily" | "monthly">("daily");
 
   const months = useMemo(() => {
     const keys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
@@ -82,19 +83,43 @@ const Index = () => {
         </div>
       </div>
 
-      <DateFilter
-        from={from}
-        to={to}
-        onFromChange={setFrom}
-        onToChange={setTo}
-        months={months.map((m) => m.label)}
-        onPeriodSelect={handlePeriodSelect}
-      />
+      <div className="flex items-center gap-3 flex-wrap">
+        <DateFilter
+          from={from}
+          to={to}
+          onFromChange={setFrom}
+          onToChange={setTo}
+          months={months.map((m) => m.label)}
+          onPeriodSelect={handlePeriodSelect}
+        />
+        <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+          <button
+            onClick={() => setView("daily")}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              view === "daily"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Daily
+          </button>
+          <button
+            onClick={() => setView("monthly")}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              view === "monthly"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Monthly
+          </button>
+        </div>
+      </div>
 
       <KPICards {...kpi} />
 
       {filtered.length > 0 ? (
-        <DashboardCharts data={filtered} />
+        <DashboardCharts data={filtered} view={view} />
       ) : (
         <div className="card-glass rounded-xl p-12 text-center">
           <p className="text-muted-foreground">No data for the selected filters.</p>
