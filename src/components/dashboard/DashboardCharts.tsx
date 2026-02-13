@@ -59,44 +59,16 @@ const DashboardCharts = ({ data }: ChartsProps) => {
   const paymentData = getPaymentBreakdown(data);
   const venueData = getVenueComparison(data);
 
-  // Monthly revenue & monthly averages
-  const monthKeys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
-  const monthlyRevenue = monthKeys.map((key) => {
-    const records = data.filter((r) => getMonthKey(r.date) === key);
-    return {
-      month: getMonthLabel(key),
-      revenue: records.reduce((s, r) => s + r.totalSales, 0),
-    };
-  });
-
-  const monthlyAverages = monthKeys.map((key) => {
-    const records = data.filter((r) => getMonthKey(r.date) === key);
-    // Group by date to get unique days
-    const dayMap = new Map<string, { totalSales: number; guests: number; orders: number }>();
-    records.forEach((r) => {
-      const existing = dayMap.get(r.date);
-      if (existing) {
-        existing.totalSales += r.totalSales;
-        existing.guests += r.guests;
-        existing.orders += r.orders;
-      } else {
-        dayMap.set(r.date, { totalSales: r.totalSales, guests: r.guests, orders: r.orders });
-      }
+  // Monthly revenue
+  const monthlyRevenue = [...new Set(data.map((r) => getMonthKey(r.date)))]
+    .sort()
+    .map((key) => {
+      const records = data.filter((r) => getMonthKey(r.date) === key);
+      return {
+        month: getMonthLabel(key),
+        revenue: records.reduce((s, r) => s + r.totalSales, 0),
+      };
     });
-    const days = dayMap.size || 1;
-    const totSales = records.reduce((s, r) => s + r.totalSales, 0);
-    const totGuests = records.reduce((s, r) => s + r.guests, 0);
-    const totOrders = records.reduce((s, r) => s + r.orders, 0);
-    return {
-      month: getMonthLabel(key),
-      avgRevenuePerDay: Math.round(totSales / days),
-      avgCustomers: Math.round(totGuests / days),
-      avgOrders: Math.round(totOrders / days),
-      customersPerOrder: totOrders ? parseFloat((totGuests / totOrders).toFixed(2)) : 0,
-      avgSpendPerCustomer: totGuests ? Math.round(totSales / totGuests) : 0,
-      avgSpendPerOrder: totOrders ? Math.round(totSales / totOrders) : 0,
-    };
-  });
 
   const discountData = data
     .reduce((acc, r) => {
@@ -191,37 +163,6 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <Bar dataKey="revenue" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
-      </ChartCard>
-
-      <ChartCard title="Monthly Averages" className="lg:col-span-2">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-2 px-3 font-semibold text-foreground">Month</th>
-                <th className="text-right py-2 px-3 font-semibold text-foreground">Avg Revenue/Day</th>
-                <th className="text-right py-2 px-3 font-semibold text-foreground">Avg Customers/Day</th>
-                <th className="text-right py-2 px-3 font-semibold text-foreground">Avg Orders/Day</th>
-                <th className="text-right py-2 px-3 font-semibold text-foreground">Customers/Order</th>
-                <th className="text-right py-2 px-3 font-semibold text-foreground">Avg Spend/Customer</th>
-                <th className="text-right py-2 px-3 font-semibold text-foreground">Avg Spend/Order</th>
-              </tr>
-            </thead>
-            <tbody>
-              {monthlyAverages.map((m) => (
-                <tr key={m.month} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                  <td className="py-2 px-3 font-medium text-foreground">{m.month}</td>
-                  <td className="text-right py-2 px-3 text-muted-foreground">${formatCurrency(m.avgRevenuePerDay)}</td>
-                  <td className="text-right py-2 px-3 text-muted-foreground">{m.avgCustomers}</td>
-                  <td className="text-right py-2 px-3 text-muted-foreground">{m.avgOrders}</td>
-                  <td className="text-right py-2 px-3 text-muted-foreground">{m.customersPerOrder}</td>
-                  <td className="text-right py-2 px-3 text-muted-foreground">${formatCurrency(m.avgSpendPerCustomer)}</td>
-                  <td className="text-right py-2 px-3 text-muted-foreground">${formatCurrency(m.avgSpendPerOrder)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </ChartCard>
 
       <ChartCard title="Avg Customers by Day of Week (MoM)">
