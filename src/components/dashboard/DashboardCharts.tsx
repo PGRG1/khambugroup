@@ -54,6 +54,8 @@ const DashboardCharts = ({ data }: ChartsProps) => {
   // Average daily sales and guests for reference lines
   const avgDailySales = dailySales.length ? Math.round(dailySales.reduce((s, d) => s + d.totalSales, 0) / dailySales.length) : 0;
   const avgDailyGuests = dailySales.length ? Math.round(dailySales.reduce((s, d) => s + d.guests, 0) / dailySales.length) : 0;
+  const avgPerGuest = spendData.length ? Math.round(spendData.reduce((s, d) => s + d.perGuest, 0) / spendData.length) : 0;
+  const avgPerOrder = spendData.length ? Math.round(spendData.reduce((s, d) => s + d.perOrder, 0) / spendData.length) : 0;
 
   const { data: dayStats, months } = getDayOfWeekStats(data);
   const paymentData = getPaymentBreakdown(data);
@@ -186,7 +188,12 @@ const DashboardCharts = ({ data }: ChartsProps) => {
       </ChartCard>
 
       <ChartCard title="Average Spend Per Customer">
-        <ResponsiveContainer width="100%" height={280}>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <p className="text-xs text-muted-foreground">
+            Avg Spend/Customer <span className="text-foreground font-semibold">${avgPerGuest}</span>
+          </p>
+        </div>
+        <ResponsiveContainer width="100%" height={260}>
           <BarChart data={spendData}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
@@ -198,7 +205,12 @@ const DashboardCharts = ({ data }: ChartsProps) => {
       </ChartCard>
 
       <ChartCard title="Average Spend Per Order">
-        <ResponsiveContainer width="100%" height={280}>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <p className="text-xs text-muted-foreground">
+            Avg Spend/Order <span className="text-foreground font-semibold">${avgPerOrder}</span>
+          </p>
+        </div>
+        <ResponsiveContainer width="100%" height={260}>
           <BarChart data={spendData}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
@@ -348,16 +360,20 @@ const DashboardCharts = ({ data }: ChartsProps) => {
       <PaymentBreakdownChart data={paymentData} />
 
       <ChartCard title="Discount Report">
-        <ResponsiveContainer width="100%" height={280}>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <p className="text-xs text-muted-foreground">
+            Avg Discount % of Total Sales <span className="text-foreground font-semibold">{avgDiscountPct}%</span>
+          </p>
+        </div>
+        <ResponsiveContainer width="100%" height={260}>
           <BarChart data={discountData}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis yAxisId="left" tick={axisStyle} tickFormatter={(v) => `$${v}`} />
             <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} width={45} />
             <Tooltip {...tooltipStyle} labelFormatter={dayTooltipLabel} />
-            <ReferenceLine yAxisId="right" y={avgDiscountPct} stroke="hsl(0, 65%, 45%)" strokeDasharray="6 4" strokeWidth={2} label={{ value: `Avg ${avgDiscountPct}%`, position: "insideTopRight", fontSize: 11, fill: "hsl(0, 65%, 45%)", fontWeight: 600 }} />
             <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
-            <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount % of Revenue" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
+            <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount % of Total Sales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
