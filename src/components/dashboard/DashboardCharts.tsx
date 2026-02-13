@@ -132,15 +132,17 @@ const DashboardCharts = ({ data }: ChartsProps) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <ChartCard title="Daily Sales">
-        <ResponsiveContainer width="100%" height={280}>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <p className="text-xs text-muted-foreground">
+            Avg Daily Sales <span className="text-foreground font-semibold">${formatCurrency(avgDailySales)}</span>
+          </p>
+        </div>
+        <ResponsiveContainer width="100%" height={260}>
           <LineChart data={dailySales}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-            <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => {
-              if (name === "totalSales") return [`$${formatCurrency(v)}`, "Sales"];
-              return [v, name];
-            }} labelFormatter={dayTooltipLabel} content={({ active, payload, label }) => {
+            <Tooltip {...tooltipStyle} content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null;
               const sales = payload[0]?.value as number;
               return (
@@ -151,14 +153,18 @@ const DashboardCharts = ({ data }: ChartsProps) => {
                 </div>
               );
             }} />
-            <ReferenceLine y={avgDailySales} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg $${formatCurrency(avgDailySales)}`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
             <Line type="monotone" dataKey="totalSales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
 
       <ChartCard title="Daily Number of Customers">
-        <ResponsiveContainer width="100%" height={280}>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <p className="text-xs text-muted-foreground">
+            Avg Daily Customers <span className="text-foreground font-semibold">{avgDailyGuests}</span>
+          </p>
+        </div>
+        <ResponsiveContainer width="100%" height={260}>
           <LineChart data={dailySales}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
@@ -174,7 +180,6 @@ const DashboardCharts = ({ data }: ChartsProps) => {
                 </div>
               );
             }} />
-            <ReferenceLine y={avgDailyGuests} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg ${avgDailyGuests}`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
             <Line type="monotone" dataKey="guests" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
