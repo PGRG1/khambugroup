@@ -45,7 +45,7 @@ export function useForecastPermissions() {
   // Can approve/reject forecasts
   const canApprove = isApprover;
   // Can edit forecast figures (only if approver, or if forecast is still draft/pending)
-  const canEditFigures = (status: string) => isApprover || status === "draft";
+  const canEditFigures = (status: string) => isApprover || status !== "approved";
   // Can edit general comment (anyone)
   const canEditComment = true;
   // Can edit post-event notes (submits as pending for non-approvers on approved forecasts)
