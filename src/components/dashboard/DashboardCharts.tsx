@@ -1,4 +1,4 @@
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend, ReferenceLine } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend, ReferenceLine, ComposedChart } from "recharts";
 import { SalesRecord } from "@/types/sales";
 import { getDayOfWeekStats, getPaymentBreakdown, getVenueComparison, formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
 import ChartCard from "./ChartCard";
@@ -138,7 +138,7 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
             <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Sales"]} labelFormatter={dayTooltipLabel} />
-            <ReferenceLine y={avgDailySales} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg $${formatCurrency(avgDailySales)}`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
+            <ReferenceLine y={avgDailySales} stroke="hsl(24, 80%, 50%)" strokeDasharray="6 4" strokeWidth={2} label={{ value: `Avg $${formatCurrency(avgDailySales)}`, position: "insideTopRight", fontSize: 11, fill: "hsl(24, 80%, 50%)", fontWeight: 600 }} />
             <Line type="monotone" dataKey="totalSales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -151,7 +151,7 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} />
             <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests"]} labelFormatter={dayTooltipLabel} />
-            <ReferenceLine y={avgDailyGuests} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg ${avgDailyGuests}`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
+            <ReferenceLine y={avgDailyGuests} stroke="hsl(175, 55%, 42%)" strokeDasharray="6 4" strokeWidth={2} label={{ value: `Avg ${avgDailyGuests}`, position: "insideTopRight", fontSize: 11, fill: "hsl(175, 55%, 42%)", fontWeight: 600 }} />
             <Line type="monotone" dataKey="guests" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -321,16 +321,17 @@ const DashboardCharts = ({ data }: ChartsProps) => {
 
       <ChartCard title="Discount Report">
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={discountData}>
+          <ComposedChart data={discountData}>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis yAxisId="left" tick={axisStyle} tickFormatter={(v) => `$${v}`} />
             <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} width={45} />
             <Tooltip {...tooltipStyle} labelFormatter={dayTooltipLabel} />
+            <Legend wrapperStyle={{ fontSize: "11px" }} />
             <ReferenceLine yAxisId="right" y={avgDiscountPct} stroke="hsl(0, 65%, 45%)" strokeDasharray="6 4" strokeWidth={2} label={{ value: `Avg ${avgDiscountPct}%`, position: "insideTopRight", fontSize: 11, fill: "hsl(0, 65%, 45%)", fontWeight: 600 }} />
             <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
             <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount % of Revenue" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
-          </BarChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </ChartCard>
     </div>
