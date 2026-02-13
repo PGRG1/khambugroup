@@ -141,46 +141,92 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   }
 
   // ── PREPARE CHART DATA ──
-  const dailyMap = new Map<string, { date: string; day: string; sales: number; guests: number; orders: number }>();
-  data.forEach((r) => {
-    const existing = dailyMap.get(r.date);
-    if (existing) {
-      existing.sales += r.totalSales;
-      existing.guests += r.guests;
-      existing.orders += r.orders;
-    } else {
-      dailyMap.set(r.date, { date: r.date, day: r.day, sales: r.totalSales, guests: r.guests, orders: r.orders });
-    }
-  });
-  const dailyData = [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date));
+  type DailyAgg = { date: string; day: string; sales: number; guests: number; orders: number };
+  const buildDailyData = (records: SalesRecord[]): DailyAgg[] => {
+    const map = new Map<string, DailyAgg>();
+    records.forEach((r) => {
+      const existing = map.get(r.date);
+      if (existing) {
+        existing.sales += r.totalSales;
+        existing.guests += r.guests;
+        existing.orders += r.orders;
+      } else {
+        map.set(r.date, { date: r.date, day: r.day, sales: r.totalSales, guests: r.guests, orders: r.orders });
+      }
+    });
+    return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+  };
 
-  // ── CHART 1: Daily Sales ──
-  addNewPageIfNeeded(75);
-  drawSectionTitle(doc, "Daily Sales", margin, y);
-  y += 10;
-  drawLineChart(doc, dailyData.map(d => ({ label: formatDateShort(d.date), value: d.sales })), margin, y, contentWidth, 55, CHART_COLORS.sales, "$");
-  y += 62;
+  const combinedDaily = buildDailyData(data);
+  const assemblyDaily = buildDailyData(data.filter(r => r.venue === "Assembly"));
+  const calienteDaily = buildDailyData(data.filter(r => r.venue === "Caliente"));
 
-  // ── CHART 2: Daily Customers ──
-  addNewPageIfNeeded(75);
-  drawSectionTitle(doc, "Daily Number of Customers", margin, y);
-  y += 10;
-  drawLineChart(doc, dailyData.map(d => ({ label: formatDateShort(d.date), value: d.guests })), margin, y, contentWidth, 55, CHART_COLORS.guests);
-  y += 62;
+  const halfWidth = (contentWidth - 4) / 2;
+  const smallChartH = 45;
+  const fullChartH = 55;
 
-  // ── CHART 3: Spend per Customer ──
-  addNewPageIfNeeded(75);
-  drawSectionTitle(doc, "Average Spend Per Customer", margin, y);
-  y += 10;
-  drawBarChart(doc, dailyData.map(d => ({ label: formatDateShort(d.date), value: d.guests ? Math.round(d.sales / d.guests) : 0 })), margin, y, contentWidth, 55, CHART_COLORS.spendGuest, "$");
-  y += 62;
+  const VENUE_COLORS = {
+    assembly: [230, 120, 60] as readonly [number, number, number],
+    caliente: [70, 130, 180] as readonly [number, number, number],
+  };
 
-  // ── CHART 4: Spend per Order ──
-  addNewPageIfNeeded(75);
-  drawSectionTitle(doc, "Average Spend Per Order", margin, y);
-  y += 10;
-  drawBarChart(doc, dailyData.map(d => ({ label: formatDateShort(d.date), value: d.orders ? Math.round(d.sales / d.orders) : 0 })), margin, y, contentWidth, 55, CHART_COLORS.spendOrder, "$");
-  y += 62;
+  // Chart sections config
+  const chartSections = [
+    {
+      title: "Daily Sales",
+      type: "line" as const,
+      getData: (d: DailyAgg[]) => d.map(r => ({ label: formatDateShort(r.date), value: r.sales })),
+      color: CHART_COLORS.sales,
+      prefix: "$",
+    },
+    {
+      title: "Daily Number of Customers",
+      type: "line" as const,
+      getData: (d: DailyAgg[]) => d.map(r => ({ label: formatDateShort(r.date), value: r.guests })),
+      color: CHART_COLORS.guests,
+      prefix: "",
+    },
+    {
+      title: "Average Spend Per Customer",
+      type: "bar" as const,
+      getData: (d: DailyAgg[]) => d.map(r => ({ label: formatDateShort(r.date), value: r.guests ? Math.round(r.sales / r.guests) : 0 })),
+      color: CHART_COLORS.spendGuest,
+      prefix: "$",
+    },
+    {
+      title: "Average Spend Per Order",
+      type: "bar" as const,
+      getData: (d: DailyAgg[]) => d.map(r => ({ label: formatDateShort(r.date), value: r.orders ? Math.round(r.sales / r.orders) : 0 })),
+      color: CHART_COLORS.spendOrder,
+      prefix: "$",
+    },
+  ];
+
+  for (const section of chartSections) {
+    const drawFn = section.type === "line" ? drawLineChart : drawBarChart;
+
+    // Combined chart (full width)
+    addNewPageIfNeeded(fullChartH + smallChartH + 30);
+    drawSectionTitle(doc, `${section.title} — Combined`, margin, y);
+    y += 10;
+    drawFn(doc, section.getData(combinedDaily), margin, y, contentWidth, fullChartH, section.color, section.prefix);
+    y += fullChartH + 7;
+
+    // Venue charts side by side
+    addNewPageIfNeeded(smallChartH + 18);
+    // Assembly
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...DARK);
+    doc.text("Assembly", margin, y);
+    // Caliente
+    doc.text("Caliente", margin + halfWidth + 4, y);
+    y += 4;
+
+    drawFn(doc, section.getData(assemblyDaily), margin, y, halfWidth, smallChartH, VENUE_COLORS.assembly, section.prefix);
+    drawFn(doc, section.getData(calienteDaily), margin + halfWidth + 4, y, halfWidth, smallChartH, VENUE_COLORS.caliente, section.prefix);
+    y += smallChartH + 10;
+  }
 
 
   // ── ADD FOOTERS TO ALL PAGES ──
