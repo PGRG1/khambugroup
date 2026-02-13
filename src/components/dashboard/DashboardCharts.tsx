@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend, ReferenceLine } from "recharts";
 import { SalesRecord } from "@/types/sales";
 import { getDayOfWeekStats, getPaymentBreakdown, getVenueComparison, formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
@@ -28,9 +28,10 @@ const gridColor = "hsl(30, 15%, 85%)";
 
 interface ChartsProps {
   data: SalesRecord[];
+  view: "daily" | "monthly";
 }
 
-const DashboardCharts = ({ data }: ChartsProps) => {
+const DashboardCharts = ({ data, view }: ChartsProps) => {
   const dailySales = data
     .reduce((acc, r) => {
       const existing = acc.find((a) => a.date === r.date);
@@ -132,34 +133,8 @@ const DashboardCharts = ({ data }: ChartsProps) => {
     return `${formatDate(d)} (${day})`;
   };
 
-  const [view, setView] = useState<"daily" | "monthly">("daily");
-
   return (
     <div className="space-y-5">
-      {/* View Toggle */}
-      <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit">
-        <button
-          onClick={() => setView("daily")}
-          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            view === "daily"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Daily
-        </button>
-        <button
-          onClick={() => setView("monthly")}
-          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            view === "monthly"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Monthly
-        </button>
-      </div>
-
       {view === "daily" ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <ChartCard title="Daily Sales">
