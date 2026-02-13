@@ -1,0 +1,146 @@
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { imageBase64, mimeType } = await req.json();
+
+    if (!imageBase64) {
+      return new Response(
+        JSON.stringify({ success: false, error: "No image data provided" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ success: false, error: "AI not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const systemPrompt = `You are a sales receipt data extractor for a restaurant/bar business. Extract the following fields from the receipt image. Return ONLY valid JSON with these exact keys:
+
+{
+  "date": "YYYY-MM-DD format",
+  "day": "Mon/Tue/Wed/Thu/Fri/Sat/Sun",
+  "venue": "Assembly or Caliente",
+  "reportNumber": "string",
+  "orders": number,
+  "guests": number,
+  "subtotal": number,
+  "serviceCharge": number,
+  "discount": number,
+  "totalSales": number,
+  "visa": number,
+  "mastercard": number,
+  "amex": number,
+  "unionPay": number,
+  "alipay": number,
+  "wechat": number,
+  "cash": number,
+  "cardTips": number
+}
+
+Rules:
+- All number fields should be numeric (no currency symbols)
+- If a field is not found in the receipt, use 0 for numbers and "" for strings
+- Date must be in YYYY-MM-DD format
+- Day should be the 3-letter abbreviation
+- Venue should be exactly "Assembly" or "Caliente" - infer from any branding/headers
+- Return ONLY the JSON object, no markdown, no explanation`;
+
+    const response = await fetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:${mimeType || "image/jpeg"};base64,${imageBase64}`,
+                  },
+                },
+                {
+                  type: "text",
+                  text: "Extract all sales data fields from this receipt image.",
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const statusCode = response.status;
+      if (statusCode === 429) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again in a moment." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (statusCode === 402) {
+        return new Response(
+          JSON.stringify({ success: false, error: "AI credits exhausted. Please add credits in Settings." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const errText = await response.text();
+      console.error("AI gateway error:", statusCode, errText);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to process receipt" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const aiData = await response.json();
+    const content = aiData.choices?.[0]?.message?.content || "";
+
+    // Parse JSON from the response - strip markdown code fences if present
+    let cleaned = content.trim();
+    if (cleaned.startsWith("```")) {
+      cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+
+    let extractedData;
+    try {
+      extractedData = JSON.parse(cleaned);
+    } catch {
+      console.error("Failed to parse AI response:", content);
+      return new Response(
+        JSON.stringify({ success: false, error: "Could not parse receipt data. Please try a clearer image." }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, data: extractedData }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("parse-receipt error:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
