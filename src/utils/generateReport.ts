@@ -9,25 +9,31 @@ interface ReportOptions {
   monthLabel: string;
 }
 
-const GOLD = [194, 155, 80] as const;
-const DARK = [30, 28, 25] as const;
-const LIGHT_BG = [250, 248, 244] as const;
-const MUTED = [120, 110, 100] as const;
+// Institutional palette — inspired by Goldman Sachs / McKinsey
+const NAVY = [10, 30, 68] as const;
+const GOLD_ACCENT = [163, 138, 92] as const;
+const DARK_TEXT = [20, 20, 30] as const;
+const BODY_TEXT = [60, 60, 70] as const;
+const LABEL_TEXT = [110, 110, 120] as const;
+const GRID_LINE = [220, 220, 225] as const;
+const CARD_BG = [248, 248, 250] as const;
+const WHITE = [255, 255, 255] as const;
 
 const CHART_COLORS = {
-  sales: [194, 155, 80],
-  cumulative: [60, 90, 130],
-  guests: [46, 160, 135],
-  spendGuest: [230, 120, 60],
-  spendOrder: [180, 80, 60],
+  sales: [163, 138, 92],       // gold
+  guests: [46, 130, 135],      // teal
+  spendGuest: [190, 110, 50],  // warm amber
+  spendOrder: [140, 70, 55],   // rust
 } as const;
 
 const VENUE_COLORS = {
-  assembly: [230, 120, 60] as readonly [number, number, number],
-  caliente: [70, 130, 180] as readonly [number, number, number],
+  assembly: [190, 110, 50] as readonly [number, number, number],
+  caliente: [60, 100, 160] as readonly [number, number, number],
 };
 
-// ── Nice Y-axis tick calculator ──
+let exhibitCounter = 0;
+
+// ── Nice Y-axis ticks ──
 function niceScale(maxVal: number, tickCount = 5): number[] {
   if (maxVal <= 0) return [0];
   const rough = maxVal / (tickCount - 1);
@@ -56,7 +62,7 @@ function formatAxisLabel(val: number, prefix = ""): string {
 
 type DailyAgg = { date: string; day: string; sales: number; guests: number; orders: number };
 
-const buildDailyData = (records: SalesRecord[]): DailyAgg[] => {
+function buildDailyData(records: SalesRecord[]): DailyAgg[] {
   const map = new Map<string, DailyAgg>();
   records.forEach((r) => {
     const existing = map.get(r.date);
@@ -69,56 +75,55 @@ const buildDailyData = (records: SalesRecord[]): DailyAgg[] => {
     }
   });
   return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
-};
+}
 
 function formatDateShort(date: string): string {
   const parts = date.split("-");
   return `${parts[1]}/${parts[2]}`;
 }
 
-interface ChartPoint {
-  label: string;
-  value: number;
-}
+interface ChartPoint { label: string; value: number; }
 
 export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
+  exhibitCounter = 0;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 16;
+  const margin = 18;
   const contentWidth = pageWidth - margin * 2;
   let y = 0;
 
   const addNewPageIfNeeded = (requiredSpace: number) => {
-    if (y + requiredSpace > pageHeight - 20) {
+    if (y + requiredSpace > pageHeight - 22) {
       doc.addPage();
-      y = 20;
+      y = 22;
     }
   };
 
-  // ── HEADER BAND ──
-  doc.setFillColor(...DARK);
-  doc.rect(0, 0, pageWidth, 38, "F");
-  doc.setFillColor(...GOLD);
-  doc.rect(0, 38, pageWidth, 1.2, "F");
+  // ── HEADER ──
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, pageWidth, 36, "F");
+  // Thin gold rule
+  doc.setFillColor(...GOLD_ACCENT);
+  doc.rect(0, 36, pageWidth, 0.8, "F");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.setTextColor(255, 255, 255);
-  doc.text("KHAMBU GROUP", margin, 17);
+  doc.setFontSize(18);
+  doc.setTextColor(...WHITE);
+  doc.text("KHAMBU GROUP", margin, 15);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.setTextColor(...GOLD);
-  doc.text("Revenue Report", margin, 26);
+  doc.setTextColor(200, 200, 210);
+  doc.text("Revenue Report", margin, 23);
 
   doc.setFontSize(8);
-  doc.setTextColor(200, 200, 200);
-  doc.text(`Period: ${monthLabel}`, pageWidth - margin, 15, { align: "right" });
-  doc.text(venue === "All Venues" ? "All Venues" : venue, pageWidth - margin, 21, { align: "right" });
-  doc.text(`Prepared by 77Nexus`, pageWidth - margin, 27, { align: "right" });
+  doc.setTextColor(170, 170, 185);
+  doc.text(`Period: ${monthLabel}`, pageWidth - margin, 13, { align: "right" });
+  doc.text(venue === "All Venues" ? "All Venues" : venue, pageWidth - margin, 19, { align: "right" });
+  doc.text("Prepared by 77Nexus", pageWidth - margin, 25, { align: "right" });
 
-  y = 47;
+  y = 45;
 
   // ── KPI SUMMARY ──
   const totalSales = data.reduce((s, r) => s + r.totalSales, 0);
@@ -134,14 +139,14 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   y += 10;
 
   const kpis = [
-    { label: "Total Sales", value: `$${formatCurrency(totalSales)}` },
-    { label: "Total Guests", value: formatCurrency(totalGuests) },
-    { label: "Total Orders", value: formatCurrency(totalOrders) },
-    { label: "Avg / Guest", value: `$${formatCurrency(avgPerGuest)}` },
-    { label: "Avg / Order", value: `$${formatCurrency(avgPerOrder)}` },
-    { label: "Avg Daily Sales", value: `$${formatCurrency(avgDailySales)}` },
-    { label: "Total Discount", value: `$${formatCurrency(Math.abs(totalDiscount))}` },
-    { label: "Trading Days", value: String(daysCount) },
+    { label: "TOTAL SALES", value: `$${formatCurrency(totalSales)}` },
+    { label: "TOTAL GUESTS", value: formatCurrency(totalGuests) },
+    { label: "TOTAL ORDERS", value: formatCurrency(totalOrders) },
+    { label: "AVG / GUEST", value: `$${formatCurrency(avgPerGuest)}` },
+    { label: "AVG / ORDER", value: `$${formatCurrency(avgPerOrder)}` },
+    { label: "AVG DAILY SALES", value: `$${formatCurrency(avgDailySales)}` },
+    { label: "TOTAL DISCOUNT", value: `$${formatCurrency(Math.abs(totalDiscount))}` },
+    { label: "TRADING DAYS", value: String(daysCount) },
   ];
 
   const cardWidth = (contentWidth - 6) / 4;
@@ -154,17 +159,17 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
     const cx = margin + col * (cardWidth + cardGap);
     const cy = y + row * (cardHeight + cardGap);
 
-    doc.setFillColor(...LIGHT_BG);
-    doc.roundedRect(cx, cy, cardWidth, cardHeight, 2, 2, "F");
+    doc.setFillColor(...CARD_BG);
+    doc.roundedRect(cx, cy, cardWidth, cardHeight, 1.5, 1.5, "F");
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.5);
-    doc.setTextColor(...MUTED);
-    doc.text(kpi.label.toUpperCase(), cx + 4, cy + 6);
+    doc.setFontSize(5.5);
+    doc.setTextColor(...LABEL_TEXT);
+    doc.text(kpi.label, cx + 4, cy + 6);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.setTextColor(...DARK);
+    doc.setTextColor(...DARK_TEXT);
     doc.text(kpi.value, cx + 4, cy + 14);
   });
 
@@ -190,44 +195,23 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
         ["Avg / Order", `$${formatCurrency(venueComp[0]?.avgPerOrder || 0)}`, `$${formatCurrency(venueComp[1]?.avgPerOrder || 0)}`],
         ["Trading Days", String(venueComp[0]?.days || 0), String(venueComp[1]?.days || 0)],
       ],
-      headStyles: { fillColor: DARK as any, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
-      bodyStyles: { fontSize: 8, textColor: DARK as any },
-      alternateRowStyles: { fillColor: [252, 250, 247] },
-      styles: { cellPadding: 3 },
+      headStyles: { fillColor: NAVY as any, textColor: [...WHITE], fontStyle: "bold", fontSize: 8 },
+      bodyStyles: { fontSize: 8, textColor: DARK_TEXT as any },
+      alternateRowStyles: { fillColor: [248, 248, 250] },
+      styles: { cellPadding: 3, lineColor: [230, 230, 235], lineWidth: 0.2 },
     });
 
     y = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // ── PREPARE DATA ──
+  // ── CHART DATA ──
   const combinedDaily = buildDailyData(data);
   const assemblyDaily = buildDailyData(data.filter(r => r.venue === "Assembly"));
   const calienteDaily = buildDailyData(data.filter(r => r.venue === "Caliente"));
 
   const halfWidth = (contentWidth - 4) / 2;
-  const smallChartH = 45;
-  const fullChartH = 55;
-
-  // ── CUMULATIVE SALES ──
-  const buildCumulative = (daily: DailyAgg[]): ChartPoint[] => {
-    let running = 0;
-    return daily.map(d => {
-      running += d.sales;
-      return { label: formatDateShort(d.date), value: running };
-    });
-  };
-
-  addNewPageIfNeeded(fullChartH + smallChartH + 35);
-  drawSectionTitle(doc, "Cumulative Sales", margin, y);
-  y += 10;
-
-  drawLineChart(doc, buildCumulative(combinedDaily), margin, y, contentWidth, fullChartH, CHART_COLORS.cumulative, "$", "Combined");
-  y += fullChartH + 5;
-
-  addNewPageIfNeeded(smallChartH + 12);
-  drawLineChart(doc, buildCumulative(assemblyDaily), margin, y, halfWidth, smallChartH, VENUE_COLORS.assembly, "$", "Assembly");
-  drawLineChart(doc, buildCumulative(calienteDaily), margin + halfWidth + 4, y, halfWidth, smallChartH, VENUE_COLORS.caliente, "$", "Caliente");
-  y += smallChartH + 12;
+  const smallChartH = 44;
+  const fullChartH = 54;
 
   // ── CHART SECTIONS ──
   const chartSections = [
@@ -265,99 +249,118 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
     const drawFn = section.type === "line" ? drawLineChart : drawBarChart;
 
     addNewPageIfNeeded(fullChartH + smallChartH + 35);
-    drawSectionTitle(doc, section.title, margin, y);
-    y += 10;
+    exhibitCounter++;
+    drawExhibitTitle(doc, `Exhibit ${exhibitCounter}: ${section.title}`, margin, y);
+    y += 8;
 
     drawFn(doc, section.getData(combinedDaily), margin, y, contentWidth, fullChartH, section.color, section.prefix, "Combined");
-    y += fullChartH + 5;
+    y += fullChartH + 4;
 
     addNewPageIfNeeded(smallChartH + 12);
     drawFn(doc, section.getData(assemblyDaily), margin, y, halfWidth, smallChartH, VENUE_COLORS.assembly, section.prefix, "Assembly");
     drawFn(doc, section.getData(calienteDaily), margin + halfWidth + 4, y, halfWidth, smallChartH, VENUE_COLORS.caliente, section.prefix, "Caliente");
-    y += smallChartH + 12;
+    y += smallChartH + 14;
   }
 
   // ── FOOTERS ──
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFontSize(7);
-    doc.setTextColor(...MUTED);
-    doc.text(
-      `Khambu Group — Confidential — Page ${i} of ${totalPages}`,
-      pageWidth / 2,
-      pageHeight - 8,
-      { align: "center" }
-    );
+    // Thin top rule on subsequent pages
+    if (i > 1) {
+      doc.setDrawColor(...NAVY);
+      doc.setLineWidth(0.4);
+      doc.line(margin, 10, pageWidth - margin, 10);
+      doc.setFontSize(6.5);
+      doc.setTextColor(...LABEL_TEXT);
+      doc.text("Khambu Group — Revenue Report", margin, 8);
+      doc.text(monthLabel, pageWidth - margin, 8, { align: "right" });
+    }
+    // Footer
+    doc.setDrawColor(...GRID_LINE);
+    doc.setLineWidth(0.2);
+    doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+    doc.setFontSize(6.5);
+    doc.setTextColor(...LABEL_TEXT);
+    doc.text("Khambu Group — Confidential", margin, pageHeight - 8);
+    doc.text(`${i}`, pageWidth - margin, pageHeight - 8, { align: "right" });
   }
 
-  const fileName = `Khambu_MTD_Report_${venue.replace(/\s/g, "_")}_${monthLabel.replace(/\s/g, "_")}.pdf`;
+  const fileName = `Khambu_Revenue_Report_${venue.replace(/\s/g, "_")}_${monthLabel.replace(/\s/g, "_")}.pdf`;
   doc.save(fileName);
 }
 
 // ── Section Title ──
 function drawSectionTitle(doc: jsPDF, title: string, x: number, y: number) {
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...DARK);
-  doc.text(title.toUpperCase(), x, y);
-  doc.setDrawColor(...GOLD);
+  doc.setFontSize(11);
+  doc.setTextColor(...NAVY);
+  doc.text(title, x, y);
+  doc.setDrawColor(...GOLD_ACCENT);
   doc.setLineWidth(0.5);
-  doc.line(x, y + 2, x + 16, y + 2);
+  doc.line(x, y + 2, x + 20, y + 2);
+}
+
+// ── Exhibit Title (Goldman style) ──
+function drawExhibitTitle(doc: jsPDF, title: string, x: number, y: number) {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...NAVY);
+  doc.text(title, x, y);
 }
 
 // ── Line Chart ──
 function drawLineChart(
-  doc: jsPDF,
-  points: ChartPoint[],
+  doc: jsPDF, points: ChartPoint[],
   x: number, y: number, w: number, h: number,
   color: readonly [number, number, number],
-  prefix = "",
-  chartTitle = ""
+  prefix = "", chartTitle = ""
 ) {
   if (points.length === 0) return;
 
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(230, 228, 224);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(x, y, w, h, 2.5, 2.5, "FD");
+  // Card
+  doc.setFillColor(...WHITE);
+  doc.setDrawColor(...GRID_LINE);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, y, w, h, 2, 2, "FD");
 
+  // Title inside
   if (chartTitle) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...DARK);
+    doc.setFontSize(7);
+    doc.setTextColor(...DARK_TEXT);
     doc.text(chartTitle, x + 5, y + 6);
   }
 
-  const titleOffset = chartTitle ? 8 : 3;
+  const titleOffset = chartTitle ? 9 : 3;
   const chartX = x + 16;
-  const chartY = y + titleOffset + 1;
+  const chartY = y + titleOffset;
   const chartW = w - 20;
-  const chartH = h - titleOffset - 11;
+  const chartH = h - titleOffset - 10;
 
   const maxVal = Math.max(...points.map(p => p.value), 1);
   const ticks = niceScale(maxVal, 5);
   const scaleMax = ticks[ticks.length - 1] || 1;
 
-  // Grid lines with nice ticks
-  doc.setDrawColor(235, 233, 230);
-  doc.setLineWidth(0.1);
+  // Grid + Y labels
   ticks.forEach(tick => {
     const gy = chartY + chartH - (tick / scaleMax) * chartH;
+    doc.setDrawColor(...GRID_LINE);
+    doc.setLineWidth(0.08);
     doc.line(chartX, gy, chartX + chartW, gy);
     doc.setFontSize(5.5);
-    doc.setTextColor(...MUTED);
-    doc.text(formatAxisLabel(tick, prefix), chartX - 2, gy + 1, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...LABEL_TEXT);
+    doc.text(formatAxisLabel(tick, prefix), chartX - 2, gy + 1.2, { align: "right" });
   });
 
   // Line
   doc.setDrawColor(...color);
-  doc.setLineWidth(0.7);
+  doc.setLineWidth(0.8);
   const getPoint = (i: number) => ({
     px: chartX + (i / Math.max(points.length - 1, 1)) * chartW,
     py: chartY + chartH - (points[i].value / scaleMax) * chartH,
   });
-
   for (let i = 0; i < points.length - 1; i++) {
     const a = getPoint(i);
     const b = getPoint(i + 1);
@@ -365,115 +368,119 @@ function drawLineChart(
   }
 
   // X labels
+  drawXLabels(doc, points, chartX, chartY, chartW, chartH);
+
+  // Average
+  drawAvgLine(doc, points, chartX, chartY, chartW, chartH, scaleMax, prefix);
+}
+
+// ── Bar Chart ──
+function drawBarChart(
+  doc: jsPDF, points: ChartPoint[],
+  x: number, y: number, w: number, h: number,
+  color: readonly [number, number, number],
+  prefix = "", chartTitle = ""
+) {
+  if (points.length === 0) return;
+
+  doc.setFillColor(...WHITE);
+  doc.setDrawColor(...GRID_LINE);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, y, w, h, 2, 2, "FD");
+
+  if (chartTitle) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...DARK_TEXT);
+    doc.text(chartTitle, x + 5, y + 6);
+  }
+
+  const titleOffset = chartTitle ? 9 : 3;
+  const chartX = x + 16;
+  const chartY = y + titleOffset;
+  const chartW = w - 20;
+  const chartH = h - titleOffset - 10;
+
+  const maxVal = Math.max(...points.map(p => p.value), 1);
+  const ticks = niceScale(maxVal, 5);
+  const scaleMax = ticks[ticks.length - 1] || 1;
+
+  // Grid + Y labels
+  ticks.forEach(tick => {
+    const gy = chartY + chartH - (tick / scaleMax) * chartH;
+    doc.setDrawColor(...GRID_LINE);
+    doc.setLineWidth(0.08);
+    doc.line(chartX, gy, chartX + chartW, gy);
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...LABEL_TEXT);
+    doc.text(formatAxisLabel(tick, prefix), chartX - 2, gy + 1.2, { align: "right" });
+  });
+
+  // Bars
+  const barWidth = (chartW / points.length) * 0.7;
+  const gap = (chartW / points.length) * 0.3;
+  points.forEach((p, i) => {
+    const barH = (p.value / scaleMax) * chartH;
+    const bx = chartX + i * (barWidth + gap) + gap / 2;
+    const by = chartY + chartH - barH;
+    doc.setFillColor(...color);
+    doc.roundedRect(bx, by, barWidth, barH, 0.6, 0.6, "F");
+  });
+
+  // X labels
+  drawXLabelsBar(doc, points, chartX, chartY, chartW, chartH, barWidth, gap);
+
+  // Average
+  drawAvgLine(doc, points, chartX, chartY, chartW, chartH, scaleMax, prefix);
+}
+
+// ── Shared: X labels (line) ──
+function drawXLabels(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number) {
   const step = Math.max(1, Math.floor(points.length / 10));
   doc.setFontSize(5);
-  doc.setTextColor(...MUTED);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...LABEL_TEXT);
   points.forEach((p, i) => {
     if (i % step === 0 || i === points.length - 1) {
       const px = chartX + (i / Math.max(points.length - 1, 1)) * chartW;
       doc.text(p.label, px, chartY + chartH + 4, { align: "center" });
     }
   });
-
-  // Average
-  const avg = Math.round(points.reduce((s, p) => s + p.value, 0) / points.length);
-  const avgY = chartY + chartH - (avg / scaleMax) * chartH;
-  doc.setDrawColor(190, 185, 178);
-  doc.setLineWidth(0.2);
-  doc.setLineDashPattern([2, 2], 0);
-  doc.line(chartX, avgY, chartX + chartW, avgY);
-  doc.setLineDashPattern([], 0);
-
-  doc.setFillColor(255, 255, 255);
-  const avgText = `Avg: ${formatAxisLabel(avg, prefix)}`;
-  const avgTextW = doc.getTextWidth(avgText) + 3;
-  doc.roundedRect(chartX + chartW - avgTextW - 2, chartY + 1, avgTextW + 2, 5, 1, 1, "F");
-  doc.setFontSize(5.5);
-  doc.setTextColor(...MUTED);
-  doc.text(avgText, chartX + chartW - 2, chartY + 4.5, { align: "right" });
 }
 
-// ── Bar Chart ──
-function drawBarChart(
-  doc: jsPDF,
-  points: ChartPoint[],
-  x: number, y: number, w: number, h: number,
-  color: readonly [number, number, number],
-  prefix = "",
-  chartTitle = ""
-) {
-  if (points.length === 0) return;
-
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(230, 228, 224);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(x, y, w, h, 2.5, 2.5, "FD");
-
-  if (chartTitle) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...DARK);
-    doc.text(chartTitle, x + 5, y + 6);
-  }
-
-  const titleOffset = chartTitle ? 8 : 3;
-  const chartX = x + 16;
-  const chartY = y + titleOffset + 1;
-  const chartW = w - 20;
-  const chartH = h - titleOffset - 11;
-
-  const maxVal = Math.max(...points.map(p => p.value), 1);
-  const ticks = niceScale(maxVal, 5);
-  const scaleMax = ticks[ticks.length - 1] || 1;
-
-  // Grid lines
-  doc.setDrawColor(235, 233, 230);
-  doc.setLineWidth(0.1);
-  ticks.forEach(tick => {
-    const gy = chartY + chartH - (tick / scaleMax) * chartH;
-    doc.line(chartX, gy, chartX + chartW, gy);
-    doc.setFontSize(5.5);
-    doc.setTextColor(...MUTED);
-    doc.text(formatAxisLabel(tick, prefix), chartX - 2, gy + 1, { align: "right" });
-  });
-
-  // Bars
-  const barWidth = (chartW / points.length) * 0.7;
-  const gap = (chartW / points.length) * 0.3;
-
-  points.forEach((p, i) => {
-    const barH = (p.value / scaleMax) * chartH;
-    const bx = chartX + i * (barWidth + gap) + gap / 2;
-    const by = chartY + chartH - barH;
-    doc.setFillColor(...color);
-    doc.roundedRect(bx, by, barWidth, barH, 0.8, 0.8, "F");
-  });
-
-  // X labels
+// ── Shared: X labels (bar) ──
+function drawXLabelsBar(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number, barWidth: number, gap: number) {
   const step = Math.max(1, Math.floor(points.length / 10));
   doc.setFontSize(5);
-  doc.setTextColor(...MUTED);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...LABEL_TEXT);
   points.forEach((p, i) => {
     if (i % step === 0 || i === points.length - 1) {
       const px = chartX + i * (barWidth + gap) + gap / 2 + barWidth / 2;
       doc.text(p.label, px, chartY + chartH + 4, { align: "center" });
     }
   });
+}
 
-  // Average
+// ── Shared: Average line + label ──
+function drawAvgLine(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number, scaleMax: number, prefix: string) {
   const avg = Math.round(points.reduce((s, p) => s + p.value, 0) / points.length);
   const avgY = chartY + chartH - (avg / scaleMax) * chartH;
-  doc.setDrawColor(190, 185, 178);
+
+  doc.setDrawColor(170, 170, 178);
   doc.setLineWidth(0.2);
   doc.setLineDashPattern([2, 2], 0);
   doc.line(chartX, avgY, chartX + chartW, avgY);
   doc.setLineDashPattern([], 0);
 
-  doc.setFillColor(255, 255, 255);
+  // Label pill
   const avgText = `Avg: ${formatAxisLabel(avg, prefix)}`;
   const avgTextW = doc.getTextWidth(avgText) + 3;
+  doc.setFillColor(...WHITE);
   doc.roundedRect(chartX + chartW - avgTextW - 2, chartY + 1, avgTextW + 2, 5, 1, 1, "F");
   doc.setFontSize(5.5);
-  doc.setTextColor(...MUTED);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...LABEL_TEXT);
   doc.text(avgText, chartX + chartW - 2, chartY + 4.5, { align: "right" });
 }
