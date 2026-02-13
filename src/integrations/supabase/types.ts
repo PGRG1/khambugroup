@@ -47,6 +47,90 @@ export type Database = {
         }
         Relationships: []
       }
+      forecast_approvers: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      forecasts: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          comment: string
+          created_at: string
+          date: string
+          day: string
+          forecast_notes: string
+          forecasted_avg_spend: number
+          forecasted_customers: number
+          forecasted_gross_sales: number
+          forecasted_service_charge: number
+          forecasted_total_sales: number
+          id: string
+          pending_post_event_notes: string | null
+          post_event_notes: string
+          status: string
+          submitted_by: string | null
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          comment?: string
+          created_at?: string
+          date: string
+          day: string
+          forecast_notes?: string
+          forecasted_avg_spend?: number
+          forecasted_customers?: number
+          forecasted_gross_sales?: number
+          forecasted_service_charge?: number
+          forecasted_total_sales?: number
+          id?: string
+          pending_post_event_notes?: string | null
+          post_event_notes?: string
+          status?: string
+          submitted_by?: string | null
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          comment?: string
+          created_at?: string
+          date?: string
+          day?: string
+          forecast_notes?: string
+          forecasted_avg_spend?: number
+          forecasted_customers?: number
+          forecasted_gross_sales?: number
+          forecasted_service_charge?: number
+          forecasted_total_sales?: number
+          id?: string
+          pending_post_event_notes?: string | null
+          post_event_notes?: string
+          status?: string
+          submitted_by?: string | null
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
