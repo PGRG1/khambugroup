@@ -1,4 +1,4 @@
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend, ReferenceLine } from "recharts";
 import { SalesRecord } from "@/types/sales";
 import { getDayOfWeekStats, getPaymentBreakdown, getVenueComparison, formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
 import ChartCard from "./ChartCard";
@@ -51,6 +51,10 @@ const DashboardCharts = ({ data }: ChartsProps) => {
     perOrder: d.orders ? Math.round(d.totalSales / d.orders) : 0,
   }));
 
+  // Average daily sales and guests for reference lines
+  const avgDailySales = dailySales.length ? Math.round(dailySales.reduce((s, d) => s + d.totalSales, 0) / dailySales.length) : 0;
+  const avgDailyGuests = dailySales.length ? Math.round(dailySales.reduce((s, d) => s + d.guests, 0) / dailySales.length) : 0;
+
   const { data: dayStats, months } = getDayOfWeekStats(data);
   const paymentData = getPaymentBreakdown(data);
   const venueData = getVenueComparison(data);
@@ -69,16 +73,22 @@ const DashboardCharts = ({ data }: ChartsProps) => {
   const discountData = data
     .reduce((acc, r) => {
       const existing = acc.find((a) => a.date === r.date);
+      const totalRevenue = r.subtotal + r.serviceCharge;
       if (existing) {
         existing.discount += Math.abs(r.discount);
-        existing.subtotal += r.subtotal;
+        existing.totalRevenue += totalRevenue;
       } else {
-        acc.push({ date: r.date, day: r.day, discount: Math.abs(r.discount), subtotal: r.subtotal });
+        acc.push({ date: r.date, day: r.day, discount: Math.abs(r.discount), totalRevenue });
       }
       return acc;
-    }, [] as { date: string; day: string; discount: number; subtotal: number }[])
+    }, [] as { date: string; day: string; discount: number; totalRevenue: number }[])
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((d) => ({ ...d, pct: d.subtotal ? ((d.discount / d.subtotal) * 100).toFixed(1) : "0" }));
+    .map((d) => ({ ...d, pct: d.totalRevenue ? parseFloat(((d.discount / d.totalRevenue) * 100).toFixed(1)) : 0 }));
+
+  // Average discount % of total revenue for reference line
+  const totalDiscountAll = discountData.reduce((s, d) => s + d.discount, 0);
+  const totalRevenueAll = discountData.reduce((s, d) => s + d.totalRevenue, 0);
+  const avgDiscountPct = totalRevenueAll ? parseFloat(((totalDiscountAll / totalRevenueAll) * 100).toFixed(1)) : 0;
 
   const formatDate = (d: string) => {
     const parts = d.split("-");
@@ -100,6 +110,7 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
             <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Sales"]} labelFormatter={dayTooltipLabel} />
+            <ReferenceLine y={avgDailySales} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg $${formatCurrency(avgDailySales)}`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
             <Line type="monotone" dataKey="totalSales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -112,6 +123,7 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} />
             <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests"]} labelFormatter={dayTooltipLabel} />
+            <ReferenceLine y={avgDailyGuests} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg ${avgDailyGuests}`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
             <Line type="monotone" dataKey="guests" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -211,7 +223,8 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} width={0} mirror />
             <Tooltip {...tooltipStyle} labelFormatter={dayTooltipLabel} />
             <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
-            <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount %" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
+            <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount % of Revenue" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
+            <ReferenceLine yAxisId="right" y={avgDiscountPct} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg ${avgDiscountPct}%`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
