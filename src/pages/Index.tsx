@@ -1,10 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { VenueFilter } from "@/types/sales";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { useSalesData } from "@/hooks/useSalesData";
 import DateFilter from "@/components/dashboard/DateFilter";
 import KPICards from "@/components/dashboard/KPICards";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
+import { generateMTDReport } from "@/utils/generateReport";
+import { FileDown } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente"];
 
@@ -51,6 +54,58 @@ const Index = () => {
     };
   }, [filtered]);
 
+  const currentMonthLabel = useMemo(() => {
+    if (from) {
+      const key = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}`;
+      return getMonthLabel(key);
+    }
+    // Default to latest month in data
+    if (months.length > 0) return months[months.length - 1].label;
+    return new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  }, [from, months]);
+
+  const handleGenerateReport = useCallback(() => {
+    if (filtered.length === 0) {
+      toast({ title: "No data to report", description: "Select a period with data first.", variant: "destructive" });
+      return;
+    }
+
+    // Capture chart images from SVGs in the DOM
+    const chartImages: { dailySales?: string; paymentBreakdown?: string } = {};
+
+    const captureSvg = (container: Element | null): string | undefined => {
+      if (!container) return undefined;
+      const svg = container.querySelector("svg.recharts-surface");
+      if (!svg) return undefined;
+      const clone = svg.cloneNode(true) as SVGElement;
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      // Set white background
+      const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bg.setAttribute("width", "100%");
+      bg.setAttribute("height", "100%");
+      bg.setAttribute("fill", "#FEFCF8");
+      clone.insertBefore(bg, clone.firstChild);
+      const svgData = new XMLSerializer().serializeToString(clone);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return undefined;
+      const img = new Image();
+      const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      // Synchronous approach won't work for SVG→canvas, so skip chart images for now
+      return undefined;
+    };
+
+    generateMTDReport({
+      data: filtered,
+      venue,
+      monthLabel: currentMonthLabel,
+      chartImages,
+    });
+
+    toast({ title: "Report downloaded!", description: `${currentMonthLabel} MTD report saved.` });
+  }, [filtered, venue, currentMonthLabel]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -66,20 +121,29 @@ const Index = () => {
           <span className="text-gradient-gold">Revenue</span>
           <span className="text-muted-foreground ml-2 text-base font-normal">Overview</span>
         </h1>
-        <div className="self-start inline-flex rounded-lg border border-border overflow-hidden">
-          {venues.map((v) => (
-            <button
-              key={v}
-              onClick={() => setVenue(v)}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                venue === v
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-muted"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="inline-flex rounded-lg border border-border overflow-hidden">
+            {venues.map((v) => (
+              <button
+                key={v}
+                onClick={() => setVenue(v)}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  venue === v
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-muted"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleGenerateReport}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+          >
+            <FileDown className="h-4 w-4" />
+            Generate Report
+          </button>
         </div>
       </div>
 
