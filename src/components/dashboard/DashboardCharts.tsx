@@ -137,7 +137,20 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-            <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Sales"]} labelFormatter={dayTooltipLabel} />
+            <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => {
+              if (name === "totalSales") return [`$${formatCurrency(v)}`, "Sales"];
+              return [v, name];
+            }} labelFormatter={dayTooltipLabel} content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const sales = payload[0]?.value as number;
+              return (
+                <div style={tooltipStyle.contentStyle} className="p-2">
+                  <p className="font-medium">{dayTooltipLabel(label)}</p>
+                  <p>Sales: ${formatCurrency(sales)}</p>
+                  <p style={{ color: "hsl(25, 10%, 50%)" }}>Avg: ${formatCurrency(avgDailySales)}</p>
+                </div>
+              );
+            }} />
             <ReferenceLine y={avgDailySales} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg $${formatCurrency(avgDailySales)}`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
             <Line type="monotone" dataKey="totalSales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
           </LineChart>
@@ -150,7 +163,17 @@ const DashboardCharts = ({ data }: ChartsProps) => {
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
             <YAxis tick={axisStyle} />
-            <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests"]} labelFormatter={dayTooltipLabel} />
+            <Tooltip {...tooltipStyle} content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const guests = payload[0]?.value as number;
+              return (
+                <div style={tooltipStyle.contentStyle} className="p-2">
+                  <p className="font-medium">{dayTooltipLabel(label)}</p>
+                  <p>Guests: {guests}</p>
+                  <p style={{ color: "hsl(25, 10%, 50%)" }}>Avg: {avgDailyGuests}</p>
+                </div>
+              );
+            }} />
             <ReferenceLine y={avgDailyGuests} stroke="hsl(25, 10%, 50%)" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Avg ${avgDailyGuests}`, position: "right", fontSize: 10, fill: "hsl(25, 10%, 50%)" }} />
             <Line type="monotone" dataKey="guests" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={false} />
           </LineChart>
