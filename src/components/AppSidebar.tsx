@@ -1,4 +1,4 @@
-import { BarChart3, Database, ClipboardList, LogOut, Settings, Shield, FileText } from "lucide-react";
+import { BarChart3, Database, ClipboardList, LogOut, Settings, Shield, FileText, Receipt } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -18,6 +18,7 @@ const navItems = [
   { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList },
   { title: "Data", url: "/data", icon: Database },
   { title: "Activity Log", url: "/activity-log", icon: FileText },
+  { title: "P&L Report", url: "/pl-report", icon: Receipt },
 ];
 
 export function AppSidebar() {
