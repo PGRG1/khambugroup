@@ -17,15 +17,15 @@ interface VenueRevenue {
   netSales: number;
 }
 
-export interface PLData {
+export interface PLPeriodData {
   assembly: VenueRevenue;
   caliente: VenueRevenue;
   totalRevenue: number;
-  manual: Record<string, number>; // line_item_name -> summed amount
+  manual: Record<string, number>;
   unknownManualLines: { name: string; amount: number }[];
 }
 
-const KNOWN_LINES = [
+export const KNOWN_LINES = [
   "Beverage Cost", "Food Cost",
   "Base Rental", "Rental Share (-)", "Government Fees", "Management Fees",
   "FTE Salary", "FTE MPF", "PTE Salary", "PTE MPF",
@@ -35,91 +35,166 @@ const KNOWN_LINES = [
   "Depreciation", "Amortization",
 ];
 
-export function usePLData(view: "monthly" | "annual", year: number, month: number) {
+export interface PLPeriodKey {
+  year: number;
+  month: number; // 1-12
+}
+
+function periodLabel(p: PLPeriodKey): string {
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${MONTHS[p.month - 1]} ${p.year}`;
+}
+
+function buildPeriodData(
+  revenueData: any[],
+  manualLines: PLManualLine[],
+  period: PLPeriodKey
+): PLPeriodData {
+  const emptyVenue = (): VenueRevenue => ({ grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
+  const assembly = emptyVenue();
+  const caliente = emptyVenue();
+
+  const mm = String(period.month).padStart(2, "0");
+  const prefix = `${period.year}-${mm}`;
+
+  for (const r of revenueData) {
+    if (!(r.date as string).startsWith(prefix)) continue;
+    const target = r.venue === "Assembly" ? assembly : r.venue === "Caliente" ? caliente : null;
+    if (!target) continue;
+    target.grossRevenue += Number(r.subtotal) || 0;
+    target.serviceChargeRevenue += Number(r.service_charge) || 0;
+    target.discounts += Number(r.discount) || 0;
+    target.netSales += Number(r.total_sales) || 0;
+  }
+
+  const filtered = manualLines.filter(l => l.month === period.month && l.year === period.year);
+
+  const manual: Record<string, number> = {};
+  const unknownMap: Record<string, number> = {};
+
+  for (const l of filtered) {
+    const amt = Number(l.amount) || 0;
+    if (KNOWN_LINES.includes(l.line_item_name)) {
+      manual[l.line_item_name] = (manual[l.line_item_name] || 0) + amt;
+    } else {
+      unknownMap[l.line_item_name] = (unknownMap[l.line_item_name] || 0) + amt;
+    }
+  }
+
+  for (const k of KNOWN_LINES) {
+    if (!(k in manual)) manual[k] = 0;
+  }
+
+  const unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
+
+  return {
+    assembly,
+    caliente,
+    totalRevenue: assembly.netSales + caliente.netSales,
+    manual,
+    unknownManualLines,
+  };
+}
+
+/**
+ * Multi-period P&L hook. Fetches all data for a year range and computes per-period.
+ */
+export function usePLMultiPeriod(periods: PLPeriodKey[]) {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [manualLines, setManualLines] = useState<PLManualLine[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Determine date range across all periods
+  const dateRange = useMemo(() => {
+    if (periods.length === 0) return { gte: "2000-01-01", lte: "2099-12-31" };
+    const sorted = [...periods].sort((a, b) => a.year * 100 + a.month - (b.year * 100 + b.month));
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    return {
+      gte: `${first.year}-${String(first.month).padStart(2, "0")}-01`,
+      lte: `${last.year}-${String(last.month).padStart(2, "0")}-31`,
+    };
+  }, [periods]);
+
+  const years = useMemo(() => [...new Set(periods.map(p => p.year))], [periods]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
-
-    // Build date filters for sales_records (date is text like "2025-01-15")
-    let dateFilter: { gte: string; lte: string };
-    if (view === "monthly") {
-      const mm = String(month).padStart(2, "0");
-      dateFilter = { gte: `${year}-${mm}-01`, lte: `${year}-${mm}-31` };
-    } else {
-      dateFilter = { gte: `${year}-01-01`, lte: `${year}-12-31` };
-    }
-
     const [salesRes, manualRes] = await Promise.all([
       supabase
         .from("sales_records")
-        .select("venue, subtotal, service_charge, discount, total_sales")
-        .gte("date", dateFilter.gte)
-        .lte("date", dateFilter.lte),
+        .select("venue, subtotal, service_charge, discount, total_sales, date")
+        .gte("date", dateRange.gte)
+        .lte("date", dateRange.lte),
+      // Fetch manual lines for all relevant years
       supabase
         .from("pl_manual_lines")
         .select("*")
-        .eq("year", year)
-        .then(res => res), // we'll filter month client-side
+        .in("year", years),
     ]);
-
     if (salesRes.data) setRevenueData(salesRes.data);
     if (manualRes.data) setManualLines(manualRes.data as PLManualLine[]);
     setLoading(false);
-  }, [view, year, month]);
+  }, [dateRange.gte, dateRange.lte, years]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const plData = useMemo<PLData>(() => {
+  const periodData = useMemo(() => {
+    return periods.map(p => ({
+      key: p,
+      label: periodLabel(p),
+      data: buildPeriodData(revenueData, manualLines, p),
+    }));
+  }, [revenueData, manualLines, periods]);
+
+  // Compute totals across all periods
+  const totals = useMemo<PLPeriodData>(() => {
     const emptyVenue = (): VenueRevenue => ({ grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
-    const assembly = emptyVenue();
-    const caliente = emptyVenue();
-
-    for (const r of revenueData) {
-      const target = r.venue === "Assembly" ? assembly : r.venue === "Caliente" ? caliente : null;
-      if (!target) continue;
-      target.grossRevenue += Number(r.subtotal) || 0;
-      target.serviceChargeRevenue += Number(r.service_charge) || 0;
-      target.discounts += Number(r.discount) || 0;
-      target.netSales += Number(r.total_sales) || 0;
-    }
-
-    // Filter manual lines by period
-    const filtered = manualLines.filter(l => {
-      if (view === "monthly") return l.month === month;
-      // annual: include all rows for the year
-      return true;
-    });
-
-    const manual: Record<string, number> = {};
+    const result: PLPeriodData = {
+      assembly: emptyVenue(),
+      caliente: emptyVenue(),
+      totalRevenue: 0,
+      manual: {},
+      unknownManualLines: [],
+    };
     const unknownMap: Record<string, number> = {};
 
-    for (const l of filtered) {
-      const amt = Number(l.amount) || 0;
-      if (KNOWN_LINES.includes(l.line_item_name)) {
-        manual[l.line_item_name] = (manual[l.line_item_name] || 0) + amt;
-      } else {
-        unknownMap[l.line_item_name] = (unknownMap[l.line_item_name] || 0) + amt;
+    for (const pd of periodData) {
+      const d = pd.data;
+      result.assembly.grossRevenue += d.assembly.grossRevenue;
+      result.assembly.serviceChargeRevenue += d.assembly.serviceChargeRevenue;
+      result.assembly.discounts += d.assembly.discounts;
+      result.assembly.netSales += d.assembly.netSales;
+      result.caliente.grossRevenue += d.caliente.grossRevenue;
+      result.caliente.serviceChargeRevenue += d.caliente.serviceChargeRevenue;
+      result.caliente.discounts += d.caliente.discounts;
+      result.caliente.netSales += d.caliente.netSales;
+      result.totalRevenue += d.totalRevenue;
+      for (const [k, v] of Object.entries(d.manual)) {
+        result.manual[k] = (result.manual[k] || 0) + v;
+      }
+      for (const ul of d.unknownManualLines) {
+        unknownMap[ul.name] = (unknownMap[ul.name] || 0) + ul.amount;
       }
     }
-
-    // Fill known lines with 0
     for (const k of KNOWN_LINES) {
-      if (!(k in manual)) manual[k] = 0;
+      if (!(k in result.manual)) result.manual[k] = 0;
     }
+    result.unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
+    return result;
+  }, [periodData]);
 
-    const unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
+  return { periodData, totals, loading, refetch: fetchData, manualLines };
+}
 
-    return {
-      assembly,
-      caliente,
-      totalRevenue: assembly.netSales + caliente.netSales,
-      manual,
-      unknownManualLines,
-    };
-  }, [revenueData, manualLines, view, month]);
+// Keep backward compat for editor
+export function usePLData(view: "monthly" | "annual", year: number, month: number) {
+  const periods = useMemo(() => {
+    if (view === "monthly") return [{ year, month }];
+    return Array.from({ length: 12 }, (_, i) => ({ year, month: i + 1 }));
+  }, [view, year, month]);
 
-  return { plData, loading, refetch: fetchData };
+  const { totals, loading, refetch } = usePLMultiPeriod(periods);
+
+  return { plData: totals, loading, refetch };
 }
