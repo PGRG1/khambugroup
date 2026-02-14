@@ -62,8 +62,8 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "Total COGS", type: "total", indent: 1, getValue: d => totalCOGS(d) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // ── Gross Profit ──
-  const grossProfit = (d: PLPeriodData) => d.totalRevenue - totalCOGS(d);
+  // ── Gross Profit = Revenue + COGS (COGS is negative) ──
+  const grossProfit = (d: PLPeriodData) => d.totalRevenue + totalCOGS(d);
   lines.push({ label: "Gross Profit", type: "total", getValue: d => grossProfit(d), bold: true });
   lines.push({ label: "Gross Margin", type: "ratio", getValue: d => pct(grossProfit(d), d.totalRevenue) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
@@ -121,6 +121,7 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
   // ── Total Operating Expenses (excl D&A) ──
+  // All expense values are negative, so we sum them directly
   const totalOpex = (d: PLPeriodData) => {
     const otherUnknown = d.unknownManualLines.reduce((s, l) => s + l.amount, 0);
     return totalCOGS(d) + totalRent(d) + totalSalary(d) + totalUtilities(d) +
@@ -130,30 +131,30 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "Total Operating Expenses", type: "total", getValue: d => totalOpex(d), bold: true });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // ── EBITDA first, then D&A, then EBIT ──
-  const ebit_raw = (d: PLPeriodData) => d.totalRevenue - totalOpex(d) - (d.manual["Depreciation"] || 0) - (d.manual["Amortization"] || 0);
-  const ebitda = (d: PLPeriodData) => d.totalRevenue - totalOpex(d);
+  // ── EBITDA = Revenue + OpEx (opex is negative) ──
+  const ebitda = (d: PLPeriodData) => d.totalRevenue + totalOpex(d);
+  const ebit_raw = (d: PLPeriodData) => ebitda(d) + (d.manual["Depreciation"] || 0) + (d.manual["Amortization"] || 0);
 
   lines.push({ label: "EBITDA", type: "total", getValue: d => ebitda(d), bold: true });
   lines.push({ label: "EBITDA Margin", type: "ratio", getValue: d => pct(ebitda(d), d.totalRevenue) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // D&A
+  // D&A (entered as negative)
   lines.push({ label: "Depreciation & Amortization", type: "section", indent: 1, getValue: () => undefined });
   lines.push({ label: "Depreciation", type: "editable", indent: 2, getValue: m("Depreciation"), manualKey: "Depreciation" });
   lines.push({ label: "Amortization", type: "editable", indent: 2, getValue: m("Amortization"), manualKey: "Amortization" });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // EBIT
+  // EBIT = EBITDA + D&A (D&A is negative)
   lines.push({ label: "Operating Income (EBIT)", type: "total", getValue: d => ebit_raw(d), bold: true });
   lines.push({ label: "Net Operating Profit", type: "total", getValue: d => ebit_raw(d) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // ── Key Ratios ──
+  // ── Key Ratios (use absolute values for meaningful percentages) ──
   lines.push({ label: "Key Ratios", type: "header", getValue: () => undefined });
-  lines.push({ label: "COGS %", type: "ratio", indent: 1, getValue: d => pct(totalCOGS(d), d.totalRevenue) });
-  lines.push({ label: "Labor Cost %", type: "ratio", indent: 1, getValue: d => pct(totalSalary(d), d.totalRevenue) });
-  lines.push({ label: "Rent %", type: "ratio", indent: 1, getValue: d => pct(totalRent(d), d.totalRevenue) });
+  lines.push({ label: "COGS %", type: "ratio", indent: 1, getValue: d => pct(Math.abs(totalCOGS(d)), d.totalRevenue) });
+  lines.push({ label: "Labor Cost %", type: "ratio", indent: 1, getValue: d => pct(Math.abs(totalSalary(d)), d.totalRevenue) });
+  lines.push({ label: "Rent %", type: "ratio", indent: 1, getValue: d => pct(Math.abs(totalRent(d)), d.totalRevenue) });
 
   return lines;
 }

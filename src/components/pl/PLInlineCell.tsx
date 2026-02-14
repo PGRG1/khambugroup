@@ -77,9 +77,10 @@ export function PLInlineCell({ lineItemName, year, month, currentValue, onSaved 
     );
   }
 
+  const isNeg = currentValue < 0;
   return (
     <span
-      className="cursor-pointer hover:bg-accent/30 rounded px-1 py-0.5 transition-colors font-mono text-sm tabular-nums block text-right"
+      className={`cursor-pointer hover:bg-accent/30 rounded px-1 py-0.5 transition-colors font-mono text-sm tabular-nums block text-right ${isNeg ? "text-destructive" : ""}`}
       onClick={() => setEditing(true)}
       title="Click to edit"
     >
