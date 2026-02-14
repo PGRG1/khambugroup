@@ -131,6 +131,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pl_manual_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          line_item_name: string
+          month: number | null
+          notes: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          line_item_name: string
+          month?: number | null
+          notes?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          line_item_name?: string
+          month?: number | null
+          notes?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

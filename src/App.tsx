@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import DataPage from "./pages/DataPage";
 import ForecastInput from "./pages/ForecastInput";
 import AuditLog from "./pages/AuditLog";
+import PLReport from "./pages/PLReport";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/data" element={<ProtectedRoute><DataPage /></ProtectedRoute>} />
             <Route path="/forecast/:venue" element={<ProtectedRoute><ForecastInput /></ProtectedRoute>} />
             <Route path="/activity-log" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
+            <Route path="/pl-report" element={<ProtectedRoute><PLReport /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
