@@ -266,9 +266,9 @@ export default function PLReport() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground sticky left-0 bg-card z-10 min-w-[200px]">
-                  Line Item
-                </th>
+                <th className="text-left px-4 py-2 font-medium text-muted-foreground sticky left-0 bg-card z-10 min-w-[200px]">P&L
+
+              </th>
                 {periodData.map((pd) =>
               <th key={pd.label} className="text-right px-3 py-2 font-medium text-muted-foreground whitespace-nowrap min-w-[110px]">
                     {pd.label}
