@@ -10,6 +10,7 @@ import DataPage from "./pages/DataPage";
 import ForecastInput from "./pages/ForecastInput";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
+import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -19,6 +20,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, loading } = useAuth();
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
   if (!session) return <Navigate to="/auth" replace />;
+  return <AppLayout>{children}</AppLayout>;
+};
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { session, loading, isAdmin } = useAuth();
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (!session) return <Navigate to="/auth" replace />;
+  if (!isAdmin) return <Navigate to="/" replace />;
   return <AppLayout>{children}</AppLayout>;
 };
 
@@ -36,6 +45,7 @@ const App = () => (
             <Route path="/forecast/:venue" element={<ProtectedRoute><ForecastInput /></ProtectedRoute>} />
             <Route path="/activity-log" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
             <Route path="/pl-report" element={<ProtectedRoute><PLReport /></ProtectedRoute>} />
+            <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

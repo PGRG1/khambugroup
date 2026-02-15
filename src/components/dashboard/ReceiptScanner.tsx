@@ -3,6 +3,7 @@ import { Upload, X, ScanLine, Loader2, Check } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { format, parseISO } from "date-fns";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -104,9 +105,16 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
 
       // Normalize the extracted data
       const raw = data.data;
+      const dateStr = raw.date || "";
+      let dayStr = "";
+      if (dateStr) {
+        try {
+          dayStr = format(parseISO(dateStr), "EEE"); // Mon, Tue, etc.
+        } catch { dayStr = ""; }
+      }
       const record: SalesRecord = {
-        date: raw.date || "",
-        day: raw.day || "",
+        date: dateStr,
+        day: dayStr,
         venue: raw.venue === "Caliente" ? "Caliente" : "Assembly",
         reportNumber: raw.reportNumber || "",
         orders: Number(raw.orders) || 0,
@@ -154,6 +162,13 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       }
       if (field === "venue") {
         return { ...prev, venue: value === "Caliente" ? "Caliente" : "Assembly" };
+      }
+      if (field === "date") {
+        let day = "";
+        if (value) {
+          try { day = format(parseISO(value), "EEE"); } catch { day = ""; }
+        }
+        return { ...prev, date: value, day };
       }
       return { ...prev, [field]: value };
     });

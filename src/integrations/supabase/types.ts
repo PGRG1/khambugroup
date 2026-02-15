@@ -131,6 +131,30 @@ export type Database = {
         }
         Relationships: []
       }
+      page_visibility: {
+        Row: {
+          id: string
+          page_key: string
+          page_label: string
+          updated_at: string
+          visible_to_all: boolean
+        }
+        Insert: {
+          id?: string
+          page_key: string
+          page_label: string
+          updated_at?: string
+          visible_to_all?: boolean
+        }
+        Update: {
+          id?: string
+          page_key?: string
+          page_label?: string
+          updated_at?: string
+          visible_to_all?: boolean
+        }
+        Relationships: []
+      }
       pl_manual_lines: {
         Row: {
           amount: number

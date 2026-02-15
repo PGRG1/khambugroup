@@ -1,6 +1,7 @@
 import { BarChart3, Database, ClipboardList, LogOut, Settings, Shield, FileText, Receipt } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
 import {
   Sidebar,
   SidebarContent,
@@ -14,15 +15,18 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Revenue", url: "/", icon: BarChart3 },
-  { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList },
-  { title: "Data", url: "/data", icon: Database },
-  { title: "Activity Log", url: "/activity-log", icon: FileText },
-  { title: "P&L Report", url: "/pl-report", icon: Receipt },
+  { title: "Revenue", url: "/", icon: BarChart3, pageKey: "revenue" },
+  { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
+  { title: "Data", url: "/data", icon: Database, pageKey: "data" },
+  { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
+  { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
 ];
 
 export function AppSidebar() {
   const { user, isAdmin, signOut } = useAuth();
+  const { isPageVisible } = usePageVisibility();
+
+  const visibleItems = navItems.filter(item => isPageVisible(item.pageKey, isAdmin));
 
   return (
     <Sidebar className="border-r border-sidebar-border">
@@ -38,7 +42,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -65,12 +69,12 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink
-                      to="/data"
+                      to="/settings"
                       className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
-                      <Shield className="h-4 w-4" />
-                      <span>Manage Data</span>
+                      <Settings className="h-4 w-4" />
+                      <span>Settings</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
