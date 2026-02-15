@@ -90,7 +90,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   };
 
   const saveEdit = () => {
-    if (editIdx !== null && editRecord) {
+    if (editIdx !== null && editRecord && onUpdate) {
       onUpdate(editIdx, editRecord);
       cancelEdit();
     }
@@ -233,8 +233,8 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => startEdit(row)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
-                          <button onClick={() => setDeleteIdx(origIdx)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                          {onUpdate && <button onClick={() => startEdit(row)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>}
+                          {onDelete && <button onClick={() => setDeleteIdx(origIdx)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>}
                         </>
                       )}
                     </div>

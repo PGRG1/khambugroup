@@ -31,7 +31,6 @@ Deno.serve(async (req) => {
 
 {
   "date": "YYYY-MM-DD format",
-  "day": "Mon/Tue/Wed/Thu/Fri/Sat/Sun",
   "venue": "Assembly or Caliente",
   "reportNumber": "string",
   "orders": number,
@@ -53,8 +52,8 @@ Deno.serve(async (req) => {
 Rules:
 - All number fields should be numeric (no currency symbols)
 - If a field is not found in the receipt, use 0 for numbers and "" for strings
-- Date must be in YYYY-MM-DD format
-- Day should be the 3-letter abbreviation
+- For the date field: look for "From" date on the receipt and use that date in YYYY-MM-DD format. If there is a date range (From/To), always use the "From" date.
+- Do NOT include a "day" field - it will be auto-generated from the date
 - Venue should be exactly "Assembly" or "Caliente" - infer from any branding/headers
 - Return ONLY the JSON object, no markdown, no explanation`;
 
