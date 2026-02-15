@@ -206,10 +206,13 @@ export default function PLReport() {
       : `${selectedMonths.length} months`;
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold font-display tracking-tight">P&L Report (Caliente + Assembly)</h1>
+        <h1 className="text-2xl font-bold font-display tracking-tight">
+          <span className="text-gradient-gold">P&L Report</span>
+          <span className="text-muted-foreground ml-2 text-base font-normal">Caliente + Assembly</span>
+        </h1>
         <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
           Note: This management report is prepared for internal decision‑making purposes and may not fully conform to formal financial reporting standards or accounting policies.
         </p>
@@ -259,7 +262,7 @@ export default function PLReport() {
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
-        <div className="card-glass rounded-lg overflow-x-auto">
+        <div className="card-glass rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
