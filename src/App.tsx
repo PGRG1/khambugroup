@@ -1,3 +1,4 @@
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,27 +32,29 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <AppLayout>{children}</AppLayout>;
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/data" element={<ProtectedRoute><DataPage /></ProtectedRoute>} />
-            <Route path="/forecast/:venue" element={<ProtectedRoute><ForecastInput /></ProtectedRoute>} />
-            <Route path="/activity-log" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
-            <Route path="/pl-report" element={<ProtectedRoute><PLReport /></ProtectedRoute>} />
-            <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/data" element={<ProtectedRoute><DataPage /></ProtectedRoute>} />
+              <Route path="/forecast/:venue" element={<ProtectedRoute><ForecastInput /></ProtectedRoute>} />
+              <Route path="/activity-log" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
+              <Route path="/pl-report" element={<ProtectedRoute><PLReport /></ProtectedRoute>} />
+              <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
