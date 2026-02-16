@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,6 +90,8 @@ export default function Invoices() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("invoices");
   const [scannerOpen, setScannerOpen] = useState(false);
+  // Track uploaded file URL to avoid re-uploading same file for multi-invoice batches
+  const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
   // Audit documents filters
   const [auditDateFrom, setAuditDateFrom] = useState("");
@@ -289,18 +291,24 @@ export default function Invoices() {
         <InvoiceScanner
           suppliers={suppliers}
           onSave={async (inv, lines, file) => {
-            // Upload file to storage if available
             let fileUrl: string | null = null;
             let fileName: string | null = null;
             if (file) {
-              const ext = file.name.split(".").pop() || "pdf";
-              const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}.${ext}`;
-              const { error: uploadErr } = await supabase.storage
-                .from("invoice-files")
-                .upload(storagePath, file, { upsert: true });
-              if (!uploadErr) {
-                fileUrl = storagePath;
-                fileName = file.name;
+              // Reuse already-uploaded file if same blob (multi-invoice from single document)
+              if (batchFileRef.current && batchFileRef.current.size === file.size) {
+                fileUrl = batchFileRef.current.url;
+                fileName = batchFileRef.current.name;
+              } else {
+                const ext = file.name.split(".").pop() || "pdf";
+                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}.${ext}`;
+                const { error: uploadErr } = await supabase.storage
+                  .from("invoice-files")
+                  .upload(storagePath, file, { upsert: true });
+                if (!uploadErr) {
+                  fileUrl = storagePath;
+                  fileName = file.name;
+                  batchFileRef.current = { size: file.size, url: storagePath, name: file.name };
+                }
               }
             }
             await createInvoice(
@@ -311,7 +319,7 @@ export default function Invoices() {
             );
           }}
           onCreateSupplier={createSupplier}
-          onClose={() => setScannerOpen(false)}
+          onClose={() => { setScannerOpen(false); batchFileRef.current = null; }}
           userId={user?.id || ""}
         />
       )}
