@@ -29,6 +29,8 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You are a sales receipt data extractor for a restaurant/bar business. Extract the following fields from the receipt image. Return ONLY valid JSON with these exact keys:
 
+IMPORTANT: ALL output text MUST be in English. If the document contains Chinese (Traditional or Simplified) or any other non-English language, translate ALL text fields into English before returning them.
+
 {
   "date": "YYYY-MM-DD format",
   "venue": "Assembly or Caliente",
@@ -55,6 +57,7 @@ Rules:
 - For the date field: look for "From" date on the receipt and use that date in YYYY-MM-DD format. If there is a date range (From/To), always use the "From" date.
 - Do NOT include a "day" field - it will be auto-generated from the date
 - Venue should be exactly "Assembly" or "Caliente" - infer from any branding/headers
+- Translate any Chinese or non-English text to English
 - Return ONLY the JSON object, no markdown, no explanation`;
 
     const response = await fetch(
