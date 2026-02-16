@@ -29,26 +29,32 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You are an invoice data extractor for a restaurant/bar business (Assembly and Caliente venues in Hong Kong). A single document may contain MULTIPLE invoices (different dates, different invoice numbers, possibly from the same or different suppliers). You must extract ALL invoices found in the document.
 
-IMPORTANT: ALL output text MUST be in English EXCEPT supplier names — keep supplier names exactly as they appear on the invoice (including Chinese characters). For all other text fields (item descriptions, notes, addresses, units, etc.), translate any Chinese or non-English text into English. Keep brand names and product names in their commonly used English form where possible.
+IMPORTANT — LANGUAGE RULES:
+- Supplier names: Keep EXACTLY as they appear on the invoice (including Chinese characters). Do NOT translate supplier names.
+- ALL OTHER text fields MUST be in English. You MUST translate Chinese/non-English text to English. This includes:
+  - "unit" field: translate Chinese units to English abbreviations. Common translations: 桶=Bucket, 打=Dozen, 條=Roll, 箱=Case/Box, 瓶=Bottle, 包=Pack, 袋=Bag, 罐=Can, 盒=Box, 支=Piece, 公升=Liter, 磅=LB
+  - "description" field: must be in English
+  - "pack_size" field: translate Chinese size units (e.g. "3.8公升/桶" → "3.8L/Bucket", "40p/桶" → "40p/Bucket", "15"/條" → "15"/Roll")
+  - "notes" field: must be in English
 
 Return ONLY valid JSON with this exact structure — always an array, even if there's only one invoice:
 
 {
   "invoices": [
     {
-      "supplier_name": "Full supplier/company name from the invoice header (translated to English)",
+      "supplier_name": "Keep exactly as on invoice, including Chinese characters",
       "invoice_number": "Invoice number/reference",
       "invoice_date": "YYYY-MM-DD format",
       "venue": "Assembly or Caliente - infer from delivery address or customer name",
       "total_amount": number (total invoice amount),
-      "notes": "any special notes, payment terms, or remarks (translated to English)",
+      "notes": "any special notes, payment terms, or remarks (in English)",
       "line_items": [
         {
           "item_code": "product/item code if available, otherwise empty string",
           "description": "item description in English (clean product name without pack size info)",
-          "pack_size": "pack/bottle/container size info e.g. '4X4LB', '750ml', '10X(4X145G) (5.8KG)', '6X1L' — extract from the description",
-          "quantity": number (number of units ordered, e.g. 1 CTN, 2 PCS),
-          "unit": "unit of measure in English (CTN, PCS, BOT, Case, PKT, etc.)",
+          "pack_size": "pack/bottle/container size info in English e.g. '4X4LB', '750ml', '3.8L/Bucket', '6X1L'",
+          "quantity": number (number of units ordered),
+          "unit": "unit of measure in ENGLISH ONLY (Bucket, Dozen, Roll, Case, Box, Pack, Bag, Bottle, Piece, KG, LB, etc.) — NEVER Chinese characters",
           "weight": number or null (actual weight in KG if item is priced per KG, otherwise null),
           "unit_price": number (price per unit — if priced per KG this is the price per KG),
           "total": number (the total amount from the invoice for this line item)
@@ -60,7 +66,7 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
 
 Rules:
 - CRITICAL: Look for ALL separate invoices in the document. Different invoice numbers or dates mean different invoices.
-- CRITICAL: ALL text output MUST be in English. Translate any Chinese or non-English text to English.
+- CRITICAL: The "unit" field must NEVER contain Chinese characters. Always use English unit names.
 - All number fields should be numeric (no currency symbols, no commas)
 - If a field is not found, use "" for strings, 0 for numbers, null for weight
 - For venue: look for "Assembly" or "Caliente" in the billing/delivery address. "Knutsford Terrace" = Caliente, "Assembly" = Assembly
