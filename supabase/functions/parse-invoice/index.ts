@@ -89,7 +89,8 @@ Rules:
 - Use the TOTAL AMOUNT column from the invoice as the "total" field — do NOT recalculate it`;
 
     const requestBody = JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-2.5-flash",
+      max_tokens: 16000,
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -115,6 +116,8 @@ Rules:
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
         const response = await fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -124,8 +127,10 @@ Rules:
               "Content-Type": "application/json",
             },
             body: requestBody,
+            signal: controller.signal,
           }
         );
+        clearTimeout(timeout);
 
         if (!response.ok) {
           const statusCode = response.status;
