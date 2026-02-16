@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Eye, Search, Trash2 } from "lucide-react";
+import { Plus, Eye, Search, Trash2, ScanLine, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -22,8 +24,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Invoices() {
-  const { invoices, suppliers, categories, loading, fetchLineItems, createInvoice, updateInvoiceStatus, createSupplier, createCategory } = useInvoiceData();
+  const { invoices, suppliers, categories, loading, fetchLineItems, createInvoice, updateInvoiceStatus, createSupplier, createCategory, fetchAll } = useInvoiceData();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
@@ -35,11 +38,12 @@ export default function Invoices() {
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("invoices");
+  const [scanning, setScanning] = useState(false);
 
   // New invoice form
   const [newInv, setNewInv] = useState({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "" });
-  const [newLines, setNewLines] = useState<{ description: string; category_id: string; quantity: string; unit: string; unit_price: string; tax_amount: string }[]>([
-    { description: "", category_id: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" },
+  const [newLines, setNewLines] = useState<{ description: string; quantity: string; unit: string; unit_price: string; tax_amount: string }[]>([
+    { description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" },
   ]);
 
   // Supplier form
@@ -71,7 +75,7 @@ export default function Invoices() {
       const qty = parseFloat(l.quantity) || 0;
       const price = parseFloat(l.unit_price) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
-      return { description: l.description, category_id: l.category_id || null, quantity: qty, unit: l.unit || null, unit_price: price, tax_amount: tax, total: qty * price + tax, notes: null };
+      return { description: l.description, category_id: null, quantity: qty, unit: l.unit || null, unit_price: price, tax_amount: tax, total: qty * price + tax, notes: null };
     });
     const subtotal = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
@@ -81,11 +85,15 @@ export default function Invoices() {
       lines
     );
     setCreateOpen(false);
-    setNewInv({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "" });
-    setNewLines([{ description: "", category_id: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
+    resetForm();
   };
 
-  const addLine = () => setNewLines([...newLines, { description: "", category_id: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
+  const resetForm = () => {
+    setNewInv({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "" });
+    setNewLines([{ description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
+  };
+
+  const addLine = () => setNewLines([...newLines, { description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
   const removeLine = (i: number) => setNewLines(newLines.filter((_, idx) => idx !== i));
   const updateLine = (i: number, field: string, value: string) => {
     const updated = [...newLines];
@@ -106,6 +114,81 @@ export default function Invoices() {
     setNewCatName("");
   };
 
+  // Invoice Scanner
+  const handleScanInvoice = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Max 10MB", variant: "destructive" });
+      return;
+    }
+
+    setScanning(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("parse-invoice", {
+        body: { fileBase64: base64, mimeType: file.type },
+      });
+
+      if (error || !data?.success) {
+        toast({ title: "Scan failed", description: data?.error || error?.message || "Could not process invoice", variant: "destructive" });
+        return;
+      }
+
+      const extracted = data.data;
+
+      // Try to find or auto-create supplier
+      let supplierId = "";
+      if (extracted.supplier_name) {
+        const existing = suppliers.find((s) => s.name.toLowerCase() === extracted.supplier_name.toLowerCase());
+        if (existing) {
+          supplierId = existing.id;
+        } else {
+          const created = await createSupplier({ name: extracted.supplier_name, contact_person: null, email: null, phone: null, address: null, notes: null, is_active: true });
+          if (created) supplierId = (created as any).id;
+        }
+      }
+
+      // Populate form
+      setNewInv({
+        supplier_id: supplierId,
+        venue: extracted.venue || "Assembly",
+        invoice_number: extracted.invoice_number || "",
+        invoice_date: extracted.invoice_date || "",
+        due_date: "",
+        notes: extracted.notes || "",
+      });
+
+      const scannedLines = (extracted.line_items || []).map((li: any) => ({
+        description: li.description || "",
+        quantity: String(li.quantity || 1),
+        unit: li.unit || "",
+        unit_price: String(li.unit_price || 0),
+        tax_amount: "0",
+      }));
+
+      setNewLines(scannedLines.length > 0 ? scannedLines : [{ description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
+      setCreateOpen(true);
+
+      toast({ title: "Invoice scanned", description: `Found ${scannedLines.length} line items from ${extracted.supplier_name || "unknown supplier"}` });
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to scan invoice", variant: "destructive" });
+    } finally {
+      setScanning(false);
+      e.target.value = "";
+    }
+  }, [suppliers, createSupplier, toast]);
+
   if (loading) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>;
 
   return (
@@ -115,7 +198,16 @@ export default function Invoices() {
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" variant="outline" onClick={() => setCategoryDialogOpen(true)}>+ Category</Button>
           <Button size="sm" variant="outline" onClick={() => setSupplierDialogOpen(true)}>+ Supplier</Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" />New Invoice</Button>
+          <label>
+            <Button size="sm" variant="outline" asChild disabled={scanning}>
+              <span className="cursor-pointer">
+                {scanning ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ScanLine className="h-4 w-4 mr-1" />}
+                {scanning ? "Scanning..." : "Scan Invoice"}
+              </span>
+            </Button>
+            <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleScanInvoice} disabled={scanning} />
+          </label>
+          <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true); }}><Plus className="h-4 w-4 mr-1" />New Invoice</Button>
         </div>
       </div>
 
@@ -162,7 +254,7 @@ export default function Invoices() {
                   <TableHead>Venue</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Due</TableHead>
-                  <TableHead>Total</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -177,7 +269,7 @@ export default function Invoices() {
                     <TableCell>{inv.venue}</TableCell>
                     <TableCell>{inv.invoice_date}</TableCell>
                     <TableCell>{inv.due_date || "—"}</TableCell>
-                    <TableCell className="font-mono">{Number(inv.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right font-mono">{Number(inv.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                     <TableCell><Badge className={STATUS_COLORS[inv.status] || ""}>{inv.status}</Badge></TableCell>
                     <TableCell><Eye className="h-4 w-4 text-muted-foreground" /></TableCell>
                   </TableRow>
@@ -271,23 +363,21 @@ export default function Invoices() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Description</TableHead>
-                        <TableHead>Category</TableHead>
                         <TableHead className="text-right">Qty</TableHead>
+                        <TableHead>Unit</TableHead>
                         <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right">Tax</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {lineItems.length === 0 ? (
-                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No line items</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No line items</TableCell></TableRow>
                       ) : lineItems.map((li) => (
                         <TableRow key={li.id}>
                           <TableCell>{li.description}</TableCell>
-                          <TableCell>{li.category_name || "—"}</TableCell>
                           <TableCell className="text-right font-mono">{li.quantity}</TableCell>
+                          <TableCell>{li.unit || "—"}</TableCell>
                           <TableCell className="text-right font-mono">{Number(li.unit_price).toFixed(2)}</TableCell>
-                          <TableCell className="text-right font-mono">{Number(li.tax_amount).toFixed(2)}</TableCell>
                           <TableCell className="text-right font-mono font-medium">{Number(li.total).toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
@@ -344,17 +434,10 @@ export default function Invoices() {
             <h3 className="text-sm font-semibold">Line Items</h3>
             <div className="space-y-2">
               {newLines.map((line, i) => (
-                <div key={i} className="grid grid-cols-[1fr_120px_60px_60px_80px_80px_32px] gap-2 items-end">
+                <div key={i} className="grid grid-cols-[1fr_70px_70px_90px_90px_32px] gap-2 items-end">
                   <div>
                     {i === 0 && <Label className="text-xs">Description</Label>}
                     <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item description" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Category</Label>}
-                    <Select value={line.category_id} onValueChange={(v) => updateLine(i, "category_id", v)}>
-                      <SelectTrigger className="text-xs"><SelectValue placeholder="Cat." /></SelectTrigger>
-                      <SelectContent>{categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                    </Select>
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Qty</Label>}
@@ -378,6 +461,14 @@ export default function Invoices() {
                 </div>
               ))}
               <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
+            </div>
+
+            {/* Running total */}
+            <div className="text-right text-sm border-t pt-2">
+              <span className="text-muted-foreground">Subtotal: </span>
+              <span className="font-mono font-medium">
+                {newLines.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
           <DialogFooter>
