@@ -58,7 +58,7 @@ interface InvoiceScannerProps {
     tax_amount: number;
     total: number;
     notes: null;
-  }[]) => Promise<any>;
+  }[], file?: File | null) => Promise<any>;
   onCreateSupplier: (supplier: Omit<Supplier, "id">) => Promise<any>;
   onClose: () => void;
   userId: string;
@@ -74,6 +74,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
   const [saving, setSaving] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -121,6 +122,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     setInvoices([]);
     setCurrentIdx(0);
     setSavedCount(0);
+    setOriginalFile(file);
     batchCreatedSuppliers.current.clear();
 
     try {
@@ -264,7 +266,8 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         due_date: inv.due_date || null,
         notes: inv.notes || null,
       },
-      lines
+      lines,
+      originalFile
     );
     return true;
   };

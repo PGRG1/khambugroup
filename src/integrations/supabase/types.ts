@@ -369,6 +369,8 @@ export type Database = {
           created_at: string
           due_date: string | null
           entered_by: string
+          file_name: string | null
+          file_url: string | null
           id: string
           invoice_date: string
           invoice_number: string
@@ -385,6 +387,8 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           entered_by: string
+          file_name?: string | null
+          file_url?: string | null
           id?: string
           invoice_date: string
           invoice_number: string
@@ -401,6 +405,8 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           entered_by?: string
+          file_name?: string | null
+          file_url?: string | null
           id?: string
           invoice_date?: string
           invoice_number?: string
