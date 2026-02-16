@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 interface ScannedLineItem {
   description: string;
@@ -86,7 +86,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
 
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
-      toast({ title: "File too large", description: "Maximum 20MB allowed.", variant: "destructive" });
+      toast({ title: "File too large", description: "Maximum 100MB allowed.", variant: "destructive" });
       return;
     }
     const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -307,7 +307,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
           <p className="text-sm text-muted-foreground">
             Drop your invoice PDF here or <span className="text-primary font-medium">click to browse</span>
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF with multiple invoices (max 20MB)</p>
+          <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF with multiple invoices (max 100MB)</p>
         </div>
       )}
 
