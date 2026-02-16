@@ -72,6 +72,8 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       if (caps?.zoom) {
         setZoomRange({ min: caps.zoom.min, max: caps.zoom.max });
         setZoomLevel(caps.zoom.min);
+        // Reset zoom to minimum (widest angle)
+        await (track as any).applyConstraints({ advanced: [{ zoom: caps.zoom.min }] }).catch(() => {});
       } else {
         setZoomRange(null);
         setZoomLevel(1);
@@ -466,7 +468,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           autoPlay
           playsInline
           muted
-          className={`w-full h-full object-cover transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
+          className={`w-full h-full object-contain transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
         />
 
         {/* Zoom indicator */}
