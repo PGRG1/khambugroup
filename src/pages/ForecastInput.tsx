@@ -414,24 +414,28 @@ const ForecastInput = () => {
                         <td className="py-2.5 px-2 text-center font-semibold">{f.forecastedTotalSales ? formatCurrency(f.forecastedTotalSales) : "—"}</td>
                         <td className="py-2.5 px-2 text-center font-semibold">{f.actualTotalSales !== null ? formatCurrency(f.actualTotalSales) : "—"}</td>
                         <td className="py-2.5 px-2 text-center"><VarianceIndicator value={f.totalSalesVariance} /></td>
-                        <td className="py-2.5 px-2 text-xs text-muted-foreground max-w-[150px] truncate" title={f.comment}>
+                        <td className="py-2.5 px-2 text-xs text-muted-foreground min-w-[180px] max-w-[250px]" title={f.comment}>
                           {isEditing ? (
-                            <input type="text" value={editData.comment ?? ""} onChange={(e) => setEditData({ ...editData, comment: e.target.value })}
-                              className="w-full px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground" />
-                          ) : (f.comment || "—")}
+                            <textarea value={editData.comment ?? ""} onChange={(e) => setEditData({ ...editData, comment: e.target.value })}
+                              rows={3} className="w-full px-2 py-1.5 text-xs rounded border border-border bg-background text-foreground resize-y min-h-[60px]" placeholder="General comment..." />
+                          ) : (
+                            <span className="line-clamp-2">{f.comment || "—"}</span>
+                          )}
                         </td>
-                        <td className="py-2.5 px-2 text-xs text-muted-foreground max-w-[150px] truncate" title={f.forecastNotes}>
+                        <td className="py-2.5 px-2 text-xs text-muted-foreground min-w-[180px] max-w-[250px]" title={f.forecastNotes}>
                           {isEditing && (isApprover || !isLocked) ? (
-                            <input type="text" value={editData.forecastNotes ?? ""} onChange={(e) => setEditData({ ...editData, forecastNotes: e.target.value })}
-                              className="w-full px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground" />
-                          ) : (f.forecastNotes || "—")}
+                            <textarea value={editData.forecastNotes ?? ""} onChange={(e) => setEditData({ ...editData, forecastNotes: e.target.value })}
+                              rows={3} className="w-full px-2 py-1.5 text-xs rounded border border-border bg-background text-foreground resize-y min-h-[60px]" placeholder="Pre-event notes..." />
+                          ) : (
+                            <span className="line-clamp-2">{f.forecastNotes || "—"}</span>
+                          )}
                         </td>
-                        <td className="py-2.5 px-2 text-xs max-w-[150px]">
+                        <td className="py-2.5 px-2 text-xs min-w-[180px] max-w-[250px]">
                           {isEditing ? (
                             <div>
-                              <input type="text" value={editData.postEventNotes ?? ""} onChange={(e) => setEditData({ ...editData, postEventNotes: e.target.value })}
-                                className="w-full px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground" />
-                              {isLocked && <span className="text-[9px] text-amber-500">Will need approval</span>}
+                              <textarea value={editData.postEventNotes ?? ""} onChange={(e) => setEditData({ ...editData, postEventNotes: e.target.value })}
+                                rows={3} className="w-full px-2 py-1.5 text-xs rounded border border-border bg-background text-foreground resize-y min-h-[60px]" placeholder="Post-event notes..." />
+                              {isLocked && <span className="text-[9px] text-amber-500 mt-1 block">Will need approval</span>}
                             </div>
                           ) : (
                             <div>
@@ -468,7 +472,7 @@ const ForecastInput = () => {
                                     </>
                                   )}
                                   {/* Edit - always available for approver, limited for others */}
-                                  {(isApprover || !isLocked || true) && (
+                                  {(isApprover || !isLocked || f.status === "approved") && (
                                     <button onClick={() => startEdit(f)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground" title={isLocked ? "Edit comment & post-event notes" : "Edit"}><Pencil className="h-3.5 w-3.5" /></button>
                                   )}
                                   {/* Delete - admin only */}
