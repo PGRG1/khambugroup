@@ -36,6 +36,8 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const [cropDragging, setCropDragging] = useState(false);
   const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
 
+  const pendingStreamRef = useRef<MediaStream | null>(null);
+
   const startCamera = useCallback(async (facing: "environment" | "user") => {
     try {
       if (stream) {
@@ -49,31 +51,14 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           audio: false,
         });
       } catch {
-        // Fallback: request any camera if the preferred one fails
         mediaStream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1920 }, height: { ideal: 2560 } },
           audio: false,
         });
       }
 
+      pendingStreamRef.current = mediaStream;
       setStream(mediaStream);
-      if (videoRef.current) {
-        const video = videoRef.current;
-        video.srcObject = mediaStream;
-        // Wait for video metadata to load before playing
-        await new Promise<void>((resolve) => {
-          const onReady = () => {
-            video.removeEventListener("loadedmetadata", onReady);
-            resolve();
-          };
-          if (video.readyState >= 1) {
-            resolve();
-          } else {
-            video.addEventListener("loadedmetadata", onReady);
-          }
-        });
-        try { await video.play(); } catch {}
-      }
       setCameraActive(true);
       setError(null);
 
@@ -87,6 +72,32 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       setError("Could not access camera. Please ensure camera permissions are granted.");
     }
   }, [stream]);
+
+  // Attach stream to video element whenever stream or video ref changes
+  useEffect(() => {
+    const video = videoRef.current;
+    const mediaStream = pendingStreamRef.current || stream;
+    if (!video || !mediaStream) return;
+
+    video.srcObject = mediaStream;
+    pendingStreamRef.current = null;
+
+    const playVideo = async () => {
+      await new Promise<void>((resolve) => {
+        if (video.readyState >= 1) {
+          resolve();
+        } else {
+          const onReady = () => {
+            video.removeEventListener("loadedmetadata", onReady);
+            resolve();
+          };
+          video.addEventListener("loadedmetadata", onReady);
+        }
+      });
+      try { await video.play(); } catch {}
+    };
+    playVideo();
+  }, [stream, cameraActive]);
 
   useEffect(() => {
     startCamera(facingMode);
