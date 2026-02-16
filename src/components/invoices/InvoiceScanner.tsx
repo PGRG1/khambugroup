@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import ReactDOM from "react-dom";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 import InvoiceCamera from "./InvoiceCamera";
 import { supabase } from "@/integrations/supabase/client";
@@ -353,16 +354,19 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         </button>
       </div>
 
-      {/* Camera mode */}
-      {showCamera && !scanning && invoices.length === 0 && (
-        <InvoiceCamera
-          onCapture={(file) => {
-            setShowCamera(false);
-            processFile(file);
-          }}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
+      {/* Camera mode — rendered via portal to escape parent clipping */}
+      {showCamera && !scanning && invoices.length === 0 &&
+        ReactDOM.createPortal(
+          <InvoiceCamera
+            onCapture={(file) => {
+              setShowCamera(false);
+              processFile(file);
+            }}
+            onClose={() => setShowCamera(false)}
+          />,
+          document.body
+        )
+      }
 
       {/* Drop zone */}
       {invoices.length === 0 && !scanning && !showCamera && (
