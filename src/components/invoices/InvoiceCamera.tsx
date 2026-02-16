@@ -29,8 +29,6 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const [processing, setProcessing] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [zoomRange, setZoomRange] = useState<{ min: number; max: number } | null>(null);
 
   // Crop state — shown right after capture
   const [cropMode, setCropMode] = useState(false);
@@ -69,15 +67,6 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       const caps = track.getCapabilities?.() as any;
       setTorchSupported(!!caps?.torch);
       setTorchOn(false);
-      if (caps?.zoom) {
-        setZoomRange({ min: caps.zoom.min, max: caps.zoom.max });
-        setZoomLevel(caps.zoom.min);
-        // Reset zoom to minimum (widest angle)
-        await (track as any).applyConstraints({ advanced: [{ zoom: caps.zoom.min }] }).catch(() => {});
-      } else {
-        setZoomRange(null);
-        setZoomLevel(1);
-      }
       setError(null);
     } catch (err) {
       console.error("Camera error:", err);
@@ -112,62 +101,6 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     setTorchOn(false);
     startCamera(next);
   };
-  // Pinch-to-zoom using native event listeners (passive: false to prevent browser zoom)
-  const lastPinchDist = useRef<number | null>(null);
-  const viewfinderRef = useRef<HTMLDivElement>(null);
-  const zoomLevelRef = useRef(1);
-  const zoomRangeRef = useRef<{ min: number; max: number } | null>(null);
-
-  // Keep refs in sync
-  useEffect(() => { zoomLevelRef.current = zoomLevel; }, [zoomLevel]);
-  useEffect(() => { zoomRangeRef.current = zoomRange; }, [zoomRange]);
-
-  useEffect(() => {
-    const el = viewfinderRef.current;
-    if (!el) return;
-
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        lastPinchDist.current = Math.hypot(dx, dy);
-      }
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length !== 2 || !zoomRangeRef.current || lastPinchDist.current === null) return;
-      e.preventDefault();
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.hypot(dx, dy);
-      const delta = (dist - lastPinchDist.current) * 0.02;
-      lastPinchDist.current = dist;
-
-      const range = zoomRangeRef.current;
-      const maxUsable = Math.min(range.max, 10);
-      const newZoom = Math.min(maxUsable, Math.max(range.min, zoomLevelRef.current + delta));
-      if (!streamRef.current) return;
-      const track = streamRef.current.getVideoTracks()[0];
-      (track as any).applyConstraints({ advanced: [{ zoom: newZoom }] }).catch(() => {});
-      zoomLevelRef.current = newZoom;
-      setZoomLevel(newZoom);
-    };
-
-    const onTouchEnd = () => {
-      lastPinchDist.current = null;
-    };
-
-    el.addEventListener("touchstart", onTouchStart, { passive: false });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd);
-
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-    };
-  }, []);
 
   const toggleTorch = useCallback(async () => {
     if (!streamRef.current) return;
@@ -476,11 +409,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       )}
 
       {/* Camera viewfinder — takes all available space */}
-      <div
-        ref={viewfinderRef}
-        className="flex-1 relative overflow-hidden"
-        style={{ touchAction: "none" }}
-      >
+      <div className="flex-1 relative overflow-hidden">
         {!cameraReady && !error && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex flex-col items-center gap-2 text-white/60">
@@ -496,13 +425,6 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           muted
           className={`w-full h-full object-cover touch-none transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
         />
-
-        {/* Zoom indicator — always visible like normal camera */}
-        {cameraReady && zoomRange && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/50 rounded-full px-3 py-1 z-10">
-            <span className="text-white text-xs font-medium">{zoomLevel.toFixed(1)}x</span>
-          </div>
-        )}
 
         {/* Shutter + controls overlay at bottom of viewfinder */}
         {cameraReady && (
