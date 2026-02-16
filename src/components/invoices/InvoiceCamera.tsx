@@ -450,18 +450,15 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
             <div className="h-12 w-12 rounded-full bg-white" />
           </button>
 
-          {torchSupported ? (
-            <button
-              onClick={toggleTorch}
-              className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${
-                torchOn ? "bg-yellow-400 text-black" : "bg-black/50 text-white hover:bg-black/70"
-              }`}
-            >
-              <Flashlight className="h-5 w-5" />
-            </button>
-          ) : (
-            <div className="w-10" />
-          )}
+          <button
+            onClick={toggleTorch}
+            disabled={!torchSupported}
+            className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${
+              torchOn ? "bg-yellow-400 text-black" : torchSupported ? "bg-black/50 text-white hover:bg-black/70" : "bg-black/30 text-white/40"
+            }`}
+          >
+            <Flashlight className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
