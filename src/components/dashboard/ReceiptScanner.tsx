@@ -174,6 +174,22 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     });
   };
 
+  // Auto-calculated validation
+  const calcTotalSales = extractedData
+    ? extractedData.subtotal + extractedData.serviceCharge - extractedData.discount
+    : 0;
+  const calcPaymentTotal = extractedData
+    ? extractedData.visa + extractedData.mastercard + extractedData.amex +
+      extractedData.unionPay + extractedData.alipay + extractedData.wechat + extractedData.cash
+    : 0;
+
+  const totalSalesMismatch = extractedData
+    ? Math.abs(extractedData.totalSales - calcTotalSales) > 0.01
+    : false;
+  const paymentMismatch = extractedData
+    ? Math.abs(calcPaymentTotal - extractedData.totalSales) > 0.01
+    : false;
+
   const handleSave = async () => {
     if (!extractedData) return;
     if (!extractedData.date) {
@@ -294,7 +310,36 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                 onChange={(e) => handleFieldChange("reportNumber", e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
+          </div>
+
+          {/* Validation warnings */}
+          {(totalSalesMismatch || paymentMismatch) && (
+            <div className="space-y-2">
+              {totalSalesMismatch && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
+                  <span className="text-destructive font-semibold shrink-0">⚠</span>
+                  <div>
+                    <span className="font-medium text-destructive">Total Sales mismatch:</span>{" "}
+                    <span className="text-foreground">
+                      Subtotal ({extractedData!.subtotal.toFixed(2)}) + Service Charge ({extractedData!.serviceCharge.toFixed(2)}) − Discount ({extractedData!.discount.toFixed(2)}) ={" "}
+                      <strong>{calcTotalSales.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
+                    </span>
+                  </div>
+                </div>
+              )}
+              {paymentMismatch && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
+                  <span className="text-destructive font-semibold shrink-0">⚠</span>
+                  <div>
+                    <span className="font-medium text-destructive">Payment total mismatch:</span>{" "}
+                    <span className="text-foreground">
+                      Sum of payments = <strong>{calcPaymentTotal.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
+          )}
             {/* Number fields */}
             {numberFields.map((field) => (
               <div key={field}>
