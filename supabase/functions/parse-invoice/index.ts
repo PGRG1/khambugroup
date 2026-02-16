@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You are an invoice data extractor for a restaurant/bar business (Assembly and Caliente venues in Hong Kong). A single document may contain MULTIPLE invoices (different dates, different invoice numbers, possibly from the same or different suppliers). You must extract ALL invoices found in the document.
 
-IMPORTANT: ALL output text MUST be in English. If the document contains Chinese (Traditional or Simplified) or any other non-English language, translate ALL text fields (supplier names, item descriptions, notes, addresses, units, etc.) into English before returning them. Keep proper nouns, brand names, and product names in their commonly used English form where possible.
+IMPORTANT: ALL output text MUST be in English EXCEPT supplier names — keep supplier names exactly as they appear on the invoice (including Chinese characters). For all other text fields (item descriptions, notes, addresses, units, etc.), translate any Chinese or non-English text into English. Keep brand names and product names in their commonly used English form where possible.
 
 Return ONLY valid JSON with this exact structure — always an array, even if there's only one invoice:
 
