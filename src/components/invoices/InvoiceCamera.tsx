@@ -41,13 +41,26 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 2560 } },
-        audio: false,
-      });
+
+      let mediaStream: MediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 2560 } },
+          audio: false,
+        });
+      } catch {
+        // Fallback: request any camera if the preferred one fails
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1920 }, height: { ideal: 2560 } },
+          audio: false,
+        });
+      }
+
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        // Ensure video actually starts playing
+        try { await videoRef.current.play(); } catch {}
       }
       setCameraActive(true);
       setError(null);
