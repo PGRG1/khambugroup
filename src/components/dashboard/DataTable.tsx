@@ -104,12 +104,18 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   const downloadCSV = () => {
     const headers = ["Date","Day","Venue","Report #","Orders","Guests","Subtotal","Service Charge","Discount","Total Sales","VISA","Mastercard","AMEX","Union Pay","Alipay","WeChat","Cash","Card Tips"];
     const sanitize = (v: string | number) => {
+      // Numbers are safe — output as-is, ensuring discount is always negative
+      if (typeof v === "number") return String(v);
       const s = String(v);
-      // CSV injection prevention: prefix formula chars with single quote
-      if (/^[=+\-@\t\r]/.test(s)) return `'${s}`;
+      // CSV injection prevention: prefix formula chars with single quote (strings only)
+      if (/^[=+@\t\r]/.test(s)) return `'${s}`;
       return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const rows = data.map(r => [r.date,r.day,r.venue,r.reportNumber,r.orders,r.guests,r.subtotal,r.serviceCharge,r.discount,r.totalSales,r.visa,r.mastercard,r.amex,r.unionPay,r.alipay,r.wechat,r.cash,r.cardTips].map(sanitize).join(","));
+    // Standardize discount to always be negative (absolute value made negative)
+    const rows = data.map(r => {
+      const standardized = { ...r, discount: -Math.abs(r.discount) };
+      return [standardized.date,standardized.day,standardized.venue,standardized.reportNumber,standardized.orders,standardized.guests,standardized.subtotal,standardized.serviceCharge,standardized.discount,standardized.totalSales,standardized.visa,standardized.mastercard,standardized.amex,standardized.unionPay,standardized.alipay,standardized.wechat,standardized.cash,standardized.cardTips].map(sanitize).join(",");
+    });
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
