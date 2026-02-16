@@ -19,6 +19,7 @@ export default function Inventory() {
   const [editingStock, setEditingStock] = useState<Record<string, string>>({});
   const [editMode, setEditMode] = useState(false);
   const [venueFilter, setVenueFilter] = useState("Assembly");
+  const [itemWeights, setItemWeights] = useState<Record<string, number>>({});
 
   // Period detail
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
@@ -36,6 +37,29 @@ export default function Inventory() {
   const [purchaseDateTo, setPurchaseDateTo] = useState("");
   const [purchases, setPurchases] = useState<any[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(false);
+
+  // Fetch total weight per item from invoice line items
+  useEffect(() => {
+    const fetchWeights = async () => {
+      const { data } = await supabase
+        .from("invoice_line_items")
+        .select("description, weight");
+      if (!data) return;
+      const weightMap: Record<string, number> = {};
+      for (const li of data as any[]) {
+        const desc = (li.description || "").trim().toLowerCase();
+        if (!desc) continue;
+        const matchedItem = items.find((i) => i.name.trim().toLowerCase() === desc);
+        if (!matchedItem) continue;
+        const w = Number(li.weight) || 0;
+        if (w > 0) {
+          weightMap[matchedItem.id] = (weightMap[matchedItem.id] || 0) + w;
+        }
+      }
+      setItemWeights(weightMap);
+    };
+    if (items.length > 0) fetchWeights();
+  }, [items]);
 
   const fetchPurchases = useCallback(async () => {
     if (!purchaseDateFrom || !purchaseDateTo) return;
@@ -234,20 +258,23 @@ export default function Inventory() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Unit Size</TableHead>
-                  <TableHead className="text-right">Qty On Hand</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead className="text-right">Par Level</TableHead>
+                   <TableHead>Item</TableHead>
+                   <TableHead>Category</TableHead>
+                   <TableHead>Unit Size</TableHead>
+                   <TableHead className="text-right">Qty On Hand</TableHead>
+                   <TableHead>Unit</TableHead>
+                   <TableHead className="text-right">Total Weight (KG)</TableHead>
+                   <TableHead className="text-right">Par Level</TableHead>
+                   <TableHead>Status</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.filter((i) => i.is_active).length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No items yet. Add items using the "Add Item" button above.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No items yet. Add items using the "Add Item" button above.</TableCell></TableRow>
                 ) : items.filter((i) => i.is_active).map((item) => {
                   const belowPar = item.par_level !== null && item.current_qty < item.par_level;
+                  const totalWeight = itemWeights[item.id];
                   return (
                     <TableRow key={item.id} className={belowPar ? "bg-destructive/5" : ""}>
                       <TableCell className="font-medium">{item.name}</TableCell>
@@ -261,6 +288,7 @@ export default function Inventory() {
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{item.unit_of_measure}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{totalWeight ? `${totalWeight.toFixed(2)} KG` : "—"}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{item.par_level ?? "—"}</TableCell>
                       <TableCell>
                         {belowPar ? (
