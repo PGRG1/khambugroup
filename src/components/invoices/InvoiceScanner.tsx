@@ -259,6 +259,19 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null };
     });
 
+    // Build professional file name: YYYYMMDD_vendorname_invoice#
+    const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
+    const vendorName = (suppliers.find((s) => s.id === inv.supplier_id)?.name || "unknown")
+      .trim().replace(/[^a-zA-Z0-9\u4e00-\u9fff]+/g, "_").replace(/_+$/, "");
+    const invNum = (inv.invoice_number || "no-number").trim().replace(/[^a-zA-Z0-9]+/g, "_");
+    const professionalName = `${dateStr}_${vendorName}_${invNum}`;
+
+    let fileToSave = originalFile;
+    if (originalFile) {
+      const ext = originalFile.name.split(".").pop() || "jpg";
+      fileToSave = new File([originalFile], `${professionalName}.${ext}`, { type: originalFile.type });
+    }
+
     await onSave(
       {
         supplier_id: inv.supplier_id,
@@ -269,7 +282,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         notes: inv.notes || null,
       },
       lines,
-      originalFile
+      fileToSave
     );
     return true;
   };
