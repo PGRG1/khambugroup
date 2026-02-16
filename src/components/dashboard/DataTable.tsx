@@ -25,7 +25,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [searchQuery, setSearchQuery] = useState("");
-  const [venueFilter, setVenueFilter] = useState<"All" | "Assembly" | "Caliente">("All");
+  const [venueFilter, setVenueFilter] = useState<"All" | "Assembly" | "Caliente" | "Hanabi">("All");
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -181,7 +181,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
           />
         </div>
         <div className="flex items-center gap-1">
-          {(["All", "Assembly", "Caliente"] as const).map(v => (
+          {(["All", "Assembly", "Caliente", "Hanabi"] as const).map(v => (
             <button
               key={v}
               onClick={() => { setVenueFilter(v); setPage(0); }}

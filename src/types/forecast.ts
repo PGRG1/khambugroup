@@ -4,7 +4,7 @@ export interface ForecastRecord {
   id: string;
   date: string;
   day: string;
-  venue: "Assembly" | "Caliente";
+  venue: "Assembly" | "Caliente" | "Hanabi";
   forecastedCustomers: number;
   forecastedAvgSpend: number;
   forecastedGrossSales: number;

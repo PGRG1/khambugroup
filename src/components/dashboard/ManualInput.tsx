@@ -86,6 +86,7 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             >
               <option value="Assembly">Assembly</option>
               <option value="Caliente">Caliente</option>
+              <option value="Hanabi">Hanabi</option>
             </select>
           </div>
           <div>

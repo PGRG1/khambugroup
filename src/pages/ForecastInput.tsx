@@ -128,7 +128,7 @@ const ForecastInput = () => {
     const success = await addForecast({
       date,
       day: getDayFromDate(date),
-      venue: venueName as "Assembly" | "Caliente",
+      venue: venueName as "Assembly" | "Caliente" | "Hanabi",
       forecastedCustomers: customers,
       forecastedAvgSpend: avgSpend,
       forecastedGrossSales: calc.grossSales,
