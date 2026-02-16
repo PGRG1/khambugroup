@@ -125,13 +125,16 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
 
   const handleViewfinderTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length !== 2 || !zoomRange || lastPinchDist.current === null) return;
+    e.preventDefault();
     const dx = e.touches[0].clientX - e.touches[1].clientX;
     const dy = e.touches[0].clientY - e.touches[1].clientY;
     const dist = Math.hypot(dx, dy);
-    const delta = (dist - lastPinchDist.current) * 0.01;
+    const delta = (dist - lastPinchDist.current) * 0.02;
     lastPinchDist.current = dist;
 
-    const newZoom = Math.min(zoomRange.max, Math.max(zoomRange.min, zoomLevel + delta * (zoomRange.max - zoomRange.min)));
+    // Cap usable zoom at 10x or device max, whichever is smaller
+    const maxUsable = Math.min(zoomRange.max, 10);
+    const newZoom = Math.min(maxUsable, Math.max(zoomRange.min, zoomLevel + delta));
     if (!streamRef.current) return;
     const track = streamRef.current.getVideoTracks()[0];
     (track as any).applyConstraints({ advanced: [{ zoom: newZoom }] }).catch(() => {});
@@ -450,7 +453,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
 
       {/* Camera viewfinder — takes all available space */}
       <div
-        className="flex-1 relative overflow-hidden touch-none"
+        className="flex-1 relative overflow-hidden"
         onTouchStart={handleViewfinderTouchStart}
         onTouchMove={handleViewfinderTouchMove}
         onTouchEnd={handleViewfinderTouchEnd}
@@ -468,11 +471,11 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           autoPlay
           playsInline
           muted
-          className={`w-full h-full object-cover transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
+          className={`w-full h-full object-cover touch-none transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
         />
 
-        {/* Zoom indicator */}
-        {cameraReady && zoomRange && zoomLevel > zoomRange.min + 0.05 && (
+        {/* Zoom indicator — always visible like normal camera */}
+        {cameraReady && zoomRange && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/50 rounded-full px-3 py-1 z-10">
             <span className="text-white text-xs font-medium">{zoomLevel.toFixed(1)}x</span>
           </div>
