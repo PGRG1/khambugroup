@@ -91,12 +91,12 @@ Rules:
     });
 
     const MAX_RETRIES = 3;
-    let response: Response | null = null;
+    let extractedData: any = null;
     let lastError = "";
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        response = await fetch(
+        const response = await fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
             method: "POST",
@@ -108,42 +108,62 @@ Rules:
           }
         );
 
-        if (response.ok) break;
-
-        const statusCode = response.status;
-        if (statusCode === 429) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again in a moment." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        if (statusCode === 402) {
-          return new Response(
-            JSON.stringify({ success: false, error: "AI credits exhausted." }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        // Retry on 503 (service unavailable) or 500
-        if ((statusCode === 503 || statusCode === 500) && attempt < MAX_RETRIES - 1) {
+        if (!response.ok) {
+          const statusCode = response.status;
+          if (statusCode === 429) {
+            return new Response(
+              JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again in a moment." }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (statusCode === 402) {
+            return new Response(
+              JSON.stringify({ success: false, error: "AI credits exhausted." }),
+              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
           const errText = await response.text();
           console.error(`AI gateway error (attempt ${attempt + 1}):`, statusCode, errText);
-          lastError = errText;
-          // Wait before retry: 2s, 4s
-          await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
-          response = null;
-          continue;
+          lastError = `HTTP ${statusCode}: ${errText}`;
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+            continue;
+          }
+          return new Response(
+            JSON.stringify({ success: false, error: "AI service temporarily unavailable. Please try again in a moment." }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
 
-        const errText = await response.text();
-        console.error("AI gateway error:", statusCode, errText);
-        return new Response(
-          JSON.stringify({ success: false, error: "AI service temporarily unavailable. Please try again in a moment." }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } catch (fetchErr) {
-        console.error(`Fetch error (attempt ${attempt + 1}):`, fetchErr);
-        lastError = String(fetchErr);
+        // Parse gateway response
+        const responseText = await response.text();
+        if (!responseText) {
+          console.error(`Empty response (attempt ${attempt + 1})`);
+          lastError = "Empty response";
+          if (attempt < MAX_RETRIES - 1) {
+            await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+            continue;
+          }
+          return new Response(
+            JSON.stringify({ success: false, error: "AI returned empty response. Try a smaller or clearer image." }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const aiData = JSON.parse(responseText);
+        const content = aiData.choices?.[0]?.message?.content || "";
+
+        let cleaned = content.trim();
+        if (cleaned.startsWith("```")) {
+          cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        }
+
+        extractedData = JSON.parse(cleaned);
+        // Success — break out of retry loop
+        break;
+      } catch (err) {
+        console.error(`Parse/fetch error (attempt ${attempt + 1}):`, err);
+        lastError = String(err);
         if (attempt < MAX_RETRIES - 1) {
           await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
           continue;
@@ -151,47 +171,11 @@ Rules:
       }
     }
 
-    if (!response || !response.ok) {
+    if (!extractedData) {
       console.error("All retries failed. Last error:", lastError);
       return new Response(
-        JSON.stringify({ success: false, error: "AI service unavailable after retries. Please try again later." }),
+        JSON.stringify({ success: false, error: "Could not extract invoice data after multiple attempts. Please try again or use a clearer image." }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    let aiData;
-    try {
-      const responseText = await response.text();
-      if (!responseText) {
-        return new Response(
-          JSON.stringify({ success: false, error: "AI returned empty response. The file may be too large — try a smaller or clearer image." }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      aiData = JSON.parse(responseText);
-    } catch (parseErr) {
-      console.error("Failed to parse AI gateway response:", parseErr);
-      return new Response(
-        JSON.stringify({ success: false, error: "AI response was incomplete. Try a smaller file or re-scan." }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const content = aiData.choices?.[0]?.message?.content || "";
-
-    let cleaned = content.trim();
-    if (cleaned.startsWith("```")) {
-      cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    }
-
-    let extractedData;
-    try {
-      extractedData = JSON.parse(cleaned);
-    } catch {
-      console.error("Failed to parse AI response:", content);
-      return new Response(
-        JSON.stringify({ success: false, error: "Could not parse invoice data. Please try a clearer image." }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
