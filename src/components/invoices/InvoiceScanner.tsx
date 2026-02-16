@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from "react";
-import ReactDOM from "react-dom";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 import InvoiceCamera from "./InvoiceCamera";
 import { supabase } from "@/integrations/supabase/client";
@@ -342,23 +341,6 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
   const totalInvoices = invoices.length;
   const allSaved = totalInvoices > 0 && invoices.every((inv) => inv?.saved);
 
-  // When camera is active, render only the portal (no scanner card)
-  if (showCamera && !scanning && invoices.length === 0) {
-    return ReactDOM.createPortal(
-      <InvoiceCamera
-        onCapture={(file) => {
-          setShowCamera(false);
-          processFile(file);
-        }}
-        onClose={() => {
-          setShowCamera(false);
-          onClose();
-        }}
-      />,
-      document.body
-    );
-  }
-
   return (
     <div className="card-glass rounded-xl p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
@@ -371,7 +353,16 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         </button>
       </div>
 
-
+      {/* Camera mode */}
+      {showCamera && !scanning && invoices.length === 0 && (
+        <InvoiceCamera
+          onCapture={(file) => {
+            setShowCamera(false);
+            processFile(file);
+          }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
 
       {/* Drop zone */}
       {invoices.length === 0 && !scanning && !showCamera && (
