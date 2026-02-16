@@ -29,10 +29,16 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
     set("day", dayName);
   };
 
+  // Auto-calculate expected total
+  const normalizedDiscount = -Math.abs(form.discount);
+  const expectedTotal = form.subtotal + form.serviceCharge + normalizedDiscount;
+  const totalMismatch = form.totalSales !== 0 && Math.abs(form.totalSales - expectedTotal) > 0.01;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.date || !form.venue) return;
-    onAdd(form);
+    // Normalize discount to negative before saving
+    onAdd({ ...form, discount: normalizedDiscount });
     setForm(emptyRecord);
   };
 
@@ -97,9 +103,18 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
           {numField("Guests", "guests")}
           {numField("Subtotal", "subtotal")}
           {numField("Service Charge", "serviceCharge")}
-          {numField("Discount", "discount")}
+          {numField("Discount (enter as positive)", "discount")}
           {numField("Total Sales", "totalSales")}
         </div>
+        {totalMismatch && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
+            <span className="text-destructive font-semibold shrink-0">⚠</span>
+            <span className="text-foreground">
+              <span className="font-medium text-destructive">Total mismatch:</span>{" "}
+              Subtotal ({form.subtotal}) + Service Charge ({form.serviceCharge}) − Discount ({Math.abs(form.discount)}) = <strong>{expectedTotal}</strong>, but Total Sales is <strong>{form.totalSales}</strong>
+            </span>
+          </div>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {numField("VISA", "visa")}
           {numField("Mastercard", "mastercard")}

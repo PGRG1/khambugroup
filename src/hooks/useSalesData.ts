@@ -13,7 +13,7 @@ function toDbRecord(r: SalesRecord) {
     guests: r.guests,
     subtotal: r.subtotal,
     service_charge: r.serviceCharge,
-    discount: r.discount,
+    discount: -Math.abs(r.discount), // always store as negative
     total_sales: r.totalSales,
     visa: r.visa,
     mastercard: r.mastercard,
@@ -26,6 +26,11 @@ function toDbRecord(r: SalesRecord) {
   };
 }
 
+function normalizeDiscount(val: number): number {
+  // Discount always stored/displayed as negative (it reduces sales)
+  return val > 0 ? -val : val;
+}
+
 function fromDbRecord(r: any): SalesRecord {
   return {
     date: r.date,
@@ -36,7 +41,7 @@ function fromDbRecord(r: any): SalesRecord {
     guests: Number(r.guests),
     subtotal: Number(r.subtotal),
     serviceCharge: Number(r.service_charge),
-    discount: Number(r.discount),
+    discount: normalizeDiscount(Number(r.discount)),
     totalSales: Number(r.total_sales),
     visa: Number(r.visa),
     mastercard: Number(r.mastercard),
