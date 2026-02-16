@@ -47,6 +47,30 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       forecast_approvers: {
         Row: {
           created_at: string
@@ -130,6 +154,259 @@ export type Database = {
           venue?: string
         }
         Relationships: []
+      }
+      inventory_counts: {
+        Row: {
+          beginning_qty: number
+          created_at: string
+          ending_qty: number
+          id: string
+          item_id: string
+          period_id: string
+          purchases_qty: number
+          total_usage_cost: number | null
+          unit_cost: number
+          updated_at: string
+          usage_qty: number | null
+          venue: string
+        }
+        Insert: {
+          beginning_qty?: number
+          created_at?: string
+          ending_qty?: number
+          id?: string
+          item_id: string
+          period_id: string
+          purchases_qty?: number
+          total_usage_cost?: number | null
+          unit_cost?: number
+          updated_at?: string
+          usage_qty?: number | null
+          venue: string
+        }
+        Update: {
+          beginning_qty?: number
+          created_at?: string
+          ending_qty?: number
+          id?: string
+          item_id?: string
+          period_id?: string
+          purchases_qty?: number
+          total_usage_cost?: number | null
+          unit_cost?: number
+          updated_at?: string
+          usage_qty?: number | null
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_counts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_items: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          par_level: number | null
+          unit_of_measure: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          par_level?: number | null
+          unit_of_measure?: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          par_level?: number | null
+          unit_of_measure?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_periods: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          period_end: string
+          period_label: string
+          period_start: string
+          status: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          period_end: string
+          period_label: string
+          period_start: string
+          status?: string
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          period_end?: string
+          period_label?: string
+          period_start?: string
+          status?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: []
+      }
+      invoice_line_items: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          description: string
+          id: string
+          invoice_id: string
+          notes: string | null
+          quantity: number
+          tax_amount: number
+          total: number
+          unit: string | null
+          unit_price: number
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          quantity?: number
+          tax_amount?: number
+          total?: number
+          unit?: string | null
+          unit_price?: number
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          quantity?: number
+          tax_amount?: number
+          total?: number
+          unit?: string | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          created_at: string
+          due_date: string | null
+          entered_by: string
+          id: string
+          invoice_date: string
+          invoice_number: string
+          notes: string | null
+          status: string
+          subtotal: number
+          supplier_id: string
+          tax_amount: number
+          total_amount: number
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          created_at?: string
+          due_date?: string | null
+          entered_by: string
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          notes?: string | null
+          status?: string
+          subtotal?: number
+          supplier_id: string
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string | null
+          entered_by?: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          notes?: string | null
+          status?: string
+          subtotal?: number
+          supplier_id?: string
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       page_visibility: {
         Row: {
@@ -284,6 +561,45 @@ export type Database = {
           venue?: string
           visa?: number
           wechat?: number
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

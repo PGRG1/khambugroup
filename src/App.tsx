@@ -19,6 +19,8 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
 import AccessDenied from "./pages/AccessDenied";
+import Invoices from "./pages/Invoices";
+import Inventory from "./pages/Inventory";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +30,8 @@ const pageKeyMap: Record<string, string> = {
   "/forecast": "forecast",
   "/activity-log": "activity-log",
   "/pl-report": "pl-report",
+  "/invoices": "invoices",
+  "/inventory": "inventory",
 };
 
 const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; pageKey?: string }) => {
@@ -77,6 +81,8 @@ function App() {
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
+                <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
+                <Route path="/inventory" element={<ProtectedRoute pageKey="inventory"><Inventory /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
