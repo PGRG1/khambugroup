@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { Camera, X, RotateCcw, Check, Trash2, Plus, ImageIcon, Flashlight, Crop, ZoomIn } from "lucide-react";
+import { Camera, X, RotateCcw, Check, Trash2, Plus, ImageIcon, Flashlight, Crop, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -29,6 +29,8 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const [processing, setProcessing] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomRange, setZoomRange] = useState<{ min: number; max: number } | null>(null);
 
   // Crop state — shown right after capture
   const [cropMode, setCropMode] = useState(false);
@@ -62,11 +64,18 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       }
       setCameraReady(true);
 
-      // Check torch
+      // Check torch & zoom support
       const track = mediaStream.getVideoTracks()[0];
       const caps = track.getCapabilities?.() as any;
       setTorchSupported(!!caps?.torch);
       setTorchOn(false);
+      if (caps?.zoom) {
+        setZoomRange({ min: caps.zoom.min, max: caps.zoom.max });
+        setZoomLevel(caps.zoom.min);
+      } else {
+        setZoomRange(null);
+        setZoomLevel(1);
+      }
       setError(null);
     } catch (err) {
       console.error("Camera error:", err);
@@ -101,6 +110,16 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     setTorchOn(false);
     startCamera(next);
   };
+  const handleZoom = useCallback(async (value: number) => {
+    if (!streamRef.current) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    try {
+      await (track as any).applyConstraints({ advanced: [{ zoom: value }] });
+      setZoomLevel(value);
+    } catch (err) {
+      console.error("Zoom error:", err);
+    }
+  }, []);
 
   const toggleTorch = useCallback(async () => {
     if (!streamRef.current) return;
@@ -425,6 +444,24 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           muted
           className={`w-full h-full object-cover transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
         />
+
+        {/* Zoom slider */}
+        {cameraReady && zoomRange && zoomRange.max > zoomRange.min && (
+          <div className="absolute bottom-28 inset-x-0 flex items-center justify-center px-8 gap-2 z-10">
+            <ZoomOut className="h-4 w-4 text-white/70" />
+            <input
+              type="range"
+              min={zoomRange.min}
+              max={zoomRange.max}
+              step={(zoomRange.max - zoomRange.min) / 100}
+              value={zoomLevel}
+              onChange={(e) => handleZoom(parseFloat(e.target.value))}
+              className="flex-1 h-1 accent-white appearance-none bg-white/30 rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+            />
+            <ZoomIn className="h-4 w-4 text-white/70" />
+            <span className="text-white/70 text-xs w-10 text-right">{zoomLevel.toFixed(1)}x</span>
+          </div>
+        )}
 
         {/* Shutter + controls overlay at bottom of viewfinder */}
         {cameraReady && (
