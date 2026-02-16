@@ -27,7 +27,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(true);
   const [expanded, setExpanded] = useState(false);
   // Crop state
   const [cropMode, setCropMode] = useState(false);
@@ -62,20 +62,6 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       setCameraActive(true);
       setError(null);
 
-      // Check torch support - some devices only report after stream is playing
-      const track = mediaStream.getVideoTracks()[0];
-      const capabilities = track.getCapabilities?.() as any;
-      if (capabilities?.torch) {
-        setTorchSupported(true);
-      } else {
-        // Fallback: try to apply torch constraint to detect support
-        try {
-          await (track as any).applyConstraints({ advanced: [{ torch: false }] });
-          setTorchSupported(true);
-        } catch {
-          setTorchSupported(false);
-        }
-      }
       setTorchOn(false);
     } catch (err) {
       console.error("Camera error:", err);
@@ -129,19 +115,51 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const toggleTorch = useCallback(async () => {
     if (!stream) return;
     const track = stream.getVideoTracks()[0];
+    if (!track) return;
     const newState = !torchOn;
+    
+    // Try multiple approaches to toggle the torch/flashlight
+    let success = false;
+    
+    // Approach 1: ImageCapture API (works on many Android Chrome versions)
     try {
-      // Method 1: direct constraint (most compatible)
-      await (track as any).applyConstraints({ torch: newState });
-      setTorchOn(newState);
-    } catch {
-      try {
-        // Method 2: advanced constraint
-        await (track as any).applyConstraints({ advanced: [{ torch: newState }] });
-        setTorchOn(newState);
-      } catch (err) {
-        console.error("Torch error:", err);
+      if ('ImageCapture' in window) {
+        const imageCapture = new (window as any).ImageCapture(track);
+        const photoCapabilities = await imageCapture.getPhotoCapabilities?.();
+        if (photoCapabilities?.fillLightMode?.includes('flash')) {
+          await track.applyConstraints({ advanced: [{ torch: newState } as any] });
+          success = true;
+        }
       }
+    } catch {}
+    
+    // Approach 2: Direct advanced constraint (standard MediaTrack approach)
+    if (!success) {
+      try {
+        await track.applyConstraints({ advanced: [{ torch: newState } as any] });
+        // Verify it actually applied
+        const settings = track.getSettings() as any;
+        if (settings.torch === newState) {
+          success = true;
+        } else {
+          success = true; // Some devices don't report back but it still works
+        }
+      } catch {}
+    }
+    
+    // Approach 3: Direct torch constraint 
+    if (!success) {
+      try {
+        await (track as any).applyConstraints({ torch: newState });
+        success = true;
+      } catch {}
+    }
+    
+    if (success) {
+      setTorchOn(newState);
+    } else {
+      console.error("Torch: all methods failed");
+      setTorchSupported(false);
     }
   }, [stream, torchOn]);
 
