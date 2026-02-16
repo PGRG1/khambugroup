@@ -22,6 +22,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [captures, setCaptures] = useState<{ dataUrl: string; blob: Blob }[]>([]);
   const [cameraActive, setCameraActive] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -36,7 +37,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const [cropDragging, setCropDragging] = useState(false);
   const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
 
-  const pendingStreamRef = useRef<MediaStream | null>(null);
+  
 
   const startCamera = useCallback(async (facing: "environment" | "user") => {
     try {
@@ -57,7 +58,6 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
         });
       }
 
-      pendingStreamRef.current = mediaStream;
       setStream(mediaStream);
       setCameraActive(true);
       setError(null);
@@ -73,14 +73,13 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     }
   }, [stream]);
 
-  // Attach stream to video element whenever stream or video ref changes
+  // Attach stream to video element whenever stream changes
   useEffect(() => {
     const video = videoRef.current;
-    const mediaStream = pendingStreamRef.current || stream;
-    if (!video || !mediaStream) return;
+    if (!video || !stream) return;
 
-    video.srcObject = mediaStream;
-    pendingStreamRef.current = null;
+    video.srcObject = stream;
+    setVideoReady(false);
 
     const playVideo = async () => {
       await new Promise<void>((resolve) => {
@@ -94,10 +93,13 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           video.addEventListener("loadedmetadata", onReady);
         }
       });
-      try { await video.play(); } catch {}
+      try { 
+        await video.play(); 
+        setVideoReady(true);
+      } catch {}
     };
     playVideo();
-  }, [stream, cameraActive]);
+  }, [stream]);
 
   useEffect(() => {
     startCamera(facingMode);
@@ -408,49 +410,53 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
         <div className="bg-destructive/10 text-destructive text-sm rounded-lg p-3">{error}</div>
       )}
 
-      {/* Camera viewfinder */}
-      {cameraActive && (
-        <div className={`relative rounded-lg overflow-hidden bg-black ${expanded ? "flex-1" : "aspect-[3/4] max-h-[400px]"}`}>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-          {/* Camera controls overlay */}
-          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-4 flex items-center justify-center gap-6">
+      {/* Camera viewfinder - always rendered so ref is available */}
+      <div className={`relative rounded-lg overflow-hidden bg-black ${expanded ? "flex-1" : "aspect-[3/4] max-h-[400px]"} ${!cameraActive ? "hidden" : ""}`}>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+        />
+        {/* Loading overlay while video initializes */}
+        {!videoReady && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black">
+            <div className="text-white text-sm animate-pulse">Starting camera...</div>
+          </div>
+        )}
+        {/* Camera controls overlay */}
+        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-4 flex items-center justify-center gap-6">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={toggleCamera}
+            className="text-white hover:bg-white/20 h-10 w-10"
+          >
+            <RotateCcw className="h-5 w-5" />
+          </Button>
+
+          <button
+            onClick={takePhoto}
+            className="h-16 w-16 rounded-full border-4 border-white bg-white/20 hover:bg-white/40 transition-colors flex items-center justify-center"
+          >
+            <div className="h-12 w-12 rounded-full bg-white" />
+          </button>
+
+          {torchSupported ? (
             <Button
               size="icon"
               variant="ghost"
-              onClick={toggleCamera}
-              className="text-white hover:bg-white/20 h-10 w-10"
+              onClick={toggleTorch}
+              className={`h-10 w-10 ${torchOn ? "text-yellow-400 bg-white/20" : "text-white hover:bg-white/20"}`}
             >
-              <RotateCcw className="h-5 w-5" />
+              <Flashlight className="h-5 w-5" />
             </Button>
-
-            <button
-              onClick={takePhoto}
-              className="h-16 w-16 rounded-full border-4 border-white bg-white/20 hover:bg-white/40 transition-colors flex items-center justify-center"
-            >
-              <div className="h-12 w-12 rounded-full bg-white" />
-            </button>
-
-            {torchSupported ? (
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={toggleTorch}
-                className={`h-10 w-10 ${torchOn ? "text-yellow-400 bg-white/20" : "text-white hover:bg-white/20"}`}
-              >
-                <Flashlight className="h-5 w-5" />
-              </Button>
-            ) : (
-              <div className="w-10" />
-            )}
-          </div>
+          ) : (
+            <div className="w-10" />
+          )}
         </div>
-      )}
+      </div>
 
       <canvas ref={canvasRef} className="hidden" />
 
