@@ -5,6 +5,8 @@ export const ALL_PAGES = [
   { key: "data", label: "Data" },
   { key: "activity-log", label: "Activity Log" },
   { key: "pl-report", label: "P&L Report" },
+  { key: "invoices", label: "Invoices" },
+  { key: "inventory", label: "Inventory" },
 ] as const;
 
 export type PageKey = (typeof ALL_PAGES)[number]["key"];
@@ -39,6 +41,18 @@ export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
   "pl-report": [
     { key: "pl-report.edit_values", label: "Edit P&L Values" },
     { key: "pl-report.add_line_item", label: "Add Line Item" },
+  ],
+  invoices: [
+    { key: "invoices.create", label: "Create Invoice" },
+    { key: "invoices.update_status", label: "Update Invoice Status" },
+    { key: "invoices.add_supplier", label: "Add Supplier" },
+    { key: "invoices.add_category", label: "Add Category" },
+  ],
+  inventory: [
+    { key: "inventory.add_item", label: "Add Inventory Item" },
+    { key: "inventory.new_period", label: "Create Period" },
+    { key: "inventory.edit_counts", label: "Edit Counts" },
+    { key: "inventory.close_period", label: "Close Period" },
   ],
 };
 
