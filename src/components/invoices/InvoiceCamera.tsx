@@ -62,10 +62,20 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       setCameraActive(true);
       setError(null);
 
-      // Check torch support
+      // Check torch support - some devices only report after stream is playing
       const track = mediaStream.getVideoTracks()[0];
       const capabilities = track.getCapabilities?.() as any;
-      setTorchSupported(!!capabilities?.torch);
+      if (capabilities?.torch) {
+        setTorchSupported(true);
+      } else {
+        // Fallback: try to apply torch constraint to detect support
+        try {
+          await (track as any).applyConstraints({ advanced: [{ torch: false }] });
+          setTorchSupported(true);
+        } catch {
+          setTorchSupported(false);
+        }
+      }
       setTorchOn(false);
     } catch (err) {
       console.error("Camera error:", err);
