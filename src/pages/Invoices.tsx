@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink } from "lucide-react";
+import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
@@ -31,6 +31,23 @@ export default function Invoices() {
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortKey, setSortKey] = useState<string>("invoice_date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
+
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -68,7 +85,7 @@ export default function Invoices() {
   const [newCatName, setNewCatName] = useState("");
 
   const filtered = useMemo(() => {
-    return invoices.filter((inv) => {
+    let result = invoices.filter((inv) => {
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       if (statusFilter !== "all" && inv.status !== statusFilter) return false;
       if (search) {
@@ -77,7 +94,16 @@ export default function Invoices() {
       }
       return true;
     });
-  }, [invoices, venueFilter, statusFilter, search]);
+    result.sort((a, b) => {
+      const av = (a as any)[sortKey];
+      const bv = (b as any)[sortKey];
+      let cmp = 0;
+      if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+      else cmp = String(av ?? "").localeCompare(String(bv ?? ""));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return result;
+  }, [invoices, venueFilter, statusFilter, search, sortKey, sortDir]);
 
   const openDetail = async (inv: Invoice) => {
     setSelectedInvoice(inv);
@@ -295,13 +321,13 @@ export default function Invoices() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Venue</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead><button onClick={() => toggleSort("invoice_number")} className="flex items-center gap-1 hover:text-foreground transition-colors">Invoice # <SortIcon col="invoice_number" /></button></TableHead>
+                  <TableHead><button onClick={() => toggleSort("supplier_name")} className="flex items-center gap-1 hover:text-foreground transition-colors">Supplier <SortIcon col="supplier_name" /></button></TableHead>
+                  <TableHead><button onClick={() => toggleSort("venue")} className="flex items-center gap-1 hover:text-foreground transition-colors">Venue <SortIcon col="venue" /></button></TableHead>
+                  <TableHead><button onClick={() => toggleSort("invoice_date")} className="flex items-center gap-1 hover:text-foreground transition-colors">Date <SortIcon col="invoice_date" /></button></TableHead>
+                  <TableHead><button onClick={() => toggleSort("due_date")} className="flex items-center gap-1 hover:text-foreground transition-colors">Due <SortIcon col="due_date" /></button></TableHead>
+                  <TableHead className="text-right"><button onClick={() => toggleSort("total_amount")} className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors">Total <SortIcon col="total_amount" /></button></TableHead>
+                  <TableHead><button onClick={() => toggleSort("status")} className="flex items-center gap-1 hover:text-foreground transition-colors">Status <SortIcon col="status" /></button></TableHead>
                   <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
