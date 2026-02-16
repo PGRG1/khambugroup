@@ -1,7 +1,8 @@
-import { BarChart3, Database, ClipboardList, LogOut, Settings, Shield, FileText, Receipt } from "lucide-react";
+import { BarChart3, Database, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
-import { usePageVisibility } from "@/hooks/usePageVisibility";
+import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import {
   Sidebar,
   SidebarContent,
@@ -24,13 +25,21 @@ const navItems = [
 
 export function AppSidebar() {
   const { user, isAdmin, signOut } = useAuth();
-  const { isPageVisible } = usePageVisibility();
+  const { previewUserId, isPreviewActive } = usePreviewMode();
+  
+  // Use preview user's permissions if admin is previewing
+  const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
+  const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
 
-  const visibleItems = navItems.filter(item => isPageVisible(item.pageKey, isAdmin));
+  const visibleItems = navItems.filter(item => {
+    // Admins see everything unless previewing
+    if (isAdmin && !isPreviewActive) return true;
+    return showInSidebar(item.pageKey);
+  });
 
   return (
     <Sidebar className="border-r border-sidebar-border">
-      <div className="p-4 border-b border-sidebar-border">
+      <div className={`p-4 border-b border-sidebar-border ${isPreviewActive ? "mt-10" : ""}`}>
         <h1 className="text-xl font-bold font-display tracking-tight">
           <span className="text-gradient-gold">KHAMBU</span>
         </h1>
@@ -61,11 +70,23 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && (
+        {isAdmin && !isPreviewActive && (
           <SidebarGroup>
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/user-access"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
+                      <Users className="h-4 w-4" />
+                      <span>User Access</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink

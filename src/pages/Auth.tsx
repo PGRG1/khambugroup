@@ -12,6 +12,7 @@ const Auth = () => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const navigate = useNavigate();
 
   // Redirect if already authenticated
@@ -20,6 +21,17 @@ const Auth = () => {
       navigate("/", { replace: true });
     }
   }, [session, authLoading, navigate]);
+
+  const handleForgotPassword = async () => {
+    if (!email) { setError("Enter your email first"); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    if (error) setError(error.message);
+    else setMessage("Password reset email sent. Check your inbox.");
+    setLoading(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +115,16 @@ const Auth = () => {
                 placeholder="••••••••"
               />
             </div>
+
+            {isLogin && (
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-xs text-primary hover:underline"
+              >
+                Forgot password?
+              </button>
+            )}
 
             {error && <p className="text-sm text-destructive">{error}</p>}
             {message && <p className="text-sm text-primary">{message}</p>}
