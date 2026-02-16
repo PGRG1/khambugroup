@@ -193,10 +193,39 @@ Rules:
     if (Array.isArray(extractedData.invoices)) {
       invoicesArray = extractedData.invoices;
     } else if (extractedData.supplier_name || extractedData.invoice_number) {
-      // Old single-invoice format fallback
       invoicesArray = [extractedData];
     } else {
       invoicesArray = [extractedData];
+    }
+
+    // Post-process: force-translate any remaining Chinese characters in unit/pack_size fields
+    const chineseToEnglish: Record<string, string> = {
+      "桶": "Bucket", "打": "Dozen", "條": "Roll", "箱": "Case",
+      "瓶": "Bottle", "包": "Pack", "袋": "Bag", "罐": "Can",
+      "盒": "Box", "支": "Piece", "磅": "LB", "公斤": "KG",
+      "公升": "L", "隻": "Piece", "對": "Pair", "件": "Piece",
+      "塊": "Piece", "份": "Portion", "套": "Set", "扎": "Bundle",
+    };
+
+    function translateChinese(text: string): string {
+      if (!text) return text;
+      let result = text;
+      for (const [zh, en] of Object.entries(chineseToEnglish)) {
+        result = result.replaceAll(zh, en);
+      }
+      return result;
+    }
+
+    for (const inv of invoicesArray) {
+      if (inv.line_items && Array.isArray(inv.line_items)) {
+        for (const li of inv.line_items) {
+          if (li.unit) li.unit = translateChinese(li.unit);
+          if (li.pack_size) li.pack_size = translateChinese(li.pack_size);
+          if (li.description) li.description = translateChinese(li.description);
+          if (li.notes) li.notes = translateChinese(li.notes);
+        }
+      }
+      if (inv.notes) inv.notes = translateChinese(inv.notes);
     }
 
     return new Response(
