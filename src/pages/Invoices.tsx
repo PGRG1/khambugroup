@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Invoices() {
   const { invoices, suppliers, categories, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus, createSupplier, createCategory, fetchAll } = useInvoiceData();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
@@ -90,6 +92,7 @@ export default function Invoices() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("invoices");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   // Track uploaded file URL to avoid re-uploading same file for multi-invoice batches
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
@@ -450,65 +453,83 @@ export default function Invoices() {
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">{auditDocs.length} document{auditDocs.length !== 1 ? "s" : ""} found</p>
                   {auditDocs.length > 0 && (
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      // Deduplicate by file_url — same backend file shared across invoices
-                      const uniqueFiles = new Map<string, { file_url: string; file_name: string }>();
-                      for (const doc of auditDocs) {
-                        if (doc.file_url && !uniqueFiles.has(doc.file_url)) {
-                          uniqueFiles.set(doc.file_url, {
-                            file_url: doc.file_url,
-                            file_name: doc.file_name || `invoice-${doc.invoice_number}`,
-                          });
+                    <Button size="sm" variant="outline" disabled={downloading} onClick={async () => {
+                      setDownloading(true);
+                      try {
+                        // Deduplicate by file_url — same backend file shared across invoices
+                        const uniqueFiles = new Map<string, { file_url: string; file_name: string }>();
+                        for (const doc of auditDocs) {
+                          if (doc.file_url && !uniqueFiles.has(doc.file_url)) {
+                            uniqueFiles.set(doc.file_url, {
+                              file_url: doc.file_url,
+                              file_name: doc.file_name || `invoice-${doc.invoice_number}`,
+                            });
+                          }
                         }
-                      }
-                      const files = Array.from(uniqueFiles.values());
+                        const files = Array.from(uniqueFiles.values());
 
-                      if (files.length === 1) {
-                        // Single file — direct download
-                        const { data } = await supabase.storage.from("invoice-files").createSignedUrl(files[0].file_url, 3600);
-                        if (data?.signedUrl) {
+                        if (files.length === 1) {
+                          const { data } = await supabase.storage.from("invoice-files").createSignedUrl(files[0].file_url, 3600);
+                          if (data?.signedUrl) {
+                            const res = await fetch(data.signedUrl);
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.download = files[0].file_name;
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            URL.revokeObjectURL(url);
+                          }
+                        } else {
+                          // Multiple unique files — bundle into zip with batched fetching
+                          const zip = new JSZip();
+                          const usedNames = new Set<string>();
+                          const BATCH_SIZE = 5;
+                          for (let i = 0; i < files.length; i += BATCH_SIZE) {
+                            const batch = files.slice(i, i + BATCH_SIZE);
+                            await Promise.all(batch.map(async (f) => {
+                              try {
+                                const { data } = await supabase.storage.from("invoice-files").createSignedUrl(f.file_url, 3600);
+                                if (!data?.signedUrl) return;
+                                const res = await fetch(data.signedUrl);
+                                if (!res.ok) return;
+                                const blob = await res.blob();
+                                let name = f.file_name;
+                                if (usedNames.has(name)) {
+                                  const dot = name.lastIndexOf(".");
+                                  const base = dot > 0 ? name.slice(0, dot) : name;
+                                  const ext = dot > 0 ? name.slice(dot) : "";
+                                  let counter = 2;
+                                  while (usedNames.has(`${base}_${counter}${ext}`)) counter++;
+                                  name = `${base}_${counter}${ext}`;
+                                }
+                                usedNames.add(name);
+                                zip.file(name, blob);
+                              } catch (e) {
+                                console.warn("Failed to fetch file:", f.file_url, e);
+                              }
+                            }));
+                          }
+                          const zipBlob = await zip.generateAsync({ type: "blob" });
+                          const url = URL.createObjectURL(zipBlob);
                           const link = document.createElement("a");
-                          link.href = data.signedUrl;
-                          link.download = files[0].file_name;
+                          link.href = url;
+                          link.download = "invoices.zip";
                           document.body.appendChild(link);
                           link.click();
                           link.remove();
+                          URL.revokeObjectURL(url);
                         }
-                      } else {
-                        // Multiple unique files — bundle into zip
-                        const zip = new JSZip();
-                        const usedNames = new Set<string>();
-                        await Promise.all(files.map(async (f) => {
-                          const { data } = await supabase.storage.from("invoice-files").createSignedUrl(f.file_url, 3600);
-                          if (!data?.signedUrl) return;
-                          const res = await fetch(data.signedUrl);
-                          if (!res.ok) return;
-                          const blob = await res.blob();
-                          let name = f.file_name;
-                          // Avoid duplicate file names in the zip
-                          if (usedNames.has(name)) {
-                            const dot = name.lastIndexOf(".");
-                            const base = dot > 0 ? name.slice(0, dot) : name;
-                            const ext = dot > 0 ? name.slice(dot) : "";
-                            let counter = 2;
-                            while (usedNames.has(`${base}_${counter}${ext}`)) counter++;
-                            name = `${base}_${counter}${ext}`;
-                          }
-                          usedNames.add(name);
-                          zip.file(name, blob);
-                        }));
-                        const zipBlob = await zip.generateAsync({ type: "blob" });
-                        const url = URL.createObjectURL(zipBlob);
-                        const link = document.createElement("a");
-                        link.href = url;
-                        link.download = "invoices.zip";
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove();
-                        URL.revokeObjectURL(url);
+                      } catch (err) {
+                        console.error("Download failed:", err);
+                        toast({ title: "Download failed", description: "An error occurred while downloading files.", variant: "destructive" });
+                      } finally {
+                        setDownloading(false);
                       }
                     }}>
-                      <Download className="h-4 w-4 mr-1" />Download All ({auditDocs.length})
+                      <Download className="h-4 w-4 mr-1" />{downloading ? "Downloading..." : `Download All (${auditDocs.length})`}
                     </Button>
                   )}
                 </div>
