@@ -299,12 +299,14 @@ export type Database = {
           description: string
           id: string
           invoice_id: string
+          item_code: string | null
           notes: string | null
           quantity: number
           tax_amount: number
           total: number
           unit: string | null
           unit_price: number
+          weight: number | null
         }
         Insert: {
           category_id?: string | null
@@ -312,12 +314,14 @@ export type Database = {
           description: string
           id?: string
           invoice_id: string
+          item_code?: string | null
           notes?: string | null
           quantity?: number
           tax_amount?: number
           total?: number
           unit?: string | null
           unit_price?: number
+          weight?: number | null
         }
         Update: {
           category_id?: string | null
@@ -325,12 +329,14 @@ export type Database = {
           description?: string
           id?: string
           invoice_id?: string
+          item_code?: string | null
           notes?: string | null
           quantity?: number
           tax_amount?: number
           total?: number
           unit?: string | null
           unit_price?: number
+          weight?: number | null
         }
         Relationships: [
           {
