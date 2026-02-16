@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -442,14 +443,61 @@ export default function Invoices() {
                   <p className="text-sm text-muted-foreground">{auditDocs.length} document{auditDocs.length !== 1 ? "s" : ""} found</p>
                   {auditDocs.length > 0 && (
                     <Button size="sm" variant="outline" onClick={async () => {
+                      // Deduplicate by file_url — same backend file shared across invoices
+                      const uniqueFiles = new Map<string, { file_url: string; file_name: string }>();
                       for (const doc of auditDocs) {
-                        const { data } = await supabase.storage.from("invoice-files").createSignedUrl(doc.file_url!, 3600);
+                        if (doc.file_url && !uniqueFiles.has(doc.file_url)) {
+                          uniqueFiles.set(doc.file_url, {
+                            file_url: doc.file_url,
+                            file_name: doc.file_name || `invoice-${doc.invoice_number}`,
+                          });
+                        }
+                      }
+                      const files = Array.from(uniqueFiles.values());
+
+                      if (files.length === 1) {
+                        // Single file — direct download
+                        const { data } = await supabase.storage.from("invoice-files").createSignedUrl(files[0].file_url, 3600);
                         if (data?.signedUrl) {
                           const link = document.createElement("a");
                           link.href = data.signedUrl;
-                          link.download = doc.file_name || `invoice-${doc.invoice_number}`;
+                          link.download = files[0].file_name;
+                          document.body.appendChild(link);
                           link.click();
+                          link.remove();
                         }
+                      } else {
+                        // Multiple unique files — bundle into zip
+                        const zip = new JSZip();
+                        const usedNames = new Set<string>();
+                        await Promise.all(files.map(async (f) => {
+                          const { data } = await supabase.storage.from("invoice-files").createSignedUrl(f.file_url, 3600);
+                          if (!data?.signedUrl) return;
+                          const res = await fetch(data.signedUrl);
+                          if (!res.ok) return;
+                          const blob = await res.blob();
+                          let name = f.file_name;
+                          // Avoid duplicate file names in the zip
+                          if (usedNames.has(name)) {
+                            const dot = name.lastIndexOf(".");
+                            const base = dot > 0 ? name.slice(0, dot) : name;
+                            const ext = dot > 0 ? name.slice(dot) : "";
+                            let counter = 2;
+                            while (usedNames.has(`${base}_${counter}${ext}`)) counter++;
+                            name = `${base}_${counter}${ext}`;
+                          }
+                          usedNames.add(name);
+                          zip.file(name, blob);
+                        }));
+                        const zipBlob = await zip.generateAsync({ type: "blob" });
+                        const url = URL.createObjectURL(zipBlob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = "invoices.zip";
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        URL.revokeObjectURL(url);
                       }
                     }}>
                       <Download className="h-4 w-4 mr-1" />Download All ({auditDocs.length})
