@@ -10,12 +10,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Lock, Package, ShoppingCart } from "lucide-react";
+import { Plus, Lock, Package, ShoppingCart, ClipboardList, Edit2, Save } from "lucide-react";
 
 export default function Inventory() {
-  const { items, periods, categories, loading, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod } = useInventoryData();
+  const { items, periods, categories, loading, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod, updateItemQty } = useInventoryData();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("periods");
+  const [activeTab, setActiveTab] = useState("stock");
+  const [editingStock, setEditingStock] = useState<Record<string, string>>({});
+  const [editMode, setEditMode] = useState(false);
   const [venueFilter, setVenueFilter] = useState("Assembly");
 
   // Period detail
@@ -200,10 +202,80 @@ export default function Inventory() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="stock"><ClipboardList className="h-3 w-3 mr-1" />Current Stock</TabsTrigger>
           <TabsTrigger value="periods">Periods & Counts</TabsTrigger>
           <TabsTrigger value="purchases"><ShoppingCart className="h-3 w-3 mr-1" />Invoice Purchases</TabsTrigger>
           <TabsTrigger value="items">Items Master</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="stock" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">What you have right now. Click Edit to update quantities.</p>
+            <Button size="sm" variant={editMode ? "default" : "outline"} onClick={() => {
+              if (editMode) {
+                // Save all edits
+                Object.entries(editingStock).forEach(([id, qty]) => {
+                  updateItemQty(id, parseFloat(qty) || 0);
+                });
+                setEditMode(false);
+                setEditingStock({});
+              } else {
+                const map: Record<string, string> = {};
+                items.forEach((i) => { map[i.id] = String(i.current_qty); });
+                setEditingStock(map);
+                setEditMode(true);
+              }
+            }}>
+              {editMode ? <><Save className="h-3 w-3 mr-1" />Save</> : <><Edit2 className="h-3 w-3 mr-1" />Edit Stock</>}
+            </Button>
+          </div>
+
+          <div className="rounded-lg border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Unit Size</TableHead>
+                  <TableHead className="text-right">Qty On Hand</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead className="text-right">Par Level</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.filter((i) => i.is_active).length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No items yet. Add items using the "Add Item" button above.</TableCell></TableRow>
+                ) : items.filter((i) => i.is_active).map((item) => {
+                  const belowPar = item.par_level !== null && item.current_qty < item.par_level;
+                  return (
+                    <TableRow key={item.id} className={belowPar ? "bg-destructive/5" : ""}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{item.category_name || "—"}</TableCell>
+                      <TableCell className="text-xs">{item.unit_size || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        {editMode ? (
+                          <Input type="number" className="w-24 text-right ml-auto" value={editingStock[item.id] || "0"} onChange={(e) => setEditingStock((prev) => ({ ...prev, [item.id]: e.target.value }))} />
+                        ) : (
+                          <span className="font-mono font-semibold text-lg">{item.current_qty}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{item.unit_of_measure}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{item.par_level ?? "—"}</TableCell>
+                      <TableCell>
+                        {belowPar ? (
+                          <Badge variant="destructive" className="text-xs">Low Stock</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">OK</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
 
         <TabsContent value="periods" className="space-y-3">
           {!selectedPeriod ? (
