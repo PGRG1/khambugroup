@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are an invoice data extractor for a restaurant/bar business (Assembly and Caliente venues in Hong Kong). A single document may contain MULTIPLE invoices (different dates, different invoice numbers, possibly from the same or different suppliers). You must extract ALL invoices found in the document.
+    const systemPrompt = `You are a highly accurate invoice data extractor for a restaurant/bar business (Assembly and Caliente venues in Hong Kong). A single document may contain MULTIPLE invoices (different dates, different invoice numbers, possibly from the same or different suppliers). You must extract ALL invoices found in the document.
 
 IMPORTANT — LANGUAGE RULES:
 - Supplier names: Keep EXACTLY as they appear on the invoice (including Chinese characters). Do NOT translate supplier names.
@@ -36,6 +36,16 @@ IMPORTANT — LANGUAGE RULES:
   - "description" field: must be in English
   - "pack_size" field: translate Chinese size units (e.g. "3.8公升/桶" → "3.8L/Bucket", "40p/桶" → "40p/Bucket", "15"/條" → "15"/Roll")
   - "notes" field: must be in English
+
+CRITICAL — NUMBER ACCURACY RULES:
+- Read EVERY number carefully from the invoice. Numbers are the most important part.
+- "quantity" = the number in the QTY/QUANTITY column. It is typically a small integer (1-20). If you see a large number in the quantity field, double-check — it is likely wrong.
+- "unit_price" = the price per unit from the UNIT PRICE / PRICE column. Cross-check: quantity × unit_price should approximately equal the line total.
+- "total" = the AMOUNT column value for that line item. Read it directly from the invoice — do NOT calculate it.
+- "total_amount" on the invoice header = the grand TOTAL shown at the bottom. Read it directly.
+- VALIDATION: For each line item, verify that quantity × unit_price ≈ total (within rounding). If they don't match, re-read the numbers from the image more carefully.
+- Watch for multi-page invoices: the same invoice number on consecutive pages means those pages belong together. Merge all line items and use the grand total from the last page.
+- Be careful with columns — some invoices have a DISCOUNT column between UNIT PRICE and AMOUNT. Don't confuse discount with amount.
 
 Return ONLY valid JSON with this exact structure — always an array, even if there's only one invoice:
 
@@ -46,18 +56,18 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
       "invoice_number": "Invoice number/reference",
       "invoice_date": "YYYY-MM-DD format",
       "venue": "Assembly or Caliente - infer from delivery address or customer name",
-      "total_amount": number (total invoice amount),
+      "total_amount": number (total invoice amount — read from the TOTAL line on the invoice),
       "notes": "any special notes, payment terms, or remarks (in English)",
       "line_items": [
         {
           "item_code": "product/item code if available, otherwise empty string",
           "description": "item description in English (clean product name without pack size info)",
           "pack_size": "pack/bottle/container size info in English e.g. '4X4LB', '750ml', '3.8L/Bucket', '6X1L'",
-          "quantity": number (number of units ordered),
+          "quantity": number (number of units ordered — typically 1-20),
           "unit": "unit of measure in ENGLISH ONLY (Bucket, Dozen, Roll, Case, Box, Pack, Bag, Bottle, Piece, KG, LB, etc.) — NEVER Chinese characters",
           "weight": number or null (actual weight in KG if item is priced per KG, otherwise null),
           "unit_price": number (price per unit — if priced per KG this is the price per KG),
-          "total": number (the total amount from the invoice for this line item)
+          "total": number (the total amount from the AMOUNT column for this line item)
         }
       ]
     }
@@ -67,6 +77,7 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
 Rules:
 - CRITICAL: Look for ALL separate invoices in the document. Different invoice numbers or dates mean different invoices.
 - CRITICAL: The "unit" field must NEVER contain Chinese characters. Always use English unit names.
+- CRITICAL: Read numbers precisely. Do not confuse columns. quantity is always a small count, unit_price is the per-unit cost, total/amount is the line total.
 - All number fields should be numeric (no currency symbols, no commas)
 - If a field is not found, use "" for strings, 0 for numbers, null for weight
 - For venue: look for "Assembly" or "Caliente" in the billing/delivery address. "Knutsford Terrace" = Caliente, "Assembly" = Assembly
@@ -78,7 +89,7 @@ Rules:
 - Use the TOTAL AMOUNT column from the invoice as the "total" field — do NOT recalculate it`;
 
     const requestBody = JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-pro",
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -92,13 +103,12 @@ Rules:
             },
             {
               type: "text",
-              text: "Extract ALL invoices from this document. There may be multiple invoices across pages. Return every single one.",
+              text: "Extract ALL invoices from this document. There may be multiple invoices across pages. Read every number carefully and accurately. Return every single invoice found.",
             },
           ],
         },
       ],
     });
-
     const MAX_RETRIES = 3;
     let extractedData: any = null;
     let lastError = "";
