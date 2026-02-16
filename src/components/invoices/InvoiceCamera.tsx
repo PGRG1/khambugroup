@@ -48,32 +48,19 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       }
       setCameraReady(false);
 
-      let mediaStream: MediaStream;
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { exact: facing }, width: { ideal: 1920 }, height: { ideal: 2560 } },
-          audio: false,
-        });
-      } catch {
-        try {
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 2560 } },
-            audio: false,
-          });
-        } catch {
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1920 }, height: { ideal: 2560 } },
-            audio: false,
-          });
-        }
-      }
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 1920 } },
+        audio: false,
+      });
 
       streamRef.current = mediaStream;
 
       // Attach to video element if already mounted
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        videoRef.current.play().catch(() => {});
       }
+      setCameraReady(true);
 
       // Check torch
       const track = mediaStream.getVideoTracks()[0];
@@ -92,13 +79,8 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     videoRef.current = node;
     if (node && streamRef.current) {
       node.srcObject = streamRef.current;
-      node.onloadedmetadata = () => {
-        node.play().then(() => setCameraReady(true)).catch(() => setCameraReady(true));
-      };
-      // If already has metadata, play immediately
-      if (node.readyState >= 1) {
-        node.play().then(() => setCameraReady(true)).catch(() => setCameraReady(true));
-      }
+      node.play().catch(() => {});
+      setCameraReady(true);
     }
   }, []);
 
