@@ -160,7 +160,7 @@ const Index = () => {
       <KPICards {...kpi} />
 
       {filtered.length > 0 ? (
-        <DashboardCharts data={filtered} view={view} />
+        <DashboardCharts data={filtered} view={view} venue={venue} />
       ) : (
         <div className="card-glass rounded-xl p-12 text-center">
           <p className="text-muted-foreground">No data for the selected filters.</p>
