@@ -56,7 +56,7 @@ Rules:
 - If a field is not found in the receipt, use 0 for numbers and "" for strings
 - For the date field: look for "From" date on the receipt and use that date in YYYY-MM-DD format. If there is a date range (From/To), always use the "From" date.
 - Do NOT include a "day" field - it will be auto-generated from the date
-- Venue should be exactly "Assembly" or "Caliente" - infer from any branding/headers
+- Venue should be exactly "Assembly", "Caliente", or "Hanabi" - infer from any branding/headers
 - Translate any Chinese or non-English text to English
 - Return ONLY the JSON object, no markdown, no explanation`;
 

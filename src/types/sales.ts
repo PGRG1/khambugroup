@@ -1,7 +1,7 @@
 export interface SalesRecord {
   date: string;
   day: string;
-  venue: "Assembly" | "Caliente";
+  venue: "Assembly" | "Caliente" | "Hanabi";
   reportNumber: string;
   orders: number;
   guests: number;
@@ -19,7 +19,7 @@ export interface SalesRecord {
   cardTips: number;
 }
 
-export type VenueFilter = "All Venues" | "Assembly" | "Caliente";
+export type VenueFilter = "All Venues" | "Assembly" | "Caliente" | "Hanabi";
 
 export interface DateRange {
   from: Date | undefined;

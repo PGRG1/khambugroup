@@ -11,7 +11,7 @@ import { generateMTDReport } from "@/utils/generateReport";
 import { FileDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente"];
+const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente", "Hanabi"];
 
 const Index = () => {
   const { data, loading } = useSalesData();

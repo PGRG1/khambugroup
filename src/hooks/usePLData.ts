@@ -59,7 +59,7 @@ function buildPeriodData(
 
   for (const r of revenueData) {
     if (!(r.date as string).startsWith(prefix)) continue;
-    const target = r.venue === "Assembly" ? assembly : r.venue === "Caliente" ? caliente : null;
+    const target = r.venue === "Assembly" ? assembly : r.venue === "Caliente" ? caliente : r.venue === "Hanabi" ? assembly : null;
     if (!target) continue;
     target.grossRevenue += Number(r.subtotal) || 0;
     target.serviceChargeRevenue += Number(r.service_charge) || 0;

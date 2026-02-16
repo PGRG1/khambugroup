@@ -80,7 +80,7 @@ Rules:
 - CRITICAL: Read numbers precisely. Do not confuse columns. quantity is always a small count, unit_price is the per-unit cost, total/amount is the line total.
 - All number fields should be numeric (no currency symbols, no commas)
 - If a field is not found, use "" for strings, 0 for numbers, null for weight
-- For venue: look for "Assembly" or "Caliente" in the billing/delivery address. "Knutsford Terrace" = Caliente, "Assembly" = Assembly
+- For venue: look for "Assembly", "Caliente", or "Hanabi" in the billing/delivery address. "Knutsford Terrace" = Caliente, "Assembly" = Assembly, "Hanabi" = Hanabi
 - Parse ALL line items from each invoice table
 - The date should always be in YYYY-MM-DD format, converting from DD/MM/YYYY if needed
 - Return ONLY the JSON object, no markdown, no explanation
