@@ -129,11 +129,19 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const toggleTorch = useCallback(async () => {
     if (!stream) return;
     const track = stream.getVideoTracks()[0];
+    const newState = !torchOn;
     try {
-      await (track as any).applyConstraints({ advanced: [{ torch: !torchOn }] });
-      setTorchOn(!torchOn);
-    } catch (err) {
-      console.error("Torch error:", err);
+      // Method 1: direct constraint (most compatible)
+      await (track as any).applyConstraints({ torch: newState });
+      setTorchOn(newState);
+    } catch {
+      try {
+        // Method 2: advanced constraint
+        await (track as any).applyConstraints({ advanced: [{ torch: newState }] });
+        setTorchOn(newState);
+      } catch (err) {
+        console.error("Torch error:", err);
+      }
     }
   }, [stream, torchOn]);
 
