@@ -236,11 +236,11 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
   });
 
   const calcLineTotal = (l: ScannedLineItem) => {
-    if (l.total && parseFloat(l.total)) return parseFloat(l.total);
     const w = l.weight ? parseFloat(l.weight) : null;
     const price = parseFloat(l.unit_price) || 0;
     const qty = parseFloat(l.quantity) || 0;
-    return w ? w * price : qty * price;
+    const tax = parseFloat(l.tax_amount) || 0;
+    return (w ? w * price : qty * price) + tax;
   };
   const subtotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
   const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
@@ -255,7 +255,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       const price = parseFloat(l.unit_price) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
-      const lineTotal = l.total ? parseFloat(l.total) : (w ? w * price + tax : qty * price + tax);
+      const lineTotal = w ? w * price + tax : qty * price + tax;
       return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null };
     });
 

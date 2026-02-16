@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { Camera, X, RotateCcw, Check, Trash2, Plus, ImageIcon } from "lucide-react";
+import { Camera, X, RotateCcw, Check, Trash2, Plus, ImageIcon, Flashlight, Maximize2, Minimize2, Crop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -25,10 +25,19 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  // Crop state
+  const [cropMode, setCropMode] = useState(false);
+  const [cropTarget, setCropTarget] = useState<number | null>(null);
+  const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [cropRect, setCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [cropDragging, setCropDragging] = useState(false);
+  const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
 
   const startCamera = useCallback(async (facing: "environment" | "user") => {
     try {
-      // Stop existing stream
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
@@ -42,6 +51,12 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       }
       setCameraActive(true);
       setError(null);
+
+      // Check torch support
+      const track = mediaStream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities?.() as any;
+      setTorchSupported(!!capabilities?.torch);
+      setTorchOn(false);
     } catch (err) {
       console.error("Camera error:", err);
       setError("Could not access camera. Please ensure camera permissions are granted.");
@@ -59,8 +74,20 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
   const toggleCamera = () => {
     const next = facingMode === "environment" ? "user" : "environment";
     setFacingMode(next);
+    setTorchOn(false);
     startCamera(next);
   };
+
+  const toggleTorch = useCallback(async () => {
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    try {
+      await (track as any).applyConstraints({ advanced: [{ torch: !torchOn }] });
+      setTorchOn(!torchOn);
+    } catch (err) {
+      console.error("Torch error:", err);
+    }
+  }, [stream, torchOn]);
 
   const takePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -86,22 +113,166 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     setCaptures((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // --- Crop Logic ---
+  const startCrop = (index: number) => {
+    setCropMode(true);
+    setCropTarget(index);
+    setCropRect(null);
+  };
+
+  const cancelCrop = () => {
+    setCropMode(false);
+    setCropTarget(null);
+    setCropRect(null);
+  };
+
+  const handleCropMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = cropCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setCropStart({ x, y });
+    setCropDragging(true);
+    setCropRect({ x, y, w: 0, h: 0 });
+  };
+
+  const handleCropMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!cropDragging || !cropStart) return;
+    const canvas = cropCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setCropRect({
+      x: Math.min(cropStart.x, x),
+      y: Math.min(cropStart.y, y),
+      w: Math.abs(x - cropStart.x),
+      h: Math.abs(y - cropStart.y),
+    });
+  };
+
+  const handleCropMouseUp = () => {
+    setCropDragging(false);
+  };
+
+  // Touch handlers for crop on mobile
+  const handleCropTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = cropCanvasRef.current;
+    if (!canvas || e.touches.length === 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.touches[0].clientX - rect.left;
+    const y = e.touches[0].clientY - rect.top;
+    setCropStart({ x, y });
+    setCropDragging(true);
+    setCropRect({ x, y, w: 0, h: 0 });
+  };
+
+  const handleCropTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!cropDragging || !cropStart || e.touches.length === 0) return;
+    const canvas = cropCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.touches[0].clientX - rect.left;
+    const y = e.touches[0].clientY - rect.top;
+    setCropRect({
+      x: Math.min(cropStart.x, x),
+      y: Math.min(cropStart.y, y),
+      w: Math.abs(x - cropStart.x),
+      h: Math.abs(y - cropStart.y),
+    });
+  };
+
+  const handleCropTouchEnd = () => {
+    setCropDragging(false);
+  };
+
+  const applyCrop = useCallback(() => {
+    if (cropTarget === null || !cropRect || cropRect.w < 10 || cropRect.h < 10) return;
+    const cap = captures[cropTarget];
+    if (!cap) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const cropCanvas = cropCanvasRef.current;
+      if (!cropCanvas) return;
+      const displayW = cropCanvas.width;
+      const displayH = cropCanvas.height;
+      const scaleX = img.width / displayW;
+      const scaleY = img.height / displayH;
+
+      const sx = cropRect.x * scaleX;
+      const sy = cropRect.y * scaleY;
+      const sw = cropRect.w * scaleX;
+      const sh = cropRect.h * scaleY;
+
+      const outCanvas = document.createElement("canvas");
+      outCanvas.width = sw;
+      outCanvas.height = sh;
+      const ctx = outCanvas.getContext("2d")!;
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+      outCanvas.toBlob(
+        (blob) => {
+          if (!blob) return;
+          const dataUrl = outCanvas.toDataURL("image/jpeg", 0.92);
+          setCaptures((prev) => {
+            const copy = [...prev];
+            copy[cropTarget] = { dataUrl, blob };
+            return copy;
+          });
+          cancelCrop();
+        },
+        "image/jpeg",
+        0.92
+      );
+    };
+    img.src = cap.dataUrl;
+  }, [cropTarget, cropRect, captures]);
+
+  // Draw crop overlay
+  useEffect(() => {
+    if (!cropMode || cropTarget === null) return;
+    const canvas = cropCanvasRef.current;
+    if (!canvas) return;
+    const cap = captures[cropTarget];
+    if (!cap) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const maxW = canvas.parentElement?.clientWidth || 400;
+      const ratio = img.height / img.width;
+      canvas.width = maxW;
+      canvas.height = maxW * ratio;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // Draw crop overlay
+      if (cropRect && cropRect.w > 0 && cropRect.h > 0) {
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+      }
+    };
+    img.src = cap.dataUrl;
+  }, [cropMode, cropTarget, cropRect, captures]);
+
   const handleDone = useCallback(async () => {
     if (captures.length === 0) return;
     setProcessing(true);
-
-    // Stop camera
     if (stream) stream.getTracks().forEach((t) => t.stop());
     setCameraActive(false);
 
     const fileName = generateFileName();
 
     if (captures.length === 1) {
-      // Single photo → send as JPEG
       const file = new File([captures[0].blob], `${fileName}.jpg`, { type: "image/jpeg" });
       onCapture(file);
     } else {
-      // Multiple photos → combine into a single tall image
       const images = await Promise.all(
         captures.map(
           (c) =>
@@ -137,8 +308,45 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     }
   }, [captures, stream, onCapture]);
 
+  // --- Crop Mode UI ---
+  if (cropMode && cropTarget !== null) {
+    return (
+      <div className={expanded ? "fixed inset-0 z-50 bg-background p-4 flex flex-col" : "space-y-4"}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Crop className="h-5 w-5 text-primary" />
+            <h3 className="text-sm font-semibold">Crop Page {cropTarget + 1}</h3>
+          </div>
+          <button onClick={cancelCrop} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">Draw a rectangle over the area you want to keep.</p>
+        <div className="relative rounded-lg overflow-hidden bg-black flex-1">
+          <canvas
+            ref={cropCanvasRef}
+            className="w-full cursor-crosshair touch-none"
+            onMouseDown={handleCropMouseDown}
+            onMouseMove={handleCropMouseMove}
+            onMouseUp={handleCropMouseUp}
+            onTouchStart={handleCropTouchStart}
+            onTouchMove={handleCropTouchMove}
+            onTouchEnd={handleCropTouchEnd}
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={cancelCrop} className="flex-1">Cancel</Button>
+          <Button onClick={applyCrop} disabled={!cropRect || cropRect.w < 10 || cropRect.h < 10} className="flex-1">
+            <Check className="h-4 w-4 mr-1" />Apply Crop
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Main Camera UI ---
   return (
-    <div className="space-y-4">
+    <div className={expanded ? "fixed inset-0 z-50 bg-background p-4 flex flex-col" : "space-y-4"}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -150,9 +358,14 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
             </Badge>
           )}
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setExpanded(!expanded)} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+            {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -161,7 +374,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
 
       {/* Camera viewfinder */}
       {cameraActive && (
-        <div className="relative rounded-lg overflow-hidden bg-black aspect-[3/4] max-h-[400px]">
+        <div className={`relative rounded-lg overflow-hidden bg-black ${expanded ? "flex-1" : "aspect-[3/4] max-h-[400px]"}`}>
           <video
             ref={videoRef}
             autoPlay
@@ -179,13 +392,26 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
             >
               <RotateCcw className="h-5 w-5" />
             </Button>
+
             <button
               onClick={takePhoto}
               className="h-16 w-16 rounded-full border-4 border-white bg-white/20 hover:bg-white/40 transition-colors flex items-center justify-center"
             >
               <div className="h-12 w-12 rounded-full bg-white" />
             </button>
-            <div className="w-10" /> {/* spacer */}
+
+            {torchSupported ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={toggleTorch}
+                className={`h-10 w-10 ${torchOn ? "text-yellow-400 bg-white/20" : "text-white hover:bg-white/20"}`}
+              >
+                <Flashlight className="h-5 w-5" />
+              </Button>
+            ) : (
+              <div className="w-10" />
+            )}
           </div>
         </div>
       )}
@@ -196,7 +422,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       {captures.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Captured pages — take more or tap Done to scan
+            Captured pages — take more, crop, or tap Done to scan
           </p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {captures.map((cap, i) => (
@@ -207,12 +433,22 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
                     {i + 1}
                   </Badge>
                 </div>
-                <button
-                  onClick={() => removeCapture(i)}
-                  className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                <div className="absolute top-0.5 right-0.5 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => startCrop(i)}
+                    className="bg-black/60 text-white rounded-full p-0.5"
+                    title="Crop"
+                  >
+                    <Crop className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => removeCapture(i)}
+                    className="bg-black/60 text-white rounded-full p-0.5"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
             ))}
             {cameraActive && (
