@@ -51,6 +51,8 @@ export interface Invoice {
   notes: string | null;
   entered_by: string;
   created_at: string;
+  file_url: string | null;
+  file_name: string | null;
   line_items?: InvoiceLineItem[];
 }
 
@@ -138,10 +140,12 @@ export function useInvoiceData() {
   }, []);
 
   const createInvoice = useCallback(async (
-    invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items">,
-    lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]
+    invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name">,
+    lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[],
+    fileUrl?: string | null,
+    fileName?: string | null
   ) => {
-    const { data, error } = await supabase.from("invoices").insert(invoice as any).select().single();
+    const { data, error } = await supabase.from("invoices").insert({ ...invoice, file_url: fileUrl || null, file_name: fileName || null } as any).select().single();
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return null; }
 
     if (lineItems.length > 0) {
@@ -158,7 +162,7 @@ export function useInvoiceData() {
 
   const updateInvoice = useCallback(async (
     id: string,
-    updates: Partial<Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items">>,
+    updates: Partial<Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name">>,
     lineItems?: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]
   ) => {
     const { error } = await supabase.from("invoices").update(updates as any).eq("id", id);

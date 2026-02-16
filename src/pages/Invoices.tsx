@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Eye, Search, Trash2, ScanLine, Pencil } from "lucide-react";
+import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
@@ -38,6 +39,12 @@ export default function Invoices() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("invoices");
   const [scannerOpen, setScannerOpen] = useState(false);
+
+  // Audit documents filters
+  const [auditDateFrom, setAuditDateFrom] = useState("");
+  const [auditDateTo, setAuditDateTo] = useState("");
+  const [auditSupplier, setAuditSupplier] = useState("all");
+  const [auditVenue, setAuditVenue] = useState("all");
 
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
@@ -221,10 +228,26 @@ export default function Invoices() {
       {scannerOpen && (
         <InvoiceScanner
           suppliers={suppliers}
-          onSave={async (inv, lines) => {
+          onSave={async (inv, lines, file) => {
+            // Upload file to storage if available
+            let fileUrl: string | null = null;
+            let fileName: string | null = null;
+            if (file) {
+              const ext = file.name.split(".").pop() || "pdf";
+              const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}.${ext}`;
+              const { error: uploadErr } = await supabase.storage
+                .from("invoice-files")
+                .upload(storagePath, file, { upsert: true });
+              if (!uploadErr) {
+                fileUrl = storagePath;
+                fileName = file.name;
+              }
+            }
             await createInvoice(
               { ...inv, status: "pending", subtotal: lines.reduce((s, l) => s + l.total - l.tax_amount, 0), tax_amount: lines.reduce((s, l) => s + l.tax_amount, 0), total_amount: lines.reduce((s, l) => s + l.total, 0), entered_by: user?.id || "" },
-              lines
+              lines,
+              fileUrl,
+              fileName
             );
           }}
           onCreateSupplier={createSupplier}
@@ -236,6 +259,7 @@ export default function Invoices() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="audit-docs">Audit Documents</TabsTrigger>
           <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
         </TabsList>
@@ -310,6 +334,108 @@ export default function Invoices() {
           </div>
         </TabsContent>
 
+        {/* Audit Documents Tab */}
+        <TabsContent value="audit-docs" className="space-y-3">
+          <div className="flex gap-2 flex-wrap items-end">
+            <div>
+              <Label className="text-xs">From</Label>
+              <Input type="date" value={auditDateFrom} onChange={(e) => setAuditDateFrom(e.target.value)} className="w-[150px]" />
+            </div>
+            <div>
+              <Label className="text-xs">To</Label>
+              <Input type="date" value={auditDateTo} onChange={(e) => setAuditDateTo(e.target.value)} className="w-[150px]" />
+            </div>
+            <div>
+              <Label className="text-xs">Supplier</Label>
+              <Select value={auditSupplier} onValueChange={setAuditSupplier}>
+                <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Venue</Label>
+              <Select value={auditVenue} onValueChange={setAuditVenue}>
+                <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Venues</SelectItem>
+                  <SelectItem value="Assembly">Assembly</SelectItem>
+                  <SelectItem value="Caliente">Caliente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {(() => {
+            const auditDocs = invoices.filter((inv) => {
+              if (!inv.file_url) return false;
+              if (auditSupplier !== "all" && inv.supplier_id !== auditSupplier) return false;
+              if (auditVenue !== "all" && inv.venue !== auditVenue) return false;
+              if (auditDateFrom && inv.invoice_date < auditDateFrom) return false;
+              if (auditDateTo && inv.invoice_date > auditDateTo) return false;
+              return true;
+            });
+            return (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">{auditDocs.length} document{auditDocs.length !== 1 ? "s" : ""} found</p>
+                  {auditDocs.length > 0 && (
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      for (const doc of auditDocs) {
+                        const { data } = await supabase.storage.from("invoice-files").createSignedUrl(doc.file_url!, 3600);
+                        if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                      }
+                    }}>
+                      <Download className="h-4 w-4 mr-1" />Open All ({auditDocs.length})
+                    </Button>
+                  )}
+                </div>
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Invoice #</TableHead>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead>Venue</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead>File</TableHead>
+                        <TableHead className="w-[80px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {auditDocs.length === 0 ? (
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          {invoices.some((i) => i.file_url) ? "No documents match the current filters" : "No scanned documents yet. Use 'Scan Invoice' to upload and attach documents."}
+                        </TableCell></TableRow>
+                      ) : auditDocs.map((inv) => (
+                        <TableRow key={inv.id}>
+                          <TableCell className="font-medium">{inv.invoice_number}</TableCell>
+                          <TableCell>{inv.supplier_name}</TableCell>
+                          <TableCell>{inv.venue}</TableCell>
+                          <TableCell>{inv.invoice_date}</TableCell>
+                          <TableCell className="text-right font-mono">{Number(inv.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{inv.file_name || "—"}</TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="ghost" onClick={async () => {
+                              const { data } = await supabase.storage.from("invoice-files").createSignedUrl(inv.file_url!, 3600);
+                              if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                            }}>
+                              <ExternalLink className="h-3 w-3 mr-1" />View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            );
+          })()}
+        </TabsContent>
+
         <TabsContent value="suppliers" className="space-y-3">
           <div className="rounded-lg border overflow-hidden">
             <Table>
@@ -381,6 +507,20 @@ export default function Invoices() {
                   <div><span className="text-muted-foreground">Total:</span> <span className="font-bold font-mono">{Number(selectedInvoice.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
                 </div>
                 {selectedInvoice.notes && <p className="text-sm text-muted-foreground">{selectedInvoice.notes}</p>}
+
+                {/* Scanned copy link */}
+                {selectedInvoice.file_url && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium flex-1">{selectedInvoice.file_name || "Scanned copy"}</span>
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      const { data } = await supabase.storage.from("invoice-files").createSignedUrl(selectedInvoice.file_url!, 3600);
+                      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                    }}>
+                      <ExternalLink className="h-3 w-3 mr-1" />View
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex gap-2 flex-wrap">
                   <Button size="sm" variant="outline" onClick={() => openEdit(selectedInvoice)}>
