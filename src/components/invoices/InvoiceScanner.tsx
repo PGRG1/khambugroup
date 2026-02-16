@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 interface ScannedLineItem {
   description: string;
@@ -28,6 +30,7 @@ interface ScannedInvoice {
   due_date: string;
   notes: string;
   line_items: ScannedLineItem[];
+  saved?: boolean;
 }
 
 interface InvoiceScannerProps {
@@ -59,8 +62,11 @@ const emptyLine: ScannedLineItem = { description: "", quantity: "1", unit: "", u
 const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [extracted, setExtracted] = useState<ScannedInvoice | null>(null);
+  const [invoices, setInvoices] = useState<ScannedInvoice[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -70,9 +76,17 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       reader.readAsDataURL(file);
     });
 
+  const matchOrCreateSupplier = useCallback(async (supplierName: string): Promise<string> => {
+    if (!supplierName) return "";
+    const match = suppliers.find((s) => s.name.toLowerCase() === supplierName.toLowerCase());
+    if (match) return match.id;
+    const created = await onCreateSupplier({ name: supplierName, contact_person: null, email: null, phone: null, address: null, notes: null, is_active: true });
+    return created?.id || "";
+  }, [suppliers, onCreateSupplier]);
+
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
-      toast({ title: "File too large", description: "Maximum 10MB allowed.", variant: "destructive" });
+      toast({ title: "File too large", description: "Maximum 20MB allowed.", variant: "destructive" });
       return;
     }
     const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -82,7 +96,9 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     }
 
     setScanning(true);
-    setExtracted(null);
+    setInvoices([]);
+    setCurrentIdx(0);
+    setSavedCount(0);
 
     try {
       const base64 = await fileToBase64(file);
@@ -96,47 +112,41 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         return;
       }
 
-      const raw = data.data;
+      const rawInvoices = data.data?.invoices || [data.data];
 
-      // Match or auto-create supplier
-      let supplierId = "";
-      if (raw.supplier_name) {
-        const match = suppliers.find((s) => s.name.toLowerCase() === raw.supplier_name.toLowerCase());
-        if (match) {
-          supplierId = match.id;
-        } else {
-          const created = await onCreateSupplier({ name: raw.supplier_name, contact_person: null, email: null, phone: null, address: null, notes: null, is_active: true });
-          if (created) supplierId = created.id;
-        }
+      const processed: ScannedInvoice[] = [];
+      for (const raw of rawInvoices) {
+        const supplierId = await matchOrCreateSupplier(raw.supplier_name || "");
+        const lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => ({
+          description: li.description || "",
+          quantity: String(li.quantity || 1),
+          unit: li.unit || "",
+          unit_price: String(li.unit_price || 0),
+          tax_amount: "0",
+        }));
+
+        processed.push({
+          supplier_name: raw.supplier_name || "",
+          supplier_id: supplierId,
+          venue: raw.venue || "Assembly",
+          invoice_number: raw.invoice_number || "",
+          invoice_date: raw.invoice_date || "",
+          due_date: "",
+          notes: raw.notes || "",
+          line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
+          saved: false,
+        });
       }
 
-      const lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => ({
-        description: li.description || "",
-        quantity: String(li.quantity || 1),
-        unit: li.unit || "",
-        unit_price: String(li.unit_price || 0),
-        tax_amount: "0",
-      }));
-
-      setExtracted({
-        supplier_name: raw.supplier_name || "",
-        supplier_id: supplierId,
-        venue: raw.venue || "Assembly",
-        invoice_number: raw.invoice_number || "",
-        invoice_date: raw.invoice_date || "",
-        due_date: "",
-        notes: raw.notes || "",
-        line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
-      });
-
-      toast({ title: "Invoice scanned!", description: `Found ${lines.length} line items. Review and save.` });
+      setInvoices(processed);
+      toast({ title: "Scan complete!", description: `Found ${processed.length} invoice${processed.length > 1 ? "s" : ""}. Review and save.` });
     } catch (err) {
       console.error("Invoice scan error:", err);
       toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setScanning(false);
     }
-  }, [suppliers, onCreateSupplier]);
+  }, [suppliers, matchOrCreateSupplier]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -145,63 +155,121 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     if (file) processFile(file);
   }, [processFile]);
 
-  const updateField = (field: keyof ScannedInvoice, value: string) => {
-    setExtracted((prev) => prev ? { ...prev, [field]: value } : prev);
-  };
+  const current = invoices[currentIdx] || null;
 
-  const updateLine = (i: number, field: string, value: string) => {
-    setExtracted((prev) => {
-      if (!prev) return prev;
-      const lines = [...prev.line_items];
-      (lines[i] as any)[field] = value;
-      return { ...prev, line_items: lines };
+  const updateField = (field: keyof ScannedInvoice, value: string) => {
+    setInvoices((prev) => {
+      const copy = [...prev];
+      copy[currentIdx] = { ...copy[currentIdx], [field]: value };
+      return copy;
     });
   };
 
-  const addLine = () => setExtracted((prev) => prev ? { ...prev, line_items: [...prev.line_items, { ...emptyLine }] } : prev);
-  const removeLine = (i: number) => setExtracted((prev) => {
-    if (!prev || prev.line_items.length <= 1) return prev;
-    return { ...prev, line_items: prev.line_items.filter((_, idx) => idx !== i) };
+  const updateLine = (i: number, field: string, value: string) => {
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      (lines[i] as any)[field] = value;
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+  };
+
+  const addLine = () => setInvoices((prev) => {
+    const copy = [...prev];
+    copy[currentIdx] = { ...copy[currentIdx], line_items: [...copy[currentIdx].line_items, { ...emptyLine }] };
+    return copy;
   });
 
-  const subtotal = extracted?.line_items.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0), 0) || 0;
-  const taxTotal = extracted?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
+  const removeLine = (i: number) => setInvoices((prev) => {
+    const copy = [...prev];
+    if (copy[currentIdx].line_items.length <= 1) return prev;
+    copy[currentIdx] = { ...copy[currentIdx], line_items: copy[currentIdx].line_items.filter((_, idx) => idx !== i) };
+    return copy;
+  });
 
-  const handleSave = async () => {
-    if (!extracted) return;
-    if (!extracted.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
-    if (!extracted.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
-    if (!extracted.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
+  const subtotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0), 0) || 0;
+  const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
 
+  const saveInvoice = async (inv: ScannedInvoice): Promise<boolean> => {
+    if (!inv.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return false; }
+    if (!inv.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return false; }
+    if (!inv.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return false; }
+
+    const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
+      const qty = parseFloat(l.quantity) || 0;
+      const price = parseFloat(l.unit_price) || 0;
+      const tax = parseFloat(l.tax_amount) || 0;
+      return { description: l.description, category_id: null as null, quantity: qty, unit: l.unit || null, unit_price: price, tax_amount: tax, total: qty * price + tax, notes: null as null };
+    });
+
+    await onSave(
+      {
+        supplier_id: inv.supplier_id,
+        venue: inv.venue,
+        invoice_number: inv.invoice_number,
+        invoice_date: inv.invoice_date,
+        due_date: inv.due_date || null,
+        notes: inv.notes || null,
+      },
+      lines
+    );
+    return true;
+  };
+
+  const handleSaveCurrent = async () => {
+    if (!current) return;
     setSaving(true);
     try {
-      const lines = extracted.line_items.filter((l) => l.description.trim()).map((l) => {
-        const qty = parseFloat(l.quantity) || 0;
-        const price = parseFloat(l.unit_price) || 0;
-        const tax = parseFloat(l.tax_amount) || 0;
-        return { description: l.description, category_id: null as null, quantity: qty, unit: l.unit || null, unit_price: price, tax_amount: tax, total: qty * price + tax, notes: null as null };
-      });
-
-      await onSave(
-        {
-          supplier_id: extracted.supplier_id,
-          venue: extracted.venue,
-          invoice_number: extracted.invoice_number,
-          invoice_date: extracted.invoice_date,
-          due_date: extracted.due_date || null,
-          notes: extracted.notes || null,
-        },
-        lines
-      );
-      toast({ title: "Invoice saved!" });
-      setExtracted(null);
-      setTimeout(onClose, 500);
+      const ok = await saveInvoice(current);
+      if (ok) {
+        setInvoices((prev) => {
+          const copy = [...prev];
+          copy[currentIdx] = { ...copy[currentIdx], saved: true };
+          return copy;
+        });
+        setSavedCount((c) => c + 1);
+        toast({ title: `Invoice ${current.invoice_number} saved!` });
+        // Auto-advance to next unsaved
+        const nextUnsaved = invoices.findIndex((inv, idx) => idx > currentIdx && !inv.saved);
+        if (nextUnsaved >= 0) setCurrentIdx(nextUnsaved);
+      }
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
+
+  const handleSaveAll = async () => {
+    setSavingAll(true);
+    let saved = 0;
+    for (let i = 0; i < invoices.length; i++) {
+      if (invoices[i].saved) { saved++; continue; }
+      try {
+        const ok = await saveInvoice(invoices[i]);
+        if (ok) {
+          setInvoices((prev) => {
+            const copy = [...prev];
+            copy[i] = { ...copy[i], saved: true };
+            return copy;
+          });
+          saved++;
+          setSavedCount(saved);
+        }
+      } catch {
+        toast({ title: `Failed to save invoice #${invoices[i].invoice_number}`, variant: "destructive" });
+      }
+    }
+    toast({ title: `Saved ${saved} of ${invoices.length} invoices!` });
+    setSavingAll(false);
+    if (saved === invoices.length) {
+      setTimeout(onClose, 800);
+    }
+  };
+
+  const totalInvoices = invoices.length;
+  const allSaved = totalInvoices > 0 && invoices.every((inv) => inv.saved);
 
   return (
     <div className="card-glass rounded-xl p-6 animate-fade-in">
@@ -216,7 +284,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       </div>
 
       {/* Drop zone */}
-      {!extracted && !scanning && (
+      {invoices.length === 0 && !scanning && (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -237,9 +305,9 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         >
           <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Drop your invoice here or <span className="text-primary font-medium">click to browse</span>
+            Drop your invoice PDF here or <span className="text-primary font-medium">click to browse</span>
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF (max 10MB)</p>
+          <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF with multiple invoices (max 20MB)</p>
         </div>
       )}
 
@@ -247,26 +315,55 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       {scanning && (
         <div className="flex flex-col items-center gap-3 py-12">
           <Loader2 className="h-8 w-8 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Scanning invoice with AI...</p>
+          <p className="text-sm text-muted-foreground">Scanning for invoices with AI... This may take a moment for large documents.</p>
         </div>
       )}
 
       {/* Review form */}
-      {extracted && (
+      {current && !scanning && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Review and correct the extracted data, then click Save.</p>
+          {/* Navigation bar */}
+          {totalInvoices > 1 && (
+            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-2">
+              <Button variant="ghost" size="sm" disabled={currentIdx === 0} onClick={() => setCurrentIdx(currentIdx - 1)}>
+                <ChevronLeft className="h-4 w-4 mr-1" />Prev
+              </Button>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">
+                  Invoice {currentIdx + 1} of {totalInvoices}
+                </span>
+                {current.saved && <Badge className="bg-green-100 text-green-800 border-green-300">Saved</Badge>}
+              </div>
+              <Button variant="ghost" size="sm" disabled={currentIdx === totalInvoices - 1} onClick={() => setCurrentIdx(currentIdx + 1)}>
+                Next<ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
+
+          {/* Progress */}
+          {totalInvoices > 1 && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{savedCount} of {totalInvoices} saved</span>
+                <span>{Math.round((savedCount / totalInvoices) * 100)}%</span>
+              </div>
+              <Progress value={(savedCount / totalInvoices) * 100} className="h-2" />
+            </div>
+          )}
+
+          <p className="text-sm text-muted-foreground">Review and correct the extracted data, then save.</p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs">Supplier</Label>
-              <Select value={extracted.supplier_id} onValueChange={(v) => updateField("supplier_id", v)}>
+              <Select value={current.supplier_id} onValueChange={(v) => updateField("supplier_id", v)}>
                 <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
                 <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <Label className="text-xs">Venue</Label>
-              <Select value={extracted.venue} onValueChange={(v) => updateField("venue", v)}>
+              <Select value={current.venue} onValueChange={(v) => updateField("venue", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Assembly">Assembly</SelectItem>
@@ -276,25 +373,25 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
             </div>
             <div>
               <Label className="text-xs">Invoice #</Label>
-              <Input value={extracted.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
+              <Input value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">Invoice Date</Label>
-              <Input type="date" value={extracted.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
+              <Input type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">Due Date</Label>
-              <Input type="date" value={extracted.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
+              <Input type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">Notes</Label>
-              <Textarea value={extracted.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
+              <Textarea value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
             </div>
           </div>
 
-          <h4 className="text-sm font-semibold">Line Items</h4>
+          <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {extracted.line_items.map((line, i) => (
+            {current.line_items.map((line, i) => (
               <div key={i} className="grid grid-cols-[1fr_70px_60px_80px_80px_32px] gap-2 items-end">
                 <div>
                   {i === 0 && <Label className="text-xs">Description</Label>}
@@ -317,7 +414,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
                   <Input type="number" value={line.tax_amount} onChange={(e) => updateLine(i, "tax_amount", e.target.value)} className="text-sm" />
                 </div>
                 <div>
-                  {extracted.line_items.length > 1 && (
+                  {current.line_items.length > 1 && (
                     <Button size="icon" variant="ghost" onClick={() => removeLine(i)} className="h-9 w-9"><Trash2 className="h-3 w-3" /></Button>
                   )}
                 </div>
@@ -339,13 +436,44 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
             <span className="font-mono font-bold">{(subtotal + taxTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-              {saving ? "Saving..." : "Save Invoice"}
-            </Button>
-            <Button variant="outline" onClick={() => setExtracted(null)}>Scan Another</Button>
+          <div className="flex items-center gap-3 pt-2 flex-wrap">
+            {!current.saved ? (
+              <Button onClick={handleSaveCurrent} disabled={saving || savingAll}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                {saving ? "Saving..." : "Save This Invoice"}
+              </Button>
+            ) : (
+              <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
+            )}
+
+            {totalInvoices > 1 && !allSaved && (
+              <Button variant="secondary" onClick={handleSaveAll} disabled={saving || savingAll}>
+                {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices} Invoices`}
+              </Button>
+            )}
+
+            <Button variant="outline" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>Scan Another</Button>
           </div>
+
+          {/* Invoice thumbnails for quick navigation */}
+          {totalInvoices > 1 && (
+            <div className="flex gap-2 flex-wrap pt-2 border-t">
+              {invoices.map((inv, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentIdx(idx)}
+                  className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                    idx === currentIdx ? "border-primary bg-primary/10 text-primary font-medium" : 
+                    inv.saved ? "border-green-300 bg-green-50 text-green-700" : "border-border hover:border-muted-foreground"
+                  }`}
+                >
+                  {inv.invoice_number || `#${idx + 1}`}
+                  {inv.saved && " ✓"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

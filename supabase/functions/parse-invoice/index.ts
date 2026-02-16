@@ -27,35 +27,42 @@ Deno.serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are an invoice data extractor for a restaurant/bar business (Assembly and Caliente venues in Hong Kong). Extract invoice data from the provided document image. Return ONLY valid JSON with this exact structure:
+    const systemPrompt = `You are an invoice data extractor for a restaurant/bar business (Assembly and Caliente venues in Hong Kong). A single document may contain MULTIPLE invoices (different dates, different invoice numbers, possibly from the same or different suppliers). You must extract ALL invoices found in the document.
+
+Return ONLY valid JSON with this exact structure — always an array, even if there's only one invoice:
 
 {
-  "supplier_name": "Full supplier/company name from the invoice header",
-  "invoice_number": "Invoice number/reference",
-  "invoice_date": "YYYY-MM-DD format",
-  "venue": "Assembly or Caliente - infer from delivery address or customer name",
-  "total_amount": number (total invoice amount),
-  "notes": "any special notes, payment terms, or remarks",
-  "line_items": [
+  "invoices": [
     {
-      "item_code": "product/item code if available, otherwise empty string",
-      "description": "item description",
-      "quantity": number,
-      "unit": "unit of measure (BOT, KG, Case, PKT, etc.)",
-      "unit_price": number,
-      "total": number (quantity * unit_price)
+      "supplier_name": "Full supplier/company name from the invoice header",
+      "invoice_number": "Invoice number/reference",
+      "invoice_date": "YYYY-MM-DD format",
+      "venue": "Assembly or Caliente - infer from delivery address or customer name",
+      "total_amount": number (total invoice amount),
+      "notes": "any special notes, payment terms, or remarks",
+      "line_items": [
+        {
+          "item_code": "product/item code if available, otherwise empty string",
+          "description": "item description",
+          "quantity": number,
+          "unit": "unit of measure (BOT, KG, Case, PKT, etc.)",
+          "unit_price": number,
+          "total": number (quantity * unit_price)
+        }
+      ]
     }
   ]
 }
 
 Rules:
+- CRITICAL: Look for ALL separate invoices in the document. Different invoice numbers or dates mean different invoices.
 - All number fields should be numeric (no currency symbols, no commas)
 - If a field is not found, use "" for strings and 0 for numbers
 - For venue: look for "Assembly" or "Caliente" in the billing/delivery address. "Knutsford Terrace" = Caliente, "Assembly" = Assembly
-- Parse ALL line items from the invoice table
+- Parse ALL line items from each invoice table
 - The date should always be in YYYY-MM-DD format, converting from DD/MM/YYYY if needed
 - Return ONLY the JSON object, no markdown, no explanation
-- If multiple pages contain the same invoice, combine all line items`;
+- Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -80,7 +87,7 @@ Rules:
                 },
                 {
                   type: "text",
-                  text: "Extract all invoice data from this document. Include every line item.",
+                  text: "Extract ALL invoices from this document. There may be multiple invoices across pages. Return every single one.",
                 },
               ],
             },
@@ -130,8 +137,19 @@ Rules:
       );
     }
 
+    // Normalize: support both old single-invoice format and new multi-invoice format
+    let invoicesArray;
+    if (Array.isArray(extractedData.invoices)) {
+      invoicesArray = extractedData.invoices;
+    } else if (extractedData.supplier_name || extractedData.invoice_number) {
+      // Old single-invoice format fallback
+      invoicesArray = [extractedData];
+    } else {
+      invoicesArray = [extractedData];
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: extractedData }),
+      JSON.stringify({ success: true, data: { invoices: invoicesArray } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
