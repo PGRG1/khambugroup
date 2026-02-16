@@ -122,7 +122,24 @@ Rules:
       );
     }
 
-    const aiData = await response.json();
+    let aiData;
+    try {
+      const responseText = await response.text();
+      if (!responseText) {
+        return new Response(
+          JSON.stringify({ success: false, error: "AI returned empty response. The file may be too large — try a smaller or clearer image." }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      aiData = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error("Failed to parse AI gateway response:", parseErr);
+      return new Response(
+        JSON.stringify({ success: false, error: "AI response was incomplete. Try a smaller file or re-scan." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const content = aiData.choices?.[0]?.message?.content || "";
 
     let cleaned = content.trim();
