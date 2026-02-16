@@ -196,7 +196,23 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
-      (lines[i] as any)[field] = value;
+      const line = { ...lines[i], [field]: value };
+      // Auto-calculate total when qty, weight, or unit_price change
+      if (field === "quantity" || field === "weight" || field === "unit_price") {
+        const w = line.weight ? parseFloat(line.weight) : null;
+        const price = parseFloat(line.unit_price) || 0;
+        const qty = parseFloat(line.quantity) || 0;
+        const tax = parseFloat(line.tax_amount) || 0;
+        line.total = String(((w ? w * price : qty * price) + tax).toFixed(2));
+      }
+      if (field === "tax_amount") {
+        const w = line.weight ? parseFloat(line.weight) : null;
+        const price = parseFloat(line.unit_price) || 0;
+        const qty = parseFloat(line.quantity) || 0;
+        const tax = parseFloat(value) || 0;
+        line.total = String(((w ? w * price : qty * price) + tax).toFixed(2));
+      }
+      lines[i] = line;
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });

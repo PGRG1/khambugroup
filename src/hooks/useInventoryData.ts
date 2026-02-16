@@ -8,6 +8,7 @@ export interface InventoryItem {
   category_id: string | null;
   category_name?: string;
   unit_of_measure: string;
+  unit_size: string;
   par_level: number | null;
   is_active: boolean;
 }
