@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera } from "lucide-react";
+import InvoiceCamera from "./InvoiceCamera";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
   const [savingAll, setSavingAll] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -338,31 +340,57 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         </button>
       </div>
 
-      {/* Drop zone */}
-      {invoices.length === 0 && !scanning && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors cursor-pointer ${
-            dragging ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"
-          }`}
-          onClick={() => {
-            const input = document.createElement("input");
-            input.type = "file";
-            input.accept = "image/*,application/pdf";
-            input.onchange = (e: any) => {
-              const file = e.target.files?.[0];
-              if (file) processFile(file);
-            };
-            input.click();
+      {/* Camera mode */}
+      {showCamera && !scanning && invoices.length === 0 && (
+        <InvoiceCamera
+          onCapture={(file) => {
+            setShowCamera(false);
+            processFile(file);
           }}
-        >
-          <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Drop your invoice PDF here or <span className="text-primary font-medium">click to browse</span>
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF with multiple invoices (max 100MB)</p>
+          onClose={() => setShowCamera(false)}
+        />
+      )}
+
+      {/* Drop zone */}
+      {invoices.length === 0 && !scanning && !showCamera && (
+        <div className="space-y-3">
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors cursor-pointer ${
+              dragging ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"
+            }`}
+            onClick={() => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = "image/*,application/pdf";
+              input.onchange = (e: any) => {
+                const file = e.target.files?.[0];
+                if (file) processFile(file);
+              };
+              input.click();
+            }}
+          >
+            <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Drop your invoice PDF here or <span className="text-primary font-medium">click to browse</span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF with multiple invoices (max 100MB)</p>
+          </div>
+
+          <div className="text-center">
+            <span className="text-xs text-muted-foreground">or</span>
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setShowCamera(true)}
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            Take Photos with Camera
+          </Button>
         </div>
       )}
 
