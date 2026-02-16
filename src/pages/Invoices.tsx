@@ -336,7 +336,7 @@ export default function Invoices() {
         </TabsList>
 
         <TabsContent value="invoices" className="space-y-3">
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search invoices..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
@@ -361,6 +361,10 @@ export default function Invoices() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            Showing {filtered.length}{filtered.length !== invoices.length ? ` of ${invoices.length}` : ""} invoices
           </div>
 
           <div className="rounded-lg border overflow-hidden">
