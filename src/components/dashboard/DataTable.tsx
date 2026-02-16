@@ -234,6 +234,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                         className="px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground">
                         <option>Assembly</option>
                         <option>Caliente</option>
+                        <option>Hanabi</option>
                       </select>
                     ) : row.venue}
                   </TableCell>
