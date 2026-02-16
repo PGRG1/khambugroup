@@ -140,7 +140,16 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       (blob) => {
         if (!blob) return;
         const dataUrl = canvas.toDataURL("image/png");
-        setCaptures((prev) => [...prev, { dataUrl, blob }]);
+        setCaptures((prev) => {
+          const newCaptures = [...prev, { dataUrl, blob }];
+          // Auto-open crop for the newly captured photo
+          setTimeout(() => {
+            setCropMode(true);
+            setCropTarget(newCaptures.length - 1);
+            setCropRect(null);
+          }, 100);
+          return newCaptures;
+        });
       },
       "image/png"
     );
@@ -423,17 +432,6 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
             <div className="text-white text-sm animate-pulse">Starting camera...</div>
           </div>
         )}
-        {/* Flash toggle - top right corner for easy access */}
-        {torchSupported && (
-          <button
-            onClick={toggleTorch}
-            className={`absolute top-3 right-3 z-10 h-11 w-11 rounded-full flex items-center justify-center transition-colors ${
-              torchOn ? "bg-yellow-400 text-black" : "bg-black/50 text-white hover:bg-black/70"
-            }`}
-          >
-            <Flashlight className="h-5 w-5" />
-          </button>
-        )}
         {/* Camera controls overlay */}
         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-4 flex items-center justify-center gap-6">
           <Button
@@ -452,7 +450,18 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
             <div className="h-12 w-12 rounded-full bg-white" />
           </button>
 
-          <div className="w-10" />
+          {torchSupported ? (
+            <button
+              onClick={toggleTorch}
+              className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${
+                torchOn ? "bg-yellow-400 text-black" : "bg-black/50 text-white hover:bg-black/70"
+              }`}
+            >
+              <Flashlight className="h-5 w-5" />
+            </button>
+          ) : (
+            <div className="w-10" />
+          )}
         </div>
       </div>
 
