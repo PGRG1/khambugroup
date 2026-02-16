@@ -347,6 +347,7 @@ export default function Invoices() {
                 <SelectItem value="all">All Venues</SelectItem>
                 <SelectItem value="Assembly">Assembly</SelectItem>
                 <SelectItem value="Caliente">Caliente</SelectItem>
+                <SelectItem value="Hanabi">Hanabi</SelectItem>
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -434,6 +435,7 @@ export default function Invoices() {
                   <SelectItem value="all">All Venues</SelectItem>
                   <SelectItem value="Assembly">Assembly</SelectItem>
                   <SelectItem value="Caliente">Caliente</SelectItem>
+                  <SelectItem value="Hanabi">Hanabi</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -734,6 +736,7 @@ export default function Invoices() {
                   <SelectContent>
                     <SelectItem value="Assembly">Assembly</SelectItem>
                     <SelectItem value="Caliente">Caliente</SelectItem>
+                    <SelectItem value="Hanabi">Hanabi</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -851,6 +854,7 @@ export default function Invoices() {
                   <SelectContent>
                     <SelectItem value="Assembly">Assembly</SelectItem>
                     <SelectItem value="Caliente">Caliente</SelectItem>
+                    <SelectItem value="Hanabi">Hanabi</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

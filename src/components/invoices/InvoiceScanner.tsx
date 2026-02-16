@@ -464,6 +464,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
                 <SelectContent>
                   <SelectItem value="Assembly">Assembly</SelectItem>
                   <SelectItem value="Caliente">Caliente</SelectItem>
+                  <SelectItem value="Hanabi">Hanabi</SelectItem>
                 </SelectContent>
               </Select>
             </div>
