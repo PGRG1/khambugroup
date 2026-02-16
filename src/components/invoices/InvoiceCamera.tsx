@@ -112,37 +112,61 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     setTorchOn(false);
     startCamera(next);
   };
-  // Pinch-to-zoom
+  // Pinch-to-zoom using native event listeners (passive: false to prevent browser zoom)
   const lastPinchDist = useRef<number | null>(null);
+  const viewfinderRef = useRef<HTMLDivElement>(null);
+  const zoomLevelRef = useRef(1);
+  const zoomRangeRef = useRef<{ min: number; max: number } | null>(null);
 
-  const handleViewfinderTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
+  // Keep refs in sync
+  useEffect(() => { zoomLevelRef.current = zoomLevel; }, [zoomLevel]);
+  useEffect(() => { zoomRangeRef.current = zoomRange; }, [zoomRange]);
+
+  useEffect(() => {
+    const el = viewfinderRef.current;
+    if (!el) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastPinchDist.current = Math.hypot(dx, dy);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || !zoomRangeRef.current || lastPinchDist.current === null) return;
+      e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
-      lastPinchDist.current = Math.hypot(dx, dy);
-    }
-  }, []);
+      const dist = Math.hypot(dx, dy);
+      const delta = (dist - lastPinchDist.current) * 0.02;
+      lastPinchDist.current = dist;
 
-  const handleViewfinderTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length !== 2 || !zoomRange || lastPinchDist.current === null) return;
-    e.preventDefault();
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const dist = Math.hypot(dx, dy);
-    const delta = (dist - lastPinchDist.current) * 0.02;
-    lastPinchDist.current = dist;
+      const range = zoomRangeRef.current;
+      const maxUsable = Math.min(range.max, 10);
+      const newZoom = Math.min(maxUsable, Math.max(range.min, zoomLevelRef.current + delta));
+      if (!streamRef.current) return;
+      const track = streamRef.current.getVideoTracks()[0];
+      (track as any).applyConstraints({ advanced: [{ zoom: newZoom }] }).catch(() => {});
+      zoomLevelRef.current = newZoom;
+      setZoomLevel(newZoom);
+    };
 
-    // Cap usable zoom at 10x or device max, whichever is smaller
-    const maxUsable = Math.min(zoomRange.max, 10);
-    const newZoom = Math.min(maxUsable, Math.max(zoomRange.min, zoomLevel + delta));
-    if (!streamRef.current) return;
-    const track = streamRef.current.getVideoTracks()[0];
-    (track as any).applyConstraints({ advanced: [{ zoom: newZoom }] }).catch(() => {});
-    setZoomLevel(newZoom);
-  }, [zoomRange, zoomLevel]);
+    const onTouchEnd = () => {
+      lastPinchDist.current = null;
+    };
 
-  const handleViewfinderTouchEnd = useCallback(() => {
-    lastPinchDist.current = null;
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
   }, []);
 
   const toggleTorch = useCallback(async () => {
@@ -453,10 +477,9 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
 
       {/* Camera viewfinder — takes all available space */}
       <div
+        ref={viewfinderRef}
         className="flex-1 relative overflow-hidden"
-        onTouchStart={handleViewfinderTouchStart}
-        onTouchMove={handleViewfinderTouchMove}
-        onTouchEnd={handleViewfinderTouchEnd}
+        style={{ touchAction: "none" }}
       >
         {!cameraReady && !error && (
           <div className="absolute inset-0 flex items-center justify-center">
