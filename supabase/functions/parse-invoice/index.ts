@@ -44,10 +44,11 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
         {
           "item_code": "product/item code if available, otherwise empty string",
           "description": "item description",
-          "quantity": number,
-          "unit": "unit of measure (BOT, KG, Case, PKT, etc.)",
-          "unit_price": number,
-          "total": number (quantity * unit_price)
+          "quantity": number (number of units ordered, e.g. 1 CTN, 2 PCS),
+          "unit": "unit of measure (CTN, PCS, BOT, Case, PKT, etc.)",
+          "weight": number or null (actual weight in KG if item is priced per KG, otherwise null),
+          "unit_price": number (price per unit — if priced per KG this is the price per KG),
+          "total": number (the total amount from the invoice for this line item)
         }
       ]
     }
@@ -57,12 +58,14 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
 Rules:
 - CRITICAL: Look for ALL separate invoices in the document. Different invoice numbers or dates mean different invoices.
 - All number fields should be numeric (no currency symbols, no commas)
-- If a field is not found, use "" for strings and 0 for numbers
+- If a field is not found, use "" for strings, 0 for numbers, null for weight
 - For venue: look for "Assembly" or "Caliente" in the billing/delivery address. "Knutsford Terrace" = Caliente, "Assembly" = Assembly
 - Parse ALL line items from each invoice table
 - The date should always be in YYYY-MM-DD format, converting from DD/MM/YYYY if needed
 - Return ONLY the JSON object, no markdown, no explanation
-- Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry`;
+- Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry
+- IMPORTANT for weight-based items: When an item shows a weight (e.g. "16.3300 KG") and a price per KG (e.g. "310.00/KG"), set weight to the KG value, unit_price to the per-KG price, and total to weight * unit_price. The quantity is the number of pieces/cartons ordered.
+- Use the TOTAL AMOUNT column from the invoice as the "total" field — do NOT recalculate it`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",

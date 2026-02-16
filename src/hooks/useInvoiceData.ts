@@ -22,11 +22,13 @@ export interface ExpenseCategory {
 export interface InvoiceLineItem {
   id: string;
   invoice_id: string;
+  item_code: string;
   description: string;
   category_id: string | null;
   category_name?: string;
   quantity: number;
   unit: string | null;
+  weight: number | null;
   unit_price: number;
   tax_amount: number;
   total: number;

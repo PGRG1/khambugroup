@@ -42,7 +42,7 @@ export default function Invoices() {
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
   const [editInv, setEditInv] = useState({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "", status: "pending" });
-  const [editLines, setEditLines] = useState<{ description: string; quantity: string; unit: string; unit_price: string; tax_amount: string }[]>([]);
+  const [editLines, setEditLines] = useState<{ item_code: string; description: string; quantity: string; unit: string; weight: string; unit_price: string; tax_amount: string }[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Delete state
@@ -51,8 +51,8 @@ export default function Invoices() {
 
   // New invoice form
   const [newInv, setNewInv] = useState({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "" });
-  const [newLines, setNewLines] = useState<{ description: string; quantity: string; unit: string; unit_price: string; tax_amount: string }[]>([
-    { description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" },
+  const [newLines, setNewLines] = useState<{ item_code: string; description: string; quantity: string; unit: string; weight: string; unit_price: string; tax_amount: string }[]>([
+    { item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" },
   ]);
 
   // Supplier form
@@ -92,9 +92,11 @@ export default function Invoices() {
     });
     const items = await fetchLineItems(inv.id);
     setEditLines(items.map((li) => ({
+      item_code: li.item_code || "",
       description: li.description,
       quantity: String(li.quantity),
       unit: li.unit || "",
+      weight: li.weight ? String(li.weight) : "",
       unit_price: String(li.unit_price),
       tax_amount: String(li.tax_amount),
     })));
@@ -108,9 +110,11 @@ export default function Invoices() {
       const qty = parseFloat(l.quantity) || 0;
       const price = parseFloat(l.unit_price) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
-      return { description: l.description, category_id: null, quantity: qty, unit: l.unit || null, unit_price: price, tax_amount: tax, total: qty * price + tax, notes: null };
+      const w = l.weight ? parseFloat(l.weight) : null;
+      const lineTotal = w ? w * price + tax : qty * price + tax;
+      return { item_code: l.item_code || "", description: l.description, category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null };
     });
-    const subtotal = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+    const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
 
     const ok = await updateInvoice(editingId, {
@@ -147,9 +151,11 @@ export default function Invoices() {
       const qty = parseFloat(l.quantity) || 0;
       const price = parseFloat(l.unit_price) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
-      return { description: l.description, category_id: null, quantity: qty, unit: l.unit || null, unit_price: price, tax_amount: tax, total: qty * price + tax, notes: null };
+      const w = l.weight ? parseFloat(l.weight) : null;
+      const lineTotal = w ? w * price + tax : qty * price + tax;
+      return { item_code: l.item_code || "", description: l.description, category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null };
     });
-    const subtotal = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+    const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
 
     await createInvoice(
@@ -162,10 +168,10 @@ export default function Invoices() {
 
   const resetForm = () => {
     setNewInv({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "" });
-    setNewLines([{ description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
+    setNewLines([{ item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
   };
 
-  const addLine = () => setNewLines([...newLines, { description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
+  const addLine = () => setNewLines([...newLines, { item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
   const removeLine = (i: number) => setNewLines(newLines.filter((_, idx) => idx !== i));
   const updateLine = (i: number, field: string, value: string) => {
     const updated = [...newLines];
@@ -174,7 +180,7 @@ export default function Invoices() {
   };
 
   // Edit line helpers
-  const addEditLine = () => setEditLines([...editLines, { description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
+  const addEditLine = () => setEditLines([...editLines, { item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
   const removeEditLine = (i: number) => { if (editLines.length > 1) setEditLines(editLines.filter((_, idx) => idx !== i)); };
   const updateEditLine = (i: number, field: string, value: string) => {
     const updated = [...editLines];
@@ -216,7 +222,7 @@ export default function Invoices() {
           suppliers={suppliers}
           onSave={async (inv, lines) => {
             await createInvoice(
-              { ...inv, status: "pending", subtotal: lines.reduce((s, l) => s + l.quantity * l.unit_price, 0), tax_amount: lines.reduce((s, l) => s + l.tax_amount, 0), total_amount: lines.reduce((s, l) => s + l.total, 0), entered_by: user?.id || "" },
+              { ...inv, status: "pending", subtotal: lines.reduce((s, l) => s + l.total - l.tax_amount, 0), tax_amount: lines.reduce((s, l) => s + l.tax_amount, 0), total_amount: lines.reduce((s, l) => s + l.total, 0), entered_by: user?.id || "" },
               lines
             );
           }}
@@ -388,25 +394,29 @@ export default function Invoices() {
                 </div>
 
                 <h3 className="text-sm font-semibold mt-4">Line Items</h3>
-                <div className="rounded-lg border overflow-hidden">
+                <div className="rounded-lg border overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Code</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead className="text-right">Qty</TableHead>
                         <TableHead>Unit</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-right">Weight</TableHead>
+                        <TableHead className="text-right">Unit Price</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {lineItems.length === 0 ? (
-                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No line items</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No line items</TableCell></TableRow>
                       ) : lineItems.map((li) => (
                         <TableRow key={li.id}>
+                          <TableCell className="text-xs text-muted-foreground">{li.item_code || "—"}</TableCell>
                           <TableCell>{li.description}</TableCell>
                           <TableCell className="text-right font-mono">{li.quantity}</TableCell>
                           <TableCell>{li.unit || "—"}</TableCell>
+                          <TableCell className="text-right font-mono">{li.weight ? `${li.weight} KG` : "—"}</TableCell>
                           <TableCell className="text-right font-mono">{Number(li.unit_price).toFixed(2)}</TableCell>
                           <TableCell className="text-right font-mono font-medium">{Number(li.total).toFixed(2)}</TableCell>
                         </TableRow>
@@ -477,26 +487,34 @@ export default function Invoices() {
             <h3 className="text-sm font-semibold">Line Items</h3>
             <div className="space-y-2">
               {editLines.map((line, i) => (
-                <div key={i} className="grid grid-cols-[1fr_70px_70px_90px_90px_32px] gap-2 items-end">
+                <div key={i} className="grid grid-cols-[80px_1fr_60px_60px_70px_80px_80px_32px] gap-1 items-end">
+                  <div>
+                    {i === 0 && <Label className="text-xs">Code</Label>}
+                    <Input value={line.item_code} onChange={(e) => updateEditLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
+                  </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Description</Label>}
-                    <Input value={line.description} onChange={(e) => updateEditLine(i, "description", e.target.value)} placeholder="Item description" />
+                    <Input value={line.description} onChange={(e) => updateEditLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Qty</Label>}
-                    <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} />
+                    <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Unit</Label>}
-                    <Input value={line.unit} onChange={(e) => updateEditLine(i, "unit", e.target.value)} placeholder="kg" />
+                    <Input value={line.unit} onChange={(e) => updateEditLine(i, "unit", e.target.value)} placeholder="CTN" className="text-xs" />
+                  </div>
+                  <div>
+                    {i === 0 && <Label className="text-xs">Weight</Label>}
+                    <Input type="number" value={line.weight} onChange={(e) => updateEditLine(i, "weight", e.target.value)} placeholder="KG" className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Price</Label>}
-                    <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} />
+                    <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Tax</Label>}
-                    <Input type="number" value={line.tax_amount} onChange={(e) => updateEditLine(i, "tax_amount", e.target.value)} />
+                    <Input type="number" value={line.tax_amount} onChange={(e) => updateEditLine(i, "tax_amount", e.target.value)} className="text-xs" />
                   </div>
                   <div>
                     {editLines.length > 1 && <Button size="icon" variant="ghost" onClick={() => removeEditLine(i)}><Trash2 className="h-4 w-4" /></Button>}
@@ -509,7 +527,12 @@ export default function Invoices() {
             <div className="text-right text-sm border-t pt-2">
               <span className="text-muted-foreground">Subtotal: </span>
               <span className="font-mono font-medium">
-                {editLines.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {editLines.reduce((s, l) => {
+                  const w = l.weight ? parseFloat(l.weight) : null;
+                  const price = parseFloat(l.unit_price) || 0;
+                  const qty = parseFloat(l.quantity) || 0;
+                  return s + (w ? w * price : qty * price);
+                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -564,26 +587,34 @@ export default function Invoices() {
             <h3 className="text-sm font-semibold">Line Items</h3>
             <div className="space-y-2">
               {newLines.map((line, i) => (
-                <div key={i} className="grid grid-cols-[1fr_70px_70px_90px_90px_32px] gap-2 items-end">
+                <div key={i} className="grid grid-cols-[80px_1fr_60px_60px_70px_80px_80px_32px] gap-1 items-end">
+                  <div>
+                    {i === 0 && <Label className="text-xs">Code</Label>}
+                    <Input value={line.item_code} onChange={(e) => updateLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
+                  </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Description</Label>}
-                    <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item description" />
+                    <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Qty</Label>}
-                    <Input type="number" value={line.quantity} onChange={(e) => updateLine(i, "quantity", e.target.value)} />
+                    <Input type="number" value={line.quantity} onChange={(e) => updateLine(i, "quantity", e.target.value)} className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Unit</Label>}
-                    <Input value={line.unit} onChange={(e) => updateLine(i, "unit", e.target.value)} placeholder="kg" />
+                    <Input value={line.unit} onChange={(e) => updateLine(i, "unit", e.target.value)} placeholder="CTN" className="text-xs" />
+                  </div>
+                  <div>
+                    {i === 0 && <Label className="text-xs">Weight</Label>}
+                    <Input type="number" value={line.weight} onChange={(e) => updateLine(i, "weight", e.target.value)} placeholder="KG" className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Price</Label>}
-                    <Input type="number" value={line.unit_price} onChange={(e) => updateLine(i, "unit_price", e.target.value)} />
+                    <Input type="number" value={line.unit_price} onChange={(e) => updateLine(i, "unit_price", e.target.value)} className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Tax</Label>}
-                    <Input type="number" value={line.tax_amount} onChange={(e) => updateLine(i, "tax_amount", e.target.value)} />
+                    <Input type="number" value={line.tax_amount} onChange={(e) => updateLine(i, "tax_amount", e.target.value)} className="text-xs" />
                   </div>
                   <div>
                     {newLines.length > 1 && <Button size="icon" variant="ghost" onClick={() => removeLine(i)}><Trash2 className="h-4 w-4" /></Button>}
@@ -596,7 +627,12 @@ export default function Invoices() {
             <div className="text-right text-sm border-t pt-2">
               <span className="text-muted-foreground">Subtotal: </span>
               <span className="font-mono font-medium">
-                {newLines.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {newLines.reduce((s, l) => {
+                  const w = l.weight ? parseFloat(l.weight) : null;
+                  const price = parseFloat(l.unit_price) || 0;
+                  const qty = parseFloat(l.quantity) || 0;
+                  return s + (w ? w * price : qty * price);
+                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>

@@ -14,11 +14,14 @@ import { Supplier } from "@/hooks/useInvoiceData";
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 interface ScannedLineItem {
+  item_code: string;
   description: string;
   quantity: string;
   unit: string;
+  weight: string;
   unit_price: string;
   tax_amount: string;
+  total: string;
 }
 
 interface ScannedInvoice {
@@ -43,10 +46,12 @@ interface InvoiceScannerProps {
     due_date: string | null;
     notes: string | null;
   }, lineItems: {
+    item_code: string;
     description: string;
     category_id: null;
     quantity: number;
     unit: string | null;
+    weight: number | null;
     unit_price: number;
     tax_amount: number;
     total: number;
@@ -57,7 +62,7 @@ interface InvoiceScannerProps {
   userId: string;
 }
 
-const emptyLine: ScannedLineItem = { description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" };
+const emptyLine: ScannedLineItem = { item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0", total: "0" };
 
 const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
@@ -134,11 +139,14 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       for (const raw of rawInvoices) {
         const supplierId = await matchOrCreateSupplier(raw.supplier_name || "");
         const lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => ({
+          item_code: li.item_code || "",
           description: li.description || "",
           quantity: String(li.quantity || 1),
           unit: li.unit || "",
+          weight: li.weight ? String(li.weight) : "",
           unit_price: String(li.unit_price || 0),
           tax_amount: "0",
+          total: li.total ? String(li.total) : "0",
         }));
 
         processed.push({
@@ -204,7 +212,14 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     return copy;
   });
 
-  const subtotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0), 0) || 0;
+  const calcLineTotal = (l: ScannedLineItem) => {
+    if (l.total && parseFloat(l.total)) return parseFloat(l.total);
+    const w = l.weight ? parseFloat(l.weight) : null;
+    const price = parseFloat(l.unit_price) || 0;
+    const qty = parseFloat(l.quantity) || 0;
+    return w ? w * price : qty * price;
+  };
+  const subtotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
   const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
 
   const saveInvoice = async (inv: ScannedInvoice): Promise<boolean> => {
@@ -216,7 +231,9 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       const qty = parseFloat(l.quantity) || 0;
       const price = parseFloat(l.unit_price) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
-      return { description: l.description, category_id: null as null, quantity: qty, unit: l.unit || null, unit_price: price, tax_amount: tax, total: qty * price + tax, notes: null as null };
+      const w = l.weight ? parseFloat(l.weight) : null;
+      const lineTotal = l.total ? parseFloat(l.total) : (w ? w * price + tax : qty * price + tax);
+      return { item_code: l.item_code || "", description: l.description, category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null };
     });
 
     await onSave(
@@ -408,26 +425,38 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {current.line_items.map((line, i) => (
-              <div key={i} className="grid grid-cols-[1fr_70px_60px_80px_80px_32px] gap-2 items-end">
+              <div key={i} className="grid grid-cols-[80px_1fr_60px_60px_70px_80px_80px_80px_32px] gap-1 items-end">
+                <div>
+                  {i === 0 && <Label className="text-xs">Code</Label>}
+                  <Input value={line.item_code} onChange={(e) => updateLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
+                </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Description</Label>}
-                  <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-sm" />
+                  <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Qty</Label>}
-                  <Input type="number" value={line.quantity} onChange={(e) => updateLine(i, "quantity", e.target.value)} className="text-sm" />
+                  <Input type="number" value={line.quantity} onChange={(e) => updateLine(i, "quantity", e.target.value)} className="text-xs" />
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Unit</Label>}
-                  <Input value={line.unit} onChange={(e) => updateLine(i, "unit", e.target.value)} placeholder="kg" className="text-sm" />
+                  <Input value={line.unit} onChange={(e) => updateLine(i, "unit", e.target.value)} placeholder="CTN" className="text-xs" />
                 </div>
                 <div>
-                  {i === 0 && <Label className="text-xs">Price</Label>}
-                  <Input type="number" value={line.unit_price} onChange={(e) => updateLine(i, "unit_price", e.target.value)} className="text-sm" />
+                  {i === 0 && <Label className="text-xs">Weight</Label>}
+                  <Input type="number" value={line.weight} onChange={(e) => updateLine(i, "weight", e.target.value)} placeholder="KG" className="text-xs" />
+                </div>
+                <div>
+                  {i === 0 && <Label className="text-xs">Unit Price</Label>}
+                  <Input type="number" value={line.unit_price} onChange={(e) => updateLine(i, "unit_price", e.target.value)} className="text-xs" />
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Tax</Label>}
-                  <Input type="number" value={line.tax_amount} onChange={(e) => updateLine(i, "tax_amount", e.target.value)} className="text-sm" />
+                  <Input type="number" value={line.tax_amount} onChange={(e) => updateLine(i, "tax_amount", e.target.value)} className="text-xs" />
+                </div>
+                <div>
+                  {i === 0 && <Label className="text-xs">Total</Label>}
+                  <Input type="number" value={line.total} onChange={(e) => updateLine(i, "total", e.target.value)} className="text-xs font-medium" />
                 </div>
                 <div>
                   {current.line_items.length > 1 && (
