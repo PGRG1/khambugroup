@@ -114,6 +114,37 @@ export function useInvoiceData() {
     return data;
   }, [fetchAll, toast]);
 
+  const updateInvoice = useCallback(async (
+    id: string,
+    updates: Partial<Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items">>,
+    lineItems?: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]
+  ) => {
+    const { error } = await supabase.from("invoices").update(updates as any).eq("id", id);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
+
+    if (lineItems !== undefined) {
+      // Delete existing line items and re-insert
+      await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
+      if (lineItems.length > 0) {
+        const items = lineItems.map((li) => ({ ...li, invoice_id: id }));
+        const { error: liErr } = await supabase.from("invoice_line_items").insert(items as any);
+        if (liErr) { toast({ title: "Error updating line items", description: liErr.message, variant: "destructive" }); return false; }
+      }
+    }
+    await fetchAll();
+    return true;
+  }, [fetchAll, toast]);
+
+  const deleteInvoice = useCallback(async (id: string) => {
+    // Delete line items first (FK constraint)
+    await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
+    const { error } = await supabase.from("invoices").delete().eq("id", id);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
+    await fetchAll();
+    toast({ title: "Invoice deleted" });
+    return true;
+  }, [fetchAll, toast]);
+
   const updateInvoiceStatus = useCallback(async (id: string, status: string) => {
     const { error } = await supabase.from("invoices").update({ status } as any).eq("id", id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
@@ -136,7 +167,7 @@ export function useInvoiceData() {
 
   return {
     invoices, suppliers, categories, loading,
-    fetchAll, fetchLineItems, createInvoice, updateInvoiceStatus,
+    fetchAll, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus,
     createSupplier, createCategory,
   };
 }
