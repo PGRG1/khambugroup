@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { Camera, X, RotateCcw, Check, Trash2, Plus, ImageIcon, Flashlight, Crop, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, X, RotateCcw, Check, Trash2, Plus, ImageIcon, Flashlight, Crop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -110,15 +110,34 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     setTorchOn(false);
     startCamera(next);
   };
-  const handleZoom = useCallback(async (value: number) => {
+  // Pinch-to-zoom
+  const lastPinchDist = useRef<number | null>(null);
+
+  const handleViewfinderTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastPinchDist.current = Math.hypot(dx, dy);
+    }
+  }, []);
+
+  const handleViewfinderTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 2 || !zoomRange || lastPinchDist.current === null) return;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    const delta = (dist - lastPinchDist.current) * 0.01;
+    lastPinchDist.current = dist;
+
+    const newZoom = Math.min(zoomRange.max, Math.max(zoomRange.min, zoomLevel + delta * (zoomRange.max - zoomRange.min)));
     if (!streamRef.current) return;
     const track = streamRef.current.getVideoTracks()[0];
-    try {
-      await (track as any).applyConstraints({ advanced: [{ zoom: value }] });
-      setZoomLevel(value);
-    } catch (err) {
-      console.error("Zoom error:", err);
-    }
+    (track as any).applyConstraints({ advanced: [{ zoom: newZoom }] }).catch(() => {});
+    setZoomLevel(newZoom);
+  }, [zoomRange, zoomLevel]);
+
+  const handleViewfinderTouchEnd = useCallback(() => {
+    lastPinchDist.current = null;
   }, []);
 
   const toggleTorch = useCallback(async () => {
@@ -428,7 +447,12 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       )}
 
       {/* Camera viewfinder — takes all available space */}
-      <div className="flex-1 relative overflow-hidden">
+      <div
+        className="flex-1 relative overflow-hidden touch-none"
+        onTouchStart={handleViewfinderTouchStart}
+        onTouchMove={handleViewfinderTouchMove}
+        onTouchEnd={handleViewfinderTouchEnd}
+      >
         {!cameraReady && !error && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex flex-col items-center gap-2 text-white/60">
@@ -445,21 +469,10 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           className={`w-full h-full object-cover transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
         />
 
-        {/* Zoom slider */}
-        {cameraReady && zoomRange && zoomRange.max > zoomRange.min && (
-          <div className="absolute bottom-28 inset-x-0 flex items-center justify-center px-8 gap-2 z-10">
-            <ZoomOut className="h-4 w-4 text-white/70" />
-            <input
-              type="range"
-              min={zoomRange.min}
-              max={zoomRange.max}
-              step={(zoomRange.max - zoomRange.min) / 100}
-              value={zoomLevel}
-              onChange={(e) => handleZoom(parseFloat(e.target.value))}
-              className="flex-1 h-1 accent-white appearance-none bg-white/30 rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
-            />
-            <ZoomIn className="h-4 w-4 text-white/70" />
-            <span className="text-white/70 text-xs w-10 text-right">{zoomLevel.toFixed(1)}x</span>
+        {/* Zoom indicator */}
+        {cameraReady && zoomRange && zoomLevel > zoomRange.min + 0.05 && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/50 rounded-full px-3 py-1 z-10">
+            <span className="text-white text-xs font-medium">{zoomLevel.toFixed(1)}x</span>
           </div>
         )}
 
