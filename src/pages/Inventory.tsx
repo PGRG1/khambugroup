@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useInventoryData, InventoryCount } from "@/hooks/useInventoryData";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Lock, Package } from "lucide-react";
+import { Plus, Lock, Package, ShoppingCart } from "lucide-react";
 
 export default function Inventory() {
   const { items, periods, categories, loading, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod } = useInventoryData();
@@ -27,6 +28,45 @@ export default function Inventory() {
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
   const [newItem, setNewItem] = useState({ name: "", category_id: "", unit_of_measure: "unit", par_level: "" });
   const [newPeriod, setNewPeriod] = useState({ period_label: "", period_start: "", period_end: "", venue: "Assembly" });
+
+  // Purchases from invoices
+  const [purchaseDateFrom, setPurchaseDateFrom] = useState("");
+  const [purchaseDateTo, setPurchaseDateTo] = useState("");
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(false);
+
+  const fetchPurchases = useCallback(async () => {
+    if (!purchaseDateFrom || !purchaseDateTo) return;
+    setPurchasesLoading(true);
+    const { data } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, invoice_date, supplier_id, venue")
+      .eq("venue", venueFilter)
+      .gte("invoice_date", purchaseDateFrom)
+      .lte("invoice_date", purchaseDateTo)
+      .order("invoice_date");
+
+    if (!data || data.length === 0) { setPurchases([]); setPurchasesLoading(false); return; }
+
+    const invoiceIds = data.map((inv: any) => inv.id);
+    const { data: lineItems } = await supabase
+      .from("invoice_line_items")
+      .select("*")
+      .in("invoice_id", invoiceIds);
+
+    // Get supplier names
+    const supplierIds = [...new Set(data.map((inv: any) => inv.supplier_id))];
+    const { data: suppliers } = await supabase.from("suppliers").select("id, name").in("id", supplierIds);
+    const supplierMap = new Map((suppliers || []).map((s: any) => [s.id, s.name]));
+    const invoiceMap = new Map(data.map((inv: any) => [inv.id, { ...inv, supplier_name: supplierMap.get(inv.supplier_id) || "Unknown" }]));
+
+    const enriched = (lineItems || []).map((li: any) => {
+      const inv = invoiceMap.get(li.invoice_id);
+      return { ...li, invoice_number: inv?.invoice_number, invoice_date: inv?.invoice_date, supplier_name: inv?.supplier_name };
+    });
+    setPurchases(enriched);
+    setPurchasesLoading(false);
+  }, [purchaseDateFrom, purchaseDateTo, venueFilter]);
 
   const filteredPeriods = useMemo(() => periods.filter((p) => p.venue === venueFilter), [periods, venueFilter]);
   const selectedPeriodObj = periods.find((p) => p.id === selectedPeriod);
@@ -103,6 +143,7 @@ export default function Inventory() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="periods">Periods & Counts</TabsTrigger>
+          <TabsTrigger value="purchases"><ShoppingCart className="h-3 w-3 mr-1" />Invoice Purchases</TabsTrigger>
           <TabsTrigger value="items">Items Master</TabsTrigger>
         </TabsList>
 
@@ -197,6 +238,68 @@ export default function Inventory() {
                 </Table>
               </div>
             </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="purchases" className="space-y-3">
+          <div className="flex gap-2 flex-wrap items-end">
+            <div>
+              <Label className="text-xs">From</Label>
+              <Input type="date" value={purchaseDateFrom} onChange={(e) => setPurchaseDateFrom(e.target.value)} className="w-[150px]" />
+            </div>
+            <div>
+              <Label className="text-xs">To</Label>
+              <Input type="date" value={purchaseDateTo} onChange={(e) => setPurchaseDateTo(e.target.value)} className="w-[150px]" />
+            </div>
+            <Button size="sm" onClick={fetchPurchases} disabled={!purchaseDateFrom || !purchaseDateTo || purchasesLoading}>
+              {purchasesLoading ? "Loading..." : "Load Purchases"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Shows all invoice line items for <span className="font-medium">{venueFilter}</span> in the selected date range.</p>
+
+          {purchases.length > 0 && (
+            <div className="rounded-lg border overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Pack Size</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead>Unit</TableHead>
+                    <TableHead className="text-right">Weight</TableHead>
+                    <TableHead className="text-right">Unit Price</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {purchases.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="text-xs">{p.invoice_date}</TableCell>
+                      <TableCell className="text-xs">{p.supplier_name}</TableCell>
+                      <TableCell className="text-xs font-medium">{p.invoice_number}</TableCell>
+                      <TableCell>{p.description}</TableCell>
+                      <TableCell className="text-xs">{p.pack_size || "—"}</TableCell>
+                      <TableCell className="text-right font-mono">{p.quantity}</TableCell>
+                      <TableCell className="text-xs">{p.unit || "—"}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{p.weight ? `${p.weight} KG` : "—"}</TableCell>
+                      <TableCell className="text-right font-mono">{Number(p.unit_price).toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono font-medium">{Number(p.total).toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/50 font-medium">
+                    <TableCell colSpan={9} className="text-right">Grand Total:</TableCell>
+                    <TableCell className="text-right font-mono font-bold">{purchases.reduce((s, p) => s + Number(p.total), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {purchases.length === 0 && !purchasesLoading && purchaseDateFrom && purchaseDateTo && (
+            <p className="text-center text-muted-foreground py-8">No purchases found for this date range.</p>
           )}
         </TabsContent>
 

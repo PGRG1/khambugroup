@@ -42,7 +42,7 @@ export default function Invoices() {
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
   const [editInv, setEditInv] = useState({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "", status: "pending" });
-  const [editLines, setEditLines] = useState<{ item_code: string; description: string; quantity: string; unit: string; weight: string; unit_price: string; tax_amount: string }[]>([]);
+  const [editLines, setEditLines] = useState<{ item_code: string; description: string; pack_size: string; quantity: string; unit: string; weight: string; unit_price: string; tax_amount: string }[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Delete state
@@ -51,8 +51,8 @@ export default function Invoices() {
 
   // New invoice form
   const [newInv, setNewInv] = useState({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "" });
-  const [newLines, setNewLines] = useState<{ item_code: string; description: string; quantity: string; unit: string; weight: string; unit_price: string; tax_amount: string }[]>([
-    { item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" },
+  const [newLines, setNewLines] = useState<{ item_code: string; description: string; pack_size: string; quantity: string; unit: string; weight: string; unit_price: string; tax_amount: string }[]>([
+    { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" },
   ]);
 
   // Supplier form
@@ -94,6 +94,7 @@ export default function Invoices() {
     setEditLines(items.map((li) => ({
       item_code: li.item_code || "",
       description: li.description,
+      pack_size: li.pack_size || "",
       quantity: String(li.quantity),
       unit: li.unit || "",
       weight: li.weight ? String(li.weight) : "",
@@ -112,7 +113,7 @@ export default function Invoices() {
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
       const lineTotal = w ? w * price + tax : qty * price + tax;
-      return { item_code: l.item_code || "", description: l.description, category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null };
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null };
     });
     const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
@@ -153,7 +154,7 @@ export default function Invoices() {
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
       const lineTotal = w ? w * price + tax : qty * price + tax;
-      return { item_code: l.item_code || "", description: l.description, category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null };
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null };
     });
     const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
@@ -168,10 +169,10 @@ export default function Invoices() {
 
   const resetForm = () => {
     setNewInv({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "" });
-    setNewLines([{ item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
+    setNewLines([{ item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
   };
 
-  const addLine = () => setNewLines([...newLines, { item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
+  const addLine = () => setNewLines([...newLines, { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
   const removeLine = (i: number) => setNewLines(newLines.filter((_, idx) => idx !== i));
   const updateLine = (i: number, field: string, value: string) => {
     const updated = [...newLines];
@@ -180,7 +181,7 @@ export default function Invoices() {
   };
 
   // Edit line helpers
-  const addEditLine = () => setEditLines([...editLines, { item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
+  const addEditLine = () => setEditLines([...editLines, { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
   const removeEditLine = (i: number) => { if (editLines.length > 1) setEditLines(editLines.filter((_, idx) => idx !== i)); };
   const updateEditLine = (i: number, field: string, value: string) => {
     const updated = [...editLines];
@@ -400,6 +401,7 @@ export default function Invoices() {
                       <TableRow>
                         <TableHead>Code</TableHead>
                         <TableHead>Description</TableHead>
+                        <TableHead>Pack Size</TableHead>
                         <TableHead className="text-right">Qty</TableHead>
                         <TableHead>Unit</TableHead>
                         <TableHead className="text-right">Weight</TableHead>
@@ -409,11 +411,12 @@ export default function Invoices() {
                     </TableHeader>
                     <TableBody>
                       {lineItems.length === 0 ? (
-                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No line items</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No line items</TableCell></TableRow>
                       ) : lineItems.map((li) => (
                         <TableRow key={li.id}>
                           <TableCell className="text-xs text-muted-foreground">{li.item_code || "—"}</TableCell>
                           <TableCell>{li.description}</TableCell>
+                          <TableCell className="text-xs">{li.pack_size || "—"}</TableCell>
                           <TableCell className="text-right font-mono">{li.quantity}</TableCell>
                           <TableCell>{li.unit || "—"}</TableCell>
                           <TableCell className="text-right font-mono">{li.weight ? `${li.weight} KG` : "—"}</TableCell>
@@ -487,7 +490,7 @@ export default function Invoices() {
             <h3 className="text-sm font-semibold">Line Items</h3>
             <div className="space-y-2">
               {editLines.map((line, i) => (
-                <div key={i} className="grid grid-cols-[80px_1fr_60px_60px_70px_80px_80px_32px] gap-1 items-end">
+                <div key={i} className="grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_32px] gap-1 items-end">
                   <div>
                     {i === 0 && <Label className="text-xs">Code</Label>}
                     <Input value={line.item_code} onChange={(e) => updateEditLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
@@ -495,6 +498,10 @@ export default function Invoices() {
                   <div>
                     {i === 0 && <Label className="text-xs">Description</Label>}
                     <Input value={line.description} onChange={(e) => updateEditLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
+                  </div>
+                  <div>
+                    {i === 0 && <Label className="text-xs">Pack Size</Label>}
+                    <Input value={line.pack_size} onChange={(e) => updateEditLine(i, "pack_size", e.target.value)} placeholder="4X4LB" className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Qty</Label>}
@@ -587,7 +594,7 @@ export default function Invoices() {
             <h3 className="text-sm font-semibold">Line Items</h3>
             <div className="space-y-2">
               {newLines.map((line, i) => (
-                <div key={i} className="grid grid-cols-[80px_1fr_60px_60px_70px_80px_80px_32px] gap-1 items-end">
+                <div key={i} className="grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_32px] gap-1 items-end">
                   <div>
                     {i === 0 && <Label className="text-xs">Code</Label>}
                     <Input value={line.item_code} onChange={(e) => updateLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
@@ -595,6 +602,10 @@ export default function Invoices() {
                   <div>
                     {i === 0 && <Label className="text-xs">Description</Label>}
                     <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
+                  </div>
+                  <div>
+                    {i === 0 && <Label className="text-xs">Pack Size</Label>}
+                    <Input value={line.pack_size} onChange={(e) => updateLine(i, "pack_size", e.target.value)} placeholder="4X4LB" className="text-xs" />
                   </div>
                   <div>
                     {i === 0 && <Label className="text-xs">Qty</Label>}
