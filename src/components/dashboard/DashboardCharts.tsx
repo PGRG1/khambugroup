@@ -29,9 +29,10 @@ const gridColor = "hsl(30, 15%, 85%)";
 interface ChartsProps {
   data: SalesRecord[];
   view: "daily" | "monthly";
+  venue?: string;
 }
 
-const DashboardCharts = ({ data, view }: ChartsProps) => {
+const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
   const dailySales = data
     .reduce((acc, r) => {
       const existing = acc.find((a) => a.date === r.date);
@@ -270,7 +271,7 @@ const DashboardCharts = ({ data, view }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <VenuePerformanceChart data={venueData} />
+          <VenuePerformanceChart data={venueData} venue={venue} />
 
           <PaymentBreakdownChart data={paymentData} />
 
