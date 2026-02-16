@@ -58,9 +58,21 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
 
       setStream(mediaStream);
       if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        // Ensure video actually starts playing
-        try { await videoRef.current.play(); } catch {}
+        const video = videoRef.current;
+        video.srcObject = mediaStream;
+        // Wait for video metadata to load before playing
+        await new Promise<void>((resolve) => {
+          const onReady = () => {
+            video.removeEventListener("loadedmetadata", onReady);
+            resolve();
+          };
+          if (video.readyState >= 1) {
+            resolve();
+          } else {
+            video.addEventListener("loadedmetadata", onReady);
+          }
+        });
+        try { await video.play(); } catch {}
       }
       setCameraActive(true);
       setError(null);
