@@ -34,18 +34,51 @@ export default function Invoices() {
   const [sortKey, setSortKey] = useState<string>("invoice_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const toggleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir(d => d === "asc" ? "desc" : "asc");
+  // Per-tab sort state
+  const [auditSortKey, setAuditSortKey] = useState<string>("invoice_date");
+  const [auditSortDir, setAuditSortDir] = useState<"asc" | "desc">("desc");
+  const [supplierSortKey, setSupplierSortKey] = useState<string>("name");
+  const [supplierSortDir, setSupplierSortDir] = useState<"asc" | "desc">("asc");
+  const [categorySortKey, setCategorySortKey] = useState<string>("name");
+  const [categorySortDir, setCategorySortDir] = useState<"asc" | "desc">("asc");
+
+  const makeToggleSort = (
+    key: string,
+    currentKey: string, setKey: (k: string) => void,
+    currentDir: "asc" | "desc", setDir: (d: "asc" | "desc") => void
+  ) => {
+    if (currentKey === key) {
+      setDir(currentDir === "asc" ? "desc" : "asc");
     } else {
-      setSortKey(key);
-      setSortDir("asc");
+      setKey(key);
+      setDir("asc");
     }
   };
 
-  const SortIcon = ({ col }: { col: string }) => {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
-    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  const toggleSort = (key: string) => makeToggleSort(key, sortKey, setSortKey, sortDir, setSortDir);
+
+  const SortIcon = ({ col, activeKey, activeDir }: { col: string; activeKey: string; activeDir: "asc" | "desc" }) => {
+    if (activeKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return activeDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
+
+  const SortableHead = ({ col, label, activeKey, activeDir, onToggle, className }: { col: string; label: string; activeKey: string; activeDir: "asc" | "desc"; onToggle: (key: string) => void; className?: string }) => (
+    <TableHead className={className}>
+      <button onClick={() => onToggle(col)} className="flex items-center gap-1 hover:text-foreground transition-colors">
+        {label} <SortIcon col={col} activeKey={activeKey} activeDir={activeDir} />
+      </button>
+    </TableHead>
+  );
+
+  const sortData = <T,>(data: T[], key: string, dir: "asc" | "desc"): T[] => {
+    return [...data].sort((a, b) => {
+      const av = (a as any)[key];
+      const bv = (b as any)[key];
+      let cmp = 0;
+      if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+      else cmp = String(av ?? "").localeCompare(String(bv ?? ""));
+      return dir === "asc" ? cmp : -cmp;
+    });
   };
 
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -321,13 +354,13 @@ export default function Invoices() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead><button onClick={() => toggleSort("invoice_number")} className="flex items-center gap-1 hover:text-foreground transition-colors">Invoice # <SortIcon col="invoice_number" /></button></TableHead>
-                  <TableHead><button onClick={() => toggleSort("supplier_name")} className="flex items-center gap-1 hover:text-foreground transition-colors">Supplier <SortIcon col="supplier_name" /></button></TableHead>
-                  <TableHead><button onClick={() => toggleSort("venue")} className="flex items-center gap-1 hover:text-foreground transition-colors">Venue <SortIcon col="venue" /></button></TableHead>
-                  <TableHead><button onClick={() => toggleSort("invoice_date")} className="flex items-center gap-1 hover:text-foreground transition-colors">Date <SortIcon col="invoice_date" /></button></TableHead>
-                  <TableHead><button onClick={() => toggleSort("due_date")} className="flex items-center gap-1 hover:text-foreground transition-colors">Due <SortIcon col="due_date" /></button></TableHead>
-                  <TableHead className="text-right"><button onClick={() => toggleSort("total_amount")} className="flex items-center gap-1 ml-auto hover:text-foreground transition-colors">Total <SortIcon col="total_amount" /></button></TableHead>
-                  <TableHead><button onClick={() => toggleSort("status")} className="flex items-center gap-1 hover:text-foreground transition-colors">Status <SortIcon col="status" /></button></TableHead>
+                  <SortableHead col="invoice_number" label="Invoice #" activeKey={sortKey} activeDir={sortDir} onToggle={toggleSort} />
+                  <SortableHead col="supplier_name" label="Supplier" activeKey={sortKey} activeDir={sortDir} onToggle={toggleSort} />
+                  <SortableHead col="venue" label="Venue" activeKey={sortKey} activeDir={sortDir} onToggle={toggleSort} />
+                  <SortableHead col="invoice_date" label="Date" activeKey={sortKey} activeDir={sortDir} onToggle={toggleSort} />
+                  <SortableHead col="due_date" label="Due" activeKey={sortKey} activeDir={sortDir} onToggle={toggleSort} />
+                  <SortableHead col="total_amount" label="Total" activeKey={sortKey} activeDir={sortDir} onToggle={toggleSort} className="text-right" />
+                  <SortableHead col="status" label="Status" activeKey={sortKey} activeDir={sortDir} onToggle={toggleSort} />
                   <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -411,10 +444,15 @@ export default function Invoices() {
                     <Button size="sm" variant="outline" onClick={async () => {
                       for (const doc of auditDocs) {
                         const { data } = await supabase.storage.from("invoice-files").createSignedUrl(doc.file_url!, 3600);
-                        if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                        if (data?.signedUrl) {
+                          const link = document.createElement("a");
+                          link.href = data.signedUrl;
+                          link.download = doc.file_name || `invoice-${doc.invoice_number}`;
+                          link.click();
+                        }
                       }
                     }}>
-                      <Download className="h-4 w-4 mr-1" />Open All ({auditDocs.length})
+                      <Download className="h-4 w-4 mr-1" />Download All ({auditDocs.length})
                     </Button>
                   )}
                 </div>
@@ -422,12 +460,12 @@ export default function Invoices() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Invoice #</TableHead>
-                        <TableHead>Supplier</TableHead>
-                        <TableHead>Venue</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead>File</TableHead>
+                        <SortableHead col="invoice_number" label="Invoice #" activeKey={auditSortKey} activeDir={auditSortDir} onToggle={(k) => makeToggleSort(k, auditSortKey, setAuditSortKey, auditSortDir, setAuditSortDir)} />
+                        <SortableHead col="supplier_name" label="Supplier" activeKey={auditSortKey} activeDir={auditSortDir} onToggle={(k) => makeToggleSort(k, auditSortKey, setAuditSortKey, auditSortDir, setAuditSortDir)} />
+                        <SortableHead col="venue" label="Venue" activeKey={auditSortKey} activeDir={auditSortDir} onToggle={(k) => makeToggleSort(k, auditSortKey, setAuditSortKey, auditSortDir, setAuditSortDir)} />
+                        <SortableHead col="invoice_date" label="Date" activeKey={auditSortKey} activeDir={auditSortDir} onToggle={(k) => makeToggleSort(k, auditSortKey, setAuditSortKey, auditSortDir, setAuditSortDir)} />
+                        <SortableHead col="total_amount" label="Total" activeKey={auditSortKey} activeDir={auditSortDir} onToggle={(k) => makeToggleSort(k, auditSortKey, setAuditSortKey, auditSortDir, setAuditSortDir)} className="text-right" />
+                        <SortableHead col="file_name" label="File" activeKey={auditSortKey} activeDir={auditSortDir} onToggle={(k) => makeToggleSort(k, auditSortKey, setAuditSortKey, auditSortDir, setAuditSortDir)} />
                         <TableHead className="w-[80px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -436,7 +474,7 @@ export default function Invoices() {
                         <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           {invoices.some((i) => i.file_url) ? "No documents match the current filters" : "No scanned documents yet. Use 'Scan Invoice' to upload and attach documents."}
                         </TableCell></TableRow>
-                      ) : auditDocs.map((inv) => (
+                      ) : sortData(auditDocs, auditSortKey, auditSortDir).map((inv) => (
                         <TableRow key={inv.id}>
                           <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                           <TableCell>{inv.supplier_name}</TableCell>
@@ -467,17 +505,17 @@ export default function Invoices() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Active</TableHead>
+                  <SortableHead col="name" label="Name" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
+                  <SortableHead col="contact_person" label="Contact" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
+                  <SortableHead col="email" label="Email" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
+                  <SortableHead col="phone" label="Phone" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
+                  <SortableHead col="is_active" label="Active" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suppliers.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No suppliers</TableCell></TableRow>
-                ) : suppliers.map((s) => (
+                ) : sortData(suppliers, supplierSortKey, supplierSortDir).map((s) => (
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.contact_person || "—"}</TableCell>
@@ -496,14 +534,14 @@ export default function Invoices() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Description</TableHead>
+                  <SortableHead col="name" label="Category" activeKey={categorySortKey} activeDir={categorySortDir} onToggle={(k) => makeToggleSort(k, categorySortKey, setCategorySortKey, categorySortDir, setCategorySortDir)} />
+                  <SortableHead col="description" label="Description" activeKey={categorySortKey} activeDir={categorySortDir} onToggle={(k) => makeToggleSort(k, categorySortKey, setCategorySortKey, categorySortDir, setCategorySortDir)} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {categories.length === 0 ? (
                   <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-8">No categories</TableCell></TableRow>
-                ) : categories.map((c) => (
+                ) : sortData(categories, categorySortKey, categorySortDir).map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>{c.description || "—"}</TableCell>
