@@ -324,7 +324,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
   };
 
   const totalInvoices = invoices.length;
-  const allSaved = totalInvoices > 0 && invoices.every((inv) => inv.saved);
+  const allSaved = totalInvoices > 0 && invoices.every((inv) => inv?.saved);
 
   return (
     <div className="card-glass rounded-xl p-6 animate-fade-in">
