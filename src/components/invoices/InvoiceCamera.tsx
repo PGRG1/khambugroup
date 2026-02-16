@@ -468,7 +468,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           autoPlay
           playsInline
           muted
-          className={`w-full h-full object-contain transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
         />
 
         {/* Zoom indicator */}
