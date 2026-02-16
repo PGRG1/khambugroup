@@ -10,6 +10,7 @@ export interface InventoryItem {
   unit_of_measure: string;
   unit_size: string;
   par_level: number | null;
+  current_qty: number;
   is_active: boolean;
 }
 
@@ -75,8 +76,14 @@ export function useInventoryData() {
     }));
   }, [items]);
 
-  const createItem = useCallback(async (item: Omit<InventoryItem, "id" | "category_name">) => {
+  const createItem = useCallback(async (item: Omit<InventoryItem, "id" | "category_name" | "current_qty">) => {
     const { error } = await supabase.from("inventory_items").insert(item as any);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    await fetchAll();
+  }, [fetchAll, toast]);
+
+  const updateItemQty = useCallback(async (itemId: string, qty: number) => {
+    const { error } = await supabase.from("inventory_items").update({ current_qty: qty } as any).eq("id", itemId);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
     await fetchAll();
   }, [fetchAll, toast]);
@@ -102,6 +109,6 @@ export function useInventoryData() {
 
   return {
     items, periods, categories, loading,
-    fetchAll, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod,
+    fetchAll, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod, updateItemQty,
   };
 }
