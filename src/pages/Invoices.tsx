@@ -1,8 +1,6 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +10,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Eye, Search, Trash2, ScanLine, Loader2 } from "lucide-react";
+import { Plus, Eye, Search, Trash2, ScanLine } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -26,7 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Invoices() {
   const { invoices, suppliers, categories, loading, fetchLineItems, createInvoice, updateInvoiceStatus, createSupplier, createCategory, fetchAll } = useInvoiceData();
   const { user } = useAuth();
-  const { toast } = useToast();
+  
 
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
@@ -38,7 +37,7 @@ export default function Invoices() {
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("invoices");
-  const [scanning, setScanning] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   // New invoice form
   const [newInv, setNewInv] = useState({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "" });
@@ -114,80 +113,6 @@ export default function Invoices() {
     setNewCatName("");
   };
 
-  // Invoice Scanner
-  const handleScanInvoice = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Max 10MB", variant: "destructive" });
-      return;
-    }
-
-    setScanning(true);
-    try {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(",")[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const { data, error } = await supabase.functions.invoke("parse-invoice", {
-        body: { fileBase64: base64, mimeType: file.type },
-      });
-
-      if (error || !data?.success) {
-        toast({ title: "Scan failed", description: data?.error || error?.message || "Could not process invoice", variant: "destructive" });
-        return;
-      }
-
-      const extracted = data.data;
-
-      // Try to find or auto-create supplier
-      let supplierId = "";
-      if (extracted.supplier_name) {
-        const existing = suppliers.find((s) => s.name.toLowerCase() === extracted.supplier_name.toLowerCase());
-        if (existing) {
-          supplierId = existing.id;
-        } else {
-          const created = await createSupplier({ name: extracted.supplier_name, contact_person: null, email: null, phone: null, address: null, notes: null, is_active: true });
-          if (created) supplierId = (created as any).id;
-        }
-      }
-
-      // Populate form
-      setNewInv({
-        supplier_id: supplierId,
-        venue: extracted.venue || "Assembly",
-        invoice_number: extracted.invoice_number || "",
-        invoice_date: extracted.invoice_date || "",
-        due_date: "",
-        notes: extracted.notes || "",
-      });
-
-      const scannedLines = (extracted.line_items || []).map((li: any) => ({
-        description: li.description || "",
-        quantity: String(li.quantity || 1),
-        unit: li.unit || "",
-        unit_price: String(li.unit_price || 0),
-        tax_amount: "0",
-      }));
-
-      setNewLines(scannedLines.length > 0 ? scannedLines : [{ description: "", quantity: "1", unit: "", unit_price: "0", tax_amount: "0" }]);
-      setCreateOpen(true);
-
-      toast({ title: "Invoice scanned", description: `Found ${scannedLines.length} line items from ${extracted.supplier_name || "unknown supplier"}` });
-    } catch (err) {
-      toast({ title: "Error", description: "Failed to scan invoice", variant: "destructive" });
-    } finally {
-      setScanning(false);
-      e.target.value = "";
-    }
-  }, [suppliers, createSupplier, toast]);
 
   if (loading) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>;
 
@@ -198,18 +123,28 @@ export default function Invoices() {
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" variant="outline" onClick={() => setCategoryDialogOpen(true)}>+ Category</Button>
           <Button size="sm" variant="outline" onClick={() => setSupplierDialogOpen(true)}>+ Supplier</Button>
-          <label>
-            <Button size="sm" variant="outline" asChild disabled={scanning}>
-              <span className="cursor-pointer">
-                {scanning ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ScanLine className="h-4 w-4 mr-1" />}
-                {scanning ? "Scanning..." : "Scan Invoice"}
-              </span>
-            </Button>
-            <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleScanInvoice} disabled={scanning} />
-          </label>
+          <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)}>
+            <ScanLine className="h-4 w-4 mr-1" />Scan Invoice
+          </Button>
           <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true); }}><Plus className="h-4 w-4 mr-1" />New Invoice</Button>
         </div>
       </div>
+
+      {/* Invoice Scanner - drag & drop */}
+      {scannerOpen && (
+        <InvoiceScanner
+          suppliers={suppliers}
+          onSave={async (inv, lines) => {
+            await createInvoice(
+              { ...inv, status: "pending", subtotal: lines.reduce((s, l) => s + l.quantity * l.unit_price, 0), tax_amount: lines.reduce((s, l) => s + l.tax_amount, 0), total_amount: lines.reduce((s, l) => s + l.total, 0), entered_by: user?.id || "" },
+              lines
+            );
+          }}
+          onCreateSupplier={createSupplier}
+          onClose={() => setScannerOpen(false)}
+          userId={user?.id || ""}
+        />
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
