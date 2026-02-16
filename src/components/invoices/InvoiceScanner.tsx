@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -76,11 +76,26 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       reader.readAsDataURL(file);
     });
 
+  // Track suppliers created within a single scan batch to avoid duplicates
+  const batchCreatedSuppliers = React.useRef<Map<string, string>>(new Map());
+
   const matchOrCreateSupplier = useCallback(async (supplierName: string): Promise<string> => {
     if (!supplierName) return "";
-    const match = suppliers.find((s) => s.name.toLowerCase() === supplierName.toLowerCase());
+    const normalised = supplierName.trim().toLowerCase();
+
+    // Check existing suppliers from props
+    const match = suppliers.find((s) => s.name.toLowerCase() === normalised);
     if (match) return match.id;
-    const created = await onCreateSupplier({ name: supplierName, contact_person: null, email: null, phone: null, address: null, notes: null, is_active: true });
+
+    // Check if we already created this supplier in this batch
+    const batchMatch = batchCreatedSuppliers.current.get(normalised);
+    if (batchMatch) return batchMatch;
+
+    // Create new supplier and cache it
+    const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, is_active: true });
+    if (created?.id) {
+      batchCreatedSuppliers.current.set(normalised, created.id);
+    }
     return created?.id || "";
   }, [suppliers, onCreateSupplier]);
 
@@ -99,6 +114,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     setInvoices([]);
     setCurrentIdx(0);
     setSavedCount(0);
+    batchCreatedSuppliers.current.clear();
 
     try {
       const base64 = await fileToBase64(file);
