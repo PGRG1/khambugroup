@@ -12,39 +12,33 @@ export type PageKey = (typeof ALL_PAGES)[number]["key"];
 // Per-page actions
 export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
   revenue: [
-    { key: "revenue.export_pdf", label: "Download / Export PDF" },
-    { key: "revenue.export_csv", label: "Export CSV" },
-    { key: "revenue.sort", label: "Sort" },
-    { key: "revenue.filters", label: "Filters" },
+    { key: "revenue.generate_report", label: "Generate Report (PDF)" },
     { key: "revenue.date_range", label: "Date Range Picker" },
-    { key: "revenue.view_table", label: "View Table Details" },
-    { key: "revenue.edit_notes", label: "Edit Notes" },
+    { key: "revenue.venue_filter", label: "Venue Filter" },
+    { key: "revenue.view_toggle", label: "Daily / Monthly Toggle" },
   ],
   forecast: [
-    { key: "forecast.export_pdf", label: "Download / Export PDF" },
-    { key: "forecast.export_csv", label: "Export CSV" },
-    { key: "forecast.sort", label: "Sort" },
-    { key: "forecast.filters", label: "Filters" },
+    { key: "forecast.new_entry", label: "New Forecast Entry" },
+    { key: "forecast.view_data", label: "View Data Table" },
     { key: "forecast.edit_inputs", label: "Edit Forecast Inputs" },
     { key: "forecast.edit_notes", label: "Edit Forecast Notes" },
     { key: "forecast.edit_post_event", label: "Edit Post-Event Notes" },
+    { key: "forecast.edit_comment", label: "Edit General Comment" },
+    { key: "forecast.delete", label: "Delete Forecast" },
+    { key: "forecast.date_range", label: "Date Range Picker" },
   ],
   data: [
     { key: "data.upload", label: "Upload Data" },
+    { key: "data.scan_receipt", label: "Scan Receipt" },
+    { key: "data.manual_entry", label: "Manual Entry" },
     { key: "data.edit_rows", label: "Edit Rows" },
     { key: "data.delete_rows", label: "Delete Rows" },
-    { key: "data.export_csv", label: "Export CSV" },
-    { key: "data.download", label: "Download" },
+    { key: "data.reset", label: "Master Reset" },
   ],
-  "activity-log": [
-    { key: "activity-log.export", label: "Export" },
-    { key: "activity-log.filter", label: "Filter" },
-  ],
+  "activity-log": [],
   "pl-report": [
-    { key: "pl-report.export_pdf", label: "Export PDF" },
-    { key: "pl-report.export_csv", label: "Export CSV" },
-    { key: "pl-report.drilldown", label: "Drilldown / Details" },
-    { key: "pl-report.filters", label: "Filters" },
+    { key: "pl-report.edit_values", label: "Edit P&L Values" },
+    { key: "pl-report.add_line_item", label: "Add Line Item" },
   ],
 };
 

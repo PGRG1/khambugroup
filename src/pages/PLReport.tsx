@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -160,6 +161,9 @@ function buildLines(allUnknownNames: string[]): Line[] {
 }
 
 export default function PLReport() {
+  const { isActionHidden } = usePagePermissions();
+  const hideEditValues = isActionHidden("pl-report.edit_values");
+  const hideAddLineItem = isActionHidden("pl-report.add_line_item");
   const [year, setYear] = useState(currentYear);
   const [selectedMonths, setSelectedMonths] = useState<number[]>(() => {
     const m = new Date().getMonth() + 1;
@@ -253,9 +257,11 @@ export default function PLReport() {
           </PopoverContent>
         </Popover>
 
-        <div className="ml-auto">
-          <PLManualInputEditor onSave={refetch} />
-        </div>
+        {!hideEditValues && (
+          <div className="ml-auto">
+            <PLManualInputEditor onSave={refetch} />
+          </div>
+        )}
       </div>
 
       {/* P&L Table */}
@@ -305,7 +311,7 @@ export default function PLReport() {
                     </td>
                     {periodData.map((pd) => {
                     const val = line.getValue(pd.data);
-                    if (isEditable && line.manualKey) {
+                    if (isEditable && line.manualKey && !hideEditValues) {
                       return (
                         <td key={pd.label} className="px-2 py-0.5 text-right">
                             <PLInlineCell
@@ -350,10 +356,11 @@ export default function PLReport() {
             </tbody>
           </table>
 
-          {/* Add line item button */}
-          <div className="border-t border-border/50">
-            <PLAddLineItem year={year} months={selectedMonths} onAdded={refetch} />
-          </div>
+          {!hideAddLineItem && (
+            <div className="border-t border-border/50">
+              <PLAddLineItem year={year} months={selectedMonths} onAdded={refetch} />
+            </div>
+          )}
         </div>
       }
     </div>);

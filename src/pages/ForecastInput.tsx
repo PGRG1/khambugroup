@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useForecastData } from "@/hooks/useForecastData";
 import { useForecastPermissions } from "@/hooks/useForecastPermissions";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
 import DateFilter from "@/components/dashboard/DateFilter";
@@ -27,6 +28,7 @@ const ForecastInput = () => {
 
   const { forecasts, loading: forecastsLoading, addForecast, updateForecast, deleteForecast, approveForecast, rejectForecast, approvePostEventNotes, rejectPostEventNotes } = useForecastData();
   const { canCreate, canApprove, canEditFigures, isApprover, loading: permLoading } = useForecastPermissions();
+  const { isActionHidden } = usePagePermissions();
 
   const [salesData, setSalesData] = useState<SalesRecord[]>([]);
   const [showEntry, setShowEntry] = useState(false);
@@ -253,6 +255,15 @@ const ForecastInput = () => {
   );
   VarianceIndicator.displayName = "VarianceIndicator";
 
+  const hideNewEntry = isActionHidden("forecast.new_entry");
+  const hideViewData = isActionHidden("forecast.view_data");
+  const hideEditInputs = isActionHidden("forecast.edit_inputs");
+  const hideEditNotes = isActionHidden("forecast.edit_notes");
+  const hideEditPostEvent = isActionHidden("forecast.edit_post_event");
+  const hideEditComment = isActionHidden("forecast.edit_comment");
+  const hideDelete = isActionHidden("forecast.delete");
+  const hideDateRange = isActionHidden("forecast.date_range");
+
   if (forecastsLoading || permLoading) {
     return <div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Loading...</p></div>;
   }
@@ -277,19 +288,21 @@ const ForecastInput = () => {
             <Link to="/forecast/assembly" className={`px-4 py-2 text-sm font-medium transition-colors ${venueName === "Assembly" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>Assembly</Link>
             <Link to="/forecast/caliente" className={`px-4 py-2 text-sm font-medium transition-colors ${venueName === "Caliente" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>Caliente</Link>
           </div>
-          {canCreate && (
+          {canCreate && !hideNewEntry && (
             <button onClick={() => setShowEntry(!showEntry)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${showEntry ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"}`}>
               <ClipboardList className="h-4 w-4" />New Entry
             </button>
           )}
-          <button onClick={() => setShowTable(!showTable)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${showTable ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"}`}>
-            <Database className="h-4 w-4" />View Data
-          </button>
+          {!hideViewData && (
+            <button onClick={() => setShowTable(!showTable)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${showTable ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"}`}>
+              <Database className="h-4 w-4" />View Data
+            </button>
+          )}
         </div>
       </div>
 
       {/* Period Filter */}
-      <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} />
+      {!hideDateRange && <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} />}
 
       {/* Input Form */}
       {showEntry && canCreate && (
@@ -396,7 +409,7 @@ const ForecastInput = () => {
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-center">
-                          {isEditing && canEditFigures(f.status) ? (
+                          {isEditing && canEditFigures(f.status) && !hideEditInputs ? (
                             <input type="number" value={editData.forecastedCustomers ?? 0} onChange={(e) => setEditData({ ...editData, forecastedCustomers: parseInt(e.target.value) || 0 })}
                               className="w-16 px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground text-center" />
                           ) : f.forecastedCustomers || "—"}
@@ -404,7 +417,7 @@ const ForecastInput = () => {
                         <td className="py-2.5 px-2 text-center">{f.actualCustomers ?? "—"}</td>
                         <td className="py-2.5 px-2 text-center"><VarianceIndicator value={f.customerVariance} /></td>
                         <td className="py-2.5 px-2 text-center">
-                          {isEditing && canEditFigures(f.status) ? (
+                          {isEditing && canEditFigures(f.status) && !hideEditInputs ? (
                             <input type="number" value={editData.forecastedAvgSpend ?? 0} onChange={(e) => setEditData({ ...editData, forecastedAvgSpend: parseInt(e.target.value) || 0 })}
                               className="w-16 px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground text-center" />
                           ) : f.forecastedAvgSpend ? formatCurrency(f.forecastedAvgSpend) : "—"}
@@ -415,7 +428,7 @@ const ForecastInput = () => {
                         <td className="py-2.5 px-2 text-center font-semibold">{f.actualTotalSales !== null ? formatCurrency(f.actualTotalSales) : "—"}</td>
                         <td className="py-2.5 px-2 text-center"><VarianceIndicator value={f.totalSalesVariance} /></td>
                         <td className="py-2.5 px-2 text-xs text-muted-foreground min-w-[180px] max-w-[250px]" title={f.comment}>
-                          {isEditing ? (
+                          {isEditing && !hideEditComment ? (
                             <textarea value={editData.comment ?? ""} onChange={(e) => setEditData({ ...editData, comment: e.target.value })}
                               rows={3} className="w-full px-2 py-1.5 text-xs rounded border border-border bg-background text-foreground resize-y min-h-[60px]" placeholder="General comment..." />
                           ) : (
@@ -423,7 +436,7 @@ const ForecastInput = () => {
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-xs text-muted-foreground min-w-[180px] max-w-[250px]" title={f.forecastNotes}>
-                          {isEditing && (isApprover || !isLocked) ? (
+                          {isEditing && (isApprover || !isLocked) && !hideEditNotes ? (
                             <textarea value={editData.forecastNotes ?? ""} onChange={(e) => setEditData({ ...editData, forecastNotes: e.target.value })}
                               rows={3} className="w-full px-2 py-1.5 text-xs rounded border border-border bg-background text-foreground resize-y min-h-[60px]" placeholder="Pre-event notes..." />
                           ) : (
@@ -431,7 +444,7 @@ const ForecastInput = () => {
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-xs min-w-[180px] max-w-[250px]">
-                          {isEditing ? (
+                          {isEditing && !hideEditPostEvent ? (
                             <div>
                               <textarea value={editData.postEventNotes ?? ""} onChange={(e) => setEditData({ ...editData, postEventNotes: e.target.value })}
                                 rows={3} className="w-full px-2 py-1.5 text-xs rounded border border-border bg-background text-foreground resize-y min-h-[60px]" placeholder="Post-event notes..." />
@@ -476,7 +489,7 @@ const ForecastInput = () => {
                                     <button onClick={() => startEdit(f)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground" title={isLocked ? "Edit comment & post-event notes" : "Edit"}><Pencil className="h-3.5 w-3.5" /></button>
                                   )}
                                   {/* Delete - admin only */}
-                                  {isApprover && (
+                                  {isApprover && !hideDelete && (
                                     <button onClick={() => setDeleteTargetId(f.id)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
                                   )}
                                 </>
