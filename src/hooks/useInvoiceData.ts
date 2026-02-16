@@ -103,6 +103,40 @@ export function useInvoiceData() {
     }));
   }, [categories]);
 
+  const syncLineItemsToInventory = useCallback(async (lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]) => {
+    // Fetch current inventory items
+    const { data: invItems } = await supabase.from("inventory_items").select("id, name, current_qty");
+    const itemMap = new Map((invItems || []).map((i: any) => [i.name.trim().toLowerCase(), i]));
+
+    for (const li of lineItems) {
+      const desc = (li.description || "").trim();
+      if (!desc) continue;
+      const key = desc.toLowerCase();
+      const qty = Number(li.quantity) || 0;
+
+      const existing = itemMap.get(key);
+      if (existing) {
+        // Add purchased qty to current stock
+        await supabase.from("inventory_items").update({
+          current_qty: (Number(existing.current_qty) || 0) + qty,
+        } as any).eq("id", existing.id);
+        // Update local map for subsequent items in same batch
+        existing.current_qty = (Number(existing.current_qty) || 0) + qty;
+      } else {
+        // Create new inventory item from invoice line
+        const { data: newItem } = await supabase.from("inventory_items").insert({
+          name: desc,
+          unit_of_measure: li.unit || "unit",
+          unit_size: li.pack_size || "",
+          current_qty: qty,
+          category_id: li.category_id || null,
+          is_active: true,
+        } as any).select("id, name, current_qty").single();
+        if (newItem) itemMap.set(key, newItem);
+      }
+    }
+  }, []);
+
   const createInvoice = useCallback(async (
     invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items">,
     lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]
@@ -114,10 +148,13 @@ export function useInvoiceData() {
       const items = lineItems.map((li) => ({ ...li, invoice_id: data.id }));
       const { error: liErr } = await supabase.from("invoice_line_items").insert(items as any);
       if (liErr) toast({ title: "Error adding line items", description: liErr.message, variant: "destructive" });
+
+      // Sync to inventory
+      await syncLineItemsToInventory(lineItems);
     }
     await fetchAll();
     return data;
-  }, [fetchAll, toast]);
+  }, [fetchAll, toast, syncLineItemsToInventory]);
 
   const updateInvoice = useCallback(async (
     id: string,
