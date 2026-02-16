@@ -48,12 +48,12 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       let mediaStream: MediaStream;
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 2560 } },
+          video: { facingMode: { ideal: facing }, width: { ideal: 3840 }, height: { ideal: 2160 } },
           audio: false,
         });
       } catch {
         mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1920 }, height: { ideal: 2560 } },
+          video: { width: { ideal: 3840 }, height: { ideal: 2160 } },
           audio: false,
         });
       }
@@ -139,11 +139,10 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     canvas.toBlob(
       (blob) => {
         if (!blob) return;
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+        const dataUrl = canvas.toDataURL("image/png");
         setCaptures((prev) => [...prev, { dataUrl, blob }]);
       },
-      "image/jpeg",
-      0.92
+      "image/png"
     );
   }, []);
 
@@ -253,7 +252,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       outCanvas.toBlob(
         (blob) => {
           if (!blob) return;
-          const dataUrl = outCanvas.toDataURL("image/jpeg", 0.92);
+          const dataUrl = outCanvas.toDataURL("image/png");
           setCaptures((prev) => {
             const copy = [...prev];
             copy[cropTarget] = { dataUrl, blob };
@@ -261,8 +260,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
           });
           cancelCrop();
         },
-        "image/jpeg",
-        0.92
+        "image/png"
       );
     };
     img.src = cap.dataUrl;
@@ -308,7 +306,7 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     const fileName = generateFileName();
 
     if (captures.length === 1) {
-      const file = new File([captures[0].blob], `${fileName}.jpg`, { type: "image/jpeg" });
+      const file = new File([captures[0].blob], `${fileName}.png`, { type: "image/png" });
       onCapture(file);
     } else {
       const images = await Promise.all(
@@ -338,10 +336,10 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
       }
 
       const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.90);
+        canvas.toBlob((b) => resolve(b!), "image/png");
       });
 
-      const file = new File([blob], `${fileName}.jpg`, { type: "image/jpeg" });
+      const file = new File([blob], `${fileName}.png`, { type: "image/png" });
       onCapture(file);
     }
   }, [captures, stream, onCapture]);
