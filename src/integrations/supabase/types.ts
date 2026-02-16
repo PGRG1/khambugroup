@@ -287,6 +287,69 @@ export type Database = {
         }
         Relationships: []
       }
+      user_access_control: {
+        Row: {
+          created_at: string
+          id: string
+          position: Database["public"]["Enums"]["user_position"]
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position?: Database["public"]["Enums"]["user_position"]
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: Database["public"]["Enums"]["user_position"]
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_page_permissions: {
+        Row: {
+          authority: string
+          can_access: boolean
+          created_at: string
+          hidden_actions: string[]
+          id: string
+          page_key: string
+          show_in_sidebar: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          authority?: string
+          can_access?: boolean
+          created_at?: string
+          hidden_actions?: string[]
+          id?: string
+          page_key: string
+          show_in_sidebar?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          authority?: string
+          can_access?: boolean
+          created_at?: string
+          hidden_actions?: string[]
+          id?: string
+          page_key?: string
+          show_in_sidebar?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -320,6 +383,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "manager"
+      user_position: "owner" | "gm" | "finance" | "staff" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -448,6 +512,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user", "manager"],
+      user_position: ["owner", "gm", "finance", "staff", "viewer"],
     },
   },
 } as const
