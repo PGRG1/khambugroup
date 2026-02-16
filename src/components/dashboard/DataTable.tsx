@@ -126,6 +126,12 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
     URL.revokeObjectURL(url);
   };
 
+  // Check if total sales matches calculated value
+  const hasTotalMismatch = (row: SalesRecord) => {
+    const expected = row.subtotal + row.serviceCharge + row.discount; // discount is negative
+    return Math.abs(row.totalSales - expected) > 0.01;
+  };
+
   const numCell = (key: keyof SalesRecord, row: SalesRecord, idx: number) => {
     if (editIdx === idx && editRecord) {
       return (
@@ -137,7 +143,15 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
         />
       );
     }
-    return <span className="text-xs">{typeof row[key] === "number" ? formatCurrency(row[key] as number) : row[key]}</span>;
+    const val = row[key] as number;
+    const isMismatchedTotal = key === "totalSales" && hasTotalMismatch(row);
+    return (
+      <span className={`text-xs ${isMismatchedTotal ? "text-destructive font-semibold" : ""}`}
+        title={isMismatchedTotal ? `Expected: ${formatCurrency(row.subtotal + row.serviceCharge + row.discount)}` : undefined}>
+        {typeof val === "number" ? formatCurrency(val) : val}
+        {isMismatchedTotal && " ⚠"}
+      </span>
+    );
   };
 
   return (

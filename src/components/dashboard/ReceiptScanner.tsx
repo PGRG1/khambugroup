@@ -121,7 +121,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
         guests: Number(raw.guests) || 0,
         subtotal: Number(raw.subtotal) || 0,
         serviceCharge: Number(raw.serviceCharge) || 0,
-        discount: Number(raw.discount) || 0,
+        discount: -(Math.abs(Number(raw.discount) || 0)),
         totalSales: Number(raw.totalSales) || 0,
         visa: Number(raw.visa) || 0,
         mastercard: Number(raw.mastercard) || 0,
@@ -176,7 +176,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
 
   // Auto-calculated validation
   const calcTotalSales = extractedData
-    ? extractedData.subtotal + extractedData.serviceCharge - extractedData.discount
+    ? extractedData.subtotal + extractedData.serviceCharge + extractedData.discount // discount is already negative
     : 0;
   const calcPaymentTotal = extractedData
     ? extractedData.visa + extractedData.mastercard + extractedData.amex +
