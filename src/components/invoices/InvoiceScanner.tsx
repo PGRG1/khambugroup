@@ -16,6 +16,7 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024;
 interface ScannedLineItem {
   item_code: string;
   description: string;
+  pack_size: string;
   quantity: string;
   unit: string;
   weight: string;
@@ -48,6 +49,7 @@ interface InvoiceScannerProps {
   }, lineItems: {
     item_code: string;
     description: string;
+    pack_size: string;
     category_id: null;
     quantity: number;
     unit: string | null;
@@ -62,7 +64,7 @@ interface InvoiceScannerProps {
   userId: string;
 }
 
-const emptyLine: ScannedLineItem = { item_code: "", description: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0", total: "0" };
+const emptyLine: ScannedLineItem = { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0", total: "0" };
 
 const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
@@ -141,6 +143,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         const lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => ({
           item_code: li.item_code || "",
           description: li.description || "",
+          pack_size: li.pack_size || "",
           quantity: String(li.quantity || 1),
           unit: li.unit || "",
           weight: li.weight ? String(li.weight) : "",
@@ -233,7 +236,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
       const lineTotal = l.total ? parseFloat(l.total) : (w ? w * price + tax : qty * price + tax);
-      return { item_code: l.item_code || "", description: l.description, category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null };
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null };
     });
 
     await onSave(
@@ -425,7 +428,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {current.line_items.map((line, i) => (
-              <div key={i} className="grid grid-cols-[80px_1fr_60px_60px_70px_80px_80px_80px_32px] gap-1 items-end">
+              <div key={i} className="grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_75px_32px] gap-1 items-end">
                 <div>
                   {i === 0 && <Label className="text-xs">Code</Label>}
                   <Input value={line.item_code} onChange={(e) => updateLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
@@ -433,6 +436,10 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
                 <div>
                   {i === 0 && <Label className="text-xs">Description</Label>}
                   <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
+                </div>
+                <div>
+                  {i === 0 && <Label className="text-xs">Pack Size</Label>}
+                  <Input value={line.pack_size} onChange={(e) => updateLine(i, "pack_size", e.target.value)} placeholder="4X4LB" className="text-xs" />
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Qty</Label>}

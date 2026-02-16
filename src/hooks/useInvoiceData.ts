@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,6 +24,7 @@ export interface InvoiceLineItem {
   invoice_id: string;
   item_code: string;
   description: string;
+  pack_size: string;
   category_id: string | null;
   category_name?: string;
   quantity: number;
@@ -58,10 +59,11 @@ export function useInvoiceData() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const initialLoadDone = React.useRef(false);
   const { toast } = useToast();
 
   const fetchAll = useCallback(async () => {
-    setLoading(true);
+    if (!initialLoadDone.current) setLoading(true);
     const [invRes, supRes, catRes] = await Promise.all([
       supabase.from("invoices").select("*").order("invoice_date", { ascending: false }),
       supabase.from("suppliers").select("*").order("name"),
@@ -81,6 +83,7 @@ export function useInvoiceData() {
       );
     }
     setLoading(false);
+    initialLoadDone.current = true;
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);

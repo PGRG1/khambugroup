@@ -43,7 +43,8 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
       "line_items": [
         {
           "item_code": "product/item code if available, otherwise empty string",
-          "description": "item description",
+          "description": "item description (clean product name without pack size info)",
+          "pack_size": "pack/bottle/container size info e.g. '4X4LB', '750ml', '10X(4X145G) (5.8KG)', '6X1L' — extract from the description",
           "quantity": number (number of units ordered, e.g. 1 CTN, 2 PCS),
           "unit": "unit of measure (CTN, PCS, BOT, Case, PKT, etc.)",
           "weight": number or null (actual weight in KG if item is priced per KG, otherwise null),

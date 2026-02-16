@@ -301,6 +301,7 @@ export type Database = {
           invoice_id: string
           item_code: string | null
           notes: string | null
+          pack_size: string | null
           quantity: number
           tax_amount: number
           total: number
@@ -316,6 +317,7 @@ export type Database = {
           invoice_id: string
           item_code?: string | null
           notes?: string | null
+          pack_size?: string | null
           quantity?: number
           tax_amount?: number
           total?: number
@@ -331,6 +333,7 @@ export type Database = {
           invoice_id?: string
           item_code?: string | null
           notes?: string | null
+          pack_size?: string | null
           quantity?: number
           tax_amount?: number
           total?: number
