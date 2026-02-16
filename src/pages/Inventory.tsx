@@ -26,7 +26,7 @@ export default function Inventory() {
   // Dialogs
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
-  const [newItem, setNewItem] = useState({ name: "", category_id: "", unit_of_measure: "unit", par_level: "" });
+  const [newItem, setNewItem] = useState({ name: "", category_id: "", unit_of_measure: "unit", unit_size: "", par_level: "" });
   const [newPeriod, setNewPeriod] = useState({ period_label: "", period_start: "", period_end: "", venue: "Assembly" });
 
   // Purchases from invoices
@@ -71,23 +71,81 @@ export default function Inventory() {
   const filteredPeriods = useMemo(() => periods.filter((p) => p.venue === venueFilter), [periods, venueFilter]);
   const selectedPeriodObj = periods.find((p) => p.id === selectedPeriod);
 
+  // Auto-populate purchases from invoices for the selected period
+  const autoPopulatePurchases = useCallback(async (periodId: string) => {
+    const period = periods.find((p) => p.id === periodId);
+    if (!period) return {};
+    
+    // Get invoices in the period date range for the venue
+    const { data: invs } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("venue", period.venue)
+      .gte("invoice_date", period.period_start)
+      .lte("invoice_date", period.period_end);
+    
+    if (!invs || invs.length === 0) return {};
+    
+    const invoiceIds = invs.map((inv: any) => inv.id);
+    const { data: lineItems } = await supabase
+      .from("invoice_line_items")
+      .select("description, quantity, weight, unit_price, total")
+      .in("invoice_id", invoiceIds);
+    
+    if (!lineItems) return {};
+    
+    // Sum totals by matching item name (case-insensitive)
+    const purchasesByItem: Record<string, { qty: number; cost: number }> = {};
+    for (const li of lineItems as any[]) {
+      const desc = (li.description || "").trim().toLowerCase();
+      if (!desc) continue;
+      if (!purchasesByItem[desc]) purchasesByItem[desc] = { qty: 0, cost: 0 };
+      purchasesByItem[desc].qty += Number(li.quantity) || 0;
+      purchasesByItem[desc].cost += Number(li.total) || 0;
+    }
+    
+    // Match to inventory items by name
+    const result: Record<string, { qty: number; cost: number }> = {};
+    for (const item of items) {
+      const itemName = item.name.trim().toLowerCase();
+      if (purchasesByItem[itemName]) {
+        result[item.id] = purchasesByItem[itemName];
+      }
+    }
+    return result;
+  }, [periods, items]);
+
   useEffect(() => {
     if (selectedPeriod && items.length > 0) {
-      fetchCounts(selectedPeriod).then((c) => {
+      Promise.all([
+        fetchCounts(selectedPeriod),
+        autoPopulatePurchases(selectedPeriod),
+      ]).then(([c, purchaseMap]) => {
         setCounts(c);
         const map: typeof editCounts = {};
-        // Populate with existing counts + missing items
         const countedItemIds = new Set(c.map((x) => x.item_id));
         for (const ct of c) {
-          map[ct.item_id] = { beginning_qty: String(ct.beginning_qty), purchases_qty: String(ct.purchases_qty), ending_qty: String(ct.ending_qty), unit_cost: String(ct.unit_cost) };
+          const purchase = purchaseMap[ct.item_id];
+          map[ct.item_id] = {
+            beginning_qty: String(ct.beginning_qty),
+            purchases_qty: purchase ? String(purchase.qty) : String(ct.purchases_qty),
+            ending_qty: String(ct.ending_qty),
+            unit_cost: purchase ? String((purchase.cost / (purchase.qty || 1)).toFixed(2)) : String(ct.unit_cost),
+          };
         }
         for (const item of items.filter((i) => i.is_active && !countedItemIds.has(i.id))) {
-          map[item.id] = { beginning_qty: "0", purchases_qty: "0", ending_qty: "0", unit_cost: "0" };
+          const purchase = purchaseMap[item.id];
+          map[item.id] = {
+            beginning_qty: "0",
+            purchases_qty: purchase ? String(purchase.qty) : "0",
+            ending_qty: "0",
+            unit_cost: purchase ? String((purchase.cost / (purchase.qty || 1)).toFixed(2)) : "0",
+          };
         }
         setEditCounts(map);
       });
     }
-  }, [selectedPeriod, items, fetchCounts]);
+  }, [selectedPeriod, items, fetchCounts, autoPopulatePurchases]);
 
   const handleSaveCounts = async () => {
     if (!selectedPeriod) return;
@@ -106,9 +164,9 @@ export default function Inventory() {
   };
 
   const handleCreateItem = async () => {
-    await createItem({ name: newItem.name, category_id: newItem.category_id || null, unit_of_measure: newItem.unit_of_measure, par_level: newItem.par_level ? parseFloat(newItem.par_level) : null, is_active: true });
+    await createItem({ name: newItem.name, category_id: newItem.category_id || null, unit_of_measure: newItem.unit_of_measure, unit_size: newItem.unit_size || "", par_level: newItem.par_level ? parseFloat(newItem.par_level) : null, is_active: true });
     setItemDialogOpen(false);
-    setNewItem({ name: "", category_id: "", unit_of_measure: "unit", par_level: "" });
+    setNewItem({ name: "", category_id: "", unit_of_measure: "unit", unit_size: "", par_level: "" });
   };
 
   const handleCreatePeriod = async () => {
@@ -197,6 +255,7 @@ export default function Inventory() {
                     <TableRow>
                       <TableHead>Item</TableHead>
                       <TableHead>Category</TableHead>
+                      <TableHead>Unit Size</TableHead>
                       <TableHead className="text-right">Beginning</TableHead>
                       <TableHead className="text-right">Purchases</TableHead>
                       <TableHead className="text-right">Ending</TableHead>
@@ -216,7 +275,8 @@ export default function Inventory() {
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{item.category_name || "—"}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{item.category_name || "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{item.unit_size || "—"}</TableCell>
                           <TableCell className="text-right">
                             <Input type="number" className="w-20 text-right ml-auto" value={vals.beginning_qty} onChange={(e) => updateCount(item.id, "beginning_qty", e.target.value)} disabled={isLocked} />
                           </TableCell>
@@ -311,18 +371,20 @@ export default function Inventory() {
                   <TableHead>Item</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Unit</TableHead>
+                  <TableHead>Unit Size</TableHead>
                   <TableHead>Par Level</TableHead>
                   <TableHead>Active</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No items</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No items</TableCell></TableRow>
                 ) : items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.category_name || "—"}</TableCell>
                     <TableCell>{item.unit_of_measure}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{item.unit_size || "—"}</TableCell>
                     <TableCell>{item.par_level ?? "—"}</TableCell>
                     <TableCell>{item.is_active ? "✓" : "—"}</TableCell>
                   </TableRow>
@@ -346,8 +408,9 @@ export default function Inventory() {
                 <SelectContent>{categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div><Label>Unit of Measure</Label><Input value={newItem.unit_of_measure} onChange={(e) => setNewItem({ ...newItem, unit_of_measure: e.target.value })} placeholder="kg, bottle, etc." /></div>
+              <div><Label>Unit Size</Label><Input value={newItem.unit_size} onChange={(e) => setNewItem({ ...newItem, unit_size: e.target.value })} placeholder="700ml, 3.5kg, etc." /></div>
               <div><Label>Par Level</Label><Input type="number" value={newItem.par_level} onChange={(e) => setNewItem({ ...newItem, par_level: e.target.value })} placeholder="Min stock" /></div>
             </div>
           </div>

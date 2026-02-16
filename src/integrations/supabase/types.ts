@@ -224,6 +224,7 @@ export type Database = {
           name: string
           par_level: number | null
           unit_of_measure: string
+          unit_size: string
           updated_at: string
         }
         Insert: {
@@ -234,6 +235,7 @@ export type Database = {
           name: string
           par_level?: number | null
           unit_of_measure?: string
+          unit_size?: string
           updated_at?: string
         }
         Update: {
@@ -244,6 +246,7 @@ export type Database = {
           name?: string
           par_level?: number | null
           unit_of_measure?: string
+          unit_size?: string
           updated_at?: string
         }
         Relationships: [
