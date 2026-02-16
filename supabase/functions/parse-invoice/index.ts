@@ -89,7 +89,7 @@ Rules:
 - Use the TOTAL AMOUNT column from the invoice as the "total" field — do NOT recalculate it`;
 
     const requestBody = JSON.stringify({
-      model: "openai/gpt-5-mini",
+      model: "google/gemini-2.5-flash",
       max_tokens: 16000,
       messages: [
         { role: "system", content: systemPrompt },
