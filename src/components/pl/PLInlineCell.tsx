@@ -11,9 +11,7 @@ interface Props {
 }
 
 const fmt = (n: number) =>
-  n === 0 ? "—" : n < 0
-    ? `(${Math.abs(n).toLocaleString("en-HK", { minimumFractionDigits: 0, maximumFractionDigits: 0 })})`
-    : n.toLocaleString("en-HK", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function PLInlineCell({ lineItemName, year, month, currentValue, onSaved }: Props) {
   const [editing, setEditing] = useState(false);
