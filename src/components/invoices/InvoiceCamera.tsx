@@ -2,6 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import { Camera, X, RotateCcw, Check, Trash2, Plus, ImageIcon, Flashlight, Maximize2, Minimize2, Crop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { compressImageFile } from "@/utils/imageCompression";
 
 interface InvoiceCameraProps {
   onCapture: (file: File) => void;
@@ -314,8 +315,9 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     const fileName = generateFileName();
 
     if (captures.length === 1) {
-      const file = new File([captures[0].blob], `${fileName}.png`, { type: "image/png" });
-      onCapture(file);
+      const raw = new File([captures[0].blob], `${fileName}.png`, { type: "image/png" });
+      const compressed = await compressImageFile(raw);
+      onCapture(compressed);
     } else {
       const images = await Promise.all(
         captures.map(
@@ -343,12 +345,14 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
         y += scaledHeight;
       }
 
+      // Use JPEG for stitched multi-page captures to save space
       const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => resolve(b!), "image/png");
+        canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.7);
       });
 
-      const file = new File([blob], `${fileName}.png`, { type: "image/png" });
-      onCapture(file);
+      const raw = new File([blob], `${fileName}.jpg`, { type: "image/jpeg" });
+      const compressed = await compressImageFile(raw);
+      onCapture(compressed);
     }
   }, [captures, stream, onCapture]);
 

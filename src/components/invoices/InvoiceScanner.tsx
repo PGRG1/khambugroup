@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText } from "lucide-react";
 import InvoiceCamera from "./InvoiceCamera";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
+import { compressImageFile } from "@/utils/imageCompression";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -77,6 +78,8 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
   const [savedCount, setSavedCount] = useState(0);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -112,31 +115,27 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
       toast({ title: "File too large", description: "Maximum 100MB allowed.", variant: "destructive" });
-      return;
+      return [];
     }
     const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     if (!validTypes.includes(file.type)) {
       toast({ title: "Unsupported format", description: "Please upload an image (JPG, PNG) or PDF.", variant: "destructive" });
-      return;
+      return [];
     }
 
-    setScanning(true);
-    setInvoices([]);
-    setCurrentIdx(0);
-    setSavedCount(0);
-    setOriginalFile(file);
-    batchCreatedSuppliers.current.clear();
+    // Compress image files for space efficiency
+    const compressedFile = await compressImageFile(file);
+    setOriginalFile(compressedFile);
 
     try {
-      const base64 = await fileToBase64(file);
+      const base64 = await fileToBase64(compressedFile);
       const { data, error } = await supabase.functions.invoke("parse-invoice", {
-        body: { fileBase64: base64, mimeType: file.type },
+        body: { fileBase64: base64, mimeType: compressedFile.type },
       });
 
       if (error || !data?.success) {
         toast({ title: "Scan failed", description: data?.error || error?.message || "Could not extract data.", variant: "destructive" });
-        setScanning(false);
-        return;
+        return [];
       }
 
       const rawInvoices = data.data?.invoices || [data.data];
@@ -169,22 +168,43 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         });
       }
 
-      setInvoices(processed);
-      toast({ title: "Scan complete!", description: `Found ${processed.length} invoice${processed.length > 1 ? "s" : ""}. Review and save.` });
+      return processed;
     } catch (err) {
       console.error("Invoice scan error:", err);
       toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
-    } finally {
-      setScanning(false);
+      return [];
     }
   }, [suppliers, matchOrCreateSupplier]);
+
+  const processMultipleFiles = useCallback(async (files: File[]) => {
+    setScanning(true);
+    setInvoices([]);
+    setCurrentIdx(0);
+    setSavedCount(0);
+    batchCreatedSuppliers.current.clear();
+    setScanProgress({ current: 0, total: files.length });
+
+    const allInvoices: ScannedInvoice[] = [];
+    for (let i = 0; i < files.length; i++) {
+      setScanProgress({ current: i + 1, total: files.length });
+      const result = await processFile(files[i]);
+      allInvoices.push(...result);
+    }
+
+    setInvoices(allInvoices);
+    if (allInvoices.length > 0) {
+      toast({ title: "Scan complete!", description: `Found ${allInvoices.length} invoice${allInvoices.length > 1 ? "s" : ""} from ${files.length} file${files.length > 1 ? "s" : ""}. Review and save.` });
+    }
+    setScanning(false);
+    setScanProgress({ current: 0, total: 0 });
+  }, [processFile]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
-  }, [processFile]);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) processMultipleFiles(files);
+  }, [processMultipleFiles]);
 
   const current = invoices[currentIdx] || null;
 
@@ -358,7 +378,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
         <InvoiceCamera
           onCapture={(file) => {
             setShowCamera(false);
-            processFile(file);
+            processMultipleFiles([file]);
           }}
           onClose={() => setShowCamera(false)}
         />
@@ -378,18 +398,21 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
               const input = document.createElement("input");
               input.type = "file";
               input.accept = "image/*,application/pdf";
+              input.multiple = true;
               input.onchange = (e: any) => {
-                const file = e.target.files?.[0];
-                if (file) processFile(file);
+                const files = Array.from(e.target.files || []) as File[];
+                if (files.length > 0) processMultipleFiles(files);
               };
               input.click();
             }}
           >
             <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Drop your invoice PDF here or <span className="text-primary font-medium">click to browse</span>
+              Drop your invoice files here or <span className="text-primary font-medium">click to browse</span>
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF with multiple invoices (max 100MB)</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Supports multiple files — JPG, PNG, PDF (max 100MB each). Images are auto-compressed for storage efficiency.
+            </p>
           </div>
 
           <div className="text-center">
@@ -411,7 +434,14 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       {scanning && (
         <div className="flex flex-col items-center gap-3 py-12">
           <Loader2 className="h-8 w-8 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Scanning for invoices with AI... This may take a moment for large documents.</p>
+          <p className="text-sm text-muted-foreground">
+            {scanProgress.total > 1
+              ? `Scanning file ${scanProgress.current} of ${scanProgress.total}...`
+              : "Scanning for invoices with AI... This may take a moment for large documents."}
+          </p>
+          {scanProgress.total > 1 && (
+            <Progress value={(scanProgress.current / scanProgress.total) * 100} className="h-2 w-48" />
+          )}
         </div>
       )}
 
