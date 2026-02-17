@@ -13,9 +13,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, BarChart3 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
+import InvoiceAnalytics from "@/components/invoices/InvoiceAnalytics";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -330,6 +331,7 @@ export default function Invoices() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="analytics"><BarChart3 className="h-3 w-3 mr-1" />Analytics</TabsTrigger>
           <TabsTrigger value="audit-docs">Audit Documents</TabsTrigger>
           <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
@@ -408,6 +410,10 @@ export default function Invoices() {
               </TableBody>
             </Table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <InvoiceAnalytics invoices={invoices} />
         </TabsContent>
 
         {/* Audit Documents Tab */}
