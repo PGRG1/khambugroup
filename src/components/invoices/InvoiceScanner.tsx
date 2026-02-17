@@ -37,6 +37,7 @@ interface ScannedInvoice {
   notes: string;
   line_items: ScannedLineItem[];
   saved?: boolean;
+  sourceFile?: File | null;
 }
 
 interface InvoiceScannerProps {
@@ -76,7 +77,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
   const [saving, setSaving] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
-  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  // originalFile is kept for backward compat but each invoice now carries its own sourceFile
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
@@ -125,7 +126,6 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
 
     // Compress image files for space efficiency
     const compressedFile = await compressImageFile(file);
-    setOriginalFile(compressedFile);
 
     try {
       const base64 = await fileToBase64(compressedFile);
@@ -165,13 +165,14 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
           notes: raw.notes || "",
           line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
           saved: false,
+          sourceFile: compressedFile,
         });
       }
 
       return processed;
     } catch (err) {
       console.error("Invoice scan error:", err);
-      toast({ title: "Scan failed", description: "An unexpected error occurred.", variant: "destructive" });
+      toast({ title: "Scan failed", description: `Failed to scan ${file.name}. Please try again.`, variant: "destructive" });
       return [];
     }
   }, [suppliers, matchOrCreateSupplier]);
@@ -286,10 +287,10 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     const invNum = (inv.invoice_number || "no-number").trim().replace(/[^a-zA-Z0-9]+/g, "_");
     const professionalName = `${dateStr}_${vendorName}_${invNum}`;
 
-    let fileToSave = originalFile;
-    if (originalFile) {
-      const ext = originalFile.name.split(".").pop() || "jpg";
-      fileToSave = new File([originalFile], `${professionalName}.${ext}`, { type: originalFile.type });
+    let fileToSave = inv.sourceFile || null;
+    if (fileToSave) {
+      const ext = fileToSave.name.split(".").pop() || "jpg";
+      fileToSave = new File([fileToSave], `${professionalName}.${ext}`, { type: fileToSave.type });
     }
 
     await onSave(
