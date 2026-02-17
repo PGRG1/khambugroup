@@ -398,11 +398,13 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
             onClick={() => {
               const input = document.createElement("input");
               input.type = "file";
-              input.accept = "image/*,application/pdf";
+              input.accept = "image/jpeg,image/png,image/webp,application/pdf";
               input.multiple = true;
               input.onchange = (e: any) => {
                 const files = Array.from(e.target.files || []) as File[];
-                if (files.length > 0) processMultipleFiles(files);
+                if (files.length > 0) {
+                  setPendingFiles((prev) => [...prev, ...files]);
+                }
               };
               input.click();
             }}
@@ -412,22 +414,89 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
               Drop your invoice files here or <span className="text-primary font-medium">click to browse</span>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Supports multiple files — JPG, PNG, PDF (max 100MB each). Images are auto-compressed for storage efficiency.
+              Select multiple files from gallery, or add one at a time. Images are auto-compressed.
             </p>
           </div>
 
-          <div className="text-center">
-            <span className="text-xs text-muted-foreground">or</span>
-          </div>
+          {/* Pending files strip */}
+          {pendingFiles.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-6"
+                  onClick={() => setPendingFiles([])}
+                >
+                  Clear all
+                </Button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="relative shrink-0 px-2 py-1 rounded-md border border-border bg-muted/50 flex items-center gap-1.5 text-xs">
+                    <FileText className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-[120px] truncate">{f.name}</span>
+                    <button onClick={() => setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "image/jpeg,image/png,image/webp,application/pdf";
+                    input.multiple = true;
+                    input.onchange = (e: any) => {
+                      const files = Array.from(e.target.files || []) as File[];
+                      if (files.length > 0) setPendingFiles((prev) => [...prev, ...files]);
+                    };
+                    input.click();
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add More Files
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    const files = [...pendingFiles];
+                    setPendingFiles([]);
+                    processMultipleFiles(files);
+                  }}
+                >
+                  <ScanLine className="h-3 w-3 mr-1" />
+                  Scan {pendingFiles.length} File{pendingFiles.length > 1 ? "s" : ""}
+                </Button>
+              </div>
+            </div>
+          )}
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setShowCamera(true)}
-          >
-            <Camera className="h-4 w-4 mr-2" />
-            Take Photos with Camera
-          </Button>
+          {pendingFiles.length === 0 && (
+            <>
+              <div className="text-center">
+                <span className="text-xs text-muted-foreground">or</span>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowCamera(true)}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Take Photos with Camera
+              </Button>
+            </>
+          )}
         </div>
       )}
 
