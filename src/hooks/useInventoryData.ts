@@ -107,8 +107,15 @@ export function useInventoryData() {
     await fetchAll();
   }, [fetchAll, toast]);
 
+  const toggleItemActive = useCallback(async (itemId: string, isActive: boolean) => {
+    const { error } = await supabase.from("inventory_items").update({ is_active: isActive } as any).eq("id", itemId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    await fetchAll();
+    toast({ title: isActive ? "Item reactivated" : "Item deactivated" });
+  }, [fetchAll, toast]);
+
   return {
     items, periods, categories, loading,
-    fetchAll, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod, updateItemQty,
+    fetchAll, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod, updateItemQty, toggleItemActive,
   };
 }
