@@ -10,16 +10,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Lock, Package, ShoppingCart, ClipboardList, Edit2, Save } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Lock, Package, ShoppingCart, ClipboardList, Edit2, Save, Search, AlertTriangle, CheckCircle2, Archive, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+
+type SortField = "name" | "category" | "qty" | "par" | "weight" | "status";
+type SortDir = "asc" | "desc";
 
 export default function Inventory() {
-  const { items, periods, categories, loading, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod, updateItemQty } = useInventoryData();
+  const { items, periods, categories, loading, fetchCounts, createItem, createPeriod, upsertCounts, closePeriod, updateItemQty, toggleItemActive, fetchAll } = useInventoryData();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("stock");
   const [editingStock, setEditingStock] = useState<Record<string, string>>({});
   const [editMode, setEditMode] = useState(false);
   const [venueFilter, setVenueFilter] = useState("Assembly");
   const [itemWeights, setItemWeights] = useState<Record<string, number>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   // Period detail
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
@@ -37,6 +45,10 @@ export default function Inventory() {
   const [purchaseDateTo, setPurchaseDateTo] = useState("");
   const [purchases, setPurchases] = useState<any[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(false);
+
+  // Items Master search & filter
+  const [masterSearch, setMasterSearch] = useState("");
+  const [masterShowInactive, setMasterShowInactive] = useState(false);
 
   // Fetch total weight per item from invoice line items
   useEffect(() => {
@@ -205,6 +217,69 @@ export default function Inventory() {
     setEditCounts((prev) => ({ ...prev, [itemId]: { ...prev[itemId], [field]: value } }));
   };
 
+  // Filtered and sorted items for Current Stock
+  const activeItems = useMemo(() => {
+    let filtered = items.filter((i) => i.is_active);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter((i) => i.name.toLowerCase().includes(q) || (i.category_name || "").toLowerCase().includes(q));
+    }
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((i) => i.category_id === categoryFilter);
+    }
+    // Sort
+    filtered.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "name": cmp = a.name.localeCompare(b.name); break;
+        case "category": cmp = (a.category_name || "").localeCompare(b.category_name || ""); break;
+        case "qty": cmp = a.current_qty - b.current_qty; break;
+        case "par": cmp = (a.par_level ?? 0) - (b.par_level ?? 0); break;
+        case "weight": cmp = (itemWeights[a.id] || 0) - (itemWeights[b.id] || 0); break;
+        case "status": {
+          const aLow = a.par_level !== null && a.current_qty < a.par_level ? 1 : 0;
+          const bLow = b.par_level !== null && b.current_qty < b.par_level ? 1 : 0;
+          cmp = bLow - aLow; // Low stock first
+          break;
+        }
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return filtered;
+  }, [items, searchQuery, categoryFilter, sortField, sortDir, itemWeights]);
+
+  // Summary stats
+  const summaryStats = useMemo(() => {
+    const active = items.filter((i) => i.is_active);
+    const lowStock = active.filter((i) => i.par_level !== null && i.current_qty < i.par_level);
+    const totalValue = Object.values(itemWeights).reduce((sum, w) => sum + w, 0);
+    return { total: active.length, lowStock: lowStock.length, totalWeightKg: totalValue };
+  }, [items, itemWeights]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-30" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  // Master list items
+  const masterItems = useMemo(() => {
+    let filtered = masterShowInactive ? items : items.filter((i) => i.is_active);
+    if (masterSearch) {
+      const q = masterSearch.toLowerCase();
+      filtered = filtered.filter((i) => i.name.toLowerCase().includes(q) || (i.category_name || "").toLowerCase().includes(q));
+    }
+    return filtered;
+  }, [items, masterSearch, masterShowInactive]);
+
   if (loading) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>;
 
   return (
@@ -233,8 +308,61 @@ export default function Inventory() {
         </TabsList>
 
         <TabsContent value="stock" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">What you have right now. Click Edit to update quantities.</p>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <Card>
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="rounded-full p-2 bg-primary/10">
+                  <Package className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Items</p>
+                  <p className="text-xl font-bold font-mono">{summaryStats.total}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={summaryStats.lowStock > 0 ? "border-destructive/50" : ""}>
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className={`rounded-full p-2 ${summaryStats.lowStock > 0 ? "bg-destructive/10" : "bg-muted"}`}>
+                  <AlertTriangle className={`h-4 w-4 ${summaryStats.lowStock > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Low Stock</p>
+                  <p className="text-xl font-bold font-mono">{summaryStats.lowStock}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hidden md:block">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="rounded-full p-2 bg-primary/10">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Weight</p>
+                  <p className="text-xl font-bold font-mono">{summaryStats.totalWeightKg.toFixed(1)} <span className="text-xs font-normal text-muted-foreground">KG</span></p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Search & Filter Bar */}
+          <div className="flex gap-2 flex-wrap items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Categories" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Button size="sm" variant={editMode ? "default" : "outline"} onClick={() => {
               if (editMode) {
                 // Save all edits
@@ -254,25 +382,38 @@ export default function Inventory() {
             </Button>
           </div>
 
-          <div className="rounded-lg border overflow-hidden">
+          <div className="rounded-lg border overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                   <TableHead>Item</TableHead>
-                   <TableHead>Category</TableHead>
-                   <TableHead>Unit Size</TableHead>
-                   <TableHead className="text-right">Qty On Hand</TableHead>
-                   <TableHead>Unit</TableHead>
-                   <TableHead className="text-right">Total Weight (KG)</TableHead>
-                   <TableHead className="text-right">Par Level</TableHead>
-                   <TableHead>Status</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("name")}>
+                    <span className="flex items-center">Item<SortIcon field="name" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("category")}>
+                    <span className="flex items-center">Category<SortIcon field="category" /></span>
+                  </TableHead>
+                  <TableHead>Unit Size</TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => toggleSort("qty")}>
+                    <span className="flex items-center justify-end">Qty On Hand<SortIcon field="qty" /></span>
+                  </TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => toggleSort("weight")}>
+                    <span className="flex items-center justify-end">Total Weight (KG)<SortIcon field="weight" /></span>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => toggleSort("par")}>
+                    <span className="flex items-center justify-end">Par Level<SortIcon field="par" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
+                    <span className="flex items-center">Status<SortIcon field="status" /></span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.filter((i) => i.is_active).length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No items yet. Add items using the "Add Item" button above.</TableCell></TableRow>
-                ) : items.filter((i) => i.is_active).map((item) => {
+                {activeItems.length === 0 ? (
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    {searchQuery || categoryFilter !== "all" ? "No items match your search." : "No items yet. Add items using the \"Add Item\" button above."}
+                  </TableCell></TableRow>
+                ) : activeItems.map((item) => {
                   const belowPar = item.par_level !== null && item.current_qty < item.par_level;
                   const totalWeight = itemWeights[item.id];
                   return (
@@ -303,6 +444,9 @@ export default function Inventory() {
               </TableBody>
             </Table>
           </div>
+          {activeItems.length > 0 && (
+            <p className="text-xs text-muted-foreground text-right">Showing {activeItems.length} of {items.filter(i => i.is_active).length} items</p>
+          )}
         </TabsContent>
 
         <TabsContent value="periods" className="space-y-3">
@@ -464,6 +608,21 @@ export default function Inventory() {
         </TabsContent>
 
         <TabsContent value="items" className="space-y-3">
+          <div className="flex gap-2 flex-wrap items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search master items..."
+                value={masterSearch}
+                onChange={(e) => setMasterSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Button size="sm" variant={masterShowInactive ? "default" : "outline"} onClick={() => setMasterShowInactive(!masterShowInactive)}>
+              <Archive className="h-3 w-3 mr-1" />{masterShowInactive ? "Showing Inactive" : "Show Inactive"}
+            </Button>
+          </div>
+
           <div className="rounded-lg border overflow-hidden">
             <Table>
               <TableHeader>
@@ -473,25 +632,44 @@ export default function Inventory() {
                   <TableHead>Unit</TableHead>
                   <TableHead>Unit Size</TableHead>
                   <TableHead>Par Level</TableHead>
-                  <TableHead>Active</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No items</TableCell></TableRow>
-                ) : items.map((item) => (
-                  <TableRow key={item.id}>
+                {masterItems.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No items</TableCell></TableRow>
+                ) : masterItems.map((item) => (
+                  <TableRow key={item.id} className={!item.is_active ? "opacity-50" : ""}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.category_name || "—"}</TableCell>
                     <TableCell>{item.unit_of_measure}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{item.unit_size || "—"}</TableCell>
                     <TableCell>{item.par_level ?? "—"}</TableCell>
-                    <TableCell>{item.is_active ? "✓" : "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={item.is_active ? "secondary" : "outline"} className="text-xs">
+                        {item.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        onClick={() => toggleItemActive(item.id, !item.is_active)}
+                        title={item.is_active ? "Deactivate item" : "Reactivate item"}
+                      >
+                        {item.is_active ? <Archive className="h-3.5 w-3.5 text-muted-foreground" /> : <RotateCcw className="h-3.5 w-3.5 text-primary" />}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+          <p className="text-xs text-muted-foreground text-right">
+            {masterItems.length} items{masterShowInactive ? ` (${items.filter(i => !i.is_active).length} inactive)` : ""}
+          </p>
         </TabsContent>
       </Tabs>
 
