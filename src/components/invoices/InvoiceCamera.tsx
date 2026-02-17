@@ -117,48 +117,11 @@ const InvoiceCamera = ({ onCapture, onClose }: InvoiceCameraProps) => {
     const track = stream.getVideoTracks()[0];
     if (!track) return;
     const newState = !torchOn;
-    
-    // Try multiple approaches to toggle the torch/flashlight
-    let success = false;
-    
-    // Approach 1: ImageCapture API (works on many Android Chrome versions)
     try {
-      if ('ImageCapture' in window) {
-        const imageCapture = new (window as any).ImageCapture(track);
-        const photoCapabilities = await imageCapture.getPhotoCapabilities?.();
-        if (photoCapabilities?.fillLightMode?.includes('flash')) {
-          await track.applyConstraints({ advanced: [{ torch: newState } as any] });
-          success = true;
-        }
-      }
-    } catch {}
-    
-    // Approach 2: Direct advanced constraint (standard MediaTrack approach)
-    if (!success) {
-      try {
-        await track.applyConstraints({ advanced: [{ torch: newState } as any] });
-        // Verify it actually applied
-        const settings = track.getSettings() as any;
-        if (settings.torch === newState) {
-          success = true;
-        } else {
-          success = true; // Some devices don't report back but it still works
-        }
-      } catch {}
-    }
-    
-    // Approach 3: Direct torch constraint 
-    if (!success) {
-      try {
-        await (track as any).applyConstraints({ torch: newState });
-        success = true;
-      } catch {}
-    }
-    
-    if (success) {
+      await track.applyConstraints({ advanced: [{ torch: newState } as any] });
       setTorchOn(newState);
-    } else {
-      console.error("Torch: all methods failed");
+    } catch (err) {
+      console.error("Torch failed:", err);
       setTorchSupported(false);
     }
   }, [stream, torchOn]);
