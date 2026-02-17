@@ -49,15 +49,16 @@ CRITICAL — NUMBER ACCURACY RULES:
 
 Return ONLY valid JSON with this exact structure — always an array, even if there's only one invoice:
 
-{
-  "invoices": [
     {
-      "supplier_name": "Keep exactly as on invoice, including Chinese characters",
-      "invoice_number": "Invoice number/reference",
-      "invoice_date": "YYYY-MM-DD format",
-      "venue": "Assembly or Caliente - infer from delivery address or customer name",
-      "total_amount": number (total invoice amount — read from the TOTAL line on the invoice),
-      "notes": "any special notes, payment terms, or remarks (in English)",
+      "invoices": [
+        {
+          "supplier_name": "Keep exactly as on invoice, including Chinese characters",
+          "invoice_number": "Invoice number/reference",
+          "invoice_date": "YYYY-MM-DD format",
+          "due_date": "YYYY-MM-DD format or empty string if not shown on invoice",
+          "venue": "Assembly or Caliente - infer from delivery address or customer name",
+          "total_amount": number (total invoice amount — read from the TOTAL line on the invoice),
+          "notes": "any special notes, payment terms, or remarks (in English)",
       "line_items": [
         {
           "item_code": "product/item code if available, otherwise empty string",
@@ -83,6 +84,7 @@ Rules:
 - For venue: look for "Assembly", "Caliente", or "Hanabi" in the billing/delivery address. "Knutsford Terrace" = Caliente, "Assembly" = Assembly, "Hanabi" = Hanabi
 - Parse ALL line items from each invoice table
 - The date should always be in YYYY-MM-DD format, converting from DD/MM/YYYY if needed
+- IMPORTANT: Look for a DUE DATE, PAYMENT DUE, or similar field on the invoice. Extract it into "due_date" in YYYY-MM-DD format. If no due date is found, use an empty string.
 - Return ONLY the JSON object, no markdown, no explanation
 - Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry
 - IMPORTANT for weight-based items: When an item shows a weight (e.g. "16.3300 KG") and a price per KG (e.g. "310.00/KG"), set weight to the KG value, unit_price to the per-KG price, and total to weight * unit_price. The quantity is the number of pieces/cartons ordered.

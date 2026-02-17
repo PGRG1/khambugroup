@@ -161,7 +161,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
           venue: raw.venue || "Assembly",
           invoice_number: raw.invoice_number || "",
           invoice_date: raw.invoice_date || "",
-          due_date: "",
+          due_date: raw.due_date || "",
           notes: raw.notes || "",
           line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
           saved: false,
