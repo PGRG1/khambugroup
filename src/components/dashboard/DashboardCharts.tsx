@@ -54,7 +54,6 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
     perOrder: d.orders ? Math.round(d.totalSales / d.orders) : 0,
   }));
 
-  // Average daily sales and guests for reference lines
   const avgDailySales = dailySales.length ? Math.round(dailySales.reduce((s, d) => s + d.totalSales, 0) / dailySales.length) : 0;
   const avgDailyGuests = dailySales.length ? Math.round(dailySales.reduce((s, d) => s + d.guests, 0) / dailySales.length) : 0;
   const avgPerGuest = spendData.length ? Math.round(spendData.reduce((s, d) => s + d.perGuest, 0) / spendData.length) : 0;
@@ -64,7 +63,6 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
   const paymentData = getPaymentBreakdown(data);
   const venueData = getVenueComparison(data);
 
-  // Monthly revenue & averages
   const monthKeys = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
   const monthlyRevenue = monthKeys.map((key) => {
     const records = data.filter((r) => getMonthKey(r.date) === key);
@@ -76,7 +74,6 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
 
   const monthlyAverages = monthKeys.map((key) => {
     const records = data.filter((r) => getMonthKey(r.date) === key);
-    // Group by date to get unique days
     const dailyMap = new Map<string, { sales: number; guests: number; orders: number }>();
     records.forEach((r) => {
       const existing = dailyMap.get(r.date);
@@ -95,10 +92,10 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
     return {
       month: getMonthLabel(key),
       revenuePerDay: Math.round(totalSales / days),
-      customersPerDay: Math.round(totalGuests / days),
+      guestsPerDay: Math.round(totalGuests / days),
       ordersPerDay: Math.round(totalOrders / days),
-      customersPerOrder: totalOrders ? parseFloat((totalGuests / totalOrders).toFixed(1)) : 0,
-      spendPerCustomer: totalGuests ? Math.round(totalSales / totalGuests) : 0,
+      guestsPerOrder: totalOrders ? parseFloat((totalGuests / totalOrders).toFixed(1)) : 0,
+      spendPerGuest: totalGuests ? Math.round(totalSales / totalGuests) : 0,
       spendPerOrder: totalOrders ? Math.round(totalSales / totalOrders) : 0,
     };
   });
@@ -118,7 +115,6 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((d) => ({ ...d, pct: d.totalRevenue ? parseFloat(((d.discount / d.totalRevenue) * 100).toFixed(1)) : 0 }));
 
-  // Average discount % of total revenue for reference line
   const totalDiscountAll = discountData.reduce((s, d) => s + d.discount, 0);
   const totalRevenueAll = discountData.reduce((s, d) => s + d.totalRevenue, 0);
   const avgDiscountPct = totalRevenueAll ? parseFloat(((totalDiscountAll / totalRevenueAll) * 100).toFixed(1)) : 0;
@@ -165,10 +161,10 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Daily Number of Customers">
+          <ChartCard title="Daily Guests">
             <div className="flex items-center justify-between mb-2 px-1">
               <p className="text-xs text-muted-foreground">
-                Avg Daily Customers <span className="text-foreground font-semibold">{avgDailyGuests}</span>
+                Avg Daily Guests <span className="text-foreground font-semibold">{avgDailyGuests}</span>
               </p>
             </div>
             <ResponsiveContainer width="100%" height={260}>
@@ -192,10 +188,10 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Average Spend Per Customer">
+          <ChartCard title="Average Spend Per Guest">
             <div className="flex items-center justify-between mb-2 px-1">
               <p className="text-xs text-muted-foreground">
-                Avg Spend/Customer <span className="text-foreground font-semibold">${avgPerGuest}</span>
+                Avg Spend/Guest <span className="text-foreground font-semibold">${avgPerGuest}</span>
               </p>
             </div>
             <ResponsiveContainer width="100%" height={260}>
@@ -226,7 +222,22 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Avg Customers by Day of Week (MoM)">
+          <ChartCard title="Avg Sales by Day of Week (MoM)">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={dayStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="day" tick={axisStyle} />
+                <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip {...tooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                {months.map((m, i) => (
+                  <Bar key={m} dataKey={`sales_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard title="Avg Guests by Day of Week (MoM)">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={dayStats}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
@@ -241,7 +252,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Avg Spend/Customer by Day of Week (MoM)">
+          <ChartCard title="Avg Spend/Guest by Day of Week (MoM)">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={dayStats}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
@@ -275,7 +286,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
 
           <PaymentBreakdownChart data={paymentData} />
 
-          <ChartCard title="Discount Report">
+          <ChartCard title="Discount Trend" className="lg:col-span-2">
             <div className="flex items-center justify-between mb-2 px-1">
               <p className="text-xs text-muted-foreground">
                 Avg Discount % of Total Sales <span className="text-foreground font-semibold">{avgDiscountPct}%</span>
@@ -323,14 +334,14 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 </ResponsiveContainer>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Customers/Day</p>
+                <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Guests/Day</p>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={monthlyAverages}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Customers/Day"]} />
-                    <Bar dataKey="customersPerDay" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests/Day"]} />
+                    <Bar dataKey="guestsPerDay" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -347,26 +358,26 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 </ResponsiveContainer>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Customers/Order</p>
+                <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Guests/Order</p>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={monthlyAverages}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Customers/Order"]} />
-                    <Bar dataKey="customersPerOrder" fill="hsl(258, 50%, 55%)" radius={[3, 3, 0, 0]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests/Order"]} />
+                    <Bar dataKey="guestsPerOrder" fill="hsl(258, 50%, 55%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Spend/Customer</p>
+                <p className="text-xs text-muted-foreground mb-1 font-medium">Avg Spend/Guest</p>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={monthlyAverages}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Spend/Customer"]} />
-                    <Bar dataKey="spendPerCustomer" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Spend/Guest"]} />
+                    <Bar dataKey="spendPerGuest" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

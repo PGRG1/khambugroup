@@ -48,6 +48,7 @@ const Index = () => {
     const totalGuests = filtered.reduce((s, r) => s + r.guests, 0);
     const totalOrders = filtered.reduce((s, r) => s + r.orders, 0);
     const totalDiscount = filtered.reduce((s, r) => s + r.discount, 0);
+    const uniqueDays = new Set(filtered.map((r) => r.date)).size || 1;
     return {
       totalSales,
       totalGuests,
@@ -55,6 +56,8 @@ const Index = () => {
       avgPerGuest: totalGuests ? Math.round(totalSales / totalGuests) : 0,
       avgPerOrder: totalOrders ? Math.round(totalSales / totalOrders) : 0,
       totalDiscount,
+      salesPerDay: Math.round(totalSales / uniqueDays),
+      guestsPerDay: Math.round(totalGuests / uniqueDays),
     };
   }, [filtered]);
 
