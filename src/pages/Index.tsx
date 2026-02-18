@@ -58,6 +58,7 @@ const Index = () => {
       totalDiscount,
       salesPerDay: Math.round(totalSales / uniqueDays),
       guestsPerDay: Math.round(totalGuests / uniqueDays),
+      ordersPerDay: Math.round(totalOrders / uniqueDays),
     };
   }, [filtered]);
 
