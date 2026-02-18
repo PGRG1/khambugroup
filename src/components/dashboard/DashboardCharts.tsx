@@ -119,9 +119,10 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
   const totalRevenueAll = discountData.reduce((s, d) => s + d.totalRevenue, 0);
   const avgDiscountPct = totalRevenueAll ? parseFloat(((totalDiscountAll / totalRevenueAll) * 100).toFixed(1)) : 0;
 
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const formatDate = (d: string) => {
     const parts = d.split("-");
-    return `${parts[1]}/${parts[2]}`;
+    return `${monthNames[parseInt(parts[1], 10) - 1]} ${parseInt(parts[2], 10).toString().padStart(2, "0")}`;
   };
 
   const dayTooltipLabel = (d: string) => {
@@ -286,7 +287,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
 
           <PaymentBreakdownChart data={paymentData} />
 
-          <ChartCard title="Discount Trend" className="lg:col-span-2">
+          <ChartCard title="Discount Trend" className="col-span-1 lg:col-span-2">
             <div className="flex items-center justify-between mb-2 px-1">
               <p className="text-xs text-muted-foreground">
                 Avg Discount % of Total Sales <span className="text-foreground font-semibold">{avgDiscountPct}%</span>
