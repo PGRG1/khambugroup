@@ -66,6 +66,7 @@ export function getDayOfWeekStats(data: SalesRecord[]) {
     months.forEach((month) => {
       const records = data.filter((r) => r.day === day && getMonthKey(r.date) === month);
       if (records.length > 0) {
+        entry[`sales_${month}`] = Math.round(records.reduce((s, r) => s + r.totalSales, 0) / records.length);
         entry[`guests_${month}`] = Math.round(records.reduce((s, r) => s + r.guests, 0) / records.length);
         entry[`spendPerGuest_${month}`] = Math.round(records.reduce((s, r) => s + r.totalSales / r.guests, 0) / records.length);
         entry[`spendPerOrder_${month}`] = Math.round(records.reduce((s, r) => s + r.totalSales / r.orders, 0) / records.length);
