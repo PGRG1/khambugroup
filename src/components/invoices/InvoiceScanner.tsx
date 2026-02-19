@@ -106,7 +106,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     if (batchMatch) return batchMatch;
 
     // Create new supplier and cache it
-    const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, is_active: true });
+    const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
     if (created?.id) {
       batchCreatedSuppliers.current.set(normalised, created.id);
     }
