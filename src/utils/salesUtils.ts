@@ -42,7 +42,6 @@ export function filterData(
 }
 
 export function formatCurrency(value: number): string {
-  if (value == null || isNaN(value)) return "0";
   return value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
