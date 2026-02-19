@@ -56,8 +56,11 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
 
   const avgDailySales = dailySales.length ? Math.round(dailySales.reduce((s, d) => s + d.totalSales, 0) / dailySales.length) : 0;
   const avgDailyGuests = dailySales.length ? Math.round(dailySales.reduce((s, d) => s + d.guests, 0) / dailySales.length) : 0;
-  const avgPerGuest = spendData.length ? Math.round(spendData.reduce((s, d) => s + d.perGuest, 0) / spendData.length) : 0;
-  const avgPerOrder = spendData.length ? Math.round(spendData.reduce((s, d) => s + d.perOrder, 0) / spendData.length) : 0;
+  const totalSalesAll = dailySales.reduce((s, d) => s + d.totalSales, 0);
+  const totalGuestsAll = dailySales.reduce((s, d) => s + d.guests, 0);
+  const totalOrdersAll = dailySales.reduce((s, d) => s + d.orders, 0);
+  const avgPerGuest = totalGuestsAll ? Math.round(totalSalesAll / totalGuestsAll) : 0;
+  const avgPerOrder = totalOrdersAll ? Math.round(totalSalesAll / totalOrdersAll) : 0;
 
   const { data: dayStats, months } = getDayOfWeekStats(data);
   const paymentData = getPaymentBreakdown(data);
@@ -119,9 +122,10 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
   const totalRevenueAll = discountData.reduce((s, d) => s + d.totalRevenue, 0);
   const avgDiscountPct = totalRevenueAll ? parseFloat(((totalDiscountAll / totalRevenueAll) * 100).toFixed(1)) : 0;
 
+  const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const formatDate = (d: string) => {
     const parts = d.split("-");
-    return `${parts[1]}/${parts[2]}`;
+    return `${parseInt(parts[2])}-${MONTH_NAMES[parseInt(parts[1]) - 1]}`;
   };
 
   const dayTooltipLabel = (d: string) => {
@@ -152,7 +156,6 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                     <div style={tooltipStyle.contentStyle} className="p-2">
                       <p className="font-medium">{dayTooltipLabel(label)}</p>
                       <p>Sales: ${formatCurrency(sales)}</p>
-                      <p style={{ color: "hsl(25, 10%, 50%)" }}>Avg: ${formatCurrency(avgDailySales)}</p>
                     </div>
                   );
                 }} />
@@ -178,8 +181,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                   return (
                     <div style={tooltipStyle.contentStyle} className="p-2">
                       <p className="font-medium">{dayTooltipLabel(label)}</p>
-                      <p>Guests: {guests}</p>
-                      <p style={{ color: "hsl(25, 10%, 50%)" }}>Avg: {avgDailyGuests}</p>
+                      <p>Guests: {formatCurrency(guests)}</p>
                     </div>
                   );
                 }} />
@@ -199,7 +201,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Per Guest"]} labelFormatter={dayTooltipLabel} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Per Guest"]} labelFormatter={dayTooltipLabel} />
                 <Bar dataKey="perGuest" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -216,7 +218,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Per Order"]} labelFormatter={dayTooltipLabel} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Per Order"]} labelFormatter={dayTooltipLabel} />
                 <Bar dataKey="perOrder" fill="hsl(14, 70%, 52%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -228,7 +230,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip {...tooltipStyle} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, undefined]} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 {months.map((m, i) => (
                   <Bar key={m} dataKey={`sales_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -243,7 +245,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={axisStyle} />
                 <YAxis tick={axisStyle} />
-                <Tooltip {...tooltipStyle} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), undefined]} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 {months.map((m, i) => (
                   <Bar key={m} dataKey={`guests_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -258,7 +260,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                <Tooltip {...tooltipStyle} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, undefined]} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 {months.map((m, i) => (
                   <Bar key={m} dataKey={`spendPerGuest_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -273,7 +275,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                <Tooltip {...tooltipStyle} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, undefined]} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 {months.map((m, i) => (
                   <Bar key={m} dataKey={`spendPerOrder_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -297,7 +299,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Discount"]} labelFormatter={dayTooltipLabel} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Discount"]} labelFormatter={dayTooltipLabel} />
                 <Bar dataKey="discount" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -338,7 +340,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests/Day"]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), "Guests/Day"]} />
                     <Bar dataKey="guestsPerDay" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -350,7 +352,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Orders/Day"]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), "Orders/Day"]} />
                     <Bar dataKey="ordersPerDay" fill="hsl(14, 70%, 52%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -362,7 +364,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "Guests/Order"]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), "Guests/Order"]} />
                     <Bar dataKey="guestsPerOrder" fill="hsl(258, 50%, 55%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -374,7 +376,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Spend/Guest"]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Spend/Guest"]} />
                     <Bar dataKey="spendPerGuest" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -386,7 +388,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Spend/Order"]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, "Spend/Order"]} />
                     <Bar dataKey="spendPerOrder" fill="hsl(14, 70%, 52%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
