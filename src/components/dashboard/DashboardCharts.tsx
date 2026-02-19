@@ -295,12 +295,10 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={discountData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} padding={{ left: 0, right: 0 }} />
-                <YAxis yAxisId="left" tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                <YAxis yAxisId="right" orientation="right" tick={axisStyle} tickFormatter={(v) => `${v}%`} width={30} />
-                <Tooltip {...tooltipStyle} labelFormatter={dayTooltipLabel} />
-                <Bar yAxisId="left" dataKey="discount" name="Discount ($)" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
-                <Line yAxisId="right" type="monotone" dataKey="pct" name="Discount % of Total Sales" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={false} />
+                <XAxis dataKey="date" tickFormatter={formatDate} tick={axisStyle} />
+                <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${v}`, "Discount"]} labelFormatter={dayTooltipLabel} />
+                <Bar dataKey="discount" fill="hsl(0, 65%, 50%)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
