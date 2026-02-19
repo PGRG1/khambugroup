@@ -224,6 +224,7 @@ export type Database = {
           is_active: boolean
           name: string
           par_level: number | null
+          standard_product_id: string | null
           unit_of_measure: string
           unit_size: string
           updated_at: string
@@ -236,6 +237,7 @@ export type Database = {
           is_active?: boolean
           name: string
           par_level?: number | null
+          standard_product_id?: string | null
           unit_of_measure?: string
           unit_size?: string
           updated_at?: string
@@ -248,6 +250,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           par_level?: number | null
+          standard_product_id?: string | null
           unit_of_measure?: string
           unit_size?: string
           updated_at?: string
@@ -258,6 +261,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_standard_product_id_fkey"
+            columns: ["standard_product_id"]
+            isOneToOne: false
+            referencedRelation: "standard_products"
             referencedColumns: ["id"]
           },
         ]
@@ -309,6 +319,7 @@ export type Database = {
           notes: string | null
           pack_size: string | null
           quantity: number
+          standard_product_id: string | null
           tax_amount: number
           total: number
           unit: string | null
@@ -325,6 +336,7 @@ export type Database = {
           notes?: string | null
           pack_size?: string | null
           quantity?: number
+          standard_product_id?: string | null
           tax_amount?: number
           total?: number
           unit?: string | null
@@ -341,6 +353,7 @@ export type Database = {
           notes?: string | null
           pack_size?: string | null
           quantity?: number
+          standard_product_id?: string | null
           tax_amount?: number
           total?: number
           unit?: string | null
@@ -362,11 +375,58 @@ export type Database = {
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoice_line_items_standard_product_id_fkey"
+            columns: ["standard_product_id"]
+            isOneToOne: false
+            referencedRelation: "standard_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          invoice_id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
         ]
       }
       invoices: {
         Row: {
+          amount_paid: number
           created_at: string
+          dispute_notes: string | null
           due_date: string | null
           entered_by: string
           file_name: string | null
@@ -375,6 +435,10 @@ export type Database = {
           invoice_date: string
           invoice_number: string
           notes: string | null
+          payment_method: string | null
+          payment_status: string
+          received_date: string | null
+          remaining_balance: number
           status: string
           subtotal: number
           supplier_id: string
@@ -384,7 +448,9 @@ export type Database = {
           venue: string
         }
         Insert: {
+          amount_paid?: number
           created_at?: string
+          dispute_notes?: string | null
           due_date?: string | null
           entered_by: string
           file_name?: string | null
@@ -393,6 +459,10 @@ export type Database = {
           invoice_date: string
           invoice_number: string
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string
+          received_date?: string | null
+          remaining_balance?: number
           status?: string
           subtotal?: number
           supplier_id: string
@@ -402,7 +472,9 @@ export type Database = {
           venue: string
         }
         Update: {
+          amount_paid?: number
           created_at?: string
+          dispute_notes?: string | null
           due_date?: string | null
           entered_by?: string
           file_name?: string | null
@@ -411,6 +483,10 @@ export type Database = {
           invoice_date?: string
           invoice_number?: string
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string
+          received_date?: string | null
+          remaining_balance?: number
           status?: string
           subtotal?: number
           supplier_id?: string
@@ -485,6 +561,41 @@ export type Database = {
           year?: number
         }
         Relationships: []
+      }
+      product_pack_conversions: {
+        Row: {
+          conversion_factor: number
+          created_at: string
+          from_unit: string
+          id: string
+          standard_product_id: string
+          to_unit: string
+        }
+        Insert: {
+          conversion_factor?: number
+          created_at?: string
+          from_unit: string
+          id?: string
+          standard_product_id: string
+          to_unit: string
+        }
+        Update: {
+          conversion_factor?: number
+          created_at?: string
+          from_unit?: string
+          id?: string
+          standard_product_id?: string
+          to_unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_pack_conversions_standard_product_id_fkey"
+            columns: ["standard_product_id"]
+            isOneToOne: false
+            referencedRelation: "standard_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -585,6 +696,96 @@ export type Database = {
         }
         Relationships: []
       }
+      standard_products: {
+        Row: {
+          base_unit: string
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          reorder_level: number | null
+          sub_category: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_unit?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          reorder_level?: number | null
+          sub_category?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_unit?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          reorder_level?: number | null
+          sub_category?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      supplier_item_mappings: {
+        Row: {
+          created_at: string
+          default_unit_price: number | null
+          id: string
+          purchase_unit: string
+          quantity_per_unit: number
+          standard_product_id: string
+          supplier_id: string
+          supplier_item_name: string
+          supplier_sku: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_unit_price?: number | null
+          id?: string
+          purchase_unit?: string
+          quantity_per_unit?: number
+          standard_product_id: string
+          supplier_id: string
+          supplier_item_name: string
+          supplier_sku?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_unit_price?: number | null
+          id?: string
+          purchase_unit?: string
+          quantity_per_unit?: number
+          standard_product_id?: string
+          supplier_id?: string
+          supplier_item_name?: string
+          supplier_sku?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_item_mappings_standard_product_id_fkey"
+            columns: ["standard_product_id"]
+            isOneToOne: false
+            referencedRelation: "standard_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_item_mappings_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -595,6 +796,7 @@ export type Database = {
           is_active: boolean
           name: string
           notes: string | null
+          payment_terms: string | null
           phone: string | null
           updated_at: string
         }
@@ -607,6 +809,7 @@ export type Database = {
           is_active?: boolean
           name: string
           notes?: string | null
+          payment_terms?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -619,6 +822,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           notes?: string | null
+          payment_terms?: string | null
           phone?: string | null
           updated_at?: string
         }

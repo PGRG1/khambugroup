@@ -10,6 +10,7 @@ export interface Supplier {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  payment_terms: string | null;
   is_active: boolean;
 }
 
@@ -53,6 +54,12 @@ export interface Invoice {
   created_at: string;
   file_url: string | null;
   file_name: string | null;
+  received_date: string | null;
+  payment_status: string;
+  amount_paid: number;
+  remaining_balance: number;
+  payment_method: string | null;
+  dispute_notes: string | null;
   line_items?: InvoiceLineItem[];
 }
 
@@ -140,7 +147,7 @@ export function useInvoiceData() {
   }, []);
 
   const createInvoice = useCallback(async (
-    invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name">,
+    invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name" | "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes"> & Partial<Pick<Invoice, "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes">>,
     lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[],
     fileUrl?: string | null,
     fileName?: string | null

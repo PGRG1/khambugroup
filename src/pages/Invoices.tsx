@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
+import { useStandardProducts, StandardProduct } from "@/hooks/useStandardProducts";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,10 +14,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, BarChart3 } from "lucide-react";
+import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Package, Link2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import InvoiceAnalytics from "@/components/invoices/InvoiceAnalytics";
+import StandardProductsTab from "@/components/invoices/StandardProductsTab";
+import SupplierItemMappingsTab from "@/components/invoices/SupplierItemMappingsTab";
+import StandardProductDetailModal from "@/components/invoices/StandardProductDetailModal";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,8 +33,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function Invoices() {
   const { invoices, suppliers, categories, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus, createSupplier, createCategory, fetchAll } = useInvoiceData();
+  const stdProducts = useStandardProducts();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Standard Product detail modal state
+  const [detailProduct, setDetailProduct] = useState<StandardProduct | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
@@ -120,7 +129,7 @@ export default function Invoices() {
   ]);
 
   // Supplier form
-  const [newSupplier, setNewSupplier] = useState({ name: "", contact_person: "", email: "", phone: "", address: "", notes: "" });
+  const [newSupplier, setNewSupplier] = useState({ name: "", contact_person: "", email: "", phone: "", address: "", notes: "", payment_terms: "COD" });
   // Category form
   const [newCatName, setNewCatName] = useState("");
 
@@ -263,9 +272,9 @@ export default function Invoices() {
   };
 
   const handleCreateSupplier = async () => {
-    await createSupplier({ name: newSupplier.name, contact_person: newSupplier.contact_person || null, email: newSupplier.email || null, phone: newSupplier.phone || null, address: newSupplier.address || null, notes: newSupplier.notes || null, is_active: true });
+    await createSupplier({ name: newSupplier.name, contact_person: newSupplier.contact_person || null, email: newSupplier.email || null, phone: newSupplier.phone || null, address: newSupplier.address || null, notes: newSupplier.notes || null, payment_terms: newSupplier.payment_terms || "COD", is_active: true });
     setSupplierDialogOpen(false);
-    setNewSupplier({ name: "", contact_person: "", email: "", phone: "", address: "", notes: "" });
+    setNewSupplier({ name: "", contact_person: "", email: "", phone: "", address: "", notes: "", payment_terms: "COD" });
   };
 
   const handleCreateCategory = async () => {
@@ -329,9 +338,11 @@ export default function Invoices() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="analytics"><BarChart3 className="h-3 w-3 mr-1" />Analytics</TabsTrigger>
+          <TabsTrigger value="products"><Package className="h-3 w-3 mr-1" />Products</TabsTrigger>
+          <TabsTrigger value="mappings"><Link2 className="h-3 w-3 mr-1" />Mappings</TabsTrigger>
           <TabsTrigger value="audit-docs">Audit Documents</TabsTrigger>
           <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
@@ -414,6 +425,30 @@ export default function Invoices() {
 
         <TabsContent value="analytics">
           <InvoiceAnalytics invoices={invoices} />
+        </TabsContent>
+
+        <TabsContent value="products">
+          <StandardProductsTab
+            products={stdProducts.products}
+            conversions={stdProducts.conversions}
+            onCreateProduct={stdProducts.createProduct}
+            onUpdateProduct={stdProducts.updateProduct}
+            onDeleteProduct={stdProducts.deleteProduct}
+            onCreateConversion={stdProducts.createConversion}
+            onDeleteConversion={stdProducts.deleteConversion}
+            onOpenDetail={(p) => { setDetailProduct(p); setDetailOpen(true); }}
+          />
+        </TabsContent>
+
+        <TabsContent value="mappings">
+          <SupplierItemMappingsTab
+            mappings={stdProducts.mappings}
+            products={stdProducts.products}
+            suppliers={suppliers}
+            onCreateMapping={stdProducts.createMapping}
+            onUpdateMapping={stdProducts.updateMapping}
+            onDeleteMapping={stdProducts.deleteMapping}
+          />
         </TabsContent>
 
         {/* Audit Documents Tab */}
@@ -598,18 +633,20 @@ export default function Invoices() {
                   <SortableHead col="contact_person" label="Contact" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
                   <SortableHead col="email" label="Email" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
                   <SortableHead col="phone" label="Phone" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
+                  <SortableHead col="payment_terms" label="Terms" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
                   <SortableHead col="is_active" label="Active" activeKey={supplierSortKey} activeDir={supplierSortDir} onToggle={(k) => makeToggleSort(k, supplierSortKey, setSupplierSortKey, supplierSortDir, setSupplierSortDir)} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suppliers.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No suppliers</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No suppliers</TableCell></TableRow>
                 ) : sortData(suppliers, supplierSortKey, supplierSortDir).map((s) => (
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.contact_person || "—"}</TableCell>
                     <TableCell>{s.email || "—"}</TableCell>
                     <TableCell>{s.phone || "—"}</TableCell>
+                    <TableCell><Badge variant="outline">{s.payment_terms || "COD"}</Badge></TableCell>
                     <TableCell>{s.is_active ? "✓" : "—"}</TableCell>
                   </TableRow>
                 ))}
@@ -960,6 +997,18 @@ export default function Invoices() {
               <div><Label>Email</Label><Input value={newSupplier.email} onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })} /></div>
               <div><Label>Phone</Label><Input value={newSupplier.phone} onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })} /></div>
             </div>
+            <div>
+              <Label>Payment Terms</Label>
+              <Select value={newSupplier.payment_terms} onValueChange={(v) => setNewSupplier({ ...newSupplier, payment_terms: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="COD">COD</SelectItem>
+                  <SelectItem value="Net 7">Net 7</SelectItem>
+                  <SelectItem value="Net 14">Net 14</SelectItem>
+                  <SelectItem value="Net 30">Net 30</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>Address</Label><Textarea value={newSupplier.address} onChange={(e) => setNewSupplier({ ...newSupplier, address: e.target.value })} rows={2} /></div>
           </div>
           <DialogFooter>
@@ -988,6 +1037,19 @@ export default function Invoices() {
         onConfirm={handleDelete}
         title="Delete Invoice"
         description="Are you sure? This invoice and all its line items will be permanently removed."
+      />
+
+      {/* Standard Product Detail Modal */}
+      <StandardProductDetailModal
+        product={detailProduct}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        conversions={stdProducts.conversions}
+        mappings={stdProducts.mappings}
+        onUpdateProduct={stdProducts.updateProduct}
+        onUpdateMapping={stdProducts.updateMapping}
+        onDeleteMapping={stdProducts.deleteMapping}
+        fetchPurchaseHistory={stdProducts.fetchPurchaseHistory}
       />
     </div>
   );
