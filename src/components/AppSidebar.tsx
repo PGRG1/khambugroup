@@ -1,4 +1,4 @@
-import { BarChart3, Database, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package } from "lucide-react";
+import { BarChart3, Database, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -86,6 +86,18 @@ export function AppSidebar() {
                     >
                       <Users className="h-4 w-4" />
                       <span>User Access</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/hr"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
+                      <UserCog className="h-4 w-4" />
+                      <span>HR</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
