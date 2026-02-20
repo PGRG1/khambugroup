@@ -21,6 +21,7 @@ import UserAccessControl from "./pages/UserAccessControl";
 import AccessDenied from "./pages/AccessDenied";
 import Invoices from "./pages/Invoices";
 import Inventory from "./pages/Inventory";
+import HumanResources from "./pages/HumanResources";
 
 const queryClient = new QueryClient();
 
@@ -83,6 +84,7 @@ function App() {
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
                 <Route path="/inventory" element={<ProtectedRoute pageKey="inventory"><Inventory /></ProtectedRoute>} />
+                <Route path="/hr" element={<AdminRoute><HumanResources /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
