@@ -78,8 +78,10 @@ function buildDailyData(records: SalesRecord[]): DailyAgg[] {
 }
 
 function formatDateShort(date: string): string {
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const parts = date.split("-");
-  return `${parts[1]}/${parts[2]}`;
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  return `${months[monthIdx]} ${parseInt(parts[2], 10)}`;
 }
 
 interface ChartPoint { label: string; value: number; }
@@ -438,13 +440,13 @@ function drawBarChart(
 // ── Shared: X labels (line) ──
 function drawXLabels(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number) {
   const step = Math.max(1, Math.floor(points.length / 10));
-  doc.setFontSize(5);
+  doc.setFontSize(4.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...LABEL_TEXT);
   points.forEach((p, i) => {
     if (i % step === 0 || i === points.length - 1) {
       const px = chartX + (i / Math.max(points.length - 1, 1)) * chartW;
-      doc.text(p.label, px, chartY + chartH + 4, { align: "center" });
+      doc.text(p.label, px, chartY + chartH + 3, { angle: 45 });
     }
   });
 }
@@ -452,13 +454,13 @@ function drawXLabels(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: n
 // ── Shared: X labels (bar) ──
 function drawXLabelsBar(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number, barWidth: number, gap: number) {
   const step = Math.max(1, Math.floor(points.length / 10));
-  doc.setFontSize(5);
+  doc.setFontSize(4.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...LABEL_TEXT);
   points.forEach((p, i) => {
     if (i % step === 0 || i === points.length - 1) {
       const px = chartX + i * (barWidth + gap) + gap / 2 + barWidth / 2;
-      doc.text(p.label, px, chartY + chartH + 4, { align: "center" });
+      doc.text(p.label, px, chartY + chartH + 3, { angle: 45 });
     }
   });
 }
