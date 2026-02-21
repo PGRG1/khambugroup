@@ -212,8 +212,8 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   const calienteDaily = buildDailyData(data.filter(r => r.venue === "Caliente"));
 
   const halfWidth = (contentWidth - 4) / 2;
-  const smallChartH = 44;
-  const fullChartH = 54;
+  const smallChartH = 48;
+  const fullChartH = 60;
 
   // ── CHART SECTIONS ──
   const chartSections = [
@@ -338,7 +338,7 @@ function drawLineChart(
   const chartX = x + 16;
   const chartY = y + titleOffset;
   const chartW = w - 20;
-  const chartH = h - titleOffset - 10;
+  const chartH = h - titleOffset - 14;
 
   const maxVal = Math.max(...points.map(p => p.value), 1);
   const ticks = niceScale(maxVal, 5);
@@ -401,7 +401,7 @@ function drawBarChart(
   const chartX = x + 16;
   const chartY = y + titleOffset;
   const chartW = w - 20;
-  const chartH = h - titleOffset - 10;
+  const chartH = h - titleOffset - 14;
 
   const maxVal = Math.max(...points.map(p => p.value), 1);
   const ticks = niceScale(maxVal, 5);
@@ -439,7 +439,9 @@ function drawBarChart(
 
 // ── Shared: X labels (line) ──
 function drawXLabels(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number) {
-  const step = Math.max(1, Math.floor(points.length / 10));
+  // Calculate max labels that fit without overlap (each label ~8mm wide at 45°)
+  const maxLabels = Math.max(2, Math.floor(chartW / 8));
+  const step = Math.max(1, Math.ceil(points.length / maxLabels));
   doc.setFontSize(4.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...LABEL_TEXT);
@@ -453,7 +455,8 @@ function drawXLabels(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: n
 
 // ── Shared: X labels (bar) ──
 function drawXLabelsBar(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number, barWidth: number, gap: number) {
-  const step = Math.max(1, Math.floor(points.length / 10));
+  const maxLabels = Math.max(2, Math.floor(chartW / 8));
+  const step = Math.max(1, Math.ceil(points.length / maxLabels));
   doc.setFontSize(4.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...LABEL_TEXT);
