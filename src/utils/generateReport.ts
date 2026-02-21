@@ -81,7 +81,7 @@ function formatDateShort(date: string): string {
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const parts = date.split("-");
   const monthIdx = parseInt(parts[1], 10) - 1;
-  return `${parseInt(parts[2], 10)}-${months[monthIdx]}`;
+  return `${months[monthIdx]} ${parseInt(parts[2], 10)}`;
 }
 
 interface ChartPoint { label: string; value: number; }
@@ -439,8 +439,7 @@ function drawBarChart(
 
 // ── Shared: X labels (line) ──
 function drawXLabels(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number) {
-  // At 45° rotation with font 4, each label needs ~12mm horizontal clearance
-  const maxLabels = Math.max(2, Math.floor(chartW / 12));
+  const maxLabels = Math.max(2, Math.floor(chartW / 14));
   const step = Math.max(1, Math.ceil(points.length / maxLabels));
   doc.setFontSize(4);
   doc.setFont("helvetica", "normal");
@@ -448,14 +447,14 @@ function drawXLabels(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: n
   points.forEach((p, i) => {
     if (i % step === 0) {
       const px = chartX + (i / Math.max(points.length - 1, 1)) * chartW;
-      doc.text(p.label, px, chartY + chartH + 3, { angle: 45 });
+      doc.text(p.label, px, chartY + chartH + 4, { align: "center" });
     }
   });
 }
 
 // ── Shared: X labels (bar) ──
 function drawXLabelsBar(doc: jsPDF, points: ChartPoint[], chartX: number, chartY: number, chartW: number, chartH: number, barWidth: number, gap: number) {
-  const maxLabels = Math.max(2, Math.floor(chartW / 12));
+  const maxLabels = Math.max(2, Math.floor(chartW / 14));
   const step = Math.max(1, Math.ceil(points.length / maxLabels));
   doc.setFontSize(4);
   doc.setFont("helvetica", "normal");
@@ -463,7 +462,7 @@ function drawXLabelsBar(doc: jsPDF, points: ChartPoint[], chartX: number, chartY
   points.forEach((p, i) => {
     if (i % step === 0) {
       const px = chartX + i * (barWidth + gap) + gap / 2 + barWidth / 2;
-      doc.text(p.label, px, chartY + chartH + 3, { angle: 45 });
+      doc.text(p.label, px, chartY + chartH + 4, { align: "center" });
     }
   });
 }
