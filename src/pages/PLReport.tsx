@@ -4,16 +4,14 @@ import { PLInlineCell } from "@/components/pl/PLInlineCell";
 import { PLAddLineItem } from "@/components/pl/PLAddLineItem";
 import { PLManualInputEditor } from "@/components/pl/PLManualInputEditor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { ChevronDown } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+
+type ViewMode = "monthly" | "quarterly" | "yearly";
 
 const fmt = (n: number) => n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (n: number, d: number) => d === 0 ? "—" : `${(n / d * 100).toFixed(1)}%`;
@@ -153,14 +151,21 @@ export default function PLReport() {
   const hideEditValues = isActionHidden("pl-report.edit_values");
   const hideAddLineItem = isActionHidden("pl-report.add_line_item");
   const [year, setYear] = useState(currentYear);
-  const [selectedMonths, setSelectedMonths] = useState<number[]>(() => {
-    const m = new Date().getMonth() + 1;
-    return [m];
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+  const [selectedQuarter, setSelectedQuarter] = useState(() => Math.ceil((new Date().getMonth() + 1) / 3));
 
-  const periods = useMemo<PLPeriodKey[]>(() =>
-  [...selectedMonths].sort((a, b) => a - b).map((m) => ({ year, month: m })),
-  [year, selectedMonths]);
+  const periods = useMemo<PLPeriodKey[]>(() => {
+    if (viewMode === "monthly") {
+      return [{ year, month: selectedMonth }];
+    }
+    if (viewMode === "quarterly") {
+      const start = (selectedQuarter - 1) * 3 + 1;
+      return [start, start + 1, start + 2].map((m) => ({ year, month: m }));
+    }
+    // yearly
+    return Array.from({ length: 12 }, (_, i) => ({ year, month: i + 1 }));
+  }, [viewMode, year, selectedMonth, selectedQuarter]);
 
   const { periodData, totals, loading, refetch } = usePLMultiPeriod(periods);
 
@@ -175,29 +180,6 @@ export default function PLReport() {
   const lines = useMemo(() => buildLines(allUnknownNames), [allUnknownNames]);
 
   const showTotal = periods.length > 1;
-
-  const toggleMonth = (m: number) => {
-    setSelectedMonths((prev) =>
-    prev.includes(m) ?
-    prev.length > 1 ? prev.filter((x) => x !== m) : prev :
-    [...prev, m]
-    );
-  };
-
-  const selectAll = () => setSelectedMonths(Array.from({ length: 12 }, (_, i) => i + 1));
-  const selectQ = (q: number) => {
-    const start = (q - 1) * 3 + 1;
-    setSelectedMonths([start, start + 1, start + 2]);
-  };
-
-  const monthLabel = selectedMonths.length === 12 ?
-  `All Months` :
-  selectedMonths.length === 1 ?
-  FULL_MONTHS[selectedMonths[0] - 1] :
-  `${selectedMonths.length} months`;
-
-  // Track a running row index for alternating colors on data rows
-  let dataRowIndex = 0;
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
@@ -214,37 +196,49 @@ export default function PLReport() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
+        {/* View mode tabs */}
+        <div className="inline-flex rounded-lg border border-border bg-muted p-0.5">
+          {(["monthly", "quarterly", "yearly"] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-3.5 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${
+                viewMode === mode
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+
         <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
           <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
           <SelectContent>{YEARS.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
         </Select>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1">
-              {monthLabel} <ChevronDown className="h-3 w-3" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-3" align="start">
-            <div className="flex gap-1 mb-2 flex-wrap">
-              <Button variant="ghost" size="sm" className="text-xs h-6" onClick={selectAll}>All</Button>
-              {[1, 2, 3, 4].map((q) =>
-              <Button key={q} variant="ghost" size="sm" className="text-xs h-6" onClick={() => selectQ(q)}>Q{q}</Button>
-              )}
-            </div>
-            <div className="grid grid-cols-4 gap-1">
-              {MONTHS.map((m, i) =>
-              <label key={i} className="flex items-center gap-1.5 text-sm cursor-pointer px-1 py-0.5 rounded hover:bg-accent/30">
-                  <Checkbox
-                  checked={selectedMonths.includes(i + 1)}
-                  onCheckedChange={() => toggleMonth(i + 1)}
-                  className="h-3.5 w-3.5" />
-                  {m}
-                </label>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+        {viewMode === "monthly" && (
+          <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(Number(v))}>
+            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {FULL_MONTHS.map((m, i) => (
+                <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {viewMode === "quarterly" && (
+          <Select value={String(selectedQuarter)} onValueChange={(v) => setSelectedQuarter(Number(v))}>
+            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {[1, 2, 3, 4].map((q) => (
+                <SelectItem key={q} value={String(q)}>Q{q}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {!hideEditValues && (
           <div className="ml-auto">
@@ -385,7 +379,7 @@ export default function PLReport() {
 
           {!hideAddLineItem && (
             <div style={{ borderTop: '2px solid hsl(30, 12%, 82%)' }}>
-              <PLAddLineItem year={year} months={selectedMonths} onAdded={refetch} />
+              <PLAddLineItem year={year} months={periods.map(p => p.month)} onAdded={refetch} />
             </div>
           )}
         </div>
