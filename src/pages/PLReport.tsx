@@ -268,13 +268,11 @@ export default function PLReport() {
       {loading ?
       <p className="text-muted-foreground">Loading…</p> :
 
-      <div className="card-glass rounded-xl overflow-x-auto">
-          <table className="w-full text-sm">
+      <div className="card-glass rounded-xl overflow-x-auto relative">
+          <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground sticky left-0 bg-card z-10 min-w-[200px]">P&L
-
-              </th>
+                <th className="text-left px-4 py-2 font-medium text-muted-foreground sticky left-0 z-20 bg-[hsl(var(--card))] min-w-[200px]">P&L</th>
                 {periodData.map((pd) =>
               <th key={pd.label} className="text-right px-3 py-2 font-medium text-muted-foreground whitespace-nowrap min-w-[110px]">
                     {pd.label}
@@ -298,15 +296,24 @@ export default function PLReport() {
               const isRatio = line.type === "ratio";
               const isEditable = line.type === "editable";
 
+              // Determine row background class
+              const rowBg = isHeader ? "bg-muted/60" : (isTotal && line.bold) ? "bg-muted/30" : "";
+
+              // For sticky column, use explicit HSL bg to prevent transparency issues
+              const stickyBg = isHeader
+                ? "bg-[hsl(30,15%,89%)]"
+                : (isTotal && line.bold)
+                ? "bg-[hsl(30,15%,91%)]"
+                : "bg-[hsl(var(--card))]";
+
               return (
                 <tr
                   key={i}
-                  className={`${isHeader ? "bg-muted/60" : ""} ${isTotal && line.bold ? "border-t border-border bg-muted/30" : ""}`}>
+                  className={`${rowBg} ${isTotal && line.bold ? "border-t border-border" : ""}`}>
 
                     <td
-                    className={`px-4 py-1 sticky left-0 z-10 ${isHeader ? "bg-muted/60 font-semibold" : isTotal ? line.bold ? "bg-muted/30 font-semibold" : "font-medium" : isSection ? "font-medium text-muted-foreground" : isRatio ? "italic text-muted-foreground" : isEditable ? "bg-card" : "bg-card"}`}
+                    className={`px-4 py-1 sticky left-0 z-10 ${stickyBg} ${isHeader ? "font-semibold" : isTotal ? line.bold ? "font-semibold" : "font-medium" : isSection ? "font-medium text-muted-foreground" : isRatio ? "italic text-muted-foreground" : ""}`}
                     style={{ paddingLeft: 16 + indent }}>
-
                       {line.label}
                     </td>
                     {periodData.map((pd) => {
@@ -320,19 +327,15 @@ export default function PLReport() {
                             month={pd.key.month}
                             currentValue={typeof val === "number" ? val : 0}
                             onSaved={refetch} />
-
                           </td>);
-
                     }
                     const isNeg = typeof val === "number" && val < 0;
                     return (
                       <td
                         key={pd.label}
                         className={`px-3 py-1 text-right font-mono tabular-nums ${isNeg ? "text-destructive" : ""} ${isTotal && line.bold ? "font-semibold" : isTotal ? "font-medium" : ""}`}>
-
                           {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
                         </td>);
-
                   })}
                     {showTotal && (() => {
                     const val = line.getValue(totals);
@@ -342,13 +345,11 @@ export default function PLReport() {
                         <td className="px-3 py-1 text-right font-mono tabular-nums border-l border-border font-medium">
                             {typeof val === "number" ? fmt(val) : val ?? ""}
                           </td>);
-
                     }
                     return (
                       <td className={`px-3 py-1 text-right font-mono tabular-nums border-l border-border ${isNeg ? "text-destructive" : ""} ${isTotal && line.bold ? "font-semibold" : isTotal ? "font-medium" : ""}`}>
                           {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
                         </td>);
-
                   })()}
                   </tr>);
 
