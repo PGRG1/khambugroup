@@ -28,7 +28,7 @@ interface Line {
   getValue: (d: PLPeriodData) => number | string | undefined;
   type: LineType;
   indent?: number;
-  manualKey?: string; // if set, this line is editable
+  manualKey?: string;
   bold?: boolean;
 }
 
@@ -63,7 +63,6 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "Total COGS", type: "total", indent: 1, getValue: (d) => totalCOGS(d) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // ── Gross Profit = Revenue + COGS (COGS is negative) ──
   const grossProfit = (d: PLPeriodData) => d.totalRevenue + totalCOGS(d);
   lines.push({ label: "Gross Profit", type: "total", getValue: (d) => grossProfit(d), bold: true });
   lines.push({ label: "Gross Margin", type: "ratio", getValue: (d) => pct(grossProfit(d), d.totalRevenue) });
@@ -72,7 +71,6 @@ function buildLines(allUnknownNames: string[]): Line[] {
   // ── Operating Expenses ──
   lines.push({ label: "Operating Expenses", type: "header", getValue: () => undefined });
 
-  // Rent
   lines.push({ label: "Rent & Related", type: "section", indent: 1, getValue: () => undefined });
   for (const k of ["Base Rental", "Rental Share (-)", "Government Fees", "Management Fees"]) {
     lines.push({ label: k, type: "editable", indent: 2, getValue: m(k), manualKey: k });
@@ -83,7 +81,6 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "Total Rent", type: "subtotal", indent: 2, getValue: (d) => totalRent(d) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // Salaries
   lines.push({ label: "Salaries", type: "section", indent: 1, getValue: () => undefined });
   lines.push({ label: "FTE Salary", type: "editable", indent: 2, getValue: m("FTE Salary"), manualKey: "FTE Salary" });
   lines.push({ label: "FTE MPF", type: "editable", indent: 2, getValue: m("FTE MPF"), manualKey: "FTE MPF" });
@@ -97,7 +94,6 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "Total Salaries", type: "subtotal", indent: 2, getValue: (d) => totalSalary(d) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // Utilities
   lines.push({ label: "Utilities", type: "section", indent: 1, getValue: () => undefined });
   for (const k of ["Electricity", "Water", "HKT/PCCW"]) {
     lines.push({ label: k, type: "editable", indent: 2, getValue: m(k), manualKey: k });
@@ -107,12 +103,10 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "Total Utilities", type: "subtotal", indent: 2, getValue: (d) => totalUtilities(d) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // Other OpEx
   lines.push({ label: "Other Operating Expenses", type: "section", indent: 1, getValue: () => undefined });
   for (const k of ["Card Processing Fees", "Office Administration Fees", "Other Expenses", "Miscellaneous Expenses"]) {
     lines.push({ label: k, type: "editable", indent: 2, getValue: m(k), manualKey: k });
   }
-  // Unknown / dynamic lines
   for (const name of allUnknownNames) {
     lines.push({ label: name, type: "editable", indent: 2, getValue: (d) => {
         const found = d.unknownManualLines.find((u) => u.name === name);
@@ -121,8 +115,6 @@ function buildLines(allUnknownNames: string[]): Line[] {
   }
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // ── Total Operating Expenses (excl D&A) ──
-  // All expense values are negative, so we sum them directly
   const totalOpex = (d: PLPeriodData) => {
     const otherUnknown = d.unknownManualLines.reduce((s, l) => s + l.amount, 0);
     return totalCOGS(d) + totalRent(d) + totalSalary(d) + totalUtilities(d) + (
@@ -132,7 +124,6 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "Total Operating Expenses", type: "total", getValue: (d) => totalOpex(d), bold: true });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // ── EBITDA = Revenue + OpEx (opex is negative) ──
   const ebitda = (d: PLPeriodData) => d.totalRevenue + totalOpex(d);
   const ebit_raw = (d: PLPeriodData) => ebitda(d) + (d.manual["Depreciation"] || 0) + (d.manual["Amortization"] || 0);
 
@@ -140,18 +131,15 @@ function buildLines(allUnknownNames: string[]): Line[] {
   lines.push({ label: "EBITDA Margin", type: "ratio", getValue: (d) => pct(ebitda(d), d.totalRevenue) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // D&A (entered as negative)
   lines.push({ label: "Depreciation & Amortization", type: "section", indent: 1, getValue: () => undefined });
   lines.push({ label: "Depreciation", type: "editable", indent: 2, getValue: m("Depreciation"), manualKey: "Depreciation" });
   lines.push({ label: "Amortization", type: "editable", indent: 2, getValue: m("Amortization"), manualKey: "Amortization" });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // EBIT = EBITDA + D&A (D&A is negative)
   lines.push({ label: "Operating Income (EBIT)", type: "total", getValue: (d) => ebit_raw(d), bold: true });
   lines.push({ label: "Net Operating Profit", type: "total", getValue: (d) => ebit_raw(d) });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // ── Key Ratios (use absolute values for meaningful percentages) ──
   lines.push({ label: "Key Ratios", type: "header", getValue: () => undefined });
   lines.push({ label: "COGS %", type: "ratio", indent: 1, getValue: (d) => pct(Math.abs(totalCOGS(d)), d.totalRevenue) });
   lines.push({ label: "Labor Cost %", type: "ratio", indent: 1, getValue: (d) => pct(Math.abs(totalSalary(d)), d.totalRevenue) });
@@ -176,7 +164,6 @@ export default function PLReport() {
 
   const { periodData, totals, loading, refetch } = usePLMultiPeriod(periods);
 
-  // Collect all unknown line names across all periods
   const allUnknownNames = useMemo(() => {
     const names = new Set<string>();
     for (const pd of periodData) {
@@ -209,6 +196,9 @@ export default function PLReport() {
   FULL_MONTHS[selectedMonths[0] - 1] :
   `${selectedMonths.length} months`;
 
+  // Track a running row index for alternating colors on data rows
+  let dataRowIndex = 0;
+
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       {/* Header */}
@@ -217,8 +207,8 @@ export default function PLReport() {
           <span className="text-gradient-gold">P&L Report</span>
           <span className="text-muted-foreground ml-2 text-base font-normal">Caliente + Assembly</span>
         </h1>
-        <p className="text-xs text-muted-foreground mt-1 max-w-2xl">Note: Prepared for internal management use only. This P&L is based on management reporting conventions and may not align with statutory financial statements or formal accounting policies.
-
+        <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+          Note: Prepared for internal management use only. This P&L is based on management reporting conventions and may not align with statutory financial statements or formal accounting policies.
         </p>
       </div>
 
@@ -249,7 +239,6 @@ export default function PLReport() {
                   checked={selectedMonths.includes(i + 1)}
                   onCheckedChange={() => toggleMonth(i + 1)}
                   className="h-3.5 w-3.5" />
-
                   {m}
                 </label>
               )}
@@ -268,102 +257,138 @@ export default function PLReport() {
       {loading ?
       <p className="text-muted-foreground">Loading…</p> :
 
-      <div className="card-glass rounded-xl overflow-x-auto relative">
-          <table className="w-full text-sm border-collapse">
+      <div className="pl-table rounded-xl border border-[hsl(var(--pl-border))] overflow-x-auto relative" style={{ boxShadow: '0 2px 16px -4px hsl(25 20% 15% / 0.07)' }}>
+          <table className="w-full text-[13px] border-collapse">
             <thead>
-              <tr className="border-b border-border">
-                <th className="text-left px-4 py-2 font-medium text-muted-foreground sticky left-0 z-20 bg-[hsl(var(--card))] min-w-[200px]">P&L</th>
+              <tr>
+                <th className="text-left px-5 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest sticky left-0 z-20 min-w-[230px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
+                  P&L
+                </th>
                 {periodData.map((pd) =>
-              <th key={pd.label} className="text-right px-3 py-2 font-medium text-muted-foreground whitespace-nowrap min-w-[110px]">
+              <th key={pd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
                     {pd.label}
                   </th>
               )}
                 {showTotal &&
-              <th className="text-right px-3 py-2 font-semibold whitespace-nowrap min-w-[110px] border-l border-border">
+              <th className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-l-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(28, 22%, 83%)' }}>
                     Total
                   </th>
               }
               </tr>
             </thead>
             <tbody>
-              {lines.map((line, i) => {
-              if (line.type === "blank") return <tr key={i}><td colSpan={99} className="h-1.5" /></tr>;
+              {(() => {
+                let rowIdx = 0;
+                return lines.map((line, i) => {
+                if (line.type === "blank") return <tr key={i}><td colSpan={99} className="h-px" style={{ background: 'hsl(30, 12%, 90%)' }} /></tr>;
 
-              const indent = (line.indent || 0) * 20;
-              const isHeader = line.type === "header";
-              const isSection = line.type === "section" || line.type === "subheader";
-              const isTotal = line.type === "total" || line.type === "subtotal";
-              const isRatio = line.type === "ratio";
-              const isEditable = line.type === "editable";
+                const indent = (line.indent || 0) * 20;
+                const isHeader = line.type === "header";
+                const isSection = line.type === "section" || line.type === "subheader";
+                const isTotal = line.type === "total" || line.type === "subtotal";
+                const isRatio = line.type === "ratio";
+                const isEditable = line.type === "editable";
+                const isItem = line.type === "item";
+                const isDataRow = isEditable || isItem;
 
-              // Determine row background class
-              const rowBg = isHeader ? "bg-muted/60" : (isTotal && line.bold) ? "bg-muted/30" : "";
+                // Determine background using inline style for consistency
+                let rowBg: string;
+                if (isHeader) {
+                  rowBg = "hsl(30, 18%, 86%)";
+                } else if (isTotal && line.bold) {
+                  rowBg = "hsl(24, 28%, 84%)";
+                } else if (isTotal) {
+                  rowBg = "hsl(28, 22%, 89%)";
+                } else if (isSection) {
+                  rowBg = "hsl(30, 15%, 91%)";
+                } else if (isRatio) {
+                  rowBg = "hsl(35, 18%, 95%)";
+                } else {
+                  // Alternating rows for data
+                  rowBg = rowIdx % 2 === 0 ? "hsl(33, 22%, 95%)" : "hsl(35, 28%, 97.5%)";
+                  rowIdx++;
+                }
 
-              // For sticky column, use explicit HSL bg to prevent transparency issues
-              const stickyBg = isHeader
-                ? "bg-[hsl(30,15%,89%)]"
-                : (isTotal && line.bold)
-                ? "bg-[hsl(30,15%,91%)]"
-                : "bg-[hsl(var(--card))]";
+                // Border treatment
+                const borderStyle = isHeader
+                  ? { borderBottom: '1px solid hsl(30, 12%, 82%)' }
+                  : (isTotal && line.bold)
+                  ? { borderTop: '2px solid hsl(24, 20%, 78%)', borderBottom: '1px solid hsl(30, 12%, 85%)' }
+                  : isTotal
+                  ? { borderTop: '1px solid hsl(30, 12%, 85%)', borderBottom: '1px solid hsl(30, 12%, 88%)' }
+                  : {};
 
-              return (
-                <tr
-                  key={i}
-                  className={`${rowBg} ${isTotal && line.bold ? "border-t border-border" : ""}`}>
+                // Label styling
+                const labelClass = isHeader
+                  ? "font-bold text-foreground text-[11px] uppercase tracking-widest"
+                  : isTotal && line.bold
+                  ? "font-bold text-foreground"
+                  : isTotal
+                  ? "font-semibold text-foreground/90"
+                  : isSection
+                  ? "font-semibold text-primary/80 text-[11px] uppercase tracking-wide"
+                  : isRatio
+                  ? "italic text-muted-foreground text-xs"
+                  : "text-foreground/75";
 
-                    <td
-                    className={`px-4 py-1 sticky left-0 z-10 ${stickyBg} ${isHeader ? "font-semibold" : isTotal ? line.bold ? "font-semibold" : "font-medium" : isSection ? "font-medium text-muted-foreground" : isRatio ? "italic text-muted-foreground" : ""}`}
-                    style={{ paddingLeft: 16 + indent }}>
-                      {line.label}
-                    </td>
-                    {periodData.map((pd) => {
-                    const val = line.getValue(pd.data);
-                    if (isEditable && line.manualKey && !hideEditValues) {
-                      return (
-                        <td key={pd.label} className="px-2 py-0.5 text-right">
-                            <PLInlineCell
-                            lineItemName={line.manualKey}
-                            year={pd.key.year}
-                            month={pd.key.month}
-                            currentValue={typeof val === "number" ? val : 0}
-                            onSaved={refetch} />
-                          </td>);
-                    }
-                    const isNeg = typeof val === "number" && val < 0;
-                    return (
+                // Value cell styling
+                const valueCellClass = (isNeg: boolean) =>
+                  `px-4 py-[7px] text-right font-mono tabular-nums text-[13px] ${
+                    isNeg ? "text-destructive" : isRatio ? "text-muted-foreground" : "text-foreground/75"
+                  } ${isTotal && line.bold ? "font-bold" : isTotal ? "font-semibold" : ""}`;
+
+                return (
+                  <tr key={i} style={{ background: rowBg, ...borderStyle }}>
                       <td
-                        key={pd.label}
-                        className={`px-3 py-1 text-right font-mono tabular-nums ${isNeg ? "text-destructive" : ""} ${isTotal && line.bold ? "font-semibold" : isTotal ? "font-medium" : ""}`}>
-                          {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
-                        </td>);
-                  })}
-                    {showTotal && (() => {
-                    const val = line.getValue(totals);
-                    const isNeg = typeof val === "number" && val < 0;
-                    if (isEditable) {
+                      className={`px-5 py-[7px] sticky left-0 z-10 ${labelClass}`}
+                      style={{ paddingLeft: 20 + indent, background: rowBg }}>
+                        {line.label}
+                      </td>
+                      {periodData.map((pd) => {
+                      const val = line.getValue(pd.data);
+                      if (isEditable && line.manualKey && !hideEditValues) {
+                        return (
+                          <td key={pd.label} className="px-3 py-0.5 text-right">
+                              <PLInlineCell
+                              lineItemName={line.manualKey}
+                              year={pd.key.year}
+                              month={pd.key.month}
+                              currentValue={typeof val === "number" ? val : 0}
+                              onSaved={refetch} />
+                            </td>);
+                      }
+                      const isNeg = typeof val === "number" && val < 0;
                       return (
-                        <td className="px-3 py-1 text-right font-mono tabular-nums border-l border-border font-medium">
-                            {typeof val === "number" ? fmt(val) : val ?? ""}
+                        <td key={pd.label} className={valueCellClass(isNeg)}>
+                            {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
                           </td>);
-                    }
-                    return (
-                      <td className={`px-3 py-1 text-right font-mono tabular-nums border-l border-border ${isNeg ? "text-destructive" : ""} ${isTotal && line.bold ? "font-semibold" : isTotal ? "font-medium" : ""}`}>
-                          {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
-                        </td>);
-                  })()}
-                  </tr>);
-
-            })}
+                    })}
+                      {showTotal && (() => {
+                      const val = line.getValue(totals);
+                      const isNeg = typeof val === "number" && val < 0;
+                      if (isEditable) {
+                        return (
+                          <td className="px-4 py-[7px] text-right font-mono tabular-nums text-[13px] font-medium text-foreground/75" style={{ borderLeft: '2px solid hsl(30, 12%, 82%)' }}>
+                              {typeof val === "number" ? fmt(val) : val ?? ""}
+                            </td>);
+                      }
+                      return (
+                        <td className={`${valueCellClass(isNeg)}`} style={{ borderLeft: '2px solid hsl(30, 12%, 82%)' }}>
+                            {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
+                          </td>);
+                    })()}
+                    </tr>);
+              });
+            })()}
             </tbody>
           </table>
 
           {!hideAddLineItem && (
-            <div className="border-t border-border/50">
+            <div style={{ borderTop: '2px solid hsl(30, 12%, 82%)' }}>
               <PLAddLineItem year={year} months={selectedMonths} onAdded={refetch} />
             </div>
           )}
         </div>
       }
     </div>);
-
 }
