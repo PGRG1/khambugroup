@@ -125,7 +125,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
   const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const formatDate = (d: string) => {
     const parts = d.split("-");
-    return `${parseInt(parts[2])}-${MONTH_NAMES[parseInt(parts[1]) - 1]}`;
+    return `${MONTH_NAMES[parseInt(parts[1]) - 1]} ${parseInt(parts[2])}`;
   };
 
   const dayTooltipLabel = (d: string) => {
@@ -155,7 +155,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                   return (
                     <div style={tooltipStyle.contentStyle} className="p-2">
                       <p className="font-medium">{dayTooltipLabel(label)}</p>
-                      <p>Sales: ${formatCurrency(sales)}</p>
+                      <p style={{ color: "hsl(24, 80%, 50%)" }}>Sales: ${formatCurrency(sales)}</p>
                     </div>
                   );
                 }} />
@@ -181,7 +181,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
                   return (
                     <div style={tooltipStyle.contentStyle} className="p-2">
                       <p className="font-medium">{dayTooltipLabel(label)}</p>
-                      <p>Guests: {formatCurrency(guests)}</p>
+                      <p style={{ color: "hsl(175, 55%, 42%)" }}>Guests: {formatCurrency(guests)}</p>
                     </div>
                   );
                 }} />
