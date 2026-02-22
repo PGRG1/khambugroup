@@ -34,8 +34,12 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
 
   const chartData = useMemo(
     () =>
-      sorted.map((d) => ({
-        date: d.date.slice(5), // MM-DD
+      sorted.map((d) => {
+        const parts = d.date.split("-");
+        const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const dateLabel = `${MONTH_NAMES[parseInt(parts[1]) - 1]} ${parseInt(parts[2])}`;
+        return {
+        date: dateLabel,
         day: d.day,
         fcstSales: d.forecastedTotalSales,
         actSales: d.actualTotalSales,
@@ -52,7 +56,8 @@ const ForecastCharts = ({ data }: ForecastChartsProps) => {
                 (1 - Math.abs(d.totalSalesVariance ?? 0) / d.forecastedTotalSales) * 100
               )
             : null,
-      })),
+        };
+      }),
     [sorted]
   );
 
