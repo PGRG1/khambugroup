@@ -4,16 +4,39 @@ import { PLInlineCell } from "@/components/pl/PLInlineCell";
 import { PLAddLineItem } from "@/components/pl/PLAddLineItem";
 import { PLManualInputEditor } from "@/components/pl/PLManualInputEditor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { ChevronDown } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+
+type ViewMode = "monthly" | "quarterly" | "semi-annual" | "annual";
+
+interface PeriodGroup {
+  label: string;
+  months: number[]; // 1-12
+}
+
+function getPeriodGroups(view: ViewMode): PeriodGroup[] {
+  switch (view) {
+    case "monthly":
+      return MONTHS.map((m, i) => ({ label: m, months: [i + 1] }));
+    case "quarterly":
+      return [
+        { label: "Q1", months: [1, 2, 3] },
+        { label: "Q2", months: [4, 5, 6] },
+        { label: "Q3", months: [7, 8, 9] },
+        { label: "Q4", months: [10, 11, 12] },
+      ];
+    case "semi-annual":
+      return [
+        { label: "H1", months: [1, 2, 3, 4, 5, 6] },
+        { label: "H2", months: [7, 8, 9, 10, 11, 12] },
+      ];
+    case "annual":
+      return [{ label: "Annual", months: Array.from({ length: 12 }, (_, i) => i + 1) }];
+  }
+}
 
 const fmt = (n: number) => n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (n: number, d: number) => d === 0 ? "—" : `${(n / d * 100).toFixed(1)}%`;
@@ -153,16 +176,72 @@ export default function PLReport() {
   const hideEditValues = isActionHidden("pl-report.edit_values");
   const hideAddLineItem = isActionHidden("pl-report.add_line_item");
   const [year, setYear] = useState(currentYear);
-  const [selectedMonths, setSelectedMonths] = useState<number[]>(() => {
-    const m = new Date().getMonth() + 1;
-    return [m];
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>("monthly");
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
+
+  const periodGroups = useMemo(() => getPeriodGroups(viewMode), [viewMode]);
+
+  // For monthly view, only show selected month; for others show all groups
+  const activeGroups = useMemo(() => {
+    if (viewMode === "monthly") {
+      return [{ label: MONTHS[selectedMonth - 1], months: [selectedMonth] }];
+    }
+    return periodGroups;
+  }, [viewMode, periodGroups, selectedMonth]);
+
+  // All months we need data for
+  const allMonths = useMemo(() => {
+    const s = new Set<number>();
+    activeGroups.forEach(g => g.months.forEach(m => s.add(m)));
+    return [...s].sort((a, b) => a - b);
+  }, [activeGroups]);
 
   const periods = useMemo<PLPeriodKey[]>(() =>
-  [...selectedMonths].sort((a, b) => a - b).map((m) => ({ year, month: m })),
-  [year, selectedMonths]);
+    allMonths.map(m => ({ year, month: m })),
+    [year, allMonths]);
 
   const { periodData, totals, loading, refetch } = usePLMultiPeriod(periods);
+
+  // Aggregate periodData into groups
+  const groupedData = useMemo(() => {
+    return activeGroups.map(group => {
+      const label = viewMode === "annual" ? String(year) : `${group.label} ${year}`;
+      const monthsInGroup = group.months;
+      const matchingPeriods = periodData.filter(pd => monthsInGroup.includes(pd.key.month));
+
+      // Aggregate
+      const emptyVenue = () => ({ grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
+      const agg: PLPeriodData = {
+        assembly: emptyVenue(), caliente: emptyVenue(), totalRevenue: 0,
+        manual: {}, unknownManualLines: [],
+      };
+      const unknownMap: Record<string, number> = {};
+      for (const pd of matchingPeriods) {
+        const d = pd.data;
+        agg.assembly.grossRevenue += d.assembly.grossRevenue;
+        agg.assembly.serviceChargeRevenue += d.assembly.serviceChargeRevenue;
+        agg.assembly.discounts += d.assembly.discounts;
+        agg.assembly.netSales += d.assembly.netSales;
+        agg.caliente.grossRevenue += d.caliente.grossRevenue;
+        agg.caliente.serviceChargeRevenue += d.caliente.serviceChargeRevenue;
+        agg.caliente.discounts += d.caliente.discounts;
+        agg.caliente.netSales += d.caliente.netSales;
+        agg.totalRevenue += d.totalRevenue;
+        for (const [k, v] of Object.entries(d.manual)) {
+          agg.manual[k] = (agg.manual[k] || 0) + v;
+        }
+        for (const ul of d.unknownManualLines) {
+          unknownMap[ul.name] = (unknownMap[ul.name] || 0) + ul.amount;
+        }
+      }
+      for (const k of KNOWN_LINES) {
+        if (!(k in agg.manual)) agg.manual[k] = 0;
+      }
+      agg.unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
+
+      return { label, data: agg, months: monthsInGroup };
+    });
+  }, [activeGroups, periodData, year, viewMode]);
 
   const allUnknownNames = useMemo(() => {
     const names = new Set<string>();
@@ -174,30 +253,10 @@ export default function PLReport() {
 
   const lines = useMemo(() => buildLines(allUnknownNames), [allUnknownNames]);
 
-  const showTotal = periods.length > 1;
+  const showTotal = groupedData.length > 1;
 
-  const toggleMonth = (m: number) => {
-    setSelectedMonths((prev) =>
-    prev.includes(m) ?
-    prev.length > 1 ? prev.filter((x) => x !== m) : prev :
-    [...prev, m]
-    );
-  };
-
-  const selectAll = () => setSelectedMonths(Array.from({ length: 12 }, (_, i) => i + 1));
-  const selectQ = (q: number) => {
-    const start = (q - 1) * 3 + 1;
-    setSelectedMonths([start, start + 1, start + 2]);
-  };
-
-  const monthLabel = selectedMonths.length === 12 ?
-  `All Months` :
-  selectedMonths.length === 1 ?
-  FULL_MONTHS[selectedMonths[0] - 1] :
-  `${selectedMonths.length} months`;
-
-  // Track a running row index for alternating colors on data rows
-  let dataRowIndex = 0;
+  // Inline editing only makes sense in monthly view
+  const canInlineEdit = viewMode === "monthly" && !hideEditValues;
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
@@ -219,32 +278,24 @@ export default function PLReport() {
           <SelectContent>{YEARS.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
         </Select>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1">
-              {monthLabel} <ChevronDown className="h-3 w-3" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-3" align="start">
-            <div className="flex gap-1 mb-2 flex-wrap">
-              <Button variant="ghost" size="sm" className="text-xs h-6" onClick={selectAll}>All</Button>
-              {[1, 2, 3, 4].map((q) =>
-              <Button key={q} variant="ghost" size="sm" className="text-xs h-6" onClick={() => selectQ(q)}>Q{q}</Button>
-              )}
-            </div>
-            <div className="grid grid-cols-4 gap-1">
-              {MONTHS.map((m, i) =>
-              <label key={i} className="flex items-center gap-1.5 text-sm cursor-pointer px-1 py-0.5 rounded hover:bg-accent/30">
-                  <Checkbox
-                  checked={selectedMonths.includes(i + 1)}
-                  onCheckedChange={() => toggleMonth(i + 1)}
-                  className="h-3.5 w-3.5" />
-                  {m}
-                </label>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+        <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="monthly">Monthly</SelectItem>
+            <SelectItem value="quarterly">Quarterly</SelectItem>
+            <SelectItem value="semi-annual">Semi-Annual</SelectItem>
+            <SelectItem value="annual">Annual</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {viewMode === "monthly" && (
+          <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(Number(v))}>
+            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
 
         {!hideEditValues && (
           <div className="ml-auto">
@@ -264,9 +315,9 @@ export default function PLReport() {
                 <th className="text-left px-5 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest sticky left-0 z-20 min-w-[230px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
                   P&L
                 </th>
-                {periodData.map((pd) =>
-              <th key={pd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
-                    {pd.label}
+                {groupedData.map((gd) =>
+              <th key={gd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
+                    {gd.label}
                   </th>
               )}
                 {showTotal &&
@@ -289,9 +340,7 @@ export default function PLReport() {
                 const isRatio = line.type === "ratio";
                 const isEditable = line.type === "editable";
                 const isItem = line.type === "item";
-                const isDataRow = isEditable || isItem;
 
-                // Determine background using inline style for consistency
                 let rowBg: string;
                 if (isHeader) {
                   rowBg = "hsl(30, 18%, 86%)";
@@ -304,12 +353,10 @@ export default function PLReport() {
                 } else if (isRatio) {
                   rowBg = "hsl(35, 18%, 95%)";
                 } else {
-                  // Alternating rows for data
                   rowBg = rowIdx % 2 === 0 ? "hsl(33, 22%, 95%)" : "hsl(35, 28%, 97.5%)";
                   rowIdx++;
                 }
 
-                // Border treatment
                 const borderStyle = isHeader
                   ? { borderBottom: '1px solid hsl(30, 12%, 82%)' }
                   : (isTotal && line.bold)
@@ -318,7 +365,6 @@ export default function PLReport() {
                   ? { borderTop: '1px solid hsl(30, 12%, 85%)', borderBottom: '1px solid hsl(30, 12%, 88%)' }
                   : {};
 
-                // Label styling
                 const labelClass = isHeader
                   ? "font-bold text-foreground text-[11px] uppercase tracking-widest"
                   : isTotal && line.bold
@@ -331,7 +377,6 @@ export default function PLReport() {
                   ? "italic text-muted-foreground text-xs"
                   : "text-foreground/75";
 
-                // Value cell styling
                 const valueCellClass = (isNeg: boolean) =>
                   `px-4 py-[7px] text-right font-mono tabular-nums text-[13px] ${
                     isNeg ? "text-destructive" : isRatio ? "text-muted-foreground" : "text-foreground/75"
@@ -344,36 +389,31 @@ export default function PLReport() {
                       style={{ paddingLeft: 20 + indent, background: rowBg }}>
                         {line.label}
                       </td>
-                      {periodData.map((pd) => {
-                      const val = line.getValue(pd.data);
-                      if (isEditable && line.manualKey && !hideEditValues) {
+                      {groupedData.map((gd) => {
+                      const val = line.getValue(gd.data);
+                      // Only allow inline edit in monthly view (single month per column)
+                      if (isEditable && line.manualKey && canInlineEdit && gd.months.length === 1) {
                         return (
-                          <td key={pd.label} className="px-3 py-0.5 text-right">
+                          <td key={gd.label} className="px-3 py-0.5 text-right">
                               <PLInlineCell
                               lineItemName={line.manualKey}
-                              year={pd.key.year}
-                              month={pd.key.month}
+                              year={year}
+                              month={gd.months[0]}
                               currentValue={typeof val === "number" ? val : 0}
                               onSaved={refetch} />
                             </td>);
                       }
                       const isNeg = typeof val === "number" && val < 0;
                       return (
-                        <td key={pd.label} className={valueCellClass(isNeg)}>
+                        <td key={gd.label} className={valueCellClass(isNeg)}>
                             {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
                           </td>);
                     })}
                       {showTotal && (() => {
                       const val = line.getValue(totals);
                       const isNeg = typeof val === "number" && val < 0;
-                      if (isEditable) {
-                        return (
-                          <td className="px-4 py-[7px] text-right font-mono tabular-nums text-[13px] font-medium text-foreground/75" style={{ borderLeft: '2px solid hsl(30, 12%, 82%)' }}>
-                              {typeof val === "number" ? fmt(val) : val ?? ""}
-                            </td>);
-                      }
                       return (
-                        <td className={`${valueCellClass(isNeg)}`} style={{ borderLeft: '2px solid hsl(30, 12%, 82%)' }}>
+                        <td className={`${valueCellClass(isNeg)} ${isEditable ? "font-medium" : ""}`} style={{ borderLeft: '2px solid hsl(30, 12%, 82%)' }}>
                             {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
                           </td>);
                     })()}
@@ -385,7 +425,7 @@ export default function PLReport() {
 
           {!hideAddLineItem && (
             <div style={{ borderTop: '2px solid hsl(30, 12%, 82%)' }}>
-              <PLAddLineItem year={year} months={selectedMonths} onAdded={refetch} />
+              <PLAddLineItem year={year} months={allMonths} onAdded={refetch} />
             </div>
           )}
         </div>
