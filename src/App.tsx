@@ -10,7 +10,7 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { AppLayout } from "@/components/AppLayout";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import Index from "./pages/Index";
-import DataPage from "./pages/DataPage";
+
 import ForecastInput from "./pages/ForecastInput";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
@@ -27,7 +27,7 @@ const queryClient = new QueryClient();
 
 const pageKeyMap: Record<string, string> = {
   "/": "revenue",
-  "/data": "data",
+  
   "/forecast": "forecast",
   "/activity-log": "activity-log",
   "/pl-report": "pl-report",
@@ -76,7 +76,7 @@ function App() {
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
-                <Route path="/data" element={<ProtectedRoute pageKey="data"><DataPage /></ProtectedRoute>} />
+                
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
