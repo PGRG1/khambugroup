@@ -32,7 +32,7 @@ const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrd
             <c.icon className={`h-4 w-4 shrink-0 ${c.color}`} />
             <span className="text-xs text-muted-foreground truncate">{c.label}</span>
           </div>
-          <p className="text-base lg:text-lg xl:text-xl font-display font-bold text-foreground truncate">{c.value}</p>
+          <p className="text-sm sm:text-base lg:text-lg font-display font-bold text-foreground break-all leading-tight">{c.value}</p>
         </div>
       ))}
     </div>
