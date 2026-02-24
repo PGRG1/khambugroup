@@ -232,6 +232,53 @@ export type Database = {
         }
         Relationships: []
       }
+      hr_employee_history: {
+        Row: {
+          change_type: string
+          created_at: string
+          created_by: string | null
+          effective_date: string
+          employee_id: string
+          field_changed: string | null
+          id: string
+          new_value: string | null
+          notes: string | null
+          old_value: string | null
+        }
+        Insert: {
+          change_type?: string
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          employee_id: string
+          field_changed?: string | null
+          id?: string
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          employee_id?: string
+          field_changed?: string | null
+          id?: string
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_employee_history_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_employees: {
         Row: {
           created_at: string
@@ -310,8 +357,44 @@ export type Database = {
           },
         ]
       }
+      hr_holidays: {
+        Row: {
+          created_at: string
+          date: string
+          holiday_type: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          holiday_type?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          holiday_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       hr_leave_balances: {
         Row: {
+          adjustment_notes: string | null
+          adjustments: number
+          carried_forward: number
           created_at: string
           employee_id: string
           id: string
@@ -323,6 +406,9 @@ export type Database = {
           year: number
         }
         Insert: {
+          adjustment_notes?: string | null
+          adjustments?: number
+          carried_forward?: number
           created_at?: string
           employee_id: string
           id?: string
@@ -334,6 +420,9 @@ export type Database = {
           year: number
         }
         Update: {
+          adjustment_notes?: string | null
+          adjustments?: number
+          carried_forward?: number
           created_at?: string
           employee_id?: string
           id?: string
@@ -459,6 +548,7 @@ export type Database = {
           actual_deductions: number | null
           actual_overtime: number | null
           actual_total: number | null
+          annual_leave_pay: number
           created_at: string
           employee_id: string
           forecast_allowances: number
@@ -467,11 +557,27 @@ export type Database = {
           forecast_deductions: number
           forecast_overtime: number
           forecast_total: number
+          gross_salary: number
           id: string
           month: number
+          mpf_employee: number
+          mpf_employer: number
+          mpf_payment_amount: number
+          mpf_payment_date: string | null
+          net_salary: number
+          net_salary_payment_date: string | null
           notes: string | null
+          other_deductions: number
+          other_deductions_note: string | null
+          other_payments: number
+          other_payments_note: string | null
           payment_date: string | null
+          payment_method: string
           payment_status: string
+          sick_leave_deduction: number
+          statutory_holiday_pay: number
+          total_deductions: number
+          unpaid_leave_deduction: number
           updated_at: string
           year: number
         }
@@ -482,6 +588,7 @@ export type Database = {
           actual_deductions?: number | null
           actual_overtime?: number | null
           actual_total?: number | null
+          annual_leave_pay?: number
           created_at?: string
           employee_id: string
           forecast_allowances?: number
@@ -490,11 +597,27 @@ export type Database = {
           forecast_deductions?: number
           forecast_overtime?: number
           forecast_total?: number
+          gross_salary?: number
           id?: string
           month: number
+          mpf_employee?: number
+          mpf_employer?: number
+          mpf_payment_amount?: number
+          mpf_payment_date?: string | null
+          net_salary?: number
+          net_salary_payment_date?: string | null
           notes?: string | null
+          other_deductions?: number
+          other_deductions_note?: string | null
+          other_payments?: number
+          other_payments_note?: string | null
           payment_date?: string | null
+          payment_method?: string
           payment_status?: string
+          sick_leave_deduction?: number
+          statutory_holiday_pay?: number
+          total_deductions?: number
+          unpaid_leave_deduction?: number
           updated_at?: string
           year: number
         }
@@ -505,6 +628,7 @@ export type Database = {
           actual_deductions?: number | null
           actual_overtime?: number | null
           actual_total?: number | null
+          annual_leave_pay?: number
           created_at?: string
           employee_id?: string
           forecast_allowances?: number
@@ -513,11 +637,27 @@ export type Database = {
           forecast_deductions?: number
           forecast_overtime?: number
           forecast_total?: number
+          gross_salary?: number
           id?: string
           month?: number
+          mpf_employee?: number
+          mpf_employer?: number
+          mpf_payment_amount?: number
+          mpf_payment_date?: string | null
+          net_salary?: number
+          net_salary_payment_date?: string | null
           notes?: string | null
+          other_deductions?: number
+          other_deductions_note?: string | null
+          other_payments?: number
+          other_payments_note?: string | null
           payment_date?: string | null
+          payment_method?: string
           payment_status?: string
+          sick_leave_deduction?: number
+          statutory_holiday_pay?: number
+          total_deductions?: number
+          unpaid_leave_deduction?: number
           updated_at?: string
           year?: number
         }
@@ -533,40 +673,61 @@ export type Database = {
       }
       hr_shifts: {
         Row: {
+          actual_break_minutes: number | null
+          actual_end_time: string | null
+          actual_hours_worked: number | null
+          actual_start_time: string | null
           break_minutes: number
           created_at: string
           employee_id: string
           end_time: string
           id: string
+          no_show: boolean
           notes: string | null
           shift_date: string
+          shift_type: string
           start_time: string
           status: string
           updated_at: string
+          variance_minutes: number | null
         }
         Insert: {
+          actual_break_minutes?: number | null
+          actual_end_time?: string | null
+          actual_hours_worked?: number | null
+          actual_start_time?: string | null
           break_minutes?: number
           created_at?: string
           employee_id: string
           end_time: string
           id?: string
+          no_show?: boolean
           notes?: string | null
           shift_date: string
+          shift_type?: string
           start_time: string
           status?: string
           updated_at?: string
+          variance_minutes?: number | null
         }
         Update: {
+          actual_break_minutes?: number | null
+          actual_end_time?: string | null
+          actual_hours_worked?: number | null
+          actual_start_time?: string | null
           break_minutes?: number
           created_at?: string
           employee_id?: string
           end_time?: string
           id?: string
+          no_show?: boolean
           notes?: string | null
           shift_date?: string
+          shift_type?: string
           start_time?: string
           status?: string
           updated_at?: string
+          variance_minutes?: number | null
         }
         Relationships: [
           {

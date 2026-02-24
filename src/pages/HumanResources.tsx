@@ -66,6 +66,7 @@ export default function HumanResources() {
           <PayrollTab
             payroll={hr.payroll}
             employees={hr.employees}
+            shifts={hr.shifts}
             onSave={hr.upsertPayroll}
           />
         </TabsContent>

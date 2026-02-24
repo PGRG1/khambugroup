@@ -77,6 +77,13 @@ export interface HRShift {
   break_minutes: number;
   notes: string | null;
   status: string;
+  shift_type: string;
+  actual_start_time: string | null;
+  actual_end_time: string | null;
+  actual_break_minutes: number;
+  actual_hours_worked: number | null;
+  variance_minutes: number;
+  no_show: boolean;
   employee?: HREmployee;
 }
 
@@ -110,6 +117,23 @@ export interface HRPayroll {
   actual_overtime: number | null;
   actual_bonus: number | null;
   actual_total: number | null;
+  annual_leave_pay: number;
+  statutory_holiday_pay: number;
+  other_payments: number;
+  other_payments_note: string | null;
+  mpf_employee: number;
+  mpf_employer: number;
+  sick_leave_deduction: number;
+  unpaid_leave_deduction: number;
+  other_deductions: number;
+  other_deductions_note: string | null;
+  gross_salary: number;
+  total_deductions: number;
+  net_salary: number;
+  net_salary_payment_date: string | null;
+  mpf_payment_amount: number;
+  mpf_payment_date: string | null;
+  payment_method: string;
   payment_status: string;
   payment_date: string | null;
   notes: string | null;

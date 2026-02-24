@@ -34,6 +34,10 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const expectedTotal = form.subtotal + form.serviceCharge + normalizedDiscount;
   const totalMismatch = form.totalSales !== 0 && Math.abs(form.totalSales - expectedTotal) > 0.01;
 
+  // Payment method validation
+  const paymentTotal = form.visa + form.mastercard + form.amex + form.unionPay + form.alipay + form.wechat + form.cash;
+  const paymentMismatch = form.totalSales !== 0 && paymentTotal !== 0 && Math.abs(paymentTotal - form.totalSales) > 0.01;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.date || !form.venue) return;
@@ -126,6 +130,15 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
           {numField("Cash", "cash")}
           {numField("Card Tips", "cardTips")}
         </div>
+        {paymentMismatch && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
+            <span className="text-destructive font-semibold shrink-0">⚠</span>
+            <span className="text-foreground">
+              <span className="font-medium text-destructive">Payment mismatch:</span>{" "}
+              Payment methods total (<strong>{paymentTotal.toLocaleString()}</strong>) does not match Total Sales (<strong>{form.totalSales.toLocaleString()}</strong>). Difference: <strong>{Math.abs(paymentTotal - form.totalSales).toLocaleString()}</strong>
+            </span>
+          </div>
+        )}
         <button
           type="submit"
           className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
