@@ -63,7 +63,7 @@ const CHANGE_TYPES = [
   { value: "other", label: "Other" },
 ];
 
-function EmployeeKPICards({ employees }: { employees: HREmployee[] }) {
+function EmployeeKPICards({ employees, history }: { employees: HREmployee[]; history: HREmployeeHistory[] }) {
   const stats = useMemo(() => {
     const total = employees.length;
     const active = employees.filter(e => e.status === "active").length;
@@ -74,14 +74,23 @@ function EmployeeKPICards({ employees }: { employees: HREmployee[] }) {
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const joiners = employees.filter(e => e.hire_date?.startsWith(thisMonth)).length;
     const leavers = employees.filter(e => e.end_date?.startsWith(thisMonth)).length;
-    // Avg tenure in months
     const activeTenures = employees.filter(e => e.status === "active").map(e => {
       const hire = new Date(e.hire_date);
       return (now.getTime() - hire.getTime()) / (1000 * 60 * 60 * 24 * 30);
     });
     const avgTenure = activeTenures.length ? activeTenures.reduce((a, b) => a + b, 0) / activeTenures.length : 0;
-    return { total, active, ft, pt, casual, joiners, leavers, avgTenure };
-  }, [employees]);
+    const turnoverRate = total > 0 ? (leavers / total * 100) : 0;
+    const promotions = history.filter(h => h.change_type === "promotion" && h.effective_date?.startsWith(thisMonth)).length;
+    const salaryChanges = history.filter(h => h.change_type === "salary_change" && h.effective_date?.startsWith(thisMonth)).length;
+
+    const byDept: Record<string, number> = {};
+    employees.filter(e => e.status === "active").forEach(e => {
+      const dept = e.department?.name || "Unassigned";
+      byDept[dept] = (byDept[dept] || 0) + 1;
+    });
+
+    return { total, active, ft, pt, casual, joiners, leavers, avgTenure, turnoverRate, promotions, salaryChanges, byDept };
+  }, [employees, history]);
 
   const cards = [
     { label: "Total Headcount", value: String(stats.total), icon: Users, color: "text-primary" },
@@ -89,20 +98,35 @@ function EmployeeKPICards({ employees }: { employees: HREmployee[] }) {
     { label: "FT / PT / Casual", value: `${stats.ft} / ${stats.pt} / ${stats.casual}`, icon: Building2, color: "text-chart-2" },
     { label: "Joiners (Month)", value: String(stats.joiners), icon: UserPlus, color: "text-primary" },
     { label: "Leavers (Month)", value: String(stats.leavers), icon: UserMinus, color: "text-destructive" },
-    { label: "Avg Tenure", value: `${stats.avgTenure.toFixed(0)} mo`, icon: Calendar, color: "text-chart-4" },
+    { label: "Turnover", value: `${stats.turnoverRate.toFixed(1)}%`, icon: TrendingUp, color: "text-chart-4" },
+    { label: "Promotions", value: String(stats.promotions), icon: TrendingUp, color: "text-chart-3" },
+    { label: "Avg Tenure", value: `${stats.avgTenure.toFixed(0)} mo`, icon: Calendar, color: "text-chart-5" },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      {cards.map(c => (
-        <div key={c.label} className="card-glass rounded-xl p-3 animate-fade-in">
-          <div className="flex items-center gap-1.5 mb-1">
-            <c.icon className={`h-3.5 w-3.5 shrink-0 ${c.color}`} />
-            <span className="text-[11px] text-muted-foreground">{c.label}</span>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        {cards.map(c => (
+          <div key={c.label} className="card-glass rounded-xl p-3 animate-fade-in">
+            <div className="flex items-center gap-1.5 mb-1">
+              <c.icon className={`h-3.5 w-3.5 shrink-0 ${c.color}`} />
+              <span className="text-[11px] text-muted-foreground">{c.label}</span>
+            </div>
+            <p className="text-sm font-display font-bold text-foreground">{c.value}</p>
           </div>
-          <p className="text-sm font-display font-bold text-foreground">{c.value}</p>
+        ))}
+      </div>
+      {Object.keys(stats.byDept).length > 1 && (
+        <div className="flex gap-3 flex-wrap">
+          <span className="text-[10px] text-muted-foreground self-center">By Dept:</span>
+          {Object.entries(stats.byDept).map(([dept, count]) => (
+            <div key={dept} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground">{dept}</span>
+              <span className="text-xs font-semibold">{count}</span>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -204,7 +228,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
   return (
     <div className="space-y-4">
       {/* KPI Cards */}
-      <EmployeeKPICards employees={employees} />
+      <EmployeeKPICards employees={employees} history={history} />
 
       {/* Holiday Banner */}
       {todayHoliday && (
