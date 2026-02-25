@@ -45,7 +45,6 @@ function PayrollKPICards({ payroll, employees }: { payroll: HRPayroll[]; employe
     const paidCount = payroll.filter(p => p.payment_status === "paid").length;
     const unpaidCount = payroll.filter(p => p.payment_status !== "paid").length;
 
-    // By employee type
     const byType: Record<string, number> = {};
     payroll.forEach(p => {
       const emp = employees.find(e => e.id === p.employee_id);
@@ -53,7 +52,21 @@ function PayrollKPICards({ payroll, employees }: { payroll: HRPayroll[]; employe
       byType[type] = (byType[type] || 0) + Number(p.gross_salary || 0);
     });
 
-    return { totalGross, totalNet, totalMPFEmployee, totalMPFEmployer, totalDeductions, totalOtherPayments, paidCount, unpaidCount, byType };
+    const byDept: Record<string, number> = {};
+    payroll.forEach(p => {
+      const emp = employees.find(e => e.id === p.employee_id);
+      const dept = emp?.department?.name || "Unassigned";
+      byDept[dept] = (byDept[dept] || 0) + Number(p.gross_salary || 0);
+    });
+
+    const byPosition: Record<string, number> = {};
+    payroll.forEach(p => {
+      const emp = employees.find(e => e.id === p.employee_id);
+      const pos = emp?.job_title || "Unassigned";
+      byPosition[pos] = (byPosition[pos] || 0) + Number(p.gross_salary || 0);
+    });
+
+    return { totalGross, totalNet, totalMPFEmployee, totalMPFEmployer, totalDeductions, totalOtherPayments, paidCount, unpaidCount, byType, byDept, byPosition };
   }, [payroll, employees]);
 
   const cards = [
@@ -80,13 +93,32 @@ function PayrollKPICards({ payroll, employees }: { payroll: HRPayroll[]; employe
           </div>
         ))}
       </div>
-      {/* Cost by type row */}
-      {Object.keys(stats.byType).length > 0 && (
+      <div className="flex gap-3 flex-wrap">
+        {Object.entries(stats.byType).map(([type, amount]) => (
+          <div key={type} className="card-glass rounded-lg px-3 py-2 flex items-center gap-2">
+            <Badge variant="secondary" className="text-[10px]">{type.replace("_", " ").toUpperCase()}</Badge>
+            <span className="text-sm font-semibold">{fmt(amount)}</span>
+          </div>
+        ))}
+      </div>
+      {Object.keys(stats.byDept).length > 1 && (
         <div className="flex gap-3 flex-wrap">
-          {Object.entries(stats.byType).map(([type, amount]) => (
-            <div key={type} className="card-glass rounded-lg px-3 py-2 flex items-center gap-2">
-              <Badge variant="secondary" className="text-[10px]">{type.replace("_", " ").toUpperCase()}</Badge>
-              <span className="text-sm font-semibold">{fmt(amount)}</span>
+          <span className="text-[10px] text-muted-foreground self-center">By Dept:</span>
+          {Object.entries(stats.byDept).map(([dept, amount]) => (
+            <div key={dept} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground">{dept}</span>
+              <span className="text-xs font-semibold">{fmt(amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {Object.keys(stats.byPosition).length > 1 && (
+        <div className="flex gap-3 flex-wrap">
+          <span className="text-[10px] text-muted-foreground self-center">By Position:</span>
+          {Object.entries(stats.byPosition).map(([pos, amount]) => (
+            <div key={pos} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground">{pos}</span>
+              <span className="text-xs font-semibold">{fmt(amount)}</span>
             </div>
           ))}
         </div>

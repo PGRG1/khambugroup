@@ -1,11 +1,12 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { ChevronLeft, ChevronRight, Plus, Clock, Users, CalendarDays, AlertTriangle, TrendingDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Clock, Users, CalendarDays, AlertTriangle, TrendingDown, BarChart3 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
 
@@ -38,6 +39,12 @@ const SHIFT_STATUSES = [
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// Time slots for the drag grid (hourly from 6AM to midnight)
+const TIME_SLOTS = Array.from({ length: 19 }, (_, i) => {
+  const hour = i + 6;
+  return { hour, label: `${hour > 12 ? hour - 12 : hour}${hour >= 12 ? "PM" : "AM"}` };
+});
+
 function getWeekDates(baseDate: Date): Date[] {
   const d = new Date(baseDate);
   const day = d.getDay();
@@ -62,11 +69,17 @@ function calcHours(start: string, end: string, breakMin: number): number {
   return mins / 60;
 }
 
-function ScheduleKPICards({ shifts, weekDates }: { shifts: HRShift[]; weekDates: Date[] }) {
+function padTime(h: number): string {
+  return `${String(h).padStart(2, "0")}:00`;
+}
+
+// --- KPI Cards with enhanced metrics ---
+function ScheduleKPICards({ shifts, weekDates, employees }: { shifts: HRShift[]; weekDates: Date[]; employees: HREmployee[] }) {
   const stats = useMemo(() => {
     const weekKeys = new Set(weekDates.map(formatDate));
     const weekShifts = shifts.filter(s => weekKeys.has(s.shift_date));
-    const scheduledHrs = weekShifts.filter(s => s.shift_type === "regular" || !s.shift_type).reduce((t, s) => t + calcHours(s.start_time, s.end_time, s.break_minutes || 0), 0);
+    const regularShifts = weekShifts.filter(s => s.shift_type === "regular" || !s.shift_type);
+    const scheduledHrs = regularShifts.reduce((t, s) => t + calcHours(s.start_time, s.end_time, s.break_minutes || 0), 0);
     const actualHrs = weekShifts.reduce((t, s) => t + (Number(s.actual_hours_worked) || 0), 0);
     const noShows = weekShifts.filter(s => s.no_show).length;
     const leaveCounts: Record<string, number> = {};
@@ -74,28 +87,71 @@ function ScheduleKPICards({ shifts, weekDates }: { shifts: HRShift[]; weekDates:
       leaveCounts[s.shift_type!] = (leaveCounts[s.shift_type!] || 0) + 1;
     });
     const totalLeave = Object.values(leaveCounts).reduce((a, b) => a + b, 0);
-    return { scheduledHrs, actualHrs, noShows, totalLeave, leaveCounts };
-  }, [shifts, weekDates]);
+    const totalScheduled = regularShifts.length;
+    const completed = weekShifts.filter(s => s.status === "completed").length;
+    const attendanceRate = totalScheduled > 0 ? ((totalScheduled - noShows) / totalScheduled * 100) : 100;
+
+    // Hours by employee
+    const hrsByEmployee: Record<string, number> = {};
+    weekShifts.forEach(s => {
+      const hrs = (s.shift_type === "regular" || !s.shift_type) ? calcHours(s.start_time, s.end_time, s.break_minutes || 0) : 0;
+      hrsByEmployee[s.employee_id] = (hrsByEmployee[s.employee_id] || 0) + hrs;
+    });
+
+    // Hours by position
+    const hrsByPosition: Record<string, number> = {};
+    weekShifts.forEach(s => {
+      const emp = employees.find(e => e.id === s.employee_id);
+      const pos = emp?.job_title || "Unassigned";
+      const hrs = (s.shift_type === "regular" || !s.shift_type) ? calcHours(s.start_time, s.end_time, s.break_minutes || 0) : 0;
+      hrsByPosition[pos] = (hrsByPosition[pos] || 0) + hrs;
+    });
+
+    // Payroll-impacting days
+    const payrollImpactDays = weekShifts.filter(s => ["sick_no_pay", "no_pay"].includes(s.shift_type || "")).length;
+
+    return { scheduledHrs, actualHrs, noShows, totalLeave, leaveCounts, attendanceRate, hrsByEmployee, hrsByPosition, payrollImpactDays };
+  }, [shifts, weekDates, employees]);
 
   const cards = [
     { label: "Scheduled Hours", value: `${stats.scheduledHrs.toFixed(1)}h`, icon: Clock, color: "text-primary" },
     { label: "Actual Hours", value: `${stats.actualHrs.toFixed(1)}h`, icon: Clock, color: "text-chart-3" },
+    { label: "Attendance Rate", value: `${stats.attendanceRate.toFixed(0)}%`, icon: Users, color: "text-chart-2" },
     { label: "No Shows", value: String(stats.noShows), icon: AlertTriangle, color: "text-destructive" },
-    { label: "Leave Days", value: String(stats.totalLeave), icon: CalendarDays, color: "text-chart-2" },
+    { label: "Leave Days", value: String(stats.totalLeave), icon: CalendarDays, color: "text-chart-4" },
     { label: "Variance", value: `${(stats.actualHrs - stats.scheduledHrs).toFixed(1)}h`, icon: TrendingDown, color: stats.actualHrs < stats.scheduledHrs ? "text-destructive" : "text-primary" },
+    { label: "Payroll Impact", value: `${stats.payrollImpactDays}d`, icon: BarChart3, color: "text-destructive" },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-      {cards.map(c => (
-        <div key={c.label} className="card-glass rounded-xl p-3 animate-fade-in">
-          <div className="flex items-center gap-1.5 mb-1">
-            <c.icon className={`h-3.5 w-3.5 shrink-0 ${c.color}`} />
-            <span className="text-[11px] text-muted-foreground">{c.label}</span>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        {cards.map(c => (
+          <div key={c.label} className="card-glass rounded-xl p-3 animate-fade-in">
+            <div className="flex items-center gap-1.5 mb-1">
+              <c.icon className={`h-3.5 w-3.5 shrink-0 ${c.color}`} />
+              <span className="text-[11px] text-muted-foreground">{c.label}</span>
+            </div>
+            <p className="text-sm font-display font-bold text-foreground">{c.value}</p>
           </div>
-          <p className="text-sm font-display font-bold text-foreground">{c.value}</p>
-        </div>
-      ))}
+        ))}
+      </div>
+
+      {/* Leave breakdown + Hours by position */}
+      <div className="flex gap-3 flex-wrap">
+        {Object.entries(stats.leaveCounts).length > 0 && Object.entries(stats.leaveCounts).map(([type, count]) => (
+          <div key={type} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px]">{SHIFT_TYPES.find(t => t.value === type)?.label || type}</Badge>
+            <span className="text-xs font-semibold">{count}</span>
+          </div>
+        ))}
+        {Object.entries(stats.hrsByPosition).length > 0 && Object.entries(stats.hrsByPosition).map(([pos, hrs]) => (
+          <div key={pos} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground">{pos}:</span>
+            <span className="text-xs font-semibold">{hrs.toFixed(1)}h</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -105,6 +161,16 @@ export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSa
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<"roster" | "timegrid">("roster");
+
+  // Drag state for time-grid
+  const [dragState, setDragState] = useState<{
+    employeeId: string;
+    dayIndex: number;
+    startHour: number;
+    currentHour: number;
+  } | null>(null);
+  const isDragging = useRef(false);
 
   const activeEmployees = useMemo(() => employees.filter(e => ["active", "on_leave"].includes(e.status)), [employees]);
   const weekDates = useMemo(() => getWeekDates(weekBase), [weekBase]);
@@ -123,12 +189,12 @@ export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSa
     return map;
   }, [shifts]);
 
-  const openNewShift = (employeeId: string, date: string) => {
+  const openNewShift = (employeeId: string, date: string, startTime?: string, endTime?: string) => {
     setEditingShift({
       employee_id: employeeId,
       shift_date: date,
-      start_time: "09:00",
-      end_time: "17:00",
+      start_time: startTime || "09:00",
+      end_time: endTime || "17:00",
       break_minutes: 30,
       status: "scheduled",
       shift_type: "regular",
@@ -145,7 +211,6 @@ export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSa
   const handleSaveShift = async () => {
     if (!editingShift?.employee_id || !editingShift?.shift_date) return;
     setSaving(true);
-    // Auto-calc actual hours if actual times provided
     const payload = { ...editingShift };
     if (payload.actual_start_time && payload.actual_end_time) {
       payload.actual_hours_worked = calcHours(payload.actual_start_time, payload.actual_end_time, payload.actual_break_minutes || 0);
@@ -165,99 +230,231 @@ export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSa
 
   const weekLabel = `${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekDates[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
+  // --- Drag-to-schedule handlers ---
+  const handleDragStart = useCallback((employeeId: string, dayIndex: number, hour: number) => {
+    isDragging.current = true;
+    setDragState({ employeeId, dayIndex, startHour: hour, currentHour: hour });
+  }, []);
+
+  const handleDragMove = useCallback((hour: number) => {
+    if (!isDragging.current || !dragState) return;
+    setDragState(prev => prev ? { ...prev, currentHour: hour } : prev);
+  }, [dragState]);
+
+  const handleDragEnd = useCallback(() => {
+    if (!isDragging.current || !dragState) return;
+    isDragging.current = false;
+    const { employeeId, dayIndex, startHour, currentHour } = dragState;
+    const minH = Math.min(startHour, currentHour);
+    const maxH = Math.max(startHour, currentHour) + 1;
+    if (maxH - minH >= 1) {
+      const dateStr = formatDate(weekDates[dayIndex]);
+      openNewShift(employeeId, dateStr, padTime(minH), padTime(maxH));
+    }
+    setDragState(null);
+  }, [dragState, weekDates]);
+
+  const isInDragRange = (employeeId: string, dayIndex: number, hour: number) => {
+    if (!dragState || dragState.employeeId !== employeeId || dragState.dayIndex !== dayIndex) return false;
+    const minH = Math.min(dragState.startHour, dragState.currentHour);
+    const maxH = Math.max(dragState.startHour, dragState.currentHour);
+    return hour >= minH && hour <= maxH;
+  };
+
+  // Check if a shift covers a time slot
+  const getShiftAtSlot = (employeeId: string, dateStr: string, hour: number): HRShift | null => {
+    const cellShifts = shiftMap[`${employeeId}_${dateStr}`] || [];
+    return cellShifts.find(s => {
+      if (s.shift_type !== "regular" && s.shift_type) return false;
+      const [h1] = s.start_time.split(":").map(Number);
+      const [h2] = s.end_time.split(":").map(Number);
+      const endH = h2 === 0 ? 24 : h2;
+      return hour >= h1 && hour < endH;
+    }) || null;
+  };
+
   return (
     <div className="space-y-4">
-      {/* KPI Cards */}
-      <ScheduleKPICards shifts={shifts} weekDates={weekDates} />
+      <ScheduleKPICards shifts={shifts} weekDates={weekDates} employees={employees} />
 
-      {/* Week Navigation */}
-      <div className="flex items-center justify-between gap-3">
+      {/* Week Navigation + View Toggle */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
           <Button variant="outline" size="sm" onClick={goToday}>Today</Button>
           <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
           <span className="text-sm font-medium ml-2">{weekLabel}</span>
         </div>
-        <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
-          <Plus className="h-4 w-4 mr-1" /> Add Shift
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode("roster")}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "roster" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
+            >
+              Roster
+            </button>
+            <button
+              onClick={() => setViewMode("timegrid")}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "timegrid" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
+            >
+              Time Grid
+            </button>
+          </div>
+          <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
+            <Plus className="h-4 w-4 mr-1" /> Add Shift
+          </Button>
+        </div>
       </div>
 
-      {/* Schedule Grid */}
-      <div className="border border-border rounded-lg overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
-              <th className="text-left p-2 pl-3 font-medium text-muted-foreground min-w-[140px] sticky left-0 bg-muted/50 z-10">Employee</th>
-              <th className="text-left p-2 font-medium text-muted-foreground min-w-[60px]">Position</th>
-              {weekDates.map((d, i) => {
-                const isToday = formatDate(d) === formatDate(new Date());
+      {viewMode === "roster" ? (
+        /* ===== ROSTER VIEW (original weekly grid) ===== */
+        <div className="border border-border rounded-lg overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left p-2 pl-3 font-medium text-muted-foreground min-w-[140px] sticky left-0 bg-muted/50 z-10">Employee</th>
+                <th className="text-left p-2 font-medium text-muted-foreground min-w-[60px]">Position</th>
+                {weekDates.map((d, i) => {
+                  const isToday = formatDate(d) === formatDate(new Date());
+                  return (
+                    <th key={i} className={`text-center p-2 font-medium min-w-[100px] ${isToday ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                      <div className="text-xs">{DAY_NAMES[i]}</div>
+                      <div className="text-[11px]">{d.getDate()}/{d.getMonth() + 1}</div>
+                    </th>
+                  );
+                })}
+                <th className="text-center p-2 font-medium text-muted-foreground min-w-[60px]">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeEmployees.length === 0 ? (
+                <tr><td colSpan={10} className="text-center text-muted-foreground py-8">No active employees</td></tr>
+              ) : activeEmployees.map(emp => {
+                let weekTotal = 0;
                 return (
-                  <th key={i} className={`text-center p-2 font-medium min-w-[100px] ${isToday ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
-                    <div className="text-xs">{DAY_NAMES[i]}</div>
-                    <div className="text-[11px]">{d.getDate()}/{d.getMonth() + 1}</div>
-                  </th>
+                  <tr key={emp.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <td className="p-2 pl-3 font-medium sticky left-0 bg-background z-10">
+                      <div className="truncate max-w-[130px]">{emp.first_name} {emp.last_name}</div>
+                    </td>
+                    <td className="p-2 text-xs text-muted-foreground truncate max-w-[80px]">{emp.job_title || "—"}</td>
+                    {weekDates.map((d, i) => {
+                      const dateStr = formatDate(d);
+                      const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
+                      const isToday = dateStr === formatDate(new Date());
+                      cellShifts.forEach(s => {
+                        if (s.shift_type === "regular" || !s.shift_type) {
+                          weekTotal += calcHours(s.start_time, s.end_time, s.break_minutes || 0);
+                        }
+                      });
+                      return (
+                        <td key={i} className={`p-1 align-top ${isToday ? "bg-primary/5" : ""}`}>
+                          {cellShifts.length > 0 ? (
+                            <div className="space-y-0.5">
+                              {cellShifts.map(s => (
+                                <button
+                                  key={s.id}
+                                  onClick={() => openEditShift(s)}
+                                  className={`w-full text-[10px] leading-tight rounded px-1 py-0.5 border cursor-pointer text-left transition-colors hover:opacity-80 ${getShiftTypeStyle(s.shift_type || "regular")} ${s.no_show ? "line-through opacity-60" : ""}`}
+                                >
+                                  {(s.shift_type || "regular") === "regular" ? (
+                                    <>{s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}</>
+                                  ) : (
+                                    <span className="font-semibold">{getShiftTypeLabel(s.shift_type || "regular")}</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => openNewShift(emp.id, dateStr)}
+                              className="w-full h-6 rounded border border-dashed border-border/50 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50 transition-colors text-[10px] flex items-center justify-center"
+                            >
+                              +
+                            </button>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="p-2 text-center text-xs font-semibold">{weekTotal.toFixed(1)}h</td>
+                  </tr>
                 );
               })}
-              <th className="text-center p-2 font-medium text-muted-foreground min-w-[60px]">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activeEmployees.length === 0 ? (
-              <tr><td colSpan={10} className="text-center text-muted-foreground py-8">No active employees</td></tr>
-            ) : activeEmployees.map(emp => {
-              let weekTotal = 0;
-              return (
-                <tr key={emp.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                  <td className="p-2 pl-3 font-medium sticky left-0 bg-background z-10">
-                    <div className="truncate max-w-[130px]">{emp.first_name} {emp.last_name}</div>
-                  </td>
-                  <td className="p-2 text-xs text-muted-foreground truncate max-w-[80px]">{emp.job_title || "—"}</td>
-                  {weekDates.map((d, i) => {
-                    const dateStr = formatDate(d);
-                    const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
-                    const isToday = dateStr === formatDate(new Date());
-                    cellShifts.forEach(s => {
-                      if (s.shift_type === "regular" || !s.shift_type) {
-                        weekTotal += calcHours(s.start_time, s.end_time, s.break_minutes || 0);
-                      }
-                    });
-                    return (
-                      <td key={i} className={`p-1 align-top ${isToday ? "bg-primary/5" : ""}`}>
-                        {cellShifts.length > 0 ? (
-                          <div className="space-y-0.5">
-                            {cellShifts.map(s => (
-                              <button
-                                key={s.id}
-                                onClick={() => openEditShift(s)}
-                                className={`w-full text-[10px] leading-tight rounded px-1 py-0.5 border cursor-pointer text-left transition-colors hover:opacity-80 ${getShiftTypeStyle(s.shift_type || "regular")} ${s.no_show ? "line-through opacity-60" : ""}`}
-                              >
-                                {(s.shift_type || "regular") === "regular" ? (
-                                  <>{s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}</>
-                                ) : (
-                                  <span className="font-semibold">{getShiftTypeLabel(s.shift_type || "regular")}</span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => openNewShift(emp.id, dateStr)}
-                            className="w-full h-6 rounded border border-dashed border-border/50 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50 transition-colors text-[10px] flex items-center justify-center"
-                          >
-                            +
-                          </button>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="p-2 text-center text-xs font-semibold">{weekTotal.toFixed(1)}h</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* ===== TIME GRID VIEW (drag-to-schedule) ===== */
+        <div className="border border-border rounded-lg overflow-x-auto select-none" onMouseUp={handleDragEnd} onMouseLeave={() => { if (isDragging.current) handleDragEnd(); }}>
+          <p className="text-[11px] text-muted-foreground px-3 pt-2 pb-1">💡 Drag across time slots to create a shift. Click existing shifts to edit.</p>
+          {activeEmployees.map(emp => (
+            <div key={emp.id} className="border-b border-border last:border-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 border-b border-border/50">
+                <span className="text-xs font-semibold">{emp.first_name} {emp.last_name}</span>
+                <span className="text-[10px] text-muted-foreground">{emp.job_title || ""}</span>
+              </div>
+              {/* One row per day */}
+              {weekDates.map((d, dayIdx) => {
+                const dateStr = formatDate(d);
+                const isToday = dateStr === formatDate(new Date());
+                const dayShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
+                const leaveShift = dayShifts.find(s => s.shift_type && s.shift_type !== "regular");
+
+                return (
+                  <div key={dayIdx} className={`flex items-stretch ${isToday ? "bg-primary/5" : ""}`}>
+                    {/* Day label */}
+                    <div className="w-14 shrink-0 flex flex-col items-center justify-center border-r border-border/50 py-0.5">
+                      <span className="text-[10px] font-medium">{DAY_NAMES[dayIdx]}</span>
+                      <span className="text-[9px] text-muted-foreground">{d.getDate()}/{d.getMonth() + 1}</span>
+                    </div>
+
+                    {leaveShift ? (
+                      <button
+                        onClick={() => openEditShift(leaveShift)}
+                        className={`flex-1 flex items-center justify-center py-1.5 text-xs font-semibold cursor-pointer hover:opacity-80 ${getShiftTypeStyle(leaveShift.shift_type || "regular")}`}
+                      >
+                        {getShiftTypeLabel(leaveShift.shift_type || "regular")}
+                      </button>
+                    ) : (
+                      <div className="flex-1 flex">
+                        {TIME_SLOTS.map(slot => {
+                          const existingShift = getShiftAtSlot(emp.id, dateStr, slot.hour);
+                          const inDrag = isInDragRange(emp.id, dayIdx, slot.hour);
+
+                          return (
+                            <div
+                              key={slot.hour}
+                              className={`flex-1 min-w-[28px] h-7 border-r border-border/20 cursor-crosshair transition-colors relative ${
+                                existingShift
+                                  ? "bg-primary/25 hover:bg-primary/35"
+                                  : inDrag
+                                    ? "bg-primary/20"
+                                    : "hover:bg-muted/50"
+                              }`}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                if (!existingShift) handleDragStart(emp.id, dayIdx, slot.hour);
+                              }}
+                              onMouseEnter={() => handleDragMove(slot.hour)}
+                              onClick={() => {
+                                if (existingShift) openEditShift(existingShift);
+                              }}
+                              title={`${slot.label}${existingShift ? ` — ${existingShift.start_time?.slice(0, 5)}–${existingShift.end_time?.slice(0, 5)}` : ""}`}
+                            >
+                              {slot.hour % 3 === 0 && (
+                                <span className="absolute top-0 left-0 text-[7px] text-muted-foreground/40 leading-none">{slot.label}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Shift Detail Modal */}
       <Dialog open={shiftModalOpen} onOpenChange={setShiftModalOpen}>
@@ -315,6 +512,11 @@ export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSa
                       <Input type="number" value={editingShift.break_minutes || 0} onChange={e => updateField("break_minutes", Number(e.target.value))} />
                     </div>
                   </div>
+                  {editingShift.start_time && editingShift.end_time && (
+                    <p className="text-xs text-muted-foreground">
+                      Total: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
+                    </p>
+                  )}
 
                   <Separator />
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actual Time (Post-Schedule)</h4>
