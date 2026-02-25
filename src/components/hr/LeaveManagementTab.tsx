@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Check, X } from "lucide-react";
+import { Plus, Check, X, Calendar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRLeaveRequest, HRLeaveType, HRLeaveBalance, HREmployee } from "@/hooks/useHRData";
 
@@ -26,6 +26,82 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: "destructive",
 };
 
+// --- Quick period presets ---
+type PeriodPreset = "this_month" | "last_month" | "this_quarter" | "last_quarter" | "ytd" | "all";
+
+function getPresetRange(preset: PeriodPreset): { from: string; to: string; label: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-based
+
+  switch (preset) {
+    case "this_month": {
+      const from = new Date(y, m, 1);
+      const to = new Date(y, m + 1, 0);
+      return { from: fmt(from), to: fmt(to), label: `${MONTHS[m]} ${y}` };
+    }
+    case "last_month": {
+      const from = new Date(y, m - 1, 1);
+      const to = new Date(y, m, 0);
+      return { from: fmt(from), to: fmt(to), label: `${MONTHS[(m - 1 + 12) % 12]} ${from.getFullYear()}` };
+    }
+    case "this_quarter": {
+      const qStart = Math.floor(m / 3) * 3;
+      const from = new Date(y, qStart, 1);
+      const to = new Date(y, qStart + 3, 0);
+      return { from: fmt(from), to: fmt(to), label: `Q${Math.floor(m / 3) + 1} ${y}` };
+    }
+    case "last_quarter": {
+      const qStart = Math.floor(m / 3) * 3 - 3;
+      const from = new Date(y, qStart, 1);
+      const to = new Date(y, qStart + 3, 0);
+      return { from: fmt(from), to: fmt(to), label: `Q${Math.floor((qStart + 12) % 12 / 3) + 1} ${from.getFullYear()}` };
+    }
+    case "ytd": {
+      const from = new Date(y, 0, 1);
+      return { from: fmt(from), to: fmt(now), label: `YTD ${y}` };
+    }
+    case "all":
+    default:
+      return { from: "2000-01-01", to: "2099-12-31", label: "All Time" };
+  }
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function fmt(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function PeriodSelector({ value, onChange }: { value: PeriodPreset; onChange: (v: PeriodPreset) => void }) {
+  const presets: { key: PeriodPreset; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "this_month", label: "This Month" },
+    { key: "last_month", label: "Last Month" },
+    { key: "this_quarter", label: "This Quarter" },
+    { key: "last_quarter", label: "Last Quarter" },
+    { key: "ytd", label: "YTD" },
+  ];
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+      {presets.map(p => (
+        <button
+          key={p.key}
+          onClick={() => onChange(p.key)}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+            value === p.key
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+          }`}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, employees, onSaveRequest, onSaveType, onSaveBalance }: Props) {
   const [reqModalOpen, setReqModalOpen] = useState(false);
   const [typeModalOpen, setTypeModalOpen] = useState(false);
@@ -34,8 +110,22 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
   const [editingType, setEditingType] = useState<Partial<HRLeaveType> | null>(null);
   const [editingBal, setEditingBal] = useState<Partial<HRLeaveBalance> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [period, setPeriod] = useState<PeriodPreset>("this_month");
 
   const activeEmployees = employees.filter(e => e.status === "active");
+  const range = getPresetRange(period);
+
+  // Filter requests by period
+  const filteredRequests = useMemo(() => {
+    return leaveRequests.filter(r => r.start_date >= range.from && r.start_date <= range.to);
+  }, [leaveRequests, range.from, range.to]);
+
+  // Filter balances by current year when relevant
+  const filteredBalances = useMemo(() => {
+    if (period === "all") return leaveBalances;
+    const year = new Date(range.from).getFullYear();
+    return leaveBalances.filter(b => b.year === year);
+  }, [leaveBalances, period, range.from]);
 
   const handleApprove = async (req: HRLeaveRequest, status: "approved" | "rejected") => {
     const ok = await onSaveRequest({ id: req.id, status });
@@ -66,18 +156,32 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
     setSaving(false);
   };
 
+  // Auto-calculate days when dates change
+  const updateReqDays = (req: Partial<HRLeaveRequest>) => {
+    if (req.start_date && req.end_date) {
+      const start = new Date(req.start_date);
+      const end = new Date(req.end_date);
+      const diffMs = end.getTime() - start.getTime();
+      const days = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
+      return { ...req, days };
+    }
+    return req;
+  };
+
   return (
     <Tabs defaultValue="requests" className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <TabsList>
           <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="balances">Balances</TabsTrigger>
           <TabsTrigger value="types">Leave Types</TabsTrigger>
         </TabsList>
+        <PeriodSelector value={period} onChange={setPeriod} />
       </div>
 
       <TabsContent value="requests" className="space-y-4">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">{filteredRequests.length} requests · {range.label}</p>
           <Button size="sm" onClick={() => { setEditingReq({ status: "pending", days: 1 }); setReqModalOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Leave Request</Button>
         </div>
         <div className="border border-border rounded-lg overflow-hidden">
@@ -94,9 +198,9 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
               </TableRow>
             </TableHeader>
             <TableBody>
-              {leaveRequests.length === 0 ? (
+              {filteredRequests.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No leave requests</TableCell></TableRow>
-              ) : leaveRequests.map(r => (
+              ) : filteredRequests.map(r => (
                 <TableRow key={r.id} className="cursor-pointer" onClick={() => { setEditingReq({ ...r }); setReqModalOpen(true); }}>
                   <TableCell className="font-medium">{r.employee?.first_name} {r.employee?.last_name}</TableCell>
                   <TableCell>{r.leave_type?.name || "—"}</TableCell>
@@ -120,7 +224,8 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
       </TabsContent>
 
       <TabsContent value="balances" className="space-y-4">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">{filteredBalances.length} balances · {range.label}</p>
           <Button size="sm" onClick={() => { setEditingBal({ year: new Date().getFullYear(), total_days: 0, used_days: 0, remaining_days: 0 }); setBalModalOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Set Balance</Button>
         </div>
         <div className="border border-border rounded-lg overflow-hidden">
@@ -136,9 +241,9 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
               </TableRow>
             </TableHeader>
             <TableBody>
-              {leaveBalances.length === 0 ? (
+              {filteredBalances.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No balances set</TableCell></TableRow>
-              ) : leaveBalances.map(b => {
+              ) : filteredBalances.map(b => {
                 const emp = employees.find(e => e.id === b.employee_id);
                 return (
                   <TableRow key={b.id} className="cursor-pointer" onClick={() => { setEditingBal({ ...b }); setBalModalOpen(true); }}>
@@ -209,11 +314,17 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Start Date *</label>
-                  <Input type="date" value={editingReq.start_date || ""} onChange={e => setEditingReq(p => p ? { ...p, start_date: e.target.value } : p)} />
+                  <Input type="date" value={editingReq.start_date || ""} onChange={e => {
+                    const updated = { ...editingReq, start_date: e.target.value };
+                    setEditingReq(updateReqDays(updated));
+                  }} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">End Date *</label>
-                  <Input type="date" value={editingReq.end_date || ""} onChange={e => setEditingReq(p => p ? { ...p, end_date: e.target.value } : p)} />
+                  <Input type="date" value={editingReq.end_date || ""} onChange={e => {
+                    const updated = { ...editingReq, end_date: e.target.value };
+                    setEditingReq(updateReqDays(updated));
+                  }} />
                 </div>
               </div>
               <div>

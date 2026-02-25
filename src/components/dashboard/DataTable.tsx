@@ -5,6 +5,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Trash2, Pencil, Download, X, Check, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import { Input } from "@/components/ui/input";
+import { SalesDetailModal } from "./SalesDetailModal";
 
 interface DataTableProps {
   data: SalesRecord[];
@@ -26,6 +27,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [searchQuery, setSearchQuery] = useState("");
   const [venueFilter, setVenueFilter] = useState<"All" | "Assembly" | "Caliente" | "Hanabi">("All");
+  const [detailRecord, setDetailRecord] = useState<SalesRecord | null>(null);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -220,7 +222,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
               const origIdx = getOriginalIndex(row);
               const isEditing = editIdx === origIdx;
               return (
-                <TableRow key={`${row.date}-${row.venue}-${row.reportNumber}`}>
+                <TableRow key={`${row.date}-${row.venue}-${row.reportNumber}`} className="cursor-pointer" onClick={() => { if (editIdx === null) setDetailRecord(row); }}>
                   <TableCell className="text-xs">
                     {isEditing && editRecord ? (
                       <input type="date" value={editRecord.date} onChange={(e) => setField("date", e.target.value)}
@@ -290,6 +292,8 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
         title="Delete Sales Record"
         description="Are you sure you want to delete this sales record? This action cannot be undone."
       />
+
+      <SalesDetailModal record={detailRecord} open={detailRecord !== null} onOpenChange={(open) => { if (!open) setDetailRecord(null); }} />
     </div>
   );
 };
