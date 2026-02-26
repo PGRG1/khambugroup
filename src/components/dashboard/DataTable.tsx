@@ -2,8 +2,7 @@ import { useState, useMemo } from "react";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Trash2, Pencil, Download, X, Check, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
-import DeleteConfirmDialog from "./DeleteConfirmDialog";
+import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SalesDetailModal } from "./SalesDetailModal";
 
@@ -19,10 +18,7 @@ type SortDir = "asc" | "desc";
 const PAGE_SIZE = 15;
 
 const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
-  const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [editRecord, setEditRecord] = useState<SalesRecord | null>(null);
   const [page, setPage] = useState(0);
-  const [deleteIdx, setDeleteIdx] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,11 +42,9 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
 
   const filteredAndSorted = useMemo(() => {
     let result = [...data];
-    // venue filter
     if (venueFilter !== "All") {
       result = result.filter(r => r.venue === venueFilter);
     }
-    // search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(r =>
@@ -60,7 +54,6 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
         r.reportNumber.toLowerCase().includes(q)
       );
     }
-    // sort
     result.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
@@ -75,45 +68,18 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   const totalPages = Math.ceil(filteredAndSorted.length / PAGE_SIZE);
   const pageData = filteredAndSorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  // For edit/delete we need the original data index
   const getOriginalIndex = (filteredRecord: SalesRecord) => {
     return data.findIndex(r => r.date === filteredRecord.date && r.venue === filteredRecord.venue && r.reportNumber === filteredRecord.reportNumber);
-  };
-
-  const startEdit = (record: SalesRecord) => {
-    const idx = getOriginalIndex(record);
-    setEditIdx(idx);
-    setEditRecord({ ...record });
-  };
-
-  const cancelEdit = () => {
-    setEditIdx(null);
-    setEditRecord(null);
-  };
-
-  const saveEdit = () => {
-    if (editIdx !== null && editRecord && onUpdate) {
-      onUpdate(editIdx, editRecord);
-      cancelEdit();
-    }
-  };
-
-  const setField = (key: keyof SalesRecord, value: string | number) => {
-    if (!editRecord) return;
-    setEditRecord({ ...editRecord, [key]: value });
   };
 
   const downloadCSV = () => {
     const headers = ["Date","Day","Venue","Report #","Orders","Guests","Subtotal","Service Charge","Discount","Total Sales","VISA","Mastercard","AMEX","Union Pay","Alipay","WeChat","Cash","Card Tips"];
     const sanitize = (v: string | number) => {
-      // Numbers are safe — output as-is, ensuring discount is always negative
       if (typeof v === "number") return String(v);
       const s = String(v);
-      // CSV injection prevention: prefix formula chars with single quote (strings only)
       if (/^[=+@\t\r]/.test(s)) return `'${s}`;
       return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    // Standardize discount to always be negative (absolute value made negative)
     const rows = data.map(r => {
       const standardized = { ...r, discount: -Math.abs(r.discount) };
       return [standardized.date,standardized.day,standardized.venue,standardized.reportNumber,standardized.orders,standardized.guests,standardized.subtotal,standardized.serviceCharge,standardized.discount,standardized.totalSales,standardized.visa,standardized.mastercard,standardized.amex,standardized.unionPay,standardized.alipay,standardized.wechat,standardized.cash,standardized.cardTips].map(sanitize).join(",");
@@ -128,23 +94,12 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
     URL.revokeObjectURL(url);
   };
 
-  // Check if total sales matches calculated value
   const hasTotalMismatch = (row: SalesRecord) => {
-    const expected = row.subtotal + row.serviceCharge + row.discount; // discount is negative
+    const expected = row.subtotal + row.serviceCharge + row.discount;
     return Math.abs(row.totalSales - expected) > 0.01;
   };
 
-  const numCell = (key: keyof SalesRecord, row: SalesRecord, idx: number) => {
-    if (editIdx === idx && editRecord) {
-      return (
-        <input
-          type="number"
-          value={editRecord[key] as number}
-          onChange={(e) => setField(key, parseFloat(e.target.value) || 0)}
-          className="w-20 px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground"
-        />
-      );
-    }
+  const numCell = (key: keyof SalesRecord, row: SalesRecord) => {
     const val = row[key] as number;
     const isMismatchedTotal = key === "totalSales" && hasTotalMismatch(row);
     return (
@@ -214,60 +169,27 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                   </button>
                 </TableHead>
               ))}
-              <TableHead className="text-xs w-20">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pageData.map((row) => {
-              const origIdx = getOriginalIndex(row);
-              const isEditing = editIdx === origIdx;
-              return (
-                <TableRow key={`${row.date}-${row.venue}-${row.reportNumber}`} className="cursor-pointer" onClick={() => { if (editIdx === null) setDetailRecord(row); }}>
-                  <TableCell className="text-xs">
-                    {isEditing && editRecord ? (
-                      <input type="date" value={editRecord.date} onChange={(e) => setField("date", e.target.value)}
-                        className="w-28 px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground" />
-                    ) : row.date}
-                  </TableCell>
-                  <TableCell className="text-xs">{row.day}</TableCell>
-                  <TableCell className="text-xs">
-                    {isEditing && editRecord ? (
-                      <select value={editRecord.venue} onChange={(e) => setField("venue", e.target.value)}
-                        className="px-1 py-0.5 text-xs rounded border border-border bg-background text-foreground">
-                        <option>Assembly</option>
-                        <option>Caliente</option>
-                        <option>Hanabi</option>
-                      </select>
-                    ) : row.venue}
-                  </TableCell>
-                  <TableCell className="text-xs">{row.reportNumber}</TableCell>
-                  <TableCell>{numCell("orders", row, origIdx)}</TableCell>
-                  <TableCell>{numCell("guests", row, origIdx)}</TableCell>
-                  <TableCell>{numCell("subtotal", row, origIdx)}</TableCell>
-                  <TableCell>{numCell("serviceCharge", row, origIdx)}</TableCell>
-                  <TableCell>{numCell("discount", row, origIdx)}</TableCell>
-                  <TableCell>{numCell("totalSales", row, origIdx)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      {isEditing ? (
-                        <>
-                          <button onClick={saveEdit} className="p-1 rounded hover:bg-secondary text-primary"><Check className="h-3.5 w-3.5" /></button>
-                          <button onClick={cancelEdit} className="p-1 rounded hover:bg-secondary text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
-                        </>
-                      ) : (
-                        <>
-                          {onUpdate && <button onClick={() => startEdit(row)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>}
-                          {onDelete && <button onClick={() => setDeleteIdx(origIdx)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>}
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {pageData.map((row) => (
+              <TableRow key={`${row.date}-${row.venue}-${row.reportNumber}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailRecord(row)}>
+                <TableCell className="text-xs">{row.date}</TableCell>
+                <TableCell className="text-xs">{row.day}</TableCell>
+                <TableCell className="text-xs">{row.venue}</TableCell>
+                <TableCell className="text-xs">{row.reportNumber}</TableCell>
+                <TableCell>{numCell("orders", row)}</TableCell>
+                <TableCell>{numCell("guests", row)}</TableCell>
+                <TableCell>{numCell("subtotal", row)}</TableCell>
+                <TableCell>{numCell("serviceCharge", row)}</TableCell>
+                <TableCell>{numCell("discount", row)}</TableCell>
+                <TableCell>{numCell("totalSales", row)}</TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
+
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
           <span>Page {page + 1} of {totalPages}</span>
@@ -280,20 +202,21 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
         </div>
       )}
 
-      <DeleteConfirmDialog
-        open={deleteIdx !== null}
-        onOpenChange={(open) => { if (!open) setDeleteIdx(null); }}
-        onConfirm={() => {
-          if (deleteIdx !== null && onDelete) {
-            onDelete(deleteIdx);
-            setDeleteIdx(null);
-          }
-        }}
-        title="Delete Sales Record"
-        description="Are you sure you want to delete this sales record? This action cannot be undone."
+      <SalesDetailModal
+        record={detailRecord}
+        open={detailRecord !== null}
+        onOpenChange={(open) => { if (!open) setDetailRecord(null); }}
+        onEdit={onUpdate ? (record) => {
+          const idx = getOriginalIndex(record);
+          if (idx >= 0) onUpdate(idx, record);
+          setDetailRecord(null);
+        } : undefined}
+        onDelete={onDelete ? (record) => {
+          const idx = getOriginalIndex(record);
+          if (idx >= 0) onDelete(idx);
+          setDetailRecord(null);
+        } : undefined}
       />
-
-      <SalesDetailModal record={detailRecord} open={detailRecord !== null} onOpenChange={(open) => { if (!open) setDetailRecord(null); }} />
     </div>
   );
 };
