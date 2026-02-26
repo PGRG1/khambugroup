@@ -47,6 +47,29 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
     }, [] as { date: string; day: string; totalSales: number; guests: number; orders: number }[])
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  // Per-venue daily aggregation for Top/Bottom 5
+  const venueDailySales = useMemo(() => {
+    const map = new Map<string, { date: string; day: string; venue: string; totalSales: number }>();
+    data.forEach((r) => {
+      const key = `${r.date}-${r.venue}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.totalSales += r.totalSales;
+      } else {
+        map.set(key, { date: r.date, day: r.day, venue: r.venue, totalSales: r.totalSales });
+      }
+    });
+    return Array.from(map.values());
+  }, [data]);
+
+  const getTopBottom = (venueName: string) => {
+    const venueRows = venueDailySales.filter((d) => d.venue === venueName).sort((a, b) => b.totalSales - a.totalSales);
+    return {
+      top5: venueRows.slice(0, 5),
+      bottom5: venueRows.length > 5 ? venueRows.slice(-5).reverse() : venueRows.slice().reverse().slice(0, 5),
+    };
+  };
+
   const spendData = dailySales.map((d) => ({
     date: d.date,
     day: d.day,
@@ -287,6 +310,36 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
           <VenuePerformanceChart data={venueData} venue={venue} />
 
           <PaymentBreakdownChart data={paymentData} />
+
+          {/* Top 5 & Bottom 5 per venue */}
+          {["Assembly", "Caliente"].map((v) => {
+            const { top5, bottom5 } = getTopBottom(v);
+            if (top5.length === 0) return null;
+            return (
+              <ChartCard key={v} title={`${v} — Top & Bottom 5 Days`}>
+                <div className="space-y-3 py-1">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">🔥 Top 5</p>
+                    {top5.map((d, i) => (
+                      <div key={d.date} className="flex items-center justify-between text-sm py-0.5">
+                        <span className="text-muted-foreground">{i + 1}. {formatDate(d.date)} ({d.day})</span>
+                        <span className="font-medium text-foreground">${formatCurrency(d.totalSales)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-border pt-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">📉 Bottom 5</p>
+                    {bottom5.map((d, i) => (
+                      <div key={d.date} className="flex items-center justify-between text-sm py-0.5">
+                        <span className="text-muted-foreground">{i + 1}. {formatDate(d.date)} ({d.day})</span>
+                        <span className="font-medium text-foreground">${formatCurrency(d.totalSales)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </ChartCard>
+            );
+          })}
 
           <ChartCard title="Discount Trend" className="lg:col-span-2">
             <div className="flex items-center justify-between mb-2 px-1">

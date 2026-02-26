@@ -24,6 +24,7 @@ const Index = () => {
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
+  const [activeTab, setActiveTab] = useState("overview");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
   const [view, setView] = useState<"daily" | "monthly">("daily");
@@ -123,37 +124,39 @@ const Index = () => {
           <span className="text-gradient-gold">Revenue</span>
           <span className="text-muted-foreground ml-2 text-base font-normal">Overview</span>
         </h1>
-        <div className="flex items-center gap-3 flex-wrap">
-          {!hideVenueFilter && (
-            <div className="inline-flex rounded-lg border border-border overflow-hidden">
-              {venues.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVenue(v)}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    venue === v
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-muted"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          )}
-          {isAdmin && !hideGenerateReport && (
-            <button
-              onClick={handleGenerateReport}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-            >
-              <FileDown className="h-4 w-4" />
-              Generate Report
-            </button>
-          )}
-        </div>
+        {activeTab === "overview" && (
+          <div className="flex items-center gap-3 flex-wrap">
+            {!hideVenueFilter && (
+              <div className="inline-flex rounded-lg border border-border overflow-hidden">
+                {venues.map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setVenue(v)}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      venue === v
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
+            {isAdmin && !hideGenerateReport && (
+              <button
+                onClick={handleGenerateReport}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+              >
+                <FileDown className="h-4 w-4" />
+                Generate Report
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="data">Sales Data</TabsTrigger>
