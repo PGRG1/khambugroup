@@ -247,7 +247,12 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Avg Sales by Day of Week (MoM)">
+          <div className="lg:col-span-2 mt-2 mb-1">
+            <h3 className="text-sm font-semibold text-foreground">Average by Day of Week</h3>
+            <p className="text-xs text-muted-foreground">Weekday performance averages broken down by month</p>
+          </div>
+
+          <ChartCard title="Avg Sales by Day of Week">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={dayStats}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
@@ -262,7 +267,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Avg Guests by Day of Week (MoM)">
+          <ChartCard title="Avg Guests by Day of Week">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={dayStats}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
@@ -277,7 +282,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Avg Spend/Guest by Day of Week (MoM)">
+          <ChartCard title="Avg Spend/Guest by Day of Week">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={dayStats}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
@@ -292,7 +297,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Avg Spend/Order by Day of Week (MoM)">
+          <ChartCard title="Avg Spend/Order by Day of Week">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={dayStats}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
