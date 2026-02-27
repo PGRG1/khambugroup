@@ -14,8 +14,9 @@ import DataTable from "@/components/dashboard/DataTable";
 import ResetDataButton from "@/components/dashboard/ResetDataButton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { generateMTDReport } from "@/utils/generateReport";
-import { FileDown, Upload, PenLine, ScanLine } from "lucide-react";
+import { FileDown, FileText, Upload, PenLine, ScanLine } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import MTDTextReport from "@/components/dashboard/MTDTextReport";
 
 const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente", "Hanabi"];
 
@@ -33,6 +34,7 @@ const Index = () => {
   const [showUpload, setShowUpload] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showMTDText, setShowMTDText] = useState(false);
 
   const hideUpload = isActionHidden("data.upload");
   const hideScanReceipt = isActionHidden("data.scan_receipt");
@@ -144,13 +146,22 @@ const Index = () => {
               </div>
             )}
             {isAdmin && !hideGenerateReport && (
-              <button
-                onClick={handleGenerateReport}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-              >
-                <FileDown className="h-4 w-4" />
-                Generate Report
-              </button>
+              <>
+                <button
+                  onClick={() => setShowMTDText(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                >
+                  <FileText className="h-4 w-4" />
+                  MTD Summary
+                </button>
+                <button
+                  onClick={handleGenerateReport}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Generate Report
+                </button>
+              </>
             )}
           </div>
         )}
@@ -265,6 +276,7 @@ const Index = () => {
           <DataTable data={data} onUpdate={canEdit ? handleUpdateRecord : undefined} onDelete={canDelete ? handleDeleteRecord : undefined} />
         </TabsContent>
       </Tabs>
+      <MTDTextReport open={showMTDText} onOpenChange={setShowMTDText} data={filtered} from={from} to={to} />
     </div>
   );
 };
