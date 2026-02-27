@@ -30,7 +30,7 @@ const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrd
         <div key={c.label} className="card-glass rounded-xl p-3 sm:p-4 animate-fade-in overflow-hidden">
           <div className="flex items-center gap-1.5 mb-2">
             <c.icon className={`h-4 w-4 shrink-0 ${c.color}`} />
-            <span className="text-xs text-muted-foreground truncate">{c.label}</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">{c.label}</span>
           </div>
           <p className="text-xs sm:text-sm lg:text-base font-display font-bold text-foreground whitespace-nowrap leading-tight">{c.value}</p>
         </div>

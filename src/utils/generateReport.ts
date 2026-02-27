@@ -5,7 +5,7 @@ import { formatCurrency, getVenueComparison } from "@/utils/salesUtils";
 
 interface ReportOptions {
   data: SalesRecord[];
-  venue: "All Venues" | "Assembly" | "Caliente" | "Hanabi";
+  venue: string;
   monthLabel: string;
 }
 

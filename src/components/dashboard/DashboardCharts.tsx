@@ -316,8 +316,8 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
 
           <PaymentBreakdownChart data={paymentData} />
 
-          {/* Top 5 & Bottom 5 per venue */}
-          {["Assembly", "Caliente"].map((v) => {
+          {/* Top 5 & Bottom 5 per venue — dynamic */}
+          {[...new Set(data.map((r) => r.venue))].sort().map((v) => {
             const { top5, bottom5 } = getTopBottom(v);
             if (top5.length === 0) return null;
             return (

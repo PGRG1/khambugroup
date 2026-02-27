@@ -20,18 +20,20 @@ function generateMTDText(data: SalesRecord[], from?: Date, to?: Date): string {
   // Determine period bounds
   const dates = data.map((r) => r.date).sort();
   const firstDate = from ? from : new Date(dates[0]);
-  const lastDate = to ? to : new Date(dates[dates.length - 1]);
+  // Auto-detect last trading day: use the latest date with recorded sales
+  const lastTradingDate = new Date(dates[dates.length - 1]);
+  const lastDate = to && to < lastTradingDate ? to : lastTradingDate;
 
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const monthLabel = `${monthNames[firstDate.getMonth()]} ${firstDate.getFullYear()}`;
   const dayStart = firstDate.getDate();
   const dayEnd = lastDate.getDate();
-  const dateRange = `(${monthNames[firstDate.getMonth()]} ${dayStart}–${dayEnd})`;
+  const dateRange = `(${monthNames[firstDate.getMonth()]} ${dayStart}–${dayEnd}, ${firstDate.getFullYear()})`;
 
   // Calculate total calendar days in the period
   const totalCalendarDays = Math.floor((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  // Get unique venues from data
+  // Get unique venues from data (dynamic)
   const venueNames = [...new Set(data.map((r) => r.venue))].sort();
 
   // Helper to compute stats for a set of records
@@ -53,26 +55,22 @@ function generateMTDText(data: SalesRecord[], from?: Date, to?: Date): string {
   // Header
   lines.push(`*${monthLabel} MTD*`);
   lines.push(`\`${dateRange}\``);
-  lines.push("");
 
   // All Venues
   const allStats = computeStats(data);
-  lines.push("*All Venues*");
   lines.push("");
+  lines.push("*All Venues*");
   lines.push("```");
   lines.push(`Sales: $${formatCurrency(allStats.totalSales)} ($${formatCurrency(allStats.salesPerDay)}/day)`);
-  lines.push("");
   lines.push(`Guests: ${formatCurrency(allStats.totalGuests)} (${formatCurrency(allStats.guestsPerDay)}/day)`);
-  lines.push("");
   lines.push(`Avg Spend: $${formatCurrency(allStats.avgSpend)}/guest`);
-  lines.push("");
   lines.push(`Discount: $${formatCurrency(Math.abs(allStats.totalDiscount))} (${allStats.discountPct}% of sales)`);
   lines.push("```");
-  lines.push("");
 
-  // Per venue
+  // Per venue (only if venue has data)
   venueNames.forEach((venueName) => {
     const venueRecords = data.filter((r) => r.venue === venueName);
+    if (venueRecords.length === 0) return;
     const stats = computeStats(venueRecords);
 
     // Build venue header with operating days note if different from calendar days
@@ -82,16 +80,13 @@ function generateMTDText(data: SalesRecord[], from?: Date, to?: Date): string {
     }
     venueHeader += "*";
 
-    lines.push(venueHeader);
     lines.push("");
+    lines.push(venueHeader);
     lines.push("```");
     lines.push(`Sales: $${formatCurrency(stats.totalSales)} ($${formatCurrency(stats.salesPerDay)}/day)`);
-    lines.push("");
     lines.push(`Guests: ${formatCurrency(stats.totalGuests)} (${formatCurrency(stats.guestsPerDay)}/day)`);
-    lines.push("");
     lines.push(`Avg Spend: $${formatCurrency(stats.avgSpend)}/guest`);
     lines.push("```");
-    lines.push("");
   });
 
   return lines.join("\n").trim();

@@ -4,7 +4,7 @@ import { z } from "zod";
 const SalesRecordSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   day: z.string().trim().min(1).max(10),
-  venue: z.enum(["Assembly", "Caliente", "Hanabi"]),
+  venue: z.enum(["Assembly", "Caliente", "Hanabi", "Events"]),
   reportNumber: z.string().trim().max(50),
   orders: z.number().int().min(0).max(100000),
   guests: z.number().int().min(0).max(100000),
@@ -112,7 +112,7 @@ export function getPaymentBreakdown(data: SalesRecord[]) {
 }
 
 export function getVenueComparison(data: SalesRecord[]) {
-  const venues = ["Assembly", "Caliente", "Hanabi"] as const;
+  const venues = [...new Set(data.map((r) => r.venue))].sort();
   return venues.map((v) => {
     const records = data.filter((r) => r.venue === v);
     const totalSales = records.reduce((s, r) => s + r.totalSales, 0);
@@ -151,12 +151,12 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
     }
 
     const venue = String(row[2]).trim();
-    if (venue !== "Assembly" && venue !== "Caliente" && venue !== "Hanabi") return null;
+    if (venue !== "Assembly" && venue !== "Caliente" && venue !== "Hanabi" && venue !== "Events") return null;
 
     const record = {
       date: dateStr,
       day: String(row[1]).trim().slice(0, 10),
-      venue: venue as "Assembly" | "Caliente" | "Hanabi",
+      venue: venue as "Assembly" | "Caliente" | "Hanabi" | "Events",
       reportNumber: String(row[3]).trim().slice(0, 50),
       orders: parsePositive(row[4]),
       guests: parsePositive(row[5]),

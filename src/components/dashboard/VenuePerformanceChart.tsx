@@ -17,22 +17,9 @@ interface VenuePerformanceChartProps {
 }
 
 const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceChartProps) => {
-  const a = data.find((d) => d.venue === "Assembly");
-  const c = data.find((d) => d.venue === "Caliente");
-
-  const isSingleVenue = venue === "Assembly" || venue === "Caliente";
-  const singleVenueData = venue === "Assembly" ? a : venue === "Caliente" ? c : null;
-
-  // Per-day averages
-  const avgSalesPerDayA = a && a.days ? Math.round(a.totalSales / a.days) : 0;
-  const avgSalesPerDayC = c && c.days ? Math.round(c.totalSales / c.days) : 0;
-  const avgGuestsPerDayA = a && a.days ? Math.round(a.totalGuests / a.days) : 0;
-  const avgGuestsPerDayC = c && c.days ? Math.round(c.totalGuests / c.days) : 0;
-  const avgOrdersPerDayA = a && a.days ? Math.round(a.totalOrders / a.days) : 0;
-  const avgOrdersPerDayC = c && c.days ? Math.round(c.totalOrders / c.days) : 0;
-
-  const guestsPerOrderA = a && a.totalOrders ? (a.totalGuests / a.totalOrders).toFixed(1) : "-";
-  const guestsPerOrderC = c && c.totalOrders ? (c.totalGuests / c.totalOrders).toFixed(1) : "-";
+  const activeVenues = data.filter((d) => d.totalSales > 0);
+  const isSingleVenue = venue !== "All Venues";
+  const singleVenueData = isSingleVenue ? data.find((d) => d.venue === venue) : null;
 
   if (isSingleVenue && singleVenueData) {
     const d = singleVenueData;
@@ -67,45 +54,68 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
     );
   }
 
-  // All Venues — comparison mode
-  const totalSales = data.reduce((s, d) => s + d.totalSales, 0);
-  const aPct = totalSales && a ? Math.round((a.totalSales / totalSales) * 100) : 0;
-  const cPct = 100 - aPct;
+  // All Venues — dynamic comparison
+  const totalSales = activeVenues.reduce((s, d) => s + d.totalSales, 0);
 
-  const rows = [
-    { label: "Total Sales", aVal: a ? `$${formatCurrency(a.totalSales)}` : "-", cVal: c ? `$${formatCurrency(c.totalSales)}` : "-" },
-    { label: "Total Guests", aVal: a ? formatCurrency(a.totalGuests) : "-", cVal: c ? formatCurrency(c.totalGuests) : "-" },
-    { label: "Total Orders", aVal: a ? formatCurrency(a.totalOrders) : "-", cVal: c ? formatCurrency(c.totalOrders) : "-" },
-    { label: "Guests/Order", aVal: guestsPerOrderA, cVal: guestsPerOrderC },
-    { label: "Avg Sales/Day", aVal: `$${formatCurrency(avgSalesPerDayA)}`, cVal: `$${formatCurrency(avgSalesPerDayC)}` },
-    { label: "Avg Guests/Day", aVal: formatCurrency(avgGuestsPerDayA), cVal: formatCurrency(avgGuestsPerDayC) },
-    { label: "Avg Orders/Day", aVal: formatCurrency(avgOrdersPerDayA), cVal: formatCurrency(avgOrdersPerDayC) },
-    { label: "Avg/Guest", aVal: a ? `$${formatCurrency(a.avgPerGuest)}` : "-", cVal: c ? `$${formatCurrency(c.avgPerGuest)}` : "-" },
-    { label: "Avg/Order", aVal: a ? `$${formatCurrency(a.avgPerOrder)}` : "-", cVal: c ? `$${formatCurrency(c.avgPerOrder)}` : "-" },
+  const COLORS = [
+    "hsl(24, 80%, 50%)",
+    "hsl(210, 65%, 55%)",
+    "hsl(175, 55%, 42%)",
+    "hsl(258, 50%, 55%)",
+    "hsl(14, 70%, 52%)",
   ];
 
+  const venuePercentages = activeVenues.map((v) => ({
+    venue: v.venue,
+    pct: totalSales ? Math.round((v.totalSales / totalSales) * 100) : 0,
+  }));
+
+  const metricRows = [
+    { label: "Total Sales", getValue: (d: VenueData) => `$${formatCurrency(d.totalSales)}` },
+    { label: "Total Guests", getValue: (d: VenueData) => formatCurrency(d.totalGuests) },
+    { label: "Total Orders", getValue: (d: VenueData) => formatCurrency(d.totalOrders) },
+    { label: "Guests/Order", getValue: (d: VenueData) => d.totalOrders ? (d.totalGuests / d.totalOrders).toFixed(1) : "-" },
+    { label: "Avg Sales/Day", getValue: (d: VenueData) => d.days ? `$${formatCurrency(Math.round(d.totalSales / d.days))}` : "-" },
+    { label: "Avg Guests/Day", getValue: (d: VenueData) => d.days ? formatCurrency(Math.round(d.totalGuests / d.days)) : "-" },
+    { label: "Avg Orders/Day", getValue: (d: VenueData) => d.days ? formatCurrency(Math.round(d.totalOrders / d.days)) : "-" },
+    { label: "Avg/Guest", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerGuest)}` },
+    { label: "Avg/Order", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerOrder)}` },
+  ];
+
+  const subtitle = activeVenues.map((v) => v.venue).join(" vs ");
+
   return (
-    <ChartCard title="Venue Performance" subtitle="Assembly vs Caliente">
+    <ChartCard title="Venue Performance" subtitle={subtitle}>
       <div className="space-y-4 py-2">
         {/* Stacked bar */}
         <div>
           <div className="flex h-4 rounded-full overflow-hidden">
-            <div className="transition-all duration-500" style={{ width: `${aPct}%`, backgroundColor: "hsl(24, 80%, 50%)" }} />
-            <div className="transition-all duration-500" style={{ width: `${cPct}%`, backgroundColor: "hsl(210, 65%, 55%)" }} />
+            {venuePercentages.map((v, i) => (
+              <div key={v.venue} className="transition-all duration-500" style={{ width: `${v.pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+            ))}
           </div>
           <div className="flex justify-between mt-1.5">
-            <span className="text-xs text-muted-foreground">Assembly {aPct}%</span>
-            <span className="text-xs text-muted-foreground">Caliente {cPct}%</span>
+            {venuePercentages.map((v) => (
+              <span key={v.venue} className="text-xs text-muted-foreground">{v.venue} {v.pct}%</span>
+            ))}
           </div>
         </div>
 
         {/* Comparison table */}
         <div className="space-y-3">
-          {rows.map((row) => (
+          {/* Header row */}
+          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="w-24">&nbsp;</span>
+            {activeVenues.map((v) => (
+              <span key={v.venue} className="text-right w-24">{v.venue}</span>
+            ))}
+          </div>
+          {metricRows.map((row) => (
             <div key={row.label} className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground w-24">{row.label}</span>
-              <span className="font-medium text-foreground text-right w-24">{row.aVal}</span>
-              <span className="font-medium text-foreground text-right w-24">{row.cVal}</span>
+              {activeVenues.map((v) => (
+                <span key={v.venue} className="font-medium text-foreground text-right w-24">{row.getValue(v)}</span>
+              ))}
             </div>
           ))}
         </div>
