@@ -66,10 +66,26 @@ export function getDayOfWeekStats(data: SalesRecord[]) {
     months.forEach((month) => {
       const records = data.filter((r) => r.day === day && getMonthKey(r.date) === month);
       if (records.length > 0) {
-        entry[`sales_${month}`] = Math.round(records.reduce((s, r) => s + r.totalSales, 0) / records.length);
-        entry[`guests_${month}`] = Math.round(records.reduce((s, r) => s + r.guests, 0) / records.length);
-        entry[`spendPerGuest_${month}`] = Math.round(records.reduce((s, r) => s + r.totalSales / r.guests, 0) / records.length);
-        entry[`spendPerOrder_${month}`] = Math.round(records.reduce((s, r) => s + r.totalSales / r.orders, 0) / records.length);
+        // Aggregate by unique date first, then average by number of unique days
+        const byDate = new Map<string, { sales: number; guests: number; orders: number }>();
+        records.forEach((r) => {
+          const existing = byDate.get(r.date);
+          if (existing) {
+            existing.sales += r.totalSales;
+            existing.guests += r.guests;
+            existing.orders += r.orders;
+          } else {
+            byDate.set(r.date, { sales: r.totalSales, guests: r.guests, orders: r.orders });
+          }
+        });
+        const numDays = byDate.size;
+        const totalSales = Array.from(byDate.values()).reduce((s, d) => s + d.sales, 0);
+        const totalGuests = Array.from(byDate.values()).reduce((s, d) => s + d.guests, 0);
+        const totalOrders = Array.from(byDate.values()).reduce((s, d) => s + d.orders, 0);
+        entry[`sales_${month}`] = Math.round(totalSales / numDays);
+        entry[`guests_${month}`] = Math.round(totalGuests / numDays);
+        entry[`spendPerGuest_${month}`] = totalGuests ? Math.round(totalSales / totalGuests) : 0;
+        entry[`spendPerOrder_${month}`] = totalOrders ? Math.round(totalSales / totalOrders) : 0;
       }
     });
     return entry;
