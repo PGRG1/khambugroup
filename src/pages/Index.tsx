@@ -18,7 +18,7 @@ import { FileDown, FileText, Upload, PenLine, ScanLine } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 
-const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente", "Hanabi"];
+const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente", "Hanabi", "Events"];
 
 const Index = () => {
   const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch } = useSalesData();
