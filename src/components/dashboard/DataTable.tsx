@@ -138,7 +138,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
           />
         </div>
         <div className="flex items-center gap-1 flex-wrap">
-          {(["All", ...Array.from(new Set(data.map(r => r.venue))).sort()]).map(v => (
+          {(["All", "Assembly", "Caliente", "Hanabi", "Events"]).map(v => (
             <button
               key={v}
               onClick={() => { setVenueFilter(v); setPage(0); }}

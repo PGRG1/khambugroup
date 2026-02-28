@@ -121,48 +121,50 @@ const Index = () => {
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold font-display tracking-tight shrink-0">
-          <span className="text-gradient-gold">Revenue</span>
-          <span className="text-muted-foreground ml-2 text-base font-normal">Overview</span>
-        </h1>
-        {activeTab === "overview" && isAdmin && !hideGenerateReport && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowMTDText(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              MTD Summary
-            </button>
-            <button
-              onClick={handleGenerateReport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-            >
-              <FileDown className="h-3.5 w-3.5" />
-              Generate Report
-            </button>
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-lg sm:text-2xl font-bold font-display tracking-tight shrink-0">
+            <span className="text-gradient-gold">Revenue</span>
+            <span className="text-muted-foreground ml-1.5 sm:ml-2 text-xs sm:text-base font-normal">Overview</span>
+          </h1>
+          {activeTab === "overview" && isAdmin && !hideGenerateReport && (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={() => setShowMTDText(true)}
+                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+              >
+                <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden xs:inline">MTD</span> Summary
+              </button>
+              <button
+                onClick={handleGenerateReport}
+                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+              >
+                <FileDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                Report
+              </button>
+            </div>
+          )}
+        </div>
+
+        {activeTab === "overview" && !hideVenueFilter && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {venues.map((v) => (
+              <button
+                key={v}
+                onClick={() => setVenue(v)}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border transition-colors ${
+                  venue === v
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
           </div>
         )}
       </div>
-
-      {activeTab === "overview" && !hideVenueFilter && (
-        <div className="flex items-center gap-1 flex-wrap">
-          {venues.map((v) => (
-            <button
-              key={v}
-              onClick={() => setVenue(v)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                venue === v
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
