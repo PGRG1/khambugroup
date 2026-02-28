@@ -22,7 +22,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [searchQuery, setSearchQuery] = useState("");
-  const [venueFilter, setVenueFilter] = useState<"All" | "Assembly" | "Caliente" | "Hanabi">("All");
+  const [venueFilter, setVenueFilter] = useState<string>("All");
   const [detailRecord, setDetailRecord] = useState<SalesRecord | null>(null);
 
   const toggleSort = (key: SortKey) => {
@@ -137,8 +137,8 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
             className="pl-8 h-8 text-xs"
           />
         </div>
-        <div className="flex items-center gap-1">
-          {(["All", "Assembly", "Caliente", "Hanabi"] as const).map(v => (
+        <div className="flex items-center gap-1 flex-wrap">
+          {(["All", ...Array.from(new Set(data.map(r => r.venue))).sort()]).map(v => (
             <button
               key={v}
               onClick={() => { setVenueFilter(v); setPage(0); }}

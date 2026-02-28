@@ -121,51 +121,48 @@ const Index = () => {
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold font-display tracking-tight">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold font-display tracking-tight shrink-0">
           <span className="text-gradient-gold">Revenue</span>
           <span className="text-muted-foreground ml-2 text-base font-normal">Overview</span>
         </h1>
-        {activeTab === "overview" && (
-          <div className="flex items-center gap-3 flex-wrap">
-            {!hideVenueFilter && (
-              <div className="inline-flex rounded-lg border border-border overflow-hidden">
-                {venues.map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setVenue(v)}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      venue === v
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            )}
-            {isAdmin && !hideGenerateReport && (
-              <>
-                <button
-                  onClick={() => setShowMTDText(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-                >
-                  <FileText className="h-4 w-4" />
-                  MTD Summary
-                </button>
-                <button
-                  onClick={handleGenerateReport}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-                >
-                  <FileDown className="h-4 w-4" />
-                  Generate Report
-                </button>
-              </>
-            )}
+        {activeTab === "overview" && isAdmin && !hideGenerateReport && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMTDText(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              MTD Summary
+            </button>
+            <button
+              onClick={handleGenerateReport}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Generate Report
+            </button>
           </div>
         )}
       </div>
+
+      {activeTab === "overview" && !hideVenueFilter && (
+        <div className="flex items-center gap-1 flex-wrap">
+          {venues.map((v) => (
+            <button
+              key={v}
+              onClick={() => setVenue(v)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                venue === v
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
