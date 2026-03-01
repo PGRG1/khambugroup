@@ -25,25 +25,21 @@ interface Line {
   bold?: boolean;
 }
 
-function buildLines(allUnknownNames: string[]): Line[] {
+function buildLines(allUnknownNames: string[], venueNames: string[]): Line[] {
   const m = (key: string) => (d: PLPeriodData) => d.manual[key] || 0;
   const lines: Line[] = [];
 
-  // ── Revenue ──
+  // ── Revenue (dynamic per venue) ──
   lines.push({ label: "Revenue", type: "header", getValue: () => undefined });
-  lines.push({ label: "Assembly", type: "subheader", indent: 1, getValue: () => undefined });
-  lines.push({ label: "Gross Revenue", type: "item", indent: 2, getValue: (d) => d.assembly.grossRevenue });
-  lines.push({ label: "Service Charge", type: "item", indent: 2, getValue: (d) => d.assembly.serviceChargeRevenue });
-  lines.push({ label: "Discounts", type: "item", indent: 2, getValue: (d) => d.assembly.discounts });
-  lines.push({ label: "Net Sales", type: "subtotal", indent: 2, getValue: (d) => d.assembly.netSales });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  lines.push({ label: "Caliente", type: "subheader", indent: 1, getValue: () => undefined });
-  lines.push({ label: "Gross Revenue", type: "item", indent: 2, getValue: (d) => d.caliente.grossRevenue });
-  lines.push({ label: "Service Charge", type: "item", indent: 2, getValue: (d) => d.caliente.serviceChargeRevenue });
-  lines.push({ label: "Discounts", type: "item", indent: 2, getValue: (d) => d.caliente.discounts });
-  lines.push({ label: "Net Sales", type: "subtotal", indent: 2, getValue: (d) => d.caliente.netSales });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
+  
+  for (const venueName of venueNames) {
+    lines.push({ label: venueName, type: "subheader", indent: 1, getValue: () => undefined });
+    lines.push({ label: "Gross Revenue", type: "item", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.grossRevenue || 0 });
+    lines.push({ label: "Service Charge", type: "item", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.serviceChargeRevenue || 0 });
+    lines.push({ label: "Discounts", type: "item", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.discounts || 0 });
+    lines.push({ label: "Net Sales", type: "subtotal", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.netSales || 0 });
+    lines.push({ label: "", type: "blank", getValue: () => undefined });
+  }
 
   lines.push({ label: "Total Revenue", type: "total", getValue: (d) => d.totalRevenue, bold: true });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
@@ -172,25 +168,27 @@ export default function PLReport() {
   // Group period data per selected period option
   const groupedData = useMemo(() => {
     return selectedPeriods.map(sp => {
-      const emptyVenue = () => ({ grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
       const agg: PLPeriodData = {
-        assembly: emptyVenue(), caliente: emptyVenue(), totalRevenue: 0,
+        venues: [], totalRevenue: 0,
         manual: {}, unknownManualLines: [],
       };
+      const venueMap = new Map<string, { venue: string; grossRevenue: number; serviceChargeRevenue: number; discounts: number; netSales: number }>();
       const unknownMap: Record<string, number> = {};
 
       for (const month of sp.months) {
         const pd = periodData.find(p => p.key.year === sp.year && p.key.month === month);
         if (!pd) continue;
         const d = pd.data;
-        agg.assembly.grossRevenue += d.assembly.grossRevenue;
-        agg.assembly.serviceChargeRevenue += d.assembly.serviceChargeRevenue;
-        agg.assembly.discounts += d.assembly.discounts;
-        agg.assembly.netSales += d.assembly.netSales;
-        agg.caliente.grossRevenue += d.caliente.grossRevenue;
-        agg.caliente.serviceChargeRevenue += d.caliente.serviceChargeRevenue;
-        agg.caliente.discounts += d.caliente.discounts;
-        agg.caliente.netSales += d.caliente.netSales;
+        for (const v of d.venues) {
+          if (!venueMap.has(v.venue)) {
+            venueMap.set(v.venue, { venue: v.venue, grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
+          }
+          const target = venueMap.get(v.venue)!;
+          target.grossRevenue += v.grossRevenue;
+          target.serviceChargeRevenue += v.serviceChargeRevenue;
+          target.discounts += v.discounts;
+          target.netSales += v.netSales;
+        }
         agg.totalRevenue += d.totalRevenue;
         for (const [k, v] of Object.entries(d.manual)) {
           agg.manual[k] = (agg.manual[k] || 0) + v;
@@ -202,6 +200,7 @@ export default function PLReport() {
       for (const k of KNOWN_LINES) {
         if (!(k in agg.manual)) agg.manual[k] = 0;
       }
+      agg.venues = [...venueMap.values()].sort((a, b) => a.venue.localeCompare(b.venue));
       agg.unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
       return { label: sp.label, data: agg, months: sp.months, year: sp.year };
     });
@@ -215,7 +214,16 @@ export default function PLReport() {
     return [...names].sort();
   }, [periodData]);
 
-  const lines = useMemo(() => buildLines(allUnknownNames), [allUnknownNames]);
+  // Collect all venue names across all periods
+  const allVenueNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const pd of periodData) {
+      for (const v of pd.data.venues) names.add(v.venue);
+    }
+    return [...names].sort();
+  }, [periodData]);
+
+  const lines = useMemo(() => buildLines(allUnknownNames, allVenueNames), [allUnknownNames, allVenueNames]);
 
   const showTotal = groupedData.length > 1;
   const canInlineEdit = viewMode === "monthly" && !hideEditValues;
@@ -244,7 +252,7 @@ export default function PLReport() {
         <div>
           <h1 className="text-2xl font-bold font-display tracking-tight">
             <span className="text-gradient-gold">P&L Report</span>
-            <span className="text-muted-foreground ml-2 text-base font-normal">Caliente + Assembly</span>
+            <span className="text-muted-foreground ml-2 text-base font-normal">{allVenueNames.length > 0 ? allVenueNames.join(" + ") : "All Venues"}</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
             Note: Prepared for internal management use only. This P&L is based on management reporting conventions and may not align with statutory financial statements or formal accounting policies.

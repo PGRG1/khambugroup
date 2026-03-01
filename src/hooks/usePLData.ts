@@ -11,6 +11,7 @@ export interface PLManualLine {
 }
 
 interface VenueRevenue {
+  venue: string;
   grossRevenue: number;
   serviceChargeRevenue: number;
   discounts: number;
@@ -18,8 +19,7 @@ interface VenueRevenue {
 }
 
 export interface PLPeriodData {
-  assembly: VenueRevenue;
-  caliente: VenueRevenue;
+  venues: VenueRevenue[];
   totalRevenue: number;
   manual: Record<string, number>;
   unknownManualLines: { name: string; amount: number }[];
@@ -50,22 +50,26 @@ function buildPeriodData(
   manualLines: PLManualLine[],
   period: PLPeriodKey
 ): PLPeriodData {
-  const emptyVenue = (): VenueRevenue => ({ grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
-  const assembly = emptyVenue();
-  const caliente = emptyVenue();
-
   const mm = String(period.month).padStart(2, "0");
   const prefix = `${period.year}-${mm}`;
 
+  // Dynamic venue aggregation
+  const venueMap = new Map<string, VenueRevenue>();
+
   for (const r of revenueData) {
     if (!(r.date as string).startsWith(prefix)) continue;
-    const target = r.venue === "Assembly" ? assembly : r.venue === "Caliente" ? caliente : r.venue === "Hanabi" ? assembly : null;
-    if (!target) continue;
+    const venueName = r.venue as string;
+    if (!venueMap.has(venueName)) {
+      venueMap.set(venueName, { venue: venueName, grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
+    }
+    const target = venueMap.get(venueName)!;
     target.grossRevenue += Number(r.subtotal) || 0;
     target.serviceChargeRevenue += Number(r.service_charge) || 0;
     target.discounts += Number(r.discount) || 0;
     target.netSales += Number(r.total_sales) || 0;
   }
+
+  const venues = [...venueMap.values()].sort((a, b) => a.venue.localeCompare(b.venue));
 
   const filtered = manualLines.filter(l => l.month === period.month && l.year === period.year);
 
@@ -88,9 +92,8 @@ function buildPeriodData(
   const unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
 
   return {
-    assembly,
-    caliente,
-    totalRevenue: assembly.netSales + caliente.netSales,
+    venues,
+    totalRevenue: venues.reduce((s, v) => s + v.netSales, 0),
     manual,
     unknownManualLines,
   };
@@ -149,26 +152,27 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
 
   // Compute totals across all periods
   const totals = useMemo<PLPeriodData>(() => {
-    const emptyVenue = (): VenueRevenue => ({ grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
     const result: PLPeriodData = {
-      assembly: emptyVenue(),
-      caliente: emptyVenue(),
+      venues: [],
       totalRevenue: 0,
       manual: {},
       unknownManualLines: [],
     };
+    const venueMap = new Map<string, VenueRevenue>();
     const unknownMap: Record<string, number> = {};
 
     for (const pd of periodData) {
       const d = pd.data;
-      result.assembly.grossRevenue += d.assembly.grossRevenue;
-      result.assembly.serviceChargeRevenue += d.assembly.serviceChargeRevenue;
-      result.assembly.discounts += d.assembly.discounts;
-      result.assembly.netSales += d.assembly.netSales;
-      result.caliente.grossRevenue += d.caliente.grossRevenue;
-      result.caliente.serviceChargeRevenue += d.caliente.serviceChargeRevenue;
-      result.caliente.discounts += d.caliente.discounts;
-      result.caliente.netSales += d.caliente.netSales;
+      for (const v of d.venues) {
+        if (!venueMap.has(v.venue)) {
+          venueMap.set(v.venue, { venue: v.venue, grossRevenue: 0, serviceChargeRevenue: 0, discounts: 0, netSales: 0 });
+        }
+        const target = venueMap.get(v.venue)!;
+        target.grossRevenue += v.grossRevenue;
+        target.serviceChargeRevenue += v.serviceChargeRevenue;
+        target.discounts += v.discounts;
+        target.netSales += v.netSales;
+      }
       result.totalRevenue += d.totalRevenue;
       for (const [k, v] of Object.entries(d.manual)) {
         result.manual[k] = (result.manual[k] || 0) + v;
@@ -180,6 +184,7 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
     for (const k of KNOWN_LINES) {
       if (!(k in result.manual)) result.manual[k] = 0;
     }
+    result.venues = [...venueMap.values()].sort((a, b) => a.venue.localeCompare(b.venue));
     result.unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
     return result;
   }, [periodData]);
