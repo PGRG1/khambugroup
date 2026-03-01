@@ -26,10 +26,13 @@ const CHART_COLORS = {
   spendOrder: [140, 70, 55],   // rust
 } as const;
 
-const VENUE_COLORS = {
-  assembly: [190, 110, 50] as readonly [number, number, number],
-  caliente: [60, 100, 160] as readonly [number, number, number],
-};
+const VENUE_COLORS: readonly [number, number, number][] = [
+  [190, 110, 50],   // warm amber
+  [60, 100, 160],   // blue
+  [46, 130, 135],   // teal
+  [140, 70, 55],    // rust
+  [100, 140, 60],   // olive
+];
 
 let exhibitCounter = 0;
 
@@ -185,18 +188,21 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
     drawSectionTitle(doc, "Venue Comparison", margin, y);
     y += 10;
 
+    const headRow = ["Metric", ...venueComp.map(v => v.venue)];
+    const bodyRows = [
+      ["Total Sales", ...venueComp.map(v => `$${formatCurrency(v.totalSales)}`)],
+      ["Total Guests", ...venueComp.map(v => formatCurrency(v.totalGuests))],
+      ["Total Orders", ...venueComp.map(v => formatCurrency(v.totalOrders))],
+      ["Avg / Guest", ...venueComp.map(v => `$${formatCurrency(v.avgPerGuest)}`)],
+      ["Avg / Order", ...venueComp.map(v => `$${formatCurrency(v.avgPerOrder)}`)],
+      ["Trading Days", ...venueComp.map(v => String(v.days))],
+    ];
+
     autoTable(doc, {
       startY: y,
       margin: { left: margin, right: margin },
-      head: [["Metric", "Assembly", "Caliente"]],
-      body: [
-        ["Total Sales", `$${formatCurrency(venueComp[0]?.totalSales || 0)}`, `$${formatCurrency(venueComp[1]?.totalSales || 0)}`],
-        ["Total Guests", formatCurrency(venueComp[0]?.totalGuests || 0), formatCurrency(venueComp[1]?.totalGuests || 0)],
-        ["Total Orders", formatCurrency(venueComp[0]?.totalOrders || 0), formatCurrency(venueComp[1]?.totalOrders || 0)],
-        ["Avg / Guest", `$${formatCurrency(venueComp[0]?.avgPerGuest || 0)}`, `$${formatCurrency(venueComp[1]?.avgPerGuest || 0)}`],
-        ["Avg / Order", `$${formatCurrency(venueComp[0]?.avgPerOrder || 0)}`, `$${formatCurrency(venueComp[1]?.avgPerOrder || 0)}`],
-        ["Trading Days", String(venueComp[0]?.days || 0), String(venueComp[1]?.days || 0)],
-      ],
+      head: [headRow],
+      body: bodyRows,
       headStyles: { fillColor: NAVY as any, textColor: [...WHITE], fontStyle: "bold", fontSize: 8 },
       bodyStyles: { fontSize: 8, textColor: DARK_TEXT as any },
       alternateRowStyles: { fillColor: [248, 248, 250] },
@@ -208,12 +214,21 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
 
   // ── CHART DATA ──
   const combinedDaily = buildDailyData(data);
-  const assemblyDaily = buildDailyData(data.filter(r => r.venue === "Assembly"));
-  const calienteDaily = buildDailyData(data.filter(r => r.venue === "Caliente"));
+  
+  // Build per-venue daily data dynamically
+  const activeVenues = [...new Set(data.map(r => r.venue))].sort();
+  const venueDaily = activeVenues.map(v => ({
+    venue: v,
+    daily: buildDailyData(data.filter(r => r.venue === v)),
+  }));
 
   const halfWidth = (contentWidth - 4) / 2;
   const smallChartH = 48;
   const fullChartH = 60;
+
+  // Determine layout: how many venues per row
+  const venuesPerRow = Math.min(activeVenues.length, 2);
+  const venueChartW = venuesPerRow === 1 ? contentWidth : halfWidth;
 
   // ── CHART SECTIONS ──
   const chartSections = [
@@ -258,10 +273,18 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
     drawFn(doc, section.getData(combinedDaily), margin, y, contentWidth, fullChartH, section.color, section.prefix, "Combined");
     y += fullChartH + 4;
 
-    addNewPageIfNeeded(smallChartH + 12);
-    drawFn(doc, section.getData(assemblyDaily), margin, y, halfWidth, smallChartH, VENUE_COLORS.assembly, section.prefix, "Assembly");
-    drawFn(doc, section.getData(calienteDaily), margin + halfWidth + 4, y, halfWidth, smallChartH, VENUE_COLORS.caliente, section.prefix, "Caliente");
-    y += smallChartH + 14;
+    // Draw per-venue charts dynamically (2 per row)
+    for (let i = 0; i < venueDaily.length; i += venuesPerRow) {
+      addNewPageIfNeeded(smallChartH + 12);
+      for (let j = 0; j < venuesPerRow && i + j < venueDaily.length; j++) {
+        const vd = venueDaily[i + j];
+        const xOffset = j === 0 ? margin : margin + venueChartW + 4;
+        const color = VENUE_COLORS[(i + j) % VENUE_COLORS.length];
+        drawFn(doc, section.getData(vd.daily), xOffset, y, venueChartW, smallChartH, color, section.prefix, vd.venue);
+      }
+      y += smallChartH + 8;
+    }
+    y += 6;
   }
 
   // ── FOOTERS ──
