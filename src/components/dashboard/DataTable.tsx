@@ -112,26 +112,26 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   };
 
   return (
-    <div className="card-glass rounded-xl p-5 animate-fade-in">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h3 className="text-sm font-display font-semibold text-foreground">
-          Sales Data ({filteredAndSorted.length}{filteredAndSorted.length !== data.length ? ` of ${data.length}` : ""} records)
+    <div className="card-glass rounded-xl p-3 sm:p-5 animate-fade-in">
+      <div className="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-2">
+        <h3 className="text-xs sm:text-sm font-display font-semibold text-foreground">
+          Sales Data ({filteredAndSorted.length}{filteredAndSorted.length !== data.length ? ` of ${data.length}` : ""})
         </h3>
         <button
           onClick={downloadCSV}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
         >
-          <Download className="h-3.5 w-3.5" />
-          Download CSV
+          <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          CSV
         </button>
       </div>
 
       {/* Filter bar */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+        <div className="relative w-full sm:flex-1 sm:min-w-[180px] sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search date, day, venue, report #..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
             className="pl-8 h-8 text-xs"
@@ -142,29 +142,29 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
             <button
               key={v}
               onClick={() => { setVenueFilter(v); setPage(0); }}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border transition-colors ${
                 venueFilter === v
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
               }`}
             >
-              {v === "All" ? "All Venues" : v}
+              {v === "All" ? "All" : v}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto -mx-3 sm:mx-0">
         <Table>
           <TableHeader>
             <TableRow>
               {([
-                ["date", "Date"], ["day", "Day"], ["venue", "Venue"], ["reportNumber", "Report #"],
-                ["orders", "Orders"], ["guests", "Guests"], ["subtotal", "Subtotal"],
-                ["serviceCharge", "Svc Chg"], ["discount", "Discount"], ["totalSales", "Total"],
+                ["date", "Date"], ["venue", "Venue"],
+                ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
+                ["serviceCharge", "Svc"], ["discount", "Disc"], ["totalSales", "Total"],
               ] as [SortKey, string][]).map(([key, label]) => (
-                <TableHead key={key} className="text-xs">
-                  <button onClick={() => toggleSort(key)} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                <TableHead key={key} className="text-[10px] sm:text-xs px-1.5 sm:px-4">
+                  <button onClick={() => toggleSort(key)} className="flex items-center gap-0.5 hover:text-foreground transition-colors whitespace-nowrap">
                     {label} <SortIcon col={key} />
                   </button>
                 </TableHead>
@@ -174,16 +174,14 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
           <TableBody>
             {pageData.map((row) => (
               <TableRow key={`${row.date}-${row.venue}-${row.reportNumber}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailRecord(row)}>
-                <TableCell className="text-xs">{row.date}</TableCell>
-                <TableCell className="text-xs">{row.day}</TableCell>
-                <TableCell className="text-xs">{row.venue}</TableCell>
-                <TableCell className="text-xs">{row.reportNumber}</TableCell>
-                <TableCell>{numCell("orders", row)}</TableCell>
-                <TableCell>{numCell("guests", row)}</TableCell>
-                <TableCell>{numCell("subtotal", row)}</TableCell>
-                <TableCell>{numCell("serviceCharge", row)}</TableCell>
-                <TableCell>{numCell("discount", row)}</TableCell>
-                <TableCell>{numCell("totalSales", row)}</TableCell>
+                <TableCell className="text-[10px] sm:text-xs px-1.5 sm:px-4 whitespace-nowrap">{row.date}</TableCell>
+                <TableCell className="text-[10px] sm:text-xs px-1.5 sm:px-4">{row.venue}</TableCell>
+                <TableCell className="px-1.5 sm:px-4">{numCell("orders", row)}</TableCell>
+                <TableCell className="px-1.5 sm:px-4">{numCell("guests", row)}</TableCell>
+                <TableCell className="px-1.5 sm:px-4">{numCell("subtotal", row)}</TableCell>
+                <TableCell className="px-1.5 sm:px-4">{numCell("serviceCharge", row)}</TableCell>
+                <TableCell className="px-1.5 sm:px-4">{numCell("discount", row)}</TableCell>
+                <TableCell className="px-1.5 sm:px-4">{numCell("totalSales", row)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

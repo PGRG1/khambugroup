@@ -25,14 +25,14 @@ const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrd
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3">
       {cards.map((c) => (
-        <div key={c.label} className="card-glass rounded-xl p-3 sm:p-4 animate-fade-in min-w-0">
-          <div className="flex items-center gap-1 mb-1">
-            <c.icon className={`h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 ${c.color}`} />
-            <span className="text-[10px] sm:text-xs text-muted-foreground">{c.label}</span>
+        <div key={c.label} className="card-glass rounded-lg sm:rounded-xl p-2 sm:p-4 animate-fade-in min-w-0">
+          <div className="flex items-center gap-1 mb-0.5 sm:mb-1">
+            <c.icon className={`h-3 w-3 shrink-0 ${c.color}`} />
+            <span className="text-[9px] sm:text-xs text-muted-foreground leading-tight">{c.label}</span>
           </div>
-          <p className="text-sm sm:text-base font-display font-bold text-foreground leading-tight break-all">{c.value}</p>
+          <p className="text-xs sm:text-base font-display font-bold text-foreground leading-tight">{c.value}</p>
         </div>
       ))}
     </div>
