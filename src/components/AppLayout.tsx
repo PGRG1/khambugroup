@@ -13,7 +13,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <header className="h-12 flex items-center border-b border-border px-4 bg-background">
             <SidebarTrigger />
           </header>
-          <div className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="flex-1 p-3 sm:p-6 lg:p-8">
             {children}
           </div>
         </main>

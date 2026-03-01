@@ -120,27 +120,27 @@ const Index = () => {
   const canDelete = isAdmin && !hideDeleteRows;
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
-      <div className="flex flex-col gap-3 sm:gap-4">
+    <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-2 sm:gap-3">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="text-lg sm:text-2xl font-bold font-display tracking-tight shrink-0">
+          <h1 className="text-base sm:text-2xl font-bold font-display tracking-tight shrink-0">
             <span className="text-gradient-gold">Revenue</span>
-            <span className="text-muted-foreground ml-1.5 sm:ml-2 text-xs sm:text-base font-normal">Overview</span>
+            <span className="text-muted-foreground ml-1 sm:ml-2 text-[10px] sm:text-base font-normal">Overview</span>
           </h1>
           {activeTab === "overview" && isAdmin && !hideGenerateReport && (
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
                 onClick={() => setShowMTDText(true)}
-                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
               >
-                <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                <span className="hidden xs:inline">MTD</span> Summary
+                <FileText className="h-3 w-3" />
+                <span className="hidden sm:inline">MTD </span>Summary
               </button>
               <button
                 onClick={handleGenerateReport}
-                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
               >
-                <FileDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <FileDown className="h-3 w-3" />
                 Report
               </button>
             </div>
@@ -221,44 +221,44 @@ const Index = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="data" className="space-y-6 mt-4">
+        <TabsContent value="data" className="space-y-4 sm:space-y-6 mt-4">
           {isAdmin && (
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
               {!hideUpload && (
                 <button
                   onClick={() => { setShowUpload(!showUpload); setShowManual(false); setShowScanner(false); }}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
                     showUpload ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
                   }`}
                 >
-                  <Upload className="h-4 w-4" />
-                  Upload Data
+                  <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  Upload
                 </button>
               )}
               {!hideScanReceipt && (
                 <button
                   onClick={() => { setShowScanner(!showScanner); setShowUpload(false); setShowManual(false); }}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
                     showScanner ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
                   }`}
                 >
-                  <ScanLine className="h-4 w-4" />
-                  Scan Receipt
+                  <ScanLine className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  Scan
                 </button>
               )}
               {!hideManualEntry && (
                 <button
                   onClick={() => { setShowManual(!showManual); setShowUpload(false); setShowScanner(false); }}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors ${
                     showManual ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
                   }`}
                 >
-                  <PenLine className="h-4 w-4" />
-                  Manual Entry
+                  <PenLine className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  Manual
                 </button>
               )}
               {!hideReset && <ResetDataButton onReset={refetch} />}
-              <p className="text-xs text-muted-foreground ml-auto">{data.length} records</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground ml-auto">{data.length} records</p>
             </div>
           )}
 
