@@ -1,9 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SalesDetailModal } from "./SalesDetailModal";
 
 interface DataTableProps {
@@ -14,6 +16,7 @@ interface DataTableProps {
 
 type SortKey = keyof SalesRecord;
 type SortDir = "asc" | "desc";
+type ColumnFilter = { type: "values"; values: Set<string> } | { type: "range"; min?: number; max?: number };
 
 const PAGE_SIZE = 15;
 
@@ -24,6 +27,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [venueFilter, setVenueFilter] = useState<string>("All");
   const [detailRecord, setDetailRecord] = useState<SalesRecord | null>(null);
+  const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilter>>({});
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -40,6 +44,45 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
+  const uniqueValues = useCallback((key: SortKey) => {
+    const vals = new Set<string>();
+    data.forEach(r => vals.add(String(r[key])));
+    return Array.from(vals).sort();
+  }, [data]);
+
+  const setValueFilter = (col: string, value: string, checked: boolean) => {
+    setColumnFilters(prev => {
+      const existing = prev[col];
+      const values = existing?.type === "values" ? new Set(existing.values) : new Set<string>();
+      if (checked) values.add(value); else values.delete(value);
+      if (values.size === 0) { const { [col]: _, ...rest } = prev; return rest; }
+      return { ...prev, [col]: { type: "values", values } };
+    });
+    setPage(0);
+  };
+
+  const setRangeFilter = (col: string, bound: "min" | "max", val: string) => {
+    setColumnFilters(prev => {
+      const existing = prev[col];
+      const current = existing?.type === "range" ? existing : { type: "range" as const };
+      const num = val === "" ? undefined : Number(val);
+      const updated = { ...current, [bound]: num } as ColumnFilter;
+      if ((updated as any).min === undefined && (updated as any).max === undefined) {
+        const { [col]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [col]: updated };
+    });
+    setPage(0);
+  };
+
+  const clearFilter = (col: string) => {
+    setColumnFilters(prev => { const { [col]: _, ...rest } = prev; return rest; });
+    setPage(0);
+  };
+
+  const activeFilterCount = Object.keys(columnFilters).length;
+
   const filteredAndSorted = useMemo(() => {
     let result = [...data];
     if (venueFilter !== "All") {
@@ -54,6 +97,19 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
         r.reportNumber.toLowerCase().includes(q)
       );
     }
+    // Apply column filters
+    for (const [col, filter] of Object.entries(columnFilters)) {
+      if (filter.type === "values") {
+        result = result.filter(r => filter.values.has(String(r[col as SortKey])));
+      } else if (filter.type === "range") {
+        result = result.filter(r => {
+          const v = Number(r[col as SortKey]);
+          if (filter.min !== undefined && v < filter.min) return false;
+          if (filter.max !== undefined && v > filter.max) return false;
+          return true;
+        });
+      }
+    }
     result.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
@@ -63,7 +119,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return result;
-  }, [data, venueFilter, searchQuery, sortKey, sortDir]);
+  }, [data, venueFilter, searchQuery, sortKey, sortDir, columnFilters]);
 
   const totalPages = Math.ceil(filteredAndSorted.length / PAGE_SIZE);
   const pageData = filteredAndSorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -154,6 +210,13 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
         </div>
       </div>
 
+      {activeFilterCount > 0 && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-[10px] text-muted-foreground">{activeFilterCount} column filter{activeFilterCount > 1 ? "s" : ""} active</span>
+          <button onClick={() => { setColumnFilters({}); setPage(0); }} className="text-[10px] text-destructive hover:underline">Clear all</button>
+        </div>
+      )}
+
       <div className="overflow-x-auto -mx-3 sm:mx-0">
         <Table>
           <TableHeader>
@@ -162,13 +225,66 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                 ["date", "Date"], ["venue", "Venue"],
                 ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
                 ["serviceCharge", "Svc"], ["discount", "Disc"], ["totalSales", "Total"],
-              ] as [SortKey, string][]).map(([key, label]) => (
-                <TableHead key={key} className="text-[10px] sm:text-xs px-1.5 sm:px-4">
-                  <button onClick={() => toggleSort(key)} className="flex items-center gap-0.5 hover:text-foreground transition-colors whitespace-nowrap">
-                    {label} <SortIcon col={key} />
-                  </button>
-                </TableHead>
-              ))}
+              ] as [SortKey, string][]).map(([key, label]) => {
+                const isText = key === "date" || key === "venue";
+                const hasFilter = !!columnFilters[key];
+                return (
+                  <TableHead key={key} className="text-[10px] sm:text-xs px-1.5 sm:px-4">
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => toggleSort(key)} className="flex items-center gap-0.5 hover:text-foreground transition-colors whitespace-nowrap">
+                        {label} <SortIcon col={key} />
+                      </button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className={`ml-0.5 p-0.5 rounded hover:bg-muted transition-colors ${hasFilter ? "text-primary" : "text-muted-foreground opacity-50 hover:opacity-100"}`}>
+                            <Filter className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2" align="start">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-medium">Filter {label}</span>
+                            {hasFilter && (
+                              <button onClick={() => clearFilter(key)} className="text-[10px] text-destructive hover:underline flex items-center gap-0.5">
+                                <X className="h-2.5 w-2.5" /> Clear
+                              </button>
+                            )}
+                          </div>
+                          {isText ? (
+                            <div className="max-h-40 overflow-y-auto space-y-1">
+                              {uniqueValues(key).map(val => {
+                                const checked = columnFilters[key]?.type === "values" ? (columnFilters[key] as any).values.has(val) : false;
+                                return (
+                                  <label key={val} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5">
+                                    <Checkbox checked={checked} onCheckedChange={(c) => setValueFilter(key, val, !!c)} className="h-3.5 w-3.5" />
+                                    <span className="truncate">{val}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <Input
+                                type="number"
+                                placeholder="Min"
+                                className="h-7 text-xs"
+                                value={(columnFilters[key] as any)?.min ?? ""}
+                                onChange={e => setRangeFilter(key, "min", e.target.value)}
+                              />
+                              <Input
+                                type="number"
+                                placeholder="Max"
+                                className="h-7 text-xs"
+                                value={(columnFilters[key] as any)?.max ?? ""}
+                                onChange={e => setRangeFilter(key, "max", e.target.value)}
+                              />
+                            </div>
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </TableHead>
+                );
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>
