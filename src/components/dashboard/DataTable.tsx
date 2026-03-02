@@ -50,6 +50,80 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
     return Array.from(vals).sort();
   }, [data]);
 
+  // Build year→month tree for date filtering
+  const dateTree = useMemo(() => {
+    const tree: Record<string, Set<string>> = {};
+    data.forEach(r => {
+      const parts = r.date.split("/");
+      if (parts.length >= 3) {
+        const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+        const month = parts[1]; // MM
+        if (!tree[year]) tree[year] = new Set();
+        tree[year].add(month);
+      }
+    });
+    return Object.entries(tree)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([year, months]) => ({ year, months: Array.from(months).sort() }));
+  }, [data]);
+
+  const monthNames: Record<string, string> = {
+    "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
+    "05": "May", "06": "Jun", "07": "Jul", "08": "Aug",
+    "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec",
+  };
+
+  const toggleDateYearMonth = (year: string, month?: string) => {
+    setColumnFilters(prev => {
+      const existing = prev["date"];
+      const values = existing?.type === "values" ? new Set(existing.values) : new Set<string>();
+      // Find all dates matching year (and optionally month)
+      data.forEach(r => {
+        const parts = r.date.split("/");
+        if (parts.length >= 3) {
+          const y = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+          const m = parts[1];
+          if (y === year && (!month || m === month)) {
+            if (isDateSelected(values, r.date, year, month)) {
+              values.delete(r.date);
+            } else {
+              values.add(r.date);
+            }
+          }
+        }
+      });
+      if (values.size === 0) { const { date: _, ...rest } = prev; return rest; }
+      return { ...prev, date: { type: "values", values } };
+    });
+    setPage(0);
+  };
+
+  const isDateSelected = (values: Set<string>, date: string, _year?: string, _month?: string) => {
+    return values.has(date);
+  };
+
+  const isYearFullySelected = (year: string) => {
+    const existing = columnFilters["date"];
+    if (existing?.type !== "values") return false;
+    const vals = (existing as any).values as Set<string>;
+    return data.every(r => {
+      const parts = r.date.split("/");
+      const y = parts[2]?.length === 2 ? `20${parts[2]}` : parts[2];
+      return y !== year || vals.has(r.date);
+    });
+  };
+
+  const isMonthFullySelected = (year: string, month: string) => {
+    const existing = columnFilters["date"];
+    if (existing?.type !== "values") return false;
+    const vals = (existing as any).values as Set<string>;
+    return data.every(r => {
+      const parts = r.date.split("/");
+      const y = parts[2]?.length === 2 ? `20${parts[2]}` : parts[2];
+      return !(y === year && parts[1] === month) || vals.has(r.date);
+    });
+  };
+
   const setValueFilter = (col: string, value: string, checked: boolean) => {
     setColumnFilters(prev => {
       const existing = prev[col];
@@ -249,7 +323,26 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                               </button>
                             )}
                           </div>
-                          {isText ? (
+                          {key === "date" ? (
+                            <div className="max-h-48 overflow-y-auto space-y-1">
+                              {dateTree.map(({ year, months }) => (
+                                <div key={year}>
+                                  <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer hover:bg-muted rounded px-1 py-0.5">
+                                    <Checkbox checked={isYearFullySelected(year)} onCheckedChange={() => toggleDateYearMonth(year)} className="h-3.5 w-3.5" />
+                                    <span>{year}</span>
+                                  </label>
+                                  <div className="ml-4 space-y-0.5">
+                                    {months.map(m => (
+                                      <label key={m} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5">
+                                        <Checkbox checked={isMonthFullySelected(year, m)} onCheckedChange={() => toggleDateYearMonth(year, m)} className="h-3.5 w-3.5" />
+                                        <span>{monthNames[m] || m} {year}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : isText ? (
                             <div className="max-h-40 overflow-y-auto space-y-1">
                               {uniqueValues(key).map(val => {
                                 const checked = columnFilters[key]?.type === "values" ? (columnFilters[key] as any).values.has(val) : false;
