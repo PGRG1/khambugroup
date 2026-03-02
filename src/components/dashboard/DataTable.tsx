@@ -51,15 +51,28 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   }, [data]);
 
   // Build year→month tree for date filtering
+  const parseDateParts = (date: string): { year: string; month: string } | null => {
+    // Support both YYYY-MM-DD and DD/MM/YYYY
+    if (date.includes("-")) {
+      const parts = date.split("-");
+      if (parts.length >= 3) return { year: parts[0], month: parts[1] };
+    } else if (date.includes("/")) {
+      const parts = date.split("/");
+      if (parts.length >= 3) {
+        const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+        return { year, month: parts[1] };
+      }
+    }
+    return null;
+  };
+
   const dateTree = useMemo(() => {
     const tree: Record<string, Set<string>> = {};
     data.forEach(r => {
-      const parts = r.date.split("/");
-      if (parts.length >= 3) {
-        const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
-        const month = parts[1]; // MM
-        if (!tree[year]) tree[year] = new Set();
-        tree[year].add(month);
+      const parsed = parseDateParts(r.date);
+      if (parsed) {
+        if (!tree[parsed.year]) tree[parsed.year] = new Set();
+        tree[parsed.year].add(parsed.month);
       }
     });
     return Object.entries(tree)
@@ -77,18 +90,13 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
     setColumnFilters(prev => {
       const existing = prev["date"];
       const values = existing?.type === "values" ? new Set(existing.values) : new Set<string>();
-      // Find all dates matching year (and optionally month)
       data.forEach(r => {
-        const parts = r.date.split("/");
-        if (parts.length >= 3) {
-          const y = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
-          const m = parts[1];
-          if (y === year && (!month || m === month)) {
-            if (isDateSelected(values, r.date, year, month)) {
-              values.delete(r.date);
-            } else {
-              values.add(r.date);
-            }
+        const parsed = parseDateParts(r.date);
+        if (parsed && parsed.year === year && (!month || parsed.month === month)) {
+          if (values.has(r.date)) {
+            values.delete(r.date);
+          } else {
+            values.add(r.date);
           }
         }
       });
@@ -98,18 +106,14 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
     setPage(0);
   };
 
-  const isDateSelected = (values: Set<string>, date: string, _year?: string, _month?: string) => {
-    return values.has(date);
-  };
 
   const isYearFullySelected = (year: string) => {
     const existing = columnFilters["date"];
     if (existing?.type !== "values") return false;
     const vals = (existing as any).values as Set<string>;
     return data.every(r => {
-      const parts = r.date.split("/");
-      const y = parts[2]?.length === 2 ? `20${parts[2]}` : parts[2];
-      return y !== year || vals.has(r.date);
+      const parsed = parseDateParts(r.date);
+      return !parsed || parsed.year !== year || vals.has(r.date);
     });
   };
 
@@ -118,9 +122,8 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
     if (existing?.type !== "values") return false;
     const vals = (existing as any).values as Set<string>;
     return data.every(r => {
-      const parts = r.date.split("/");
-      const y = parts[2]?.length === 2 ? `20${parts[2]}` : parts[2];
-      return !(y === year && parts[1] === month) || vals.has(r.date);
+      const parsed = parseDateParts(r.date);
+      return !parsed || !(parsed.year === year && parsed.month === month) || vals.has(r.date);
     });
   };
 
@@ -327,16 +330,18 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                             <div className="max-h-48 overflow-y-auto space-y-1">
                               {dateTree.map(({ year, months }) => (
                                 <div key={year}>
-                                  <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer hover:bg-muted rounded px-1 py-0.5">
-                                    <Checkbox checked={isYearFullySelected(year)} onCheckedChange={() => toggleDateYearMonth(year)} className="h-3.5 w-3.5" />
+                                  <div className="flex items-center gap-1.5 text-xs font-medium cursor-pointer hover:bg-muted rounded px-1 py-0.5"
+                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleDateYearMonth(year); }}>
+                                    <Checkbox checked={isYearFullySelected(year)} className="h-3.5 w-3.5 pointer-events-none" tabIndex={-1} />
                                     <span>{year}</span>
-                                  </label>
+                                  </div>
                                   <div className="ml-4 space-y-0.5">
                                     {months.map(m => (
-                                      <label key={m} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5">
-                                        <Checkbox checked={isMonthFullySelected(year, m)} onCheckedChange={() => toggleDateYearMonth(year, m)} className="h-3.5 w-3.5" />
+                                      <div key={m} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5"
+                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleDateYearMonth(year, m); }}>
+                                        <Checkbox checked={isMonthFullySelected(year, m)} className="h-3.5 w-3.5 pointer-events-none" tabIndex={-1} />
                                         <span>{monthNames[m] || m} {year}</span>
-                                      </label>
+                                      </div>
                                     ))}
                                   </div>
                                 </div>
@@ -347,10 +352,11 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                               {uniqueValues(key).map(val => {
                                 const checked = columnFilters[key]?.type === "values" ? (columnFilters[key] as any).values.has(val) : false;
                                 return (
-                                  <label key={val} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5">
-                                    <Checkbox checked={checked} onCheckedChange={(c) => setValueFilter(key, val, !!c)} className="h-3.5 w-3.5" />
+                                  <div key={val} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5"
+                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setValueFilter(key, val, !checked); }}>
+                                    <Checkbox checked={checked} className="h-3.5 w-3.5 pointer-events-none" tabIndex={-1} />
                                     <span className="truncate">{val}</span>
-                                  </label>
+                                  </div>
                                 );
                               })}
                             </div>
