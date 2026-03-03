@@ -210,7 +210,7 @@ const Index = () => {
             )}
           </div>
 
-          <KPICards {...kpi} />
+          <KPICards {...kpi} venue={venue} uniqueDays={new Set(filtered.map((r) => r.date)).size || 1} />
 
           {filtered.length > 0 ? (
             <DashboardCharts data={filtered} view={view} venue={venue} />
