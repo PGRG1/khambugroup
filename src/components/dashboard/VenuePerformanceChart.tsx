@@ -1,4 +1,5 @@
 import { formatCurrency } from "@/utils/salesUtils";
+import { getVenueSeats } from "@/constants/venueSeating";
 import ChartCard from "./ChartCard";
 
 interface VenueData {
@@ -23,6 +24,7 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
 
   if (isSingleVenue && singleVenueData) {
     const d = singleVenueData;
+    const seats = getVenueSeats(venue);
     const avgSalesPerDay = d.days ? Math.round(d.totalSales / d.days) : 0;
     const avgGuestsPerDay = d.days ? Math.round(d.totalGuests / d.days) : 0;
     const avgOrdersPerDay = d.days ? Math.round(d.totalOrders / d.days) : 0;
@@ -38,6 +40,12 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
       { label: "Avg Orders/Day", val: formatCurrency(avgOrdersPerDay) },
       { label: "Avg/Guest", val: `$${formatCurrency(d.avgPerGuest)}` },
       { label: "Avg/Order", val: `$${formatCurrency(d.avgPerOrder)}` },
+      ...(seats ? [
+        { label: `Seats`, val: String(seats) },
+        { label: "Rev/Seat", val: `$${formatCurrency(Math.round(d.totalSales / seats))}` },
+        { label: "Seat Turnover", val: `${(d.totalGuests / seats).toFixed(1)}x` },
+        { label: "Occupancy %", val: `${d.days ? Math.round((d.totalGuests / (seats * d.days)) * 100) : 0}%` },
+      ] : []),
     ];
 
     return (
@@ -70,6 +78,8 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
     pct: totalSales ? Math.round((v.totalSales / totalSales) * 100) : 0,
   }));
 
+  const hasAnySeats = activeVenues.some((v) => getVenueSeats(v.venue) !== null);
+
   const metricRows = [
     { label: "Total Sales", getValue: (d: VenueData) => `$${formatCurrency(d.totalSales)}` },
     { label: "Total Guests", getValue: (d: VenueData) => formatCurrency(d.totalGuests) },
@@ -80,6 +90,12 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
     { label: "Avg Orders/Day", getValue: (d: VenueData) => d.days ? formatCurrency(Math.round(d.totalOrders / d.days)) : "-" },
     { label: "Avg/Guest", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerGuest)}` },
     { label: "Avg/Order", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerOrder)}` },
+    ...(hasAnySeats ? [
+      { label: "Seats", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s ? String(s) : "-"; } },
+      { label: "Rev/Seat", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s ? `$${formatCurrency(Math.round(d.totalSales / s))}` : "-"; } },
+      { label: "Turnover", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s ? `${(d.totalGuests / s).toFixed(1)}x` : "-"; } },
+      { label: "Occupancy", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${Math.round((d.totalGuests / (s * d.days)) * 100)}%` : "-"; } },
+    ] : []),
   ];
 
   const subtitle = activeVenues.map((v) => v.venue).join(" vs ");

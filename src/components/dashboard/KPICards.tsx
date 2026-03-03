@@ -1,5 +1,6 @@
 import { formatCurrency } from "@/utils/salesUtils";
-import { TrendingUp, Users, ShoppingCart, DollarSign } from "lucide-react";
+import { TrendingUp, Users, ShoppingCart, DollarSign, Armchair, RotateCw, BarChart3 } from "lucide-react";
+import { getVenueSeats } from "@/constants/venueSeating";
 
 interface KPICardsProps {
   totalSales: number;
@@ -10,9 +11,13 @@ interface KPICardsProps {
   totalDiscount: number;
   salesPerDay: number;
   guestsPerDay: number;
+  venue?: string;
+  uniqueDays?: number;
 }
 
-const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrder, totalDiscount, salesPerDay, guestsPerDay }: KPICardsProps) => {
+const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrder, totalDiscount, salesPerDay, guestsPerDay, venue = "All Venues", uniqueDays = 1 }: KPICardsProps) => {
+  const seats = venue !== "All Venues" ? getVenueSeats(venue) : null;
+
   const cards = [
     { label: "Total Sales", value: `$${formatCurrency(totalSales)}`, icon: DollarSign, color: "text-primary" },
     { label: "Total Guests", value: formatCurrency(totalGuests), icon: Users, color: "text-chart-3" },
@@ -22,6 +27,11 @@ const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrd
     { label: "Total Discount", value: `$${formatCurrency(Math.abs(totalDiscount))}`, icon: DollarSign, color: "text-destructive" },
     { label: "Sales / Day", value: `$${formatCurrency(salesPerDay)}`, icon: DollarSign, color: "text-primary" },
     { label: "Guests / Day", value: formatCurrency(guestsPerDay), icon: Users, color: "text-chart-3" },
+    ...(seats ? [
+      { label: "Rev / Seat", value: `$${formatCurrency(Math.round(totalSales / seats))}`, icon: Armchair, color: "text-chart-2" },
+      { label: "Seat Turnover", value: (totalGuests / seats).toFixed(1) + "x", icon: RotateCw, color: "text-chart-4" },
+      { label: "Occupancy %", value: `${Math.round((totalGuests / (seats * uniqueDays)) * 100)}%`, icon: BarChart3, color: "text-chart-3" },
+    ] : []),
   ];
 
   return (
