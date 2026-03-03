@@ -2,11 +2,10 @@ import { useState, useMemo, useCallback } from "react";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, X } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
 import { SalesDetailModal } from "./SalesDetailModal";
+import ExcelFilterPopover from "./ExcelFilterPopover";
 
 interface DataTableProps {
   data: SalesRecord[];
@@ -16,8 +15,6 @@ interface DataTableProps {
 
 type SortKey = keyof SalesRecord;
 type SortDir = "asc" | "desc";
-type ColumnFilter = { type: "values"; values: Set<string> } | { type: "range"; min?: number; max?: number };
-
 const PAGE_SIZE = 15;
 
 const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
@@ -27,7 +24,8 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [venueFilter, setVenueFilter] = useState<string>("All");
   const [detailRecord, setDetailRecord] = useState<SalesRecord | null>(null);
-  const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilter>>({});
+  // columnFilters: key → Set<string> of selected values. null entry = no filter.
+  const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -50,113 +48,16 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
     return Array.from(vals).sort();
   }, [data]);
 
-  // Build year→month tree for date filtering
-  const parseDateParts = (date: string): { year: string; month: string } | null => {
-    // Support both YYYY-MM-DD and DD/MM/YYYY
-    if (date.includes("-")) {
-      const parts = date.split("-");
-      if (parts.length >= 3) return { year: parts[0], month: parts[1] };
-    } else if (date.includes("/")) {
-      const parts = date.split("/");
-      if (parts.length >= 3) {
-        const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
-        return { year, month: parts[1] };
-      }
-    }
-    return null;
-  };
-
-  const dateTree = useMemo(() => {
-    const tree: Record<string, Set<string>> = {};
-    data.forEach(r => {
-      const parsed = parseDateParts(r.date);
-      if (parsed) {
-        if (!tree[parsed.year]) tree[parsed.year] = new Set();
-        tree[parsed.year].add(parsed.month);
-      }
-    });
-    return Object.entries(tree)
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([year, months]) => ({ year, months: Array.from(months).sort() }));
-  }, [data]);
-
-  const monthNames: Record<string, string> = {
-    "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
-    "05": "May", "06": "Jun", "07": "Jul", "08": "Aug",
-    "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec",
-  };
-
-  const toggleDateYearMonth = (year: string, month?: string) => {
+  const handleFilterChange = useCallback((col: string, values: Set<string> | null) => {
     setColumnFilters(prev => {
-      const existing = prev["date"];
-      const values = existing?.type === "values" ? new Set(existing.values) : new Set<string>();
-      data.forEach(r => {
-        const parsed = parseDateParts(r.date);
-        if (parsed && parsed.year === year && (!month || parsed.month === month)) {
-          if (values.has(r.date)) {
-            values.delete(r.date);
-          } else {
-            values.add(r.date);
-          }
-        }
-      });
-      if (values.size === 0) { const { date: _, ...rest } = prev; return rest; }
-      return { ...prev, date: { type: "values", values } };
-    });
-    setPage(0);
-  };
-
-
-  const isYearFullySelected = (year: string) => {
-    const existing = columnFilters["date"];
-    if (existing?.type !== "values") return false;
-    const vals = (existing as any).values as Set<string>;
-    return data.every(r => {
-      const parsed = parseDateParts(r.date);
-      return !parsed || parsed.year !== year || vals.has(r.date);
-    });
-  };
-
-  const isMonthFullySelected = (year: string, month: string) => {
-    const existing = columnFilters["date"];
-    if (existing?.type !== "values") return false;
-    const vals = (existing as any).values as Set<string>;
-    return data.every(r => {
-      const parsed = parseDateParts(r.date);
-      return !parsed || !(parsed.year === year && parsed.month === month) || vals.has(r.date);
-    });
-  };
-
-  const setValueFilter = (col: string, value: string, checked: boolean) => {
-    setColumnFilters(prev => {
-      const existing = prev[col];
-      const values = existing?.type === "values" ? new Set(existing.values) : new Set<string>();
-      if (checked) values.add(value); else values.delete(value);
-      if (values.size === 0) { const { [col]: _, ...rest } = prev; return rest; }
-      return { ...prev, [col]: { type: "values", values } };
-    });
-    setPage(0);
-  };
-
-  const setRangeFilter = (col: string, bound: "min" | "max", val: string) => {
-    setColumnFilters(prev => {
-      const existing = prev[col];
-      const current = existing?.type === "range" ? existing : { type: "range" as const };
-      const num = val === "" ? undefined : Number(val);
-      const updated = { ...current, [bound]: num } as ColumnFilter;
-      if ((updated as any).min === undefined && (updated as any).max === undefined) {
+      if (values === null) {
         const { [col]: _, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [col]: updated };
+      return { ...prev, [col]: values };
     });
     setPage(0);
-  };
-
-  const clearFilter = (col: string) => {
-    setColumnFilters(prev => { const { [col]: _, ...rest } = prev; return rest; });
-    setPage(0);
-  };
+  }, []);
 
   const activeFilterCount = Object.keys(columnFilters).length;
 
@@ -174,18 +75,9 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
         r.reportNumber.toLowerCase().includes(q)
       );
     }
-    // Apply column filters
-    for (const [col, filter] of Object.entries(columnFilters)) {
-      if (filter.type === "values") {
-        result = result.filter(r => filter.values.has(String(r[col as SortKey])));
-      } else if (filter.type === "range") {
-        result = result.filter(r => {
-          const v = Number(r[col as SortKey]);
-          if (filter.min !== undefined && v < filter.min) return false;
-          if (filter.max !== undefined && v > filter.max) return false;
-          return true;
-        });
-      }
+    // Apply column filters (value-based)
+    for (const [col, selectedValues] of Object.entries(columnFilters)) {
+      result = result.filter(r => selectedValues.has(String(r[col as SortKey])));
     }
     result.sort((a, b) => {
       const av = a[sortKey];
@@ -303,83 +195,21 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                 ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
                 ["serviceCharge", "Svc"], ["discount", "Disc"], ["totalSales", "Total"],
               ] as [SortKey, string][]).map(([key, label]) => {
-                const isText = key === "date" || key === "venue";
-                const hasFilter = !!columnFilters[key];
+                const isDate = key === "date";
                 return (
                   <TableHead key={key} className="text-[10px] sm:text-xs px-1.5 sm:px-4">
                     <div className="flex items-center gap-0.5">
                       <button onClick={() => toggleSort(key)} className="flex items-center gap-0.5 hover:text-foreground transition-colors whitespace-nowrap">
                         {label} <SortIcon col={key} />
                       </button>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className={`ml-0.5 p-0.5 rounded hover:bg-muted transition-colors ${hasFilter ? "text-primary" : "text-muted-foreground opacity-50 hover:opacity-100"}`}>
-                            <Filter className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2" align="start">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-xs font-medium">Filter {label}</span>
-                            {hasFilter && (
-                              <button onClick={() => clearFilter(key)} className="text-[10px] text-destructive hover:underline flex items-center gap-0.5">
-                                <X className="h-2.5 w-2.5" /> Clear
-                              </button>
-                            )}
-                          </div>
-                          {key === "date" ? (
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                              {dateTree.map(({ year, months }) => (
-                                <div key={year}>
-                                  <div className="flex items-center gap-1.5 text-xs font-medium cursor-pointer hover:bg-muted rounded px-1 py-0.5"
-                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleDateYearMonth(year); }}>
-                                    <Checkbox checked={isYearFullySelected(year)} className="h-3.5 w-3.5 pointer-events-none" tabIndex={-1} />
-                                    <span>{year}</span>
-                                  </div>
-                                  <div className="ml-4 space-y-0.5">
-                                    {months.map(m => (
-                                      <div key={m} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5"
-                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleDateYearMonth(year, m); }}>
-                                        <Checkbox checked={isMonthFullySelected(year, m)} className="h-3.5 w-3.5 pointer-events-none" tabIndex={-1} />
-                                        <span>{monthNames[m] || m} {year}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : isText ? (
-                            <div className="max-h-40 overflow-y-auto space-y-1">
-                              {uniqueValues(key).map(val => {
-                                const checked = columnFilters[key]?.type === "values" ? (columnFilters[key] as any).values.has(val) : false;
-                                return (
-                                  <div key={val} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5"
-                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setValueFilter(key, val, !checked); }}>
-                                    <Checkbox checked={checked} className="h-3.5 w-3.5 pointer-events-none" tabIndex={-1} />
-                                    <span className="truncate">{val}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="space-y-1.5">
-                              <Input
-                                type="number"
-                                placeholder="Min"
-                                className="h-7 text-xs"
-                                value={(columnFilters[key] as any)?.min ?? ""}
-                                onChange={e => setRangeFilter(key, "min", e.target.value)}
-                              />
-                              <Input
-                                type="number"
-                                placeholder="Max"
-                                className="h-7 text-xs"
-                                value={(columnFilters[key] as any)?.max ?? ""}
-                                onChange={e => setRangeFilter(key, "max", e.target.value)}
-                              />
-                            </div>
-                          )}
-                        </PopoverContent>
-                      </Popover>
+                      <ExcelFilterPopover
+                        columnKey={key}
+                        label={label}
+                        values={uniqueValues(key)}
+                        selectedValues={columnFilters[key] ?? null}
+                        onFilterChange={handleFilterChange}
+                        isDate={isDate}
+                      />
                     </div>
                   </TableHead>
                 );
