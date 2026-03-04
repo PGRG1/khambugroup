@@ -58,7 +58,7 @@ export function getMonthLabel(key: string): string {
 
 const dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export function getDayOfWeekStats(data: SalesRecord[]) {
+export function getDayOfWeekStats(data: SalesRecord[], seats?: number | null) {
   const months = [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
 
   const result = dayOrder.map((day) => {
@@ -66,7 +66,6 @@ export function getDayOfWeekStats(data: SalesRecord[]) {
     months.forEach((month) => {
       const records = data.filter((r) => r.day === day && getMonthKey(r.date) === month);
       if (records.length > 0) {
-        // Aggregate by unique date first, then average by number of unique days
         const byDate = new Map<string, { sales: number; guests: number; orders: number }>();
         records.forEach((r) => {
           const existing = byDate.get(r.date);
@@ -86,6 +85,13 @@ export function getDayOfWeekStats(data: SalesRecord[]) {
         entry[`guests_${month}`] = Math.round(totalGuests / numDays);
         entry[`spendPerGuest_${month}`] = totalGuests ? Math.round(totalSales / totalGuests) : 0;
         entry[`spendPerOrder_${month}`] = totalOrders ? Math.round(totalSales / totalOrders) : 0;
+        if (seats && seats > 0) {
+          const avgDailySales = totalSales / numDays;
+          const avgDailyGuests = totalGuests / numDays;
+          entry[`revPerSeat_${month}`] = Math.round(avgDailySales / seats);
+          entry[`seatTurnover_${month}`] = parseFloat((avgDailyGuests / seats).toFixed(1));
+          entry[`occupancy_${month}`] = Math.round((avgDailyGuests / seats) * 100);
+        }
       }
     });
     return entry;

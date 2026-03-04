@@ -17,6 +17,12 @@ interface KPICardsProps {
 
 const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrder, totalDiscount, salesPerDay, guestsPerDay, venue = "All Venues", uniqueDays = 1 }: KPICardsProps) => {
   const seats = venue !== "All Venues" ? getVenueSeats(venue) : null;
+  const ordersPerDay = uniqueDays ? Math.round(totalOrders / uniqueDays) : 0;
+
+  // Daily averages for seating metrics
+  const dailyRevPerSeat = seats && uniqueDays ? Math.round(totalSales / seats / uniqueDays) : 0;
+  const dailySeatTurnover = seats && uniqueDays ? (totalGuests / seats / uniqueDays).toFixed(1) : "0.0";
+  const dailyOccupancy = seats && uniqueDays ? Math.round((totalGuests / (seats * uniqueDays)) * 100) : 0;
 
   const cards = [
     { label: "Total Sales", value: `$${formatCurrency(totalSales)}`, icon: DollarSign, color: "text-primary" },
@@ -28,9 +34,10 @@ const KPICards = ({ totalSales, totalGuests, totalOrders, avgPerGuest, avgPerOrd
     { label: "Sales / Day", value: `$${formatCurrency(salesPerDay)}`, icon: DollarSign, color: "text-primary" },
     { label: "Guests / Day", value: formatCurrency(guestsPerDay), icon: Users, color: "text-chart-3" },
     ...(seats ? [
-      { label: "Rev / Seat", value: `$${formatCurrency(Math.round(totalSales / seats))}`, icon: Armchair, color: "text-chart-2" },
-      { label: "Seat Turnover", value: (totalGuests / seats).toFixed(1) + "x", icon: RotateCw, color: "text-chart-4" },
-      { label: "Occupancy %", value: `${Math.round((totalGuests / (seats * uniqueDays)) * 100)}%`, icon: BarChart3, color: "text-chart-3" },
+      { label: "Orders / Day", value: formatCurrency(ordersPerDay), icon: ShoppingCart, color: "text-chart-2" },
+      { label: "Rev / Seat / Day", value: `$${formatCurrency(dailyRevPerSeat)}`, icon: Armchair, color: "text-chart-2" },
+      { label: "Seat Turn / Day", value: dailySeatTurnover + "x", icon: RotateCw, color: "text-chart-4" },
+      { label: "Occupancy % / Day", value: `${dailyOccupancy}%`, icon: BarChart3, color: "text-chart-3" },
     ] : []),
   ];
 

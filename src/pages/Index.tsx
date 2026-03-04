@@ -12,11 +12,13 @@ import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DataTable from "@/components/dashboard/DataTable";
 import ResetDataButton from "@/components/dashboard/ResetDataButton";
+import VenueSeatingEditor from "@/components/dashboard/VenueSeatingEditor";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { generateMTDReport } from "@/utils/generateReport";
-import { FileDown, FileText, Upload, PenLine, ScanLine } from "lucide-react";
+import { FileDown, FileText, Upload, PenLine, ScanLine, Armchair } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
+import { getVenueSeats } from "@/constants/venueSeating";
 
 const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente", "Hanabi", "Events"];
 
@@ -35,6 +37,8 @@ const Index = () => {
   const [showManual, setShowManual] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showMTDText, setShowMTDText] = useState(false);
+  const [showSeatingEditor, setShowSeatingEditor] = useState(false);
+  const [seatingKey, setSeatingKey] = useState(0);
 
   const hideUpload = isActionHidden("data.upload");
   const hideScanReceipt = isActionHidden("data.scan_receipt");
@@ -127,22 +131,33 @@ const Index = () => {
             <span className="text-gradient-gold">Revenue</span>
             <span className="text-muted-foreground ml-1 sm:ml-2 text-[10px] sm:text-base font-normal">Overview</span>
           </h1>
-          {activeTab === "overview" && isAdmin && !hideGenerateReport && (
+          {activeTab === "overview" && isAdmin && (
             <div className="flex items-center gap-1 sm:gap-2">
               <button
-                onClick={() => setShowMTDText(true)}
+                onClick={() => setShowSeatingEditor(true)}
                 className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
               >
-                <FileText className="h-3 w-3" />
-                <span className="hidden sm:inline">MTD </span>Summary
+                <Armchair className="h-3 w-3" />
+                <span className="hidden sm:inline">Seats</span>
               </button>
-              <button
-                onClick={handleGenerateReport}
-                className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-              >
-                <FileDown className="h-3 w-3" />
-                Report
-              </button>
+              {!hideGenerateReport && (
+                <>
+                  <button
+                    onClick={() => setShowMTDText(true)}
+                    className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                  >
+                    <FileText className="h-3 w-3" />
+                    <span className="hidden sm:inline">MTD </span>Summary
+                  </button>
+                  <button
+                    onClick={handleGenerateReport}
+                    className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                  >
+                    <FileDown className="h-3 w-3" />
+                    Report
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -210,10 +225,10 @@ const Index = () => {
             )}
           </div>
 
-          <KPICards {...kpi} venue={venue} uniqueDays={new Set(filtered.map((r) => r.date)).size || 1} />
+          <KPICards key={seatingKey} {...kpi} venue={venue} uniqueDays={new Set(filtered.map((r) => r.date)).size || 1} />
 
           {filtered.length > 0 ? (
-            <DashboardCharts data={filtered} view={view} venue={venue} />
+            <DashboardCharts data={filtered} view={view} venue={venue} seats={venue !== "All Venues" ? getVenueSeats(venue) : null} seatingKey={seatingKey} />
           ) : (
             <div className="card-glass rounded-xl p-12 text-center">
               <p className="text-muted-foreground">No data for the selected filters.</p>
@@ -276,6 +291,12 @@ const Index = () => {
         </TabsContent>
       </Tabs>
       <MTDTextReport open={showMTDText} onOpenChange={setShowMTDText} data={filtered} from={from} to={to} />
+      <VenueSeatingEditor
+        open={showSeatingEditor}
+        onOpenChange={setShowSeatingEditor}
+        venues={venues as string[]}
+        onSave={() => setSeatingKey(k => k + 1)}
+      />
     </div>
   );
 };
