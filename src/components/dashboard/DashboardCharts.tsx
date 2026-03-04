@@ -30,9 +30,11 @@ interface ChartsProps {
   data: SalesRecord[];
   view: "daily" | "monthly";
   venue?: string;
+  seats?: number | null;
+  seatingKey?: number;
 }
 
-const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
+const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: ChartsProps) => {
   const dailySales = data
     .reduce((acc, r) => {
       const existing = acc.find((a) => a.date === r.date);
@@ -85,7 +87,8 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
   const avgPerGuest = totalGuestsAll ? Math.round(totalSalesAll / totalGuestsAll) : 0;
   const avgPerOrder = totalOrdersAll ? Math.round(totalSalesAll / totalOrdersAll) : 0;
 
-  const { data: dayStats, months } = getDayOfWeekStats(data);
+  const { data: dayStats, months } = getDayOfWeekStats(data, seats);
+  const hasSeats = seats !== null && seats > 0;
   const paymentData = getPaymentBreakdown(data);
   const venueData = getVenueComparison(data);
 
@@ -157,10 +160,55 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
     return `${formatDate(d)} (${day})`;
   };
 
+  // Cumulative sales by month (each month is a separate line, x-axis = day of month)
+  const cumulativeData = useMemo(() => {
+    const monthGroups = new Map<string, Map<number, number>>();
+    data.forEach((r) => {
+      const mk = getMonthKey(r.date);
+      const dayOfMonth = new Date(r.date).getDate();
+      if (!monthGroups.has(mk)) monthGroups.set(mk, new Map());
+      const dayMap = monthGroups.get(mk)!;
+      dayMap.set(dayOfMonth, (dayMap.get(dayOfMonth) || 0) + r.totalSales);
+    });
+
+    const maxDay = Math.max(...Array.from(monthGroups.values()).flatMap(m => Array.from(m.keys())));
+    const sortedMonths = [...monthGroups.keys()].sort();
+    const rows: Record<string, number | string>[] = [];
+    for (let d = 1; d <= maxDay; d++) {
+      const row: Record<string, number | string> = { day: d };
+      sortedMonths.forEach((mk) => {
+        const dayMap = monthGroups.get(mk)!;
+        // cumulative sum up to this day
+        let cumSum = 0;
+        for (let i = 1; i <= d; i++) cumSum += dayMap.get(i) || 0;
+        if (cumSum > 0) row[mk] = cumSum;
+      });
+      rows.push(row);
+    }
+    return { rows, months: sortedMonths };
+  }, [data]);
+
   return (
     <div className="space-y-5">
       {view === "daily" ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Cumulative Sales — full width */}
+          {cumulativeData.months.length > 0 && (
+            <ChartCard title="Cumulative Sales" className="lg:col-span-2">
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={cumulativeData.rows}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                  <XAxis dataKey="day" tick={axisStyle} label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }} />
+                  <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, getMonthLabel(name)]} labelFormatter={(l) => `Day ${l}`} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} formatter={(v) => getMonthLabel(v)} />
+                  {cumulativeData.months.map((mk, i) => (
+                    <Line key={mk} type="monotone" dataKey={mk} stroke={MONTH_COLORS[i % MONTH_COLORS.length]} strokeWidth={2} dot={false} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
           <ChartCard title="Daily Sales">
             <div className="flex items-center justify-between mb-2 px-1">
               <p className="text-xs text-muted-foreground">
@@ -311,6 +359,71 @@ const DashboardCharts = ({ data, view, venue = "All Venues" }: ChartsProps) => {
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
+
+          {/* Seating day-of-week charts (when venue has seats) */}
+          {hasSeats && (
+            <>
+              <ChartCard title="Avg Rev/Seat by Day of Week">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={dayStats}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis dataKey="day" tick={axisStyle} />
+                    <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, undefined]} />
+                    <Legend wrapperStyle={{ fontSize: "11px" }} />
+                    {months.map((m, i) => (
+                      <Bar key={m} dataKey={`revPerSeat_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              <ChartCard title="Avg Seat Turnover by Day of Week">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={dayStats}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis dataKey="day" tick={axisStyle} />
+                    <YAxis tick={axisStyle} tickFormatter={(v) => `${v}x`} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`${v}x`, undefined]} />
+                    <Legend wrapperStyle={{ fontSize: "11px" }} />
+                    {months.map((m, i) => (
+                      <Bar key={m} dataKey={`seatTurnover_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              <ChartCard title="Avg Occupancy % by Day of Week">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={dayStats}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis dataKey="day" tick={axisStyle} />
+                    <YAxis tick={axisStyle} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`${v}%`, undefined]} />
+                    <Legend wrapperStyle={{ fontSize: "11px" }} />
+                    {months.map((m, i) => (
+                      <Bar key={m} dataKey={`occupancy_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              <ChartCard title="Avg Orders by Day of Week">
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={dayStats}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis dataKey="day" tick={axisStyle} />
+                    <YAxis tick={axisStyle} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), undefined]} />
+                    <Legend wrapperStyle={{ fontSize: "11px" }} />
+                    {months.map((m, i) => (
+                      <Bar key={m} dataKey={`guests_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </>
+          )}
 
           <VenuePerformanceChart data={venueData} venue={venue} />
 
