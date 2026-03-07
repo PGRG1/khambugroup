@@ -105,7 +105,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
       if (/^[=+@\t\r]/.test(s)) return `'${s}`;
       return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const rows = data.map(r => {
+    const rows = filteredAndSorted.map(r => {
       const standardized = { ...r, discount: -Math.abs(r.discount) };
       return [standardized.date,standardized.day,standardized.venue,standardized.reportNumber,standardized.orders,standardized.guests,standardized.subtotal,standardized.serviceCharge,standardized.discount,standardized.totalSales,standardized.visa,standardized.mastercard,standardized.amex,standardized.unionPay,standardized.alipay,standardized.wechat,standardized.cash,standardized.cardTips].map(sanitize).join(",");
     });
