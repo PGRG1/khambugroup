@@ -191,7 +191,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
           <TableHeader>
             <TableRow>
               {([
-                ["date", "Date"], ["venue", "Venue"],
+                ["date", "Date"], ["day", "Day"], ["venue", "Venue"],
                 ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
                 ["serviceCharge", "Svc"], ["discount", "Disc"], ["totalSales", "Total"],
               ] as [SortKey, string][]).map(([key, label]) => {
@@ -220,6 +220,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
             {pageData.map((row) => (
               <TableRow key={`${row.date}-${row.venue}-${row.reportNumber}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailRecord(row)}>
                 <TableCell className="text-[10px] sm:text-xs px-1.5 sm:px-4 whitespace-nowrap">{row.date}</TableCell>
+                <TableCell className="text-[10px] sm:text-xs px-1.5 sm:px-4">{row.day}</TableCell>
                 <TableCell className="text-[10px] sm:text-xs px-1.5 sm:px-4">{row.venue}</TableCell>
                 <TableCell className="px-1.5 sm:px-4">{numCell("orders", row)}</TableCell>
                 <TableCell className="px-1.5 sm:px-4">{numCell("guests", row)}</TableCell>
