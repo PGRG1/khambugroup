@@ -138,7 +138,7 @@ export default function CumulativeSalesChart({ data }: Props) {
                   {/* Line-dot-line marker */}
                   <svg width="20" height="10" className="shrink-0">
                     <line x1="0" y1="5" x2="20" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
-                    <circle cx="10" cy="5" r="3" fill={hidden ? "hsl(25, 10%, 50%)" : color} stroke={color} strokeWidth="1.5" opacity={hidden ? 0.4 : 1} />
+                    <circle cx="10" cy="5" r="3" fill="hsl(35, 25%, 95%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                   </svg>
                   <span
                     style={{
