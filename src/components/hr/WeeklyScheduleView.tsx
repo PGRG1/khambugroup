@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Clock } from "lucide-react";
+import { Check, X, Clock, ChevronUp, ChevronDown } from "lucide-react";
 import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment } from "@/hooks/useHRData";
 
 interface Props {
