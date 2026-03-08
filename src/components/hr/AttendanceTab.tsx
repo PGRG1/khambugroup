@@ -644,77 +644,110 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                       Post-Shift Actuals {modalActualsMode && <Badge variant="outline" className="ml-2 text-[9px]">Editing</Badge>}
                     </p>
 
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        {SHIFT_STATUSES.filter(s => s.group === "top").map(s => {
-                          const isActive = (editingShift.status || "scheduled") === s.value;
-                          return (
-                            <button key={s.value} type="button" onClick={() => { updateField("status", s.value); if (s.value === "no_show") { updateField("no_show", true); updateField("shift_type", "regular"); } else { updateField("no_show", false); updateField("shift_type", "regular"); } }} className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}>{s.label}</button>
-                          );
-                        })}
-                      </div>
-                      <label className="text-xs font-medium text-muted-foreground block">Shift Type</label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {SHIFT_STATUSES.filter(s => s.group === "bottom").map(s => {
-                          const isActive = (editingShift.status || "scheduled") === s.value;
-                          return (
-                            <button key={s.value} type="button" onClick={() => {
-                              updateField("status", s.value);
-                              if (s.value === "off") { updateField("no_show", false); updateField("shift_type", "off"); }
-                              else if (s.value === "al") { updateField("no_show", false); updateField("shift_type", "al"); }
-                              else if (s.value === "sh") { updateField("no_show", false); updateField("shift_type", "sh"); }
-                              else if (s.value === "no_pay") { updateField("no_show", false); updateField("shift_type", "no_pay"); }
-                              else if (s.value === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
-                              else { updateField("no_show", false); updateField("shift_type", "regular"); }
-                            }} className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}>{s.label}</button>
-                          );
-                        })}
-                      </div>
+                    {/* Top row: Completed / Not Completed */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {SHIFT_STATUSES.filter(s => s.group === "top").map(s => {
+                        const isActive = (editingShift.status || "scheduled") === s.value;
+                        return (
+                          <button key={s.value} type="button" onClick={() => {
+                            updateField("status", s.value);
+                            if (s.value === "completed") {
+                              updateField("no_show", false);
+                              updateField("shift_type", "regular");
+                              // Auto-fill actuals from planned
+                              if (editingShift.start_time) updateField("actual_start_time", editingShift.start_time);
+                              if (editingShift.end_time) updateField("actual_end_time", editingShift.end_time);
+                            } else {
+                              updateField("no_show", false);
+                              updateField("shift_type", "regular");
+                              updateField("actual_start_time", null);
+                              updateField("actual_end_time", null);
+                            }
+                          }} className={`px-3 py-1.5 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}>{s.label}</button>
+                        );
+                      })}
                     </div>
 
-                    {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
-                      <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
-                        <div>
-                          <label className="text-xs font-medium text-muted-foreground mb-1 block">Actual Start</label>
-                          <Select value={editingShift.actual_start_time || ""} onValueChange={v => updateField("actual_start_time", v || null)}>
-                            <SelectTrigger><SelectValue placeholder="Start" /></SelectTrigger>
-                            <SelectContent>
-                              {ACTUAL_TIME_OPTIONS.map(t => {
-                                const refStart = editingShift.start_time || "12:00";
-                                const showPlus1 = crossesMidnight(refStart, t.value);
-                                return <SelectItem key={`s-${t.value}`} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
-                              })}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <span className="text-sm text-muted-foreground pb-2">–</span>
-                        <div>
-                          <label className="text-xs font-medium text-muted-foreground mb-1 block">Actual End</label>
-                          <Select value={editingShift.actual_end_time || ""} onValueChange={v => updateField("actual_end_time", v || null)}>
-                            <SelectTrigger><SelectValue placeholder="End" /></SelectTrigger>
-                            <SelectContent>
-                              {ACTUAL_TIME_OPTIONS.map(t => {
-                                const refStart = editingShift.actual_start_time || editingShift.start_time || "12:00";
-                                const showPlus1 = crossesMidnight(refStart, t.value);
-                                return <SelectItem key={`e-${t.value}`} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
-                              })}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+                    {/* If Completed as Planned — show locked summary */}
+                    {editingShift.status === "completed" && (
+                      <p className="text-xs text-muted-foreground italic">Actuals set to planned times. No further edits needed.</p>
                     )}
 
-                    {editingShift.actual_start_time && editingShift.actual_end_time && (
-                      <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span>Actual: <strong className="text-foreground">{formatTime12WithPlus1(editingShift.actual_start_time)} – {formatTime12WithPlus1(editingShift.actual_end_time, editingShift.actual_start_time)}</strong> ({calcHours(editingShift.actual_start_time, editingShift.actual_end_time, 0).toFixed(1)}h)</span>
-                        {editingShift.start_time && editingShift.end_time && (() => {
-                          const scheduled = calcHours(editingShift.start_time, editingShift.end_time, 0);
-                          const actual = calcHours(editingShift.actual_start_time!, editingShift.actual_end_time!, 0);
-                          const diff = actual - scheduled;
-                          return (
-                            <span>Variance: <strong className={diff < 0 ? "text-destructive" : "text-primary"}>{diff > 0 ? "+" : ""}{(diff * 60).toFixed(0)} min</strong></span>
-                          );
-                        })()}
+                    {/* If Not Completed as Planned — show what happened + time fields */}
+                    {editingShift.status === "no_show" && (
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-muted-foreground block">What happened?</label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {SHIFT_STATUSES.filter(s => s.group === "bottom").map(s => {
+                              const isActive = (editingShift.shift_type === "regular" && s.value === "scheduled") ||
+                                (s.value === "off" && editingShift.shift_type === "off") ||
+                                (s.value === "al" && editingShift.shift_type === "al") ||
+                                (s.value === "sh" && editingShift.shift_type === "sh") ||
+                                (s.value === "no_pay" && editingShift.shift_type === "no_pay") ||
+                                (s.value === "sick_leave" && editingShift.shift_type === "sick_no_pay");
+                              return (
+                                <button key={s.value} type="button" onClick={() => {
+                                  if (s.value === "off") updateField("shift_type", "off");
+                                  else if (s.value === "al") updateField("shift_type", "al");
+                                  else if (s.value === "sh") updateField("shift_type", "sh");
+                                  else if (s.value === "no_pay") updateField("shift_type", "no_pay");
+                                  else if (s.value === "sick_leave") updateField("shift_type", "sick_no_pay");
+                                  else updateField("shift_type", "regular");
+                                }} className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}>{s.label}</button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Show actual time fields only for Work type */}
+                        {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
+                          <>
+                            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-1 block">Actual Start</label>
+                                <Select value={editingShift.actual_start_time || ""} onValueChange={v => updateField("actual_start_time", v || null)}>
+                                  <SelectTrigger><SelectValue placeholder="Start" /></SelectTrigger>
+                                  <SelectContent>
+                                    {ACTUAL_TIME_OPTIONS.map(t => (
+                                      <SelectItem key={`s-${t.value}`} value={t.value}>{t.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <span className="text-sm text-muted-foreground pb-2">–</span>
+                              <div>
+                                <label className="text-xs font-medium text-muted-foreground mb-1 block">Actual End</label>
+                                <Select value={editingShift.actual_end_time || ""} onValueChange={v => updateField("actual_end_time", v || null)}>
+                                  <SelectTrigger><SelectValue placeholder="End" /></SelectTrigger>
+                                  <SelectContent>
+                                    {ACTUAL_TIME_OPTIONS.map(t => {
+                                      const refStart = editingShift.actual_start_time || editingShift.start_time || "";
+                                      const showPlus1 = refStart && crossesMidnight(refStart, t.value);
+                                      return <SelectItem key={`e-${t.value}`} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            {editingShift.actual_start_time && editingShift.actual_end_time && (
+                              <div className="flex gap-4 text-xs text-muted-foreground">
+                                <span>Actual: <strong className="text-foreground">{formatTime12WithPlus1(editingShift.actual_start_time)} – {formatTime12WithPlus1(editingShift.actual_end_time, editingShift.actual_start_time)}</strong> ({calcHours(editingShift.actual_start_time, editingShift.actual_end_time, 0).toFixed(1)}h)</span>
+                                {editingShift.start_time && editingShift.end_time && (() => {
+                                  const scheduled = calcHours(editingShift.start_time, editingShift.end_time, 0);
+                                  const actual = calcHours(editingShift.actual_start_time!, editingShift.actual_end_time!, 0);
+                                  const diff = actual - scheduled;
+                                  return (
+                                    <span>Variance: <strong className={diff < 0 ? "text-destructive" : "text-primary"}>{diff > 0 ? "+" : ""}{(diff * 60).toFixed(0)} min</strong></span>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                       </div>
                     )}
 
