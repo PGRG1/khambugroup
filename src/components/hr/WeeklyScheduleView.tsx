@@ -192,6 +192,12 @@ export function WeeklyScheduleView({
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const todayStr = formatDate(new Date());
 
+  // Stable venue list for color assignment
+  const venueList = useMemo(() => {
+    const names = [...new Set(activeEmployees.map(e => e.department?.name || "Other"))];
+    return names.sort();
+  }, [activeEmployees]);
+
   // Sort employees by department then name
   const sortedEmployees = useMemo(() =>
     [...activeEmployees].sort((a, b) => {
