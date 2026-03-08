@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { ChevronLeft, ChevronRight, Plus, Clock, Users, CalendarDays, AlertTriangle, TrendingDown, BarChart3 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ChevronLeft, ChevronRight, Plus, Copy, Clock, Users, CalendarDays, AlertTriangle, TrendingDown, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
@@ -170,13 +171,17 @@ function ScheduleKPICards({ shifts, weekDates, employees }: { shifts: HRShift[];
   );
 }
 
+export type ShiftClipboard = { shift_type: string; start_time: string; end_time: string } | null;
+
 export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, holidays, onSaveShift, onSaveAttendance, onSaveLeaveRequest, onRefetch }: Props) {
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
   const [shiftVenue, setShiftVenue] = useState<string>("");
   const [saving, setSaving] = useState(false);
-  
+  const [clipboard, setClipboard] = useState<ShiftClipboard>(null);
+  const [copyPrevConfirmOpen, setCopyPrevConfirmOpen] = useState(false);
+  const [copyingPrev, setCopyingPrev] = useState(false);
 
   // Drag state for time-grid
   const [dragState, setDragState] = useState<{
@@ -196,6 +201,90 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   const prevWeek = () => { const d = new Date(weekBase); d.setDate(d.getDate() - 7); setWeekBase(d); };
   const nextWeek = () => { const d = new Date(weekBase); d.setDate(d.getDate() + 7); setWeekBase(d); };
   const goToday = () => setWeekBase(new Date());
+
+  // --- Copy Previous Week ---
+  const prevWeekDates = useMemo(() => {
+    const d = new Date(weekBase);
+    d.setDate(d.getDate() - 7);
+    return getWeekDates(d);
+  }, [weekBase]);
+
+  const prevWeekShifts = useMemo(() => {
+    const keys = new Set(prevWeekDates.map(formatDate));
+    return shifts.filter(s => keys.has(s.shift_date));
+  }, [shifts, prevWeekDates]);
+
+  const currentWeekKeys = useMemo(() => {
+    const existing = new Set<string>();
+    const weekKeys = new Set(weekDates.map(formatDate));
+    shifts.filter(s => weekKeys.has(s.shift_date)).forEach(s => {
+      existing.add(`${s.employee_id}_${s.shift_date}`);
+    });
+    return existing;
+  }, [shifts, weekDates]);
+
+  const shiftsToCopy = useMemo(() => {
+    return prevWeekShifts.filter(s => {
+      const oldDate = new Date(s.shift_date + "T00:00:00");
+      oldDate.setDate(oldDate.getDate() + 7);
+      const newDateStr = formatDate(oldDate);
+      return !currentWeekKeys.has(`${s.employee_id}_${newDateStr}`);
+    });
+  }, [prevWeekShifts, currentWeekKeys]);
+
+  const handleCopyPrevWeek = async () => {
+    setCopyingPrev(true);
+    let count = 0;
+    for (const s of shiftsToCopy) {
+      const oldDate = new Date(s.shift_date + "T00:00:00");
+      oldDate.setDate(oldDate.getDate() + 7);
+      const newDateStr = formatDate(oldDate);
+      const ok = await onSaveShift({
+        employee_id: s.employee_id,
+        shift_date: newDateStr,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        break_minutes: 0,
+        shift_type: s.shift_type,
+        status: "scheduled",
+        no_show: false,
+      });
+      if (ok) count++;
+    }
+    toast({ title: `Copied ${count} shifts from previous week` });
+    setCopyPrevConfirmOpen(false);
+    setCopyingPrev(false);
+  };
+
+  // --- Clipboard handlers ---
+  const handleCopyShift = useCallback((shift: HRShift) => {
+    setClipboard({ shift_type: shift.shift_type, start_time: shift.start_time, end_time: shift.end_time });
+    toast({ title: "Shift copied", description: "Click any cell to paste" });
+  }, []);
+
+  const handlePasteShift = useCallback(async (employeeId: string, date: string) => {
+    if (!clipboard) return;
+    const ok = await onSaveShift({
+      employee_id: employeeId,
+      shift_date: date,
+      start_time: clipboard.start_time,
+      end_time: clipboard.end_time,
+      break_minutes: 0,
+      shift_type: clipboard.shift_type,
+      status: "scheduled",
+      no_show: false,
+    });
+    if (ok) toast({ title: "Shift pasted" });
+  }, [clipboard, onSaveShift]);
+
+  // Clear clipboard on Escape
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") setClipboard(null);
+  }, []);
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   const shiftMap = useMemo(() => {
     const map: Record<string, HRShift[]> = {};
@@ -316,9 +405,21 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
             </Button>
           )}
         </div>
-        <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
-          <Plus className="h-4 w-4 mr-1" /> Add Shift
-        </Button>
+        <div className="flex items-center gap-2">
+          {clipboard && (
+            <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1">
+              <Copy className="h-3 w-3" />
+              <span>Shift copied — click cell to paste</span>
+              <button onClick={() => setClipboard(null)} className="text-muted-foreground hover:text-foreground ml-1">✕</button>
+            </div>
+          )}
+          <Button size="sm" variant="outline" onClick={() => setCopyPrevConfirmOpen(true)} disabled={shiftsToCopy.length === 0}>
+            <Copy className="h-4 w-4 mr-1" /> Copy Previous Week {shiftsToCopy.length > 0 && `(${shiftsToCopy.length})`}
+          </Button>
+          <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
+            <Plus className="h-4 w-4 mr-1" /> Add Shift
+          </Button>
+        </div>
       </div>
 
       <WeeklyScheduleView
@@ -331,6 +432,9 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
         weekDates={weekDates}
         onEditShift={openEditShift}
         onAddShift={openNewShift}
+        clipboard={clipboard}
+        onCopyShift={handleCopyShift}
+        onPasteShift={handlePasteShift}
         onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
           await onSaveLeaveRequest({ id, status });
         } : undefined}
@@ -341,6 +445,24 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
           await Promise.all(promises);
         }}
       />
+
+      {/* Copy Previous Week Confirmation */}
+      <AlertDialog open={copyPrevConfirmOpen} onOpenChange={setCopyPrevConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Copy Previous Week</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will copy {shiftsToCopy.length} shift(s) from the previous week to the current week. Existing shifts will not be overwritten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCopyPrevWeek} disabled={copyingPrev}>
+              {copyingPrev ? "Copying..." : "Copy Shifts"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Shift Detail Modal */}
       <Dialog open={shiftModalOpen} onOpenChange={setShiftModalOpen}>
