@@ -718,39 +718,6 @@ export function WeeklyScheduleView({
               </Button>
             ))}
           </div>
-          {/* Day filter toggles */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Day:</span>
-            <Button
-              size="sm"
-              variant={chartDays.length === 0 ? "default" : "outline"}
-              className="h-6 text-[10px] px-2"
-              onClick={() => setChartDays([])}
-            >
-              All
-            </Button>
-            {weekDates.map((d, i) => {
-              const colors = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316"];
-              const isSelected = chartDays.includes(i);
-              return (
-                <Button
-                  key={i}
-                  size="sm"
-                  variant={isSelected ? "default" : "outline"}
-                  className="h-6 text-[10px] px-2"
-                  style={isSelected ? { backgroundColor: colors[i], borderColor: colors[i], color: "#fff" } : {}}
-                  onClick={() => {
-                    setChartDays(prev => {
-                      if (prev.includes(i)) return prev.filter(x => x !== i);
-                      return [...prev, i];
-                    });
-                  }}
-                >
-                  {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} {DAY_NAMES[i]}
-                </Button>
-              );
-            })}
-          </div>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -758,12 +725,36 @@ export function WeeklyScheduleView({
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                 <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" allowDecimals={false} />
                 <Tooltip contentStyle={{ fontSize: 11 }} />
-                <RLegend wrapperStyle={{ fontSize: 10 }} />
+                <RLegend
+                  wrapperStyle={{ fontSize: 10, cursor: "pointer" }}
+                  onClick={(e: any) => {
+                    const idx = weekDates.findIndex((d, i) => {
+                      const label = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${DAY_NAMES[i]}`;
+                      return label === e.value;
+                    });
+                    if (idx === -1) return;
+                    setChartDays(prev => {
+                      if (prev.includes(idx)) {
+                        const next = prev.filter(x => x !== idx);
+                        return next;
+                      }
+                      return [...prev, idx];
+                    });
+                  }}
+                  formatter={(value: string, entry: any) => {
+                    const idx = weekDates.findIndex((d, i) => {
+                      const label = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${DAY_NAMES[i]}`;
+                      return label === value;
+                    });
+                    const isHidden = chartDays.length > 0 && idx !== -1 && !chartDays.includes(idx);
+                    return <span style={{ color: isHidden ? "#ccc" : entry.color, textDecoration: isHidden ? "line-through" : "none" }}>{value}</span>;
+                  }}
+                />
                 {weekDates.map((d, i) => {
-                  if (chartDays.length > 0 && !chartDays.includes(i)) return null;
+                  const hidden = chartDays.length > 0 && !chartDays.includes(i);
                   const dayLabel = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${DAY_NAMES[i]}`;
                   const colors = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316"];
-                  return <Line key={dayLabel} dataKey={dayLabel} stroke={colors[i % colors.length]} type="monotone" strokeWidth={2} dot={false} />;
+                  return <Line key={dayLabel} dataKey={dayLabel} stroke={colors[i % colors.length]} type="monotone" strokeWidth={hidden ? 0 : 2} dot={false} hide={hidden} />;
                 })}
               </LineChart>
             </ResponsiveContainer>
