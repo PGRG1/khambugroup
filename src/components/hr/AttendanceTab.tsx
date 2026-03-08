@@ -61,7 +61,7 @@ const SHIFT_STATUSES = [
 // Generate time options in 30-min increments, ordered from 8:00 AM to 7:30 AM +1
 const ACTUAL_TIME_OPTIONS = (() => {
   const opts: { value: string; label: string }[] = [];
-  for (let h = 8; h < 32; h++) {
+  for (let h = 8; h <= 32; h++) {
     for (const m of [0, 30]) {
       const hour24 = h % 24;
       const val = `${String(hour24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
