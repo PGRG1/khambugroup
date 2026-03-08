@@ -255,7 +255,7 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
       <div
         ref={containerRef}
         className="relative border border-border rounded-lg overflow-y-auto select-none cursor-cell bg-background"
-        style={{ height: 380, touchAction: "none" }}
+        style={{ height: 500, touchAction: "none" }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
