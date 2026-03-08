@@ -382,6 +382,13 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       await supabase.from("hr_employees").update({ venue: shiftVenue } as any).eq("id", emp.id);
     }
     const payload = { ...editingShift, break_minutes: 0, actual_break_minutes: 0 };
+    // Safety: "Completed as Planned" must always clear actual overrides
+    if (payload.status === "completed") {
+      payload.actual_shift_type = null;
+      payload.actual_start_time = payload.start_time || null;
+      payload.actual_end_time = payload.end_time || null;
+      payload.no_show = false;
+    }
     if (payload.actual_start_time && payload.actual_end_time) {
       payload.actual_hours_worked = calcHours(payload.actual_start_time, payload.actual_end_time, payload.actual_break_minutes || 0);
       const scheduledMins = calcHours(payload.start_time || "00:00", payload.end_time || "00:00", payload.break_minutes || 0) * 60;
