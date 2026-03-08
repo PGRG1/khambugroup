@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,7 @@ interface Props {
   onAddShift: (employeeId: string, date: string) => void;
   onApproveLeave?: (id: string, status: "approved" | "rejected") => void;
   onChangeVenue?: (employeeId: string, venue: string) => void;
+  onReorderEmployees?: (reorderedIds: { id: string; sort_order: number }[]) => void;
 }
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -152,12 +153,17 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
 
 export function WeeklyScheduleView({
   shifts, employees, departments, leaveRequests, leaveTypes, weekDates,
-  onEditShift, onAddShift, onApproveLeave,
+  onEditShift, onAddShift, onApproveLeave, onReorderEmployees,
 }: Props) {
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
     [employees]
   );
+
+  // Drag-and-drop state
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragCounter = useRef(0);
 
   const shiftMap = useMemo(() => {
     const map: Record<string, HRShift[]> = {};
