@@ -360,7 +360,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       ...shift,
       break_minutes: 0,
       actual_break_minutes: 0,
-      actual_shift_type: shift.actual_shift_type || shift.shift_type || "regular",
+      actual_shift_type: shift.actual_shift_type ?? null,
       status: shift.status === "scheduled" ? "completed" : shift.status,
     });
     const emp = employees.find(e => e.id === shift.employee_id);
@@ -657,13 +657,14 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                             updateField("status", s.value);
                             if (s.value === "completed") {
                               updateField("no_show", false);
-                              updateField("actual_shift_type", editingShift.shift_type || "regular");
-                              // Auto-fill actuals from planned
-                              if (editingShift.start_time) updateField("actual_start_time", editingShift.start_time);
-                              if (editingShift.end_time) updateField("actual_end_time", editingShift.end_time);
+                              // Clear actuals override — "same as plan"
+                              updateField("actual_shift_type", null);
+                              // Set actual times to plan times for hours tracking
+                              updateField("actual_start_time", editingShift.start_time || null);
+                              updateField("actual_end_time", editingShift.end_time || null);
                             } else {
                               updateField("no_show", false);
-                              updateField("actual_shift_type", "regular");
+                              updateField("actual_shift_type", editingShift.shift_type || "regular");
                               updateField("actual_start_time", null);
                               updateField("actual_end_time", null);
                             }
