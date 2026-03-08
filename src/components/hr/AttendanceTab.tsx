@@ -36,14 +36,14 @@ const VENUE_OPTIONS = [
 
 const SHIFT_TYPES = [
   { value: "regular", label: "Work", color: "bg-primary/20 text-primary border-primary/30" },
-  { value: "al", label: "AL", color: "bg-chart-3/20 text-chart-3 border-chart-3/30" },
-  { value: "sh", label: "SH", color: "bg-chart-2/20 text-chart-2 border-chart-2/30" },
-  { value: "ph", label: "PH", color: "bg-chart-4/20 text-chart-4 border-chart-4/30" },
-  { value: "sick_no_pay", label: "Sick (NP)", color: "bg-destructive/20 text-destructive border-destructive/30" },
-  { value: "no_pay", label: "No Pay", color: "bg-destructive/15 text-destructive border-destructive/20" },
   { value: "off", label: "OFF", color: "bg-muted text-muted-foreground border-border" },
+  { value: "al", label: "AL", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700" },
+  { value: "sh", label: "SH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700" },
+  { value: "sick_no_pay", label: "SL", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700" },
+  { value: "no_pay", label: "NPL", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-700" },
   { value: "rest", label: "Rest", color: "bg-muted text-muted-foreground border-border" },
-  { value: "training", label: "Training", color: "bg-chart-5/20 text-chart-5 border-chart-5/30" },
+  { value: "training", label: "TRN", color: "bg-chart-5/20 text-chart-5 border-chart-5/30" },
+  { value: "ph", label: "PH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700" },
 ];
 
 const SHIFT_STATUSES = [
