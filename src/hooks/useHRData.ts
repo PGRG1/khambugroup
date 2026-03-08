@@ -142,6 +142,15 @@ export interface HRPayroll {
   employee?: HREmployee;
 }
 
+export interface HRHoliday {
+  id: string;
+  name: string;
+  date: string;
+  holiday_type: string;
+  year: number;
+  is_active: boolean;
+}
+
 export function useHRData() {
   const [departments, setDepartments] = useState<HRDepartment[]>([]);
   const [employees, setEmployees] = useState<HREmployee[]>([]);
@@ -151,6 +160,7 @@ export function useHRData() {
   const [shifts, setShifts] = useState<HRShift[]>([]);
   const [attendance, setAttendance] = useState<HRAttendance[]>([]);
   const [payroll, setPayroll] = useState<HRPayroll[]>([]);
+  const [holidays, setHolidays] = useState<HRHoliday[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDepartments = useCallback(async () => {
@@ -193,15 +203,20 @@ export function useHRData() {
     if (data) setPayroll(data as any);
   }, []);
 
+  const fetchHolidays = useCallback(async () => {
+    const { data } = await supabase.from("hr_holidays").select("*").eq("is_active", true).order("date");
+    if (data) setHolidays(data);
+  }, []);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([
       fetchDepartments(), fetchEmployees(), fetchLeaveTypes(),
       fetchLeaveRequests(), fetchLeaveBalances(), fetchShifts(),
-      fetchAttendance(), fetchPayroll(),
+      fetchAttendance(), fetchPayroll(), fetchHolidays(),
     ]);
     setLoading(false);
-  }, [fetchDepartments, fetchEmployees, fetchLeaveTypes, fetchLeaveRequests, fetchLeaveBalances, fetchShifts, fetchAttendance, fetchPayroll]);
+  }, [fetchDepartments, fetchEmployees, fetchLeaveTypes, fetchLeaveRequests, fetchLeaveBalances, fetchShifts, fetchAttendance, fetchPayroll, fetchHolidays]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -300,7 +315,7 @@ export function useHRData() {
 
   return {
     departments, employees, leaveTypes, leaveRequests, leaveBalances,
-    shifts, attendance, payroll, loading,
+    shifts, attendance, payroll, holidays, loading,
     upsertDepartment, upsertEmployee, upsertLeaveType, upsertLeaveRequest,
     upsertLeaveBalance, upsertShift, upsertAttendance, upsertPayroll,
     deleteRecord, refetch: fetchAll,
