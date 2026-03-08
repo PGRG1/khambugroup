@@ -57,7 +57,7 @@ const SHIFT_STATUSES = [
   { value: "no_show", label: "No Show" },
 ];
 
-// Generate time options in 30-min increments (6:00 AM to 6:00 AM next day)
+// Generate time options in 30-min increments (full 24h)
 const ACTUAL_TIME_OPTIONS = (() => {
   const opts: { value: string; label: string }[] = [];
   for (let h = 0; h < 24; h++) {
@@ -71,6 +71,23 @@ const ACTUAL_TIME_OPTIONS = (() => {
   }
   return opts;
 })();
+
+function crossesMidnight(startTime: string, endTime: string): boolean {
+  if (!startTime || !endTime) return false;
+  const [sh] = startTime.split(":").map(Number);
+  const [eh] = endTime.split(":").map(Number);
+  return eh < sh || (eh === sh && endTime < startTime);
+}
+
+function formatTime12WithPlus1(t: string, refStart?: string): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const base = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+  if (refStart && crossesMidnight(refStart, t)) return `${base} +1`;
+  return base;
+}
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -671,7 +688,10 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                           <Select value={editingShift.actual_end_time || ""} onValueChange={v => updateField("actual_end_time", v || null)}>
                             <SelectTrigger><SelectValue placeholder="End" /></SelectTrigger>
                             <SelectContent>
-                              {ACTUAL_TIME_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                              {ACTUAL_TIME_OPTIONS.map(t => {
+                                const showPlus1 = editingShift.actual_start_time && crossesMidnight(editingShift.actual_start_time, t.value);
+                                return <SelectItem key={t.value} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
@@ -680,7 +700,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
 
                     {editingShift.actual_start_time && editingShift.actual_end_time && (
                       <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span>Actual: <strong className="text-foreground">{calcHours(editingShift.actual_start_time, editingShift.actual_end_time, 0).toFixed(1)}h</strong></span>
+                        <span>Actual: <strong className="text-foreground">{formatTime12WithPlus1(editingShift.actual_start_time)} – {formatTime12WithPlus1(editingShift.actual_end_time, editingShift.actual_start_time)}</strong> ({calcHours(editingShift.actual_start_time, editingShift.actual_end_time, 0).toFixed(1)}h)</span>
                         {editingShift.start_time && editingShift.end_time && (() => {
                           const scheduled = calcHours(editingShift.start_time, editingShift.end_time, 0);
                           const actual = calcHours(editingShift.actual_start_time!, editingShift.actual_end_time!, 0);

@@ -44,11 +44,16 @@ function fromIdx(i: number, isEnd = false): string {
   return `${String(s.hour % 24).padStart(2, "0")}:${String(s.minute).padStart(2, "0")}`;
 }
 
-function fmtTime(t: string): string {
+function fmtTime(t: string, refStart?: string): string {
   const [h, m] = t.split(":").map(Number);
   const sfx = h >= 12 ? "PM" : "AM";
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return m === 0 ? `${h12}:00 ${sfx}` : `${h12}:${String(m).padStart(2, "0")} ${sfx}`;
+  const base = m === 0 ? `${h12}:00 ${sfx}` : `${h12}:${String(m).padStart(2, "0")} ${sfx}`;
+  if (refStart) {
+    const [sh] = refStart.split(":").map(Number);
+    if (h < sh || (h === sh && t < refStart)) return `${base} +1`;
+  }
+  return base;
 }
 
 function calcDuration(start: string, end: string): string {
@@ -215,7 +220,7 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
           <div className="flex items-baseline gap-1.5">
             <span className="text-sm font-semibold text-foreground">{fmtTime(liveStart)}</span>
             <span className="text-xs text-muted-foreground">→</span>
-            <span className="text-sm font-semibold text-foreground">{fmtTime(liveEnd)}</span>
+            <span className="text-sm font-semibold text-foreground">{fmtTime(liveEnd, liveStart)}</span>
           </div>
         </div>
         <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
@@ -293,7 +298,7 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
               className="absolute -bottom-0.5 left-1 text-[9px] font-bold text-primary pointer-events-none select-none"
               style={{ transform: "translateY(100%)" }}
             >
-              {fmtTime(liveEnd)}
+              {fmtTime(liveEnd, liveStart)}
             </div>
           </div>
         </div>

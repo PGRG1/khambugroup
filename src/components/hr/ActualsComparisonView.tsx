@@ -40,8 +40,15 @@ function calcHours(start: string, end: string): number {
   return mins / 60;
 }
 
+function crossesMidnight(startTime: string, endTime: string): boolean {
+  const [sh] = startTime.split(":").map(Number);
+  const [eh] = endTime.split(":").map(Number);
+  return eh < sh || (eh === sh && endTime < startTime);
+}
+
 function formatShiftTime(start: string, end: string): string {
-  return `${formatTime12(start)} - ${formatTime12(end)}`;
+  const plus1 = crossesMidnight(start, end) ? " +1" : "";
+  return `${formatTime12(start)} - ${formatTime12(end)}${plus1}`;
 }
 
 function VarianceBadge({ plannedStart, plannedEnd, actualStart, actualEnd, noShow }: {
