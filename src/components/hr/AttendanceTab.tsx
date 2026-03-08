@@ -19,6 +19,7 @@ interface Props {
   departments?: import("@/hooks/useHRData").HRDepartment[];
   leaveRequests?: import("@/hooks/useHRData").HRLeaveRequest[];
   leaveTypes?: import("@/hooks/useHRData").HRLeaveType[];
+  holidays?: import("@/hooks/useHRData").HRHoliday[];
   onSaveShift: (s: Partial<HRShift>) => Promise<boolean>;
   onSaveAttendance: (a: Partial<HRAttendance>) => Promise<boolean>;
   onSaveLeaveRequest?: (lr: Partial<import("@/hooks/useHRData").HRLeaveRequest>) => Promise<boolean>;
