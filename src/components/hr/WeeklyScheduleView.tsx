@@ -263,6 +263,7 @@ export function WeeklyScheduleView({
 
   // Venue filter for hourly coverage chart
   const [chartVenues, setChartVenues] = useState<string[]>([]);
+  const [chartDays, setChartDays] = useState<number[]>([]);
   const allVenues = useMemo(() => {
     const venues = [...new Set(activeEmployees.map(e => e.venue || "Other"))].sort();
     return venues;
