@@ -160,10 +160,10 @@ export function WeeklyScheduleView({
   const staffSummary = useMemo(() => {
     const summary: Record<string, { ft: number; pt: number }> = {};
     activeEmployees.forEach(emp => {
-      const dept = emp.department?.name || "Other";
-      if (!summary[dept]) summary[dept] = { ft: 0, pt: 0 };
-      if (emp.employment_type === "full_time") summary[dept].ft++;
-      else summary[dept].pt++;
+      const venue = emp.venue || "Other";
+      if (!summary[venue]) summary[venue] = { ft: 0, pt: 0 };
+      if (emp.employment_type === "full_time") summary[venue].ft++;
+      else summary[venue].pt++;
     });
     return summary;
   }, [activeEmployees]);
@@ -181,17 +181,17 @@ export function WeeklyScheduleView({
 
   // Daily headcount by department
   const dailyHeadcount = useMemo(() => {
-    const depts = [...new Set(activeEmployees.map(e => e.department?.name || "Other"))];
-    return depts.map(dept => {
-      const deptEmps = activeEmployees.filter(e => (e.department?.name || "Other") === dept);
+    const venues = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
+    return venues.map(venue => {
+      const venueEmps = activeEmployees.filter(e => (e.venue || "Other") === venue);
       const counts = weekDates.map(d => {
         const dateStr = formatDate(d);
-        return deptEmps.filter(emp => {
+        return venueEmps.filter(emp => {
           const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
           return cellShifts.some(s => (s.shift_type || "regular") === "regular");
         }).length;
       });
-      return { dept, counts };
+      return { dept: venue, counts };
     });
   }, [activeEmployees, weekDates, shiftMap]);
 
@@ -207,16 +207,16 @@ export function WeeklyScheduleView({
 
   // Stable venue list for color assignment
   const venueList = useMemo(() => {
-    const names = [...new Set(activeEmployees.map(e => e.department?.name || "Other"))];
+    const names = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
     return names.sort();
   }, [activeEmployees]);
 
   // Sort employees by department then name
   const sortedEmployees = useMemo(() =>
     [...activeEmployees].sort((a, b) => {
-      const dA = a.department?.name || "ZZZ";
-      const dB = b.department?.name || "ZZZ";
-      if (dA !== dB) return dA.localeCompare(dB);
+      const vA = a.venue || "ZZZ";
+      const vB = b.venue || "ZZZ";
+      if (vA !== vB) return vA.localeCompare(vB);
       return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
     }),
     [activeEmployees]
@@ -364,11 +364,11 @@ export function WeeklyScheduleView({
               {sortedEmployees.length === 0 ? (
                 <tr><td colSpan={12} className="text-center text-muted-foreground py-6">No active employees</td></tr>
               ) : sortedEmployees.map(emp => {
-                const vc = getVenueColor(emp.department?.name || "Other", venueList);
+                const vc = getVenueColor(emp.venue || "Other", venueList);
                 return (
                 <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/20">
                   <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
-                    {emp.department?.name || "—"}
+                    {emp.venue || "—"}
                   </td>
                   <td className={`${tdClass} font-medium`}>{emp.first_name} {emp.last_name}</td>
                   <td className={`${tdClass} text-muted-foreground`}>{emp.job_title || "—"}</td>

@@ -1,0 +1,1 @@
+ALTER TABLE public.hr_employees ADD COLUMN venue text DEFAULT null;
