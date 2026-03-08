@@ -296,6 +296,7 @@ export type Database = {
           last_name: string
           notes: string | null
           phone: string | null
+          sort_order: number
           status: string
           updated_at: string
           user_id: string | null
@@ -317,6 +318,7 @@ export type Database = {
           last_name: string
           notes?: string | null
           phone?: string | null
+          sort_order?: number
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -338,6 +340,7 @@ export type Database = {
           last_name?: string
           notes?: string | null
           phone?: string | null
+          sort_order?: number
           status?: string
           updated_at?: string
           user_id?: string | null

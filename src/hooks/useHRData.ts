@@ -28,6 +28,7 @@ export interface HREmployee {
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   venue: string | null;
+  sort_order: number;
   notes: string | null;
   created_at: string;
   department?: HRDepartment;
