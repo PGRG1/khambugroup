@@ -173,6 +173,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
+  const [shiftVenue, setShiftVenue] = useState<string>("");
   const [saving, setSaving] = useState(false);
   
 
