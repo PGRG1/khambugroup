@@ -233,9 +233,12 @@ export function WeeklyScheduleView({
     return names.sort();
   }, [activeEmployees]);
 
-  // Sort employees by department then name
+  // Sort employees by sort_order (persisted), then venue, then name as fallback
   const sortedEmployees = useMemo(() =>
     [...activeEmployees].sort((a, b) => {
+      const orderA = a.sort_order ?? 999;
+      const orderB = b.sort_order ?? 999;
+      if (orderA !== orderB) return orderA - orderB;
       const vA = a.venue || "ZZZ";
       const vB = b.venue || "ZZZ";
       if (vA !== vB) return vA.localeCompare(vB);
@@ -243,6 +246,62 @@ export function WeeklyScheduleView({
     }),
     [activeEmployees]
   );
+
+  // Drag handlers for row reordering
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLTableRowElement>, empId: string) => {
+    setDraggedId(empId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", empId);
+    // Make the drag image semi-transparent
+    if (e.currentTarget) {
+      e.currentTarget.style.opacity = "0.4";
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent<HTMLTableRowElement>) => {
+    e.currentTarget.style.opacity = "1";
+    setDraggedId(null);
+    setDragOverId(null);
+    dragCounter.current = 0;
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLTableRowElement>, empId: string) => {
+    e.preventDefault();
+    dragCounter.current++;
+    setDragOverId(empId);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLTableRowElement>) => {
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setDragOverId(null);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLTableRowElement>, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+    dragCounter.current = 0;
+    const sourceId = draggedId;
+    setDraggedId(null);
+    if (!sourceId || sourceId === targetId || !onReorderEmployees) return;
+
+    const newOrder = [...sortedEmployees];
+    const srcIdx = newOrder.findIndex(emp => emp.id === sourceId);
+    const tgtIdx = newOrder.findIndex(emp => emp.id === targetId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+
+    const [moved] = newOrder.splice(srcIdx, 1);
+    newOrder.splice(tgtIdx, 0, moved);
+
+    const updates = newOrder.map((emp, i) => ({ id: emp.id, sort_order: i }));
+    onReorderEmployees(updates);
+  }, [draggedId, sortedEmployees, onReorderEmployees]);
 
   const thClass = "px-2 py-1.5 text-[11px] font-semibold text-left whitespace-nowrap";
   const tdClass = "px-2 py-1 text-[11px] whitespace-nowrap border-r border-border/40 last:border-r-0";
