@@ -640,7 +640,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     </p>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground block">Status</label>
+                      <label className="text-xs font-medium text-muted-foreground block">Shift Type</label>
                       <div className="flex flex-wrap gap-1.5">
                         {SHIFT_STATUSES.map(s => {
                           const isActive = (editingShift.status || "scheduled") === s.value;
@@ -658,14 +658,14 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                                 else if (s.value === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
                                 else { updateField("no_show", false); updateField("shift_type", "regular"); }
                               }}
-                              className={`px-2.5 py-1.5 rounded-md border text-[11px] font-semibold transition-all ${s.color} ${isActive ? "ring-2 ring-offset-1 ring-primary shadow-sm scale-[1.02]" : "opacity-60"}`}
+                              className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}
                             >
-                              <span className="font-bold">{s.short}</span>
-                              <span className="ml-1 font-medium hidden sm:inline">{s.label !== s.short ? s.label : ""}</span>
+                              {s.label}
                             </button>
                           );
                         })}
                       </div>
+                    </div>
                     </div>
 
                     {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
