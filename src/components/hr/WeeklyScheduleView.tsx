@@ -357,7 +357,6 @@ export function WeeklyScheduleView({
                   <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
                     {emp.department?.name || "—"}
                   </td>
-                  </td>
                   <td className={`${tdClass} font-medium`}>{emp.first_name} {emp.last_name}</td>
                   <td className={`${tdClass} text-muted-foreground`}>{emp.job_title || "—"}</td>
                   <td className={tdClass}>{getTypeLabel(emp)}</td>
