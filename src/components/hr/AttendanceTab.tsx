@@ -48,8 +48,8 @@ const SHIFT_TYPES = [
 ];
 
 const SHIFT_STATUSES = [
-  { value: "completed", label: "Done", group: "top" },
-  { value: "no_show", label: "NS", group: "top" },
+  { value: "completed", label: "Completed as Planned", group: "top" },
+  { value: "no_show", label: "Not Completed as Planned", group: "top" },
   { value: "scheduled", label: "Work", group: "bottom" },
   { value: "off", label: "OFF", group: "bottom" },
   { value: "al", label: "AL", group: "bottom" },
