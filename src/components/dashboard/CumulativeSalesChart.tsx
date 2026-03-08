@@ -1,12 +1,8 @@
-import { useState, useMemo } from "react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import { useState, useMemo, useCallback } from "react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
 import ChartCard from "./ChartCard";
-import { Badge } from "@/components/ui/badge";
-import { X, ChevronDown } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
 
 const MONTH_COLORS = [
   "hsl(24, 80%, 50%)",
@@ -37,53 +33,44 @@ interface Props {
 }
 
 export default function CumulativeSalesChart({ data }: Props) {
-  const [open, setOpen] = useState(false);
-
-  // All available months from the full dataset
+  // All available months from the dataset
   const allMonths = useMemo(() => {
     return [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
   }, [data]);
 
-  // Default: last 6 months
-  const [selectedMonths, setSelectedMonths] = useState<string[]>(() => {
-    return allMonths.slice(-6);
-  });
+  // Track which months are hidden (toggled off via legend click)
+  const [hiddenMonths, setHiddenMonths] = useState<Set<string>>(new Set());
 
-  // Keep selection in sync if data changes and selected months no longer exist
-  const validSelected = useMemo(() => {
-    const set = new Set(allMonths);
-    return selectedMonths.filter((m) => set.has(m));
-  }, [selectedMonths, allMonths]);
+  const visibleMonths = useMemo(() => {
+    return allMonths.filter((m) => !hiddenMonths.has(m));
+  }, [allMonths, hiddenMonths]);
 
-  const toggleMonth = (mk: string) => {
-    if (validSelected.includes(mk)) {
-      setSelectedMonths(validSelected.filter((m) => m !== mk));
-    } else {
-      setSelectedMonths([...validSelected, mk].sort());
-    }
-  };
+  const toggleMonth = useCallback((mk: string) => {
+    setHiddenMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(mk)) {
+        next.delete(mk);
+      } else {
+        next.add(mk);
+      }
+      return next;
+    });
+  }, []);
 
-  const removeMonth = (mk: string) => {
-    setSelectedMonths(validSelected.filter((m) => m !== mk));
-  };
-
-  // Group by year for the popover
-  const monthsByYear = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const mk of allMonths) {
-      const year = mk.split("-")[0];
-      if (!map.has(year)) map.set(year, []);
-      map.get(year)!.push(mk);
-    }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  // Stable color map so toggling doesn't shift colors
+  const colorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allMonths.forEach((mk, i) => {
+      map.set(mk, MONTH_COLORS[i % MONTH_COLORS.length]);
+    });
+    return map;
   }, [allMonths]);
 
-  // Compute cumulative data only for selected months
+  // Compute cumulative data for ALL months (we hide via line opacity)
   const cumulativeData = useMemo(() => {
     const monthGroups = new Map<string, Map<number, number>>();
     data.forEach((r) => {
       const mk = getMonthKey(r.date);
-      if (!validSelected.includes(mk)) return;
       const dayOfMonth = new Date(r.date).getDate();
       if (!monthGroups.has(mk)) monthGroups.set(mk, new Map());
       const dayMap = monthGroups.get(mk)!;
@@ -106,93 +93,76 @@ export default function CumulativeSalesChart({ data }: Props) {
       rows.push(row);
     }
     return { rows, months: sortedMonths };
-  }, [data, validSelected]);
+  }, [data]);
 
   if (allMonths.length === 0) return null;
 
-  const selectedSet = new Set(validSelected);
-
   return (
-    <ChartCard
-      title="Cumulative Sales"
-      className="lg:col-span-2"
-      headerRight={
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-auto min-h-7 py-1 px-2 text-[10px] sm:text-xs flex items-center gap-1.5 max-w-[400px]">
-              {validSelected.length === 0 ? (
-                <span className="text-muted-foreground">Select months…</span>
-              ) : (
-                <div className="flex flex-wrap gap-0.5">
-                  {validSelected.map((mk) => (
-                    <Badge key={mk} variant="secondary" className="text-[9px] sm:text-[10px] font-medium gap-0.5 pr-0.5 py-0">
-                      {getMonthLabel(mk)}
-                      <X
-                        className="h-2.5 w-2.5 cursor-pointer hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); removeMonth(mk); }}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-3 max-h-[300px] overflow-y-auto" align="end">
-            <div className="space-y-2.5">
-              {monthsByYear.map(([year, mks]) => (
-                <div key={year}>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{year}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {mks.map((mk) => {
-                      const isSelected = selectedSet.has(mk);
-                      const shortLabel = getMonthLabel(mk).replace(` ${year}`, "");
-                      return (
-                        <button
-                          key={mk}
-                          onClick={() => toggleMonth(mk)}
-                          className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-medium transition-colors border ${
-                            isSelected
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "bg-card hover:bg-secondary border-border text-foreground/70 hover:text-foreground"
-                          }`}
-                        >
-                          {shortLabel}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-      }
-    >
+    <ChartCard title="Cumulative Sales" className="lg:col-span-2">
       {cumulativeData.months.length > 0 ? (
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={cumulativeData.rows}>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-            <XAxis
-              dataKey="day"
-              tick={axisStyle}
-              label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
-            />
-            <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-            <Tooltip
-              {...tooltipStyle}
-              formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, getMonthLabel(name)]}
-              labelFormatter={(l) => `Day ${l}`}
-            />
-            <Legend wrapperStyle={{ fontSize: "11px" }} formatter={(v) => getMonthLabel(v)} />
-            {cumulativeData.months.map((mk, i) => (
-              <Line key={mk} type="monotone" dataKey={mk} stroke={MONTH_COLORS[i % MONTH_COLORS.length]} strokeWidth={2} dot={false} />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
+        <>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={cumulativeData.rows}>
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+              <XAxis
+                dataKey="day"
+                tick={axisStyle}
+                label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+              />
+              <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+              <Tooltip
+                {...tooltipStyle}
+                formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, getMonthLabel(name)]}
+                labelFormatter={(l) => `Day ${l}`}
+              />
+              {cumulativeData.months.map((mk) => (
+                <Line
+                  key={mk}
+                  type="monotone"
+                  dataKey={mk}
+                  stroke={colorMap.get(mk)}
+                  strokeWidth={2}
+                  dot={false}
+                  hide={hiddenMonths.has(mk)}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+          {/* Custom clickable legend */}
+          <div className="flex items-center justify-center gap-3 flex-wrap mt-2">
+            {allMonths.map((mk) => {
+              const isHidden = hiddenMonths.has(mk);
+              const color = colorMap.get(mk)!;
+              return (
+                <button
+                  key={mk}
+                  onClick={() => toggleMonth(mk)}
+                  className="flex items-center gap-1.5 text-[11px] font-medium transition-opacity cursor-pointer hover:opacity-80"
+                  style={{ opacity: isHidden ? 0.35 : 1 }}
+                >
+                  <span
+                    className="inline-block w-3 h-[3px] rounded-full"
+                    style={{
+                      backgroundColor: color,
+                      opacity: isHidden ? 0.4 : 1,
+                    }}
+                  />
+                  <span
+                    style={{
+                      color: isHidden ? "hsl(25, 10%, 50%)" : color,
+                      textDecoration: isHidden ? "line-through" : "none",
+                    }}
+                  >
+                    {getMonthLabel(mk)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
       ) : (
         <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">
-          Select at least one month to view cumulative sales.
+          No data available.
         </div>
       )}
     </ChartCard>
