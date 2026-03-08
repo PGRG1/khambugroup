@@ -111,12 +111,19 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
     }
   }, []);
 
+  const formatDisplay = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const suffix = h >= 12 ? "PM" : "AM";
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return m === 0 ? `${h12} ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scheduled Time</h4>
         <span className="text-xs text-muted-foreground">
-          {startTime} – {endTime}
+          {formatDisplay(startTime)} – {formatDisplay(endTime)}
         </span>
       </div>
       <div
