@@ -245,7 +245,7 @@ export function WeeklyScheduleView({
   }, [activeEmployees]);
 
   // Sort employees by sort_order (persisted), then venue, then name as fallback
-  const sortedEmployees = useMemo(() =>
+  const baseSortedEmployees = useMemo(() =>
     [...activeEmployees].sort((a, b) => {
       const orderA = a.sort_order ?? 999;
       const orderB = b.sort_order ?? 999;
@@ -258,12 +258,21 @@ export function WeeklyScheduleView({
     [activeEmployees]
   );
 
+  // Apply local order override if present
+  const sortedEmployees = useMemo(() => {
+    if (!localOrderOverride) return baseSortedEmployees;
+    const empMap = new Map(baseSortedEmployees.map(e => [e.id, e]));
+    const ordered = localOrderOverride.map(id => empMap.get(id)).filter(Boolean) as typeof baseSortedEmployees;
+    // Add any employees not in the override (newly added)
+    baseSortedEmployees.forEach(e => { if (!localOrderOverride.includes(e.id)) ordered.push(e); });
+    return ordered;
+  }, [baseSortedEmployees, localOrderOverride]);
+
   // Drag handlers for row reordering
   const handleDragStart = useCallback((e: React.DragEvent<HTMLTableRowElement>, empId: string) => {
     setDraggedId(empId);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", empId);
-    // Make the drag image semi-transparent
     if (e.currentTarget) {
       e.currentTarget.style.opacity = "0.4";
     }
@@ -302,15 +311,19 @@ export function WeeklyScheduleView({
     setDraggedId(null);
     if (!sourceId || sourceId === targetId || !onReorderEmployees) return;
 
-    const newOrder = [...sortedEmployees];
-    const srcIdx = newOrder.findIndex(emp => emp.id === sourceId);
-    const tgtIdx = newOrder.findIndex(emp => emp.id === targetId);
+    const currentOrder = [...sortedEmployees];
+    const srcIdx = currentOrder.findIndex(emp => emp.id === sourceId);
+    const tgtIdx = currentOrder.findIndex(emp => emp.id === targetId);
     if (srcIdx === -1 || tgtIdx === -1) return;
 
-    const [moved] = newOrder.splice(srcIdx, 1);
-    newOrder.splice(tgtIdx, 0, moved);
+    const [moved] = currentOrder.splice(srcIdx, 1);
+    currentOrder.splice(tgtIdx, 0, moved);
 
-    const updates = newOrder.map((emp, i) => ({ id: emp.id, sort_order: i }));
+    // Optimistic local update — no refetch needed
+    setLocalOrderOverride(currentOrder.map(e => e.id));
+
+    // Persist to DB in background
+    const updates = currentOrder.map((emp, i) => ({ id: emp.id, sort_order: i }));
     onReorderEmployees(updates);
   }, [draggedId, sortedEmployees, onReorderEmployees]);
 
