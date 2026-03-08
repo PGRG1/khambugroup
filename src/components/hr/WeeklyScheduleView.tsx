@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useCallback } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend as RLegend, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -259,6 +260,39 @@ export function WeeklyScheduleView({
   );
 
   const hourlyCoverage = useMemo(() => getHourlyCoverage(shifts, weekDates), [shifts, weekDates]);
+
+  // Venue filter for hourly coverage chart
+  const [chartVenues, setChartVenues] = useState<string[]>([]);
+  const allVenues = useMemo(() => {
+    const venues = [...new Set(activeEmployees.map(e => e.venue || "Other"))].sort();
+    return venues;
+  }, [activeEmployees]);
+  const selectedChartVenues = chartVenues.length > 0 ? chartVenues : allVenues;
+
+  // Build employee-to-venue map
+  const employeeVenueMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    activeEmployees.forEach(e => { map[e.id] = e.venue || "Other"; });
+    return map;
+  }, [activeEmployees]);
+
+  // Filtered hourly coverage for chart
+  const chartCoverage = useMemo(() => {
+    const filteredShifts = shifts.filter(s => selectedChartVenues.includes(employeeVenueMap[s.employee_id] || "Other"));
+    return getHourlyCoverage(filteredShifts, weekDates);
+  }, [shifts, weekDates, selectedChartVenues, employeeVenueMap]);
+
+  // Chart data: rows = hours, columns = days
+  const chartData = useMemo(() => {
+    return chartCoverage.map(row => {
+      const entry: Record<string, string | number> = { hour: row.label };
+      weekDates.forEach((d, i) => {
+        const dayLabel = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${DAY_NAMES[i]}`;
+        entry[dayLabel] = row.counts[i];
+      });
+      return entry;
+    });
+  }, [chartCoverage, weekDates]);
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
@@ -647,6 +681,60 @@ export function WeeklyScheduleView({
           </div>
         </div>
       )}
+
+      {/* Hourly Coverage Chart */}
+      <div className="border border-border rounded-md overflow-hidden">
+        <div className={sectionHeaderClass}>Hourly Coverage Chart</div>
+        <div className="p-3 space-y-3">
+          {/* Venue filter toggles */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Venue:</span>
+            <Button
+              size="sm"
+              variant={chartVenues.length === 0 ? "default" : "outline"}
+              className="h-6 text-[10px] px-2"
+              onClick={() => setChartVenues([])}
+            >
+              All
+            </Button>
+            {allVenues.map(v => (
+              <Button
+                key={v}
+                size="sm"
+                variant={chartVenues.includes(v) ? "default" : "outline"}
+                className="h-6 text-[10px] px-2"
+                onClick={() => {
+                  setChartVenues(prev => {
+                    if (prev.includes(v)) {
+                      const next = prev.filter(x => x !== v);
+                      return next;
+                    }
+                    return [...prev, v];
+                  });
+                }}
+              >
+                {v}
+              </Button>
+            ))}
+          </div>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="hour" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" allowDecimals={false} />
+                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <RLegend wrapperStyle={{ fontSize: 10 }} />
+                {weekDates.map((d, i) => {
+                  const dayLabel = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${DAY_NAMES[i]}`;
+                  const colors = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316"];
+                  return <Bar key={dayLabel} dataKey={dayLabel} fill={colors[i % colors.length]} radius={[2, 2, 0, 0]} />;
+                })}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
 
       {/* Hourly Coverage */}
       <div className="border border-border rounded-md overflow-hidden">
