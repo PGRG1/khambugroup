@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Clock, ChevronUp, ChevronDown } from "lucide-react";
+import { Check, X, Clock } from "lucide-react";
 import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment } from "@/hooks/useHRData";
 
 interface Props {
@@ -16,7 +16,6 @@ interface Props {
   onAddShift: (employeeId: string, date: string) => void;
   onApproveLeave?: (id: string, status: "approved" | "rejected") => void;
   onChangeVenue?: (employeeId: string, venue: string) => void;
-  onReorderEmployee?: (employeeId: string, direction: "up" | "down") => void;
 }
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -153,7 +152,7 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
 
 export function WeeklyScheduleView({
   shifts, employees, departments, leaveRequests, leaveTypes, weekDates,
-  onEditShift, onAddShift, onApproveLeave, onReorderEmployee,
+  onEditShift, onAddShift, onApproveLeave,
 }: Props) {
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
@@ -196,32 +195,10 @@ export function WeeklyScheduleView({
     );
   }, [leaveRequests, weekDates, activeEmployees]);
 
-  // Stable venue list for color assignment
-  const venueList = useMemo(() => {
-    const names = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
-    return names.sort();
-  }, [activeEmployees]);
-
-  // Sort employees by sort_order (persisted)
-  const sortedEmployees = useMemo(() =>
-    [...activeEmployees].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
-    [activeEmployees]
-  );
-
-  // Derive venue order from employee sort_order
-  const orderedVenues = useMemo(() => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    sortedEmployees.forEach(e => {
-      const v = e.venue || "Other";
-      if (!seen.has(v)) { seen.add(v); result.push(v); }
-    });
-    return result;
-  }, [sortedEmployees]);
-
-  // Daily headcount by department (ordered by employee sort_order)
+  // Daily headcount by department
   const dailyHeadcount = useMemo(() => {
-    return orderedVenues.map(venue => {
+    const venues = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
+    return venues.map(venue => {
       const venueEmps = activeEmployees.filter(e => (e.venue || "Other") === venue);
       const counts = weekDates.map(d => {
         const dateStr = formatDate(d);
@@ -232,7 +209,7 @@ export function WeeklyScheduleView({
       });
       return { dept: venue, counts };
     });
-  }, [activeEmployees, orderedVenues, weekDates, shiftMap]);
+  }, [activeEmployees, weekDates, shiftMap]);
 
   const dailyTotals = useMemo(() =>
     weekDates.map((_, i) => dailyHeadcount.reduce((t, row) => t + row.counts[i], 0)),
@@ -243,6 +220,23 @@ export function WeeklyScheduleView({
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const todayStr = formatDate(new Date());
+
+  // Stable venue list for color assignment
+  const venueList = useMemo(() => {
+    const names = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
+    return names.sort();
+  }, [activeEmployees]);
+
+  // Sort employees by department then name
+  const sortedEmployees = useMemo(() =>
+    [...activeEmployees].sort((a, b) => {
+      const vA = a.venue || "ZZZ";
+      const vB = b.venue || "ZZZ";
+      if (vA !== vB) return vA.localeCompare(vB);
+      return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+    }),
+    [activeEmployees]
+  );
 
   const thClass = "px-2 py-1.5 text-[11px] font-semibold text-left whitespace-nowrap";
   const tdClass = "px-2 py-1 text-[11px] whitespace-nowrap border-r border-border/40 last:border-r-0";
@@ -270,8 +264,7 @@ export function WeeklyScheduleView({
               </tr>
             </thead>
             <tbody>
-              {orderedVenues.map(dept => {
-                const { ft, pt } = staffSummary[dept] || { ft: 0, pt: 0 };
+              {Object.entries(staffSummary).map(([dept, { ft, pt }]) => {
                 const vc = getVenueColor(dept, venueList);
                 return (
                   <tr key={dept} className={`border-b border-border/50 ${vc.bg}`}>
@@ -367,8 +360,7 @@ export function WeeklyScheduleView({
           <table className="w-full text-[11px]">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className={`${thClass} sticky left-0 bg-muted/50 z-10 min-w-[30px]`}></th>
-                <th className={`${thClass} min-w-[80px]`}>Venue</th>
+                <th className={`${thClass} sticky left-0 bg-muted/50 z-10 min-w-[80px]`}>Venue</th>
                 <th className={`${thClass} min-w-[90px]`}>Name</th>
                 <th className={`${thClass} min-w-[80px]`}>Position</th>
                 <th className={`${thClass} min-w-[60px]`}>Type</th>
@@ -386,32 +378,12 @@ export function WeeklyScheduleView({
             </thead>
             <tbody>
               {sortedEmployees.length === 0 ? (
-                <tr><td colSpan={13} className="text-center text-muted-foreground py-6">No active employees</td></tr>
-              ) : sortedEmployees.map((emp, idx) => {
+                <tr><td colSpan={12} className="text-center text-muted-foreground py-6">No active employees</td></tr>
+              ) : sortedEmployees.map(emp => {
                 const vc = getVenueColor(emp.venue || "Other", venueList);
-                const isFirst = idx === 0;
-                const isLast = idx === sortedEmployees.length - 1;
                 return (
                 <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/20">
-                  <td className={`${tdClass} sticky left-0 z-10 bg-background`}>
-                    <div className="flex flex-col items-center gap-0">
-                      <button
-                        disabled={isFirst}
-                        onClick={() => onReorderEmployee?.(emp.id, "up")}
-                        className="p-0 h-3 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
-                      >
-                        <ChevronUp className="h-3 w-3" />
-                      </button>
-                      <button
-                        disabled={isLast}
-                        onClick={() => onReorderEmployee?.(emp.id, "down")}
-                        className="p-0 h-3 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className={`${tdClass} font-bold ${vc.bg} ${vc.text}`}>
+                  <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
                     {emp.venue || "—"}
                   </td>
                   <td className={`${tdClass} font-medium`}>{emp.first_name} {emp.last_name}</td>

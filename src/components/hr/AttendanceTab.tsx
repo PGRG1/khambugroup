@@ -329,25 +329,6 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
         onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
           await onSaveLeaveRequest({ id, status });
         } : undefined}
-        onReorderEmployee={async (employeeId, direction) => {
-          const activeEmps = employees
-            .filter(e => (e.status || "").trim().toLowerCase() === "active")
-            .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-          const idx = activeEmps.findIndex(e => e.id === employeeId);
-          if (idx < 0) return;
-          const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-          if (swapIdx < 0 || swapIdx >= activeEmps.length) return;
-          const current = activeEmps[idx];
-          const target = activeEmps[swapIdx];
-          const currentOrder = current.sort_order || 0;
-          const targetOrder = target.sort_order || 0;
-          // Swap sort_order values in DB
-          await supabase.from("hr_employees").update({ sort_order: targetOrder } as any).eq("id", current.id);
-          await supabase.from("hr_employees").update({ sort_order: currentOrder } as any).eq("id", target.id);
-          // Refresh
-          onSaveShift({} as any).catch(() => {}); // trigger refetch via parent
-          window.location.reload(); // ensure fresh data
-        }}
       />
 
       {/* Shift Detail Modal */}
