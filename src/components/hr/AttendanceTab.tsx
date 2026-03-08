@@ -48,14 +48,14 @@ const SHIFT_TYPES = [
 ];
 
 const SHIFT_STATUSES = [
-  { value: "scheduled", label: "Work", short: "WORK", color: "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25" },
-  { value: "completed", label: "Completed", short: "DONE", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50" },
-  { value: "off", label: "OFF", short: "OFF", color: "bg-muted text-muted-foreground border-border hover:bg-muted/80" },
-  { value: "al", label: "Annual Leave", short: "AL", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700 hover:bg-orange-200 dark:hover:bg-orange-900/50" },
-  { value: "sh", label: "Stat. Holiday", short: "SH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50" },
-  { value: "no_pay", label: "No Pay Leave", short: "NPL", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-700 hover:bg-purple-200 dark:hover:bg-purple-900/50" },
-  { value: "sick_leave", label: "Sick Leave", short: "SL", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50" },
-  { value: "no_show", label: "No Show", short: "NS", color: "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20" },
+  { value: "scheduled", label: "Work" },
+  { value: "completed", label: "Done" },
+  { value: "off", label: "OFF" },
+  { value: "al", label: "AL" },
+  { value: "sh", label: "SH" },
+  { value: "no_pay", label: "NPL" },
+  { value: "sick_leave", label: "SL" },
+  { value: "no_show", label: "NS" },
 ];
 
 // Generate time options in 30-min increments, ordered from 6AM with next-day times at end
@@ -640,7 +640,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     </p>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground block">Status</label>
+                      <label className="text-xs font-medium text-muted-foreground block">Shift Type</label>
                       <div className="flex flex-wrap gap-1.5">
                         {SHIFT_STATUSES.map(s => {
                           const isActive = (editingShift.status || "scheduled") === s.value;
@@ -658,10 +658,9 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                                 else if (s.value === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
                                 else { updateField("no_show", false); updateField("shift_type", "regular"); }
                               }}
-                              className={`px-2.5 py-1.5 rounded-md border text-[11px] font-semibold transition-all ${s.color} ${isActive ? "ring-2 ring-offset-1 ring-primary shadow-sm scale-[1.02]" : "opacity-60"}`}
+                              className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}
                             >
-                              <span className="font-bold">{s.short}</span>
-                              <span className="ml-1 font-medium hidden sm:inline">{s.label !== s.short ? s.label : ""}</span>
+                              {s.label}
                             </button>
                           );
                         })}
