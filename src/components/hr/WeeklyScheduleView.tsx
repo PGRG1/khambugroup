@@ -228,16 +228,22 @@ export function WeeklyScheduleView({
     return names.sort();
   }, [activeEmployees]);
 
-  // Sort employees by department then name
+  // Sort employees by sort_order (persisted)
   const sortedEmployees = useMemo(() =>
-    [...activeEmployees].sort((a, b) => {
-      const vA = a.venue || "ZZZ";
-      const vB = b.venue || "ZZZ";
-      if (vA !== vB) return vA.localeCompare(vB);
-      return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
-    }),
+    [...activeEmployees].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
     [activeEmployees]
   );
+
+  // Derive venue order from employee sort_order
+  const orderedVenues = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    sortedEmployees.forEach(e => {
+      const v = e.venue || "Other";
+      if (!seen.has(v)) { seen.add(v); result.push(v); }
+    });
+    return result;
+  }, [sortedEmployees]);
 
   const thClass = "px-2 py-1.5 text-[11px] font-semibold text-left whitespace-nowrap";
   const tdClass = "px-2 py-1 text-[11px] whitespace-nowrap border-r border-border/40 last:border-r-0";
