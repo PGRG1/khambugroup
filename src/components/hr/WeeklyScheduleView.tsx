@@ -38,6 +38,21 @@ const TYPE_TO_CODE: Record<string, string> = {
   training: "TRN",
 };
 
+// Color palette for venues/departments – cycles for unlimited departments
+const VENUE_COLORS = [
+  { bg: "bg-orange-100 dark:bg-orange-900/20", text: "text-orange-800 dark:text-orange-300", border: "border-orange-200 dark:border-orange-800" },
+  { bg: "bg-emerald-100 dark:bg-emerald-900/20", text: "text-emerald-800 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800" },
+  { bg: "bg-sky-100 dark:bg-sky-900/20", text: "text-sky-800 dark:text-sky-300", border: "border-sky-200 dark:border-sky-800" },
+  { bg: "bg-violet-100 dark:bg-violet-900/20", text: "text-violet-800 dark:text-violet-300", border: "border-violet-200 dark:border-violet-800" },
+  { bg: "bg-amber-100 dark:bg-amber-900/20", text: "text-amber-800 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800" },
+  { bg: "bg-rose-100 dark:bg-rose-900/20", text: "text-rose-800 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800" },
+];
+
+function getVenueColor(venueName: string, venueList: string[]) {
+  const idx = venueList.indexOf(venueName);
+  return VENUE_COLORS[idx >= 0 ? idx % VENUE_COLORS.length : 0];
+}
+
 function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
