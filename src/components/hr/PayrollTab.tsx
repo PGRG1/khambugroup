@@ -211,12 +211,12 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   const getRowData = useCallback((emp: HREmployee) => {
     const p = payrollMap[emp.id];
     const e = edits[emp.id] || {};
-    const baseSalary = e.forecast_base_salary != null ? n(e.forecast_base_salary) : n(p?.forecast_base_salary);
-    const daysHours = e.days_hours != null ? n(e.days_hours) : (p ? n(p.forecast_allowances) || daysInMonth : daysInMonth);
+    const baseSalary = e.forecast_base_salary != null ? Number(e.forecast_base_salary) : n(p?.forecast_base_salary);
+    const daysHours = e.days_hours != null ? Number(e.days_hours) : (p ? n(p.forecast_allowances) || daysInMonth : daysInMonth);
     const isFT = emp.employment_type === "full_time";
     const earnedSalary = isFT ? baseSalary : baseSalary * daysHours;
-    const alDays = e.al_days != null ? n(e.al_days) : n(p?.annual_leave_pay);
-    const nplDays = e.npl_days != null ? n(e.npl_days) : n(p?.unpaid_leave_deduction);
+    const alDays = e.al_days != null ? Number(e.al_days) : n(p?.annual_leave_pay);
+    const nplDays = e.npl_days != null ? Number(e.npl_days) : n(p?.unpaid_leave_deduction);
     const dailyRate = isFT && daysInMonth > 0 ? baseSalary / daysInMonth : 0;
     const adjustments = isFT ? dailyRate * (alDays - nplDays) : 0;
     const grossPay = earnedSalary + adjustments;
