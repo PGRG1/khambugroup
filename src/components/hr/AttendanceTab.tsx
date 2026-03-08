@@ -310,9 +310,13 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" onClick={goToday}>Current Week</Button>
+          <span className="text-sm font-semibold min-w-[180px] text-center">{weekLabel}</span>
           <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
-          <span className="text-sm font-medium ml-2">{weekLabel}</span>
+          {formatDate(weekDates[0]) !== formatDate(getWeekDates(new Date())[0]) && (
+            <Button variant="ghost" size="sm" onClick={goToday} className="text-xs text-muted-foreground">
+              ↺ Current
+            </Button>
+          )}
         </div>
         <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
           <Plus className="h-4 w-4 mr-1" /> Add Shift
