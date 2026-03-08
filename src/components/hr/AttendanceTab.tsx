@@ -58,15 +58,17 @@ const SHIFT_STATUSES = [
   { value: "sick_leave", label: "SL", group: "bottom" },
 ];
 
-// Generate time options in 30-min increments, standard 12AM-11:30PM order
+// Generate time options in 30-min increments, ordered from 8:00 AM to 7:30 AM +1
 const ACTUAL_TIME_OPTIONS = (() => {
   const opts: { value: string; label: string }[] = [];
-  for (let h = 0; h < 24; h++) {
+  for (let h = 8; h < 32; h++) {
     for (const m of [0, 30]) {
-      const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-      const suffix = h >= 12 ? "PM" : "AM";
-      const label = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+      const hour24 = h % 24;
+      const val = `${String(hour24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const h12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const suffix = hour24 >= 12 ? "PM" : "AM";
+      const base = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+      const label = h >= 24 ? `${base} +1` : base;
       opts.push({ value: val, label });
     }
   }
@@ -721,11 +723,9 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                                 <Select value={editingShift.actual_end_time || ""} onValueChange={v => updateField("actual_end_time", v || null)}>
                                   <SelectTrigger><SelectValue placeholder="End" /></SelectTrigger>
                                   <SelectContent>
-                                    {ACTUAL_TIME_OPTIONS.map(t => {
-                                      const refStart = editingShift.actual_start_time || editingShift.start_time || "";
-                                      const showPlus1 = refStart && crossesMidnight(refStart, t.value);
-                                      return <SelectItem key={`e-${t.value}`} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
-                                    })}
+                                    {ACTUAL_TIME_OPTIONS.map(t => (
+                                      <SelectItem key={`e-${t.value}`} value={t.value}>{t.label}</SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
                               </div>
