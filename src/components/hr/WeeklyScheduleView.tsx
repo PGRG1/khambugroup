@@ -38,6 +38,21 @@ const TYPE_TO_CODE: Record<string, string> = {
   training: "TRN",
 };
 
+// Color palette for venues/departments – cycles for unlimited departments
+const VENUE_COLORS = [
+  { bg: "bg-orange-100 dark:bg-orange-900/20", text: "text-orange-800 dark:text-orange-300", border: "border-orange-200 dark:border-orange-800" },
+  { bg: "bg-emerald-100 dark:bg-emerald-900/20", text: "text-emerald-800 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800" },
+  { bg: "bg-sky-100 dark:bg-sky-900/20", text: "text-sky-800 dark:text-sky-300", border: "border-sky-200 dark:border-sky-800" },
+  { bg: "bg-violet-100 dark:bg-violet-900/20", text: "text-violet-800 dark:text-violet-300", border: "border-violet-200 dark:border-violet-800" },
+  { bg: "bg-amber-100 dark:bg-amber-900/20", text: "text-amber-800 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800" },
+  { bg: "bg-rose-100 dark:bg-rose-900/20", text: "text-rose-800 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800" },
+];
+
+function getVenueColor(venueName: string, venueList: string[]) {
+  const idx = venueList.indexOf(venueName);
+  return VENUE_COLORS[idx >= 0 ? idx % VENUE_COLORS.length : 0];
+}
+
 function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
@@ -177,6 +192,12 @@ export function WeeklyScheduleView({
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const todayStr = formatDate(new Date());
 
+  // Stable venue list for color assignment
+  const venueList = useMemo(() => {
+    const names = [...new Set(activeEmployees.map(e => e.department?.name || "Other"))];
+    return names.sort();
+  }, [activeEmployees]);
+
   // Sort employees by department then name
   const sortedEmployees = useMemo(() =>
     [...activeEmployees].sort((a, b) => {
@@ -214,14 +235,17 @@ export function WeeklyScheduleView({
               </tr>
             </thead>
             <tbody>
-              {Object.entries(staffSummary).map(([dept, { ft, pt }]) => (
-                <tr key={dept} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className={`${tdClass} font-semibold text-primary`}>{dept}</td>
-                  <td className={`${tdClass} text-center`}>{ft}</td>
-                  <td className={`${tdClass} text-center`}>{pt}</td>
-                  <td className={`${tdClass} text-center font-bold`}>{ft + pt}</td>
-                </tr>
-              ))}
+              {Object.entries(staffSummary).map(([dept, { ft, pt }]) => {
+                const vc = getVenueColor(dept, venueList);
+                return (
+                  <tr key={dept} className={`border-b border-border/50 ${vc.bg}`}>
+                    <td className={`${tdClass} font-bold ${vc.text}`}>{dept}</td>
+                    <td className={`${tdClass} text-center`}>{ft}</td>
+                    <td className={`${tdClass} text-center`}>{pt}</td>
+                    <td className={`${tdClass} text-center font-bold`}>{ft + pt}</td>
+                  </tr>
+                );
+              })}
               <tr className="bg-muted/50 font-bold">
                 <td className={tdClass}>Total</td>
                 <td className={`${tdClass} text-center`}>{Object.values(staffSummary).reduce((t, v) => t + v.ft, 0)}</td>
@@ -326,9 +350,11 @@ export function WeeklyScheduleView({
             <tbody>
               {sortedEmployees.length === 0 ? (
                 <tr><td colSpan={12} className="text-center text-muted-foreground py-6">No active employees</td></tr>
-              ) : sortedEmployees.map(emp => (
+              ) : sortedEmployees.map(emp => {
+                const vc = getVenueColor(emp.department?.name || "Other", venueList);
+                return (
                 <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/20">
-                  <td className={`${tdClass} font-semibold text-primary sticky left-0 bg-background z-10`}>
+                  <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
                     {emp.department?.name || "—"}
                   </td>
                   <td className={`${tdClass} font-medium`}>{emp.first_name} {emp.last_name}</td>
@@ -368,7 +394,8 @@ export function WeeklyScheduleView({
                     );
                   })}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -395,9 +422,11 @@ export function WeeklyScheduleView({
                 </tr>
               </thead>
               <tbody>
-                {dailyHeadcount.map(row => (
-                  <tr key={row.dept} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className={`${tdClass} font-semibold text-primary`}>{row.dept}</td>
+                {dailyHeadcount.map(row => {
+                  const vc = getVenueColor(row.dept, venueList);
+                  return (
+                  <tr key={row.dept} className={`border-b border-border/50 ${vc.bg}`}>
+                    <td className={`${tdClass} font-bold ${vc.text}`}>{row.dept}</td>
                     {row.counts.map((c, i) => {
                       const isToday = formatDate(weekDates[i]) === todayStr;
                       return (
@@ -405,7 +434,8 @@ export function WeeklyScheduleView({
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
                 <tr className="bg-muted/50 font-bold">
                   <td className={tdClass}>Total</td>
                   {dailyTotals.map((t, i) => (
