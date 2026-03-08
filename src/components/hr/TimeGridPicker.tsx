@@ -85,9 +85,9 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
       return;
     }
     const minI = Math.min(dragAnchor, dragCurrent);
-    const maxI = Math.max(dragAnchor, dragCurrent) + 1; // end is exclusive
+    const maxI = Math.max(dragAnchor, dragCurrent) + 1; // end is exclusive (next slot)
     onChangeStart(fromSlotIndex(minI));
-    onChangeEnd(fromSlotIndex(Math.min(maxI, SLOTS.length - 1)));
+    onChangeEnd(fromSlotIndex(maxI, true));
     setDragging(false);
     setDragAnchor(null);
     setDragCurrent(null);
