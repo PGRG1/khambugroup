@@ -359,6 +359,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       ...shift,
       break_minutes: 0,
       actual_break_minutes: 0,
+      actual_shift_type: shift.actual_shift_type || shift.shift_type || "regular",
       status: shift.status === "scheduled" ? "completed" : shift.status,
     });
     const emp = employees.find(e => e.id === shift.employee_id);

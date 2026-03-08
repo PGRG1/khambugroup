@@ -190,18 +190,41 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
                       <td key={i} className={`${tdClass} ${isToday ? "bg-primary/5" : ""}`}>
                         <div className="space-y-0.5">
                           {cellShifts.map(shift => {
-                            const type = shift.shift_type || "regular";
-                            const isRegular = type === "regular";
+                            const plannedType = shift.shift_type || "regular";
+                            const actualType = shift.actual_shift_type || plannedType;
+                            const isPlannedRegular = plannedType === "regular";
+                            const isActualRegular = actualType === "regular";
 
-                            if (!isRegular) {
-                              const code = TYPE_TO_CODE[type] || type.toUpperCase();
+                            // If plan was non-regular, show plan type; if actual changed, show actual
+                            if (!isPlannedRegular && !shift.actual_shift_type) {
+                              const code = TYPE_TO_CODE[plannedType] || plannedType.toUpperCase();
                               return (
                                 <div
                                   key={shift.id}
-                                  className={`rounded px-1.5 py-0.5 text-center cursor-pointer ${getLeaveStyle(type)}`}
+                                  className={`rounded px-1.5 py-0.5 text-center cursor-pointer ${getLeaveStyle(plannedType)}`}
                                   onClick={() => onEditShift(shift)}
                                 >
                                   <span className="text-[10px] font-semibold">{code}</span>
+                                </div>
+                              );
+                            }
+
+                            // If actual type is non-regular (was changed from plan)
+                            if (!isActualRegular) {
+                              const planCode = isPlannedRegular ? "Work" : (TYPE_TO_CODE[plannedType] || plannedType.toUpperCase());
+                              const actCode = TYPE_TO_CODE[actualType] || actualType.toUpperCase();
+                              return (
+                                <div
+                                  key={shift.id}
+                                  className={`rounded border border-border/60 px-1.5 py-1 cursor-pointer hover:bg-muted/50 transition-colors space-y-0.5`}
+                                  onClick={() => onEditShift(shift)}
+                                >
+                                  <div className="text-muted-foreground text-[9px] leading-tight line-through">
+                                    <span className="font-medium">Plan:</span> {isPlannedRegular ? formatShiftTime(shift.start_time, shift.end_time) : planCode}
+                                  </div>
+                                  <div className={`text-[10px] font-semibold leading-tight ${getLeaveStyle(actualType)} rounded px-1 py-0.5 text-center`}>
+                                    {actCode}
+                                  </div>
                                 </div>
                               );
                             }
