@@ -356,12 +356,16 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   };
 
   const openEditShift = (shift: HRShift, fromActuals = false) => {
+    const autoCompleted = shift.status === "scheduled";
     setEditingShift({
       ...shift,
       break_minutes: 0,
       actual_break_minutes: 0,
-      actual_shift_type: shift.actual_shift_type ?? null,
-      status: shift.status === "scheduled" ? "completed" : shift.status,
+      // If auto-completing, treat as "same as plan" — clear actuals override
+      actual_shift_type: autoCompleted ? null : (shift.actual_shift_type ?? null),
+      actual_start_time: autoCompleted ? (shift.start_time || null) : (shift.actual_start_time ?? null),
+      actual_end_time: autoCompleted ? (shift.end_time || null) : (shift.actual_end_time ?? null),
+      status: autoCompleted ? "completed" : shift.status,
     });
     const emp = employees.find(e => e.id === shift.employee_id);
     setShiftVenue(emp?.venue || "");
