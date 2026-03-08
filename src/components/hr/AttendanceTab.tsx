@@ -171,7 +171,7 @@ function ScheduleKPICards({ shifts, weekDates, employees }: { shifts: HRShift[];
   );
 }
 
-export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, onSaveShift, onSaveAttendance, onSaveLeaveRequest }: Props) {
+export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, onSaveShift, onSaveAttendance, onSaveLeaveRequest, onRefetch }: Props) {
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
