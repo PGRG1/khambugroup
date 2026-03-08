@@ -194,6 +194,28 @@ export function WeeklyScheduleView({
   onEditShift, onAddShift, onApproveLeave, onReorderEmployees,
   clipboard, onCopyShift, onPasteShift, onClearClipboard, onCopyPrevWeek, shiftsToCopyCount,
 }: Props) {
+  const rosterRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadRoster = useCallback(async () => {
+    if (!rosterRef.current) return;
+    try {
+      const dataUrl = await toPng(rosterRef.current, {
+        backgroundColor: "#fff",
+        pixelRatio: 2,
+        style: { overflow: "visible" },
+      });
+      const link = document.createElement("a");
+      const weekLabel = weekDates.length > 0
+        ? `${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })}-${weekDates[weekDates.length - 1].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+        : "roster";
+      link.download = `Staff-Roster-${weekLabel}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success("Roster image downloaded");
+    } catch {
+      toast.error("Failed to download roster image");
+    }
+  }, [weekDates]);
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
     [employees]
