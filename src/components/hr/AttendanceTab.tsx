@@ -329,6 +329,12 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
         onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
           await onSaveLeaveRequest({ id, status });
         } : undefined}
+        onReorderEmployees={async (updates) => {
+          const promises = updates.map(u =>
+            supabase.from("hr_employees").update({ sort_order: u.sort_order } as any).eq("id", u.id)
+          );
+          await Promise.all(promises);
+        }}
       />
 
       {/* Shift Detail Modal */}
