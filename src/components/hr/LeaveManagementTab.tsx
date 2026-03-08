@@ -219,73 +219,8 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <TreePalm className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Total Entitlement</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.totalEntitlement}</p>
-            <p className="text-[10px] text-muted-foreground">days across all staff</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Check className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Used</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.totalUsed}</p>
-            <p className="text-[10px] text-muted-foreground">
-              {kpiStats.totalEntitlement > 0 ? `${((kpiStats.totalUsed / kpiStats.totalEntitlement) * 100).toFixed(0)}% utilised` : "—"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Calendar className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Remaining</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.totalRemaining}</p>
-            <p className="text-[10px] text-muted-foreground">days available</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">Pending</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.pendingCount}</p>
-            <p className="text-[10px] text-muted-foreground">awaiting approval</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              <span className="text-xs font-medium text-muted-foreground">Low Balance</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.lowBalanceCount}</p>
-            <p className="text-[10px] text-muted-foreground">≤2 days remaining</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main content tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Balance Overview</TabsTrigger>
-          <TabsTrigger value="requests">Requests ({yearRequests.length})</TabsTrigger>
-          <TabsTrigger value="types">Leave Types</TabsTrigger>
-        </TabsList>
-
-        {/* OVERVIEW TAB - Spreadsheet-style balance tracker */}
-        <TabsContent value="overview" className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
             <Select value={filterVenue} onValueChange={setFilterVenue}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="All Venues" />
