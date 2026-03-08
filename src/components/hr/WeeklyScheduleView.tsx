@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Check, X, Clock, Clipboard } from "lucide-react";
 import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment, HRHoliday } from "@/hooks/useHRData";
 import type { ShiftClipboard } from "./AttendanceTab";
+import { getHolidayBorderClass } from "./holidayBorderUtils";
 
 interface Props {
   shifts: HRShift[];

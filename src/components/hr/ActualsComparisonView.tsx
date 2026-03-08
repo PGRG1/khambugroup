@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { getHolidayBorderClass } from "./holidayBorderUtils";
 import type { HRShift, HREmployee, HRHoliday } from "@/hooks/useHRData";
 
 interface Props {
