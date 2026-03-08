@@ -688,7 +688,10 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                           <Select value={editingShift.actual_end_time || ""} onValueChange={v => updateField("actual_end_time", v || null)}>
                             <SelectTrigger><SelectValue placeholder="End" /></SelectTrigger>
                             <SelectContent>
-                              {ACTUAL_TIME_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                              {ACTUAL_TIME_OPTIONS.map(t => {
+                                const showPlus1 = editingShift.actual_start_time && crossesMidnight(editingShift.actual_start_time, t.value);
+                                return <SelectItem key={t.value} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
@@ -697,7 +700,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
 
                     {editingShift.actual_start_time && editingShift.actual_end_time && (
                       <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span>Actual: <strong className="text-foreground">{calcHours(editingShift.actual_start_time, editingShift.actual_end_time, 0).toFixed(1)}h</strong></span>
+                        <span>Actual: <strong className="text-foreground">{formatTime12WithPlus1(editingShift.actual_start_time)} – {formatTime12WithPlus1(editingShift.actual_end_time, editingShift.actual_start_time)}</strong> ({calcHours(editingShift.actual_start_time, editingShift.actual_end_time, 0).toFixed(1)}h)</span>
                         {editingShift.start_time && editingShift.end_time && (() => {
                           const scheduled = calcHours(editingShift.start_time, editingShift.end_time, 0);
                           const actual = calcHours(editingShift.actual_start_time!, editingShift.actual_end_time!, 0);

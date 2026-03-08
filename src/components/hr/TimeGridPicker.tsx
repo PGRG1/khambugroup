@@ -44,11 +44,16 @@ function fromIdx(i: number, isEnd = false): string {
   return `${String(s.hour % 24).padStart(2, "0")}:${String(s.minute).padStart(2, "0")}`;
 }
 
-function fmtTime(t: string): string {
+function fmtTime(t: string, refStart?: string): string {
   const [h, m] = t.split(":").map(Number);
   const sfx = h >= 12 ? "PM" : "AM";
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return m === 0 ? `${h12}:00 ${sfx}` : `${h12}:${String(m).padStart(2, "0")} ${sfx}`;
+  const base = m === 0 ? `${h12}:00 ${sfx}` : `${h12}:${String(m).padStart(2, "0")} ${sfx}`;
+  if (refStart) {
+    const [sh] = refStart.split(":").map(Number);
+    if (h < sh || (h === sh && t < refStart)) return `${base} +1`;
+  }
+  return base;
 }
 
 function calcDuration(start: string, end: string): string {
