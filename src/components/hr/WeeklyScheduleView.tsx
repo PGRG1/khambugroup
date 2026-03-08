@@ -104,7 +104,7 @@ function getShiftCellStyle(shift: HRShift): string {
 
 function getCategoryLabel(emp: HREmployee): string {
   const title = (emp.job_title || "").toLowerCase();
-  if (title.includes("general manager") || title.includes("gm")) return "Floor";
+  if (title.includes("general manager") || title.includes("gm")) return "Bar & Floor";
   if (title.includes("bar") && title.includes("manager")) return "Bar";
   if (title.includes("bar")) return "Bar";
   if (title.includes("runner")) return "Runner";
