@@ -485,7 +485,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
 
       {/* Shift Detail Modal */}
       <Dialog open={shiftModalOpen} onOpenChange={setShiftModalOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingShift?.id ? "Edit Shift" : "Add Shift"}</DialogTitle></DialogHeader>
           {editingShift && (
             <div className="space-y-4 pt-2">
