@@ -16,6 +16,7 @@ interface Props {
   onAddShift: (employeeId: string, date: string) => void;
   onApproveLeave?: (id: string, status: "approved" | "rejected") => void;
   onChangeVenue?: (employeeId: string, venue: string) => void;
+  onReorderEmployee?: (employeeId: string, direction: "up" | "down") => void;
 }
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -152,7 +153,7 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
 
 export function WeeklyScheduleView({
   shifts, employees, departments, leaveRequests, leaveTypes, weekDates,
-  onEditShift, onAddShift, onApproveLeave,
+  onEditShift, onAddShift, onApproveLeave, onReorderEmployee,
 }: Props) {
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
