@@ -261,6 +261,39 @@ export function WeeklyScheduleView({
 
   const hourlyCoverage = useMemo(() => getHourlyCoverage(shifts, weekDates), [shifts, weekDates]);
 
+  // Venue filter for hourly coverage chart
+  const [chartVenues, setChartVenues] = useState<string[]>([]);
+  const allVenues = useMemo(() => {
+    const venues = [...new Set(activeEmployees.map(e => e.venue || "Other"))].sort();
+    return venues;
+  }, [activeEmployees]);
+  const selectedChartVenues = chartVenues.length > 0 ? chartVenues : allVenues;
+
+  // Build employee-to-venue map
+  const employeeVenueMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    activeEmployees.forEach(e => { map[e.id] = e.venue || "Other"; });
+    return map;
+  }, [activeEmployees]);
+
+  // Filtered hourly coverage for chart
+  const chartCoverage = useMemo(() => {
+    const filteredShifts = shifts.filter(s => selectedChartVenues.includes(employeeVenueMap[s.employee_id] || "Other"));
+    return getHourlyCoverage(filteredShifts, weekDates);
+  }, [shifts, weekDates, selectedChartVenues, employeeVenueMap]);
+
+  // Chart data: rows = hours, columns = days
+  const chartData = useMemo(() => {
+    return chartCoverage.map(row => {
+      const entry: Record<string, string | number> = { hour: row.label };
+      weekDates.forEach((d, i) => {
+        const dayLabel = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${DAY_NAMES[i]}`;
+        entry[dayLabel] = row.counts[i];
+      });
+      return entry;
+    });
+  }, [chartCoverage, weekDates]);
+
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
   const todayStr = formatDate(new Date());
