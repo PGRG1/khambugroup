@@ -604,13 +604,8 @@ export function WeeklyScheduleView({
 
                     if (cellShifts.length === 0) {
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${clipboard ? "cursor-crosshair" : ""}`}>
-                          <button
-                            onClick={() => clipboard && onPasteShift ? onPasteShift(emp.id, dateStr) : onAddShift(emp.id, dateStr)}
-                            className={`w-full transition-colors ${clipboard ? "text-primary/40 hover:text-primary hover:bg-primary/10 rounded" : "text-muted-foreground/30 hover:text-primary/50"}`}
-                          >
-                            {clipboard ? "⊕" : "-"}
-                          </button>
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""}`}>
+                          <span className="text-muted-foreground/30">-</span>
                         </td>
                       );
                     }
