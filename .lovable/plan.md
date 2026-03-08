@@ -1,65 +1,51 @@
 
 
-## Summary
+## Plan: Separate HR Sidebar Section
 
-This plan covers four changes to the Revenue dashboard:
+The plan from our previous discussion is solid. Here's the refined version:
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+### Changes
 
----
+**1. Four new page files** under `src/pages/hr/`:
+- `HREmployees.tsx` — wraps `EmployeeDirectoryTab`
+- `HRSchedule.tsx` — wraps `AttendanceTab`
+- `HRLeave.tsx` — wraps `LeaveManagementTab`
+- `HRPayroll.tsx` — wraps `PayrollTab`
 
-## Changes
+Each page calls `useHRData()` and renders its section with a consistent page header.
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
+**2. Sidebar (`AppSidebar.tsx`)** — New "Human Resources" group between Navigation and Admin:
 
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
+```text
+── Navigation ──
+  Revenue
+  Forecast vs Actual
+  Activity Log
+  P&L Report
+  Invoices
+  Inventory
 
-### 2. Index.tsx -- Compute and pass new KPI values
+── Human Resources ──
+  Employee Directory    /hr/employees
+  Schedule              /hr/schedule
+  Leave Management      /hr/leave
+  Payroll               /hr/payroll
 
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
+── Admin ──
+  User Access
+  Settings
+```
 
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+Visible to admins only (same as current HR access).
 
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
+**3. Routes (`App.tsx`)** — Replace single `/hr` with four `AdminRoute`-protected sub-routes. Add a redirect from `/hr` → `/hr/employees`.
 
-### 4. DashboardCharts.tsx -- Multiple updates
+**4. Cleanup** — Remove old `HumanResources.tsx` tabs page.
 
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
+### Notes
+- Each sub-page reuses `useHRData()` — simple and consistent with current patterns.
+- No database changes needed.
+- Icons: `Users` for Directory, `Calendar` for Schedule, `FileText` for Leave, `DollarSign` for Payroll.
 
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
-
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+Ready to implement on your approval.
 
