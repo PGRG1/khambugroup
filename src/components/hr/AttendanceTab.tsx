@@ -48,14 +48,14 @@ const SHIFT_TYPES = [
 ];
 
 const SHIFT_STATUSES = [
-  { value: "scheduled", label: "Work" },
-  { value: "completed", label: "Done" },
-  { value: "off", label: "OFF" },
-  { value: "al", label: "AL" },
-  { value: "sh", label: "SH" },
-  { value: "no_pay", label: "NPL" },
-  { value: "sick_leave", label: "SL" },
-  { value: "no_show", label: "NS" },
+  { value: "completed", label: "Done", group: "top" },
+  { value: "no_show", label: "NS", group: "top" },
+  { value: "scheduled", label: "Work", group: "bottom" },
+  { value: "off", label: "OFF", group: "bottom" },
+  { value: "al", label: "AL", group: "bottom" },
+  { value: "sh", label: "SH", group: "bottom" },
+  { value: "no_pay", label: "NPL", group: "bottom" },
+  { value: "sick_leave", label: "SL", group: "bottom" },
 ];
 
 // Generate time options in 30-min increments, ordered from 6AM with next-day times at end
@@ -648,28 +648,28 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     </p>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground block">Shift Type</label>
                       <div className="flex flex-wrap gap-1.5">
-                        {SHIFT_STATUSES.map(s => {
+                        {SHIFT_STATUSES.filter(s => s.group === "top").map(s => {
                           const isActive = (editingShift.status || "scheduled") === s.value;
                           return (
-                            <button
-                              key={s.value}
-                              type="button"
-                              onClick={() => {
-                                updateField("status", s.value);
-                                if (s.value === "no_show") { updateField("no_show", true); updateField("shift_type", "regular"); }
-                                else if (s.value === "off") { updateField("no_show", false); updateField("shift_type", "off"); }
-                                else if (s.value === "al") { updateField("no_show", false); updateField("shift_type", "al"); }
-                                else if (s.value === "sh") { updateField("no_show", false); updateField("shift_type", "sh"); }
-                                else if (s.value === "no_pay") { updateField("no_show", false); updateField("shift_type", "no_pay"); }
-                                else if (s.value === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
-                                else { updateField("no_show", false); updateField("shift_type", "regular"); }
-                              }}
-                              className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}
-                            >
-                              {s.label}
-                            </button>
+                            <button key={s.value} type="button" onClick={() => { updateField("status", s.value); if (s.value === "no_show") { updateField("no_show", true); updateField("shift_type", "regular"); } else { updateField("no_show", false); updateField("shift_type", "regular"); } }} className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}>{s.label}</button>
+                          );
+                        })}
+                      </div>
+                      <label className="text-xs font-medium text-muted-foreground block">Shift Type</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {SHIFT_STATUSES.filter(s => s.group === "bottom").map(s => {
+                          const isActive = (editingShift.status || "scheduled") === s.value;
+                          return (
+                            <button key={s.value} type="button" onClick={() => {
+                              updateField("status", s.value);
+                              if (s.value === "off") { updateField("no_show", false); updateField("shift_type", "off"); }
+                              else if (s.value === "al") { updateField("no_show", false); updateField("shift_type", "al"); }
+                              else if (s.value === "sh") { updateField("no_show", false); updateField("shift_type", "sh"); }
+                              else if (s.value === "no_pay") { updateField("no_show", false); updateField("shift_type", "no_pay"); }
+                              else if (s.value === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
+                              else { updateField("no_show", false); updateField("shift_type", "regular"); }
+                            }} className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}>{s.label}</button>
                           );
                         })}
                       </div>
