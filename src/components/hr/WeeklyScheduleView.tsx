@@ -238,6 +238,15 @@ export function WeeklyScheduleView({
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
+  const todayStr = formatDate(new Date());
+
+  // Upcoming holidays (from today onwards, max 6)
+  const upcomingHolidays = useMemo(() => {
+    return holidays
+      .filter(h => h.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 6);
+  }, [holidays, todayStr]);
 
   // Stable venue list for color assignment
   const venueList = useMemo(() => {
