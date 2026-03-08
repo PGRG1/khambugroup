@@ -557,52 +557,52 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                 </div>
               </div>
 
-              {modalActualsMode && editingShift.id && (
+              {modalActualsMode && (
                 <p className="text-[10px] text-muted-foreground bg-primary/5 border border-primary/10 rounded-md px-2.5 py-1.5 text-center">
-                  Schedule is read-only — edit actuals below
-                </p>
-              )}
-              {modalActualsMode && !editingShift.id && (
-                <p className="text-[10px] text-muted-foreground bg-primary/5 border border-primary/10 rounded-md px-2.5 py-1.5 text-center">
-                  Unscheduled — pick shift type &amp; times, then fill actuals
+                  {editingShift.id ? "Schedule is read-only — edit actuals below" : "Unscheduled — record actuals below"}
                 </p>
               )}
 
-              <div className={modalActualsMode && editingShift.id ? "opacity-60 pointer-events-none" : ""}>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Shift Type {modalActualsMode && editingShift.id && <span className="text-[10px] italic">(read-only)</span>}
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {SHIFT_TYPES.map(t => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => !(modalActualsMode && editingShift.id) && updateField("shift_type", t.value)}
-                      className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                        (editingShift.shift_type || "regular") === t.value ? t.color + " font-semibold" : "border-border text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Plan section - hidden entirely for unscheduled actuals */}
+              {!(modalActualsMode && !editingShift.id) && (
+                <>
+                  <div className={modalActualsMode ? "opacity-60 pointer-events-none" : ""}>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Shift Type {modalActualsMode && <span className="text-[10px] italic">(read-only)</span>}
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {SHIFT_TYPES.map(t => (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onClick={() => !modalActualsMode && updateField("shift_type", t.value)}
+                          className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                            (editingShift.shift_type || "regular") === t.value ? t.color + " font-semibold" : "border-border text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
-                <div className={modalActualsMode && editingShift.id ? "opacity-60 pointer-events-none" : ""}>
-                  <Separator />
-                  <TimeGridPicker
-                    startTime={editingShift.start_time || "09:00"}
-                    endTime={editingShift.end_time || "17:00"}
-                    onChangeStart={v => updateField("start_time", v)}
-                    onChangeEnd={v => updateField("end_time", v)}
-                  />
-                  {editingShift.start_time && editingShift.end_time && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Scheduled: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
-                    </p>
+                  {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
+                    <div className={modalActualsMode ? "opacity-60 pointer-events-none" : ""}>
+                      <Separator />
+                      <TimeGridPicker
+                        startTime={editingShift.start_time || "09:00"}
+                        endTime={editingShift.end_time || "17:00"}
+                        onChangeStart={v => updateField("start_time", v)}
+                        onChangeEnd={v => updateField("end_time", v)}
+                      />
+                      {editingShift.start_time && editingShift.end_time && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Scheduled: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
+                        </p>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
 
               {/* --- Actuals (Post-Shift) Section --- */}
@@ -613,6 +613,27 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                       Post-Shift Actuals {modalActualsMode && <Badge variant="outline" className="ml-2 text-[9px]">Editing</Badge>}
                     </p>
+
+                    {/* Shift type selector for unscheduled actuals */}
+                    {modalActualsMode && !editingShift.id && (
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">What happened?</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {SHIFT_TYPES.map(t => (
+                            <button
+                              key={t.value}
+                              type="button"
+                              onClick={() => updateField("shift_type", t.value)}
+                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                                (editingShift.shift_type || "regular") === t.value ? t.color + " font-semibold" : "border-border text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
