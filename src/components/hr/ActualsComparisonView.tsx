@@ -121,8 +121,12 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
       activeEmployees.forEach(emp => {
         const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
         cellShifts.forEach(s => {
-          if (s.shift_type === "regular" || !s.shift_type) {
+          const plannedType = s.shift_type || "regular";
+          if (plannedType === "regular") {
             plannedHrs += calcHours(s.start_time, s.end_time);
+          }
+          const actualType = s.actual_shift_type || plannedType;
+          if (actualType === "regular") {
             if (s.no_show) noShows++;
             else if (s.actual_start_time && s.actual_end_time) {
               actualHrs += calcHours(s.actual_start_time, s.actual_end_time);
