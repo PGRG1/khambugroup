@@ -213,7 +213,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       shift_date: date,
       start_time: startTime || "09:00",
       end_time: endTime || "17:00",
-      break_minutes: 30,
+      break_minutes: 0,
       status: "scheduled",
       shift_type: "regular",
       no_show: false,
@@ -411,29 +411,6 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     </p>
                   )}
 
-                  <Separator />
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actual Time (Post-Schedule)</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Actual Start</label>
-                      <Input type="time" value={editingShift.actual_start_time || ""} onChange={e => updateField("actual_start_time", e.target.value || null)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Actual End</label>
-                      <Input type="time" value={editingShift.actual_end_time || ""} onChange={e => updateField("actual_end_time", e.target.value || null)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Actual Break (min)</label>
-                      <Input type="number" value={editingShift.actual_break_minutes || 0} onChange={e => updateField("actual_break_minutes", Number(e.target.value))} />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-xs">
-                      <input type="checkbox" checked={editingShift.no_show || false} onChange={e => updateField("no_show", e.target.checked)} className="rounded" />
-                      No Show
-                    </label>
-                  </div>
                 </>
               )}
 
