@@ -330,7 +330,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
     setShiftModalOpen(true);
   };
 
-  const openEditShift = (shift: HRShift) => {
+  const openEditShift = (shift: HRShift, fromActuals = false) => {
     setEditingShift({
       ...shift,
       break_minutes: 0,
@@ -339,6 +339,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
     });
     const emp = employees.find(e => e.id === shift.employee_id);
     setShiftVenue(emp?.venue || "");
+    setModalActualsMode(fromActuals);
     setShiftModalOpen(true);
   };
 
