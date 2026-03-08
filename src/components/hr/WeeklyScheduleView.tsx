@@ -446,8 +446,20 @@ export function WeeklyScheduleView({
                 <tr><td colSpan={12} className="text-center text-muted-foreground py-6">No active employees</td></tr>
               ) : sortedEmployees.map(emp => {
                 const vc = getVenueColor(emp.venue || "Other", venueList);
+                const isDragged = draggedId === emp.id;
+                const isDragOver = dragOverId === emp.id && draggedId !== emp.id;
                 return (
-                <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/20">
+                <tr
+                  key={emp.id}
+                  draggable={!!onReorderEmployees}
+                  onDragStart={e => handleDragStart(e, emp.id)}
+                  onDragEnd={handleDragEnd}
+                  onDragEnter={e => handleDragEnter(e, emp.id)}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={e => handleDrop(e, emp.id)}
+                  className={`border-b border-border/50 hover:bg-muted/20 transition-all ${onReorderEmployees ? "cursor-grab active:cursor-grabbing" : ""} ${isDragged ? "opacity-40" : ""} ${isDragOver ? "border-t-2 border-t-primary" : ""}`}
+                >
                   <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
                     {emp.venue || "—"}
                   </td>
