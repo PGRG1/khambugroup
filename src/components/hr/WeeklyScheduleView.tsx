@@ -367,7 +367,8 @@ export function WeeklyScheduleView({
           <table className="w-full text-[11px]">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className={`${thClass} sticky left-0 bg-muted/50 z-10 min-w-[80px]`}>Venue</th>
+                <th className={`${thClass} sticky left-0 bg-muted/50 z-10 min-w-[30px]`}></th>
+                <th className={`${thClass} min-w-[80px]`}>Venue</th>
                 <th className={`${thClass} min-w-[90px]`}>Name</th>
                 <th className={`${thClass} min-w-[80px]`}>Position</th>
                 <th className={`${thClass} min-w-[60px]`}>Type</th>
@@ -385,12 +386,32 @@ export function WeeklyScheduleView({
             </thead>
             <tbody>
               {sortedEmployees.length === 0 ? (
-                <tr><td colSpan={12} className="text-center text-muted-foreground py-6">No active employees</td></tr>
-              ) : sortedEmployees.map(emp => {
+                <tr><td colSpan={13} className="text-center text-muted-foreground py-6">No active employees</td></tr>
+              ) : sortedEmployees.map((emp, idx) => {
                 const vc = getVenueColor(emp.venue || "Other", venueList);
+                const isFirst = idx === 0;
+                const isLast = idx === sortedEmployees.length - 1;
                 return (
                 <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/20">
-                  <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
+                  <td className={`${tdClass} sticky left-0 z-10 bg-background`}>
+                    <div className="flex flex-col items-center gap-0">
+                      <button
+                        disabled={isFirst}
+                        onClick={() => onReorderEmployee?.(emp.id, "up")}
+                        className="p-0 h-3 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
+                      >
+                        <ChevronUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        disabled={isLast}
+                        onClick={() => onReorderEmployee?.(emp.id, "down")}
+                        className="p-0 h-3 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors"
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </td>
+                  <td className={`${tdClass} font-bold ${vc.bg} ${vc.text}`}>
                     {emp.venue || "—"}
                   </td>
                   <td className={`${tdClass} font-medium`}>{emp.first_name} {emp.last_name}</td>
