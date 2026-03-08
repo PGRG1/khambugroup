@@ -661,10 +661,13 @@ export function WeeklyScheduleView({
                     </th>
                   );
                 })}
+                <th className={`${thClass} text-center min-w-[60px] font-bold`}>Total</th>
               </tr>
             </thead>
             <tbody>
-              {hourlyCoverage.map(row => (
+              {hourlyCoverage.map(row => {
+                const rowTotal = row.counts.reduce((sum: number, c: number) => sum + c, 0);
+                return (
                 <tr key={row.hour} className="border-b border-border/50 hover:bg-muted/30">
                   <td className={`${tdClass} font-medium`}>{row.label}</td>
                   {row.counts.map((c, i) => {
@@ -673,8 +676,10 @@ export function WeeklyScheduleView({
                       <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
                     );
                   })}
+                  <td className={`${tdClass} text-center font-bold ${rowTotal === 0 ? "text-muted-foreground/40" : ""}`}>{rowTotal}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
