@@ -325,6 +325,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
         departments={departments || []}
         leaveRequests={leaveRequests || []}
         leaveTypes={leaveTypes || []}
+        holidays={holidays || []}
         weekDates={weekDates}
         onEditShift={openEditShift}
         onAddShift={openNewShift}
