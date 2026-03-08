@@ -665,9 +665,7 @@ export function WeeklyScheduleView({
               </tr>
             </thead>
             <tbody>
-              {hourlyCoverage.map(row => {
-                const rowTotal = row.counts.reduce((sum: number, c: number) => sum + c, 0);
-                return (
+              {hourlyCoverage.map(row => (
                 <tr key={row.hour} className="border-b border-border/50 hover:bg-muted/30">
                   <td className={`${tdClass} font-medium`}>{row.label}</td>
                   {row.counts.map((c, i) => {
@@ -676,10 +674,23 @@ export function WeeklyScheduleView({
                       <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
                     );
                   })}
-                  <td className={`${tdClass} text-center font-bold ${rowTotal === 0 ? "text-muted-foreground/40" : ""}`}>{rowTotal}</td>
+                  <td className={`${tdClass} text-center text-muted-foreground/40`} />
                 </tr>
-                );
-              })}
+              ))}
+              {/* Total row: sum each day column */}
+              <tr className="border-t-2 border-border bg-muted/50 font-bold">
+                <td className={`${tdClass} font-bold`}>Total</td>
+                {weekDates.map((d, i) => {
+                  const dayTotal = hourlyCoverage.reduce((sum, row) => sum + row.counts[i], 0);
+                  const isHoliday = holidayDates.has(formatDate(d));
+                  return (
+                    <td key={i} className={`${tdClass} text-center font-bold ${isHoliday ? "bg-muted/60" : ""}`}>{dayTotal}</td>
+                  );
+                })}
+                <td className={`${tdClass} text-center font-bold`}>
+                  {hourlyCoverage.reduce((sum, row) => sum + row.counts.reduce((s, c) => s + c, 0), 0)}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
