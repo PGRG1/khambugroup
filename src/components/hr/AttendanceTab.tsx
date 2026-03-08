@@ -515,7 +515,12 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       {/* Shift Detail Modal */}
       <Dialog open={shiftModalOpen} onOpenChange={setShiftModalOpen}>
         <DialogContent className="w-[95vw] md:w-[80vw] h-[90vh] md:h-[80vh] overflow-y-auto resize overflow-auto min-w-[320px] min-h-[300px] !max-w-[95vw]">
-          <DialogHeader><DialogTitle>{editingShift?.id ? "Edit Shift" : "Add Shift"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingShift?.id ? "Edit Shift" : "Add Shift"}</DialogTitle>
+            {modalActualsMode && (
+              <p className="text-xs text-muted-foreground">Opened from Actuals view — schedule is read-only. Edit actuals below.</p>
+            )}
+          </DialogHeader>
           {editingShift && (
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-3 gap-3">
