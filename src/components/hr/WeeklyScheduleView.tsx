@@ -100,8 +100,7 @@ function formatShiftCell(shift: HRShift): string {
   if (type !== "regular") return TYPE_TO_CODE[type] || type.toUpperCase();
   const start = formatTime12(shift.start_time);
   const end = formatTime12(shift.end_time);
-  const plus1 = crossesMidnight(shift.start_time, shift.end_time) ? " +1" : "";
-  return `${start} - ${end}${plus1}`;
+  return `${start} - ${end}`;
 }
 
 function getShiftCellStyle(shift: HRShift): string {
