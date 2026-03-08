@@ -7,14 +7,14 @@ interface Props {
   onChangeEnd: (time: string) => void;
 }
 
-// 30-min slots from 6AM to 6AM (next day) = 48 slots (full 24h)
+// 30-min slots from 6AM to 10AM next day = 56 slots (28h)
 const SLOTS: { hour: number; minute: number; label: string }[] = [];
 for (let h = 6; h < 24; h++) {
   SLOTS.push({ hour: h, minute: 0, label: formatLabel(h, 0) });
   SLOTS.push({ hour: h, minute: 30, label: "" });
 }
-// 12AM–6AM (next day)
-for (let h = 0; h < 6; h++) {
+// 12AM–10AM (next day)
+for (let h = 0; h < 10; h++) {
   SLOTS.push({ hour: h + 24, minute: 0, label: formatLabel(h, 0) });
   SLOTS.push({ hour: h + 24, minute: 30, label: "" });
 }
