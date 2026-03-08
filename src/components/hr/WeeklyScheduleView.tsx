@@ -3,7 +3,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend as RLegen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Clock, Clipboard, Copy } from "lucide-react";
+import { Check, X, Clock, Clipboard, Copy, Download } from "lucide-react";
+import { toPng } from "html-to-image";
+import { toast } from "sonner";
 import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment, HRHoliday } from "@/hooks/useHRData";
 import type { ShiftClipboard } from "./AttendanceTab";
 
