@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
 import type { HRShift, HREmployee, HRHoliday } from "@/hooks/useHRData";
 
 interface Props {
@@ -14,7 +13,7 @@ interface Props {
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
 const TYPE_TO_CODE: Record<string, string> = {
-  al: "AL", sh: "SH", ph: "PH", sick_no_pay: "SL", no_pay: "NPL", off: "OFF", rest: "OFF",
+  al: "AL", sh: "SH", ph: "PH", sick_no_pay: "SL", no_pay: "NPL", off: "OFF", rest: "OFF", unscheduled: "—",
 };
 
 function formatDate(d: Date): string {
@@ -32,14 +31,6 @@ function formatTime12(t: string): string {
   return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, "0")}${suffix}`;
 }
 
-function calcHours(start: string, end: string): number {
-  const [h1, m1] = start.split(":").map(Number);
-  const [h2, m2] = end.split(":").map(Number);
-  let mins = h2 * 60 + m2 - (h1 * 60 + m1);
-  if (mins < 0) mins += 24 * 60;
-  return mins / 60;
-}
-
 function crossesMidnight(startTime: string, endTime: string): boolean {
   const [sh] = startTime.split(":").map(Number);
   const [eh] = endTime.split(":").map(Number);
@@ -51,42 +42,64 @@ function formatShiftTime(start: string, end: string): string {
   return `${formatTime12(start)} - ${formatTime12(end)}${plus1}`;
 }
 
-function VarianceBadge({ plannedStart, plannedEnd, actualStart, actualEnd, noShow }: {
-  plannedStart: string; plannedEnd: string;
-  actualStart: string | null; actualEnd: string | null;
-  noShow: boolean;
-}) {
-  if (noShow) {
-    return <Badge variant="destructive" className="text-[9px] px-1.5 py-0">No Show</Badge>;
-  }
-  if (!actualStart || !actualEnd) {
-    return <span className="text-[9px] text-muted-foreground italic">Pending</span>;
-  }
-  const planned = calcHours(plannedStart, plannedEnd);
-  const actual = calcHours(actualStart, actualEnd);
-  const diffMins = Math.round((actual - planned) * 60);
-  if (diffMins === 0) {
-    return <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-primary/40 text-primary">On Time</Badge>;
-  }
-  const label = diffMins > 0 ? `+${diffMins}m` : `${diffMins}m`;
-  const color = diffMins > 0
-    ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
-    : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700";
-  return <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${color}`}>{label}</Badge>;
-}
-
-function getLeaveStyle(type: string): string {
+function getShiftCellStyle(type: string): string {
   switch (type) {
+    case "unscheduled": return "text-muted-foreground/40";
     case "al": return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400";
     case "sh": case "ph": return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400";
     case "sick_no_pay": return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
     case "no_pay": return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400";
     case "off": case "rest": return "bg-muted text-muted-foreground";
+    case "training": return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400";
     default: return "";
   }
 }
 
-export function ActualsComparisonView({ shifts, employees, holidays, weekDates, onEditShift, onAddShift }: Props) {
+function formatCellContent(type: string, startTime: string, endTime: string): string {
+  if (type === "unscheduled") return "—";
+  if (type !== "regular") return TYPE_TO_CODE[type] || type.toUpperCase();
+  const plus1 = crossesMidnight(startTime, endTime) ? " +1" : "";
+  return `${formatTime12(startTime)} - ${formatTime12(endTime)}${plus1}`;
+}
+
+/** Check if actuals differ from plan */
+function isChanged(shift: HRShift): boolean {
+  const actualType = shift.actual_shift_type;
+  if (!actualType) return false; // no actuals recorded = default to plan = not changed
+  const plannedType = shift.shift_type || "regular";
+  // Type changed
+  if (actualType !== plannedType) return true;
+  // Both regular but times differ
+  if (actualType === "regular" && (
+    (shift.actual_start_time && shift.actual_start_time !== shift.start_time) ||
+    (shift.actual_end_time && shift.actual_end_time !== shift.end_time)
+  )) return true;
+  return false;
+}
+
+/** Get the display type & times for actuals (defaults to plan if no actuals) */
+function getActualDisplay(shift: HRShift): { type: string; start: string; end: string } {
+  const actualType = shift.actual_shift_type || shift.shift_type || "regular";
+  const start = shift.actual_start_time || shift.start_time;
+  const end = shift.actual_end_time || shift.end_time;
+  return { type: actualType, start, end };
+}
+
+const VENUE_COLORS: Record<string, { bg: string; text: string }> = {
+  Caliente: { bg: "bg-red-50 dark:bg-red-900/20", text: "text-red-700 dark:text-red-400" },
+  Assembly: { bg: "bg-blue-50 dark:bg-blue-900/20", text: "text-blue-700 dark:text-blue-400" },
+  Kitchen: { bg: "bg-amber-50 dark:bg-amber-900/20", text: "text-amber-700 dark:text-amber-400" },
+  Support: { bg: "bg-slate-50 dark:bg-slate-800/40", text: "text-slate-600 dark:text-slate-300" },
+};
+
+function getVenueColor(venue: string) {
+  for (const [key, val] of Object.entries(VENUE_COLORS)) {
+    if (venue.toLowerCase().includes(key.toLowerCase())) return val;
+  }
+  return { bg: "bg-muted/50", text: "text-muted-foreground" };
+}
+
+export function ActualsComparisonView({ shifts, employees, holidays, weekDates, onEditShift }: Props) {
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active")
       .sort((a, b) => {
@@ -110,188 +123,84 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
   const todayStr = formatDate(new Date());
 
-  // Summary totals per day
-  const dailySummary = useMemo(() => {
-    return weekDates.map(d => {
-      const dateStr = formatDate(d);
-      let plannedHrs = 0;
-      let actualHrs = 0;
-      let noShows = 0;
-      let pending = 0;
-      activeEmployees.forEach(emp => {
-        const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
-        cellShifts.forEach(s => {
-          const plannedType = s.shift_type || "regular";
-          if (plannedType === "regular") {
-            plannedHrs += calcHours(s.start_time, s.end_time);
-          }
-          const actualType = s.actual_shift_type || plannedType;
-          if (actualType === "regular") {
-            if (s.no_show) noShows++;
-            else if (s.actual_start_time && s.actual_end_time) {
-              actualHrs += calcHours(s.actual_start_time, s.actual_end_time);
-            } else {
-              pending++;
-            }
-          }
-        });
-      });
-      return { plannedHrs, actualHrs, noShows, pending, variance: actualHrs - plannedHrs };
-    });
-  }, [weekDates, activeEmployees, shiftMap]);
-
-  const thClass = "px-2 py-1.5 text-[11px] font-semibold text-center whitespace-nowrap";
+  const thClass = "px-1.5 py-1.5 text-[10px] font-semibold whitespace-nowrap text-left";
   const tdClass = "px-1.5 py-1 text-[10px] whitespace-nowrap border-r border-border/40 last:border-r-0";
 
   return (
     <div className="space-y-3">
-      <div className="border border-border rounded-lg overflow-hidden">
+      <div className="border border-border rounded-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="bg-muted/60 border-b border-border">
-                <th className={`${thClass} text-left min-w-[140px] sticky left-0 bg-muted/60 z-10`}>Employee</th>
+              <tr className="border-b border-border bg-muted/50">
+                <th className={`${thClass} sticky left-0 bg-muted/50 z-10 min-w-[80px]`}>Venue</th>
+                <th className={`${thClass} min-w-[90px]`}>Name</th>
+                <th className={`${thClass} min-w-[80px]`}>Position</th>
                 {weekDates.map((d, i) => {
-                  const dateStr = formatDate(d);
-                  const isToday = dateStr === todayStr;
-                  const isHoliday = holidayDates.has(dateStr);
+                  const isHoliday = holidayDates.has(formatDate(d));
+                  const isToday = formatDate(d) === todayStr;
                   return (
-                    <th key={i} className={`${thClass} min-w-[120px] ${isToday ? "bg-primary/10" : ""} ${isHoliday ? "bg-green-50 dark:bg-green-900/10" : ""}`}>
-                      <div>{DAY_NAMES[i]}</div>
-                      <div className="text-[10px] font-normal text-muted-foreground">
-                        {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </div>
+                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-muted/60" : ""} ${isToday ? "bg-primary/10" : ""}`}>
+                      <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                      <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
                   );
                 })}
               </tr>
             </thead>
             <tbody>
-              {activeEmployees.map(emp => (
-                <tr key={emp.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-                  <td className={`${tdClass} sticky left-0 bg-background z-10 font-medium text-[11px]`}>
-                    <div>{emp.first_name} {emp.last_name}</div>
-                    <div className="text-[9px] text-muted-foreground">{emp.venue || "—"}</div>
-                  </td>
-                  {weekDates.map((d, i) => {
-                    const dateStr = formatDate(d);
-                    const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
-                    const isToday = dateStr === todayStr;
+              {activeEmployees.length === 0 ? (
+                <tr><td colSpan={10} className="text-center text-muted-foreground py-6">No active employees</td></tr>
+              ) : activeEmployees.map(emp => {
+                const vc = getVenueColor(emp.venue || "Other");
+                return (
+                  <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                    <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
+                      {emp.venue || "—"}
+                    </td>
+                    <td className={`${tdClass} font-medium`}>{emp.first_name} {emp.last_name}</td>
+                    <td className={`${tdClass} text-muted-foreground`}>{emp.job_title || "—"}</td>
+                    {weekDates.map((d, i) => {
+                      const dateStr = formatDate(d);
+                      const isHoliday = holidayDates.has(dateStr);
+                      const isToday = dateStr === todayStr;
+                      const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
 
-                    if (cellShifts.length === 0) {
+                      if (cellShifts.length === 0) {
+                        return (
+                          <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""}`}>
+                            <span className="text-muted-foreground/40">—</span>
+                          </td>
+                        );
+                      }
+
                       return (
-                        <td
-                          key={i}
-                          className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""}`}
-                        >
-                          <span className="text-muted-foreground/40">—</span>
-                        </td>
-                      );
-                    }
-
-                    return (
-                      <td key={i} className={`${tdClass} ${isToday ? "bg-primary/5" : ""}`}>
-                        <div className="space-y-0.5">
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""}`}>
                           {cellShifts.map(shift => {
-                            const plannedType = shift.shift_type || "regular";
-                            const actualType = shift.actual_shift_type || plannedType;
-                            const isPlannedRegular = plannedType === "regular";
-                            const isActualRegular = actualType === "regular";
-
-                            // If plan was non-regular, show plan type; if actual changed, show actual
-                            if (!isPlannedRegular && !shift.actual_shift_type) {
-                              const code = TYPE_TO_CODE[plannedType] || plannedType.toUpperCase();
-                              return (
-                                <div
-                                  key={shift.id}
-                                  className={`rounded px-1.5 py-0.5 text-center cursor-pointer ${getLeaveStyle(plannedType)}`}
-                                  onClick={() => onEditShift(shift)}
-                                >
-                                  <span className="text-[10px] font-semibold">{code}</span>
-                                </div>
-                              );
-                            }
-
-                            // If actual type is non-regular (was changed from plan)
-                            if (!isActualRegular) {
-                              const planCode = isPlannedRegular ? "Work" : (TYPE_TO_CODE[plannedType] || plannedType.toUpperCase());
-                              const actCode = TYPE_TO_CODE[actualType] || actualType.toUpperCase();
-                              return (
-                                <div
-                                  key={shift.id}
-                                  className={`rounded border border-border/60 px-1.5 py-1 cursor-pointer hover:bg-muted/50 transition-colors space-y-0.5`}
-                                  onClick={() => onEditShift(shift)}
-                                >
-                                  <div className="text-muted-foreground text-[9px] leading-tight line-through">
-                                    <span className="font-medium">Plan:</span> {isPlannedRegular ? formatShiftTime(shift.start_time, shift.end_time) : planCode}
-                                  </div>
-                                  <div className={`text-[10px] font-semibold leading-tight ${getLeaveStyle(actualType)} rounded px-1 py-0.5 text-center`}>
-                                    {actCode}
-                                  </div>
-                                </div>
-                              );
-                            }
+                            const changed = isChanged(shift);
+                            const { type, start, end } = getActualDisplay(shift);
+                            const cellText = formatCellContent(type, start, end);
+                            const style = getShiftCellStyle(type);
 
                             return (
-                              <div
+                              <button
                                 key={shift.id}
-                                className="rounded border border-border/60 px-1.5 py-1 cursor-pointer hover:bg-muted/50 transition-colors space-y-0.5"
                                 onClick={() => onEditShift(shift)}
+                                className={`relative block w-full rounded px-0.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity font-medium ${style} ${
+                                  changed ? "ring-2 ring-destructive/60 bg-destructive/10" : ""
+                                }`}
+                                title={changed ? "Modified from plan" : "Same as planned"}
                               >
-                                {/* Planned */}
-                                <div className="text-muted-foreground text-[9px] leading-tight">
-                                  <span className="font-medium">Plan:</span> {formatShiftTime(shift.start_time, shift.end_time)}
-                                </div>
-                                {/* Actual */}
-                                <div className="text-foreground text-[10px] font-semibold leading-tight">
-                                  <span className="font-medium text-muted-foreground text-[9px]">Act:</span>{" "}
-                                  {shift.no_show ? (
-                                    <span className="text-destructive">No Show</span>
-                                  ) : shift.actual_start_time && shift.actual_end_time ? (
-                                    formatShiftTime(shift.actual_start_time, shift.actual_end_time)
-                                  ) : (
-                                    <span className="text-muted-foreground/50 font-normal italic">—</span>
-                                  )}
-                                </div>
-                                {/* Variance */}
-                                <VarianceBadge
-                                  plannedStart={shift.start_time}
-                                  plannedEnd={shift.end_time}
-                                  actualStart={shift.actual_start_time}
-                                  actualEnd={shift.actual_end_time}
-                                  noShow={shift.no_show}
-                                />
-                              </div>
+                                {cellText}
+                              </button>
                             );
                           })}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-
-              {/* Summary Row */}
-              <tr className="bg-muted/40 border-t-2 border-border font-semibold">
-                <td className={`${tdClass} sticky left-0 bg-muted/40 z-10 text-[11px] font-bold`}>Totals</td>
-                {dailySummary.map((day, i) => (
-                  <td key={i} className={`${tdClass} text-center`}>
-                    <div className="space-y-0.5">
-                      <div className="text-muted-foreground text-[9px]">Plan: {day.plannedHrs.toFixed(1)}h</div>
-                      <div className="text-foreground text-[10px]">Act: {day.actualHrs.toFixed(1)}h</div>
-                      <div className={`text-[9px] font-bold ${day.variance < 0 ? "text-destructive" : day.variance > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
-                        {day.variance > 0 ? "+" : ""}{(day.variance * 60).toFixed(0)}m
-                      </div>
-                      {day.noShows > 0 && (
-                        <div className="text-[9px] text-destructive">{day.noShows} no-show</div>
-                      )}
-                      {day.pending > 0 && (
-                        <div className="text-[9px] text-muted-foreground italic">{day.pending} pending</div>
-                      )}
-                    </div>
-                  </td>
-                ))}
-              </tr>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
