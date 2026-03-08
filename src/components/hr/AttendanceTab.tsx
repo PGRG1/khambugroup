@@ -594,8 +594,10 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
               {editingShift.id && (
                 <>
                   <Separator />
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Post-Shift Actuals</p>
+                  <div className={`space-y-3 ${modalActualsMode ? "ring-2 ring-primary/20 rounded-lg p-3 bg-primary/5" : ""}`}>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Post-Shift Actuals {modalActualsMode && <Badge variant="outline" className="ml-2 text-[9px]">Editing</Badge>}
+                    </p>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
