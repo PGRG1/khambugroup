@@ -57,19 +57,22 @@ const SHIFT_STATUSES = [
   { value: "no_show", label: "No Show" },
 ];
 
-// Generate time options in 30-min increments (full 24h)
+// Generate time options in 30-min increments, ordered from 6AM with next-day times at end
 const ACTUAL_TIME_OPTIONS = (() => {
-  const opts: { value: string; label: string }[] = [];
+  const opts: { value: string; label: string; hour: number }[] = [];
   for (let h = 0; h < 24; h++) {
     for (const m of [0, 30]) {
       const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
       const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
       const suffix = h >= 12 ? "PM" : "AM";
       const label = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
-      opts.push({ value: val, label });
+      opts.push({ value: val, label, hour: h });
     }
   }
-  return opts;
+  // Reorder: 6AM..11:30PM, then 12AM..5:30AM
+  const fromSix = opts.filter(o => o.hour >= 6);
+  const beforeSix = opts.filter(o => o.hour < 6);
+  return [...fromSix, ...beforeSix];
 })();
 
 function crossesMidnight(startTime: string, endTime: string): boolean {
@@ -678,7 +681,11 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                           <Select value={editingShift.actual_start_time || ""} onValueChange={v => updateField("actual_start_time", v || null)}>
                             <SelectTrigger><SelectValue placeholder="Start" /></SelectTrigger>
                             <SelectContent>
-                              {ACTUAL_TIME_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                              {ACTUAL_TIME_OPTIONS.map(t => {
+                                const refStart = editingShift.start_time || "12:00";
+                                const showPlus1 = crossesMidnight(refStart, t.value);
+                                return <SelectItem key={`s-${t.value}`} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
@@ -689,8 +696,9 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                             <SelectTrigger><SelectValue placeholder="End" /></SelectTrigger>
                             <SelectContent>
                               {ACTUAL_TIME_OPTIONS.map(t => {
-                                const showPlus1 = editingShift.actual_start_time && crossesMidnight(editingShift.actual_start_time, t.value);
-                                return <SelectItem key={t.value} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
+                                const refStart = editingShift.actual_start_time || editingShift.start_time || "12:00";
+                                const showPlus1 = crossesMidnight(refStart, t.value);
+                                return <SelectItem key={`e-${t.value}`} value={t.value}>{t.label}{showPlus1 ? " +1" : ""}</SelectItem>;
                               })}
                             </SelectContent>
                           </Select>
