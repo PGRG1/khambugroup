@@ -605,7 +605,7 @@ export function WeeklyScheduleView({
                     if (cellShifts.length === 0) {
                       return (
                         <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""}`}>
-                          <span className="text-muted-foreground/30">-</span>
+                          <span className="text-muted-foreground/40">—</span>
                         </td>
                       );
                     }
