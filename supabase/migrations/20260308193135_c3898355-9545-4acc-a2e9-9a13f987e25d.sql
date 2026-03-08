@@ -1,0 +1,1 @@
+UPDATE hr_shifts SET actual_shift_type = NULL WHERE id = '1ebbe463-bdce-4d5c-89c7-3e9da098d7c4' AND shift_date = '2026-03-09';
