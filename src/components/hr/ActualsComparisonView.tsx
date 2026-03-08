@@ -38,8 +38,7 @@ function crossesMidnight(startTime: string, endTime: string): boolean {
 }
 
 function formatShiftTime(start: string, end: string): string {
-  const plus1 = crossesMidnight(start, end) ? " +1" : "";
-  return `${formatTime12(start)} - ${formatTime12(end)}${plus1}`;
+  return `${formatTime12(start)} - ${formatTime12(end)}`;
 }
 
 function getShiftCellStyle(type: string): string {
@@ -58,8 +57,7 @@ function getShiftCellStyle(type: string): string {
 function formatCellContent(type: string, startTime: string, endTime: string): string {
   if (type === "unscheduled") return "—";
   if (type !== "regular") return TYPE_TO_CODE[type] || type.toUpperCase();
-  const plus1 = crossesMidnight(startTime, endTime) ? " +1" : "";
-  return `${formatTime12(startTime)} - ${formatTime12(endTime)}${plus1}`;
+  return `${formatTime12(startTime)} - ${formatTime12(endTime)}`;
 }
 
 /** Check if actuals differ from plan */
