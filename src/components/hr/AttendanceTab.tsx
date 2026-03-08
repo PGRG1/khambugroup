@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
 import { WeeklyScheduleView } from "./WeeklyScheduleView";
+import { TimeGridPicker } from "./TimeGridPicker";
 
 interface Props {
   shifts: HRShift[];
@@ -398,26 +399,23 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
               {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
                 <>
                   <Separator />
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scheduled Time</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Start *</label>
-                      <Input type="time" value={editingShift.start_time || ""} onChange={e => updateField("start_time", e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">End *</label>
-                      <Input type="time" value={editingShift.end_time || ""} onChange={e => updateField("end_time", e.target.value)} />
-                    </div>
+                  <TimeGridPicker
+                    startTime={editingShift.start_time || "09:00"}
+                    endTime={editingShift.end_time || "17:00"}
+                    onChangeStart={v => updateField("start_time", v)}
+                    onChangeEnd={v => updateField("end_time", v)}
+                  />
+                  <div className="flex items-center gap-3">
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">Break (min)</label>
-                      <Input type="number" value={editingShift.break_minutes || 0} onChange={e => updateField("break_minutes", Number(e.target.value))} />
+                      <Input type="number" className="w-20" value={editingShift.break_minutes || 0} onChange={e => updateField("break_minutes", Number(e.target.value))} />
                     </div>
+                    {editingShift.start_time && editingShift.end_time && (
+                      <p className="text-xs text-muted-foreground mt-4">
+                        Total: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
+                      </p>
+                    )}
                   </div>
-                  {editingShift.start_time && editingShift.end_time && (
-                    <p className="text-xs text-muted-foreground">
-                      Total: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
-                    </p>
-                  )}
 
                   <Separator />
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actual Time (Post-Schedule)</h4>
