@@ -417,58 +417,82 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
     <div className="space-y-4">
       <ScheduleKPICards shifts={shifts} weekDates={weekDates} employees={employees} />
 
-      {/* Week Navigation + View Toggle */}
+      {/* View Mode Toggle + Week Navigation */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
-          <span className="text-sm font-semibold min-w-[180px] text-center">{weekLabel}</span>
-          <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
-          {formatDate(weekDates[0]) !== formatDate(getWeekDates(new Date())[0]) && (
-            <Button variant="ghost" size="sm" onClick={goToday} className="text-xs text-muted-foreground">
-              ↺ Current
+        <div className="flex items-center gap-3">
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as "plan" | "actuals")} className="bg-muted rounded-lg p-0.5">
+            <ToggleGroupItem value="plan" className="text-xs px-3 py-1.5 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded-md">
+              <Calendar className="h-3.5 w-3.5" />
+              Plan
+            </ToggleGroupItem>
+            <ToggleGroupItem value="actuals" className="text-xs px-3 py-1.5 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded-md">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Actuals
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-sm font-semibold min-w-[180px] text-center">{weekLabel}</span>
+            <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
+            {formatDate(weekDates[0]) !== formatDate(getWeekDates(new Date())[0]) && (
+              <Button variant="ghost" size="sm" onClick={goToday} className="text-xs text-muted-foreground">
+                ↺ Current
+              </Button>
+            )}
+          </div>
+        </div>
+        {viewMode === "plan" && (
+          <div className="flex items-center gap-2">
+            {clipboard && (
+              <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1">
+                <Copy className="h-3 w-3" />
+                <span>Shift copied — click cell to paste</span>
+                <button onClick={() => setClipboard(null)} className="text-muted-foreground hover:text-foreground ml-1">✕</button>
+              </div>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setCopyPrevConfirmOpen(true)} disabled={shiftsToCopy.length === 0}>
+              <Copy className="h-4 w-4 mr-1" /> Copy Previous Week {shiftsToCopy.length > 0 && `(${shiftsToCopy.length})`}
             </Button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {clipboard && (
-            <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1">
-              <Copy className="h-3 w-3" />
-              <span>Shift copied — click cell to paste</span>
-              <button onClick={() => setClipboard(null)} className="text-muted-foreground hover:text-foreground ml-1">✕</button>
-            </div>
-          )}
-          <Button size="sm" variant="outline" onClick={() => setCopyPrevConfirmOpen(true)} disabled={shiftsToCopy.length === 0}>
-            <Copy className="h-4 w-4 mr-1" /> Copy Previous Week {shiftsToCopy.length > 0 && `(${shiftsToCopy.length})`}
-          </Button>
-          <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
-            <Plus className="h-4 w-4 mr-1" /> Add Shift
-          </Button>
-        </div>
+            <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
+              <Plus className="h-4 w-4 mr-1" /> Add Shift
+            </Button>
+          </div>
+        )}
       </div>
 
-      <WeeklyScheduleView
-        shifts={shifts}
-        employees={employees}
-        departments={departments || []}
-        leaveRequests={leaveRequests || []}
-        leaveTypes={leaveTypes || []}
-        holidays={holidays || []}
-        weekDates={weekDates}
-        onEditShift={openEditShift}
-        onAddShift={openNewShift}
-        clipboard={clipboard}
-        onCopyShift={handleCopyShift}
-        onPasteShift={handlePasteShift}
-        onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
-          await onSaveLeaveRequest({ id, status });
-        } : undefined}
-        onReorderEmployees={async (updates) => {
-          const promises = updates.map(u =>
-            supabase.from("hr_employees").update({ sort_order: u.sort_order } as any).eq("id", u.id)
-          );
-          await Promise.all(promises);
-        }}
-      />
+      {viewMode === "plan" ? (
+        <WeeklyScheduleView
+          shifts={shifts}
+          employees={employees}
+          departments={departments || []}
+          leaveRequests={leaveRequests || []}
+          leaveTypes={leaveTypes || []}
+          holidays={holidays || []}
+          weekDates={weekDates}
+          onEditShift={openEditShift}
+          onAddShift={openNewShift}
+          clipboard={clipboard}
+          onCopyShift={handleCopyShift}
+          onPasteShift={handlePasteShift}
+          onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
+            await onSaveLeaveRequest({ id, status });
+          } : undefined}
+          onReorderEmployees={async (updates) => {
+            const promises = updates.map(u =>
+              supabase.from("hr_employees").update({ sort_order: u.sort_order } as any).eq("id", u.id)
+            );
+            await Promise.all(promises);
+          }}
+        />
+      ) : (
+        <ActualsComparisonView
+          shifts={shifts}
+          employees={employees}
+          holidays={holidays || []}
+          weekDates={weekDates}
+          onEditShift={(shift) => openEditShift(shift, true)}
+        />
+      )}
 
       {/* Copy Previous Week Confirmation */}
       <AlertDialog open={copyPrevConfirmOpen} onOpenChange={setCopyPrevConfirmOpen}>
