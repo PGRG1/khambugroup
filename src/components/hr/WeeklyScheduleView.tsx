@@ -657,8 +657,9 @@ export function WeeklyScheduleView({
                   <th className={`${thClass} min-w-[80px]`}>Venue</th>
                   {weekDates.map((d, i) => {
                     const isHoliday = holidayDates.has(formatDate(d));
+                    const isToday = formatDate(d) === todayStr;
                     return (
-                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""}`}>
+                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""} ${isToday ? "bg-primary/10" : ""}`}>
                         <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                         <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                       </th>
@@ -676,8 +677,9 @@ export function WeeklyScheduleView({
                     <td className={`${tdClass} font-bold ${vc.text}`}>{row.dept}</td>
                     {row.counts.map((c, i) => {
                       const isHoliday = holidayDates.has(formatDate(weekDates[i]));
+                      const isToday = formatDate(weekDates[i]) === todayStr;
                       return (
-                        <td key={i} className={`${tdClass} text-center font-medium ${isHoliday ? "bg-muted/40" : ""}`}>{c}</td>
+                        <td key={i} className={`${tdClass} text-center font-medium ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""}`}>{c}</td>
                       );
                     })}
                     <td className={`${tdClass} text-center font-medium`}>{rowTotal}</td>
@@ -786,8 +788,9 @@ export function WeeklyScheduleView({
                 <th className={`${thClass} min-w-[60px]`}>Hour</th>
                 {weekDates.map((d, i) => {
                   const isHoliday = holidayDates.has(formatDate(d));
+                  const isToday = formatDate(d) === todayStr;
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""}`}>
+                    <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""} ${isToday ? "bg-primary/10" : ""}`}>
                       <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                       <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
@@ -802,8 +805,9 @@ export function WeeklyScheduleView({
                   <td className={`${tdClass} font-medium`}>{row.label}</td>
                   {row.counts.map((c, i) => {
                     const isHoliday = holidayDates.has(formatDate(weekDates[i]));
+                    const isToday = formatDate(weekDates[i]) === todayStr;
                     return (
-                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
+                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
                     );
                   })}
                   {(() => { const rowTotal = row.counts.reduce((s, c) => s + c, 0); return <td className={`${tdClass} text-center font-medium ${rowTotal === 0 ? "text-muted-foreground/40" : ""}`}>{rowTotal}</td>; })()}
@@ -815,8 +819,9 @@ export function WeeklyScheduleView({
                 {weekDates.map((d, i) => {
                   const dayTotal = hourlyCoverage.reduce((sum, row) => sum + row.counts[i], 0);
                   const isHoliday = holidayDates.has(formatDate(d));
+                  const isToday = formatDate(d) === todayStr;
                   return (
-                    <td key={i} className={`${tdClass} text-center font-bold ${isHoliday ? "bg-muted/60" : ""}`}>{dayTotal}</td>
+                    <td key={i} className={`${tdClass} text-center font-bold ${isHoliday ? "bg-muted/60" : ""} ${isToday ? "bg-primary/5" : ""}`}>{dayTotal}</td>
                   );
                 })}
                 <td className={`${tdClass} text-center font-bold`}>
