@@ -161,12 +161,12 @@ function ScheduleKPICards({ shifts, weekDates, employees }: { shifts: HRShift[];
   );
 }
 
-export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSaveAttendance }: Props) {
+export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, onSaveShift, onSaveAttendance, onSaveLeaveRequest }: Props) {
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<"roster" | "timegrid">("roster");
+  const [viewMode, setViewMode] = useState<"roster" | "timegrid" | "schedule">("schedule");
 
   // Drag state for time-grid
   const [dragState, setDragState] = useState<{
