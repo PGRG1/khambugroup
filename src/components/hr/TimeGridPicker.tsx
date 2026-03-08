@@ -33,7 +33,15 @@ function toSlotIndex(time: string): number {
   return Math.max(0, Math.min(SLOTS.length - 1, baseIndex));
 }
 
-function fromSlotIndex(index: number): string {
+function fromSlotIndex(index: number, isEnd = false): string {
+  if (isEnd && index >= SLOTS.length) {
+    // Past last slot — return 30 min after last slot
+    const last = SLOTS[SLOTS.length - 1];
+    const totalMin = (last.hour * 60 + last.minute + 30);
+    const h = Math.floor(totalMin / 60) % 24;
+    const m = totalMin % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
   const slot = SLOTS[Math.max(0, Math.min(SLOTS.length - 1, index))];
   const h = slot.hour % 24;
   return `${String(h).padStart(2, "0")}:${String(slot.minute).padStart(2, "0")}`;
