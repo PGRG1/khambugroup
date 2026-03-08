@@ -615,11 +615,13 @@ export function WeeklyScheduleView({
                       </th>
                     );
                   })}
+                  <th className={`${thClass} text-center min-w-[60px]`}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {dailyHeadcount.map(row => {
                   const vc = getVenueColor(row.dept, venueList);
+                  const rowTotal = row.counts.reduce((s, c) => s + c, 0);
                   return (
                   <tr key={row.dept} className={`border-b border-border/50 ${vc.bg}`}>
                     <td className={`${tdClass} font-bold ${vc.text}`}>{row.dept}</td>
@@ -629,6 +631,7 @@ export function WeeklyScheduleView({
                         <td key={i} className={`${tdClass} text-center font-medium ${isHoliday ? "bg-muted/40" : ""}`}>{c}</td>
                       );
                     })}
+                    <td className={`${tdClass} text-center font-medium`}>{rowTotal}</td>
                   </tr>
                   );
                 })}
@@ -637,6 +640,7 @@ export function WeeklyScheduleView({
                   {dailyTotals.map((t, i) => (
                     <td key={i} className={`${tdClass} text-center`}>{t}</td>
                   ))}
+                  <td className={`${tdClass} text-center font-bold`}>{dailyTotals.reduce((s, t) => s + t, 0)}</td>
                 </tr>
               </tbody>
             </table>
