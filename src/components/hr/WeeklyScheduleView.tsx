@@ -153,7 +153,7 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
 }
 
 export function WeeklyScheduleView({
-  shifts, employees, departments, leaveRequests, leaveTypes, weekDates,
+  shifts, employees, departments, leaveRequests, leaveTypes, holidays, weekDates,
   onEditShift, onAddShift, onApproveLeave, onReorderEmployees,
 }: Props) {
   const activeEmployees = useMemo(
