@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ChevronLeft, ChevronRight, Plus, Copy, Clock, Users, CalendarDays, AlertTriangle, TrendingDown, BarChart3, ClipboardList, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Copy, Clock, ClipboardList, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
@@ -129,88 +129,7 @@ function padTime(h: number): string {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
-// --- KPI Cards with enhanced metrics ---
-function ScheduleKPICards({ shifts, weekDates, employees }: { shifts: HRShift[]; weekDates: Date[]; employees: HREmployee[] }) {
-  const stats = useMemo(() => {
-    const weekKeys = new Set(weekDates.map(formatDate));
-    const weekShifts = shifts.filter(s => weekKeys.has(s.shift_date));
-    const regularShifts = weekShifts.filter(s => s.shift_type === "regular" || !s.shift_type);
-    const scheduledHrs = regularShifts.reduce((t, s) => t + calcHours(s.start_time, s.end_time, s.break_minutes || 0), 0);
-    const actualHrs = weekShifts.reduce((t, s) => t + (Number(s.actual_hours_worked) || 0), 0);
-    const noShows = weekShifts.filter(s => s.no_show).length;
-    const leaveCounts: Record<string, number> = {};
-    weekShifts.filter(s => ["al", "sh", "ph", "sick_no_pay", "no_pay"].includes(s.shift_type || "")).forEach(s => {
-      leaveCounts[s.shift_type!] = (leaveCounts[s.shift_type!] || 0) + 1;
-    });
-    const totalLeave = Object.values(leaveCounts).reduce((a, b) => a + b, 0);
-    const totalScheduled = regularShifts.length;
-    const completed = weekShifts.filter(s => s.status === "completed").length;
-    const attendanceRate = totalScheduled > 0 ? ((totalScheduled - noShows) / totalScheduled * 100) : 100;
 
-    // Hours by employee
-    const hrsByEmployee: Record<string, number> = {};
-    weekShifts.forEach(s => {
-      const hrs = (s.shift_type === "regular" || !s.shift_type) ? calcHours(s.start_time, s.end_time, s.break_minutes || 0) : 0;
-      hrsByEmployee[s.employee_id] = (hrsByEmployee[s.employee_id] || 0) + hrs;
-    });
-
-    // Hours by position
-    const hrsByPosition: Record<string, number> = {};
-    weekShifts.forEach(s => {
-      const emp = employees.find(e => e.id === s.employee_id);
-      const pos = emp?.job_title || "Unassigned";
-      const hrs = (s.shift_type === "regular" || !s.shift_type) ? calcHours(s.start_time, s.end_time, s.break_minutes || 0) : 0;
-      hrsByPosition[pos] = (hrsByPosition[pos] || 0) + hrs;
-    });
-
-    // Payroll-impacting days
-    const payrollImpactDays = weekShifts.filter(s => ["sick_no_pay", "no_pay"].includes(s.shift_type || "")).length;
-
-    return { scheduledHrs, actualHrs, noShows, totalLeave, leaveCounts, attendanceRate, hrsByEmployee, hrsByPosition, payrollImpactDays };
-  }, [shifts, weekDates, employees]);
-
-  const cards = [
-    { label: "Scheduled Hours", value: `${stats.scheduledHrs.toFixed(1)}h`, icon: Clock, color: "text-primary" },
-    { label: "Actual Hours", value: `${stats.actualHrs.toFixed(1)}h`, icon: Clock, color: "text-chart-3" },
-    { label: "Attendance Rate", value: `${stats.attendanceRate.toFixed(0)}%`, icon: Users, color: "text-chart-2" },
-    { label: "No Shows", value: String(stats.noShows), icon: AlertTriangle, color: "text-destructive" },
-    { label: "Leave Days", value: String(stats.totalLeave), icon: CalendarDays, color: "text-chart-4" },
-    { label: "Variance", value: `${(stats.actualHrs - stats.scheduledHrs).toFixed(1)}h`, icon: TrendingDown, color: stats.actualHrs < stats.scheduledHrs ? "text-destructive" : "text-primary" },
-    { label: "Payroll Impact", value: `${stats.payrollImpactDays}d`, icon: BarChart3, color: "text-destructive" },
-  ];
-
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        {cards.map(c => (
-          <div key={c.label} className="card-glass rounded-xl p-3 animate-fade-in">
-            <div className="flex items-center gap-1.5 mb-1">
-              <c.icon className={`h-3.5 w-3.5 shrink-0 ${c.color}`} />
-              <span className="text-[11px] text-muted-foreground">{c.label}</span>
-            </div>
-            <p className="text-sm font-display font-bold text-foreground">{c.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Leave breakdown + Hours by position */}
-      <div className="flex gap-3 flex-wrap">
-        {Object.entries(stats.leaveCounts).length > 0 && Object.entries(stats.leaveCounts).map(([type, count]) => (
-          <div key={type} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">{SHIFT_TYPES.find(t => t.value === type)?.label || type}</Badge>
-            <span className="text-xs font-semibold">{count}</span>
-          </div>
-        ))}
-        {Object.entries(stats.hrsByPosition).length > 0 && Object.entries(stats.hrsByPosition).map(([pos, hrs]) => (
-          <div key={pos} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground">{pos}:</span>
-            <span className="text-xs font-semibold">{hrs.toFixed(1)}h</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export type ShiftClipboard = { shift_type: string; start_time: string; end_time: string } | null;
 
@@ -452,7 +371,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
 
   return (
     <div className="space-y-4">
-      <ScheduleKPICards shifts={shifts} weekDates={weekDates} employees={employees} />
+      
 
       {/* View Mode Toggle + Week Navigation */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
