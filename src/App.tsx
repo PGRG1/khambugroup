@@ -21,7 +21,10 @@ import UserAccessControl from "./pages/UserAccessControl";
 import AccessDenied from "./pages/AccessDenied";
 import Invoices from "./pages/Invoices";
 import Inventory from "./pages/Inventory";
-import HumanResources from "./pages/HumanResources";
+import HREmployees from "./pages/hr/HREmployees";
+import HRSchedule from "./pages/hr/HRSchedule";
+import HRLeave from "./pages/hr/HRLeave";
+import HRPayroll from "./pages/hr/HRPayroll";
 
 const queryClient = new QueryClient();
 
@@ -84,7 +87,11 @@ function App() {
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
                 <Route path="/inventory" element={<ProtectedRoute pageKey="inventory"><Inventory /></ProtectedRoute>} />
-                <Route path="/hr" element={<AdminRoute><HumanResources /></AdminRoute>} />
+                <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
+                <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />
+                <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
+                <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
+                <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
