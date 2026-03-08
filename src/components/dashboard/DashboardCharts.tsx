@@ -5,6 +5,7 @@ import { getDayOfWeekStats, getPaymentBreakdown, getVenueComparison, formatCurre
 import ChartCard from "./ChartCard";
 import PaymentBreakdownChart from "./PaymentBreakdownChart";
 import VenuePerformanceChart from "./VenuePerformanceChart";
+import CumulativeSalesChart from "./CumulativeSalesChart";
 
 const MONTH_COLORS = [
   "hsl(24, 80%, 50%)",
