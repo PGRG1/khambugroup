@@ -554,7 +554,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
               <div className="flex items-center gap-3 rounded-lg bg-muted/40 border border-border/40 px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Employee</p>
-                  {editingShift.id || modalActualsMode ? (
+                  {editingShift.id || modalActualsMode || editingShift.employee_id ? (
                     <p className="text-sm font-semibold text-foreground truncate">
                       {(() => { const emp = employees.find(e => e.id === editingShift.employee_id); return emp ? `${emp.first_name} ${emp.last_name}` : "—"; })()}
                     </p>
