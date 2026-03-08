@@ -111,6 +111,11 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
     [employees]
   );
 
+  const venueList = useMemo(() => {
+    const names = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
+    return names.sort();
+  }, [activeEmployees]);
+
   const shiftMap = useMemo(() => {
     const map: Record<string, HRShift[]> = {};
     shifts.forEach(s => {
@@ -153,7 +158,7 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
               {activeEmployees.length === 0 ? (
                 <tr><td colSpan={10} className="text-center text-muted-foreground py-6">No active employees</td></tr>
               ) : activeEmployees.map(emp => {
-                const vc = getVenueColor(emp.venue || "Other");
+                const vc = getVenueColor(emp.venue || "Other", venueList);
                 return (
                   <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                     <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
