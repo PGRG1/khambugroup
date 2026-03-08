@@ -229,6 +229,11 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   const handleSaveShift = async () => {
     if (!editingShift?.employee_id || !editingShift?.shift_date) return;
     setSaving(true);
+    // Update employee venue if changed
+    const emp = employees.find(e => e.id === editingShift.employee_id);
+    if (emp && shiftVenue && shiftVenue !== (emp.venue || "")) {
+      await supabase.from("hr_employees").update({ venue: shiftVenue } as any).eq("id", emp.id);
+    }
     const payload = { ...editingShift };
     if (payload.actual_start_time && payload.actual_end_time) {
       payload.actual_hours_worked = calcHours(payload.actual_start_time, payload.actual_end_time, payload.actual_break_minutes || 0);
