@@ -1,260 +1,301 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { Clock } from "lucide-react";
 
 interface Props {
-  startTime: string; // "HH:MM"
+  startTime: string;
   endTime: string;
   onChangeStart: (time: string) => void;
   onChangeEnd: (time: string) => void;
 }
 
-// 30-min slots from 6AM to 10AM next day = 56 slots (28h)
-const SLOTS: { hour: number; minute: number; label: string }[] = [];
+/* ── Slot model ── */
+interface Slot { hour: number; minute: number; label: string }
+
+const SLOTS: Slot[] = [];
 for (let h = 6; h < 24; h++) {
-  SLOTS.push({ hour: h, minute: 0, label: formatLabel(h) });
+  SLOTS.push({ hour: h, minute: 0, label: fmtLabel(h) });
   SLOTS.push({ hour: h, minute: 30, label: "" });
 }
 for (let h = 0; h < 10; h++) {
-  SLOTS.push({ hour: h + 24, minute: 0, label: formatLabel(h) });
+  SLOTS.push({ hour: h + 24, minute: 0, label: fmtLabel(h) });
   SLOTS.push({ hour: h + 24, minute: 30, label: "" });
 }
 
-function formatLabel(h: number): string {
-  const hour = h % 24;
-  if (hour === 0) return "12 AM";
-  if (hour === 12) return "12 PM";
-  return hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+function fmtLabel(h: number): string {
+  const hr = h % 24;
+  if (hr === 0) return "12 AM";
+  if (hr === 12) return "12 PM";
+  return hr > 12 ? `${hr - 12} PM` : `${hr} AM`;
 }
 
-function toSlotIndex(time: string): number {
+function toIdx(time: string): number {
   const [h, m] = time.split(":").map(Number);
-  const adjustedH = h < 6 ? h + 24 : h;
-  const baseIndex = (adjustedH - 6) * 2 + (m >= 30 ? 1 : 0);
-  return Math.max(0, Math.min(SLOTS.length - 1, baseIndex));
+  const adj = h < 6 ? h + 24 : h;
+  return Math.max(0, Math.min(SLOTS.length - 1, (adj - 6) * 2 + (m >= 30 ? 1 : 0)));
 }
 
-function fromSlotIndex(index: number, isEnd = false): string {
-  if (isEnd && index >= SLOTS.length) {
+function fromIdx(i: number, isEnd = false): string {
+  if (isEnd && i >= SLOTS.length) {
     const last = SLOTS[SLOTS.length - 1];
-    const totalMin = last.hour * 60 + last.minute + 30;
-    const h = Math.floor(totalMin / 60) % 24;
-    const m = totalMin % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    const tot = last.hour * 60 + last.minute + 30;
+    return `${String(Math.floor(tot / 60) % 24).padStart(2, "0")}:${String(tot % 60).padStart(2, "0")}`;
   }
-  const slot = SLOTS[Math.max(0, Math.min(SLOTS.length - 1, index))];
-  const h = slot.hour % 24;
-  return `${String(h).padStart(2, "0")}:${String(slot.minute).padStart(2, "0")}`;
+  const s = SLOTS[Math.max(0, Math.min(SLOTS.length - 1, i))];
+  return `${String(s.hour % 24).padStart(2, "0")}:${String(s.minute).padStart(2, "0")}`;
 }
 
-function formatDisplay(t: string) {
+function fmtTime(t: string): string {
   const [h, m] = t.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
+  const sfx = h >= 12 ? "PM" : "AM";
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return m === 0 ? `${h12} ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+  return m === 0 ? `${h12}:00 ${sfx}` : `${h12}:${String(m).padStart(2, "0")} ${sfx}`;
 }
 
-function generateTimeOptions(): { value: string; label: string }[] {
-  const options: { value: string; label: string }[] = [];
+function calcDuration(start: string, end: string): string {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins <= 0) mins += 24 * 60;
+  const hrs = Math.floor(mins / 60);
+  const rm = mins % 60;
+  return rm === 0 ? `${hrs}h` : `${hrs}h ${rm}m`;
+}
+
+const SLOT_H = 20;
+const LABEL_W = 52;
+
+function buildTimeOpts() {
+  const o: { value: string; label: string }[] = [];
   for (let h = 6; h < 24; h++) {
     for (const m of [0, 30]) {
-      const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      const suffix = h >= 12 ? "PM" : "AM";
+      const v = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const sfx = h >= 12 ? "PM" : "AM";
       const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-      const label = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:30 ${suffix}`;
-      options.push({ value, label });
+      o.push({ value: v, label: m === 0 ? `${h12}:00 ${sfx}` : `${h12}:30 ${sfx}` });
     }
   }
   for (let h = 0; h < 10; h++) {
     for (const m of [0, 30]) {
-      const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      const suffix = h >= 12 ? "PM" : "AM";
+      const v = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const sfx = h >= 12 ? "PM" : "AM";
       const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-      const label = m === 0 ? `${h12}:00 ${suffix} +1` : `${h12}:30 ${suffix} +1`;
-      options.push({ value, label });
+      o.push({ value: v, label: m === 0 ? `${h12}:00 ${sfx} +1` : `${h12}:30 ${sfx} +1` });
     }
   }
-  return options;
+  return o;
 }
 
-const SLOT_HEIGHT = 18;
-const LABEL_WIDTH = 48;
-const timeOptions = generateTimeOptions();
+const TIME_OPTS = buildTimeOpts();
 
 export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const anchorRef = useRef<number | null>(null);
   const currentRef = useRef<number | null>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number>(0);
+  const rafRef = useRef(0);
 
-  const startIdx = toSlotIndex(startTime);
-  const endIdx = toSlotIndex(endTime);
+  // Live display state (updates during drag for the summary bar)
+  const [liveStart, setLiveStart] = useState(startTime);
+  const [liveEnd, setLiveEnd] = useState(endTime);
 
-  // Committed selection (not dragging)
+  // Sync live values when props change (e.g. dropdown change)
+  useEffect(() => { setLiveStart(startTime); }, [startTime]);
+  useEffect(() => { setLiveEnd(endTime); }, [endTime]);
+
+  const startIdx = toIdx(startTime);
+  const endIdx = toIdx(endTime);
   const selStart = startIdx;
   const selEnd = Math.max(startIdx, endIdx - 1);
 
-  const getSlotFromY = useCallback((clientY: number): number => {
+  const yToSlot = useCallback((clientY: number) => {
     if (!containerRef.current) return 0;
-    const rect = containerRef.current.getBoundingClientRect();
-    const y = clientY - rect.top + containerRef.current.scrollTop;
-    return Math.max(0, Math.min(SLOTS.length - 1, Math.floor(y / SLOT_HEIGHT)));
+    const r = containerRef.current.getBoundingClientRect();
+    const y = clientY - r.top + containerRef.current.scrollTop;
+    return Math.max(0, Math.min(SLOTS.length - 1, Math.floor(y / SLOT_H)));
   }, []);
 
-  // Paint overlay directly via DOM (no React state during drag)
-  const paintOverlay = useCallback(() => {
+  const paintOverlay = useCallback((s: number, e: number) => {
     if (!overlayRef.current) return;
-    const anchor = anchorRef.current;
-    const cur = currentRef.current;
-    if (anchor === null || cur === null) {
-      // Show committed selection
-      const top = selStart * SLOT_HEIGHT;
-      const height = (selEnd - selStart + 1) * SLOT_HEIGHT;
-      overlayRef.current.style.top = `${top}px`;
-      overlayRef.current.style.height = `${height}px`;
-      overlayRef.current.style.opacity = "1";
-      return;
-    }
-    const minI = Math.min(anchor, cur);
-    const maxI = Math.max(anchor, cur);
-    const top = minI * SLOT_HEIGHT;
-    const height = (maxI - minI + 1) * SLOT_HEIGHT;
-    overlayRef.current.style.top = `${top}px`;
-    overlayRef.current.style.height = `${height}px`;
-    overlayRef.current.style.opacity = "1";
-  }, [selStart, selEnd]);
+    overlayRef.current.style.top = `${s * SLOT_H}px`;
+    overlayRef.current.style.height = `${(e - s + 1) * SLOT_H}px`;
+  }, []);
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+  // Paint committed selection
+  useEffect(() => {
+    if (!draggingRef.current) paintOverlay(selStart, selEnd);
+  }, [selStart, selEnd, paintOverlay]);
+
+  const onDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
-    const idx = getSlotFromY(e.clientY);
+    const idx = yToSlot(e.clientY);
     draggingRef.current = true;
     anchorRef.current = idx;
     currentRef.current = idx;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    paintOverlay();
-  }, [getSlotFromY, paintOverlay]);
+    paintOverlay(idx, idx);
+    // Update live display
+    const s = fromIdx(idx);
+    const eTime = fromIdx(idx + 1, true);
+    setLiveStart(s);
+    setLiveEnd(eTime);
+  }, [yToSlot, paintOverlay]);
 
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+  const onMove = useCallback((e: React.PointerEvent) => {
     if (!draggingRef.current) return;
-    const idx = getSlotFromY(e.clientY);
-    if (idx === currentRef.current) return; // no change
+    const idx = yToSlot(e.clientY);
+    if (idx === currentRef.current) return;
     currentRef.current = idx;
     cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(paintOverlay);
-  }, [getSlotFromY, paintOverlay]);
+    rafRef.current = requestAnimationFrame(() => {
+      const a = anchorRef.current!;
+      const minI = Math.min(a, idx);
+      const maxI = Math.max(a, idx);
+      paintOverlay(minI, maxI);
+      // Update live display in real-time
+      setLiveStart(fromIdx(minI));
+      setLiveEnd(fromIdx(maxI + 1, true));
+    });
+  }, [yToSlot, paintOverlay]);
 
-  const handlePointerUp = useCallback(() => {
+  const onUp = useCallback(() => {
     if (!draggingRef.current) return;
     draggingRef.current = false;
-    const anchor = anchorRef.current;
-    const cur = currentRef.current;
-    if (anchor !== null && cur !== null) {
-      const minI = Math.min(anchor, cur);
-      const maxI = Math.max(anchor, cur) + 1;
-      onChangeStart(fromSlotIndex(minI));
-      onChangeEnd(fromSlotIndex(maxI, true));
+    const a = anchorRef.current;
+    const c = currentRef.current;
+    if (a !== null && c !== null) {
+      const minI = Math.min(a, c);
+      const maxI = Math.max(a, c) + 1;
+      const newStart = fromIdx(minI);
+      const newEnd = fromIdx(maxI, true);
+      onChangeStart(newStart);
+      onChangeEnd(newEnd);
     }
     anchorRef.current = null;
     currentRef.current = null;
   }, [onChangeStart, onChangeEnd]);
 
-  // Sync overlay when committed selection changes
-  useEffect(() => {
-    paintOverlay();
-  }, [selStart, selEnd, paintOverlay]);
-
-  // Auto-scroll on mount
+  // Auto-scroll to selection on mount
   useEffect(() => {
     if (containerRef.current) {
-      containerRef.current.scrollTop = Math.max(0, (startIdx - 2) * SLOT_HEIGHT);
+      containerRef.current.scrollTop = Math.max(0, (startIdx - 3) * SLOT_H);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Hour grid lines (static, memoized)
+  const gridLines = useMemo(() => SLOTS.map((slot, i) => {
+    const isHour = slot.minute === 0;
+    return (
+      <div
+        key={i}
+        className={`absolute left-0 right-0 ${isHour ? "border-t border-border/50" : "border-t border-border/10"}`}
+        style={{ top: i * SLOT_H, height: SLOT_H }}
+      >
+        {isHour && (
+          <span
+            className="absolute text-[10px] font-medium text-muted-foreground/70 leading-none pointer-events-none select-none"
+            style={{ left: 8, top: 3, width: LABEL_W - 14 }}
+          >
+            {slot.label}
+          </span>
+        )}
+      </div>
+    );
+  }), []);
+
   return (
-    <div className="flex flex-col gap-2">
-      {/* Header: dropdowns + summary */}
-      <div className="flex items-end gap-2">
-        <div className="flex-1 min-w-0">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-0.5 block">Start</label>
+    <div className="flex flex-col gap-3">
+      {/* ── Summary bar ── */}
+      <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center">
+            <Clock className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-sm font-semibold text-foreground">{fmtTime(liveStart)}</span>
+            <span className="text-xs text-muted-foreground">→</span>
+            <span className="text-sm font-semibold text-foreground">{fmtTime(liveEnd)}</span>
+          </div>
+        </div>
+        <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+          {calcDuration(liveStart, liveEnd)}
+        </span>
+      </div>
+
+      {/* ── Dropdowns row ── */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 mb-1 block">
+            Start Time
+          </label>
           <select
             value={startTime}
             onChange={(e) => onChangeStart(e.target.value)}
-            className="w-full h-7 rounded-md border border-border bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full h-8 rounded-lg border border-border bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-shadow"
           >
-            {timeOptions.map(opt => (
-              <option key={`s-${opt.value}`} value={opt.value}>{opt.label}</option>
-            ))}
+            {TIME_OPTS.map(o => <option key={`s-${o.value}`} value={o.value}>{o.label}</option>)}
           </select>
         </div>
-        <span className="text-muted-foreground text-xs pb-1">–</span>
-        <div className="flex-1 min-w-0">
-          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-0.5 block">End</label>
+        <div>
+          <label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 mb-1 block">
+            End Time
+          </label>
           <select
             value={endTime}
             onChange={(e) => onChangeEnd(e.target.value)}
-            className="w-full h-7 rounded-md border border-border bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full h-8 rounded-lg border border-border bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-shadow"
           >
-            {timeOptions.map(opt => (
-              <option key={`e-${opt.value}`} value={opt.value}>{opt.label}</option>
-            ))}
+            {TIME_OPTS.map(o => <option key={`e-${o.value}`} value={o.value}>{o.label}</option>)}
           </select>
-        </div>
-        <div className="text-[11px] font-medium text-primary whitespace-nowrap pb-1 pl-1">
-          {formatDisplay(startTime)} – {formatDisplay(endTime)}
         </div>
       </div>
 
-      {/* Time grid */}
+      {/* ── Time grid ── */}
       <div
         ref={containerRef}
-        className="relative border border-border rounded-lg overflow-y-auto select-none cursor-cell"
-        style={{ height: 420, touchAction: "none" }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        className="relative border border-border rounded-lg overflow-y-auto select-none cursor-cell bg-background"
+        style={{ height: 380, touchAction: "none" }}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={onUp}
+        onPointerLeave={onUp}
       >
-        <div style={{ height: SLOTS.length * SLOT_HEIGHT, position: "relative" }}>
-          {/* Hour lines + labels */}
-          {SLOTS.map((slot, i) => {
-            const isHour = slot.minute === 0;
-            return (
-              <div
-                key={i}
-                className={`absolute left-0 right-0 ${
-                  isHour ? "border-t border-border/60" : "border-t border-border/15"
-                }`}
-                style={{ top: i * SLOT_HEIGHT, height: SLOT_HEIGHT }}
-              >
-                {isHour && (
-                  <span
-                    className="absolute text-[10px] text-muted-foreground leading-none pointer-events-none"
-                    style={{ left: 6, top: 2, width: LABEL_WIDTH - 10 }}
-                  >
-                    {slot.label}
-                  </span>
-                )}
-              </div>
-            );
-          })}
+        <div style={{ height: SLOTS.length * SLOT_H, position: "relative" }}>
+          {gridLines}
 
-          {/* Selection overlay — single div, painted via ref */}
+          {/* Selection overlay */}
           <div
             ref={overlayRef}
-            className="absolute rounded-md pointer-events-none"
+            className="absolute pointer-events-none transition-none"
             style={{
-              left: LABEL_WIDTH,
-              right: 4,
-              top: selStart * SLOT_HEIGHT,
-              height: (selEnd - selStart + 1) * SLOT_HEIGHT,
-              background: "hsl(var(--primary) / 0.2)",
-              borderTop: "2px solid hsl(var(--primary))",
-              borderBottom: "2px solid hsl(var(--primary))",
+              left: LABEL_W,
+              right: 6,
+              top: selStart * SLOT_H,
+              height: (selEnd - selStart + 1) * SLOT_H,
+              background: "hsl(var(--primary) / 0.15)",
+              borderLeft: "3px solid hsl(var(--primary))",
+              borderRadius: "2px 6px 6px 2px",
               willChange: "top, height",
-              transition: draggingRef.current ? "none" : "top 80ms ease-out, height 80ms ease-out",
+              boxShadow: "inset 0 1px 0 hsl(var(--primary) / 0.25), inset 0 -1px 0 hsl(var(--primary) / 0.25)",
             }}
-          />
+          >
+            {/* Top time label */}
+            <div
+              className="absolute -top-0.5 left-1 text-[9px] font-bold text-primary pointer-events-none select-none"
+              style={{ transform: "translateY(-100%)" }}
+            >
+              {fmtTime(liveStart)}
+            </div>
+            {/* Bottom time label */}
+            <div
+              className="absolute -bottom-0.5 left-1 text-[9px] font-bold text-primary pointer-events-none select-none"
+              style={{ transform: "translateY(100%)" }}
+            >
+              {fmtTime(liveEnd)}
+            </div>
+          </div>
         </div>
       </div>
     </div>
