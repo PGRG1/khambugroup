@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -281,10 +281,10 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") setClipboard(null);
   }, []);
-  useState(() => {
+  useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+  }, [handleKeyDown]);
 
   const shiftMap = useMemo(() => {
     const map: Record<string, HRShift[]> = {};
