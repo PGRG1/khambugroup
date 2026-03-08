@@ -46,6 +46,14 @@ const EMPLOYMENT_TYPES = [
   { value: "casual", label: "Casual" },
 ];
 
+const VENUE_OPTIONS = [
+  { value: "Caliente", label: "Caliente" },
+  { value: "Assembly", label: "Assembly" },
+  { value: "Caliente / Assembly", label: "Caliente / Assembly" },
+  { value: "Kitchen", label: "Kitchen" },
+  { value: "Support", label: "Support" },
+];
+
 const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "on_leave", label: "On Leave" },
@@ -299,6 +307,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Job Title</TableHead>
+              <TableHead>Venue</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
@@ -308,11 +317,12 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No employees found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No employees found</TableCell></TableRow>
             ) : filtered.map(emp => (
               <TableRow key={emp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(emp)}>
                 <TableCell className="font-medium">{emp.first_name} {emp.last_name}</TableCell>
                 <TableCell>{emp.job_title || "—"}</TableCell>
+                <TableCell>{emp.venue || "—"}</TableCell>
                 <TableCell>{emp.department?.name || "—"}</TableCell>
                 <TableCell><Badge variant="secondary" className="text-xs">{EMPLOYMENT_TYPES.find(t => t.value === emp.employment_type)?.label || emp.employment_type}</Badge></TableCell>
                 <TableCell>
@@ -360,6 +370,13 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">Job Title</label>
                     <Input value={editingEmployee.job_title || ""} onChange={e => updateField("job_title", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Venue</label>
+                    <Select value={editingEmployee.venue || ""} onValueChange={v => updateField("venue", v)}>
+                      <SelectTrigger><SelectValue placeholder="Select venue..." /></SelectTrigger>
+                      <SelectContent>{VENUE_OPTIONS.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">Department</label>
