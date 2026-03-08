@@ -405,17 +405,11 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     onChangeStart={v => updateField("start_time", v)}
                     onChangeEnd={v => updateField("end_time", v)}
                   />
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Break (min)</label>
-                      <Input type="number" className="w-20" value={editingShift.break_minutes || 0} onChange={e => updateField("break_minutes", Number(e.target.value))} />
-                    </div>
-                    {editingShift.start_time && editingShift.end_time && (
-                      <p className="text-xs text-muted-foreground mt-4">
-                        Total: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
-                      </p>
-                    )}
-                  </div>
+                  {editingShift.start_time && editingShift.end_time && (
+                    <p className="text-xs text-muted-foreground">
+                      Total: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
+                    </p>
+                  )}
 
                   <Separator />
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actual Time (Post-Schedule)</h4>
