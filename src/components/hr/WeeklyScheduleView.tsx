@@ -153,12 +153,17 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
 
 export function WeeklyScheduleView({
   shifts, employees, departments, leaveRequests, leaveTypes, weekDates,
-  onEditShift, onAddShift, onApproveLeave,
+  onEditShift, onAddShift, onApproveLeave, onReorderEmployees,
 }: Props) {
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
     [employees]
   );
+
+  // Drag-and-drop state
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragCounter = useRef(0);
 
   const shiftMap = useMemo(() => {
     const map: Record<string, HRShift[]> = {};
