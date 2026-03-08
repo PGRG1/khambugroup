@@ -1,13 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Plus, DollarSign, Users, TrendingDown, Building2, CalendarDays } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DollarSign, Users, Building2, CalendarDays, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRPayroll, HREmployee, HRShift } from "@/hooks/useHRData";
 
@@ -18,115 +18,72 @@ interface Props {
   onSave: (p: Partial<HRPayroll>) => Promise<boolean>;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const PAYROLL_STATUSES = [
-  { value: "draft", label: "Draft" },
-  { value: "approved", label: "Approved" },
-  { value: "paid", label: "Paid" },
-];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 const PAYMENT_METHODS = [
   { value: "bank_transfer", label: "Bank Transfer" },
   { value: "cash", label: "Cash" },
   { value: "cheque", label: "Cheque" },
   { value: "other", label: "Other" },
 ];
+const PAYROLL_STATUSES = [
+  { value: "draft", label: "Draft" },
+  { value: "approved", label: "Approved" },
+  { value: "paid", label: "Paid" },
+];
 
-const fmt = (v: number | null | undefined) => v != null ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—";
-const fmtShort = (v: number) => `$${v >= 1000 ? (v / 1000).toFixed(1) + "k" : v.toLocaleString()}`;
+const BANK_OPTIONS = ["HSBC", "Hang Seng", "Bank of China", "ZA Bank", "Cash", "Other"];
 
-function PayrollKPICards({ payroll, employees }: { payroll: HRPayroll[]; employees: HREmployee[] }) {
-  const stats = useMemo(() => {
-    const totalGross = payroll.reduce((s, p) => s + Number(p.gross_salary || 0), 0);
-    const totalNet = payroll.reduce((s, p) => s + Number(p.net_salary || 0), 0);
-    const totalMPFEmployee = payroll.reduce((s, p) => s + Number(p.mpf_employee || 0), 0);
-    const totalMPFEmployer = payroll.reduce((s, p) => s + Number(p.mpf_employer || 0), 0);
-    const totalDeductions = payroll.reduce((s, p) => s + Number(p.total_deductions || 0), 0);
-    const totalOtherPayments = payroll.reduce((s, p) => s + Number(p.other_payments || 0), 0);
-    const paidCount = payroll.filter(p => p.payment_status === "paid").length;
-    const unpaidCount = payroll.filter(p => p.payment_status !== "paid").length;
+const fmt = (v: number | null | undefined) => v != null && v !== 0 ? Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+const fmtInt = (v: number | null | undefined) => v != null ? String(v) : "0";
 
-    const byType: Record<string, number> = {};
-    payroll.forEach(p => {
-      const emp = employees.find(e => e.id === p.employee_id);
-      const type = emp?.employment_type || "unknown";
-      byType[type] = (byType[type] || 0) + Number(p.gross_salary || 0);
-    });
+const MPF_RATE = 0.05;
+const MPF_CAP = 1500;
+const DAYS_IN_MONTH_DEFAULT = 31;
 
-    const byDept: Record<string, number> = {};
-    payroll.forEach(p => {
-      const emp = employees.find(e => e.id === p.employee_id);
-      const dept = emp?.department?.name || "Unassigned";
-      byDept[dept] = (byDept[dept] || 0) + Number(p.gross_salary || 0);
-    });
+/* ── Inline editable cell ── */
+function InlineCell({
+  value, onChange, type = "number", className = "", editable = true, align = "right",
+}: {
+  value: number | string; onChange?: (v: string) => void; type?: string; className?: string; editable?: boolean; align?: "left" | "right" | "center";
+}) {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState(String(value));
 
-    const byPosition: Record<string, number> = {};
-    payroll.forEach(p => {
-      const emp = employees.find(e => e.id === p.employee_id);
-      const pos = emp?.job_title || "Unassigned";
-      byPosition[pos] = (byPosition[pos] || 0) + Number(p.gross_salary || 0);
-    });
+  if (!editable || !onChange) {
+    return (
+      <span className={`block text-[11px] tabular-nums ${align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"} ${className}`}>
+        {type === "number" ? fmt(Number(value)) : String(value)}
+      </span>
+    );
+  }
 
-    return { totalGross, totalNet, totalMPFEmployee, totalMPFEmployer, totalDeductions, totalOtherPayments, paidCount, unpaidCount, byType, byDept, byPosition };
-  }, [payroll, employees]);
-
-  const cards = [
-    { label: "Total Payroll Cost", value: fmt(stats.totalGross), icon: DollarSign, color: "text-primary" },
-    { label: "Total Net Salary", value: fmt(stats.totalNet), icon: DollarSign, color: "text-chart-3" },
-    { label: "Total MPF Paid", value: fmt(stats.totalMPFEmployee + stats.totalMPFEmployer), icon: Building2, color: "text-chart-2" },
-    { label: "Employer MPF", value: fmt(stats.totalMPFEmployer), icon: Building2, color: "text-chart-4" },
-    { label: "Employee MPF", value: fmt(stats.totalMPFEmployee), icon: Users, color: "text-chart-5" },
-    { label: "Total Deductions", value: fmt(stats.totalDeductions), icon: TrendingDown, color: "text-destructive" },
-    { label: "Other Payments", value: fmt(stats.totalOtherPayments), icon: DollarSign, color: "text-primary" },
-    { label: "Paid / Unpaid", value: `${stats.paidCount} / ${stats.unpaidCount}`, icon: CalendarDays, color: "text-chart-3" },
-  ];
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type={type}
+        className={`w-full bg-primary/5 border border-primary/30 rounded px-1 py-0.5 text-[11px] tabular-nums outline-none text-primary font-medium ${align === "right" ? "text-right" : "text-left"}`}
+        value={local}
+        onChange={e => setLocal(e.target.value)}
+        onBlur={() => { onChange(local); setEditing(false); }}
+        onKeyDown={e => { if (e.key === "Enter") { onChange(local); setEditing(false); } if (e.key === "Escape") setEditing(false); }}
+      />
+    );
+  }
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-        {cards.map(c => (
-          <div key={c.label} className="card-glass rounded-xl p-3 animate-fade-in">
-            <div className="flex items-center gap-1.5 mb-1">
-              <c.icon className={`h-3.5 w-3.5 shrink-0 ${c.color}`} />
-              <span className="text-[11px] text-muted-foreground leading-tight">{c.label}</span>
-            </div>
-            <p className="text-sm font-display font-bold text-foreground">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-3 flex-wrap">
-        {Object.entries(stats.byType).map(([type, amount]) => (
-          <div key={type} className="card-glass rounded-lg px-3 py-2 flex items-center gap-2">
-            <Badge variant="secondary" className="text-[10px]">{type.replace("_", " ").toUpperCase()}</Badge>
-            <span className="text-sm font-semibold">{fmt(amount)}</span>
-          </div>
-        ))}
-      </div>
-      {Object.keys(stats.byDept).length > 1 && (
-        <div className="flex gap-3 flex-wrap">
-          <span className="text-[10px] text-muted-foreground self-center">By Dept:</span>
-          {Object.entries(stats.byDept).map(([dept, amount]) => (
-            <div key={dept} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground">{dept}</span>
-              <span className="text-xs font-semibold">{fmt(amount)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      {Object.keys(stats.byPosition).length > 1 && (
-        <div className="flex gap-3 flex-wrap">
-          <span className="text-[10px] text-muted-foreground self-center">By Position:</span>
-          {Object.entries(stats.byPosition).map(([pos, amount]) => (
-            <div key={pos} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground">{pos}</span>
-              <span className="text-xs font-semibold">{fmt(amount)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <span
+      onClick={() => { setLocal(String(value)); setEditing(true); }}
+      className={`block text-[11px] tabular-nums cursor-pointer hover:bg-primary/5 rounded px-1 py-0.5 text-primary font-medium ${align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"} ${className}`}
+    >
+      {type === "number" ? fmt(Number(value)) : String(value)}
+    </span>
   );
 }
 
+/* ── MTD Schedule sub-view ── */
 function MTDScheduleView({ employeeId, shifts, month, year }: { employeeId: string; shifts: HRShift[]; month: number; year: number }) {
   const monthShifts = useMemo(() => {
     return shifts.filter(s => {
@@ -151,7 +108,7 @@ function MTDScheduleView({ employeeId, shifts, month, year }: { employeeId: stri
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">MTD Schedule — {MONTHS[month - 1]} {year}</h4>
+        <h4 className="text-sm font-semibold">MTD Schedule — {MONTHS_SHORT[month - 1]} {year}</h4>
         <Badge variant="secondary">{totalHours.toFixed(1)} hrs total</Badge>
       </div>
       {monthShifts.length === 0 ? (
@@ -203,309 +160,481 @@ function MTDScheduleView({ employeeId, shifts, month, year }: { employeeId: stri
   );
 }
 
+/* ── Main PayrollTab ── */
 export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Partial<HRPayroll> | null>(null);
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [saving, setSaving] = useState(false);
-  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
-  const [filterMonth, setFilterMonth] = useState(0); // 0 = all
+  const [detailModal, setDetailModal] = useState<HRPayroll | null>(null);
 
-  const activeEmployees = employees.filter(e => ["active", "on_leave"].includes(e.status));
-  const filtered = payroll.filter(p => {
-    if (p.year !== filterYear) return false;
-    if (filterMonth > 0 && p.month !== filterMonth) return false;
-    return true;
-  });
+  // Pending edits: keyed by employee_id, field name
+  const [edits, setEdits] = useState<Record<string, Record<string, number | string>>>({});
 
-  const openNew = () => {
-    setEditing({
-      year: filterYear,
-      month: filterMonth > 0 ? filterMonth : new Date().getMonth() + 1,
-      forecast_base_salary: 0, forecast_allowances: 0, forecast_deductions: 0,
-      forecast_overtime: 0, forecast_bonus: 0, forecast_total: 0,
-      annual_leave_pay: 0, statutory_holiday_pay: 0, other_payments: 0,
-      mpf_employee: 0, mpf_employer: 0,
-      sick_leave_deduction: 0, unpaid_leave_deduction: 0, other_deductions: 0,
-      gross_salary: 0, total_deductions: 0, net_salary: 0,
-      mpf_payment_amount: 0, payment_method: "bank_transfer",
-      payment_status: "draft",
+  const activeEmployees = useMemo(
+    () => employees.filter(e => ["active", "on_leave"].includes(e.status)).sort((a, b) => {
+      const va = a.venue || "ZZZ";
+      const vb = b.venue || "ZZZ";
+      if (va !== vb) return va.localeCompare(vb);
+      return a.sort_order - b.sort_order;
+    }),
+    [employees]
+  );
+
+  const filtered = useMemo(
+    () => payroll.filter(p => p.year === filterYear && p.month === filterMonth),
+    [payroll, filterYear, filterMonth]
+  );
+
+  // Build payroll map by employee_id
+  const payrollMap = useMemo(() => {
+    const map: Record<string, HRPayroll> = {};
+    filtered.forEach(p => { map[p.employee_id] = p; });
+    return map;
+  }, [filtered]);
+
+  // Group employees by venue
+  const venueGroups = useMemo(() => {
+    const groups: Record<string, HREmployee[]> = {};
+    activeEmployees.forEach(emp => {
+      const v = emp.venue || "Other";
+      if (!groups[v]) groups[v] = [];
+      groups[v].push(emp);
     });
-    setModalOpen(true);
+    return groups;
+  }, [activeEmployees]);
+
+  const getEdit = (empId: string, field: string) => edits[empId]?.[field];
+  const setEdit = (empId: string, field: string, value: string) => {
+    setEdits(prev => ({
+      ...prev,
+      [empId]: { ...prev[empId], [field]: field === "bank" || field === "account" ? value : Number(value) || 0 },
+    }));
   };
 
-  const calcTotals = (p: Partial<HRPayroll>) => {
-    const baseSalary = Number(p.forecast_base_salary || 0);
-    const alPay = Number(p.annual_leave_pay || 0);
-    const shPay = Number(p.statutory_holiday_pay || 0);
-    const otherPay = Number(p.other_payments || 0);
-    const gross = baseSalary + alPay + shPay + otherPay;
+  // Calculate row values
+  const getRowData = useCallback((emp: HREmployee) => {
+    const p = payrollMap[emp.id];
+    const e = edits[emp.id] || {};
+    const baseSalary = e.forecast_base_salary != null ? Number(e.forecast_base_salary) : Number(p?.forecast_base_salary || 0);
+    const daysHours = e.days_hours != null ? Number(e.days_hours) : (p ? Number(p.forecast_allowances || DAYS_IN_MONTH_DEFAULT) : DAYS_IN_MONTH_DEFAULT);
+    const isFT = emp.employment_type === "full_time";
+    const earnedSalary = isFT ? baseSalary : baseSalary * daysHours;
+    const alDays = e.al_days != null ? Number(e.al_days) : Number(p?.annual_leave_pay || 0);
+    const nplDays = e.npl_days != null ? Number(e.npl_days) : Number(p?.unpaid_leave_deduction || 0);
+    const dailyRate = isFT && DAYS_IN_MONTH_DEFAULT > 0 ? baseSalary / DAYS_IN_MONTH_DEFAULT : 0;
+    const adjustments = isFT ? dailyRate * (alDays - nplDays) : 0;
+    const grossPay = earnedSalary + adjustments;
 
-    const sickDed = Number(p.sick_leave_deduction || 0);
-    const unpaidDed = Number(p.unpaid_leave_deduction || 0);
-    const otherDed = Number(p.other_deductions || 0);
-    const mpfEmp = Number(p.mpf_employee || 0);
-    const totalDed = sickDed + unpaidDed + otherDed + mpfEmp;
+    const mpfEE = Math.min(MPF_CAP, grossPay * MPF_RATE);
+    const mpfER = Math.min(MPF_CAP, grossPay * MPF_RATE);
+    const totalMPF = mpfEE + mpfER;
+    const netPay = grossPay - mpfEE;
 
-    const net = gross - totalDed;
-    const mpfTotal = mpfEmp + Number(p.mpf_employer || 0);
+    const bank = e.bank != null ? String(e.bank) : (p?.payment_method || "");
+    const account = e.account != null ? String(e.account) : (p?.notes || "");
+    const totalCost = grossPay + mpfER;
 
-    return { gross_salary: gross, total_deductions: totalDed, net_salary: net, mpf_payment_amount: mpfTotal };
-  };
+    return {
+      baseSalary, daysHours, earnedSalary, alDays, nplDays, adjustments, grossPay,
+      mpfEE, mpfER, totalMPF, netPay, bank, account, totalCost,
+      payrollRecord: p,
+    };
+  }, [payrollMap, edits]);
 
-  const handleSave = async () => {
-    if (!editing?.employee_id || !editing?.year || !editing?.month) return;
+  // Save row
+  const saveRow = async (emp: HREmployee) => {
+    const row = getRowData(emp);
+    const p = row.payrollRecord;
     setSaving(true);
-    const totals = calcTotals(editing);
-    const ok = await onSave({ ...editing, ...totals });
-    if (ok) { toast({ title: "Payroll saved" }); setModalOpen(false); }
+    const payload: Partial<HRPayroll> = {
+      ...(p?.id ? { id: p.id } : {}),
+      employee_id: emp.id,
+      year: filterYear,
+      month: filterMonth,
+      forecast_base_salary: row.baseSalary,
+      forecast_allowances: row.daysHours,
+      annual_leave_pay: row.alDays,
+      unpaid_leave_deduction: row.nplDays,
+      gross_salary: row.grossPay,
+      mpf_employee: row.mpfEE,
+      mpf_employer: row.mpfER,
+      mpf_payment_amount: row.totalMPF,
+      net_salary: row.netPay,
+      total_deductions: row.mpfEE,
+      payment_method: row.bank || "bank_transfer",
+      notes: row.account,
+      payment_status: p?.payment_status || "draft",
+    };
+    const ok = await onSave(payload);
+    if (ok) {
+      toast({ title: "Saved" });
+      // Clear edits for this employee
+      setEdits(prev => { const next = { ...prev }; delete next[emp.id]; return next; });
+    }
     setSaving(false);
   };
 
-  const updateField = (field: string, value: any) => setEditing(p => p ? { ...p, [field]: value } : p);
-  const numField = (field: string, value: string) => updateField(field, value === "" ? 0 : Number(value));
-
-  const statusBadge = (status: string) => {
-    const variant = status === "paid" ? "default" : status === "approved" ? "secondary" : "outline";
-    return <Badge variant={variant}>{PAYROLL_STATUSES.find(s => s.value === status)?.label || status}</Badge>;
+  // Navigate months
+  const prevMonth = () => {
+    if (filterMonth === 1) { setFilterMonth(12); setFilterYear(y => y - 1); }
+    else setFilterMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (filterMonth === 12) { setFilterMonth(1); setFilterYear(y => y + 1); }
+    else setFilterMonth(m => m + 1);
   };
 
+  // Totals
+  const totals = useMemo(() => {
+    const t = { headcount: 0, grossPay: 0, netPay: 0, mpfER: 0, mpfEE: 0, totalCost: 0 };
+    activeEmployees.forEach(emp => {
+      const row = getRowData(emp);
+      if (row.baseSalary > 0 || row.earnedSalary > 0) {
+        t.headcount++;
+        t.grossPay += row.grossPay;
+        t.netPay += row.netPay;
+        t.mpfER += row.mpfER;
+        t.mpfEE += row.mpfEE;
+        t.totalCost += row.totalCost;
+      }
+    });
+    return t;
+  }, [activeEmployees, getRowData]);
+
+  // Venue subtotals
+  const venueSubtotals = useMemo(() => {
+    const st: Record<string, { baseSalary: number; earnedSalary: number; adjustments: number; grossPay: number; mpfEE: number; mpfER: number; totalMPF: number; netPay: number; totalCost: number }> = {};
+    Object.entries(venueGroups).forEach(([venue, emps]) => {
+      const sub = { baseSalary: 0, earnedSalary: 0, adjustments: 0, grossPay: 0, mpfEE: 0, mpfER: 0, totalMPF: 0, netPay: 0, totalCost: 0 };
+      emps.forEach(emp => {
+        const row = getRowData(emp);
+        sub.baseSalary += row.baseSalary;
+        sub.earnedSalary += row.earnedSalary;
+        sub.adjustments += row.adjustments;
+        sub.grossPay += row.grossPay;
+        sub.mpfEE += row.mpfEE;
+        sub.mpfER += row.mpfER;
+        sub.totalMPF += row.totalMPF;
+        sub.netPay += row.netPay;
+        sub.totalCost += row.totalCost;
+      });
+      st[venue] = sub;
+    });
+    return st;
+  }, [venueGroups, getRowData]);
+
+  const grandTotal = useMemo(() => {
+    const gt = { baseSalary: 0, earnedSalary: 0, adjustments: 0, grossPay: 0, mpfEE: 0, mpfER: 0, totalMPF: 0, netPay: 0, totalCost: 0 };
+    Object.values(venueSubtotals).forEach(sub => {
+      gt.baseSalary += sub.baseSalary;
+      gt.earnedSalary += sub.earnedSalary;
+      gt.adjustments += sub.adjustments;
+      gt.grossPay += sub.grossPay;
+      gt.mpfEE += sub.mpfEE;
+      gt.mpfER += sub.mpfER;
+      gt.totalMPF += sub.totalMPF;
+      gt.netPay += sub.netPay;
+      gt.totalCost += sub.totalCost;
+    });
+    return gt;
+  }, [venueSubtotals]);
+
+  // Payment status overview
+  const payStatus = useMemo(() => {
+    const statuses = filtered.map(p => p.payment_status);
+    const allPaid = statuses.length > 0 && statuses.every(s => s === "paid");
+    return allPaid ? "Paid" : "Pending";
+  }, [filtered]);
+
+  const avgSalary = totals.headcount > 0 ? totals.grossPay / totals.headcount : 0;
+
+  const sectionHeaderClass = "bg-foreground text-background text-[11px] font-bold uppercase tracking-wider px-3 py-1.5";
+  const thClass = "text-[10px] font-semibold uppercase tracking-wider px-2 py-1.5 whitespace-nowrap";
+  const tdClass = "px-2 py-1 text-[11px] tabular-nums whitespace-nowrap";
+  const subtotalClass = "bg-muted/70 font-bold";
+
+  let rowNum = 0;
+
   return (
-    <div className="space-y-5">
-      {/* KPI Analytics */}
-      <PayrollKPICards payroll={filtered} employees={employees} />
-
-      {/* Filters */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div className="space-y-4">
+      {/* Period Selector */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Year:</label>
-          <Input type="number" className="w-24" value={filterYear} onChange={e => setFilterYear(Number(e.target.value))} />
-          <label className="text-sm font-medium ml-2">Month:</label>
-          <Select value={String(filterMonth)} onValueChange={v => setFilterMonth(Number(v))}>
-            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">All</SelectItem>
-              {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <span className="text-sm font-semibold text-muted-foreground">Period</span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={prevMonth}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-lg font-display font-bold min-w-[180px] text-center">
+            {MONTHS[filterMonth - 1]} {filterYear}
+          </span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-        <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Add Payroll</Button>
       </div>
 
-      {/* Payroll Table */}
-      <div className="border border-border rounded-lg overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Employee</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Month</TableHead>
-              <TableHead className="text-right">Base Salary</TableHead>
-              <TableHead className="text-right">Gross</TableHead>
-              <TableHead className="text-right">Deductions</TableHead>
-              <TableHead className="text-right">MPF (Emp)</TableHead>
-              <TableHead className="text-right">Net Salary</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No payroll records for this period</TableCell></TableRow>
-            ) : filtered.map(p => {
-              const emp = employees.find(e => e.id === p.employee_id);
-              return (
-                <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setEditing({ ...p }); setModalOpen(true); }}>
-                  <TableCell className="font-medium">{emp ? `${emp.first_name} ${emp.last_name}` : "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {emp?.employment_type?.replace("_", " ").toUpperCase() || "—"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{MONTHS[(p.month - 1)] || p.month}</TableCell>
-                  <TableCell className="text-right">{fmt(p.forecast_base_salary)}</TableCell>
-                  <TableCell className="text-right font-medium">{fmt(p.gross_salary)}</TableCell>
-                  <TableCell className="text-right text-destructive">{fmt(p.total_deductions)}</TableCell>
-                  <TableCell className="text-right">{fmt(p.mpf_employee)}</TableCell>
-                  <TableCell className="text-right font-bold">{fmt(p.net_salary)}</TableCell>
-                  <TableCell>{statusBadge(p.payment_status)}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+      {/* ── PAYROLL SUMMARY & MPF DETAILS ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="border border-border rounded-md overflow-hidden">
+          <div className={sectionHeaderClass}>Payroll Summary</div>
+          <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+            <div>
+              <span className="text-muted-foreground block">Total Headcount</span>
+              <span className="font-bold text-sm">{totals.headcount}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Total Gross Pay</span>
+              <span className="font-bold text-sm">${fmt(totals.grossPay)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Total Net Pay</span>
+              <span className="font-bold text-sm">${fmt(totals.netPay)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Total MPF (ER)</span>
+              <span className="font-bold text-sm">${fmt(totals.mpfER)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Avg Salary</span>
+              <span className="font-bold text-sm">${fmt(avgSalary)}</span>
+            </div>
+            {Object.entries(venueSubtotals).map(([venue, sub]) => (
+              <div key={venue}>
+                <span className="text-muted-foreground block">{venue}</span>
+                <span className="font-bold text-sm">${fmt(sub.grossPay)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="border border-border rounded-md overflow-hidden">
+          <div className={sectionHeaderClass}>MPF & Payment Details</div>
+          <div className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+            <div>
+              <span className="text-muted-foreground block">MPF Cap</span>
+              <span className="font-bold text-sm">${fmt(MPF_CAP)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">MPF Rate</span>
+              <span className="font-bold text-sm">{(MPF_RATE * 100).toFixed(0)}%</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Days in Month</span>
+              <span className="font-bold text-sm">{new Date(filterYear, filterMonth, 0).getDate()}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Status</span>
+              <Badge variant={payStatus === "Paid" ? "default" : "outline"} className="text-[10px]">{payStatus}</Badge>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Total MPF (EE)</span>
+              <span className="font-bold text-sm">${fmt(totals.mpfEE)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Total MPF (ER)</span>
+              <span className="font-bold text-sm">${fmt(totals.mpfER)}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Payroll Detail Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      {/* ── EMPLOYEE PAYROLL TABLE ── */}
+      <div className="border border-border rounded-md overflow-hidden">
+        <div className="flex">
+          <div className={`${sectionHeaderClass} flex-1`}>Employee Payroll</div>
+          <div className={`${sectionHeaderClass} flex-1 text-right`}>MPF & Payment</div>
+          <div className={`${sectionHeaderClass} text-right`} style={{ minWidth: 80 }}>Salary Expense</div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className={`${thClass} text-center w-8`}>No</th>
+                <th className={`${thClass} min-w-[120px]`}>Employee Name</th>
+                <th className={`${thClass} min-w-[80px]`}>Department</th>
+                <th className={`${thClass} min-w-[90px]`}>Position</th>
+                <th className={`${thClass} w-10 text-center`}>Type</th>
+                <th className={`${thClass} text-right min-w-[80px]`}>Basic Salary</th>
+                <th className={`${thClass} text-right w-14`}>Days/Hrs</th>
+                <th className={`${thClass} text-right min-w-[80px] bg-muted/80`}>Earned Salary</th>
+                <th className={`${thClass} text-right w-12`}>AL Days</th>
+                <th className={`${thClass} text-right w-12`}>NPL Days</th>
+                <th className={`${thClass} text-right min-w-[70px] bg-muted/80`}>Adjustments</th>
+                <th className={`${thClass} text-right min-w-[80px] bg-muted/80`}>Gross Pay</th>
+                <th className="border-l border-border w-[1px]" />
+                <th className={`${thClass} text-right min-w-[70px]`}>MPF (EE)</th>
+                <th className={`${thClass} text-right min-w-[70px]`}>MPF (ER)</th>
+                <th className={`${thClass} text-right min-w-[70px] bg-muted/80`}>Total MPF</th>
+                <th className={`${thClass} text-right min-w-[80px] font-bold`}>Net Pay</th>
+                <th className={`${thClass} min-w-[70px]`}>Bank</th>
+                <th className={`${thClass} min-w-[100px]`}>Account</th>
+                <th className="border-l border-border w-[1px]" />
+                <th className={`${thClass} text-right min-w-[80px] font-bold`}>Total Cost</th>
+                <th className={`${thClass} w-8`} />
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(venueGroups).map(([venue, emps]) => (
+                <>
+                  {emps.map((emp) => {
+                    rowNum++;
+                    const row = getRowData(emp);
+                    const hasEdits = !!edits[emp.id];
+                    const typeLabel = emp.employment_type === "full_time" ? "FT" : emp.employment_type === "part_time" ? "PT" : "C";
+                    return (
+                      <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/30">
+                        <td className={`${tdClass} text-center text-muted-foreground`}>{rowNum}</td>
+                        <td className={`${tdClass} font-medium`}>{emp.last_name}, {emp.first_name}</td>
+                        <td className={`${tdClass} text-muted-foreground`}>{venue}</td>
+                        <td className={`${tdClass} text-muted-foreground`}>{emp.job_title || "—"}</td>
+                        <td className={`${tdClass} text-center`}>{typeLabel}</td>
+                        <td className={tdClass}>
+                          <InlineCell value={row.baseSalary} onChange={v => setEdit(emp.id, "forecast_base_salary", v)} editable />
+                        </td>
+                        <td className={tdClass}>
+                          <InlineCell value={row.daysHours} onChange={v => setEdit(emp.id, "days_hours", v)} editable />
+                        </td>
+                        <td className={`${tdClass} bg-muted/30`}>
+                          <InlineCell value={row.earnedSalary} editable={false} />
+                        </td>
+                        <td className={tdClass}>
+                          <InlineCell value={row.alDays} onChange={v => setEdit(emp.id, "al_days", v)} editable />
+                        </td>
+                        <td className={tdClass}>
+                          <InlineCell value={row.nplDays} onChange={v => setEdit(emp.id, "npl_days", v)} editable />
+                        </td>
+                        <td className={`${tdClass} bg-muted/30`}>
+                          <InlineCell value={row.adjustments} editable={false} className={row.adjustments < 0 ? "text-destructive" : ""} />
+                        </td>
+                        <td className={`${tdClass} bg-muted/30`}>
+                          <InlineCell value={row.grossPay} editable={false} />
+                        </td>
+                        <td className="border-l border-border" />
+                        <td className={`${tdClass}`}>
+                          <InlineCell value={row.mpfEE} editable={false} />
+                        </td>
+                        <td className={`${tdClass}`}>
+                          <InlineCell value={row.mpfER} editable={false} />
+                        </td>
+                        <td className={`${tdClass} bg-muted/30`}>
+                          <InlineCell value={row.totalMPF} editable={false} />
+                        </td>
+                        <td className={`${tdClass} font-bold`}>
+                          <InlineCell value={row.netPay} editable={false} className="font-bold" />
+                        </td>
+                        <td className={tdClass}>
+                          <InlineCell value={row.bank || ""} type="text" onChange={v => setEdit(emp.id, "bank", v)} editable align="left" />
+                        </td>
+                        <td className={tdClass}>
+                          <InlineCell value={row.account || ""} type="text" onChange={v => setEdit(emp.id, "account", v)} editable align="left" />
+                        </td>
+                        <td className="border-l border-border" />
+                        <td className={`${tdClass} font-bold`}>
+                          <InlineCell value={row.totalCost} editable={false} className="font-bold" />
+                        </td>
+                        <td className={tdClass}>
+                          {hasEdits && (
+                            <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => saveRow(emp)} disabled={saving}>
+                              <Pencil className="h-3 w-3 text-primary" />
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {/* Venue Subtotal */}
+                  <tr key={`sub-${venue}`} className={`border-b border-border ${subtotalClass}`}>
+                    <td className={tdClass} />
+                    <td colSpan={4} className={`${tdClass} font-bold`}>{venue} Subtotal</td>
+                    <td className={`${tdClass} text-right font-bold`}>{fmt(venueSubtotals[venue]?.baseSalary)}</td>
+                    <td className={tdClass} />
+                    <td className={`${tdClass} text-right font-bold bg-muted/50`}>{fmt(venueSubtotals[venue]?.earnedSalary)}</td>
+                    <td className={tdClass} />
+                    <td className={tdClass} />
+                    <td className={`${tdClass} text-right font-bold bg-muted/50`}>{fmt(venueSubtotals[venue]?.adjustments)}</td>
+                    <td className={`${tdClass} text-right font-bold bg-muted/50`}>{fmt(venueSubtotals[venue]?.grossPay)}</td>
+                    <td className="border-l border-border" />
+                    <td className={`${tdClass} text-right font-bold`}>{fmt(venueSubtotals[venue]?.mpfEE)}</td>
+                    <td className={`${tdClass} text-right font-bold`}>{fmt(venueSubtotals[venue]?.mpfER)}</td>
+                    <td className={`${tdClass} text-right font-bold bg-muted/50`}>{fmt(venueSubtotals[venue]?.totalMPF)}</td>
+                    <td className={`${tdClass} text-right font-bold`}>{fmt(venueSubtotals[venue]?.netPay)}</td>
+                    <td colSpan={2} className={tdClass} />
+                    <td className="border-l border-border" />
+                    <td className={`${tdClass} text-right font-bold`}>{fmt(venueSubtotals[venue]?.totalCost)}</td>
+                    <td className={tdClass} />
+                  </tr>
+                  {/* Spacer */}
+                  <tr key={`spacer-${venue}`}><td colSpan={22} className="h-2" /></tr>
+                </>
+              ))}
+              {/* GRAND TOTAL */}
+              <tr className="bg-foreground text-background font-bold border-t-2 border-foreground">
+                <td className={tdClass} />
+                <td colSpan={4} className={`${tdClass} font-bold text-background`}>GRAND TOTAL</td>
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.baseSalary)}</td>
+                <td className={tdClass} />
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.earnedSalary)}</td>
+                <td className={tdClass} />
+                <td className={tdClass} />
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.adjustments)}</td>
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.grossPay)}</td>
+                <td className="border-l border-background/30" />
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.mpfEE)}</td>
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.mpfER)}</td>
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.totalMPF)}</td>
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.netPay)}</td>
+                <td colSpan={2} className={tdClass} />
+                <td className="border-l border-background/30" />
+                <td className={`${tdClass} text-right text-background`}>{fmt(grandTotal.totalCost)}</td>
+                <td className={tdClass} />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── INPUT LEGEND ── */}
+      <div className="border border-border rounded-md overflow-hidden">
+        <div className={sectionHeaderClass}>Input Legend</div>
+        <div className="p-3 text-[11px] text-muted-foreground space-y-2">
+          <p><span className="text-primary font-medium">Blue text with highlight</span> = Editable input fields</p>
+          <p><span className="text-muted-foreground">Gray background</span> = Calculated values (do not edit)</p>
+          <div className="mt-3">
+            <p className="font-semibold text-foreground mb-1">Key Inputs:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>Basic Salary — Monthly salary for FT, hourly rate for PT</li>
+              <li>Days/Hours — Working days for FT, hours worked for PT</li>
+              <li>AL Days — Annual leave days taken</li>
+              <li>NPL Days — No-pay leave / sick leave days</li>
+            </ul>
+          </div>
+          <div className="mt-3">
+            <p className="font-semibold text-foreground mb-1">Formulas:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>Earned Salary: FT = Basic Salary, PT = Rate × Hours</li>
+              <li>Adjustments: Basic Salary ÷ Days in Month × (AL Days − NPL Days)</li>
+              <li>Gross Pay: Earned Salary + Adjustments</li>
+              <li>MPF (EE/ER): MIN(MPF Cap, Gross Pay × {(MPF_RATE * 100).toFixed(0)}%)</li>
+              <li>Net Pay: Gross Pay − MPF (EE)</li>
+              <li>Total Cost: Gross Pay + MPF (ER)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Detail Modal */}
+      <Dialog open={!!detailModal} onOpenChange={() => setDetailModal(null)}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing?.id ? "Edit Payroll Record" : "Add Payroll Record"}</DialogTitle>
+            <DialogTitle>
+              {detailModal && (() => {
+                const emp = employees.find(e => e.id === detailModal.employee_id);
+                return emp ? `${emp.first_name} ${emp.last_name} — ${MONTHS_SHORT[detailModal.month - 1]} ${detailModal.year}` : "Payroll Detail";
+              })()}
+            </DialogTitle>
           </DialogHeader>
-          {editing && (
-            <Tabs defaultValue="payroll" className="mt-2">
-              <TabsList className="w-full">
-                <TabsTrigger value="payroll" className="flex-1">Payroll Details</TabsTrigger>
-                <TabsTrigger value="schedule" className="flex-1">MTD Schedule</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="payroll" className="space-y-5 mt-4">
-                {/* Employee & Period */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Employee *</label>
-                    <Select value={editing.employee_id || ""} onValueChange={v => updateField("employee_id", v)}>
-                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                      <SelectContent>{activeEmployees.map(e => <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Year *</label>
-                    <Input type="number" value={editing.year || ""} onChange={e => numField("year", e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Month *</label>
-                    <Select value={String(editing.month || 1)} onValueChange={v => updateField("month", Number(v))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Earnings */}
-                <div>
-                  <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">Earnings</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Base Salary</label>
-                      <Input type="number" value={editing.forecast_base_salary || 0} onChange={e => numField("forecast_base_salary", e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Annual Leave Pay</label>
-                      <Input type="number" value={editing.annual_leave_pay || 0} onChange={e => numField("annual_leave_pay", e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Statutory Holiday Pay</label>
-                      <Input type="number" value={editing.statutory_holiday_pay || 0} onChange={e => numField("statutory_holiday_pay", e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Other Payments</label>
-                      <Input type="number" value={editing.other_payments || 0} onChange={e => numField("other_payments", e.target.value)} />
-                    </div>
-                  </div>
-                  {editing.other_payments && Number(editing.other_payments) > 0 ? (
-                    <div className="mt-2">
-                      <label className="text-xs text-muted-foreground mb-1 block">Other Payments Note</label>
-                      <Input value={editing.other_payments_note || ""} onChange={e => updateField("other_payments_note", e.target.value)} placeholder="Describe other payments..." />
-                    </div>
-                  ) : null}
-                  <div className="mt-3 text-right">
-                    <span className="text-xs text-muted-foreground mr-2">Gross Salary:</span>
-                    <span className="text-sm font-bold">{fmt(calcTotals(editing).gross_salary)}</span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Deductions */}
-                <div>
-                  <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">Deductions</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Sick Leave Deduction</label>
-                      <Input type="number" value={editing.sick_leave_deduction || 0} onChange={e => numField("sick_leave_deduction", e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Unpaid Leave Deduction</label>
-                      <Input type="number" value={editing.unpaid_leave_deduction || 0} onChange={e => numField("unpaid_leave_deduction", e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">MPF (Employee)</label>
-                      <Input type="number" value={editing.mpf_employee || 0} onChange={e => numField("mpf_employee", e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Other Deductions</label>
-                      <Input type="number" value={editing.other_deductions || 0} onChange={e => numField("other_deductions", e.target.value)} />
-                    </div>
-                  </div>
-                  {editing.other_deductions && Number(editing.other_deductions) > 0 ? (
-                    <div className="mt-2">
-                      <label className="text-xs text-muted-foreground mb-1 block">Other Deductions Note</label>
-                      <Input value={editing.other_deductions_note || ""} onChange={e => updateField("other_deductions_note", e.target.value)} placeholder="Describe other deductions..." />
-                    </div>
-                  ) : null}
-                  <div className="mt-3 text-right">
-                    <span className="text-xs text-muted-foreground mr-2">Total Deductions:</span>
-                    <span className="text-sm font-bold text-destructive">{fmt(calcTotals(editing).total_deductions)}</span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* MPF & Net */}
-                <div>
-                  <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">MPF & Net Salary</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">MPF (Employer)</label>
-                      <Input type="number" value={editing.mpf_employer || 0} onChange={e => numField("mpf_employer", e.target.value)} />
-                    </div>
-                    <div className="flex flex-col justify-end">
-                      <div className="card-glass rounded-lg p-3 text-center">
-                        <span className="text-xs text-muted-foreground block">Net Salary</span>
-                        <span className="text-lg font-display font-bold text-primary">{fmt(calcTotals(editing).net_salary)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Payment Details */}
-                <div>
-                  <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">Payment Details</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Net Salary Payment Date</label>
-                      <Input type="date" value={editing.net_salary_payment_date || ""} onChange={e => updateField("net_salary_payment_date", e.target.value || null)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">MPF Payment Date</label>
-                      <Input type="date" value={editing.mpf_payment_date || ""} onChange={e => updateField("mpf_payment_date", e.target.value || null)} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Payment Method</label>
-                      <Select value={editing.payment_method || "bank_transfer"} onValueChange={v => updateField("payment_method", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{PAYMENT_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Payroll Status</label>
-                      <Select value={editing.payment_status || "draft"} onValueChange={v => updateField("payment_status", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{PAYROLL_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Notes</label>
-                  <Input value={editing.notes || ""} onChange={e => updateField("notes", e.target.value)} />
-                </div>
-
-                <Button onClick={handleSave} disabled={saving} className="w-full">{saving ? "Saving..." : "Save Payroll"}</Button>
-              </TabsContent>
-
-              <TabsContent value="schedule" className="mt-4">
-                {editing.employee_id && editing.month && editing.year ? (
-                  <MTDScheduleView employeeId={editing.employee_id} shifts={shifts} month={editing.month} year={editing.year} />
-                ) : (
-                  <p className="text-sm text-muted-foreground py-8 text-center">Select an employee and period to view schedule</p>
-                )}
-              </TabsContent>
-            </Tabs>
+          {detailModal && detailModal.employee_id && (
+            <MTDScheduleView employeeId={detailModal.employee_id} shifts={shifts} month={detailModal.month} year={detailModal.year} />
           )}
         </DialogContent>
       </Dialog>
