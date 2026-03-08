@@ -514,20 +514,18 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
 
       {/* Shift Detail Modal */}
       <Dialog open={shiftModalOpen} onOpenChange={setShiftModalOpen}>
-        <DialogContent className="w-[95vw] md:w-[80vw] h-[90vh] md:h-[80vh] overflow-y-auto resize overflow-auto min-w-[320px] min-h-[300px] !max-w-[95vw]">
-          <DialogHeader>
+        <DialogContent className="w-[95vw] md:w-[520px] max-h-[90vh] overflow-y-auto !max-w-[95vw]">
+          <DialogHeader className="sr-only">
             <DialogTitle>{editingShift?.id ? "Edit Shift" : "Add Shift"}</DialogTitle>
-            {modalActualsMode && (
-              <p className="text-xs text-muted-foreground">Opened from Actuals view — schedule is read-only. Edit actuals below.</p>
-            )}
           </DialogHeader>
           {editingShift && (
-            <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Employee</label>
+            <div className="space-y-4 pt-1">
+              {/* Employee / Venue / Date — compact info strip */}
+              <div className="flex items-center gap-3 rounded-lg bg-muted/40 border border-border/40 px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Employee</p>
                   {editingShift.id ? (
-                    <p className="text-sm font-semibold py-1.5">
+                    <p className="text-sm font-semibold text-foreground truncate">
                       {(() => { const emp = employees.find(e => e.id === editingShift.employee_id); return emp ? `${emp.first_name} ${emp.last_name}` : "—"; })()}
                     </p>
                   ) : (
@@ -536,22 +534,30 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                       const emp = employees.find(e => e.id === v);
                       setShiftVenue(emp?.venue || "");
                     }}>
-                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                      <SelectTrigger className="h-7 text-xs mt-0.5"><SelectValue placeholder="Select..." /></SelectTrigger>
                       <SelectContent>{activeEmployees.map(e => <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>)}</SelectContent>
                     </Select>
                   )}
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Venue</label>
-                  <p className="text-sm font-semibold py-1.5">{shiftVenue || "—"}</p>
+                <div className="h-8 w-px bg-border/50" />
+                <div className="shrink-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Venue</p>
+                  <p className="text-sm font-medium text-foreground">{shiftVenue || "—"}</p>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Date</label>
-                  <p className="text-sm font-semibold py-1.5">
-                    {editingShift.shift_date ? new Date(editingShift.shift_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                <div className="h-8 w-px bg-border/50" />
+                <div className="shrink-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Date</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {editingShift.shift_date ? new Date(editingShift.shift_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—"}
                   </p>
                 </div>
               </div>
+
+              {modalActualsMode && (
+                <p className="text-[10px] text-muted-foreground bg-primary/5 border border-primary/10 rounded-md px-2.5 py-1.5 text-center">
+                  Schedule is read-only — edit actuals below
+                </p>
+              )}
 
               <div className={modalActualsMode ? "opacity-60 pointer-events-none" : ""}>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
