@@ -661,8 +661,9 @@ export function WeeklyScheduleView({
                   {weekDates.map((d, i) => {
                     const isHoliday = holidayDates.has(formatDate(d));
                     const isToday = formatDate(d) === todayStr;
+                    const hBorder = getHolidayBorderClass(i, weekDates, holidayDates, formatDate);
                     return (
-                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""} ${isToday ? "bg-primary/10" : ""}`}>
+                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-destructive/5" : ""} ${isToday ? "bg-primary/10" : ""} ${hBorder}`}>
                         <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                         <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                       </th>
@@ -681,8 +682,9 @@ export function WeeklyScheduleView({
                     {row.counts.map((c, i) => {
                       const isHoliday = holidayDates.has(formatDate(weekDates[i]));
                       const isToday = formatDate(weekDates[i]) === todayStr;
+                      const hBorder = getHolidayBorderClass(i, weekDates, holidayDates, formatDate);
                       return (
-                        <td key={i} className={`${tdClass} text-center font-medium ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""}`}>{c}</td>
+                        <td key={i} className={`${tdClass} text-center font-medium ${isHoliday ? "bg-destructive/5" : ""} ${isToday ? "bg-primary/5" : ""} ${hBorder}`}>{c}</td>
                       );
                     })}
                     <td className={`${tdClass} text-center font-medium`}>{rowTotal}</td>
