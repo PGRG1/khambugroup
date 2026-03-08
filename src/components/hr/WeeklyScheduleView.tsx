@@ -127,11 +127,33 @@ function getTypeLabel(emp: HREmployee): string {
   return t;
 }
 
-// Hourly coverage: count how many staff are working at each hour
+// Hourly coverage: dynamically determine range from actual shifts
 function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
-  const hours = Array.from({ length: 12 }, (_, i) => i + 15); // 3PM to 2AM (15-26, with 24+ = next day)
-  const result: { hour: number; label: string; counts: number[] }[] = [];
+  // Find the earliest start and latest end across all work shifts this week
+  const dateStrs = new Set(weekDates.map(d => formatDate(d)));
+  const workShifts = shifts.filter(s => 
+    dateStrs.has(s.shift_date) && (s.shift_type || "regular") === "regular"
+  );
 
+  let minHour = 15; // default 3PM
+  let maxHour = 27; // default 2AM+1 (next day)
+
+  for (const s of workShifts) {
+    const [h1] = s.start_time.split(":").map(Number);
+    const [h2] = s.end_time.split(":").map(Number);
+    const startH = h1;
+    const endH = h2 === 0 ? 24 : h2 < h1 ? h2 + 24 : h2;
+    if (startH < minHour) minHour = startH;
+    if (endH > maxHour) maxHour = endH;
+  }
+
+  // Clamp min to at least the earliest hour, max to cover the last working hour
+  const hours: number[] = [];
+  for (let h = minHour; h < maxHour; h++) {
+    hours.push(h);
+  }
+
+  const result: { hour: number; label: string; counts: number[] }[] = [];
   for (const hour of hours) {
     const displayHour = hour >= 24 ? hour - 24 : hour;
     const suffix = displayHour >= 12 ? "PM" : "AM";
@@ -142,10 +164,10 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
       return shifts.filter(s => {
         if (s.shift_date !== dateStr) return false;
         if ((s.shift_type || "regular") !== "regular") return false;
-        const [h1] = s.start_time.split(":").map(Number);
-        const [h2] = s.end_time.split(":").map(Number);
-        const endH = h2 === 0 ? 24 : h2 < h1 ? h2 + 24 : h2;
-        return hour >= h1 && hour < endH;
+        const [sh] = s.start_time.split(":").map(Number);
+        const [eh] = s.end_time.split(":").map(Number);
+        const endH = eh === 0 ? 24 : eh < sh ? eh + 24 : eh;
+        return hour >= sh && hour < endH;
       }).length;
     });
     result.push({ hour, label, counts });
