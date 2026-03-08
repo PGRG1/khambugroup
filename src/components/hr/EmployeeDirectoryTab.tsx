@@ -235,27 +235,6 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
 
   return (
     <div className="space-y-4">
-      {/* KPI Cards */}
-      <EmployeeKPICards employees={employees} history={history} />
-
-      {/* Holiday Banner */}
-      {todayHoliday && (
-        <div className="rounded-lg border border-chart-2/30 bg-chart-2/10 p-3 flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-chart-2" />
-          <span className="text-sm font-medium text-chart-2">Today is {todayHoliday.name} ({todayHoliday.holiday_type === "statutory" ? "Statutory Holiday" : "Public Holiday"})</span>
-        </div>
-      )}
-
-      {/* Upcoming Holidays */}
-      {upcomingHolidays.length > 0 && !todayHoliday && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>Upcoming:</span>
-          {upcomingHolidays.map(h => (
-            <Badge key={h.id} variant="outline" className="text-[10px]">{h.name} ({h.date})</Badge>
-          ))}
-        </div>
-      )}
 
       {/* Controls */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
