@@ -29,6 +29,7 @@ export interface HREmployee {
   emergency_contact_phone: string | null;
   venue: string | null;
   notes: string | null;
+  sort_order: number;
   created_at: string;
   department?: HRDepartment;
 }
@@ -158,7 +159,7 @@ export function useHRData() {
   }, []);
 
   const fetchEmployees = useCallback(async () => {
-    const { data } = await supabase.from("hr_employees").select("*, department:hr_departments(*)").order("first_name");
+    const { data } = await supabase.from("hr_employees").select("*, department:hr_departments(*)").order("sort_order").order("first_name");
     if (data) setEmployees(data as any);
   }, []);
 
