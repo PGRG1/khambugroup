@@ -666,7 +666,6 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                         })}
                       </div>
                     </div>
-                    </div>
 
                     {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
                       <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
