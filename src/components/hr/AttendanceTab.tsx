@@ -57,7 +57,7 @@ const SHIFT_STATUSES = [
   { value: "no_show", label: "No Show" },
 ];
 
-// Generate time options in 30-min increments (6:00 AM to 6:00 AM next day)
+// Generate time options in 30-min increments (full 24h)
 const ACTUAL_TIME_OPTIONS = (() => {
   const opts: { value: string; label: string }[] = [];
   for (let h = 0; h < 24; h++) {
@@ -71,6 +71,23 @@ const ACTUAL_TIME_OPTIONS = (() => {
   }
   return opts;
 })();
+
+function crossesMidnight(startTime: string, endTime: string): boolean {
+  if (!startTime || !endTime) return false;
+  const [sh] = startTime.split(":").map(Number);
+  const [eh] = endTime.split(":").map(Number);
+  return eh < sh || (eh === sh && endTime < startTime);
+}
+
+function formatTime12WithPlus1(t: string, refStart?: string): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const base = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+  if (refStart && crossesMidnight(refStart, t)) return `${base} +1`;
+  return base;
+}
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 

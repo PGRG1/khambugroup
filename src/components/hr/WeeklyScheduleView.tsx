@@ -85,12 +85,19 @@ function formatTime12(t: string): string {
   return m === 0 ? `${h12}${suffix}` : `${h12}:${String(m).padStart(2, "0")}${suffix}`;
 }
 
+function crossesMidnight(startTime: string, endTime: string): boolean {
+  const [sh] = startTime.split(":").map(Number);
+  const [eh] = endTime.split(":").map(Number);
+  return eh < sh || (eh === sh && endTime < startTime);
+}
+
 function formatShiftCell(shift: HRShift): string {
   const type = shift.shift_type || "regular";
   if (type !== "regular") return TYPE_TO_CODE[type] || type.toUpperCase();
   const start = formatTime12(shift.start_time);
   const end = formatTime12(shift.end_time);
-  return `${start} - ${end}`;
+  const plus1 = crossesMidnight(shift.start_time, shift.end_time) ? " +1" : "";
+  return `${start} - ${end}${plus1}`;
 }
 
 function getShiftCellStyle(shift: HRShift): string {
