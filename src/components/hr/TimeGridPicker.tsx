@@ -118,8 +118,40 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
     return m === 0 ? `${h12} ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
   };
 
+  // Quick-input time options for dropdowns
+  const timeOptions = generateTimeOptions();
+
   return (
     <div className="space-y-2">
+      {/* Quick time input row */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-0.5 block">Start</label>
+          <select
+            value={startTime}
+            onChange={(e) => onChangeStart(e.target.value)}
+            className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {timeOptions.map(opt => (
+              <option key={`s-${opt.value}`} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <span className="text-muted-foreground text-xs mt-4">–</span>
+        <div className="flex-1">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-0.5 block">End</label>
+          <select
+            value={endTime}
+            onChange={(e) => onChangeEnd(e.target.value)}
+            className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {timeOptions.map(opt => (
+              <option key={`e-${opt.value}`} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scheduled Time</h4>
         <span className="text-xs text-muted-foreground">
@@ -129,7 +161,7 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
       <div
         ref={containerRef}
         className="relative border border-border rounded-lg overflow-y-auto select-none cursor-crosshair"
-        style={{ height: 300, touchAction: "none" }}
+        style={{ height: 260, touchAction: "none" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -150,7 +182,6 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
                 }`}
                 style={{ top: i * SLOT_HEIGHT, height: SLOT_HEIGHT }}
               >
-                {/* Time label */}
                 {isHour && (
                   <span className="text-[10px] text-muted-foreground w-14 shrink-0 pl-2 -mt-0.5 leading-none pointer-events-none">
                     {slot.label}
@@ -158,7 +189,6 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
                 )}
                 {!isHour && <span className="w-14 shrink-0" />}
 
-                {/* Selection block */}
                 <div className="flex-1 h-full relative">
                   {isSelected && (
                     <div
@@ -182,4 +212,29 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
       </div>
     </div>
   );
+}
+
+function generateTimeOptions(): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  // 6AM to 11:30PM
+  for (let h = 6; h < 24; h++) {
+    for (const m of [0, 30]) {
+      const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const suffix = h >= 12 ? "PM" : "AM";
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const label = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:30 ${suffix}`;
+      options.push({ value, label });
+    }
+  }
+  // 12AM to 10AM (next day)
+  for (let h = 0; h < 10; h++) {
+    for (const m of [0, 30]) {
+      const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const suffix = h >= 12 ? "PM" : "AM";
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const label = m === 0 ? `${h12}:00 ${suffix} +1` : `${h12}:30 ${suffix} +1`;
+      options.push({ value, label });
+    }
+  }
+  return options;
 }
