@@ -9,13 +9,18 @@ import { Separator } from "@/components/ui/separator";
 import { ChevronLeft, ChevronRight, Plus, Clock, Users, CalendarDays, AlertTriangle, TrendingDown, BarChart3 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
+import { WeeklyScheduleView } from "./WeeklyScheduleView";
 
 interface Props {
   shifts: HRShift[];
   attendance: HRAttendance[];
   employees: HREmployee[];
+  departments?: import("@/hooks/useHRData").HRDepartment[];
+  leaveRequests?: import("@/hooks/useHRData").HRLeaveRequest[];
+  leaveTypes?: import("@/hooks/useHRData").HRLeaveType[];
   onSaveShift: (s: Partial<HRShift>) => Promise<boolean>;
   onSaveAttendance: (a: Partial<HRAttendance>) => Promise<boolean>;
+  onSaveLeaveRequest?: (lr: Partial<import("@/hooks/useHRData").HRLeaveRequest>) => Promise<boolean>;
 }
 
 const SHIFT_TYPES = [
