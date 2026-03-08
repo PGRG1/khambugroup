@@ -51,6 +51,21 @@ const SHIFT_STATUSES = [
   { value: "no_show", label: "No Show" },
 ];
 
+// Generate time options in 30-min increments (6:00 AM to 6:00 AM next day)
+const ACTUAL_TIME_OPTIONS = (() => {
+  const opts: { value: string; label: string }[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 30]) {
+      const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const suffix = h >= 12 ? "PM" : "AM";
+      const label = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+      opts.push({ value: val, label });
+    }
+  }
+  return opts;
+})();
+
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // Time slots for the drag grid (hourly from 6AM to midnight)
