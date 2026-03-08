@@ -39,11 +39,8 @@ const SHIFT_TYPES = [
   { value: "off", label: "OFF", color: "bg-muted text-muted-foreground border-border" },
   { value: "al", label: "AL", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700" },
   { value: "sh", label: "SH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700" },
-  { value: "sick_no_pay", label: "SL", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700" },
   { value: "no_pay", label: "NPL", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-700" },
-  { value: "rest", label: "Rest", color: "bg-muted text-muted-foreground border-border" },
-  { value: "training", label: "TRN", color: "bg-chart-5/20 text-chart-5 border-chart-5/30" },
-  { value: "ph", label: "PH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700" },
+  { value: "sick_no_pay", label: "SL", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700" },
 ];
 
 const SHIFT_STATUSES = [
