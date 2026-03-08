@@ -6,11 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ChevronLeft, ChevronRight, Plus, Copy, Clock, Users, CalendarDays, AlertTriangle, TrendingDown, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
-import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { WeeklyScheduleView } from "./WeeklyScheduleView";
 import { TimeGridPicker } from "./TimeGridPicker";
 
@@ -447,13 +447,22 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       />
 
       {/* Copy Previous Week Confirmation */}
-      <DeleteConfirmDialog
-        open={copyPrevConfirmOpen}
-        onOpenChange={setCopyPrevConfirmOpen}
-        onConfirm={handleCopyPrevWeek}
-        title="Copy Previous Week"
-        description={`This will copy ${shiftsToCopy.length} shift(s) from the previous week to the current week. Existing shifts will not be overwritten.`}
-      />
+      <AlertDialog open={copyPrevConfirmOpen} onOpenChange={setCopyPrevConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Copy Previous Week</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will copy {shiftsToCopy.length} shift(s) from the previous week to the current week. Existing shifts will not be overwritten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCopyPrevWeek} disabled={copyingPrev}>
+              {copyingPrev ? "Copying..." : "Copy Shifts"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Shift Detail Modal */}
       <Dialog open={shiftModalOpen} onOpenChange={setShiftModalOpen}>
