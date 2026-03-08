@@ -613,6 +613,27 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                       Post-Shift Actuals {modalActualsMode && <Badge variant="outline" className="ml-2 text-[9px]">Editing</Badge>}
                     </p>
+
+                    {/* Shift type selector for unscheduled actuals */}
+                    {modalActualsMode && !editingShift.id && (
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">What happened?</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {SHIFT_TYPES.map(t => (
+                            <button
+                              key={t.value}
+                              type="button"
+                              onClick={() => updateField("shift_type", t.value)}
+                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                                (editingShift.shift_type || "regular") === t.value ? t.color + " font-semibold" : "border-border text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
