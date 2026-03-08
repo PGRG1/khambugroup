@@ -9,13 +9,18 @@ import { Separator } from "@/components/ui/separator";
 import { ChevronLeft, ChevronRight, Plus, Clock, Users, CalendarDays, AlertTriangle, TrendingDown, BarChart3 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
+import { WeeklyScheduleView } from "./WeeklyScheduleView";
 
 interface Props {
   shifts: HRShift[];
   attendance: HRAttendance[];
   employees: HREmployee[];
+  departments?: import("@/hooks/useHRData").HRDepartment[];
+  leaveRequests?: import("@/hooks/useHRData").HRLeaveRequest[];
+  leaveTypes?: import("@/hooks/useHRData").HRLeaveType[];
   onSaveShift: (s: Partial<HRShift>) => Promise<boolean>;
   onSaveAttendance: (a: Partial<HRAttendance>) => Promise<boolean>;
+  onSaveLeaveRequest?: (lr: Partial<import("@/hooks/useHRData").HRLeaveRequest>) => Promise<boolean>;
 }
 
 const SHIFT_TYPES = [
@@ -156,12 +161,12 @@ function ScheduleKPICards({ shifts, weekDates, employees }: { shifts: HRShift[];
   );
 }
 
-export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSaveAttendance }: Props) {
+export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, onSaveShift, onSaveAttendance, onSaveLeaveRequest }: Props) {
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<"roster" | "timegrid">("roster");
+  const [viewMode, setViewMode] = useState<"roster" | "timegrid" | "schedule">("schedule");
 
   // Drag state for time-grid
   const [dragState, setDragState] = useState<{
@@ -288,6 +293,12 @@ export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSa
         <div className="flex items-center gap-2">
           <div className="flex border border-border rounded-lg overflow-hidden">
             <button
+              onClick={() => setViewMode("schedule")}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "schedule" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
+            >
+              Weekly Schedule
+            </button>
+            <button
               onClick={() => setViewMode("roster")}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "roster" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
             >
@@ -306,7 +317,21 @@ export function AttendanceTab({ shifts, attendance, employees, onSaveShift, onSa
         </div>
       </div>
 
-      {viewMode === "roster" ? (
+      {viewMode === "schedule" ? (
+        <WeeklyScheduleView
+          shifts={shifts}
+          employees={employees}
+          departments={departments || []}
+          leaveRequests={leaveRequests || []}
+          leaveTypes={leaveTypes || []}
+          weekDates={weekDates}
+          onEditShift={openEditShift}
+          onAddShift={openNewShift}
+          onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
+            await onSaveLeaveRequest({ id, status });
+          } : undefined}
+        />
+      ) : viewMode === "roster" ? (
         /* ===== ROSTER VIEW (original weekly grid) ===== */
         <div className="border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
