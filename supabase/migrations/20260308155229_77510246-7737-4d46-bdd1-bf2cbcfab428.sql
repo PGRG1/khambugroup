@@ -1,0 +1,1 @@
+ALTER TABLE public.hr_employees ADD COLUMN sort_order integer NOT NULL DEFAULT 0;
