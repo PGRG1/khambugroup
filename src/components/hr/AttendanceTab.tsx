@@ -591,7 +591,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
               )}
 
               {/* --- Actuals (Post-Shift) Section --- */}
-              {editingShift.id && (
+              {editingShift.id && (modalActualsMode || viewMode === "actuals") && (
                 <>
                   <Separator />
                   <div className={`space-y-3 ${modalActualsMode ? "ring-2 ring-primary/20 rounded-lg p-3 bg-primary/5" : ""}`}>
