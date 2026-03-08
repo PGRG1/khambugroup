@@ -299,6 +299,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string | null
+          venue: string | null
         }
         Insert: {
           created_at?: string
@@ -319,6 +320,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string | null
+          venue?: string | null
         }
         Update: {
           created_at?: string
@@ -339,6 +341,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string | null
+          venue?: string | null
         }
         Relationships: [
           {
