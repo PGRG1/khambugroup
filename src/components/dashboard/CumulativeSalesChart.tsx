@@ -37,35 +37,28 @@ export default function CumulativeSalesChart({ data }: Props) {
     return [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
   }, [data]);
 
-  // Track which months are actively selected (visible). Start with all selected.
-  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(() => new Set(allMonths));
-
-  // Sync if allMonths changes
-  const validSelected = useMemo(() => {
-    const allSet = new Set(allMonths);
-    return new Set([...selectedMonths].filter((m) => allSet.has(m)));
-  }, [selectedMonths, allMonths]);
+  // Same behavior as schedule chart:
+  // [] means "show all"; when user clicks, we track only selected months.
+  const [activeMonths, setActiveMonths] = useState<string[]>([]);
 
   const toggleMonth = useCallback((mk: string) => {
-    setSelectedMonths((prev) => {
-      const next = new Set(prev);
-      if (next.has(mk)) {
-        next.delete(mk);
-      } else {
-        next.add(mk);
-      }
-      return next;
+    setActiveMonths((prev) => {
+      if (prev.includes(mk)) return prev.filter((m) => m !== mk);
+      return [...prev, mk];
     });
   }, []);
 
-  // Stable color map
+  const isMonthHidden = useCallback(
+    (mk: string) => activeMonths.length > 0 && !activeMonths.includes(mk),
+    [activeMonths]
+  );
+
   const colorMap = useMemo(() => {
     const map = new Map<string, string>();
     allMonths.forEach((mk, i) => map.set(mk, MONTH_COLORS[i % MONTH_COLORS.length]));
     return map;
   }, [allMonths]);
 
-  // Compute cumulative data for ALL months
   const cumulativeData = useMemo(() => {
     const monthGroups = new Map<string, Map<number, number>>();
     data.forEach((r) => {
@@ -81,6 +74,7 @@ export default function CumulativeSalesChart({ data }: Props) {
     const maxDay = Math.max(...Array.from(monthGroups.values()).flatMap((m) => Array.from(m.keys())));
     const sortedMonths = [...monthGroups.keys()].sort();
     const rows: Record<string, number | string>[] = [];
+
     for (let d = 1; d <= maxDay; d++) {
       const row: Record<string, number | string> = { day: d };
       sortedMonths.forEach((mk) => {
@@ -91,6 +85,7 @@ export default function CumulativeSalesChart({ data }: Props) {
       });
       rows.push(row);
     }
+
     return { rows, months: sortedMonths };
   }, [data]);
 
@@ -111,46 +106,43 @@ export default function CumulativeSalesChart({ data }: Props) {
               <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 {...tooltipStyle}
-                formatter={(v: number, name: string) => {
-                  if (!validSelected.has(name)) return [null, null];
-                  return [`$${formatCurrency(v)}`, getMonthLabel(name)];
-                }}
+                formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, getMonthLabel(name)]}
                 labelFormatter={(l) => `Day ${l}`}
-                itemSorter={() => 0}
               />
               {cumulativeData.months.map((mk) => (
                 <Line
                   key={mk}
-                  type="monotone"
                   dataKey={mk}
+                  type="monotone"
                   stroke={colorMap.get(mk)}
                   strokeWidth={2}
                   dot={false}
-                  hide={!validSelected.has(mk)}
+                  hide={isMonthHidden(mk)}
                 />
               ))}
             </LineChart>
           </ResponsiveContainer>
-          {/* Clickable legend — click to show/select */}
+
+          {/* Clickable legend with dot marker */}
           <div className="flex items-center justify-center gap-3 flex-wrap mt-2">
             {allMonths.map((mk) => {
-              const isActive = validSelected.has(mk);
+              const hidden = isMonthHidden(mk);
               const color = colorMap.get(mk)!;
               return (
                 <button
                   key={mk}
                   onClick={() => toggleMonth(mk)}
-                  className="flex items-center gap-1.5 text-[11px] font-medium transition-opacity cursor-pointer hover:opacity-80"
-                  style={{ opacity: isActive ? 1 : 0.35 }}
+                  className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                  style={{ opacity: hidden ? 0.35 : 1 }}
                 >
                   <span
-                    className="inline-block w-3 h-[3px] rounded-full"
-                    style={{ backgroundColor: color, opacity: isActive ? 1 : 0.4 }}
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: color, opacity: hidden ? 0.4 : 1 }}
                   />
                   <span
                     style={{
-                      color: isActive ? color : "hsl(25, 10%, 50%)",
-                      textDecoration: isActive ? "none" : "line-through",
+                      color: hidden ? "hsl(25, 10%, 50%)" : color,
+                      textDecoration: hidden ? "line-through" : "none",
                     }}
                   >
                     {getMonthLabel(mk)}
@@ -161,9 +153,7 @@ export default function CumulativeSalesChart({ data }: Props) {
           </div>
         </>
       ) : (
-        <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">
-          No data available.
-        </div>
+        <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">No data available.</div>
       )}
     </ChartCard>
   );
