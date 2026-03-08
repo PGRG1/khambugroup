@@ -559,14 +559,14 @@ export function WeeklyScheduleView({
           <span>Staff Roster</span>
           <div className="flex items-center gap-2">
             {clipboard && onClearClipboard && (
-              <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1 font-normal">
+              <div className="flex items-center gap-1.5 text-xs text-background/80 bg-background/15 rounded-md px-2 py-1 font-normal">
                 <Copy className="h-3 w-3" />
                 <span>Shift copied — click cell to paste</span>
-                <button onClick={onClearClipboard} className="text-muted-foreground hover:text-foreground ml-1">✕</button>
+                <button onClick={onClearClipboard} className="text-background/60 hover:text-background ml-1">✕</button>
               </div>
             )}
             {onCopyPrevWeek && (
-              <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={onCopyPrevWeek} disabled={(shiftsToCopyCount ?? 0) === 0}>
+              <Button size="sm" variant="outline" className="h-6 text-[11px] border-background/30 text-background bg-transparent hover:bg-background/15 hover:text-background" onClick={onCopyPrevWeek} disabled={(shiftsToCopyCount ?? 0) === 0}>
                 <Copy className="h-3 w-3 mr-1" /> Copy Previous Week {(shiftsToCopyCount ?? 0) > 0 && `(${shiftsToCopyCount})`}
               </Button>
             )}
