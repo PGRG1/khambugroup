@@ -674,7 +674,7 @@ export function WeeklyScheduleView({
                       <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
                     );
                   })}
-                  <td className={`${tdClass} text-center text-muted-foreground/40`} />
+                  {(() => { const rowTotal = row.counts.reduce((s, c) => s + c, 0); return <td className={`${tdClass} text-center font-medium ${rowTotal === 0 ? "text-muted-foreground/40" : ""}`}>{rowTotal}</td>; })()}
                 </tr>
               ))}
               {/* Total row: sum each day column */}
