@@ -334,12 +334,23 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
           <DialogHeader><DialogTitle>{editingShift?.id ? "Edit Shift" : "Add Shift"}</DialogTitle></DialogHeader>
           {editingShift && (
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Employee *</label>
-                  <Select value={editingShift.employee_id || ""} onValueChange={v => updateField("employee_id", v)}>
+                  <Select value={editingShift.employee_id || ""} onValueChange={v => {
+                    updateField("employee_id", v);
+                    const emp = employees.find(e => e.id === v);
+                    setShiftVenue(emp?.venue || "");
+                  }}>
                     <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                     <SelectContent>{activeEmployees.map(e => <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Venue</label>
+                  <Select value={shiftVenue} onValueChange={setShiftVenue}>
+                    <SelectTrigger><SelectValue placeholder="Select venue..." /></SelectTrigger>
+                    <SelectContent>{VENUE_OPTIONS.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
