@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useCallback } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend as RLegend, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend as RLegend, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -719,7 +719,7 @@ export function WeeklyScheduleView({
           </div>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                 <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" allowDecimals={false} />
@@ -728,9 +728,9 @@ export function WeeklyScheduleView({
                 {weekDates.map((d, i) => {
                   const dayLabel = `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${DAY_NAMES[i]}`;
                   const colors = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316"];
-                  return <Bar key={dayLabel} dataKey={dayLabel} fill={colors[i % colors.length]} radius={[2, 2, 0, 0]} />;
+                  return <Line key={dayLabel} dataKey={dayLabel} stroke={colors[i % colors.length]} type="monotone" strokeWidth={2} dot={false} />;
                 })}
-              </BarChart>
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
