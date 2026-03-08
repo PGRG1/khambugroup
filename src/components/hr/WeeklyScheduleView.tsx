@@ -564,8 +564,9 @@ export function WeeklyScheduleView({
                 <th className={`${thClass} min-w-[55px]`}>Category</th>
                 {weekDates.map((d, i) => {
                   const isHoliday = holidayDates.has(formatDate(d));
+                  const isToday = formatDate(d) === todayStr;
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-muted/60" : ""}`}>
+                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-muted/60" : ""} ${isToday ? "bg-primary/10" : ""}`}>
                       <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                       <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
@@ -602,11 +603,12 @@ export function WeeklyScheduleView({
                   {weekDates.map((d, i) => {
                     const dateStr = formatDate(d);
                     const isHoliday = holidayDates.has(dateStr);
+                    const isToday = dateStr === todayStr;
                     const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
 
                     if (cellShifts.length === 0) {
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} cursor-pointer hover:bg-muted/30 transition-colors`}
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""} cursor-pointer hover:bg-muted/30 transition-colors`}
                           onClick={() => onAddShift(emp.id, dateStr)}
                         >
                           <span className="text-muted-foreground/40">—</span>
@@ -615,7 +617,7 @@ export function WeeklyScheduleView({
                     }
 
                     return (
-                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""}`}>
+                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""}`}>
                         {cellShifts.map(s => (
                           <button
                             key={s.id}
