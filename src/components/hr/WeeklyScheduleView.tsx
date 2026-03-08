@@ -16,6 +16,7 @@ interface Props {
   onAddShift: (employeeId: string, date: string) => void;
   onApproveLeave?: (id: string, status: "approved" | "rejected") => void;
   onChangeVenue?: (employeeId: string, venue: string) => void;
+  onReorderEmployees?: (reorderedIds: { id: string; sort_order: number }[]) => void;
 }
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
