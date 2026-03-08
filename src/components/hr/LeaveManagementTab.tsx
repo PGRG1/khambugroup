@@ -6,8 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Check, X, Calendar, Users, TreePalm, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Check, X, Calendar, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRLeaveRequest, HRLeaveType, HRLeaveBalance, HREmployee } from "@/hooks/useHRData";
 
@@ -219,73 +218,8 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <TreePalm className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Total Entitlement</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.totalEntitlement}</p>
-            <p className="text-[10px] text-muted-foreground">days across all staff</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Check className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Used</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.totalUsed}</p>
-            <p className="text-[10px] text-muted-foreground">
-              {kpiStats.totalEntitlement > 0 ? `${((kpiStats.totalUsed / kpiStats.totalEntitlement) * 100).toFixed(0)}% utilised` : "—"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Calendar className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Remaining</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.totalRemaining}</p>
-            <p className="text-[10px] text-muted-foreground">days available</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">Pending</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.pendingCount}</p>
-            <p className="text-[10px] text-muted-foreground">awaiting approval</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              <span className="text-xs font-medium text-muted-foreground">Low Balance</span>
-            </div>
-            <p className="text-2xl font-bold">{kpiStats.lowBalanceCount}</p>
-            <p className="text-[10px] text-muted-foreground">≤2 days remaining</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main content tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Balance Overview</TabsTrigger>
-          <TabsTrigger value="requests">Requests ({yearRequests.length})</TabsTrigger>
-          <TabsTrigger value="types">Leave Types</TabsTrigger>
-        </TabsList>
-
-        {/* OVERVIEW TAB - Spreadsheet-style balance tracker */}
-        <TabsContent value="overview" className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
             <Select value={filterVenue} onValueChange={setFilterVenue}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="All Venues" />
@@ -442,89 +376,6 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
             <span><span className="font-bold text-foreground">Balance</span> = Starting + Accrued − Used</span>
             <span className="italic">Click any cell to edit</span>
           </div>
-        </TabsContent>
-
-        {/* REQUESTS TAB */}
-        <TabsContent value="requests" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              {pendingRequests.length} pending · {approvedRequests.length} approved · {selectedYear}
-            </p>
-          </div>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>From</TableHead>
-                  <TableHead>To</TableHead>
-                  <TableHead className="text-right">Days</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {yearRequests.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No leave requests for {selectedYear}</TableCell></TableRow>
-                ) : yearRequests.map(r => (
-                  <TableRow key={r.id} className="cursor-pointer" onClick={() => { setEditingReq({ ...r }); setReqModalOpen(true); }}>
-                    <TableCell className="font-medium text-xs">{r.employee?.first_name} {r.employee?.last_name}</TableCell>
-                    <TableCell className="text-xs">{r.leave_type?.name || "—"}</TableCell>
-                    <TableCell className="text-xs">{r.start_date}</TableCell>
-                    <TableCell className="text-xs">{r.end_date}</TableCell>
-                    <TableCell className="text-xs text-right font-medium">{r.days}</TableCell>
-                    <TableCell><Badge variant={STATUS_COLORS[r.status] as any || "secondary"} className="text-[10px]">{r.status}</Badge></TableCell>
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      {r.status === "pending" && (
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleApprove(r, "approved")}><Check className="h-3.5 w-3.5 text-primary" /></Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleApprove(r, "rejected")}><X className="h-3.5 w-3.5 text-destructive" /></Button>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        {/* TYPES TAB */}
-        <TabsContent value="types" className="space-y-4">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setEditingType({ name: "", default_days_per_year: 0, is_paid: true, is_active: true }); setTypeModalOpen(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Leave Type
-            </Button>
-          </div>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="text-right">Default Days/Year</TableHead>
-                  <TableHead>Paid</TableHead>
-                  <TableHead>Active</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {leaveTypes.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No leave types — add SH, AL, IOU to get started</TableCell></TableRow>
-                ) : leaveTypes.map(t => (
-                  <TableRow key={t.id} className="cursor-pointer" onClick={() => { setEditingType({ ...t }); setTypeModalOpen(true); }}>
-                    <TableCell><Badge variant="outline" className="text-[10px] font-mono">{leaveCode(t.name)}</Badge></TableCell>
-                    <TableCell className="font-medium">{t.name}</TableCell>
-                    <TableCell className="text-right">{t.default_days_per_year}</TableCell>
-                    <TableCell>{t.is_paid ? "Yes" : "No"}</TableCell>
-                    <TableCell><Badge variant={t.is_active ? "default" : "secondary"}>{t.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-      </Tabs>
 
       {/* Leave Request Modal */}
       <Dialog open={reqModalOpen} onOpenChange={setReqModalOpen}>
