@@ -352,26 +352,31 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Employee *</label>
-                  <Select value={editingShift.employee_id || ""} onValueChange={v => {
-                    updateField("employee_id", v);
-                    const emp = employees.find(e => e.id === v);
-                    setShiftVenue(emp?.venue || "");
-                  }}>
-                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                    <SelectContent>{activeEmployees.map(e => <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Employee</label>
+                  {editingShift.id ? (
+                    <p className="text-sm font-semibold py-1.5">
+                      {(() => { const emp = employees.find(e => e.id === editingShift.employee_id); return emp ? `${emp.first_name} ${emp.last_name}` : "—"; })()}
+                    </p>
+                  ) : (
+                    <Select value={editingShift.employee_id || ""} onValueChange={v => {
+                      updateField("employee_id", v);
+                      const emp = employees.find(e => e.id === v);
+                      setShiftVenue(emp?.venue || "");
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                      <SelectContent>{activeEmployees.map(e => <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Venue</label>
-                  <Select value={shiftVenue} onValueChange={setShiftVenue}>
-                    <SelectTrigger><SelectValue placeholder="Select venue..." /></SelectTrigger>
-                    <SelectContent>{VENUE_OPTIONS.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <p className="text-sm font-semibold py-1.5">{shiftVenue || "—"}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Date *</label>
-                  <Input type="date" value={editingShift.shift_date || ""} onChange={e => updateField("shift_date", e.target.value)} />
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Date</label>
+                  <p className="text-sm font-semibold py-1.5">
+                    {editingShift.shift_date ? new Date(editingShift.shift_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                  </p>
                 </div>
               </div>
 
