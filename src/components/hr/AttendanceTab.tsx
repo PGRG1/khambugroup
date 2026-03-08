@@ -22,6 +22,7 @@ interface Props {
   onSaveShift: (s: Partial<HRShift>) => Promise<boolean>;
   onSaveAttendance: (a: Partial<HRAttendance>) => Promise<boolean>;
   onSaveLeaveRequest?: (lr: Partial<import("@/hooks/useHRData").HRLeaveRequest>) => Promise<boolean>;
+  onRefetch?: () => Promise<void>;
 }
 
 const VENUE_OPTIONS = [
