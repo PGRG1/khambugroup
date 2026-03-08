@@ -48,7 +48,11 @@ const SHIFT_TYPES = [
 ];
 
 const SHIFT_STATUSES = [
-  { value: "completed", label: "Completed" },
+  { value: "completed", label: "Work (Completed)" },
+  { value: "off", label: "OFF" },
+  { value: "al", label: "AL (Annual Leave)" },
+  { value: "sh", label: "SH (Statutory Holiday)" },
+  { value: "no_pay", label: "NPL (No Pay Leave)" },
   { value: "sick_leave", label: "SL (Sick Leave)" },
   { value: "no_show", label: "No Show" },
 ];
@@ -614,33 +618,18 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                       Post-Shift Actuals {modalActualsMode && <Badge variant="outline" className="ml-2 text-[9px]">Editing</Badge>}
                     </p>
 
-                    {/* Shift type selector for unscheduled actuals */}
-                    {modalActualsMode && !editingShift.id && (
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">What happened?</label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {SHIFT_TYPES.map(t => (
-                            <button
-                              key={t.value}
-                              type="button"
-                              onClick={() => updateField("shift_type", t.value)}
-                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                                (editingShift.shift_type || "regular") === t.value ? t.color + " font-semibold" : "border-border text-muted-foreground hover:bg-muted"
-                              }`}
-                            >
-                              {t.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
                         <Select value={editingShift.status || "completed"} onValueChange={v => {
                           updateField("status", v);
-                          if (v === "no_show") updateField("no_show", true);
-                          else if (editingShift.no_show) updateField("no_show", false);
+                          if (v === "no_show") { updateField("no_show", true); updateField("shift_type", "regular"); }
+                          else if (v === "off") { updateField("no_show", false); updateField("shift_type", "off"); }
+                          else if (v === "al") { updateField("no_show", false); updateField("shift_type", "al"); }
+                          else if (v === "sh") { updateField("no_show", false); updateField("shift_type", "sh"); }
+                          else if (v === "no_pay") { updateField("no_show", false); updateField("shift_type", "no_pay"); }
+                          else if (v === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
+                          else { updateField("no_show", false); updateField("shift_type", "regular"); }
                         }}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
