@@ -127,41 +127,42 @@ function getTypeLabel(emp: HREmployee): string {
   return t;
 }
 
-// Hourly coverage: dynamically determine range from actual shifts
-function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
-  // Find the earliest start and latest end across all work shifts this week
+// Hourly coverage: dynamically determine range from actual shifts, per venue
+interface HourlyCoverageRow { hour: number; label: string; counts: number[] }
+interface VenueCoverage { venue: string; rows: HourlyCoverageRow[] }
+
+function getHourRange(shifts: HRShift[], weekDates: Date[]) {
   const dateStrs = new Set(weekDates.map(d => formatDate(d)));
   const workShifts = shifts.filter(s => 
     dateStrs.has(s.shift_date) && (s.shift_type || "regular") === "regular"
   );
-
-  let minHour = 15; // default 3PM
-  let maxHour = 27; // default 2AM+1 (next day)
-
+  let minHour = 15;
+  let maxHour = 27;
   for (const s of workShifts) {
     const [h1] = s.start_time.split(":").map(Number);
     const [h2] = s.end_time.split(":").map(Number);
-    const startH = h1;
     const endH = h2 === 0 ? 24 : h2 < h1 ? h2 + 24 : h2;
-    if (startH < minHour) minHour = startH;
+    if (h1 < minHour) minHour = h1;
     if (endH > maxHour) maxHour = endH;
   }
+  return { minHour, maxHour };
+}
 
-  // Clamp min to at least the earliest hour, max to cover the last working hour
-  const hours: number[] = [];
-  for (let h = minHour; h < maxHour; h++) {
-    hours.push(h);
-  }
-
-  const result: { hour: number; label: string; counts: number[] }[] = [];
-  for (const hour of hours) {
+function buildCoverageRows(
+  filteredShifts: HRShift[],
+  weekDates: Date[],
+  minHour: number,
+  maxHour: number,
+): HourlyCoverageRow[] {
+  const result: HourlyCoverageRow[] = [];
+  for (let hour = minHour; hour < maxHour; hour++) {
     const displayHour = hour >= 24 ? hour - 24 : hour;
     const suffix = displayHour >= 12 ? "PM" : "AM";
     const h12 = displayHour === 0 ? 12 : displayHour > 12 ? displayHour - 12 : displayHour;
     const label = `${h12}${suffix}`;
     const counts = weekDates.map(d => {
       const dateStr = formatDate(d);
-      return shifts.filter(s => {
+      return filteredShifts.filter(s => {
         if (s.shift_date !== dateStr) return false;
         if ((s.shift_type || "regular") !== "regular") return false;
         const [sh] = s.start_time.split(":").map(Number);
@@ -173,6 +174,25 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
     result.push({ hour, label, counts });
   }
   return result;
+}
+
+function getHourlyCoverageByVenue(
+  shifts: HRShift[],
+  employees: { id: string; venue: string | null }[],
+  weekDates: Date[],
+): { venues: VenueCoverage[]; totalRows: HourlyCoverageRow[]; minHour: number; maxHour: number } {
+  const { minHour, maxHour } = getHourRange(shifts, weekDates);
+  const empVenueMap = new Map(employees.map(e => [e.id, e.venue || "Other"]));
+  const venueNames = [...new Set(employees.map(e => e.venue || "Other"))].sort();
+
+  const venues: VenueCoverage[] = venueNames.map(venue => {
+    const venueEmpIds = new Set(employees.filter(e => (e.venue || "Other") === venue).map(e => e.id));
+    const venueShifts = shifts.filter(s => venueEmpIds.has(s.employee_id));
+    return { venue, rows: buildCoverageRows(venueShifts, weekDates, minHour, maxHour) };
+  });
+
+  const totalRows = buildCoverageRows(shifts, weekDates, minHour, maxHour);
+  return { venues, totalRows, minHour, maxHour };
 }
 
 export function WeeklyScheduleView({
