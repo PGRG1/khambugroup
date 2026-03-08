@@ -196,6 +196,29 @@ export function WeeklyScheduleView({
     );
   }, [leaveRequests, weekDates, activeEmployees]);
 
+  // Stable venue list for color assignment
+  const venueList = useMemo(() => {
+    const names = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
+    return names.sort();
+  }, [activeEmployees]);
+
+  // Sort employees by sort_order (persisted)
+  const sortedEmployees = useMemo(() =>
+    [...activeEmployees].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
+    [activeEmployees]
+  );
+
+  // Derive venue order from employee sort_order
+  const orderedVenues = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    sortedEmployees.forEach(e => {
+      const v = e.venue || "Other";
+      if (!seen.has(v)) { seen.add(v); result.push(v); }
+    });
+    return result;
+  }, [sortedEmployees]);
+
   // Daily headcount by department (ordered by employee sort_order)
   const dailyHeadcount = useMemo(() => {
     return orderedVenues.map(venue => {
@@ -220,29 +243,6 @@ export function WeeklyScheduleView({
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const todayStr = formatDate(new Date());
-
-  // Stable venue list for color assignment
-  const venueList = useMemo(() => {
-    const names = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
-    return names.sort();
-  }, [activeEmployees]);
-
-  // Sort employees by sort_order (persisted)
-  const sortedEmployees = useMemo(() =>
-    [...activeEmployees].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
-    [activeEmployees]
-  );
-
-  // Derive venue order from employee sort_order
-  const orderedVenues = useMemo(() => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    sortedEmployees.forEach(e => {
-      const v = e.venue || "Other";
-      if (!seen.has(v)) { seen.add(v); result.push(v); }
-    });
-    return result;
-  }, [sortedEmployees]);
 
   const thClass = "px-2 py-1.5 text-[11px] font-semibold text-left whitespace-nowrap";
   const tdClass = "px-2 py-1 text-[11px] whitespace-nowrap border-r border-border/40 last:border-r-0";
