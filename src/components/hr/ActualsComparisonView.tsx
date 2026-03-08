@@ -174,7 +174,7 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
                           className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""} ${onAddShift ? "cursor-pointer hover:bg-muted/40 transition-colors" : ""}`}
                           onClick={() => onAddShift?.(emp.id, dateStr)}
                         >
-                          <span className="text-muted-foreground/50 text-[10px]">OFF</span>
+                          <span className="text-muted-foreground/40">—</span>
                         </td>
                       );
                     }
