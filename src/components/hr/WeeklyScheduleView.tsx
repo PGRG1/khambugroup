@@ -3,7 +3,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend as RLegen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Clock, Clipboard, Copy } from "lucide-react";
+import { Check, X, Clock, Clipboard, Copy, Download } from "lucide-react";
+import { toPng } from "html-to-image";
+import { toast } from "sonner";
 import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment, HRHoliday } from "@/hooks/useHRData";
 import type { ShiftClipboard } from "./AttendanceTab";
 
@@ -192,6 +194,28 @@ export function WeeklyScheduleView({
   onEditShift, onAddShift, onApproveLeave, onReorderEmployees,
   clipboard, onCopyShift, onPasteShift, onClearClipboard, onCopyPrevWeek, shiftsToCopyCount,
 }: Props) {
+  const rosterRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadRoster = useCallback(async () => {
+    if (!rosterRef.current) return;
+    try {
+      const dataUrl = await toPng(rosterRef.current, {
+        backgroundColor: "#fff",
+        pixelRatio: 2,
+        style: { overflow: "visible" },
+      });
+      const link = document.createElement("a");
+      const weekLabel = weekDates.length > 0
+        ? `${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })}-${weekDates[weekDates.length - 1].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+        : "roster";
+      link.download = `Staff-Roster-${weekLabel}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success("Roster image downloaded");
+    } catch {
+      toast.error("Failed to download roster image");
+    }
+  }, [weekDates]);
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
     [employees]
@@ -553,7 +577,7 @@ export function WeeklyScheduleView({
       )}
 
       {/* Staff Roster - Main Grid */}
-      <div className="border border-border rounded-md overflow-hidden">
+      <div ref={rosterRef} className="border border-border rounded-md overflow-hidden">
         <div className={`${sectionHeaderClass} flex items-center justify-between`}>
           <span>Staff Roster</span>
           <div className="flex items-center gap-2">
@@ -569,6 +593,9 @@ export function WeeklyScheduleView({
                 <Copy className="h-3 w-3 mr-1" /> Copy Previous Week {(shiftsToCopyCount ?? 0) > 0 && `(${shiftsToCopyCount})`}
               </Button>
             )}
+            <Button size="sm" variant="outline" className="h-6 text-[11px] border-background/30 text-background bg-transparent hover:bg-background/15 hover:text-background" onClick={handleDownloadRoster}>
+              <Download className="h-3 w-3 mr-1" /> Download
+            </Button>
           </div>
         </div>
         <div className="overflow-x-auto">
