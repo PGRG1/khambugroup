@@ -85,12 +85,6 @@ function formatShiftCell(shift: HRShift): string {
   if (type !== "regular") return TYPE_TO_CODE[type] || type.toUpperCase();
   const start = formatTime12(shift.start_time);
   const end = formatTime12(shift.end_time);
-  // Show "CLS" for closing shifts (ending at or after midnight)
-  const [endH] = (shift.end_time || "00:00").split(":").map(Number);
-  const [startH] = (shift.start_time || "00:00").split(":").map(Number);
-  if (endH >= 0 && endH <= 4 && startH >= 12) {
-    return `${start} - CLS`;
-  }
   return `${start} - ${end}`;
 }
 
