@@ -623,8 +623,13 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
                         <Select value={editingShift.status || "completed"} onValueChange={v => {
                           updateField("status", v);
-                          if (v === "no_show") updateField("no_show", true);
-                          else if (editingShift.no_show) updateField("no_show", false);
+                          if (v === "no_show") { updateField("no_show", true); updateField("shift_type", "regular"); }
+                          else if (v === "off") { updateField("no_show", false); updateField("shift_type", "off"); }
+                          else if (v === "al") { updateField("no_show", false); updateField("shift_type", "al"); }
+                          else if (v === "sh") { updateField("no_show", false); updateField("shift_type", "sh"); }
+                          else if (v === "no_pay") { updateField("no_show", false); updateField("shift_type", "no_pay"); }
+                          else if (v === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
+                          else { updateField("no_show", false); updateField("shift_type", "regular"); }
                         }}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
