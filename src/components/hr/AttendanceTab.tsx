@@ -19,6 +19,7 @@ interface Props {
   departments?: import("@/hooks/useHRData").HRDepartment[];
   leaveRequests?: import("@/hooks/useHRData").HRLeaveRequest[];
   leaveTypes?: import("@/hooks/useHRData").HRLeaveType[];
+  holidays?: import("@/hooks/useHRData").HRHoliday[];
   onSaveShift: (s: Partial<HRShift>) => Promise<boolean>;
   onSaveAttendance: (a: Partial<HRAttendance>) => Promise<boolean>;
   onSaveLeaveRequest?: (lr: Partial<import("@/hooks/useHRData").HRLeaveRequest>) => Promise<boolean>;
@@ -171,7 +172,7 @@ function ScheduleKPICards({ shifts, weekDates, employees }: { shifts: HRShift[];
   );
 }
 
-export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, onSaveShift, onSaveAttendance, onSaveLeaveRequest, onRefetch }: Props) {
+export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, holidays, onSaveShift, onSaveAttendance, onSaveLeaveRequest, onRefetch }: Props) {
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
@@ -324,6 +325,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
         departments={departments || []}
         leaveRequests={leaveRequests || []}
         leaveTypes={leaveTypes || []}
+        holidays={holidays || []}
         weekDates={weekDates}
         onEditShift={openEditShift}
         onAddShift={openNewShift}

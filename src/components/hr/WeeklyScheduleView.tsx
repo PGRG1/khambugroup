@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, X, Clock } from "lucide-react";
-import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment } from "@/hooks/useHRData";
+import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment, HRHoliday } from "@/hooks/useHRData";
 
 interface Props {
   shifts: HRShift[];
@@ -11,6 +11,7 @@ interface Props {
   departments: HRDepartment[];
   leaveRequests: HRLeaveRequest[];
   leaveTypes: HRLeaveType[];
+  holidays: HRHoliday[];
   weekDates: Date[];
   onEditShift: (shift: HRShift) => void;
   onAddShift: (employeeId: string, date: string) => void;
@@ -152,7 +153,7 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
 }
 
 export function WeeklyScheduleView({
-  shifts, employees, departments, leaveRequests, leaveTypes, weekDates,
+  shifts, employees, departments, leaveRequests, leaveTypes, holidays, weekDates,
   onEditShift, onAddShift, onApproveLeave, onReorderEmployees,
 }: Props) {
   const activeEmployees = useMemo(
@@ -236,7 +237,7 @@ export function WeeklyScheduleView({
   const hourlyCoverage = useMemo(() => getHourlyCoverage(shifts, weekDates), [shifts, weekDates]);
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
-  const todayStr = formatDate(new Date());
+  const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
 
   // Stable venue list for color assignment
   const venueList = useMemo(() => {
@@ -455,9 +456,9 @@ export function WeeklyScheduleView({
                 <th className={`${thClass} min-w-[60px]`}>Type</th>
                 <th className={`${thClass} min-w-[55px]`}>Category</th>
                 {weekDates.map((d, i) => {
-                  const isToday = formatDate(d) === todayStr;
+                  const isHoliday = holidayDates.has(formatDate(d));
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isToday ? "bg-primary/10" : ""}`}>
+                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-red-100 dark:bg-red-900/20" : ""}`}>
                       <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                       <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
@@ -493,12 +494,12 @@ export function WeeklyScheduleView({
                   <td className={tdClass}>{getCategoryLabel(emp)}</td>
                   {weekDates.map((d, i) => {
                     const dateStr = formatDate(d);
-                    const isToday = dateStr === todayStr;
+                    const isHoliday = holidayDates.has(dateStr);
                     const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
 
                     if (cellShifts.length === 0) {
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""}`}>
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-red-50 dark:bg-red-900/10" : ""}`}>
                           <button
                             onClick={() => onAddShift(emp.id, dateStr)}
                             className="w-full text-muted-foreground/30 hover:text-primary/50 transition-colors"
@@ -510,7 +511,7 @@ export function WeeklyScheduleView({
                     }
 
                     return (
-                      <td key={i} className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""}`}>
+                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-red-50 dark:bg-red-900/10" : ""}`}>
                         {cellShifts.map(s => (
                           <button
                             key={s.id}
@@ -541,9 +542,9 @@ export function WeeklyScheduleView({
                 <tr className="border-b border-border bg-muted/50">
                   <th className={`${thClass} min-w-[80px]`}>Venue</th>
                   {weekDates.map((d, i) => {
-                    const isToday = formatDate(d) === todayStr;
+                    const isHoliday = holidayDates.has(formatDate(d));
                     return (
-                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isToday ? "bg-primary/10" : ""}`}>
+                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-red-100 dark:bg-red-900/20" : ""}`}>
                         <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                         <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                       </th>
@@ -558,9 +559,9 @@ export function WeeklyScheduleView({
                   <tr key={row.dept} className={`border-b border-border/50 ${vc.bg}`}>
                     <td className={`${tdClass} font-bold ${vc.text}`}>{row.dept}</td>
                     {row.counts.map((c, i) => {
-                      const isToday = formatDate(weekDates[i]) === todayStr;
+                      const isHoliday = holidayDates.has(formatDate(weekDates[i]));
                       return (
-                        <td key={i} className={`${tdClass} text-center font-medium ${isToday ? "bg-primary/5" : ""}`}>{c}</td>
+                        <td key={i} className={`${tdClass} text-center font-medium ${isHoliday ? "bg-red-50 dark:bg-red-900/10" : ""}`}>{c}</td>
                       );
                     })}
                   </tr>
@@ -587,9 +588,9 @@ export function WeeklyScheduleView({
               <tr className="border-b border-border bg-muted/50">
                 <th className={`${thClass} min-w-[60px]`}>Hour</th>
                 {weekDates.map((d, i) => {
-                  const isToday = formatDate(d) === todayStr;
+                  const isHoliday = holidayDates.has(formatDate(d));
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[60px] ${isToday ? "bg-primary/10" : ""}`}>
+                    <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-red-100 dark:bg-red-900/20" : ""}`}>
                       <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                       <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
@@ -602,9 +603,9 @@ export function WeeklyScheduleView({
                 <tr key={row.hour} className="border-b border-border/50 hover:bg-muted/30">
                   <td className={`${tdClass} font-medium`}>{row.label}</td>
                   {row.counts.map((c, i) => {
-                    const isToday = formatDate(weekDates[i]) === todayStr;
+                    const isHoliday = holidayDates.has(formatDate(weekDates[i]));
                     return (
-                      <td key={i} className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
+                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-red-50 dark:bg-red-900/10" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
                     );
                   })}
                 </tr>
