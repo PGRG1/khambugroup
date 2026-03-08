@@ -577,7 +577,7 @@ export function WeeklyScheduleView({
       )}
 
       {/* Staff Roster - Main Grid */}
-      <div className="border border-border rounded-md overflow-hidden">
+      <div ref={rosterRef} className="border border-border rounded-md overflow-hidden">
         <div className={`${sectionHeaderClass} flex items-center justify-between`}>
           <span>Staff Roster</span>
           <div className="flex items-center gap-2">
@@ -593,6 +593,9 @@ export function WeeklyScheduleView({
                 <Copy className="h-3 w-3 mr-1" /> Copy Previous Week {(shiftsToCopyCount ?? 0) > 0 && `(${shiftsToCopyCount})`}
               </Button>
             )}
+            <Button size="sm" variant="outline" className="h-6 text-[11px] border-background/30 text-background bg-transparent hover:bg-background/15 hover:text-background" onClick={handleDownloadRoster}>
+              <Download className="h-3 w-3 mr-1" /> Download
+            </Button>
           </div>
         </div>
         <div className="overflow-x-auto">
