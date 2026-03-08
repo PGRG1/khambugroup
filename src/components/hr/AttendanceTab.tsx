@@ -166,7 +166,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<"roster" | "timegrid" | "schedule">("schedule");
+  
 
   // Drag state for time-grid
   const [dragState, setDragState] = useState<{
@@ -290,31 +290,9 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
           <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
           <span className="text-sm font-medium ml-2">{weekLabel}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex border border-border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode("schedule")}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "schedule" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
-            >
-              Weekly Schedule
-            </button>
-            <button
-              onClick={() => setViewMode("roster")}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "roster" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
-            >
-              Roster
-            </button>
-            <button
-              onClick={() => setViewMode("timegrid")}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "timegrid" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
-            >
-              Time Grid
-            </button>
-          </div>
-          <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
-            <Plus className="h-4 w-4 mr-1" /> Add Shift
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
+          <Plus className="h-4 w-4 mr-1" /> Add Shift
+        </Button>
       </div>
 
       {viewMode === "schedule" ? (
