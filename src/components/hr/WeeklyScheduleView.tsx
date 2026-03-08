@@ -623,15 +623,15 @@ export function WeeklyScheduleView({
                             onClick={() => onEditShift(s)}
                             onContextMenu={(e) => { e.preventDefault(); onCopyShift?.(s); }}
                             className={`relative block w-full rounded px-0.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity font-medium ${getShiftCellStyle(s)} ${s.no_show ? "line-through opacity-60" : ""} ${clipboard && clipboard.start_time === s.start_time && clipboard.end_time === s.end_time && clipboard.shift_type === s.shift_type ? "ring-2 ring-primary ring-offset-1" : ""}`}
-                            title={`Click to edit · Right-click to copy${s.notes ? `\n📝 ${s.notes}` : ""}${s.no_show ? "\n⛔ No Show" : s.status === "completed" ? "\n✅ Completed" : ""}`}
+                            title={`Click to edit · Right-click to copy${s.notes ? `\n📝 ${s.notes}` : ""}`}
                           >
                             {formatShiftCell(s)}
-                            {/* Status indicators */}
-                            <span className="absolute -top-0.5 -right-0.5 flex gap-px">
-                              {s.no_show && <span className="block h-2 w-2 rounded-full bg-destructive border border-background" />}
-                              {!s.no_show && s.status === "completed" && <span className="block h-2 w-2 rounded-full bg-emerald-500 border border-background" />}
-                              {s.notes && !s.no_show && s.status !== "completed" && <span className="block h-2 w-2 rounded-full bg-amber-400 border border-background" />}
-                            </span>
+                            {/* Notes indicator only — actuals status shown only in Actuals view */}
+                            {s.notes && (
+                              <span className="absolute -top-0.5 -right-0.5">
+                                <span className="block h-2 w-2 rounded-full bg-amber-400 border border-background" />
+                              </span>
+                            )}
                           </button>
                         ))}
                       </td>
