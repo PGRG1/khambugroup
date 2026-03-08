@@ -33,20 +33,21 @@ interface Props {
 }
 
 export default function CumulativeSalesChart({ data }: Props) {
-  // All available months from the dataset
   const allMonths = useMemo(() => {
     return [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
   }, [data]);
 
-  // Track which months are hidden (toggled off via legend click)
-  const [hiddenMonths, setHiddenMonths] = useState<Set<string>>(new Set());
+  // Track which months are actively selected (visible). Start with all selected.
+  const [selectedMonths, setSelectedMonths] = useState<Set<string>>(() => new Set(allMonths));
 
-  const visibleMonths = useMemo(() => {
-    return allMonths.filter((m) => !hiddenMonths.has(m));
-  }, [allMonths, hiddenMonths]);
+  // Sync if allMonths changes
+  const validSelected = useMemo(() => {
+    const allSet = new Set(allMonths);
+    return new Set([...selectedMonths].filter((m) => allSet.has(m)));
+  }, [selectedMonths, allMonths]);
 
   const toggleMonth = useCallback((mk: string) => {
-    setHiddenMonths((prev) => {
+    setSelectedMonths((prev) => {
       const next = new Set(prev);
       if (next.has(mk)) {
         next.delete(mk);
@@ -57,16 +58,14 @@ export default function CumulativeSalesChart({ data }: Props) {
     });
   }, []);
 
-  // Stable color map so toggling doesn't shift colors
+  // Stable color map
   const colorMap = useMemo(() => {
     const map = new Map<string, string>();
-    allMonths.forEach((mk, i) => {
-      map.set(mk, MONTH_COLORS[i % MONTH_COLORS.length]);
-    });
+    allMonths.forEach((mk, i) => map.set(mk, MONTH_COLORS[i % MONTH_COLORS.length]));
     return map;
   }, [allMonths]);
 
-  // Compute cumulative data for ALL months (we hide via line opacity)
+  // Compute cumulative data for ALL months
   const cumulativeData = useMemo(() => {
     const monthGroups = new Map<string, Map<number, number>>();
     data.forEach((r) => {
@@ -112,8 +111,12 @@ export default function CumulativeSalesChart({ data }: Props) {
               <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 {...tooltipStyle}
-                formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, getMonthLabel(name)]}
+                formatter={(v: number, name: string) => {
+                  if (!validSelected.has(name)) return [null, null];
+                  return [`$${formatCurrency(v)}`, getMonthLabel(name)];
+                }}
                 labelFormatter={(l) => `Day ${l}`}
+                itemSorter={() => 0}
               />
               {cumulativeData.months.map((mk) => (
                 <Line
@@ -123,34 +126,31 @@ export default function CumulativeSalesChart({ data }: Props) {
                   stroke={colorMap.get(mk)}
                   strokeWidth={2}
                   dot={false}
-                  hide={hiddenMonths.has(mk)}
+                  hide={!validSelected.has(mk)}
                 />
               ))}
             </LineChart>
           </ResponsiveContainer>
-          {/* Custom clickable legend */}
+          {/* Clickable legend — click to show/select */}
           <div className="flex items-center justify-center gap-3 flex-wrap mt-2">
             {allMonths.map((mk) => {
-              const isHidden = hiddenMonths.has(mk);
+              const isActive = validSelected.has(mk);
               const color = colorMap.get(mk)!;
               return (
                 <button
                   key={mk}
                   onClick={() => toggleMonth(mk)}
                   className="flex items-center gap-1.5 text-[11px] font-medium transition-opacity cursor-pointer hover:opacity-80"
-                  style={{ opacity: isHidden ? 0.35 : 1 }}
+                  style={{ opacity: isActive ? 1 : 0.35 }}
                 >
                   <span
                     className="inline-block w-3 h-[3px] rounded-full"
-                    style={{
-                      backgroundColor: color,
-                      opacity: isHidden ? 0.4 : 1,
-                    }}
+                    style={{ backgroundColor: color, opacity: isActive ? 1 : 0.4 }}
                   />
                   <span
                     style={{
-                      color: isHidden ? "hsl(25, 10%, 50%)" : color,
-                      textDecoration: isHidden ? "line-through" : "none",
+                      color: isActive ? color : "hsl(25, 10%, 50%)",
+                      textDecoration: isActive ? "none" : "line-through",
                     }}
                   >
                     {getMonthLabel(mk)}
