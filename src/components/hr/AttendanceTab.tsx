@@ -397,20 +397,6 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
             )}
           </div>
         </div>
-        {viewMode === "plan" && (
-          <div className="flex items-center gap-2">
-            {clipboard && (
-              <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1">
-                <Copy className="h-3 w-3" />
-                <span>Shift copied — click cell to paste</span>
-                <button onClick={() => setClipboard(null)} className="text-muted-foreground hover:text-foreground ml-1">✕</button>
-              </div>
-            )}
-            <Button size="sm" variant="outline" onClick={() => setCopyPrevConfirmOpen(true)} disabled={shiftsToCopy.length === 0}>
-              <Copy className="h-4 w-4 mr-1" /> Copy Previous Week {shiftsToCopy.length > 0 && `(${shiftsToCopy.length})`}
-            </Button>
-          </div>
-        )}
       </div>
 
       {viewMode === "plan" ? (
@@ -427,6 +413,9 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
           clipboard={clipboard}
           onCopyShift={handleCopyShift}
           onPasteShift={handlePasteShift}
+          onClearClipboard={() => setClipboard(null)}
+          onCopyPrevWeek={() => setCopyPrevConfirmOpen(true)}
+          shiftsToCopyCount={shiftsToCopy.length}
           onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
             await onSaveLeaveRequest({ id, status });
           } : undefined}

@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend as RLegen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Clock, Clipboard } from "lucide-react";
+import { Check, X, Clock, Clipboard, Copy } from "lucide-react";
 import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment, HRHoliday } from "@/hooks/useHRData";
 import type { ShiftClipboard } from "./AttendanceTab";
 
@@ -23,6 +23,9 @@ interface Props {
   clipboard?: ShiftClipboard;
   onCopyShift?: (shift: HRShift) => void;
   onPasteShift?: (employeeId: string, date: string) => void;
+  onClearClipboard?: () => void;
+  onCopyPrevWeek?: () => void;
+  shiftsToCopyCount?: number;
 }
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -552,7 +555,23 @@ export function WeeklyScheduleView({
 
       {/* Staff Roster - Main Grid */}
       <div className="border border-border rounded-md overflow-hidden">
-        <div className={sectionHeaderClass}>Staff Roster</div>
+        <div className={`${sectionHeaderClass} flex items-center justify-between`}>
+          <span>Staff Roster</span>
+          <div className="flex items-center gap-2">
+            {clipboard && onClearClipboard && (
+              <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1 font-normal">
+                <Copy className="h-3 w-3" />
+                <span>Shift copied — click cell to paste</span>
+                <button onClick={onClearClipboard} className="text-muted-foreground hover:text-foreground ml-1">✕</button>
+              </div>
+            )}
+            {onCopyPrevWeek && (
+              <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={onCopyPrevWeek} disabled={(shiftsToCopyCount ?? 0) === 0}>
+                <Copy className="h-3 w-3 mr-1" /> Copy Previous Week {(shiftsToCopyCount ?? 0) > 0 && `(${shiftsToCopyCount})`}
+              </Button>
+            )}
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
