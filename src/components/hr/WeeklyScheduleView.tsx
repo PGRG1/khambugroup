@@ -606,11 +606,12 @@ export function WeeklyScheduleView({
                     const dateStr = formatDate(d);
                     const isHoliday = holidayDates.has(dateStr);
                     const isToday = dateStr === todayStr;
+                    const hBorder = getHolidayBorderClass(i, weekDates, holidayDates, formatDate);
                     const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
 
                     if (cellShifts.length === 0) {
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""} cursor-pointer hover:bg-muted/30 transition-colors`}
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-destructive/5" : ""} ${isToday ? "bg-primary/5" : ""} ${hBorder} cursor-pointer hover:bg-muted/30 transition-colors`}
                           onClick={() => onAddShift(emp.id, dateStr)}
                         >
                           <span className="text-muted-foreground/40">—</span>
@@ -619,7 +620,7 @@ export function WeeklyScheduleView({
                     }
 
                     return (
-                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""}`}>
+                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-destructive/5" : ""} ${isToday ? "bg-primary/5" : ""} ${hBorder}`}>
                         {cellShifts.map(s => (
                           <button
                             key={s.id}
