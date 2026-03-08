@@ -588,19 +588,17 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                 </p>
               )}
 
-              {/* Plan section - hidden entirely for unscheduled actuals */}
-              {!(modalActualsMode && !editingShift.id) && (
+              {/* Plan section - hidden in actuals mode */}
+              {!modalActualsMode && (
                 <>
-                  <div className={modalActualsMode ? "opacity-60 pointer-events-none" : ""}>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                      Shift Type {modalActualsMode && <span className="text-[10px] italic">(read-only)</span>}
-                    </label>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Shift Type</label>
                     <div className="flex flex-wrap gap-1.5">
                       {SHIFT_TYPES.map(t => (
                         <button
                           key={t.value}
                           type="button"
-                          onClick={() => !modalActualsMode && updateField("shift_type", t.value)}
+                          onClick={() => updateField("shift_type", t.value)}
                           className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                             (editingShift.shift_type || "regular") === t.value ? t.color + " font-semibold" : "border-border text-muted-foreground hover:bg-muted"
                           }`}
@@ -612,7 +610,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                   </div>
 
                   {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
-                    <div className={modalActualsMode ? "opacity-60 pointer-events-none" : ""}>
+                    <div>
                       <Separator />
                       <TimeGridPicker
                         startTime={editingShift.start_time || "09:00"}
