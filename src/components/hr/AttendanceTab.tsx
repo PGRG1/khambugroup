@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { ChevronLeft, ChevronRight, Plus, Clock, Users, CalendarDays, AlertTriangle, TrendingDown, BarChart3 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
 import { WeeklyScheduleView } from "./WeeklyScheduleView";
@@ -22,6 +23,14 @@ interface Props {
   onSaveAttendance: (a: Partial<HRAttendance>) => Promise<boolean>;
   onSaveLeaveRequest?: (lr: Partial<import("@/hooks/useHRData").HRLeaveRequest>) => Promise<boolean>;
 }
+
+const VENUE_OPTIONS = [
+  { value: "Caliente", label: "Caliente" },
+  { value: "Assembly", label: "Assembly" },
+  { value: "Caliente / Assembly", label: "Caliente / Assembly" },
+  { value: "Kitchen", label: "Kitchen" },
+  { value: "Support", label: "Support" },
+];
 
 const SHIFT_TYPES = [
   { value: "regular", label: "Work", color: "bg-primary/20 text-primary border-primary/30" },
@@ -165,6 +174,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
+  const [shiftVenue, setShiftVenue] = useState<string>("");
   const [saving, setSaving] = useState(false);
   
 
@@ -205,17 +215,26 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       shift_type: "regular",
       no_show: false,
     });
+    const emp = employees.find(e => e.id === employeeId);
+    setShiftVenue(emp?.venue || "");
     setShiftModalOpen(true);
   };
 
   const openEditShift = (shift: HRShift) => {
     setEditingShift({ ...shift });
+    const emp = employees.find(e => e.id === shift.employee_id);
+    setShiftVenue(emp?.venue || "");
     setShiftModalOpen(true);
   };
 
   const handleSaveShift = async () => {
     if (!editingShift?.employee_id || !editingShift?.shift_date) return;
     setSaving(true);
+    // Update employee venue if changed
+    const emp = employees.find(e => e.id === editingShift.employee_id);
+    if (emp && shiftVenue && shiftVenue !== (emp.venue || "")) {
+      await supabase.from("hr_employees").update({ venue: shiftVenue } as any).eq("id", emp.id);
+    }
     const payload = { ...editingShift };
     if (payload.actual_start_time && payload.actual_end_time) {
       payload.actual_hours_worked = calcHours(payload.actual_start_time, payload.actual_end_time, payload.actual_break_minutes || 0);
@@ -315,12 +334,23 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
           <DialogHeader><DialogTitle>{editingShift?.id ? "Edit Shift" : "Add Shift"}</DialogTitle></DialogHeader>
           {editingShift && (
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Employee *</label>
-                  <Select value={editingShift.employee_id || ""} onValueChange={v => updateField("employee_id", v)}>
+                  <Select value={editingShift.employee_id || ""} onValueChange={v => {
+                    updateField("employee_id", v);
+                    const emp = employees.find(e => e.id === v);
+                    setShiftVenue(emp?.venue || "");
+                  }}>
                     <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                     <SelectContent>{activeEmployees.map(e => <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Venue</label>
+                  <Select value={shiftVenue} onValueChange={setShiftVenue}>
+                    <SelectTrigger><SelectValue placeholder="Select venue..." /></SelectTrigger>
+                    <SelectContent>{VENUE_OPTIONS.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
