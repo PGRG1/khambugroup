@@ -8,6 +8,7 @@ interface Props {
   holidays: HRHoliday[];
   weekDates: Date[];
   onEditShift: (shift: HRShift) => void;
+  onAddShift?: (employeeId: string, date: string) => void;
 }
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -78,7 +79,7 @@ function getLeaveStyle(type: string): string {
   }
 }
 
-export function ActualsComparisonView({ shifts, employees, holidays, weekDates, onEditShift }: Props) {
+export function ActualsComparisonView({ shifts, employees, holidays, weekDates, onEditShift, onAddShift }: Props) {
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active")
       .sort((a, b) => {
@@ -168,8 +169,16 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
 
                     if (cellShifts.length === 0) {
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""}`}>
-                          <span className="text-muted-foreground/40">—</span>
+                        <td
+                          key={i}
+                          className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""} ${onAddShift ? "cursor-pointer group/cell hover:bg-muted/40 transition-colors" : ""}`}
+                          onClick={() => onAddShift?.(emp.id, dateStr)}
+                        >
+                          {onAddShift ? (
+                            <span className="text-muted-foreground/30 group-hover/cell:text-primary group-hover/cell:font-bold transition-colors text-xs">+</span>
+                          ) : (
+                            <span className="text-muted-foreground/40">—</span>
+                          )}
                         </td>
                       );
                     }

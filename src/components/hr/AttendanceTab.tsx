@@ -491,6 +491,10 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
           holidays={holidays || []}
           weekDates={weekDates}
           onEditShift={(shift) => openEditShift(shift, true)}
+          onAddShift={(employeeId, date) => {
+            openNewShift(employeeId, date);
+            setModalActualsMode(true);
+          }}
         />
       )}
 
