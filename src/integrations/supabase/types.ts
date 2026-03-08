@@ -682,6 +682,7 @@ export type Database = {
           actual_break_minutes: number | null
           actual_end_time: string | null
           actual_hours_worked: number | null
+          actual_shift_type: string | null
           actual_start_time: string | null
           break_minutes: number
           created_at: string
@@ -701,6 +702,7 @@ export type Database = {
           actual_break_minutes?: number | null
           actual_end_time?: string | null
           actual_hours_worked?: number | null
+          actual_shift_type?: string | null
           actual_start_time?: string | null
           break_minutes?: number
           created_at?: string
@@ -720,6 +722,7 @@ export type Database = {
           actual_break_minutes?: number | null
           actual_end_time?: string | null
           actual_hours_worked?: number | null
+          actual_shift_type?: string | null
           actual_start_time?: string | null
           break_minutes?: number
           created_at?: string
