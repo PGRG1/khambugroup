@@ -48,13 +48,13 @@ const SHIFT_TYPES = [
 ];
 
 const SHIFT_STATUSES = [
-  { value: "completed", label: "Work (Completed)" },
-  { value: "off", label: "OFF" },
-  { value: "al", label: "AL (Annual Leave)" },
-  { value: "sh", label: "SH (Statutory Holiday)" },
-  { value: "no_pay", label: "NPL (No Pay Leave)" },
-  { value: "sick_leave", label: "SL (Sick Leave)" },
-  { value: "no_show", label: "No Show" },
+  { value: "completed", label: "Work", short: "WORK", color: "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25" },
+  { value: "off", label: "OFF", short: "OFF", color: "bg-muted text-muted-foreground border-border hover:bg-muted/80" },
+  { value: "al", label: "Annual Leave", short: "AL", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700 hover:bg-orange-200 dark:hover:bg-orange-900/50" },
+  { value: "sh", label: "Stat. Holiday", short: "SH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50" },
+  { value: "no_pay", label: "No Pay Leave", short: "NPL", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-700 hover:bg-purple-200 dark:hover:bg-purple-900/50" },
+  { value: "sick_leave", label: "Sick Leave", short: "SL", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50" },
+  { value: "no_show", label: "No Show", short: "NS", color: "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20" },
 ];
 
 // Generate time options in 30-min increments, ordered from 6AM with next-day times at end
@@ -638,39 +638,32 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                       Post-Shift Actuals {modalActualsMode && <Badge variant="outline" className="ml-2 text-[9px]">Editing</Badge>}
                     </p>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
-                        <Select value={editingShift.status || "completed"} onValueChange={v => {
-                          updateField("status", v);
-                          if (v === "no_show") { updateField("no_show", true); updateField("shift_type", "regular"); }
-                          else if (v === "off") { updateField("no_show", false); updateField("shift_type", "off"); }
-                          else if (v === "al") { updateField("no_show", false); updateField("shift_type", "al"); }
-                          else if (v === "sh") { updateField("no_show", false); updateField("shift_type", "sh"); }
-                          else if (v === "no_pay") { updateField("no_show", false); updateField("shift_type", "no_pay"); }
-                          else if (v === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
-                          else { updateField("no_show", false); updateField("shift_type", "regular"); }
-                        }}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {SHIFT_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-end pb-1">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={editingShift.no_show || false}
-                            onChange={e => {
-                              updateField("no_show", e.target.checked);
-                              if (e.target.checked && editingShift.status !== "no_show") updateField("status", "no_show");
-                              if (!e.target.checked && editingShift.status === "no_show") updateField("status", "completed");
-                            }}
-                            className="h-4 w-4 rounded border-input accent-destructive"
-                          />
-                          <span className="text-xs font-medium text-destructive">No Show</span>
-                        </label>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground block">Status</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {SHIFT_STATUSES.map(s => {
+                          const isActive = (editingShift.status || "completed") === s.value;
+                          return (
+                            <button
+                              key={s.value}
+                              type="button"
+                              onClick={() => {
+                                updateField("status", s.value);
+                                if (s.value === "no_show") { updateField("no_show", true); updateField("shift_type", "regular"); }
+                                else if (s.value === "off") { updateField("no_show", false); updateField("shift_type", "off"); }
+                                else if (s.value === "al") { updateField("no_show", false); updateField("shift_type", "al"); }
+                                else if (s.value === "sh") { updateField("no_show", false); updateField("shift_type", "sh"); }
+                                else if (s.value === "no_pay") { updateField("no_show", false); updateField("shift_type", "no_pay"); }
+                                else if (s.value === "sick_leave") { updateField("no_show", false); updateField("shift_type", "sick_no_pay"); }
+                                else { updateField("no_show", false); updateField("shift_type", "regular"); }
+                              }}
+                              className={`px-2.5 py-1.5 rounded-md border text-[11px] font-semibold transition-all ${s.color} ${isActive ? "ring-2 ring-offset-1 ring-primary shadow-sm scale-[1.02]" : "opacity-60"}`}
+                            >
+                              <span className="font-bold">{s.short}</span>
+                              <span className="ml-1 font-medium hidden sm:inline">{s.label !== s.short ? s.label : ""}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
