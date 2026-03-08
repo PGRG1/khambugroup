@@ -557,22 +557,27 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                 </div>
               </div>
 
-              {modalActualsMode && (
+              {modalActualsMode && editingShift.id && (
                 <p className="text-[10px] text-muted-foreground bg-primary/5 border border-primary/10 rounded-md px-2.5 py-1.5 text-center">
                   Schedule is read-only — edit actuals below
                 </p>
               )}
+              {modalActualsMode && !editingShift.id && (
+                <p className="text-[10px] text-muted-foreground bg-primary/5 border border-primary/10 rounded-md px-2.5 py-1.5 text-center">
+                  Unscheduled — pick shift type &amp; times, then fill actuals
+                </p>
+              )}
 
-              <div className={modalActualsMode ? "opacity-60 pointer-events-none" : ""}>
+              <div className={modalActualsMode && editingShift.id ? "opacity-60 pointer-events-none" : ""}>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Shift Type {modalActualsMode && <span className="text-[10px] italic">(read-only)</span>}
+                  Shift Type {modalActualsMode && editingShift.id && <span className="text-[10px] italic">(read-only)</span>}
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {SHIFT_TYPES.map(t => (
                     <button
                       key={t.value}
                       type="button"
-                      onClick={() => !modalActualsMode && updateField("shift_type", t.value)}
+                      onClick={() => !(modalActualsMode && editingShift.id) && updateField("shift_type", t.value)}
                       className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                         (editingShift.shift_type || "regular") === t.value ? t.color + " font-semibold" : "border-border text-muted-foreground hover:bg-muted"
                       }`}
@@ -584,7 +589,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
               </div>
 
               {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
-                <div className={modalActualsMode ? "opacity-60 pointer-events-none" : ""}>
+                <div className={modalActualsMode && editingShift.id ? "opacity-60 pointer-events-none" : ""}>
                   <Separator />
                   <TimeGridPicker
                     startTime={editingShift.start_time || "09:00"}
