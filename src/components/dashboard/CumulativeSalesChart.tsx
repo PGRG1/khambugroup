@@ -135,10 +135,11 @@ export default function CumulativeSalesChart({ data }: Props) {
                   className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity"
                   style={{ opacity: hidden ? 0.35 : 1 }}
                 >
-                  <span
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ backgroundColor: color, opacity: hidden ? 0.4 : 1 }}
-                  />
+                  {/* Line-dot-line marker */}
+                  <svg width="20" height="10" className="shrink-0">
+                    <line x1="0" y1="5" x2="20" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                    <circle cx="10" cy="5" r="3" fill={hidden ? "hsl(25, 10%, 50%)" : color} stroke={color} strokeWidth="1.5" opacity={hidden ? 0.4 : 1} />
+                  </svg>
                   <span
                     style={{
                       color: hidden ? "hsl(25, 10%, 50%)" : color,
