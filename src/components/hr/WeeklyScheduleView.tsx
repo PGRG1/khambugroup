@@ -566,9 +566,9 @@ export function WeeklyScheduleView({
                   const isHoliday = holidayDates.has(formatDate(d));
                   const isToday = formatDate(d) === todayStr;
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-destructive/10" : ""} ${isToday ? "bg-primary/10" : ""}`}>
-                      <div className={isHoliday ? "text-destructive" : ""}>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
-                      <div className={`font-normal text-[10px] ${isHoliday ? "text-destructive" : ""}`}>{isHoliday ? "PH" : DAY_NAMES[i]}</div>
+                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-destructive/10 text-destructive" : ""} ${isToday ? "bg-primary/10" : ""}`}>
+                      <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                      <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
                   );
                 })}
@@ -659,9 +659,9 @@ export function WeeklyScheduleView({
                     const isHoliday = holidayDates.has(formatDate(d));
                     const isToday = formatDate(d) === todayStr;
                     return (
-                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-destructive/10" : ""} ${isToday ? "bg-primary/10" : ""}`}>
-                        <div className={isHoliday ? "text-destructive" : ""}>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
-                        <div className={`font-normal text-[10px] ${isHoliday ? "text-destructive" : ""}`}>{isHoliday ? "PH" : DAY_NAMES[i]}</div>
+                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-destructive/10 text-destructive" : ""} ${isToday ? "bg-primary/10" : ""}`}>
+                        <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                        <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                       </th>
                     );
                   })}
@@ -790,9 +790,9 @@ export function WeeklyScheduleView({
                   const isHoliday = holidayDates.has(formatDate(d));
                   const isToday = formatDate(d) === todayStr;
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-destructive/10" : ""} ${isToday ? "bg-primary/10" : ""}`}>
-                      <div className={isHoliday ? "text-destructive" : ""}>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
-                      <div className={`font-normal text-[10px] ${isHoliday ? "text-destructive" : ""}`}>{isHoliday ? "PH" : DAY_NAMES[i]}</div>
+                    <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-destructive/10 text-destructive" : ""} ${isToday ? "bg-primary/10" : ""}`}>
+                      <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                      <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
                   );
                 })}
