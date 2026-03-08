@@ -1,0 +1,1 @@
+UPDATE hr_shifts SET actual_shift_type = NULL WHERE actual_shift_type IS NOT NULL AND status = 'completed' AND actual_shift_type != shift_type;
