@@ -84,6 +84,7 @@ export interface HRShift {
   actual_end_time: string | null;
   actual_break_minutes: number;
   actual_hours_worked: number | null;
+  actual_shift_type: string | null;
   variance_minutes: number;
   no_show: boolean;
   employee?: HREmployee;
