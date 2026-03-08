@@ -63,6 +63,7 @@ export default function HumanResources() {
             onSaveShift={hr.upsertShift}
             onSaveAttendance={hr.upsertAttendance}
             onSaveLeaveRequest={hr.upsertLeaveRequest}
+            onRefetch={hr.refetch}
           />
         </TabsContent>
 

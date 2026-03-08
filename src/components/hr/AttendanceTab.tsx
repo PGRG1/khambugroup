@@ -22,6 +22,7 @@ interface Props {
   onSaveShift: (s: Partial<HRShift>) => Promise<boolean>;
   onSaveAttendance: (a: Partial<HRAttendance>) => Promise<boolean>;
   onSaveLeaveRequest?: (lr: Partial<import("@/hooks/useHRData").HRLeaveRequest>) => Promise<boolean>;
+  onRefetch?: () => Promise<void>;
 }
 
 const VENUE_OPTIONS = [
@@ -170,7 +171,7 @@ function ScheduleKPICards({ shifts, weekDates, employees }: { shifts: HRShift[];
   );
 }
 
-export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, onSaveShift, onSaveAttendance, onSaveLeaveRequest }: Props) {
+export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, onSaveShift, onSaveAttendance, onSaveLeaveRequest, onRefetch }: Props) {
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
@@ -334,6 +335,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
             supabase.from("hr_employees").update({ sort_order: u.sort_order } as any).eq("id", u.id)
           );
           await Promise.all(promises);
+          if (onRefetch) await onRefetch();
         }}
       />
 
