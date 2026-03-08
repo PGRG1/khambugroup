@@ -274,31 +274,6 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
         </div>
       </div>
 
-      {/* Holidays List */}
-      {holidays.length > 0 && (
-        <div className="border border-border rounded-lg p-3">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Statutory & Public Holidays</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {holidays.filter(h => h.is_active && h.year === new Date().getFullYear()).map(h => {
-              const isPast = h.date < todayStr;
-              return (
-                <button
-                  key={h.id}
-                  onClick={() => { setEditingHoliday({ ...h }); setHolidayModalOpen(true); }}
-                  className={`text-[11px] px-2 py-1 rounded-md border cursor-pointer transition-colors ${
-                    h.date === todayStr ? "bg-chart-2/20 text-chart-2 border-chart-2/30 font-semibold" :
-                    isPast ? "bg-muted/50 text-muted-foreground border-border/50" :
-                    h.holiday_type === "statutory" ? "bg-chart-2/10 text-chart-2 border-chart-2/20" :
-                    "bg-chart-4/10 text-chart-4 border-chart-4/20"
-                  }`}
-                >
-                  {h.name} <span className="opacity-60">({h.date.slice(5)})</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Employee Table */}
       <div className="border border-border rounded-lg overflow-hidden">
