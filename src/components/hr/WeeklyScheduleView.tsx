@@ -127,42 +127,41 @@ function getTypeLabel(emp: HREmployee): string {
   return t;
 }
 
-// Hourly coverage: dynamically determine range from actual shifts, per venue
-interface HourlyCoverageRow { hour: number; label: string; counts: number[] }
-interface VenueCoverage { venue: string; rows: HourlyCoverageRow[] }
-
-function getHourRange(shifts: HRShift[], weekDates: Date[]) {
+// Hourly coverage: dynamically determine range from actual shifts
+function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
+  // Find the earliest start and latest end across all work shifts this week
   const dateStrs = new Set(weekDates.map(d => formatDate(d)));
   const workShifts = shifts.filter(s => 
     dateStrs.has(s.shift_date) && (s.shift_type || "regular") === "regular"
   );
-  let minHour = 15;
-  let maxHour = 27;
+
+  let minHour = 15; // default 3PM
+  let maxHour = 27; // default 2AM+1 (next day)
+
   for (const s of workShifts) {
     const [h1] = s.start_time.split(":").map(Number);
     const [h2] = s.end_time.split(":").map(Number);
+    const startH = h1;
     const endH = h2 === 0 ? 24 : h2 < h1 ? h2 + 24 : h2;
-    if (h1 < minHour) minHour = h1;
+    if (startH < minHour) minHour = startH;
     if (endH > maxHour) maxHour = endH;
   }
-  return { minHour, maxHour };
-}
 
-function buildCoverageRows(
-  filteredShifts: HRShift[],
-  weekDates: Date[],
-  minHour: number,
-  maxHour: number,
-): HourlyCoverageRow[] {
-  const result: HourlyCoverageRow[] = [];
-  for (let hour = minHour; hour < maxHour; hour++) {
+  // Clamp min to at least the earliest hour, max to cover the last working hour
+  const hours: number[] = [];
+  for (let h = minHour; h < maxHour; h++) {
+    hours.push(h);
+  }
+
+  const result: { hour: number; label: string; counts: number[] }[] = [];
+  for (const hour of hours) {
     const displayHour = hour >= 24 ? hour - 24 : hour;
     const suffix = displayHour >= 12 ? "PM" : "AM";
     const h12 = displayHour === 0 ? 12 : displayHour > 12 ? displayHour - 12 : displayHour;
     const label = `${h12}${suffix}`;
     const counts = weekDates.map(d => {
       const dateStr = formatDate(d);
-      return filteredShifts.filter(s => {
+      return shifts.filter(s => {
         if (s.shift_date !== dateStr) return false;
         if ((s.shift_type || "regular") !== "regular") return false;
         const [sh] = s.start_time.split(":").map(Number);
@@ -174,25 +173,6 @@ function buildCoverageRows(
     result.push({ hour, label, counts });
   }
   return result;
-}
-
-function getHourlyCoverageByVenue(
-  shifts: HRShift[],
-  employees: { id: string; venue: string | null }[],
-  weekDates: Date[],
-): { venues: VenueCoverage[]; totalRows: HourlyCoverageRow[]; minHour: number; maxHour: number } {
-  const { minHour, maxHour } = getHourRange(shifts, weekDates);
-  const empVenueMap = new Map(employees.map(e => [e.id, e.venue || "Other"]));
-  const venueNames = [...new Set(employees.map(e => e.venue || "Other"))].sort();
-
-  const venues: VenueCoverage[] = venueNames.map(venue => {
-    const venueEmpIds = new Set(employees.filter(e => (e.venue || "Other") === venue).map(e => e.id));
-    const venueShifts = shifts.filter(s => venueEmpIds.has(s.employee_id));
-    return { venue, rows: buildCoverageRows(venueShifts, weekDates, minHour, maxHour) };
-  });
-
-  const totalRows = buildCoverageRows(shifts, weekDates, minHour, maxHour);
-  return { venues, totalRows, minHour, maxHour };
 }
 
 export function WeeklyScheduleView({
@@ -278,7 +258,7 @@ export function WeeklyScheduleView({
     [dailyHeadcount, weekDates]
   );
 
-  const hourlyCoverageData = useMemo(() => getHourlyCoverageByVenue(shifts, activeEmployees, weekDates), [shifts, activeEmployees, weekDates]);
+  const hourlyCoverage = useMemo(() => getHourlyCoverage(shifts, weekDates), [shifts, weekDates]);
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
@@ -664,50 +644,7 @@ export function WeeklyScheduleView({
         </div>
       )}
 
-      {/* Hourly Coverage per Venue */}
-      {hourlyCoverageData.venues.map(({ venue, rows }) => {
-        const vc = getVenueColor(venue, venueList);
-        return (
-          <div key={venue} className="border border-border rounded-md overflow-hidden">
-            <div className={sectionHeaderClass}>
-              Hourly Coverage — <span className={vc.text}>{venue}</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className={`${thClass} min-w-[60px]`}>Hour</th>
-                    {weekDates.map((d, i) => {
-                      const isHoliday = holidayDates.has(formatDate(d));
-                      return (
-                        <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""}`}>
-                          <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
-                          <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(row => (
-                    <tr key={row.hour} className="border-b border-border/50 hover:bg-muted/30">
-                      <td className={`${tdClass} font-medium`}>{row.label}</td>
-                      {row.counts.map((c, i) => {
-                        const isHoliday = holidayDates.has(formatDate(weekDates[i]));
-                        return (
-                          <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Hourly Coverage Total */}
+      {/* Hourly Coverage */}
       <div className="border border-border rounded-md overflow-hidden">
         <div className={sectionHeaderClass}>Hourly Coverage (Total)</div>
         <div className="overflow-x-auto">
@@ -727,7 +664,7 @@ export function WeeklyScheduleView({
               </tr>
             </thead>
             <tbody>
-              {hourlyCoverageData.totalRows.map(row => (
+              {hourlyCoverage.map(row => (
                 <tr key={row.hour} className="border-b border-border/50 hover:bg-muted/30">
                   <td className={`${tdClass} font-medium`}>{row.label}</td>
                   {row.counts.map((c, i) => {
