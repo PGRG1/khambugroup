@@ -664,7 +664,50 @@ export function WeeklyScheduleView({
         </div>
       )}
 
-      {/* Hourly Coverage */}
+      {/* Hourly Coverage per Venue */}
+      {hourlyCoverageData.venues.map(({ venue, rows }) => {
+        const vc = getVenueColor(venue, venueList);
+        return (
+          <div key={venue} className="border border-border rounded-md overflow-hidden">
+            <div className={sectionHeaderClass}>
+              Hourly Coverage — <span className={vc.text}>{venue}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className={`${thClass} min-w-[60px]`}>Hour</th>
+                    {weekDates.map((d, i) => {
+                      const isHoliday = holidayDates.has(formatDate(d));
+                      return (
+                        <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""}`}>
+                          <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                          <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(row => (
+                    <tr key={row.hour} className="border-b border-border/50 hover:bg-muted/30">
+                      <td className={`${tdClass} font-medium`}>{row.label}</td>
+                      {row.counts.map((c, i) => {
+                        const isHoliday = holidayDates.has(formatDate(weekDates[i]));
+                        return (
+                          <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Hourly Coverage Total */}
       <div className="border border-border rounded-md overflow-hidden">
         <div className={sectionHeaderClass}>Hourly Coverage (Total)</div>
         <div className="overflow-x-auto">
@@ -684,7 +727,7 @@ export function WeeklyScheduleView({
               </tr>
             </thead>
             <tbody>
-              {hourlyCoverage.map(row => (
+              {hourlyCoverageData.totalRows.map(row => (
                 <tr key={row.hour} className="border-b border-border/50 hover:bg-muted/30">
                   <td className={`${tdClass} font-medium`}>{row.label}</td>
                   {row.counts.map((c, i) => {
