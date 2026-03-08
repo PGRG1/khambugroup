@@ -237,7 +237,7 @@ export function WeeklyScheduleView({
   const hourlyCoverage = useMemo(() => getHourlyCoverage(shifts, weekDates), [shifts, weekDates]);
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
-  const todayStr = formatDate(new Date());
+  const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
 
   // Stable venue list for color assignment
   const venueList = useMemo(() => {
