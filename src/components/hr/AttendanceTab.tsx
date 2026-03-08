@@ -574,7 +574,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
               </div>
 
               {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
-                <>
+                <div className={modalActualsMode ? "opacity-60 pointer-events-none" : ""}>
                   <Separator />
                   <TimeGridPicker
                     startTime={editingShift.start_time || "09:00"}
@@ -583,12 +583,11 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     onChangeEnd={v => updateField("end_time", v)}
                   />
                   {editingShift.start_time && editingShift.end_time && (
-                    <p className="text-xs text-muted-foreground">
-                      Total: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Scheduled: <strong>{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</strong>
                     </p>
                   )}
-
-                </>
+                </div>
               )}
 
               {/* --- Actuals (Post-Shift) Section --- */}
