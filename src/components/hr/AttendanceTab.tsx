@@ -748,8 +748,6 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                         )}
                       </div>
                     )}
-                      </div>
-                    )}
 
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-1 block">Notes / Comments</label>
