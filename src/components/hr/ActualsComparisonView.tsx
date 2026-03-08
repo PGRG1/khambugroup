@@ -171,14 +171,10 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
                       return (
                         <td
                           key={i}
-                          className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""} ${onAddShift ? "cursor-pointer group/cell hover:bg-muted/40 transition-colors" : ""}`}
+                          className={`${tdClass} text-center ${isToday ? "bg-primary/5" : ""} ${onAddShift ? "cursor-pointer hover:bg-muted/40 transition-colors" : ""}`}
                           onClick={() => onAddShift?.(emp.id, dateStr)}
                         >
-                          {onAddShift ? (
-                            <span className="text-muted-foreground/30 group-hover/cell:text-primary group-hover/cell:font-bold transition-colors text-xs">+</span>
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
+                          <span className="text-muted-foreground/50 text-[10px]">OFF</span>
                         </td>
                       );
                     }
