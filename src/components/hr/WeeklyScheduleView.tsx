@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, X, Clock } from "lucide-react";
 import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment } from "@/hooks/useHRData";
 
@@ -14,9 +15,18 @@ interface Props {
   onEditShift: (shift: HRShift) => void;
   onAddShift: (employeeId: string, date: string) => void;
   onApproveLeave?: (id: string, status: "approved" | "rejected") => void;
+  onChangeVenue?: (employeeId: string, venue: string) => void;
 }
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+
+const VENUE_OPTIONS = [
+  { value: "Caliente", label: "Caliente" },
+  { value: "Assembly", label: "Assembly" },
+  { value: "Caliente / Assembly", label: "Caliente / Assembly" },
+  { value: "Kitchen", label: "Kitchen" },
+  { value: "Support", label: "Support" },
+];
 const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const LEGEND_ITEMS = [
