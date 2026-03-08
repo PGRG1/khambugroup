@@ -36,14 +36,14 @@ const VENUE_OPTIONS = [
 
 const SHIFT_TYPES = [
   { value: "regular", label: "Work", color: "bg-primary/20 text-primary border-primary/30" },
-  { value: "al", label: "AL", color: "bg-chart-3/20 text-chart-3 border-chart-3/30" },
-  { value: "sh", label: "SH", color: "bg-chart-2/20 text-chart-2 border-chart-2/30" },
-  { value: "ph", label: "PH", color: "bg-chart-4/20 text-chart-4 border-chart-4/30" },
-  { value: "sick_no_pay", label: "Sick (NP)", color: "bg-destructive/20 text-destructive border-destructive/30" },
-  { value: "no_pay", label: "No Pay", color: "bg-destructive/15 text-destructive border-destructive/20" },
   { value: "off", label: "OFF", color: "bg-muted text-muted-foreground border-border" },
+  { value: "al", label: "AL", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700" },
+  { value: "sh", label: "SH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700" },
+  { value: "sick_no_pay", label: "SL", color: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700" },
+  { value: "no_pay", label: "NPL", color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-700" },
   { value: "rest", label: "Rest", color: "bg-muted text-muted-foreground border-border" },
-  { value: "training", label: "Training", color: "bg-chart-5/20 text-chart-5 border-chart-5/30" },
+  { value: "training", label: "TRN", color: "bg-chart-5/20 text-chart-5 border-chart-5/30" },
+  { value: "ph", label: "PH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700" },
 ];
 
 const SHIFT_STATUSES = [
@@ -352,26 +352,31 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Employee *</label>
-                  <Select value={editingShift.employee_id || ""} onValueChange={v => {
-                    updateField("employee_id", v);
-                    const emp = employees.find(e => e.id === v);
-                    setShiftVenue(emp?.venue || "");
-                  }}>
-                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                    <SelectContent>{activeEmployees.map(e => <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Employee</label>
+                  {editingShift.id ? (
+                    <p className="text-sm font-semibold py-1.5">
+                      {(() => { const emp = employees.find(e => e.id === editingShift.employee_id); return emp ? `${emp.first_name} ${emp.last_name}` : "—"; })()}
+                    </p>
+                  ) : (
+                    <Select value={editingShift.employee_id || ""} onValueChange={v => {
+                      updateField("employee_id", v);
+                      const emp = employees.find(e => e.id === v);
+                      setShiftVenue(emp?.venue || "");
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                      <SelectContent>{activeEmployees.map(e => <SelectItem key={e.id} value={e.id}>{e.first_name} {e.last_name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Venue</label>
-                  <Select value={shiftVenue} onValueChange={setShiftVenue}>
-                    <SelectTrigger><SelectValue placeholder="Select venue..." /></SelectTrigger>
-                    <SelectContent>{VENUE_OPTIONS.map(v => <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <p className="text-sm font-semibold py-1.5">{shiftVenue || "—"}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Date *</label>
-                  <Input type="date" value={editingShift.shift_date || ""} onChange={e => updateField("shift_date", e.target.value)} />
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Date</label>
+                  <p className="text-sm font-semibold py-1.5">
+                    {editingShift.shift_date ? new Date(editingShift.shift_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                  </p>
                 </div>
               </div>
 
