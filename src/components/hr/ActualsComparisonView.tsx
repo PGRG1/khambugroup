@@ -85,18 +85,19 @@ function getActualDisplay(shift: HRShift): { type: string; start: string; end: s
   return { type: actualType, start, end };
 }
 
-const VENUE_COLORS: Record<string, { bg: string; text: string }> = {
-  Caliente: { bg: "bg-red-50 dark:bg-red-900/20", text: "text-red-700 dark:text-red-400" },
-  Assembly: { bg: "bg-blue-50 dark:bg-blue-900/20", text: "text-blue-700 dark:text-blue-400" },
-  Kitchen: { bg: "bg-amber-50 dark:bg-amber-900/20", text: "text-amber-700 dark:text-amber-400" },
-  Support: { bg: "bg-slate-50 dark:bg-slate-800/40", text: "text-slate-600 dark:text-slate-300" },
-};
+// Color palette for venues — same as WeeklyScheduleView
+const VENUE_COLORS = [
+  { bg: "bg-orange-100 dark:bg-orange-900/20", text: "text-orange-800 dark:text-orange-300" },
+  { bg: "bg-emerald-100 dark:bg-emerald-900/20", text: "text-emerald-800 dark:text-emerald-300" },
+  { bg: "bg-sky-100 dark:bg-sky-900/20", text: "text-sky-800 dark:text-sky-300" },
+  { bg: "bg-violet-100 dark:bg-violet-900/20", text: "text-violet-800 dark:text-violet-300" },
+  { bg: "bg-amber-100 dark:bg-amber-900/20", text: "text-amber-800 dark:text-amber-300" },
+  { bg: "bg-rose-100 dark:bg-rose-900/20", text: "text-rose-800 dark:text-rose-300" },
+];
 
-function getVenueColor(venue: string) {
-  for (const [key, val] of Object.entries(VENUE_COLORS)) {
-    if (venue.toLowerCase().includes(key.toLowerCase())) return val;
-  }
-  return { bg: "bg-muted/50", text: "text-muted-foreground" };
+function getVenueColor(venueName: string, venueList: string[]) {
+  const idx = venueList.indexOf(venueName);
+  return VENUE_COLORS[idx >= 0 ? idx % VENUE_COLORS.length : 0];
 }
 
 export function ActualsComparisonView({ shifts, employees, holidays, weekDates, onEditShift }: Props) {
@@ -109,6 +110,11 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
       }),
     [employees]
   );
+
+  const venueList = useMemo(() => {
+    const names = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
+    return names.sort();
+  }, [activeEmployees]);
 
   const shiftMap = useMemo(() => {
     const map: Record<string, HRShift[]> = {};
@@ -152,7 +158,7 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
               {activeEmployees.length === 0 ? (
                 <tr><td colSpan={10} className="text-center text-muted-foreground py-6">No active employees</td></tr>
               ) : activeEmployees.map(emp => {
-                const vc = getVenueColor(emp.venue || "Other");
+                const vc = getVenueColor(emp.venue || "Other", venueList);
                 return (
                   <tr key={emp.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                     <td className={`${tdClass} font-bold sticky left-0 z-10 ${vc.bg} ${vc.text}`}>
