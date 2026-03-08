@@ -160,6 +160,17 @@ export function WeeklyScheduleView({
     [employees]
   );
 
+  // Local order override for optimistic drag reorder
+  const [localOrderOverride, setLocalOrderOverride] = useState<string[] | null>(null);
+
+  // Reset local override when employees prop changes (e.g. new employee added)
+  const employeeIds = activeEmployees.map(e => e.id).sort().join(",");
+  const prevEmployeeIds = useRef(employeeIds);
+  if (prevEmployeeIds.current !== employeeIds) {
+    prevEmployeeIds.current = employeeIds;
+    setLocalOrderOverride(null);
+  }
+
   // Drag-and-drop state
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
