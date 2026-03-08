@@ -46,11 +46,25 @@ const SHIFT_TYPES = [
 ];
 
 const SHIFT_STATUSES = [
-  { value: "scheduled", label: "Scheduled" },
   { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "sick_leave", label: "SL (Sick Leave)" },
   { value: "no_show", label: "No Show" },
 ];
+
+// Generate time options in 30-min increments (6:00 AM to 6:00 AM next day)
+const ACTUAL_TIME_OPTIONS = (() => {
+  const opts: { value: string; label: string }[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 30]) {
+      const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const suffix = h >= 12 ? "PM" : "AM";
+      const label = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+      opts.push({ value: val, label });
+    }
+  }
+  return opts;
+})();
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -313,7 +327,12 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   };
 
   const openEditShift = (shift: HRShift) => {
-    setEditingShift({ ...shift, break_minutes: 0, actual_break_minutes: 0 });
+    setEditingShift({
+      ...shift,
+      break_minutes: 0,
+      actual_break_minutes: 0,
+      status: shift.status === "scheduled" ? "completed" : shift.status,
+    });
     const emp = employees.find(e => e.id === shift.employee_id);
     setShiftVenue(emp?.venue || "");
     setShiftModalOpen(true);
@@ -545,7 +564,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
-                        <Select value={editingShift.status || "scheduled"} onValueChange={v => {
+                        <Select value={editingShift.status || "completed"} onValueChange={v => {
                           updateField("status", v);
                           if (v === "no_show") updateField("no_show", true);
                           else if (editingShift.no_show) updateField("no_show", false);
@@ -564,7 +583,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                             onChange={e => {
                               updateField("no_show", e.target.checked);
                               if (e.target.checked && editingShift.status !== "no_show") updateField("status", "no_show");
-                              if (!e.target.checked && editingShift.status === "no_show") updateField("status", "scheduled");
+                              if (!e.target.checked && editingShift.status === "no_show") updateField("status", "completed");
                             }}
                             className="h-4 w-4 rounded border-input accent-destructive"
                           />
@@ -574,14 +593,25 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                     </div>
 
                     {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                         <div>
                           <label className="text-xs font-medium text-muted-foreground mb-1 block">Actual Start</label>
-                          <Input type="time" value={editingShift.actual_start_time || ""} onChange={e => updateField("actual_start_time", e.target.value || null)} />
+                          <Select value={editingShift.actual_start_time || ""} onValueChange={v => updateField("actual_start_time", v || null)}>
+                            <SelectTrigger><SelectValue placeholder="Start" /></SelectTrigger>
+                            <SelectContent>
+                              {ACTUAL_TIME_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
+                        <span className="text-sm text-muted-foreground pb-2">–</span>
                         <div>
                           <label className="text-xs font-medium text-muted-foreground mb-1 block">Actual End</label>
-                          <Input type="time" value={editingShift.actual_end_time || ""} onChange={e => updateField("actual_end_time", e.target.value || null)} />
+                          <Select value={editingShift.actual_end_time || ""} onValueChange={v => updateField("actual_end_time", v || null)}>
+                            <SelectTrigger><SelectValue placeholder="End" /></SelectTrigger>
+                            <SelectContent>
+                              {ACTUAL_TIME_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     )}
