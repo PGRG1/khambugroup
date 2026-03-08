@@ -75,10 +75,10 @@ function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-function calcHours(start: string, end: string, breakMin: number): number {
+function calcHours(start: string, end: string, _breakMin: number): number {
   const [h1, m1] = start.split(":").map(Number);
   const [h2, m2] = end.split(":").map(Number);
-  let mins = h2 * 60 + m2 - (h1 * 60 + m1) - breakMin;
+  let mins = h2 * 60 + m2 - (h1 * 60 + m1);
   if (mins < 0) mins += 24 * 60;
   return mins / 60;
 }
@@ -224,7 +224,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   };
 
   const openEditShift = (shift: HRShift) => {
-    setEditingShift({ ...shift });
+    setEditingShift({ ...shift, break_minutes: 0, actual_break_minutes: 0 });
     const emp = employees.find(e => e.id === shift.employee_id);
     setShiftVenue(emp?.venue || "");
     setShiftModalOpen(true);
@@ -238,7 +238,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
     if (emp && shiftVenue && shiftVenue !== (emp.venue || "")) {
       await supabase.from("hr_employees").update({ venue: shiftVenue } as any).eq("id", emp.id);
     }
-    const payload = { ...editingShift };
+    const payload = { ...editingShift, break_minutes: 0, actual_break_minutes: 0 };
     if (payload.actual_start_time && payload.actual_end_time) {
       payload.actual_hours_worked = calcHours(payload.actual_start_time, payload.actual_end_time, payload.actual_break_minutes || 0);
       const scheduledMins = calcHours(payload.start_time || "00:00", payload.end_time || "00:00", payload.break_minutes || 0) * 60;
