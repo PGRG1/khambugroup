@@ -1,33 +1,65 @@
 
 
-## Pre/Post Shift Tracking Plan
+## Summary
 
-The shift modal currently lacks fields for tracking what actually happened after a shift (actuals, no-show, status, notes). The `hr_shifts` table already has columns for this: `actual_start_time`, `actual_end_time`, `actual_hours_worked`, `variance_minutes`, `no_show`, `status`, and `notes`. They just aren't exposed in the UI.
+This plan covers four changes to the Revenue dashboard:
 
-### What will be built
+1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
+2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
+3. Rename all "Customer" references to "Guest" across the dashboard charts
+4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
 
-**Enhance the Shift Detail Modal** (in `AttendanceTab.tsx`) to show two sections:
+---
 
-1. **Scheduled (Pre)** -- the existing shift type, start/end time fields (already there)
+## Changes
 
-2. **Actual (Post)** -- new section visible when editing an existing shift:
-   - **Status** selector: Scheduled, Completed, Cancelled, No Show (already defined as `SHIFT_STATUSES`)
-   - **No Show** toggle (auto-set when status = "No Show")
-   - **Actual Start / Actual End** time inputs
-   - Auto-calculated **Actual Hours** and **Variance** display
-   - **Notes/Comments** textarea for managers to record what happened (e.g., "Called in sick at 3PM", "Left early due to emergency")
+### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
 
-3. **Visual indicators on the roster grid** (in `WeeklyScheduleView.tsx`):
-   - Small icon or color accent on shift cells that have been marked as no-show, completed, or have notes
-   - E.g., a red dot for no-show, green check for completed, yellow dot if notes exist
+- Accept two new props: `salesPerDay` and `guestsPerDay`
+- Insert two new card entries after "Total Discount":
+  - "Sales / Day" showing `$X` with DollarSign icon
+  - "Guests / Day" showing `X` with Users icon
+- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
 
-### Technical approach
+### 2. Index.tsx -- Compute and pass new KPI values
 
-- **No database changes needed** -- all required columns already exist on `hr_shifts`
-- **File: `src/components/hr/AttendanceTab.tsx`**:
-  - Add "Actuals" section to the shift modal after the time grid, with status selector, no-show checkbox, actual time inputs, and notes textarea
-  - Wire these to `updateField` calls on `editingShift`
-  - Auto-compute variance display inline
-- **File: `src/components/hr/WeeklyScheduleView.tsx`**:
-  - In `formatShiftCell` or the cell renderer, add small status indicators (icons/dots) for shifts with `no_show`, `status === "completed"`, or non-empty `notes`
+- Calculate unique days count from filtered data
+- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
+- Pass both new values to `KPICards`
+
+### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+
+- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
+- This computes the average total sales per day-of-week per month
+
+### 4. DashboardCharts.tsx -- Multiple updates
+
+**a. Add "Avg Sales by Day of Week (MoM)" chart**
+- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
+- Uses `dayStats` data with `sales_{month}` keys
+- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
+
+**b. Rename all "Customer" references to "Guest"**
+- "Daily Number of Customers" -> "Daily Guests"
+- "Avg Daily Customers" -> "Avg Daily Guests"
+- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
+- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
+- "Avg Spend/Customer" -> "Avg Spend/Guest"
+- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
+- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
+
+**c. Fix Discount chart and rename**
+- Rename "Discount Report" to "Discount Trend"
+- Add `lg:col-span-2` class to make it span full width like other full-width charts
+- This fixes the chart not stretching to the right border
+
+---
+
+## Technical Details
+
+**Files modified:**
+- `src/components/dashboard/KPICards.tsx` -- new props and cards
+- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
+- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
+- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
 
