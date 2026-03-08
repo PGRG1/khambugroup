@@ -278,7 +278,7 @@ export function WeeklyScheduleView({
     [dailyHeadcount, weekDates]
   );
 
-  const hourlyCoverage = useMemo(() => getHourlyCoverage(shifts, weekDates), [shifts, weekDates]);
+  const hourlyCoverageData = useMemo(() => getHourlyCoverageByVenue(shifts, activeEmployees, weekDates), [shifts, activeEmployees, weekDates]);
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
