@@ -196,10 +196,9 @@ export function WeeklyScheduleView({
     );
   }, [leaveRequests, weekDates, activeEmployees]);
 
-  // Daily headcount by department
+  // Daily headcount by department (ordered by employee sort_order)
   const dailyHeadcount = useMemo(() => {
-    const venues = [...new Set(activeEmployees.map(e => e.venue || "Other"))];
-    return venues.map(venue => {
+    return orderedVenues.map(venue => {
       const venueEmps = activeEmployees.filter(e => (e.venue || "Other") === venue);
       const counts = weekDates.map(d => {
         const dateStr = formatDate(d);
@@ -210,7 +209,7 @@ export function WeeklyScheduleView({
       });
       return { dept: venue, counts };
     });
-  }, [activeEmployees, weekDates, shiftMap]);
+  }, [activeEmployees, orderedVenues, weekDates, shiftMap]);
 
   const dailyTotals = useMemo(() =>
     weekDates.map((_, i) => dailyHeadcount.reduce((t, row) => t + row.counts[i], 0)),
@@ -271,7 +270,8 @@ export function WeeklyScheduleView({
               </tr>
             </thead>
             <tbody>
-              {Object.entries(staffSummary).map(([dept, { ft, pt }]) => {
+              {orderedVenues.map(dept => {
+                const { ft, pt } = staffSummary[dept] || { ft: 0, pt: 0 };
                 const vc = getVenueColor(dept, venueList);
                 return (
                   <tr key={dept} className={`border-b border-border/50 ${vc.bg}`}>
