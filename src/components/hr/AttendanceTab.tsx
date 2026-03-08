@@ -48,14 +48,14 @@ const SHIFT_TYPES = [
 ];
 
 const SHIFT_STATUSES = [
-  { value: "scheduled", label: "Work" },
-  { value: "completed", label: "Done" },
-  { value: "off", label: "OFF" },
-  { value: "al", label: "AL" },
-  { value: "sh", label: "SH" },
-  { value: "no_pay", label: "NPL" },
-  { value: "sick_leave", label: "SL" },
-  { value: "no_show", label: "NS" },
+  { value: "completed", label: "Done", group: "top" },
+  { value: "no_show", label: "NS", group: "top" },
+  { value: "scheduled", label: "Work", group: "bottom" },
+  { value: "off", label: "OFF", group: "bottom" },
+  { value: "al", label: "AL", group: "bottom" },
+  { value: "sh", label: "SH", group: "bottom" },
+  { value: "no_pay", label: "NPL", group: "bottom" },
+  { value: "sick_leave", label: "SL", group: "bottom" },
 ];
 
 // Generate time options in 30-min increments, ordered from 6AM with next-day times at end
