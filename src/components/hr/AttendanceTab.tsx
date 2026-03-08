@@ -48,7 +48,8 @@ const SHIFT_TYPES = [
 ];
 
 const SHIFT_STATUSES = [
-  { value: "completed", label: "Work", short: "WORK", color: "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25" },
+  { value: "scheduled", label: "Work", short: "WORK", color: "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25" },
+  { value: "completed", label: "Completed", short: "DONE", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-200 dark:hover:bg-emerald-900/50" },
   { value: "off", label: "OFF", short: "OFF", color: "bg-muted text-muted-foreground border-border hover:bg-muted/80" },
   { value: "al", label: "Annual Leave", short: "AL", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700 hover:bg-orange-200 dark:hover:bg-orange-900/50" },
   { value: "sh", label: "Stat. Holiday", short: "SH", color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50" },
