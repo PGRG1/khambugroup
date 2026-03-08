@@ -566,8 +566,9 @@ export function WeeklyScheduleView({
                 {weekDates.map((d, i) => {
                   const isHoliday = holidayDates.has(formatDate(d));
                   const isToday = formatDate(d) === todayStr;
+                  const hBorder = getHolidayBorderClass(i, weekDates, holidayDates, formatDate);
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-muted/60" : ""} ${isToday ? "bg-primary/10" : ""}`}>
+                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-destructive/5" : ""} ${isToday ? "bg-primary/10" : ""} ${hBorder}`}>
                       <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                       <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
