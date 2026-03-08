@@ -680,7 +680,6 @@ export function WeeklyScheduleView({
                 </tr>
                 );
               })}
-              ))}
             </tbody>
           </table>
         </div>
