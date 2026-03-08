@@ -238,6 +238,15 @@ export function WeeklyScheduleView({
 
   const weekPeriod = `Week of ${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to ${weekDates[6].toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.date)), [holidays]);
+  const todayStr = formatDate(new Date());
+
+  // Upcoming holidays (from today onwards, max 6)
+  const upcomingHolidays = useMemo(() => {
+    return holidays
+      .filter(h => h.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 6);
+  }, [holidays, todayStr]);
 
   // Stable venue list for color assignment
   const venueList = useMemo(() => {
@@ -389,6 +398,36 @@ export function WeeklyScheduleView({
             ))}
           </div>
         </div>
+
+        {/* Upcoming HK Public Holidays */}
+        {upcomingHolidays.length > 0 && (
+          <div className="border border-border rounded-md overflow-hidden">
+            <div className={sectionHeaderClass}>Upcoming HK Public Holidays</div>
+            <table className="text-[11px]">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className={thClass}>Date</th>
+                  <th className={thClass}>Day</th>
+                  <th className={thClass}>Holiday</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcomingHolidays.map(h => {
+                  const d = new Date(h.date + "T00:00:00");
+                  const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+                  const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  return (
+                    <tr key={h.id} className="border-b border-border/50 bg-red-50/50 dark:bg-red-900/10">
+                      <td className={`${tdClass} font-medium`}>{dateLabel}</td>
+                      <td className={tdClass}>{dayName}</td>
+                      <td className={tdClass}>{h.name}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Employee Requests */}
