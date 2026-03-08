@@ -214,11 +214,15 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       shift_type: "regular",
       no_show: false,
     });
+    const emp = employees.find(e => e.id === employeeId);
+    setShiftVenue(emp?.venue || "");
     setShiftModalOpen(true);
   };
 
   const openEditShift = (shift: HRShift) => {
     setEditingShift({ ...shift });
+    const emp = employees.find(e => e.id === shift.employee_id);
+    setShiftVenue(emp?.venue || "");
     setShiftModalOpen(true);
   };
 
