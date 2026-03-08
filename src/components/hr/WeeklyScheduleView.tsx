@@ -402,7 +402,7 @@ export function WeeklyScheduleView({
                             onClick={() => onAddShift(emp.id, dateStr)}
                             className="w-full text-muted-foreground/30 hover:text-primary/50 transition-colors"
                           >
-                            0
+                            -
                           </button>
                         </td>
                       );
