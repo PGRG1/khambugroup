@@ -540,12 +540,12 @@ export function WeeklyScheduleView({
 
                     if (cellShifts.length === 0) {
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""}`}>
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${clipboard ? "cursor-crosshair" : ""}`}>
                           <button
-                            onClick={() => onAddShift(emp.id, dateStr)}
-                            className="w-full text-muted-foreground/30 hover:text-primary/50 transition-colors"
+                            onClick={() => clipboard && onPasteShift ? onPasteShift(emp.id, dateStr) : onAddShift(emp.id, dateStr)}
+                            className={`w-full transition-colors ${clipboard ? "text-primary/40 hover:text-primary hover:bg-primary/10 rounded" : "text-muted-foreground/30 hover:text-primary/50"}`}
                           >
-                            -
+                            {clipboard ? "⊕" : "-"}
                           </button>
                         </td>
                       );
@@ -557,7 +557,9 @@ export function WeeklyScheduleView({
                           <button
                             key={s.id}
                             onClick={() => onEditShift(s)}
-                            className={`block w-full rounded px-0.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity font-medium ${getShiftCellStyle(s)} ${s.no_show ? "line-through opacity-60" : ""}`}
+                            onContextMenu={(e) => { e.preventDefault(); onCopyShift?.(s); }}
+                            className={`block w-full rounded px-0.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity font-medium ${getShiftCellStyle(s)} ${s.no_show ? "line-through opacity-60" : ""} ${clipboard && clipboard.start_time === s.start_time && clipboard.end_time === s.end_time && clipboard.shift_type === s.shift_type ? "ring-2 ring-primary ring-offset-1" : ""}`}
+                            title="Click to edit · Right-click to copy"
                           >
                             {formatShiftCell(s)}
                           </button>
