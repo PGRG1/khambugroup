@@ -661,7 +661,7 @@ export function WeeklyScheduleView({
                     </th>
                   );
                 })}
-                <th className={`${thClass} text-center min-w-[60px] font-bold`}>Total</th>
+                <th className={`${thClass} text-center min-w-[60px]`}>Total</th>
               </tr>
             </thead>
             <tbody>
