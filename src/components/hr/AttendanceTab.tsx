@@ -335,7 +335,6 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
             supabase.from("hr_employees").update({ sort_order: u.sort_order } as any).eq("id", u.id)
           );
           await Promise.all(promises);
-          if (onRefetch) await onRefetch();
         }}
       />
 
