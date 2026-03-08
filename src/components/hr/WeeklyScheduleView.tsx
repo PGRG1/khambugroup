@@ -420,7 +420,7 @@ export function WeeklyScheduleView({
                   const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
                   const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
                   return (
-                    <tr key={h.id} className="border-b border-border/50 bg-red-50/50 dark:bg-red-900/10">
+                    <tr key={h.id} className="border-b border-border/50 bg-muted/40">
                       <td className={`${tdClass} font-medium`}>{dateLabel}</td>
                       <td className={tdClass}>{dayName}</td>
                       <td className={tdClass}>{h.name}</td>
@@ -500,7 +500,7 @@ export function WeeklyScheduleView({
                 {weekDates.map((d, i) => {
                   const isHoliday = holidayDates.has(formatDate(d));
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-red-100 dark:bg-red-900/20" : ""}`}>
+                    <th key={i} className={`${thClass} text-center min-w-[80px] ${isHoliday ? "bg-muted/60" : ""}`}>
                       <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                       <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
@@ -541,7 +541,7 @@ export function WeeklyScheduleView({
 
                     if (cellShifts.length === 0) {
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-red-50 dark:bg-red-900/10" : ""}`}>
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""}`}>
                           <button
                             onClick={() => onAddShift(emp.id, dateStr)}
                             className="w-full text-muted-foreground/30 hover:text-primary/50 transition-colors"
@@ -553,7 +553,7 @@ export function WeeklyScheduleView({
                     }
 
                     return (
-                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-red-50 dark:bg-red-900/10" : ""}`}>
+                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""}`}>
                         {cellShifts.map(s => (
                           <button
                             key={s.id}
@@ -586,7 +586,7 @@ export function WeeklyScheduleView({
                   {weekDates.map((d, i) => {
                     const isHoliday = holidayDates.has(formatDate(d));
                     return (
-                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-red-100 dark:bg-red-900/20" : ""}`}>
+                      <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""}`}>
                         <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                         <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                       </th>
@@ -603,7 +603,7 @@ export function WeeklyScheduleView({
                     {row.counts.map((c, i) => {
                       const isHoliday = holidayDates.has(formatDate(weekDates[i]));
                       return (
-                        <td key={i} className={`${tdClass} text-center font-medium ${isHoliday ? "bg-red-50 dark:bg-red-900/10" : ""}`}>{c}</td>
+                        <td key={i} className={`${tdClass} text-center font-medium ${isHoliday ? "bg-muted/40" : ""}`}>{c}</td>
                       );
                     })}
                   </tr>
@@ -632,7 +632,7 @@ export function WeeklyScheduleView({
                 {weekDates.map((d, i) => {
                   const isHoliday = holidayDates.has(formatDate(d));
                   return (
-                    <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-red-100 dark:bg-red-900/20" : ""}`}>
+                    <th key={i} className={`${thClass} text-center min-w-[60px] ${isHoliday ? "bg-muted/60" : ""}`}>
                       <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                       <div className="font-normal text-[10px]">{DAY_NAMES[i]}</div>
                     </th>
@@ -647,7 +647,7 @@ export function WeeklyScheduleView({
                   {row.counts.map((c, i) => {
                     const isHoliday = holidayDates.has(formatDate(weekDates[i]));
                     return (
-                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-red-50 dark:bg-red-900/10" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
+                      <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${c === 0 ? "text-muted-foreground/40" : "font-medium"}`}>{c}</td>
                     );
                   })}
                 </tr>
