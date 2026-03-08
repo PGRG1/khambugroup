@@ -172,18 +172,19 @@ export function ActualsComparisonView({ shifts, employees, holidays, weekDates, 
                       const dateStr = formatDate(d);
                       const isHoliday = holidayDates.has(dateStr);
                       const isToday = dateStr === todayStr;
+                      const hBorder = getHolidayBorderClass(i, weekDates, holidayDates, formatDate);
                       const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
 
                       if (cellShifts.length === 0) {
                         return (
-                          <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""}`}>
+                          <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-destructive/5" : ""} ${isToday ? "bg-primary/5" : ""} ${hBorder}`}>
                             <span className="text-muted-foreground/40">—</span>
                           </td>
                         );
                       }
 
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} ${isToday ? "bg-primary/5" : ""}`}>
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-destructive/5" : ""} ${isToday ? "bg-primary/5" : ""} ${hBorder}`}>
                           {cellShifts.map(shift => {
                             const changed = isChanged(shift);
                             const { type, start, end } = getActualDisplay(shift);
