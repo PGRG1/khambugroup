@@ -23,6 +23,14 @@ interface Props {
   onSaveLeaveRequest?: (lr: Partial<import("@/hooks/useHRData").HRLeaveRequest>) => Promise<boolean>;
 }
 
+const VENUE_OPTIONS = [
+  { value: "Caliente", label: "Caliente" },
+  { value: "Assembly", label: "Assembly" },
+  { value: "Caliente / Assembly", label: "Caliente / Assembly" },
+  { value: "Kitchen", label: "Kitchen" },
+  { value: "Support", label: "Support" },
+];
+
 const SHIFT_TYPES = [
   { value: "regular", label: "Work", color: "bg-primary/20 text-primary border-primary/30" },
   { value: "al", label: "AL", color: "bg-chart-3/20 text-chart-3 border-chart-3/30" },
