@@ -536,6 +536,83 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                 </>
               )}
 
+              {/* --- Actuals (Post-Shift) Section --- */}
+              {editingShift.id && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Post-Shift Actuals</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
+                        <Select value={editingShift.status || "scheduled"} onValueChange={v => {
+                          updateField("status", v);
+                          if (v === "no_show") updateField("no_show", true);
+                          else if (editingShift.no_show) updateField("no_show", false);
+                        }}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {SHIFT_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-end pb-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editingShift.no_show || false}
+                            onChange={e => {
+                              updateField("no_show", e.target.checked);
+                              if (e.target.checked && editingShift.status !== "no_show") updateField("status", "no_show");
+                              if (!e.target.checked && editingShift.status === "no_show") updateField("status", "scheduled");
+                            }}
+                            className="h-4 w-4 rounded border-input accent-destructive"
+                          />
+                          <span className="text-xs font-medium text-destructive">No Show</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1 block">Actual Start</label>
+                          <Input type="time" value={editingShift.actual_start_time || ""} onChange={e => updateField("actual_start_time", e.target.value || null)} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1 block">Actual End</label>
+                          <Input type="time" value={editingShift.actual_end_time || ""} onChange={e => updateField("actual_end_time", e.target.value || null)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {editingShift.actual_start_time && editingShift.actual_end_time && (
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        <span>Actual: <strong className="text-foreground">{calcHours(editingShift.actual_start_time, editingShift.actual_end_time, 0).toFixed(1)}h</strong></span>
+                        {editingShift.start_time && editingShift.end_time && (() => {
+                          const scheduled = calcHours(editingShift.start_time, editingShift.end_time, 0);
+                          const actual = calcHours(editingShift.actual_start_time!, editingShift.actual_end_time!, 0);
+                          const diff = actual - scheduled;
+                          return (
+                            <span>Variance: <strong className={diff < 0 ? "text-destructive" : "text-primary"}>{diff > 0 ? "+" : ""}{(diff * 60).toFixed(0)} min</strong></span>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Notes / Comments</label>
+                      <textarea
+                        value={editingShift.notes || ""}
+                        onChange={e => updateField("notes", e.target.value || null)}
+                        placeholder="e.g. Called in sick at 3PM, Left early due to emergency..."
+                        rows={2}
+                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               <Button onClick={handleSaveShift} disabled={saving} className="w-full">{saving ? "Saving..." : "Save Shift"}</Button>
             </div>
