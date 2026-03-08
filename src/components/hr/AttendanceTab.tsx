@@ -414,19 +414,6 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                 </>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
-                  <Select value={editingShift.status || "scheduled"} onValueChange={v => updateField("status", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{SHIFT_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Notes</label>
-                  <Input value={editingShift.notes || ""} onChange={e => updateField("notes", e.target.value)} />
-                </div>
-              </div>
 
               <Button onClick={handleSaveShift} disabled={saving} className="w-full">{saving ? "Saving..." : "Save Shift"}</Button>
             </div>
