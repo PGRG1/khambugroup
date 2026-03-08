@@ -60,6 +60,7 @@ export default function HumanResources() {
             departments={hr.departments}
             leaveRequests={hr.leaveRequests}
             leaveTypes={hr.leaveTypes}
+            holidays={hr.holidays}
             onSaveShift={hr.upsertShift}
             onSaveAttendance={hr.upsertAttendance}
             onSaveLeaveRequest={hr.upsertLeaveRequest}
