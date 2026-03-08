@@ -68,7 +68,15 @@ function formatTime12(t: string): string {
 function formatShiftCell(shift: HRShift): string {
   const type = shift.shift_type || "regular";
   if (type !== "regular") return TYPE_TO_CODE[type] || type.toUpperCase();
-  return `${formatTime12(shift.start_time)} - ${formatTime12(shift.end_time)}`;
+  const start = formatTime12(shift.start_time);
+  const end = formatTime12(shift.end_time);
+  // Show "CLS" for closing shifts (ending at or after midnight)
+  const [endH] = (shift.end_time || "00:00").split(":").map(Number);
+  const [startH] = (shift.start_time || "00:00").split(":").map(Number);
+  if (endH >= 0 && endH <= 4 && startH >= 12) {
+    return `${start} - CLS`;
+  }
+  return `${start} - ${end}`;
 }
 
 function getShiftCellStyle(shift: HRShift): string {
@@ -85,12 +93,17 @@ function getShiftCellStyle(shift: HRShift): string {
 }
 
 function getCategoryLabel(emp: HREmployee): string {
-  const dept = emp.department?.name || "";
-  const title = emp.job_title || "";
-  if (title.toLowerCase().includes("bar")) return "Bar";
-  if (title.toLowerCase().includes("kitchen") || title.toLowerCase().includes("chef") || title.toLowerCase().includes("cook") || title.toLowerCase().includes("wash")) return "Kitchen";
-  if (title.toLowerCase().includes("runner")) return "Runner";
-  return dept || "Floor";
+  const title = (emp.job_title || "").toLowerCase();
+  if (title.includes("general manager") || title.includes("gm")) return "Bar & Floor";
+  if (title.includes("bar") && title.includes("manager")) return "Bar";
+  if (title.includes("bar")) return "Bar";
+  if (title.includes("runner")) return "Runner";
+  if (title.includes("kitchen") || title.includes("chef") || title.includes("cook") || title.includes("wash") || title.includes("demi")) return "Kitchen";
+  if (title.includes("manager")) return "Floor";
+  if (title.includes("server") || title.includes("waiter") || title.includes("waitress")) return "Floor";
+  if (title.includes("promotor") || title.includes("promoter")) return "Floor";
+  if (title.includes("cleaner")) return "Others";
+  return "Floor";
 }
 
 function getTypeLabel(emp: HREmployee): string {
