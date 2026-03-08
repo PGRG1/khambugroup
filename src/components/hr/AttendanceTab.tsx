@@ -166,7 +166,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<"roster" | "timegrid" | "schedule">("schedule");
+  
 
   // Drag state for time-grid
   const [dragState, setDragState] = useState<{
@@ -290,196 +290,24 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
           <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
           <span className="text-sm font-medium ml-2">{weekLabel}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex border border-border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode("schedule")}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "schedule" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
-            >
-              Weekly Schedule
-            </button>
-            <button
-              onClick={() => setViewMode("roster")}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "roster" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
-            >
-              Roster
-            </button>
-            <button
-              onClick={() => setViewMode("timegrid")}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "timegrid" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
-            >
-              Time Grid
-            </button>
-          </div>
-          <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
-            <Plus className="h-4 w-4 mr-1" /> Add Shift
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => openNewShift("", formatDate(weekDates[0]))}>
+          <Plus className="h-4 w-4 mr-1" /> Add Shift
+        </Button>
       </div>
 
-      {viewMode === "schedule" ? (
-        <WeeklyScheduleView
-          shifts={shifts}
-          employees={employees}
-          departments={departments || []}
-          leaveRequests={leaveRequests || []}
-          leaveTypes={leaveTypes || []}
-          weekDates={weekDates}
-          onEditShift={openEditShift}
-          onAddShift={openNewShift}
-          onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
-            await onSaveLeaveRequest({ id, status });
-          } : undefined}
-        />
-      ) : viewMode === "roster" ? (
-        /* ===== ROSTER VIEW (original weekly grid) ===== */
-        <div className="border border-border rounded-lg overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left p-2 pl-3 font-medium text-muted-foreground min-w-[140px] sticky left-0 bg-muted/50 z-10">Employee</th>
-                <th className="text-left p-2 font-medium text-muted-foreground min-w-[60px]">Position</th>
-                {weekDates.map((d, i) => {
-                  const isToday = formatDate(d) === formatDate(new Date());
-                  return (
-                    <th key={i} className={`text-center p-2 font-medium min-w-[100px] ${isToday ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
-                      <div className="text-xs">{DAY_NAMES[i]}</div>
-                      <div className="text-[11px]">{d.getDate()}/{d.getMonth() + 1}</div>
-                    </th>
-                  );
-                })}
-                <th className="text-center p-2 font-medium text-muted-foreground min-w-[60px]">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeEmployees.length === 0 ? (
-                <tr><td colSpan={10} className="text-center text-muted-foreground py-8">No active employees</td></tr>
-              ) : activeEmployees.map(emp => {
-                let weekTotal = 0;
-                return (
-                  <tr key={emp.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                    <td className="p-2 pl-3 font-medium sticky left-0 bg-background z-10">
-                      <div className="truncate max-w-[130px]">{emp.first_name} {emp.last_name}</div>
-                    </td>
-                    <td className="p-2 text-xs text-muted-foreground truncate max-w-[80px]">{emp.job_title || "—"}</td>
-                    {weekDates.map((d, i) => {
-                      const dateStr = formatDate(d);
-                      const cellShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
-                      const isToday = dateStr === formatDate(new Date());
-                      cellShifts.forEach(s => {
-                        if (s.shift_type === "regular" || !s.shift_type) {
-                          weekTotal += calcHours(s.start_time, s.end_time, s.break_minutes || 0);
-                        }
-                      });
-                      return (
-                        <td key={i} className={`p-1 align-top ${isToday ? "bg-primary/5" : ""}`}>
-                          {cellShifts.length > 0 ? (
-                            <div className="space-y-0.5">
-                              {cellShifts.map(s => (
-                                <button
-                                  key={s.id}
-                                  onClick={() => openEditShift(s)}
-                                  className={`w-full text-[10px] leading-tight rounded px-1 py-0.5 border cursor-pointer text-left transition-colors hover:opacity-80 ${getShiftTypeStyle(s.shift_type || "regular")} ${s.no_show ? "line-through opacity-60" : ""}`}
-                                >
-                                  {(s.shift_type || "regular") === "regular" ? (
-                                    <>{s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}</>
-                                  ) : (
-                                    <span className="font-semibold">{getShiftTypeLabel(s.shift_type || "regular")}</span>
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => openNewShift(emp.id, dateStr)}
-                              className="w-full h-6 rounded border border-dashed border-border/50 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50 transition-colors text-[10px] flex items-center justify-center"
-                            >
-                              +
-                            </button>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="p-2 text-center text-xs font-semibold">{weekTotal.toFixed(1)}h</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        /* ===== TIME GRID VIEW (drag-to-schedule) ===== */
-        <div className="border border-border rounded-lg overflow-x-auto select-none" onMouseUp={handleDragEnd} onMouseLeave={() => { if (isDragging.current) handleDragEnd(); }}>
-          <p className="text-[11px] text-muted-foreground px-3 pt-2 pb-1">💡 Drag across time slots to create a shift. Click existing shifts to edit.</p>
-          {activeEmployees.map(emp => (
-            <div key={emp.id} className="border-b border-border last:border-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 border-b border-border/50">
-                <span className="text-xs font-semibold">{emp.first_name} {emp.last_name}</span>
-                <span className="text-[10px] text-muted-foreground">{emp.job_title || ""}</span>
-              </div>
-              {/* One row per day */}
-              {weekDates.map((d, dayIdx) => {
-                const dateStr = formatDate(d);
-                const isToday = dateStr === formatDate(new Date());
-                const dayShifts = shiftMap[`${emp.id}_${dateStr}`] || [];
-                const leaveShift = dayShifts.find(s => s.shift_type && s.shift_type !== "regular");
-
-                return (
-                  <div key={dayIdx} className={`flex items-stretch ${isToday ? "bg-primary/5" : ""}`}>
-                    {/* Day label */}
-                    <div className="w-14 shrink-0 flex flex-col items-center justify-center border-r border-border/50 py-0.5">
-                      <span className="text-[10px] font-medium">{DAY_NAMES[dayIdx]}</span>
-                      <span className="text-[9px] text-muted-foreground">{d.getDate()}/{d.getMonth() + 1}</span>
-                    </div>
-
-                    {leaveShift ? (
-                      <button
-                        onClick={() => openEditShift(leaveShift)}
-                        className={`flex-1 flex items-center justify-center py-1.5 text-xs font-semibold cursor-pointer hover:opacity-80 ${getShiftTypeStyle(leaveShift.shift_type || "regular")}`}
-                      >
-                        {getShiftTypeLabel(leaveShift.shift_type || "regular")}
-                      </button>
-                    ) : (
-                      <div className="flex-1 flex">
-                        {TIME_SLOTS.map(slot => {
-                          const existingShift = getShiftAtSlot(emp.id, dateStr, slot.hour);
-                          const inDrag = isInDragRange(emp.id, dayIdx, slot.hour);
-
-                          return (
-                            <div
-                              key={slot.hour}
-                              className={`flex-1 min-w-[28px] h-7 border-r border-border/20 cursor-crosshair transition-colors relative ${
-                                existingShift
-                                  ? "bg-primary/25 hover:bg-primary/35"
-                                  : inDrag
-                                    ? "bg-primary/20"
-                                    : "hover:bg-muted/50"
-                              }`}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                if (!existingShift) handleDragStart(emp.id, dayIdx, slot.hour);
-                              }}
-                              onMouseEnter={() => handleDragMove(slot.hour)}
-                              onClick={() => {
-                                if (existingShift) openEditShift(existingShift);
-                              }}
-                              title={`${slot.label}${existingShift ? ` — ${existingShift.start_time?.slice(0, 5)}–${existingShift.end_time?.slice(0, 5)}` : ""}`}
-                            >
-                              {slot.hour % 3 === 0 && (
-                                <span className="absolute top-0 left-0 text-[7px] text-muted-foreground/40 leading-none">{slot.label}</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      )}
+      <WeeklyScheduleView
+        shifts={shifts}
+        employees={employees}
+        departments={departments || []}
+        leaveRequests={leaveRequests || []}
+        leaveTypes={leaveTypes || []}
+        weekDates={weekDates}
+        onEditShift={openEditShift}
+        onAddShift={openNewShift}
+        onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
+          await onSaveLeaveRequest({ id, status });
+        } : undefined}
+      />
 
       {/* Shift Detail Modal */}
       <Dialog open={shiftModalOpen} onOpenChange={setShiftModalOpen}>
