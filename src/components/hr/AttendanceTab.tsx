@@ -39,6 +39,7 @@ const VENUE_OPTIONS = [
 ];
 
 const SHIFT_TYPES = [
+  { value: "unscheduled", label: "—", color: "bg-muted/50 text-muted-foreground border-border" },
   { value: "regular", label: "Work", color: "bg-primary/20 text-primary border-primary/30" },
   { value: "off", label: "OFF", color: "bg-muted text-muted-foreground border-border" },
   { value: "al", label: "AL", color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700" },

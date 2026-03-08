@@ -604,7 +604,9 @@ export function WeeklyScheduleView({
 
                     if (cellShifts.length === 0) {
                       return (
-                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""}`}>
+                        <td key={i} className={`${tdClass} text-center ${isHoliday ? "bg-muted/40" : ""} cursor-pointer hover:bg-muted/30 transition-colors`}
+                          onClick={() => onAddShift(emp.id, dateStr)}
+                        >
                           <span className="text-muted-foreground/40">—</span>
                         </td>
                       );
