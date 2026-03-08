@@ -93,6 +93,7 @@ function crossesMidnight(startTime: string, endTime: string): boolean {
 
 function formatShiftCell(shift: HRShift): string {
   const type = shift.shift_type || "regular";
+  if (type === "unscheduled") return "—";
   if (type !== "regular") return TYPE_TO_CODE[type] || type.toUpperCase();
   const start = formatTime12(shift.start_time);
   const end = formatTime12(shift.end_time);
@@ -103,6 +104,7 @@ function formatShiftCell(shift: HRShift): string {
 function getShiftCellStyle(shift: HRShift): string {
   const type = shift.shift_type || "regular";
   switch (type) {
+    case "unscheduled": return "text-muted-foreground/40";
     case "al": return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400";
     case "sh": case "ph": return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400";
     case "sick_no_pay": return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400";
