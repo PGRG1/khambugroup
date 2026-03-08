@@ -1,0 +1,1 @@
+ALTER TABLE public.hr_shifts ADD COLUMN actual_shift_type text DEFAULT null;
