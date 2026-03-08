@@ -374,8 +374,8 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       
 
       {/* View Mode Toggle + Week Navigation */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-4 flex-wrap bg-card border border-border rounded-lg px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-4">
           <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as "plan" | "actuals")} className="bg-muted rounded-lg p-0.5">
             <ToggleGroupItem value="plan" className="text-xs px-3 py-1.5 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded-md">
               <Calendar className="h-3.5 w-3.5" />
@@ -386,10 +386,11 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
               Actuals
             </ToggleGroupItem>
           </ToggleGroup>
+          <div className="h-6 w-px bg-border" />
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-semibold min-w-[180px] text-center">{weekLabel}</span>
-            <Button variant="outline" size="icon" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextWeek}><ChevronRight className="h-4 w-4" /></Button>
             {formatDate(weekDates[0]) !== formatDate(getWeekDates(new Date())[0]) && (
               <Button variant="ghost" size="sm" onClick={goToday} className="text-xs text-muted-foreground">
                 ↺ Current
@@ -397,6 +398,9 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
             )}
           </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Period: <span className="text-primary/80 font-medium">Week of {weekDates[0]?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} to {weekDates[6]?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+        </p>
       </div>
 
       {viewMode === "plan" ? (
