@@ -347,7 +347,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       end_time: endTime || "17:00",
       break_minutes: 0,
       status: "scheduled",
-      shift_type: "regular",
+      shift_type: startTime ? "regular" : "unscheduled",
       no_show: false,
     });
     const emp = employees.find(e => e.id === employeeId);
