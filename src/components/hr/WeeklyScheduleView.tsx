@@ -2,8 +2,9 @@ import { useMemo, useState, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, Clock } from "lucide-react";
+import { Check, X, Clock, Clipboard } from "lucide-react";
 import type { HRShift, HREmployee, HRLeaveRequest, HRLeaveType, HRDepartment, HRHoliday } from "@/hooks/useHRData";
+import type { ShiftClipboard } from "./AttendanceTab";
 
 interface Props {
   shifts: HRShift[];
@@ -18,6 +19,9 @@ interface Props {
   onApproveLeave?: (id: string, status: "approved" | "rejected") => void;
   onChangeVenue?: (employeeId: string, venue: string) => void;
   onReorderEmployees?: (reorderedIds: { id: string; sort_order: number }[]) => void;
+  clipboard?: ShiftClipboard;
+  onCopyShift?: (shift: HRShift) => void;
+  onPasteShift?: (employeeId: string, date: string) => void;
 }
 
 const DAY_NAMES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -152,6 +156,7 @@ function getHourlyCoverage(shifts: HRShift[], weekDates: Date[]) {
 export function WeeklyScheduleView({
   shifts, employees, departments, leaveRequests, leaveTypes, holidays, weekDates,
   onEditShift, onAddShift, onApproveLeave, onReorderEmployees,
+  clipboard, onCopyShift, onPasteShift,
 }: Props) {
   const activeEmployees = useMemo(
     () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
