@@ -643,7 +643,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                       <label className="text-xs font-medium text-muted-foreground block">Status</label>
                       <div className="flex flex-wrap gap-1.5">
                         {SHIFT_STATUSES.map(s => {
-                          const isActive = (editingShift.status || "completed") === s.value;
+                          const isActive = (editingShift.status || "scheduled") === s.value;
                           return (
                             <button
                               key={s.value}
