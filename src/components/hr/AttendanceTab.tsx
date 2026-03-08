@@ -58,22 +58,19 @@ const SHIFT_STATUSES = [
   { value: "sick_leave", label: "SL", group: "bottom" },
 ];
 
-// Generate time options in 30-min increments, ordered from 6AM with next-day times at end
+// Generate time options in 30-min increments, standard 12AM-11:30PM order
 const ACTUAL_TIME_OPTIONS = (() => {
-  const opts: { value: string; label: string; hour: number }[] = [];
+  const opts: { value: string; label: string }[] = [];
   for (let h = 0; h < 24; h++) {
     for (const m of [0, 30]) {
       const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
       const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
       const suffix = h >= 12 ? "PM" : "AM";
       const label = m === 0 ? `${h12}:00 ${suffix}` : `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
-      opts.push({ value: val, label, hour: h });
+      opts.push({ value: val, label });
     }
   }
-  // Reorder: 6AM..11:30PM, then 12AM..5:30AM
-  const fromSix = opts.filter(o => o.hour >= 6);
-  const beforeSix = opts.filter(o => o.hour < 6);
-  return [...fromSix, ...beforeSix];
+  return opts;
 })();
 
 function crossesMidnight(startTime: string, endTime: string): boolean {
