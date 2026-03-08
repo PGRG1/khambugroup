@@ -185,12 +185,15 @@ export function WeeklyScheduleView({
   const weekLeaveRequests = useMemo(() => {
     const weekStart = formatDate(weekDates[0]);
     const weekEnd = formatDate(weekDates[6]);
+    const activeEmployeeIds = new Set(activeEmployees.map(emp => emp.id));
+
     return leaveRequests.filter(lr =>
+      activeEmployeeIds.has(lr.employee_id) &&
       lr.status === "pending" &&
       lr.start_date <= weekEnd &&
       lr.end_date >= weekStart
     );
-  }, [leaveRequests, weekDates]);
+  }, [leaveRequests, weekDates, activeEmployees]);
 
   // Daily headcount by department
   const dailyHeadcount = useMemo(() => {
