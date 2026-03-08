@@ -1,42 +1,65 @@
 
 
-# Plan: Redesign TimeGridPicker for Better UX
+## Summary
 
-## Issues to Fix
+This plan covers four changes to the Revenue dashboard:
 
-1. **Layout**: The time grid takes up too much vertical space while being cramped. Rearrange so the drag grid is taller and time labels are on the side.
-2. **Cursor**: Currently shows `cursor-crosshair` — should show `cursor-cell` (plus sign) on hover, matching Outlook calendar behavior.
-3. **Smooth dragging**: Current implementation uses slot-based snapping with `setPointerCapture`. Need to make the selection feel fluid with immediate visual feedback during drag (no lag), similar to Outlook's calendar drag-select.
+1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
+2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
+3. Rename all "Customer" references to "Guest" across the dashboard charts
+4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+
+---
 
 ## Changes
 
-### `src/components/hr/TimeGridPicker.tsx` — Full rewrite of layout and interaction
+### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
 
-**Layout restructure:**
-- Move Start/End dropdowns to sit **side by side above** the grid (compact row)
-- Make the grid container **much taller** (fill available modal space, ~450px) so users see more hours at once
-- Time labels on the **left rail** (already there, keep it)
-- Selected time range summary on the **right side** of the header
+- Accept two new props: `salesPerDay` and `guestsPerDay`
+- Insert two new card entries after "Total Discount":
+  - "Sales / Day" showing `$X` with DollarSign icon
+  - "Guests / Day" showing `X` with Users icon
+- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
 
-**Cursor fix:**
-- Change `cursor-crosshair` to a custom CSS class or `cursor-cell` for the grid area
-- This gives the "+" cursor that Outlook uses
+### 2. Index.tsx -- Compute and pass new KPI values
 
-**Smooth drag interaction (Outlook-style):**
-- Use `requestAnimationFrame` for pointer move updates instead of direct state sets — reduces re-render jank
-- Apply selection highlight via CSS `will-change: transform` for GPU-accelerated rendering
-- Use a single absolute-positioned div for the selection overlay (calculated from `selStart` to `selEnd`) instead of per-slot conditional rendering — significantly reduces DOM updates during drag
-- Keep `setPointerCapture` for reliable tracking outside the container
-- Add `onPointerCancel` handler for edge cases
-- Reduce SLOT_HEIGHT to 18px but increase container height to show more slots
+- Calculate unique days count from filtered data
+- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
+- Pass both new values to `KPICards`
 
-### `src/components/hr/AttendanceTab.tsx` — Minor
+### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
 
-- No changes needed; the TimeGridPicker props stay the same
+- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
+- This computes the average total sales per day-of-week per month
 
-## Files
+### 4. DashboardCharts.tsx -- Multiple updates
 
-| File | Action |
-|------|--------|
-| `src/components/hr/TimeGridPicker.tsx` | **Rewrite** — new layout, cursor fix, smooth drag |
+**a. Add "Avg Sales by Day of Week (MoM)" chart**
+- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
+- Uses `dayStats` data with `sales_{month}` keys
+- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
+
+**b. Rename all "Customer" references to "Guest"**
+- "Daily Number of Customers" -> "Daily Guests"
+- "Avg Daily Customers" -> "Avg Daily Guests"
+- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
+- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
+- "Avg Spend/Customer" -> "Avg Spend/Guest"
+- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
+- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
+
+**c. Fix Discount chart and rename**
+- Rename "Discount Report" to "Discount Trend"
+- Add `lg:col-span-2` class to make it span full width like other full-width charts
+- This fixes the chart not stretching to the right border
+
+---
+
+## Technical Details
+
+**Files modified:**
+- `src/components/dashboard/KPICards.tsx` -- new props and cards
+- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
+- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
+- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
 
