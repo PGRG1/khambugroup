@@ -293,6 +293,12 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
         <div className="flex items-center gap-2">
           <div className="flex border border-border rounded-lg overflow-hidden">
             <button
+              onClick={() => setViewMode("schedule")}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "schedule" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
+            >
+              Weekly Schedule
+            </button>
+            <button
               onClick={() => setViewMode("roster")}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "roster" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
             >
