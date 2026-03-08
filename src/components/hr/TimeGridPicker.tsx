@@ -220,7 +220,7 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
           <div className="flex items-baseline gap-1.5">
             <span className="text-sm font-semibold text-foreground">{fmtTime(liveStart)}</span>
             <span className="text-xs text-muted-foreground">→</span>
-            <span className="text-sm font-semibold text-foreground">{fmtTime(liveEnd)}</span>
+            <span className="text-sm font-semibold text-foreground">{fmtTime(liveEnd, liveStart)}</span>
           </div>
         </div>
         <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
@@ -298,7 +298,7 @@ export function TimeGridPicker({ startTime, endTime, onChangeStart, onChangeEnd 
               className="absolute -bottom-0.5 left-1 text-[9px] font-bold text-primary pointer-events-none select-none"
               style={{ transform: "translateY(100%)" }}
             >
-              {fmtTime(liveEnd)}
+              {fmtTime(liveEnd, liveStart)}
             </div>
           </div>
         </div>
