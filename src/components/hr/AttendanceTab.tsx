@@ -317,7 +317,21 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
         </div>
       </div>
 
-      {viewMode === "roster" ? (
+      {viewMode === "schedule" ? (
+        <WeeklyScheduleView
+          shifts={shifts}
+          employees={employees}
+          departments={departments || []}
+          leaveRequests={leaveRequests || []}
+          leaveTypes={leaveTypes || []}
+          weekDates={weekDates}
+          onEditShift={openEditShift}
+          onAddShift={openNewShift}
+          onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
+            await onSaveLeaveRequest({ id, status });
+          } : undefined}
+        />
+      ) : viewMode === "roster" ? (
         /* ===== ROSTER VIEW (original weekly grid) ===== */
         <div className="border border-border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
