@@ -359,6 +359,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
       ...shift,
       break_minutes: 0,
       actual_break_minutes: 0,
+      actual_shift_type: shift.actual_shift_type || shift.shift_type || "regular",
       status: shift.status === "scheduled" ? "completed" : shift.status,
     });
     const emp = employees.find(e => e.id === shift.employee_id);
@@ -655,13 +656,13 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                             updateField("status", s.value);
                             if (s.value === "completed") {
                               updateField("no_show", false);
-                              updateField("shift_type", "regular");
+                              updateField("actual_shift_type", editingShift.shift_type || "regular");
                               // Auto-fill actuals from planned
                               if (editingShift.start_time) updateField("actual_start_time", editingShift.start_time);
                               if (editingShift.end_time) updateField("actual_end_time", editingShift.end_time);
                             } else {
                               updateField("no_show", false);
-                              updateField("shift_type", "regular");
+                              updateField("actual_shift_type", "regular");
                               updateField("actual_start_time", null);
                               updateField("actual_end_time", null);
                             }
@@ -682,20 +683,21 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                           <label className="text-xs font-medium text-muted-foreground block">What happened?</label>
                           <div className="flex flex-wrap gap-1.5">
                             {SHIFT_STATUSES.filter(s => s.group === "bottom").map(s => {
-                              const isActive = (editingShift.shift_type === "regular" && s.value === "scheduled") ||
-                                (s.value === "off" && editingShift.shift_type === "off") ||
-                                (s.value === "al" && editingShift.shift_type === "al") ||
-                                (s.value === "sh" && editingShift.shift_type === "sh") ||
-                                (s.value === "no_pay" && editingShift.shift_type === "no_pay") ||
-                                (s.value === "sick_leave" && editingShift.shift_type === "sick_no_pay");
+                              const ast = editingShift.actual_shift_type || "regular";
+                              const isActive = (ast === "regular" && s.value === "scheduled") ||
+                                (s.value === "off" && ast === "off") ||
+                                (s.value === "al" && ast === "al") ||
+                                (s.value === "sh" && ast === "sh") ||
+                                (s.value === "no_pay" && ast === "no_pay") ||
+                                (s.value === "sick_leave" && ast === "sick_no_pay");
                               return (
                                 <button key={s.value} type="button" onClick={() => {
-                                  if (s.value === "off") updateField("shift_type", "off");
-                                  else if (s.value === "al") updateField("shift_type", "al");
-                                  else if (s.value === "sh") updateField("shift_type", "sh");
-                                  else if (s.value === "no_pay") updateField("shift_type", "no_pay");
-                                  else if (s.value === "sick_leave") updateField("shift_type", "sick_no_pay");
-                                  else updateField("shift_type", "regular");
+                                  if (s.value === "off") updateField("actual_shift_type", "off");
+                                  else if (s.value === "al") updateField("actual_shift_type", "al");
+                                  else if (s.value === "sh") updateField("actual_shift_type", "sh");
+                                  else if (s.value === "no_pay") updateField("actual_shift_type", "no_pay");
+                                  else if (s.value === "sick_leave") updateField("actual_shift_type", "sick_no_pay");
+                                  else updateField("actual_shift_type", "regular");
                                 }} className={`px-3 py-1 rounded-full border text-[11px] font-medium transition-all ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-foreground/30"}`}>{s.label}</button>
                               );
                             })}
@@ -703,7 +705,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                         </div>
 
                         {/* Show actual time fields only for Work type */}
-                        {(editingShift.shift_type === "regular" || !editingShift.shift_type) && (
+                        {(editingShift.actual_shift_type === "regular" || !editingShift.actual_shift_type) && (
                           <>
                             <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                               <div>
