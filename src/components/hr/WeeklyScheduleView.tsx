@@ -154,7 +154,10 @@ export function WeeklyScheduleView({
   shifts, employees, departments, leaveRequests, leaveTypes, weekDates,
   onEditShift, onAddShift, onApproveLeave,
 }: Props) {
-  const activeEmployees = useMemo(() => employees.filter(e => ["active", "on_leave"].includes(e.status)), [employees]);
+  const activeEmployees = useMemo(
+    () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
+    [employees]
+  );
 
   const shiftMap = useMemo(() => {
     const map: Record<string, HRShift[]> = {};

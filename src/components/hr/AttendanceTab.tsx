@@ -187,7 +187,10 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   } | null>(null);
   const isDragging = useRef(false);
 
-  const activeEmployees = useMemo(() => employees.filter(e => ["active", "on_leave"].includes(e.status)), [employees]);
+  const activeEmployees = useMemo(
+    () => employees.filter(e => (e.status || "").trim().toLowerCase() === "active"),
+    [employees]
+  );
   const weekDates = useMemo(() => getWeekDates(weekBase), [weekBase]);
 
   const prevWeek = () => { const d = new Date(weekBase); d.setDate(d.getDate() - 7); setWeekBase(d); };
