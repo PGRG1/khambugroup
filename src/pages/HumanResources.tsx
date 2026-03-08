@@ -57,8 +57,12 @@ export default function HumanResources() {
             shifts={hr.shifts}
             attendance={hr.attendance}
             employees={hr.employees}
+            departments={hr.departments}
+            leaveRequests={hr.leaveRequests}
+            leaveTypes={hr.leaveTypes}
             onSaveShift={hr.upsertShift}
             onSaveAttendance={hr.upsertAttendance}
+            onSaveLeaveRequest={hr.upsertLeaveRequest}
           />
         </TabsContent>
 
