@@ -627,6 +627,16 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
                   )}
                 </>
               )}
+              {/* Scheduled summary in actuals mode */}
+              {modalActualsMode && editingShift.start_time && editingShift.end_time && (
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Planned: <strong className="text-foreground">{formatTime12WithPlus1(editingShift.start_time)} – {formatTime12WithPlus1(editingShift.end_time, editingShift.start_time)}</strong></span>
+                  </div>
+                  <span className="text-xs font-semibold text-foreground">{calcHours(editingShift.start_time, editingShift.end_time, editingShift.break_minutes || 0).toFixed(1)}h</span>
+                </div>
+              )}
 
               {/* --- Actuals (Post-Shift) Section --- */}
               {(editingShift.id || modalActualsMode) && (modalActualsMode || viewMode === "actuals") && (
