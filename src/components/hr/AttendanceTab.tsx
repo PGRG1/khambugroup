@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
 import { WeeklyScheduleView } from "./WeeklyScheduleView";
+import { TimeGridPicker } from "./TimeGridPicker";
 
 interface Props {
   shifts: HRShift[];
