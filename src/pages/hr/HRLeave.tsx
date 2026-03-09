@@ -23,9 +23,12 @@ export default function HRLeave() {
         leaveTypes={hr.leaveTypes}
         leaveBalances={hr.leaveBalances}
         employees={hr.employees}
+        leaveLedger={hr.leaveLedger}
         onSaveRequest={hr.upsertLeaveRequest}
         onSaveType={hr.upsertLeaveType}
         onSaveBalance={hr.upsertLeaveBalance}
+        onSaveLedger={hr.upsertLeaveLedger}
+        onDeleteLedger={hr.deleteLeaveLedger}
       />
     </div>
   );
