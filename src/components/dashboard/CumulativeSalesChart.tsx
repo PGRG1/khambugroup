@@ -127,7 +127,10 @@ export default function CumulativeSalesChart({ data }: Props) {
               <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 {...tooltipStyle}
-                formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, getMonthLabel(name)]}
+                formatter={(v: number, name: string) => {
+                  if (name.endsWith("_proj")) return null;
+                  return [`$${formatCurrency(v)}`, getMonthLabel(name)];
+                }}
                 labelFormatter={(l) => `Day ${l}`}
               />
               {cumulativeData.months.map((mk) => (
