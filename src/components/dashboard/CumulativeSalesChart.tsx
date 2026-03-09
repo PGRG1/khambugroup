@@ -69,24 +69,45 @@ export default function CumulativeSalesChart({ data }: Props) {
       dayMap.set(dayOfMonth, (dayMap.get(dayOfMonth) || 0) + r.totalSales);
     });
 
-    if (monthGroups.size === 0) return { rows: [], months: [] };
+    if (monthGroups.size === 0) return { rows: [], months: [], lastDayMap: new Map<string, number>() };
 
-    const maxDay = Math.max(...Array.from(monthGroups.values()).flatMap((m) => Array.from(m.keys())));
     const sortedMonths = [...monthGroups.keys()].sort();
-    const rows: Record<string, number | string>[] = [];
+
+    // Find last actual data day per month
+    const lastDayMap = new Map<string, number>();
+    sortedMonths.forEach((mk) => {
+      const dayMap = monthGroups.get(mk)!;
+      lastDayMap.set(mk, Math.max(...Array.from(dayMap.keys())));
+    });
+
+    const maxDay = 31;
+    const rows: Record<string, number | undefined | string>[] = [];
 
     for (let d = 1; d <= maxDay; d++) {
-      const row: Record<string, number | string> = { day: d };
+      const row: Record<string, number | undefined | string> = { day: d };
       sortedMonths.forEach((mk) => {
         const dayMap = monthGroups.get(mk)!;
+        const lastDay = lastDayMap.get(mk)!;
         let cumSum = 0;
-        for (let i = 1; i <= d; i++) cumSum += dayMap.get(i) || 0;
-        if (cumSum > 0) row[mk] = cumSum;
+        for (let i = 1; i <= Math.min(d, lastDay); i++) cumSum += dayMap.get(i) || 0;
+
+        if (cumSum === 0) return;
+
+        if (d <= lastDay) {
+          row[mk] = cumSum;
+          if (d === lastDay) {
+            // Overlap point for seamless join
+            row[`${mk}_proj`] = cumSum;
+          }
+        } else {
+          // Projected: carry forward final cumulative value
+          row[`${mk}_proj`] = cumSum;
+        }
       });
       rows.push(row);
     }
 
-    return { rows, months: sortedMonths };
+    return { rows, months: sortedMonths, lastDayMap };
   }, [data]);
 
   if (allMonths.length === 0) return null;
