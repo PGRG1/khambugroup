@@ -434,9 +434,11 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
               onSelectEmployee={setSelectedEmployee}
               activeLeaveTypes={activeLeaveTypes}
               allBalances={leaveBalances}
-              allRequests={leaveRequests}
+              leaveLedger={leaveLedger}
               selectedYear={selectedYear}
               onEditBalance={(bal) => { setEditingBal(bal); setBalModalOpen(true); }}
+              onSaveLedger={onSaveLedger}
+              onDeleteLedger={onDeleteLedger}
               n={n}
             />
           )}
