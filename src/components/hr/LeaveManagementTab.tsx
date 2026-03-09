@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Check, X, Calendar, Users, TreePalm, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Check, X, Calendar, Users, TreePalm, Clock, AlertTriangle, List, LayoutGrid } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRLeaveRequest, HRLeaveType, HRLeaveBalance, HREmployee } from "@/hooks/useHRData";
 
@@ -49,6 +49,7 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [filterEmployee, setFilterEmployee] = useState<string>("all");
   const [filterVenue, setFilterVenue] = useState<string>("all");
+  const [balanceViewMode, setBalanceViewMode] = useState<"summary" | "detailed">("summary");
 
   const activeEmployees = employees.filter(e => e.status === "active");
   const venues = useMemo(() => [...new Set(activeEmployees.map(e => e.venue).filter(Boolean))].sort(), [activeEmployees]);
