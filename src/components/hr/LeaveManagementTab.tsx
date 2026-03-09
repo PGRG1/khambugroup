@@ -848,3 +848,50 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
   );
 }
 
+// Sub-header cells for the detailed balance table
+function DetailedSubHeaders() {
+  return (
+    <>
+      <th className="px-2 py-1 text-right text-[9px] font-medium text-muted-foreground uppercase border-r border-border/30 min-w-[55px]">Start</th>
+      <th className="px-2 py-1 text-right text-[9px] font-medium text-primary uppercase border-r border-border/30 min-w-[55px]">Accrued</th>
+      <th className="px-2 py-1 text-right text-[9px] font-medium text-destructive uppercase border-r border-border/30 min-w-[50px]">Used</th>
+      <th className="px-2 py-1 text-right text-[9px] font-bold uppercase border-r border-border min-w-[55px]">Bal</th>
+    </>
+  );
+}
+
+// Balance cells for each leave type per employee in detailed view
+function DetailedBalanceCells({ startingBal, accrued, used, currentBal, hasBal, onClick, n }: {
+  startingBal: number; accrued: number; used: number; currentBal: number; hasBal: boolean;
+  onClick: () => void; n: (v: number) => string;
+}) {
+  if (!hasBal) {
+    return (
+      <>
+        <td colSpan={4} className="px-2 py-2 text-center border-r border-border/40">
+          <button onClick={onClick} className="text-[10px] text-primary hover:underline">+ Set</button>
+        </td>
+      </>
+    );
+  }
+  return (
+    <>
+      <td className="px-2 py-2 text-right tabular-nums border-r border-border/30 cursor-pointer hover:bg-muted/30" onClick={onClick}>{n(startingBal)}</td>
+      <td className="px-2 py-2 text-right tabular-nums text-primary border-r border-border/30 cursor-pointer hover:bg-muted/30" onClick={onClick}>{accrued > 0 ? `+${n(accrued)}` : n(accrued)}</td>
+      <td className="px-2 py-2 text-right tabular-nums text-destructive border-r border-border/30 cursor-pointer hover:bg-muted/30" onClick={onClick}>{used > 0 ? `-${n(used)}` : n(used)}</td>
+      <td className={`px-2 py-2 text-right tabular-nums font-bold border-r border-border/40 cursor-pointer hover:bg-muted/30 ${currentBal <= 2 && startingBal > 0 ? "text-destructive" : ""}`} onClick={onClick}>{n(currentBal)}</td>
+    </>
+  );
+}
+
+// Grand total cells for detailed view
+function DetailedGrandTotalCells({ starting, accrued, used, current, n }: { starting: number; accrued: number; used: number; current: number; n: (v: number) => string }) {
+  return (
+    <>
+      <td className="px-2 py-2 text-right tabular-nums border-r border-border/30">{n(starting)}</td>
+      <td className="px-2 py-2 text-right tabular-nums text-primary border-r border-border/30">{accrued > 0 ? `+${n(accrued)}` : n(accrued)}</td>
+      <td className="px-2 py-2 text-right tabular-nums text-destructive border-r border-border/30">{used > 0 ? `-${n(used)}` : n(used)}</td>
+      <td className="px-2 py-2 text-right tabular-nums font-bold border-r border-border">{n(current)}</td>
+    </>
+  );
+}
