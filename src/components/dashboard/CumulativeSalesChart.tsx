@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
@@ -69,24 +69,45 @@ export default function CumulativeSalesChart({ data }: Props) {
       dayMap.set(dayOfMonth, (dayMap.get(dayOfMonth) || 0) + r.totalSales);
     });
 
-    if (monthGroups.size === 0) return { rows: [], months: [] };
+    if (monthGroups.size === 0) return { rows: [], months: [], lastDayMap: new Map<string, number>() };
 
-    const maxDay = Math.max(...Array.from(monthGroups.values()).flatMap((m) => Array.from(m.keys())));
     const sortedMonths = [...monthGroups.keys()].sort();
-    const rows: Record<string, number | string>[] = [];
+
+    // Find last actual data day per month
+    const lastDayMap = new Map<string, number>();
+    sortedMonths.forEach((mk) => {
+      const dayMap = monthGroups.get(mk)!;
+      lastDayMap.set(mk, Math.max(...Array.from(dayMap.keys())));
+    });
+
+    const maxDay = 31;
+    const rows: Record<string, number | undefined | string>[] = [];
 
     for (let d = 1; d <= maxDay; d++) {
-      const row: Record<string, number | string> = { day: d };
+      const row: Record<string, number | undefined | string> = { day: d };
       sortedMonths.forEach((mk) => {
         const dayMap = monthGroups.get(mk)!;
+        const lastDay = lastDayMap.get(mk)!;
         let cumSum = 0;
-        for (let i = 1; i <= d; i++) cumSum += dayMap.get(i) || 0;
-        if (cumSum > 0) row[mk] = cumSum;
+        for (let i = 1; i <= Math.min(d, lastDay); i++) cumSum += dayMap.get(i) || 0;
+
+        if (cumSum === 0) return;
+
+        if (d <= lastDay) {
+          row[mk] = cumSum;
+          if (d === lastDay) {
+            // Overlap point for seamless join
+            row[`${mk}_proj`] = cumSum;
+          }
+        } else {
+          // Projected: carry forward final cumulative value
+          row[`${mk}_proj`] = cumSum;
+        }
       });
       rows.push(row);
     }
 
-    return { rows, months: sortedMonths };
+    return { rows, months: sortedMonths, lastDayMap };
   }, [data]);
 
   if (allMonths.length === 0) return null;
@@ -106,19 +127,35 @@ export default function CumulativeSalesChart({ data }: Props) {
               <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 {...tooltipStyle}
-                formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, getMonthLabel(name)]}
+                formatter={(v: number, name: string) => {
+                  if (name.endsWith("_proj")) return null;
+                  return [`$${formatCurrency(v)}`, getMonthLabel(name)];
+                }}
                 labelFormatter={(l) => `Day ${l}`}
               />
               {cumulativeData.months.map((mk) => (
-                <Line
-                  key={mk}
-                  dataKey={mk}
-                  type="monotone"
-                  stroke={colorMap.get(mk)}
-                  strokeWidth={2}
-                  dot={false}
-                  hide={isMonthHidden(mk)}
-                />
+                <React.Fragment key={mk}>
+                  <Line
+                    dataKey={mk}
+                    type="monotone"
+                    stroke={colorMap.get(mk)}
+                    strokeWidth={2}
+                    dot={false}
+                    hide={isMonthHidden(mk)}
+                    connectNulls={false}
+                  />
+                  <Line
+                    dataKey={`${mk}_proj`}
+                    type="monotone"
+                    stroke={colorMap.get(mk)}
+                    strokeWidth={1.5}
+                    strokeDasharray="5 3"
+                    dot={false}
+                    hide={isMonthHidden(mk)}
+                    connectNulls={false}
+                    legendType="none"
+                  />
+                </React.Fragment>
               ))}
             </LineChart>
           </ResponsiveContainer>
