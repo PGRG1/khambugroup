@@ -319,33 +319,24 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
             <div className="border border-border rounded-lg overflow-auto">
               <table className="w-full text-[11px]">
                 <thead>
-                  {/* Group headers */}
                   <tr className="border-b border-border bg-muted/60">
-                    <th rowSpan={2} className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border sticky left-0 bg-muted/60 min-w-[40px]">#</th>
-                    <th rowSpan={2} className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border sticky left-[40px] bg-muted/60 min-w-[140px]">Employee</th>
-                    <th rowSpan={2} className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border min-w-[80px]">Venue</th>
+                    <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border sticky left-0 bg-muted/60 min-w-[40px]">#</th>
+                    <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border sticky left-[40px] bg-muted/60 min-w-[140px]">Employee</th>
+                    <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border min-w-[80px]">Venue</th>
                     {activeLeaveTypes.map(lt => (
-                      <th key={lt.id} colSpan={4} className="px-2 py-1.5 text-center font-bold text-[10px] uppercase tracking-wider border-r border-border bg-muted/40">
+                      <th key={lt.id} className="px-3 py-2 text-center font-bold text-[10px] uppercase tracking-wider border-r border-border min-w-[60px]">
                         <span className="text-primary">{leaveCode(lt.name)}</span>
-                        <span className="text-muted-foreground font-normal ml-1">({lt.name})</span>
                       </th>
                     ))}
-                    <th colSpan={4} className="px-2 py-1.5 text-center font-bold text-[10px] uppercase tracking-wider bg-muted/70">
+                    <th className="px-3 py-2 text-center font-bold text-[10px] uppercase tracking-wider bg-muted/70 min-w-[60px]">
                       TOTAL
                     </th>
-                  </tr>
-                  {/* Sub headers */}
-                  <tr className="border-b border-border bg-muted/40">
-                    {activeLeaveTypes.map(lt => (
-                      <SubHeaders key={lt.id} />
-                    ))}
-                    <SubHeaders />
                   </tr>
                 </thead>
                 <tbody>
                   {balanceRows.length === 0 ? (
                     <tr>
-                      <td colSpan={3 + activeLeaveTypes.length * 4 + 4} className="text-center text-muted-foreground py-8">
+                      <td colSpan={3 + activeLeaveTypes.length + 1} className="text-center text-muted-foreground py-8">
                         <Users className="h-6 w-6 mx-auto mb-2 opacity-40" />
                         No employees match filter
                       </td>
@@ -365,18 +356,10 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
                             {activeLeaveTypes.map(lt => {
                               const data = row.byType[lt.id];
                               const hasBal = !!data.balance;
-                              return (
-                                <BalanceCells
-                                  key={lt.id}
-                                  startingBal={data.startingBal}
-                                  accrued={data.accrued}
-                                  used={data.used}
-                                  currentBal={data.currentBal}
-                                  hasBal={hasBal}
-                                  onClick={() => {
-                                    if (data.balance) {
-                                      setEditingBal({ ...data.balance });
-                                    } else {
+                              if (!hasBal) {
+                                return (
+                                  <td key={lt.id} className="px-2 py-2 text-center border-r border-border/40">
+                                    <button onClick={() => {
                                       setEditingBal({
                                         employee_id: emp.id,
                                         leave_type_id: lt.id,
@@ -388,18 +371,25 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
                                         adjustments: 0,
                                         adjustment_notes: "",
                                       } as any);
-                                    }
+                                      setBalModalOpen(true);
+                                    }} className="text-[10px] text-primary hover:underline">+ Set</button>
+                                  </td>
+                                );
+                              }
+                              return (
+                                <td
+                                  key={lt.id}
+                                  className={`px-2 py-2 text-center tabular-nums font-semibold border-r border-border/40 cursor-pointer hover:bg-muted/30 ${data.currentBal <= 2 && data.startingBal > 0 ? "text-destructive" : ""}`}
+                                  onClick={() => {
+                                    setEditingBal({ ...data.balance! });
                                     setBalModalOpen(true);
                                   }}
-                                  n={n}
-                                />
+                                >
+                                  {n(data.currentBal)}
+                                </td>
                               );
                             })}
-                            {/* Totals */}
-                            <td className="px-2 py-2 text-right tabular-nums font-medium bg-muted/20">{n(row.totalStarting)}</td>
-                            <td className="px-2 py-2 text-right tabular-nums font-medium text-primary bg-muted/20">{row.totalAccrued > 0 ? `+${n(row.totalAccrued)}` : n(row.totalAccrued)}</td>
-                            <td className="px-2 py-2 text-right tabular-nums font-medium text-destructive bg-muted/20">{row.totalUsed > 0 ? `-${n(row.totalUsed)}` : n(row.totalUsed)}</td>
-                            <td className={`px-2 py-2 text-right tabular-nums font-bold bg-muted/20 ${row.totalCurrent <= 2 && row.totalStarting > 0 ? "text-destructive" : ""}`}>
+                            <td className={`px-2 py-2 text-center tabular-nums font-bold bg-muted/20 ${row.totalCurrent <= 2 && row.totalStarting > 0 ? "text-destructive" : ""}`}>
                               {n(row.totalCurrent)}
                             </td>
                           </tr>
@@ -409,23 +399,12 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
                       <tr className="bg-muted/50 font-bold border-t-2 border-border">
                         <td colSpan={3} className="px-3 py-2 text-right text-[10px] uppercase tracking-wider sticky left-0 bg-muted/50">Grand Total</td>
                         {activeLeaveTypes.map(lt => {
-                          const totals = balanceRows.reduce((acc, r) => {
-                            const d = r.byType[lt.id];
-                            return {
-                              starting: acc.starting + d.startingBal,
-                              accrued: acc.accrued + d.accrued,
-                              used: acc.used + d.used,
-                              current: acc.current + d.currentBal,
-                            };
-                          }, { starting: 0, accrued: 0, used: 0, current: 0 });
+                          const total = balanceRows.reduce((s, r) => s + r.byType[lt.id].currentBal, 0);
                           return (
-                            <GrandTotalCells key={lt.id} {...totals} n={n} />
+                            <td key={lt.id} className="px-2 py-2 text-center tabular-nums font-bold border-r border-border/40">{n(total)}</td>
                           );
                         })}
-                        <td className="px-2 py-2 text-right tabular-nums bg-muted/40">{n(balanceRows.reduce((s, r) => s + r.totalStarting, 0))}</td>
-                        <td className="px-2 py-2 text-right tabular-nums text-primary bg-muted/40">+{n(balanceRows.reduce((s, r) => s + r.totalAccrued, 0))}</td>
-                        <td className="px-2 py-2 text-right tabular-nums text-destructive bg-muted/40">-{n(balanceRows.reduce((s, r) => s + r.totalUsed, 0))}</td>
-                        <td className="px-2 py-2 text-right tabular-nums bg-muted/40">{n(balanceRows.reduce((s, r) => s + r.totalCurrent, 0))}</td>
+                        <td className="px-2 py-2 text-center tabular-nums font-bold bg-muted/40">{n(balanceRows.reduce((s, r) => s + r.totalCurrent, 0))}</td>
                       </tr>
                     </>
                   )}
@@ -434,12 +413,8 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
             </div>
           )}
 
-          {/* Legend */}
           <div className="flex gap-4 text-[10px] text-muted-foreground flex-wrap">
-            <span><span className="font-medium text-foreground">Starting</span> = Carried Forward + Base Entitlement</span>
-            <span><span className="font-medium text-primary">Accrued</span> = Adjustments (SH added, bonus days)</span>
-            <span><span className="font-medium text-destructive">Used</span> = Leave days taken</span>
-            <span><span className="font-bold text-foreground">Balance</span> = Starting + Accrued − Used</span>
+            <span><span className="font-bold text-foreground">Balance</span> = Carried Forward + Entitlement + Accrued − Used</span>
             <span className="italic">Click any cell to edit</span>
           </div>
         </TabsContent>
@@ -727,50 +702,3 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
   );
 }
 
-// Sub-header cells for the balance table
-function SubHeaders() {
-  return (
-    <>
-      <th className="px-2 py-1 text-right text-[9px] font-medium text-muted-foreground uppercase border-r border-border/30 min-w-[55px]">Start</th>
-      <th className="px-2 py-1 text-right text-[9px] font-medium text-primary uppercase border-r border-border/30 min-w-[55px]">Accrued</th>
-      <th className="px-2 py-1 text-right text-[9px] font-medium text-destructive uppercase border-r border-border/30 min-w-[50px]">Used</th>
-      <th className="px-2 py-1 text-right text-[9px] font-bold uppercase border-r border-border min-w-[55px]">Bal</th>
-    </>
-  );
-}
-
-// Balance cells for each leave type per employee
-function BalanceCells({ startingBal, accrued, used, currentBal, hasBal, onClick, n }: {
-  startingBal: number; accrued: number; used: number; currentBal: number; hasBal: boolean;
-  onClick: () => void; n: (v: number) => string;
-}) {
-  if (!hasBal) {
-    return (
-      <>
-        <td colSpan={4} className="px-2 py-2 text-center border-r border-border/40">
-          <button onClick={onClick} className="text-[10px] text-primary hover:underline">+ Set</button>
-        </td>
-      </>
-    );
-  }
-  return (
-    <>
-      <td className="px-2 py-2 text-right tabular-nums border-r border-border/30 cursor-pointer hover:bg-muted/30" onClick={onClick}>{n(startingBal)}</td>
-      <td className="px-2 py-2 text-right tabular-nums text-primary border-r border-border/30 cursor-pointer hover:bg-muted/30" onClick={onClick}>{accrued > 0 ? `+${n(accrued)}` : n(accrued)}</td>
-      <td className="px-2 py-2 text-right tabular-nums text-destructive border-r border-border/30 cursor-pointer hover:bg-muted/30" onClick={onClick}>{used > 0 ? `-${n(used)}` : n(used)}</td>
-      <td className={`px-2 py-2 text-right tabular-nums font-bold border-r border-border/40 cursor-pointer hover:bg-muted/30 ${currentBal <= 2 && startingBal > 0 ? "text-destructive" : ""}`} onClick={onClick}>{n(currentBal)}</td>
-    </>
-  );
-}
-
-// Grand total cells
-function GrandTotalCells({ starting, accrued, used, current, n }: { starting: number; accrued: number; used: number; current: number; n: (v: number) => string }) {
-  return (
-    <>
-      <td className="px-2 py-2 text-right tabular-nums border-r border-border/30">{n(starting)}</td>
-      <td className="px-2 py-2 text-right tabular-nums text-primary border-r border-border/30">{accrued > 0 ? `+${n(accrued)}` : n(accrued)}</td>
-      <td className="px-2 py-2 text-right tabular-nums text-destructive border-r border-border/30">{used > 0 ? `-${n(used)}` : n(used)}</td>
-      <td className="px-2 py-2 text-right tabular-nums font-bold border-r border-border">{n(current)}</td>
-    </>
-  );
-}
