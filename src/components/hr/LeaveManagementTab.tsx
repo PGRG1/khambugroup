@@ -413,12 +413,8 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
             </div>
           )}
 
-          {/* Legend */}
           <div className="flex gap-4 text-[10px] text-muted-foreground flex-wrap">
-            <span><span className="font-medium text-foreground">Starting</span> = Carried Forward + Base Entitlement</span>
-            <span><span className="font-medium text-primary">Accrued</span> = Adjustments (SH added, bonus days)</span>
-            <span><span className="font-medium text-destructive">Used</span> = Leave days taken</span>
-            <span><span className="font-bold text-foreground">Balance</span> = Starting + Accrued − Used</span>
+            <span><span className="font-bold text-foreground">Balance</span> = Carried Forward + Entitlement + Accrued − Used</span>
             <span className="italic">Click any cell to edit</span>
           </div>
         </TabsContent>
