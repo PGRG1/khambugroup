@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
