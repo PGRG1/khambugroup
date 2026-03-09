@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +12,9 @@ const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 export type ViewMode = "monthly" | "quarterly" | "semi-annual" | "annual";
 
 export interface PeriodOption {
-  id: string;    // unique key e.g. "2025-3" for Mar 2025, "2025-Q1", "2025-H1", "2025"
-  label: string; // display label
-  months: number[]; // 1-12
+  id: string;
+  label: string;
+  months: number[];
   year: number;
 }
 
@@ -54,24 +54,66 @@ interface Props {
 export function PLPeriodSelector({ viewMode, selectedPeriods, onViewModeChange, onPeriodsChange }: Props) {
   const [open, setOpen] = useState(false);
 
-  // All available options across multiple years
+  // --- Drag-to-select state ---
+  const isDragging = useRef(false);
+  const dragMode = useRef<"add" | "remove">("add");
+  const dragTouched = useRef(new Set<string>());
+  const startSnapshot = useRef<PeriodOption[]>([]);
+
   const allOptions = useMemo(() => {
     return YEAR_OPTIONS.flatMap(y => getOptionsForView(viewMode, y));
   }, [viewMode]);
 
+  const allOptionsMap = useMemo(() => {
+    const map = new Map<string, PeriodOption>();
+    allOptions.forEach(o => map.set(o.id, o));
+    return map;
+  }, [allOptions]);
+
   const selectedIds = new Set(selectedPeriods.map(p => p.id));
 
-  const togglePeriod = (opt: PeriodOption) => {
-    if (selectedIds.has(opt.id)) {
-      onPeriodsChange(selectedPeriods.filter(p => p.id !== opt.id));
+  const sortPeriods = useCallback((periods: PeriodOption[]) => {
+    return [...periods].sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.months[0] - b.months[0];
+    });
+  }, []);
+
+  const applyDrag = useCallback(() => {
+    const snapshot = startSnapshot.current;
+    const touched = dragTouched.current;
+    const mode = dragMode.current;
+
+    let result: PeriodOption[];
+    if (mode === "add") {
+      const existing = new Set(snapshot.map(p => p.id));
+      const toAdd = [...touched].filter(id => !existing.has(id)).map(id => allOptionsMap.get(id)!).filter(Boolean);
+      result = [...snapshot, ...toAdd];
     } else {
-      const newPeriods = [...selectedPeriods, opt].sort((a, b) => {
-        if (a.year !== b.year) return a.year - b.year;
-        return a.months[0] - b.months[0];
-      });
-      onPeriodsChange(newPeriods);
+      result = snapshot.filter(p => !touched.has(p.id));
     }
-  };
+    onPeriodsChange(sortPeriods(result));
+  }, [allOptionsMap, onPeriodsChange, sortPeriods]);
+
+  const handlePointerDown = useCallback((opt: PeriodOption) => {
+    isDragging.current = true;
+    dragTouched.current = new Set([opt.id]);
+    startSnapshot.current = [...selectedPeriods];
+    // If currently selected → we're removing; otherwise adding
+    dragMode.current = selectedIds.has(opt.id) ? "remove" : "add";
+    applyDrag();
+  }, [selectedPeriods, selectedIds, applyDrag]);
+
+  const handlePointerEnter = useCallback((opt: PeriodOption) => {
+    if (!isDragging.current) return;
+    dragTouched.current.add(opt.id);
+    applyDrag();
+  }, [applyDrag]);
+
+  const handlePointerUp = useCallback(() => {
+    isDragging.current = false;
+    dragTouched.current.clear();
+  }, []);
 
   const removePeriod = (id: string) => {
     onPeriodsChange(selectedPeriods.filter(p => p.id !== id));
@@ -80,7 +122,6 @@ export function PLPeriodSelector({ viewMode, selectedPeriods, onViewModeChange, 
   const handleViewModeChange = (v: string) => {
     const newMode = v as ViewMode;
     onViewModeChange(newMode);
-    // Reset selection — pick current period in the new mode
     const now = new Date();
     const opts = getOptionsForView(newMode, now.getFullYear());
     const currentMonth = now.getMonth() + 1;
@@ -97,7 +138,6 @@ export function PLPeriodSelector({ viewMode, selectedPeriods, onViewModeChange, 
     onPeriodsChange([defaultOpt]);
   };
 
-  // Group options by year for the dropdown
   const optionsByYear = useMemo(() => {
     const map = new Map<number, PeriodOption[]>();
     for (const opt of allOptions) {
@@ -107,11 +147,8 @@ export function PLPeriodSelector({ viewMode, selectedPeriods, onViewModeChange, 
     return [...map.entries()].sort(([a], [b]) => a - b);
   }, [allOptions]);
 
-  const viewLabel = viewMode === "monthly" ? "Monthly" : viewMode === "quarterly" ? "Quarterly" : viewMode === "semi-annual" ? "Semi-Annual" : "Annual";
-
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {/* View mode selector */}
       <Select value={viewMode} onValueChange={handleViewModeChange}>
         <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
@@ -122,7 +159,6 @@ export function PLPeriodSelector({ viewMode, selectedPeriods, onViewModeChange, 
         </SelectContent>
       </Select>
 
-      {/* Period multi-select */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" className="h-auto min-h-9 py-1.5 px-3 flex items-center gap-2 max-w-[500px]">
@@ -144,7 +180,12 @@ export function PLPeriodSelector({ viewMode, selectedPeriods, onViewModeChange, 
             <ChevronDown className="h-4 w-4 shrink-0 opacity-50 ml-1" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-3 max-h-[340px] overflow-y-auto" align="start">
+        <PopoverContent
+          className="w-auto p-3 max-h-[340px] overflow-y-auto select-none"
+          align="start"
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
           <div className="space-y-3">
             {optionsByYear.map(([year, opts]) => (
               <div key={year}>
@@ -155,8 +196,12 @@ export function PLPeriodSelector({ viewMode, selectedPeriods, onViewModeChange, 
                     return (
                       <button
                         key={opt.id}
-                        onClick={() => togglePeriod(opt)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          handlePointerDown(opt);
+                        }}
+                        onPointerEnter={() => handlePointerEnter(opt)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border touch-none ${
                           isSelected
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-card hover:bg-secondary border-border text-foreground/70 hover:text-foreground"
@@ -176,7 +221,6 @@ export function PLPeriodSelector({ viewMode, selectedPeriods, onViewModeChange, 
   );
 }
 
-// Helper to get default initial period
 export function getDefaultPeriod(viewMode: ViewMode): PeriodOption[] {
   const now = new Date();
   const year = now.getFullYear();
