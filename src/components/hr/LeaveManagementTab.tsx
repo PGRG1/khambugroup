@@ -9,16 +9,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Check, X, Calendar, Users, TreePalm, Clock, AlertTriangle, User, LayoutGrid, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import type { HRLeaveRequest, HRLeaveType, HRLeaveBalance, HREmployee } from "@/hooks/useHRData";
+import type { HRLeaveRequest, HRLeaveType, HRLeaveBalance, HREmployee, HRLeaveLedger } from "@/hooks/useHRData";
 
 interface Props {
   leaveRequests: HRLeaveRequest[];
   leaveTypes: HRLeaveType[];
   leaveBalances: HRLeaveBalance[];
   employees: HREmployee[];
+  leaveLedger: HRLeaveLedger[];
   onSaveRequest: (r: Partial<HRLeaveRequest>) => Promise<boolean>;
   onSaveType: (t: Partial<HRLeaveType>) => Promise<boolean>;
   onSaveBalance: (b: Partial<HRLeaveBalance>) => Promise<boolean>;
+  onSaveLedger: (e: Partial<HRLeaveLedger>) => Promise<boolean>;
+  onDeleteLedger: (id: string) => Promise<boolean>;
 }
 
 const STATUS_COLORS: Record<string, string> = {
