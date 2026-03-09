@@ -9,16 +9,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Check, X, Calendar, Users, TreePalm, Clock, AlertTriangle, User, LayoutGrid, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import type { HRLeaveRequest, HRLeaveType, HRLeaveBalance, HREmployee } from "@/hooks/useHRData";
+import type { HRLeaveRequest, HRLeaveType, HRLeaveBalance, HREmployee, HRLeaveLedger } from "@/hooks/useHRData";
 
 interface Props {
   leaveRequests: HRLeaveRequest[];
   leaveTypes: HRLeaveType[];
   leaveBalances: HRLeaveBalance[];
   employees: HREmployee[];
+  leaveLedger: HRLeaveLedger[];
   onSaveRequest: (r: Partial<HRLeaveRequest>) => Promise<boolean>;
   onSaveType: (t: Partial<HRLeaveType>) => Promise<boolean>;
   onSaveBalance: (b: Partial<HRLeaveBalance>) => Promise<boolean>;
+  onSaveLedger: (e: Partial<HRLeaveLedger>) => Promise<boolean>;
+  onDeleteLedger: (id: string) => Promise<boolean>;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -38,7 +41,7 @@ function leaveCode(name: string): string {
   return name.slice(0, 3).toUpperCase();
 }
 
-export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, employees, onSaveRequest, onSaveType, onSaveBalance }: Props) {
+export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, employees, leaveLedger, onSaveRequest, onSaveType, onSaveBalance, onSaveLedger, onDeleteLedger }: Props) {
   const [reqModalOpen, setReqModalOpen] = useState(false);
   const [typeModalOpen, setTypeModalOpen] = useState(false);
   const [balModalOpen, setBalModalOpen] = useState(false);
@@ -431,9 +434,11 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
               onSelectEmployee={setSelectedEmployee}
               activeLeaveTypes={activeLeaveTypes}
               allBalances={leaveBalances}
-              allRequests={leaveRequests}
+              leaveLedger={leaveLedger}
               selectedYear={selectedYear}
               onEditBalance={(bal) => { setEditingBal(bal); setBalModalOpen(true); }}
+              onSaveLedger={onSaveLedger}
+              onDeleteLedger={onDeleteLedger}
               n={n}
             />
           )}
@@ -727,16 +732,18 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
   );
 }
 
-// Per-employee ledger view — spreadsheet-style per leave type
+// Per-employee ledger view — Accrued / Taken / Running Balance per leave type
 function EmployeeLedgerView({
   employees,
   selectedEmployeeId,
   onSelectEmployee,
   activeLeaveTypes,
   allBalances,
-  allRequests,
+  leaveLedger,
   selectedYear,
   onEditBalance,
+  onSaveLedger,
+  onDeleteLedger,
   n,
 }: {
   employees: HREmployee[];
@@ -744,11 +751,16 @@ function EmployeeLedgerView({
   onSelectEmployee: (id: string) => void;
   activeLeaveTypes: HRLeaveType[];
   allBalances: HRLeaveBalance[];
-  allRequests: HRLeaveRequest[];
+  leaveLedger: HRLeaveLedger[];
   selectedYear: number;
   onEditBalance: (bal: Partial<HRLeaveBalance>) => void;
+  onSaveLedger: (e: Partial<HRLeaveLedger>) => Promise<boolean>;
+  onDeleteLedger: (id: string) => Promise<boolean>;
   n: (v: number) => string;
 }) {
+  const [addingEntry, setAddingEntry] = useState<{ leaveTypeId: string; year: number } | null>(null);
+  const [newEntry, setNewEntry] = useState({ entry_date: "", description: "", accrued: 0, taken: 0 });
+
   const emp = employees.find(e => e.id === selectedEmployeeId);
   const empIdx = employees.findIndex(e => e.id === selectedEmployeeId);
   const LEDGER_ROWS = 10;
@@ -768,12 +780,31 @@ function EmployeeLedgerView({
   }
 
   const empBalances = allBalances.filter(b => b.employee_id === emp.id);
-  const empRequests = allRequests.filter(r => r.employee_id === emp.id);
+  const empLedger = leaveLedger.filter(l => l.employee_id === emp.id);
 
   // Find all years
   const balanceYears = [...new Set(empBalances.map(b => b.year))];
-  const requestYears = [...new Set(empRequests.map(r => parseInt(r.start_date.slice(0, 4))))];
-  const allYears = [...new Set([...balanceYears, ...requestYears, selectedYear])].sort((a, b) => b - a);
+  const ledgerYears = [...new Set(empLedger.map(l => l.year))];
+  const allYears = [...new Set([...balanceYears, ...ledgerYears, selectedYear])].sort((a, b) => b - a);
+
+  const handleAddEntry = async (leaveTypeId: string, year: number) => {
+    if (!newEntry.entry_date && !newEntry.description) return;
+    const ok = await onSaveLedger({
+      employee_id: emp.id,
+      leave_type_id: leaveTypeId,
+      year,
+      entry_date: newEntry.entry_date || new Date().toISOString().slice(0, 10),
+      description: newEntry.description,
+      accrued: newEntry.accrued,
+      taken: newEntry.taken,
+      sort_order: 0,
+    });
+    if (ok) {
+      setAddingEntry(null);
+      setNewEntry({ entry_date: "", description: "", accrued: 0, taken: 0 });
+      toast({ title: "Entry added" });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -811,8 +842,7 @@ function EmployeeLedgerView({
       {/* Per-year sections */}
       {allYears.map(year => {
         const yearBals = empBalances.filter(b => b.year === year);
-        const yearReqs = empRequests.filter(r => r.start_date.startsWith(String(year)));
-        const hasData = yearBals.length > 0;
+        const hasData = yearBals.length > 0 || empLedger.some(l => l.year === year);
 
         return (
           <div key={year} className="space-y-5">
@@ -837,28 +867,25 @@ function EmployeeLedgerView({
               const bal = yearBals.find(b => b.leave_type_id === lt.id);
               const carried = (bal as any)?.carried_forward || 0;
               const base = bal?.total_days || 0;
-              const adjustments = (bal as any)?.adjustments || 0;
-              const startingBalance = carried + base + adjustments;
-              const typeReqs = yearReqs
-                .filter(r => r.leave_type_id === lt.id && r.status === "approved")
-                .sort((a, b) => a.start_date.localeCompare(b.start_date));
+              const openingBalance = carried + base;
 
-              if (!bal) return null;
+              // Get ledger entries for this employee/type/year
+              const entries = empLedger
+                .filter(l => l.leave_type_id === lt.id && l.year === year)
+                .sort((a, b) => a.entry_date.localeCompare(b.entry_date) || a.sort_order - b.sort_order);
 
-              // Build ledger entries with running balance
-              const ledgerEntries: { date: string; reason: string; days: number; runningBalance: number }[] = [];
-              let running = startingBalance;
-              typeReqs.forEach(r => {
-                running -= r.days;
-                ledgerEntries.push({
-                  date: r.start_date,
-                  reason: r.reason || r.leave_type?.name || "Leave",
-                  days: r.days,
-                  runningBalance: running,
-                });
+              // If no balance and no ledger entries, skip
+              if (!bal && entries.length === 0) return null;
+
+              // Build running balance
+              let running = openingBalance;
+              const ledgerRows = entries.map(e => {
+                running += Number(e.accrued) - Number(e.taken);
+                return { ...e, runningBalance: running };
               });
+              const finalBalance = running;
 
-              const code = leaveCode(lt.name);
+              const isAdding = addingEntry?.leaveTypeId === lt.id && addingEntry?.year === year;
 
               return (
                 <div key={lt.id} className="space-y-2">
@@ -867,20 +894,25 @@ function EmployeeLedgerView({
                     <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b-2 border-primary pb-0.5">
                       {lt.name.toUpperCase()}
                     </h4>
-                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => onEditBalance({ ...bal! })}>
-                      <Pencil className="h-3 w-3" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
+                        onClick={() => { setAddingEntry({ leaveTypeId: lt.id, year }); setNewEntry({ entry_date: "", description: "", accrued: 0, taken: 0 }); }}>
+                        <Plus className="h-3 w-3 mr-0.5" /> Add Entry
+                      </Button>
+                      {bal && (
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onEditBalance({ ...bal })}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Starting balance */}
+                  {/* Opening balance */}
                   <div className="flex items-center gap-3 text-xs">
-                    <span className="font-semibold text-foreground">Starting Balance</span>
+                    <span className="font-semibold text-foreground">Opening Balance</span>
                     <span className="px-3 py-0.5 bg-primary/10 text-primary font-bold rounded text-sm tabular-nums">
-                      {startingBalance}
+                      {openingBalance.toFixed(2)}
                     </span>
-                    {carried > 0 && (
-                      <span className="text-[10px] text-muted-foreground">(Carried: {carried} + Entitlement: {base}{adjustments > 0 ? ` + Adj: ${adjustments}` : ""})</span>
-                    )}
                   </div>
 
                   {/* Ledger table */}
@@ -890,36 +922,81 @@ function EmployeeLedgerView({
                         <tr className="bg-muted/60 border-b border-border">
                           <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[40px]">#</th>
                           <th className="px-3 py-1.5 text-left font-semibold text-[10px] uppercase tracking-wider w-[110px]">Date</th>
-                          <th className="px-3 py-1.5 text-left font-semibold text-[10px] uppercase tracking-wider">Leave Type</th>
-                          <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[60px]">Days</th>
-                          <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[100px]">Running Balance</th>
+                          <th className="px-3 py-1.5 text-left font-semibold text-[10px] uppercase tracking-wider">Description</th>
+                          <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[70px] bg-accent/40">Accrued</th>
+                          <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[70px] bg-accent/40">Taken</th>
+                          <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[90px] bg-accent/20">Balance</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {Array.from({ length: LEDGER_ROWS }).map((_, idx) => {
-                          const entry = ledgerEntries[idx];
+                        {Array.from({ length: Math.max(LEDGER_ROWS, ledgerRows.length) }).map((_, idx) => {
+                          const entry = ledgerRows[idx];
                           const isFilledRow = !!entry;
+                          const lastBalance = idx === 0 ? openingBalance : (ledgerRows[Math.min(idx - 1, ledgerRows.length - 1)]?.runningBalance ?? openingBalance);
+                          const emptyBalance = ledgerRows.length > 0 ? finalBalance : openingBalance;
+
                           return (
                             <tr
                               key={idx}
-                              className={`border-b border-border/40 ${isFilledRow ? "bg-accent/30" : ""}`}
+                              className={`border-b border-border/40 ${isFilledRow ? "bg-accent/20" : ""} group`}
                             >
                               <td className="px-3 py-1.5 text-center tabular-nums text-muted-foreground font-medium">{idx + 1}</td>
                               <td className="px-3 py-1.5 tabular-nums text-primary font-medium">
-                                {entry?.date ? new Date(entry.date + "T00:00:00").toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }) : ""}
+                                {entry ? new Date(entry.entry_date + "T00:00:00").toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }) : ""}
                               </td>
                               <td className="px-3 py-1.5 text-primary">
-                                {entry?.reason || ""}
+                                {entry?.description || ""}
+                                {entry && (
+                                  <button
+                                    className="ml-1 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity"
+                                    onClick={async () => { await onDeleteLedger(entry.id); }}
+                                    title="Delete entry"
+                                  >
+                                    <X className="h-3 w-3 inline" />
+                                  </button>
+                                )}
                               </td>
-                              <td className="px-3 py-1.5 text-center tabular-nums font-medium">
-                                {entry ? entry.days : 0}
+                              <td className="px-3 py-1.5 text-center tabular-nums font-medium bg-accent/10">
+                                {entry ? Number(entry.accrued).toFixed(2) : "0.00"}
                               </td>
-                              <td className="px-3 py-1.5 text-center tabular-nums font-bold">
-                                {entry ? entry.runningBalance : (idx === 0 && !entry ? startingBalance : (ledgerEntries.length > 0 ? ledgerEntries[ledgerEntries.length - 1].runningBalance : startingBalance))}
+                              <td className="px-3 py-1.5 text-center tabular-nums font-medium bg-accent/10">
+                                {entry ? Number(entry.taken) : 0}
+                              </td>
+                              <td className="px-3 py-1.5 text-center tabular-nums font-bold bg-accent/5">
+                                {isFilledRow ? entry.runningBalance.toFixed(2) : emptyBalance.toFixed(2)}
                               </td>
                             </tr>
                           );
                         })}
+
+                        {/* Inline add row */}
+                        {isAdding && (
+                          <tr className="border-b border-border bg-primary/5">
+                            <td className="px-3 py-1 text-center text-muted-foreground">+</td>
+                            <td className="px-1 py-1">
+                              <Input type="date" className="h-7 text-xs" value={newEntry.entry_date} onChange={e => setNewEntry(p => ({ ...p, entry_date: e.target.value }))} />
+                            </td>
+                            <td className="px-1 py-1">
+                              <Input className="h-7 text-xs" placeholder="Description..." value={newEntry.description} onChange={e => setNewEntry(p => ({ ...p, description: e.target.value }))} />
+                            </td>
+                            <td className="px-1 py-1">
+                              <Input type="number" step="0.25" className="h-7 text-xs text-center" value={newEntry.accrued} onChange={e => setNewEntry(p => ({ ...p, accrued: Number(e.target.value) }))} />
+                            </td>
+                            <td className="px-1 py-1">
+                              <Input type="number" step="1" className="h-7 text-xs text-center" value={newEntry.taken} onChange={e => setNewEntry(p => ({ ...p, taken: Number(e.target.value) }))} />
+                            </td>
+                            <td className="px-1 py-1 text-center">
+                              <div className="flex gap-1 justify-center">
+                                <Button size="sm" className="h-6 px-2 text-[10px]" onClick={() => handleAddEntry(lt.id, year)}>
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-6 px-1 text-[10px]" onClick={() => setAddingEntry(null)}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
