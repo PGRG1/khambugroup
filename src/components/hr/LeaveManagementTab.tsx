@@ -284,7 +284,6 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
           <TabsTrigger value="types">Leave Types</TabsTrigger>
         </TabsList>
 
-        {/* OVERVIEW TAB - Spreadsheet-style balance tracker */}
         <TabsContent value="overview" className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
             <Select value={filterVenue} onValueChange={setFilterVenue}>
@@ -307,7 +306,27 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground ml-auto">{filteredEmployees.length} employees</p>
+            <div className="flex items-center gap-1 ml-auto border border-border rounded-lg p-0.5">
+              <button
+                onClick={() => setBalanceViewMode("summary")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors ${
+                  balanceViewMode === "summary" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutGrid className="h-3 w-3" />
+                Summary
+              </button>
+              <button
+                onClick={() => setBalanceViewMode("detailed")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors ${
+                  balanceViewMode === "detailed" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <List className="h-3 w-3" />
+                Detailed
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">{filteredEmployees.length} employees</p>
           </div>
 
           {activeLeaveTypes.length === 0 ? (
@@ -316,7 +335,8 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
                 <p>No leave types configured. Add leave types first (e.g. SH, AL, IOU).</p>
               </CardContent>
             </Card>
-          ) : (
+          ) : balanceViewMode === "summary" ? (
+            /* SUMMARY VIEW - Balance only per leave type */
             <div className="border border-border rounded-lg overflow-auto">
               <table className="w-full text-[11px]">
                 <thead>
@@ -412,10 +432,135 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
                 </tbody>
               </table>
             </div>
+          ) : (
+            /* DETAILED VIEW - Full breakdown with Starting, Accrued, Used, Balance */
+            <div className="border border-border rounded-lg overflow-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-border bg-muted/60">
+                    <th rowSpan={2} className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border sticky left-0 bg-muted/60 min-w-[40px]">#</th>
+                    <th rowSpan={2} className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border sticky left-[40px] bg-muted/60 min-w-[140px]">Employee</th>
+                    <th rowSpan={2} className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider border-r border-border min-w-[80px]">Venue</th>
+                    {activeLeaveTypes.map(lt => (
+                      <th key={lt.id} colSpan={4} className="px-2 py-1.5 text-center font-bold text-[10px] uppercase tracking-wider border-r border-border bg-muted/40">
+                        <span className="text-primary">{leaveCode(lt.name)}</span>
+                        <span className="text-muted-foreground font-normal ml-1">({lt.name})</span>
+                      </th>
+                    ))}
+                    <th colSpan={4} className="px-2 py-1.5 text-center font-bold text-[10px] uppercase tracking-wider bg-muted/70">
+                      TOTAL
+                    </th>
+                  </tr>
+                  <tr className="border-b border-border bg-muted/40">
+                    {activeLeaveTypes.map(lt => (
+                      <DetailedSubHeaders key={lt.id} />
+                    ))}
+                    <DetailedSubHeaders />
+                  </tr>
+                </thead>
+                <tbody>
+                  {balanceRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={3 + activeLeaveTypes.length * 4 + 4} className="text-center text-muted-foreground py-8">
+                        <Users className="h-6 w-6 mx-auto mb-2 opacity-40" />
+                        No employees match filter
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      {balanceRows.map((row, idx) => {
+                        const emp = row.employee;
+                        return (
+                          <tr key={emp.id} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
+                            <td className="px-3 py-2 text-center text-muted-foreground border-r border-border/40 sticky left-0 bg-card">{idx + 1}</td>
+                            <td className="px-3 py-2 font-medium border-r border-border/40 sticky left-[40px] bg-card">
+                              {emp.first_name} {emp.last_name}
+                              {emp.job_title && <span className="block text-[9px] text-muted-foreground font-normal">{emp.job_title}</span>}
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground border-r border-border/40">{emp.venue || "—"}</td>
+                            {activeLeaveTypes.map(lt => {
+                              const data = row.byType[lt.id];
+                              const hasBal = !!data.balance;
+                              return (
+                                <DetailedBalanceCells
+                                  key={lt.id}
+                                  startingBal={data.startingBal}
+                                  accrued={data.accrued}
+                                  used={data.used}
+                                  currentBal={data.currentBal}
+                                  hasBal={hasBal}
+                                  onClick={() => {
+                                    if (data.balance) {
+                                      setEditingBal({ ...data.balance });
+                                    } else {
+                                      setEditingBal({
+                                        employee_id: emp.id,
+                                        leave_type_id: lt.id,
+                                        year: selectedYear,
+                                        total_days: lt.default_days_per_year,
+                                        used_days: 0,
+                                        remaining_days: lt.default_days_per_year,
+                                        carried_forward: 0,
+                                        adjustments: 0,
+                                        adjustment_notes: "",
+                                      } as any);
+                                    }
+                                    setBalModalOpen(true);
+                                  }}
+                                  n={n}
+                                />
+                              );
+                            })}
+                            {/* Totals */}
+                            <td className="px-2 py-2 text-right tabular-nums font-medium bg-muted/20">{n(row.totalStarting)}</td>
+                            <td className="px-2 py-2 text-right tabular-nums font-medium text-primary bg-muted/20">{row.totalAccrued > 0 ? `+${n(row.totalAccrued)}` : n(row.totalAccrued)}</td>
+                            <td className="px-2 py-2 text-right tabular-nums font-medium text-destructive bg-muted/20">{row.totalUsed > 0 ? `-${n(row.totalUsed)}` : n(row.totalUsed)}</td>
+                            <td className={`px-2 py-2 text-right tabular-nums font-bold bg-muted/20 ${row.totalCurrent <= 2 && row.totalStarting > 0 ? "text-destructive" : ""}`}>
+                              {n(row.totalCurrent)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Grand total row */}
+                      <tr className="bg-muted/50 font-bold border-t-2 border-border">
+                        <td colSpan={3} className="px-3 py-2 text-right text-[10px] uppercase tracking-wider sticky left-0 bg-muted/50">Grand Total</td>
+                        {activeLeaveTypes.map(lt => {
+                          const totals = balanceRows.reduce((acc, r) => {
+                            const d = r.byType[lt.id];
+                            return {
+                              starting: acc.starting + d.startingBal,
+                              accrued: acc.accrued + d.accrued,
+                              used: acc.used + d.used,
+                              current: acc.current + d.currentBal,
+                            };
+                          }, { starting: 0, accrued: 0, used: 0, current: 0 });
+                          return (
+                            <DetailedGrandTotalCells key={lt.id} {...totals} n={n} />
+                          );
+                        })}
+                        <td className="px-2 py-2 text-right tabular-nums bg-muted/40">{n(balanceRows.reduce((s, r) => s + r.totalStarting, 0))}</td>
+                        <td className="px-2 py-2 text-right tabular-nums text-primary bg-muted/40">+{n(balanceRows.reduce((s, r) => s + r.totalAccrued, 0))}</td>
+                        <td className="px-2 py-2 text-right tabular-nums text-destructive bg-muted/40">-{n(balanceRows.reduce((s, r) => s + r.totalUsed, 0))}</td>
+                        <td className="px-2 py-2 text-right tabular-nums bg-muted/40">{n(balanceRows.reduce((s, r) => s + r.totalCurrent, 0))}</td>
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
 
           <div className="flex gap-4 text-[10px] text-muted-foreground flex-wrap">
-            <span><span className="font-bold text-foreground">Balance</span> = Carried Forward + Entitlement + Accrued − Used</span>
+            {balanceViewMode === "detailed" ? (
+              <>
+                <span><span className="font-medium text-foreground">Starting</span> = Carried Forward + Base Entitlement</span>
+                <span><span className="font-medium text-primary">Accrued</span> = Adjustments (SH added, bonus days)</span>
+                <span><span className="font-medium text-destructive">Used</span> = Leave days taken</span>
+                <span><span className="font-bold text-foreground">Balance</span> = Starting + Accrued − Used</span>
+              </>
+            ) : (
+              <span><span className="font-bold text-foreground">Balance</span> = Carried Forward + Entitlement + Accrued − Used</span>
+            )}
             <span className="italic">Click any cell to edit</span>
           </div>
         </TabsContent>
