@@ -264,7 +264,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, undefined]} />
+                <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, name]} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 {months.map((m, i) => (
                   <Bar key={m} dataKey={`sales_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -279,7 +279,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={axisStyle} />
                 <YAxis tick={axisStyle} />
-                <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), undefined]} />
+                <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [formatCurrency(v), name]} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 {months.map((m, i) => (
                   <Bar key={m} dataKey={`guests_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -294,7 +294,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, undefined]} />
+                <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, name]} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 {months.map((m, i) => (
                   <Bar key={m} dataKey={`spendPerGuest_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -309,7 +309,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={axisStyle} />
                 <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, undefined]} />
+                <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, name]} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 {months.map((m, i) => (
                   <Bar key={m} dataKey={`spendPerOrder_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -327,7 +327,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="day" tick={axisStyle} />
                     <YAxis tick={axisStyle} tickFormatter={(v) => `$${v}`} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`$${formatCurrency(v)}`, undefined]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, name]} />
                     <Legend wrapperStyle={{ fontSize: "11px" }} />
                     {months.map((m, i) => (
                       <Bar key={m} dataKey={`revPerSeat_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -342,7 +342,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="day" tick={axisStyle} />
                     <YAxis tick={axisStyle} tickFormatter={(v) => `${v}x`} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`${v}x`, undefined]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [`${v}x`, name]} />
                     <Legend wrapperStyle={{ fontSize: "11px" }} />
                     {months.map((m, i) => (
                       <Bar key={m} dataKey={`seatTurnover_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -357,7 +357,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="day" tick={axisStyle} />
                     <YAxis tick={axisStyle} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [`${v}%`, undefined]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [`${v}%`, name]} />
                     <Legend wrapperStyle={{ fontSize: "11px" }} />
                     {months.map((m, i) => (
                       <Bar key={m} dataKey={`occupancy_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -372,7 +372,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="day" tick={axisStyle} />
                     <YAxis tick={axisStyle} />
-                    <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), undefined]} />
+                    <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => [formatCurrency(v), name]} />
                     <Legend wrapperStyle={{ fontSize: "11px" }} />
                     {months.map((m, i) => (
                       <Bar key={m} dataKey={`guests_${m}`} name={getMonthLabel(m)} fill={MONTH_COLORS[i % MONTH_COLORS.length]} radius={[3, 3, 0, 0]} />
