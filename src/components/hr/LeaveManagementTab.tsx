@@ -727,7 +727,7 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
   );
 }
 
-// Per-employee ledger view
+// Per-employee ledger view — spreadsheet-style per leave type
 function EmployeeLedgerView({
   employees,
   selectedEmployeeId,
@@ -751,13 +751,10 @@ function EmployeeLedgerView({
 }) {
   const emp = employees.find(e => e.id === selectedEmployeeId);
   const empIdx = employees.findIndex(e => e.id === selectedEmployeeId);
+  const LEDGER_ROWS = 10;
 
-  const goPrev = () => {
-    if (empIdx > 0) onSelectEmployee(employees[empIdx - 1].id);
-  };
-  const goNext = () => {
-    if (empIdx < employees.length - 1) onSelectEmployee(employees[empIdx + 1].id);
-  };
+  const goPrev = () => { if (empIdx > 0) onSelectEmployee(employees[empIdx - 1].id); };
+  const goNext = () => { if (empIdx < employees.length - 1) onSelectEmployee(employees[empIdx + 1].id); };
 
   if (!emp) {
     return (
@@ -770,50 +767,13 @@ function EmployeeLedgerView({
     );
   }
 
-  // Get all balances for this employee across all years
   const empBalances = allBalances.filter(b => b.employee_id === emp.id);
   const empRequests = allRequests.filter(r => r.employee_id === emp.id);
 
-  // Find all years that have data (balances or requests)
+  // Find all years
   const balanceYears = [...new Set(empBalances.map(b => b.year))];
   const requestYears = [...new Set(empRequests.map(r => parseInt(r.start_date.slice(0, 4))))];
-  const allYears = [...new Set([...balanceYears, ...requestYears, selectedYear])].sort((a, b) => b - a); // newest first
-
-  // Build per-year data
-  const yearData = allYears.map(year => {
-    const yearBals = empBalances.filter(b => b.year === year);
-    const yearReqs = empRequests.filter(r => r.start_date.startsWith(String(year)));
-
-    const leaveRows = activeLeaveTypes.map(lt => {
-      const bal = yearBals.find(b => b.leave_type_id === lt.id);
-      const typeRequests = yearReqs.filter(r => r.leave_type_id === lt.id && r.status === "approved");
-      const carried = (bal as any)?.carried_forward || 0;
-      const base = bal?.total_days || 0;
-      const adjustments = (bal as any)?.adjustments || 0;
-      const used = bal?.used_days || 0;
-      const starting = carried + base;
-      const current = starting + adjustments - used;
-      return {
-        leaveType: lt,
-        code: leaveCode(lt.name),
-        balance: bal,
-        carried,
-        base,
-        starting,
-        adjustments,
-        used,
-        current,
-        approvedRequests: typeRequests,
-      };
-    });
-
-    // Only include if there's any data for this year
-    const hasData = leaveRows.some(r => r.balance);
-    const totalCurrent = leaveRows.reduce((s, r) => s + r.current, 0);
-    const totalStarting = leaveRows.reduce((s, r) => s + r.starting, 0);
-
-    return { year, leaveRows, hasData, totalCurrent, totalStarting, requests: yearReqs };
-  });
+  const allYears = [...new Set([...balanceYears, ...requestYears, selectedYear])].sort((a, b) => b - a);
 
   return (
     <div className="space-y-4">
@@ -848,145 +808,127 @@ function EmployeeLedgerView({
         </button>
       </div>
 
-      {/* Per-year ledger tables */}
-      {yearData.map(({ year, leaveRows, hasData, totalCurrent, totalStarting, requests: yearReqs }) => (
-        <div key={year} className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h3 className={`text-sm font-bold ${year === selectedYear ? "text-primary" : "text-foreground"}`}>{year}</h3>
-            {year === selectedYear && <Badge variant="secondary" className="text-[9px]">Current</Badge>}
-            {!hasData && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-5 px-2 text-[10px] text-primary"
-                onClick={() => onEditBalance({
-                  employee_id: emp.id,
-                  leave_type_id: activeLeaveTypes[0]?.id,
-                  year,
-                  total_days: 0,
-                  used_days: 0,
-                  remaining_days: 0,
-                  carried_forward: 0,
-                  adjustments: 0,
-                  adjustment_notes: "",
-                } as any)}
-              >
-                <Plus className="h-3 w-3 mr-0.5" /> Set Balance
-              </Button>
-            )}
-          </div>
+      {/* Per-year sections */}
+      {allYears.map(year => {
+        const yearBals = empBalances.filter(b => b.year === year);
+        const yearReqs = empRequests.filter(r => r.start_date.startsWith(String(year)));
+        const hasData = yearBals.length > 0;
 
-          {hasData && (
-            <div className="border border-border rounded-lg overflow-hidden">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-muted/60">
-                    <th className="px-4 py-2 text-left font-semibold text-[10px] uppercase tracking-wider min-w-[120px]">Leave Type</th>
-                    <th className="px-3 py-2 text-right font-medium text-[10px] uppercase tracking-wider min-w-[65px]">Carried Fwd</th>
-                    <th className="px-3 py-2 text-right font-medium text-[10px] uppercase tracking-wider min-w-[65px]">Entitlement</th>
-                    <th className="px-3 py-2 text-right font-medium text-[10px] uppercase tracking-wider min-w-[60px]">Starting</th>
-                    <th className="px-3 py-2 text-right font-medium text-[10px] text-primary uppercase tracking-wider min-w-[60px]">Accrued</th>
-                    <th className="px-3 py-2 text-right font-medium text-[10px] text-destructive uppercase tracking-wider min-w-[50px]">Used</th>
-                    <th className="px-3 py-2 text-right font-bold text-[10px] uppercase tracking-wider min-w-[60px]">Balance</th>
-                    <th className="px-3 py-2 text-center font-medium text-[10px] uppercase tracking-wider min-w-[50px]"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leaveRows.map(row => {
-                    const hasBal = !!row.balance;
-                    if (!hasBal) {
-                      return (
-                        <tr key={row.leaveType.id} className="border-b border-border/40">
-                          <td className="px-4 py-2">
-                            <span className="font-bold text-primary mr-1.5">{row.code}</span>
-                            <span className="text-muted-foreground">{row.leaveType.name}</span>
-                          </td>
-                          <td colSpan={6} className="px-3 py-2 text-center text-muted-foreground italic text-[10px]">—</td>
-                          <td className="px-3 py-2 text-center">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-5 px-2 text-[10px] text-primary"
-                              onClick={() => onEditBalance({
-                                employee_id: emp.id,
-                                leave_type_id: row.leaveType.id,
-                                year,
-                                total_days: row.leaveType.default_days_per_year,
-                                used_days: 0,
-                                remaining_days: row.leaveType.default_days_per_year,
-                                carried_forward: 0,
-                                adjustments: 0,
-                                adjustment_notes: "",
-                              } as any)}
-                            >
-                              <Plus className="h-3 w-3 mr-0.5" /> Set
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    }
-                    return (
-                      <tr key={row.leaveType.id} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
-                        <td className="px-4 py-2">
-                          <span className="font-bold text-primary mr-1.5">{row.code}</span>
-                          <span className="text-muted-foreground">{row.leaveType.name}</span>
-                          {row.approvedRequests.length > 0 && (
-                            <span className="text-[9px] text-muted-foreground ml-1.5">({row.approvedRequests.length} leave{row.approvedRequests.length > 1 ? "s" : ""})</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{n(row.carried)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{n(row.base)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums font-medium">{n(row.starting)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-primary">{row.adjustments > 0 ? `+${n(row.adjustments)}` : n(row.adjustments)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-destructive">{row.used > 0 ? `-${n(row.used)}` : n(row.used)}</td>
-                        <td className={`px-3 py-2 text-right tabular-nums font-bold ${row.current <= 2 && row.starting > 0 ? "text-destructive" : ""}`}>
-                          {n(row.current)}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => onEditBalance({ ...row.balance! })}>
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {/* Total row */}
-                  <tr className="bg-muted/50 font-bold border-t-2 border-border">
-                    <td className="px-4 py-2 text-right text-[10px] uppercase tracking-wider">Total</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{n(leaveRows.reduce((s, r) => s + r.carried, 0))}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{n(leaveRows.reduce((s, r) => s + r.base, 0))}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{n(totalStarting)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-primary">+{n(leaveRows.reduce((s, r) => s + r.adjustments, 0))}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-destructive">-{n(leaveRows.reduce((s, r) => s + r.used, 0))}</td>
-                    <td className={`px-3 py-2 text-right tabular-nums font-bold ${totalCurrent <= 2 && totalStarting > 0 ? "text-destructive" : ""}`}>{n(totalCurrent)}</td>
-                    <td></td>
-                  </tr>
-                </tbody>
-              </table>
+        return (
+          <div key={year} className="space-y-5">
+            <div className="flex items-center gap-2">
+              <h3 className={`text-sm font-bold ${year === selectedYear ? "text-primary" : "text-foreground"}`}>{year}</h3>
+              {year === selectedYear && <Badge variant="secondary" className="text-[9px]">Current</Badge>}
+              {!hasData && (
+                <Button
+                  size="sm" variant="ghost" className="h-5 px-2 text-[10px] text-primary"
+                  onClick={() => onEditBalance({
+                    employee_id: emp.id, leave_type_id: activeLeaveTypes[0]?.id, year,
+                    total_days: 0, used_days: 0, remaining_days: 0, carried_forward: 0, adjustments: 0, adjustment_notes: "",
+                  } as any)}
+                >
+                  <Plus className="h-3 w-3 mr-0.5" /> Set Balance
+                </Button>
+              )}
             </div>
-          )}
 
-          {/* Leave requests for this year */}
-          {yearReqs.length > 0 && (
-            <div className="ml-2 border-l-2 border-border/50 pl-3">
-              <p className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Requests</p>
-              <div className="space-y-0.5">
-                {yearReqs.map(r => (
-                  <div key={r.id} className="flex items-center gap-2 text-[10px]">
-                    <span className="font-medium text-primary w-8">{r.leave_type ? leaveCode(r.leave_type.name) : "—"}</span>
-                    <span className="text-muted-foreground">{r.start_date} → {r.end_date}</span>
-                    <span className="tabular-nums font-medium">{r.days}d</span>
-                    <Badge variant={({ pending: "secondary", approved: "default", rejected: "destructive" }[r.status] || "secondary") as any} className="text-[8px] h-4">
-                      {r.status}
-                    </Badge>
-                    {r.reason && <span className="text-muted-foreground truncate max-w-[150px]">{r.reason}</span>}
+            {/* One ledger card per leave type */}
+            {activeLeaveTypes.map(lt => {
+              const bal = yearBals.find(b => b.leave_type_id === lt.id);
+              const carried = (bal as any)?.carried_forward || 0;
+              const base = bal?.total_days || 0;
+              const adjustments = (bal as any)?.adjustments || 0;
+              const startingBalance = carried + base + adjustments;
+              const typeReqs = yearReqs
+                .filter(r => r.leave_type_id === lt.id && r.status === "approved")
+                .sort((a, b) => a.start_date.localeCompare(b.start_date));
+
+              if (!bal) return null;
+
+              // Build ledger entries with running balance
+              const ledgerEntries: { date: string; reason: string; days: number; runningBalance: number }[] = [];
+              let running = startingBalance;
+              typeReqs.forEach(r => {
+                running -= r.days;
+                ledgerEntries.push({
+                  date: r.start_date,
+                  reason: r.reason || r.leave_type?.name || "Leave",
+                  days: r.days,
+                  runningBalance: running,
+                });
+              });
+
+              const code = leaveCode(lt.name);
+
+              return (
+                <div key={lt.id} className="space-y-2">
+                  {/* Section header */}
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b-2 border-primary pb-0.5">
+                      {lt.name.toUpperCase()}
+                    </h4>
+                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => onEditBalance({ ...bal! })}>
+                      <Pencil className="h-3 w-3" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
+
+                  {/* Starting balance */}
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="font-semibold text-foreground">Starting Balance</span>
+                    <span className="px-3 py-0.5 bg-primary/10 text-primary font-bold rounded text-sm tabular-nums">
+                      {startingBalance}
+                    </span>
+                    {carried > 0 && (
+                      <span className="text-[10px] text-muted-foreground">(Carried: {carried} + Entitlement: {base}{adjustments > 0 ? ` + Adj: ${adjustments}` : ""})</span>
+                    )}
+                  </div>
+
+                  {/* Ledger table */}
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-muted/60 border-b border-border">
+                          <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[40px]">#</th>
+                          <th className="px-3 py-1.5 text-left font-semibold text-[10px] uppercase tracking-wider w-[110px]">Date</th>
+                          <th className="px-3 py-1.5 text-left font-semibold text-[10px] uppercase tracking-wider">Leave Type</th>
+                          <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[60px]">Days</th>
+                          <th className="px-3 py-1.5 text-center font-semibold text-[10px] uppercase tracking-wider w-[100px]">Running Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Array.from({ length: LEDGER_ROWS }).map((_, idx) => {
+                          const entry = ledgerEntries[idx];
+                          const isFilledRow = !!entry;
+                          return (
+                            <tr
+                              key={idx}
+                              className={`border-b border-border/40 ${isFilledRow ? "bg-accent/30" : ""}`}
+                            >
+                              <td className="px-3 py-1.5 text-center tabular-nums text-muted-foreground font-medium">{idx + 1}</td>
+                              <td className="px-3 py-1.5 tabular-nums text-primary font-medium">
+                                {entry?.date ? new Date(entry.date + "T00:00:00").toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }) : ""}
+                              </td>
+                              <td className="px-3 py-1.5 text-primary">
+                                {entry?.reason || ""}
+                              </td>
+                              <td className="px-3 py-1.5 text-center tabular-nums font-medium">
+                                {entry ? entry.days : 0}
+                              </td>
+                              <td className="px-3 py-1.5 text-center tabular-nums font-bold">
+                                {entry ? entry.runningBalance : (idx === 0 && !entry ? startingBalance : (ledgerEntries.length > 0 ? ledgerEntries[ledgerEntries.length - 1].runningBalance : startingBalance))}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
