@@ -131,15 +131,28 @@ export default function CumulativeSalesChart({ data }: Props) {
                 labelFormatter={(l) => `Day ${l}`}
               />
               {cumulativeData.months.map((mk) => (
-                <Line
-                  key={mk}
-                  dataKey={mk}
-                  type="monotone"
-                  stroke={colorMap.get(mk)}
-                  strokeWidth={2}
-                  dot={false}
-                  hide={isMonthHidden(mk)}
-                />
+                <React.Fragment key={mk}>
+                  <Line
+                    dataKey={mk}
+                    type="monotone"
+                    stroke={colorMap.get(mk)}
+                    strokeWidth={2}
+                    dot={false}
+                    hide={isMonthHidden(mk)}
+                    connectNulls={false}
+                  />
+                  <Line
+                    dataKey={`${mk}_proj`}
+                    type="monotone"
+                    stroke={colorMap.get(mk)}
+                    strokeWidth={1.5}
+                    strokeDasharray="5 3"
+                    dot={false}
+                    hide={isMonthHidden(mk)}
+                    connectNulls={false}
+                    legendType="none"
+                  />
+                </React.Fragment>
               ))}
             </LineChart>
           </ResponsiveContainer>
