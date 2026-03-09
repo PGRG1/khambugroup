@@ -456,6 +456,63 @@ export type Database = {
           },
         ]
       }
+      hr_leave_ledger: {
+        Row: {
+          accrued: number
+          created_at: string
+          description: string
+          employee_id: string
+          entry_date: string
+          id: string
+          leave_type_id: string
+          sort_order: number
+          taken: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          accrued?: number
+          created_at?: string
+          description?: string
+          employee_id: string
+          entry_date: string
+          id?: string
+          leave_type_id: string
+          sort_order?: number
+          taken?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          accrued?: number
+          created_at?: string
+          description?: string
+          employee_id?: string
+          entry_date?: string
+          id?: string
+          leave_type_id?: string
+          sort_order?: number
+          taken?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_leave_ledger_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_leave_ledger_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "hr_leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_leave_requests: {
         Row: {
           approved_at: string | null
