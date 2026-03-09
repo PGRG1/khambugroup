@@ -41,7 +41,7 @@ function leaveCode(name: string): string {
   return name.slice(0, 3).toUpperCase();
 }
 
-export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, employees, onSaveRequest, onSaveType, onSaveBalance }: Props) {
+export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, employees, leaveLedger, onSaveRequest, onSaveType, onSaveBalance, onSaveLedger, onDeleteLedger }: Props) {
   const [reqModalOpen, setReqModalOpen] = useState(false);
   const [typeModalOpen, setTypeModalOpen] = useState(false);
   const [balModalOpen, setBalModalOpen] = useState(false);
