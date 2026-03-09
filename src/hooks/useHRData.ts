@@ -152,6 +152,19 @@ export interface HRHoliday {
   is_active: boolean;
 }
 
+export interface HRLeaveLedger {
+  id: string;
+  employee_id: string;
+  leave_type_id: string;
+  year: number;
+  entry_date: string;
+  description: string;
+  accrued: number;
+  taken: number;
+  sort_order: number;
+  created_at: string;
+}
+
 export function useHRData() {
   const [departments, setDepartments] = useState<HRDepartment[]>([]);
   const [employees, setEmployees] = useState<HREmployee[]>([]);
@@ -162,6 +175,7 @@ export function useHRData() {
   const [attendance, setAttendance] = useState<HRAttendance[]>([]);
   const [payroll, setPayroll] = useState<HRPayroll[]>([]);
   const [holidays, setHolidays] = useState<HRHoliday[]>([]);
+  const [leaveLedger, setLeaveLedger] = useState<HRLeaveLedger[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDepartments = useCallback(async () => {
@@ -209,15 +223,20 @@ export function useHRData() {
     if (data) setHolidays(data);
   }, []);
 
+  const fetchLeaveLedger = useCallback(async () => {
+    const { data } = await supabase.from("hr_leave_ledger").select("*").order("entry_date").order("sort_order");
+    if (data) setLeaveLedger(data as any);
+  }, []);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([
       fetchDepartments(), fetchEmployees(), fetchLeaveTypes(),
       fetchLeaveRequests(), fetchLeaveBalances(), fetchShifts(),
-      fetchAttendance(), fetchPayroll(), fetchHolidays(),
+      fetchAttendance(), fetchPayroll(), fetchHolidays(), fetchLeaveLedger(),
     ]);
     setLoading(false);
-  }, [fetchDepartments, fetchEmployees, fetchLeaveTypes, fetchLeaveRequests, fetchLeaveBalances, fetchShifts, fetchAttendance, fetchPayroll, fetchHolidays]);
+  }, [fetchDepartments, fetchEmployees, fetchLeaveTypes, fetchLeaveRequests, fetchLeaveBalances, fetchShifts, fetchAttendance, fetchPayroll, fetchHolidays, fetchLeaveLedger]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -307,6 +326,22 @@ export function useHRData() {
     return true;
   };
 
+  const upsertLeaveLedger = async (entry: Partial<HRLeaveLedger>) => {
+    const { error } = entry.id
+      ? await supabase.from("hr_leave_ledger").update(entry).eq("id", entry.id)
+      : await supabase.from("hr_leave_ledger").insert(entry as any);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
+    await fetchLeaveLedger();
+    return true;
+  };
+
+  const deleteLeaveLedger = async (id: string) => {
+    const { error } = await supabase.from("hr_leave_ledger" as any).delete().eq("id", id);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
+    await fetchLeaveLedger();
+    return true;
+  };
+
   const deleteRecord = async (table: string, id: string) => {
     const { error } = await supabase.from(table as any).delete().eq("id", id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
@@ -316,9 +351,9 @@ export function useHRData() {
 
   return {
     departments, employees, leaveTypes, leaveRequests, leaveBalances,
-    shifts, attendance, payroll, holidays, loading,
+    shifts, attendance, payroll, holidays, leaveLedger, loading,
     upsertDepartment, upsertEmployee, upsertLeaveType, upsertLeaveRequest,
     upsertLeaveBalance, upsertShift, upsertAttendance, upsertPayroll,
-    deleteRecord, refetch: fetchAll,
+    upsertLeaveLedger, deleteLeaveLedger, deleteRecord, refetch: fetchAll,
   };
 }
