@@ -6,18 +6,14 @@ export default function HREmployees() {
 
   if (hr.loading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center py-20">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-display">Employee Directory</h1>
-        <p className="text-sm text-muted-foreground">Manage employee records and departments</p>
-      </div>
+    <div className="max-w-[1400px] mx-auto space-y-6">
       <EmployeeDirectoryTab
         employees={hr.employees}
         departments={hr.departments}
