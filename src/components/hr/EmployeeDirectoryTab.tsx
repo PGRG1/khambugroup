@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Plus, Search, Pencil, Users, UserPlus, UserMinus, TrendingUp, Building2, Calendar } from "lucide-react";
@@ -89,7 +88,6 @@ function EmployeeKPICards({ employees, history }: { employees: HREmployee[]; his
     const avgTenure = activeTenures.length ? activeTenures.reduce((a, b) => a + b, 0) / activeTenures.length : 0;
     const turnoverRate = total > 0 ? (leavers / total * 100) : 0;
     const promotions = history.filter(h => h.change_type === "promotion" && h.effective_date?.startsWith(thisMonth)).length;
-    const salaryChanges = history.filter(h => h.change_type === "salary_change" && h.effective_date?.startsWith(thisMonth)).length;
 
     const byDept: Record<string, number> = {};
     employees.filter(e => e.status === "active").forEach(e => {
@@ -97,7 +95,7 @@ function EmployeeKPICards({ employees, history }: { employees: HREmployee[]; his
       byDept[dept] = (byDept[dept] || 0) + 1;
     });
 
-    return { total, active, ft, pt, casual, joiners, leavers, avgTenure, turnoverRate, promotions, salaryChanges, byDept };
+    return { total, active, ft, pt, casual, joiners, leavers, avgTenure, turnoverRate, promotions, byDept };
   }, [employees, history]);
 
   const cards = [
@@ -118,19 +116,19 @@ function EmployeeKPICards({ employees, history }: { employees: HREmployee[]; his
           <div key={c.label} className="card-glass rounded-xl p-3 animate-fade-in">
             <div className="flex items-center gap-1.5 mb-1">
               <c.icon className={`h-3.5 w-3.5 shrink-0 ${c.color}`} />
-              <span className="text-[11px] text-muted-foreground">{c.label}</span>
+              <span className="text-[11px] text-muted-foreground leading-tight">{c.label}</span>
             </div>
-            <p className="text-sm font-display font-bold text-foreground">{c.value}</p>
+            <p className="text-sm font-display font-bold text-foreground tabular-nums">{c.value}</p>
           </div>
         ))}
       </div>
       {Object.keys(stats.byDept).length > 1 && (
-        <div className="flex gap-3 flex-wrap">
-          <span className="text-[10px] text-muted-foreground self-center">By Dept:</span>
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">By Dept:</span>
           {Object.entries(stats.byDept).map(([dept, count]) => (
             <div key={dept} className="card-glass rounded-lg px-3 py-1.5 flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground">{dept}</span>
-              <span className="text-xs font-semibold">{count}</span>
+              <span className="text-[11px] text-muted-foreground">{dept}</span>
+              <span className="text-xs font-bold tabular-nums">{count}</span>
             </div>
           ))}
         </div>
@@ -141,6 +139,8 @@ function EmployeeKPICards({ employees, history }: { employees: HREmployee[]; his
 
 export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDepartment }: Props) {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [venueFilter, setVenueFilter] = useState<string>("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [deptModalOpen, setDeptModalOpen] = useState(false);
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
@@ -155,7 +155,6 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
   const [editingHistory, setEditingHistory] = useState<Partial<HREmployeeHistory> | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
-  // Load holidays
   const loadHolidays = async () => {
     const { data } = await supabase.from("hr_holidays" as any).select("*").order("date");
     if (data) { setHolidays(data as any); setHolidaysLoaded(true); }
@@ -168,14 +167,14 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
 
   if (!holidaysLoaded) loadHolidays();
 
-  const filtered = employees.filter(e =>
-    `${e.first_name} ${e.last_name} ${e.email || ""} ${e.job_title || ""}`.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Check if today is a holiday
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayHoliday = holidays.find(h => h.date === todayStr && h.is_active);
-  const upcomingHolidays = holidays.filter(h => h.date >= todayStr && h.is_active).slice(0, 3);
+  const filtered = useMemo(() => {
+    return employees.filter(e => {
+      const matchesSearch = `${e.first_name} ${e.last_name} ${e.email || ""} ${e.job_title || ""}`.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "all" || e.status === statusFilter;
+      const matchesVenue = venueFilter === "all" || e.venue === venueFilter;
+      return matchesSearch && matchesStatus && matchesVenue;
+    });
+  }, [employees, search, statusFilter, venueFilter]);
 
   const openEdit = (emp: HREmployee) => {
     setEditingEmployee({ ...emp });
@@ -233,63 +232,150 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
 
   const updateField = (field: string, value: any) => setEditingEmployee(prev => prev ? { ...prev, [field]: value } : prev);
 
-  return (
-    <div className="space-y-4">
+  const statusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "active": return "default";
+      case "on_leave": return "secondary";
+      default: return "destructive";
+    }
+  };
 
-      {/* Controls */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search employees..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold font-display tracking-tight">
+            <span className="text-gradient-gold">Employee Directory</span>
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            {employees.filter(e => e.status === "active").length} active · {employees.length} total
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setEditingHoliday({ name: "", date: "", holiday_type: "statutory", is_active: true }); setHolidayModalOpen(true); }}>
-            <Calendar className="h-4 w-4 mr-1" /> Holiday
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-border bg-secondary text-secondary-foreground hover:bg-muted"
+            onClick={() => { setEditingHoliday({ name: "", date: "", holiday_type: "statutory", is_active: true }); setHolidayModalOpen(true); }}
+          >
+            <Calendar className="h-4 w-4 mr-1.5" /> Holiday
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setEditingDept({ name: "", is_active: true }); setDeptModalOpen(true); }}>
-            <Plus className="h-4 w-4 mr-1" /> Department
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-border bg-secondary text-secondary-foreground hover:bg-muted"
+            onClick={() => { setEditingDept({ name: "", is_active: true }); setDeptModalOpen(true); }}
+          >
+            <Building2 className="h-4 w-4 mr-1.5" /> Department
           </Button>
-          <Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Employee</Button>
+          <Button size="sm" onClick={openNew}>
+            <Plus className="h-4 w-4 mr-1.5" /> Employee
+          </Button>
         </div>
       </div>
 
+      {/* KPI Cards */}
+      <EmployeeKPICards employees={employees} history={history} />
+
+      {/* Filters Row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search employees..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[130px] h-9">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            {STATUS_OPTIONS.map(s => (
+              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={venueFilter} onValueChange={setVenueFilter}>
+          <SelectTrigger className="w-[140px] h-9">
+            <SelectValue placeholder="Venue" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Venues</SelectItem>
+            {VENUE_OPTIONS.map(v => (
+              <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(statusFilter !== "all" || venueFilter !== "all" || search) && (
+          <button
+            onClick={() => { setSearch(""); setStatusFilter("all"); setVenueFilter("all"); }}
+            className="text-xs text-primary hover:underline"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
 
       {/* Employee Table */}
-      <div className="border border-border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Job Title</TableHead>
-              <TableHead>Venue</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Hire Date</TableHead>
-              <TableHead className="w-12"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No employees found</TableCell></TableRow>
-            ) : filtered.map(emp => (
-              <TableRow key={emp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(emp)}>
-                <TableCell className="font-medium">{emp.first_name} {emp.last_name}</TableCell>
-                <TableCell>{emp.job_title || "—"}</TableCell>
-                <TableCell>{emp.venue || "—"}</TableCell>
-                <TableCell>{emp.department?.name || "—"}</TableCell>
-                <TableCell><Badge variant="secondary" className="text-xs">{EMPLOYMENT_TYPES.find(t => t.value === emp.employment_type)?.label || emp.employment_type}</Badge></TableCell>
-                <TableCell>
-                  <Badge variant={emp.status === "active" ? "default" : emp.status === "on_leave" ? "secondary" : "destructive"} className="text-xs">
-                    {STATUS_OPTIONS.find(s => s.value === emp.status)?.label || emp.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>{emp.hire_date}</TableCell>
-                <TableCell><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="card-glass rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Job Title</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground hidden md:table-cell">Venue</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground hidden lg:table-cell">Department</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground hidden md:table-cell">Type</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground hidden lg:table-cell">Hire Date</th>
+                <th className="w-10 px-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center text-muted-foreground py-12">
+                    No employees found
+                  </td>
+                </tr>
+              ) : filtered.map((emp, idx) => (
+                <tr
+                  key={emp.id}
+                  className={`cursor-pointer transition-colors hover:bg-accent/10 ${idx !== filtered.length - 1 ? "border-b border-border/50" : ""}`}
+                  onClick={() => openEdit(emp)}
+                >
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-foreground">{emp.first_name} {emp.last_name}</div>
+                    <div className="text-[11px] text-muted-foreground sm:hidden">{emp.job_title || "—"}</div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{emp.job_title || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{emp.venue || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{emp.department?.name || "—"}</td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <span className="text-xs text-muted-foreground">
+                      {EMPLOYMENT_TYPES.find(t => t.value === emp.employment_type)?.label || emp.employment_type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={statusBadgeVariant(emp.status)} className="text-[10px] font-medium">
+                      {STATUS_OPTIONS.find(s => s.value === emp.status)?.label || emp.status}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground tabular-nums text-xs hidden lg:table-cell">{emp.hire_date}</td>
+                  <td className="px-2 py-3">
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {filtered.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-border/50 text-[11px] text-muted-foreground">
+            Showing {filtered.length} of {employees.length} employees
+          </div>
+        )}
       </div>
 
       {/* Employee Detail Modal */}
@@ -367,7 +453,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
                   </div>
                 </div>
                 <Separator />
-                <h4 className="text-sm font-semibold">Emergency Contact</h4>
+                <h4 className="text-sm font-semibold font-display">Emergency Contact</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">Contact Name</label>
@@ -404,7 +490,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
                         >
                           <div className="flex items-center justify-between mb-1">
                             <Badge variant="secondary" className="text-[10px]">{CHANGE_TYPES.find(t => t.value === h.change_type)?.label || h.change_type}</Badge>
-                            <span className="text-[11px] text-muted-foreground">{h.effective_date}</span>
+                            <span className="text-[11px] text-muted-foreground tabular-nums">{h.effective_date}</span>
                           </div>
                           {h.field_changed && (
                             <p className="text-xs text-muted-foreground">
@@ -492,7 +578,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Field Changed</label>
-                <Input value={editingHistory.field_changed || ""} onChange={e => setEditingHistory(p => p ? { ...p, field_changed: e.target.value } : p)} placeholder="e.g. job_title, salary, employment_type" />
+                <Input value={editingHistory.field_changed || ""} onChange={e => setEditingHistory(p => p ? { ...p, field_changed: e.target.value } : p)} placeholder="e.g. job_title, salary" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
