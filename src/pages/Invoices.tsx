@@ -341,6 +341,7 @@ export default function Invoices() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="line-items"><FileText className="h-3 w-3 mr-1" />Line Items</TabsTrigger>
           <TabsTrigger value="analytics"><BarChart3 className="h-3 w-3 mr-1" />Analytics</TabsTrigger>
           <TabsTrigger value="products"><Package className="h-3 w-3 mr-1" />Products</TabsTrigger>
           <TabsTrigger value="mappings"><Link2 className="h-3 w-3 mr-1" />Mappings</TabsTrigger>
