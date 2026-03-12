@@ -1,17 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Supplier } from "@/hooks/useInvoiceData";
-import { useToast } from "@/hooks/use-toast";
-
-interface StandardProduct {
-  id: string;
-  name: string;
-  category: string;
-}
 
 interface LineItemRow {
   id: string;
@@ -20,7 +12,6 @@ interface LineItemRow {
   invoice_number: string;
   item_code: string;
   master_name: string;
-  standard_product_id: string | null;
   description: string;
   quantity: number;
   unit: string;
@@ -34,93 +25,73 @@ interface Props {
 
 export default function LineItemsTab({ suppliers }: Props) {
   const [rows, setRows] = useState<LineItemRow[]>([]);
-  const [products, setProducts] = useState<StandardProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [mappingFilter, setMappingFilter] = useState("all");
   const [sortKey, setSortKey] = useState<string>("invoice_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const { toast } = useToast();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const [{ data: items }, { data: invoices }, { data: prods }] = await Promise.all([
-      supabase.from("invoice_line_items").select("id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
-      supabase.from("invoices").select("id, invoice_number, supplier_id, invoice_date"),
-      supabase.from("standard_products").select("id, name, category").eq("is_active", true).order("name"),
-    ]);
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [{ data: items }, { data: invoices }, { data: products }] = await Promise.all([
+        supabase.from("invoice_line_items").select("id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
+        supabase.from("invoices").select("id, invoice_number, supplier_id, invoice_date"),
+        supabase.from("standard_products").select("id, name"),
+      ]);
 
-    if (prods) setProducts(prods as StandardProduct[]);
-    if (!items || !invoices) { setLoading(false); return; }
+      if (!items || !invoices) { setLoading(false); return; }
 
-    const invMap = new Map(invoices.map((i: any) => [i.id, i]));
-    const supMap = new Map(suppliers.map(s => [s.id, s.name]));
-    const prodMap = new Map((prods || []).map((p: any) => [p.id, p.name]));
+      const invMap = new Map(invoices.map((i: any) => [i.id, i]));
+      const supMap = new Map(suppliers.map(s => [s.id, s.name]));
+      const prodMap = new Map((products || []).map((p: any) => [p.id, p.name]));
 
-    const mapped: LineItemRow[] = items.map((li: any) => {
-      const inv = invMap.get(li.invoice_id);
-      return {
-        id: li.id,
-        invoice_date: inv?.invoice_date || "",
-        supplier_name: inv ? (supMap.get(inv.supplier_id) || "Unknown") : "Unknown",
-        invoice_number: inv?.invoice_number || "",
-        item_code: li.item_code || "",
-        master_name: li.standard_product_id ? (prodMap.get(li.standard_product_id) || "") : "",
-        standard_product_id: li.standard_product_id || null,
-        description: `${li.description || ""}${li.pack_size ? ` [${li.pack_size}]` : ""}`,
-        quantity: li.quantity || 0,
-        unit: li.unit || "unit",
-        unit_price: li.unit_price || 0,
-        net_amount: li.total || 0,
-      };
-    });
+      const mapped: LineItemRow[] = items.map((li: any) => {
+        const inv = invMap.get(li.invoice_id);
+        return {
+          id: li.id,
+          invoice_date: inv?.invoice_date || "",
+          supplier_name: inv ? (supMap.get(inv.supplier_id) || "Unknown") : "Unknown",
+          invoice_number: inv?.invoice_number || "",
+          item_code: li.item_code || "",
+          master_name: li.standard_product_id ? (prodMap.get(li.standard_product_id) || "") : "",
+          description: `${li.description || ""}${li.pack_size ? ` [${li.pack_size}]` : ""}`,
+          quantity: li.quantity || 0,
+          unit: li.unit || "unit",
+          unit_price: li.unit_price || 0,
+          net_amount: li.total || 0,
+        };
+      });
 
-    setRows(mapped);
-    setLoading(false);
+      setRows(mapped);
+      setLoading(false);
+    })();
   }, [suppliers]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const assignMaster = async (lineItemId: string, productId: string) => {
-    const { error } = await supabase.from("invoice_line_items").update({ standard_product_id: productId } as any).eq("id", lineItemId);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
-    }
-    const prod = products.find(p => p.id === productId);
-    setRows(prev => prev.map(r => r.id === lineItemId ? { ...r, standard_product_id: productId, master_name: prod?.name || "" } : r));
-    toast({ title: "Assigned", description: `Linked to ${prod?.name}` });
-  };
-
-  const clearMaster = async (lineItemId: string) => {
-    const { error } = await supabase.from("invoice_line_items").update({ standard_product_id: null } as any).eq("id", lineItemId);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
-    }
-    setRows(prev => prev.map(r => r.id === lineItemId ? { ...r, standard_product_id: null, master_name: "" } : r));
-  };
 
   const filtered = useMemo(() => {
     let result = rows;
-    if (supplierFilter !== "all") result = result.filter(r => r.supplier_name === supplierFilter);
-    if (mappingFilter === "unmapped") result = result.filter(r => !r.standard_product_id);
-    else if (mappingFilter === "mapped") result = result.filter(r => !!r.standard_product_id);
+    if (supplierFilter !== "all") {
+      result = result.filter(r => r.supplier_name === supplierFilter);
+    }
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(r =>
-        r.description.toLowerCase().includes(q) || r.item_code.toLowerCase().includes(q) ||
-        r.master_name.toLowerCase().includes(q) || r.invoice_number.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q) ||
+        r.item_code.toLowerCase().includes(q) ||
+        r.master_name.toLowerCase().includes(q) ||
+        r.invoice_number.toLowerCase().includes(q) ||
         r.supplier_name.toLowerCase().includes(q)
       );
     }
     return [...result].sort((a, b) => {
-      const av = (a as any)[sortKey], bv = (b as any)[sortKey];
-      let cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+      const av = (a as any)[sortKey];
+      const bv = (b as any)[sortKey];
+      let cmp = 0;
+      if (typeof av === "number" && typeof bv === "number") cmp = av - bv;
+      else cmp = String(av ?? "").localeCompare(String(bv ?? ""));
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [rows, supplierFilter, mappingFilter, search, sortKey, sortDir]);
+  }, [rows, supplierFilter, search, sortKey, sortDir]);
 
   const toggleSort = (key: string) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -141,8 +112,6 @@ export default function LineItemsTab({ suppliers }: Props) {
 
   const uniqueSuppliers = [...new Set(rows.map(r => r.supplier_name))].sort();
   const totalNet = filtered.reduce((s, r) => s + r.net_amount, 0);
-  const unmappedCount = rows.filter(r => !r.standard_product_id).length;
-  const mappedCount = rows.length - unmappedCount;
 
   if (loading) return <p className="text-muted-foreground p-4 text-sm">Loading line items...</p>;
 
@@ -161,16 +130,6 @@ export default function LineItemsTab({ suppliers }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Summary badges */}
-      <div className="flex gap-2 flex-wrap items-center">
-        <Badge variant="outline" className="gap-1 text-xs">
-          <CheckCircle2 className="h-3 w-3 text-green-500" /> {mappedCount} mapped
-        </Badge>
-        <Badge variant="outline" className="gap-1 text-xs">
-          <AlertCircle className="h-3 w-3 text-amber-500" /> {unmappedCount} unmapped
-        </Badge>
-      </div>
-
       {/* Filters */}
       <div className="flex gap-2 flex-wrap items-center">
         <div className="relative flex-1 min-w-[200px]">
@@ -182,14 +141,6 @@ export default function LineItemsTab({ suppliers }: Props) {
           <SelectContent>
             <SelectItem value="all">All Suppliers</SelectItem>
             {uniqueSuppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={mappingFilter} onValueChange={setMappingFilter}>
-          <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Items</SelectItem>
-            <SelectItem value="unmapped">Unmapped Only</SelectItem>
-            <SelectItem value="mapped">Mapped Only</SelectItem>
           </SelectContent>
         </Select>
         <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
@@ -228,28 +179,7 @@ export default function LineItemsTab({ suppliers }: Props) {
                   <td className="px-3 py-2 font-medium text-foreground">{row.supplier_name}</td>
                   <td className="px-3 py-2 tabular-nums">{row.invoice_number}</td>
                   <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{row.item_code}</td>
-                  <td className="px-3 py-1.5 min-w-[180px]">
-                    {row.standard_product_id ? (
-                      <div className="flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                        <span className="text-foreground font-medium truncate">{row.master_name}</span>
-                        <button onClick={() => clearMaster(row.id)} className="text-[10px] text-muted-foreground hover:text-destructive ml-1 shrink-0">✕</button>
-                      </div>
-                    ) : (
-                      <Select onValueChange={(v) => assignMaster(row.id, v)}>
-                        <SelectTrigger className="h-7 text-[11px] border-dashed border-amber-400/50 bg-amber-500/5 text-amber-600">
-                          <SelectValue placeholder="Assign master..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products.map(p => (
-                            <SelectItem key={p.id} value={p.id} className="text-xs">
-                              {p.name} <span className="text-muted-foreground ml-1">({p.category})</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </td>
+                  <td className="px-3 py-2 text-foreground">{row.master_name}</td>
                   <td className="px-3 py-2 max-w-[280px] truncate text-muted-foreground">{row.description}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-foreground">{row.quantity}</td>
                   <td className="px-3 py-2 text-muted-foreground">{row.unit}</td>
