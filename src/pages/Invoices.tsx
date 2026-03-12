@@ -22,6 +22,7 @@ import StandardProductsTab from "@/components/invoices/StandardProductsTab";
 import SupplierItemMappingsTab from "@/components/invoices/SupplierItemMappingsTab";
 import StandardProductDetailModal from "@/components/invoices/StandardProductDetailModal";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
+import LineItemsTab from "@/components/invoices/LineItemsTab";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -340,6 +341,7 @@ export default function Invoices() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="line-items"><FileText className="h-3 w-3 mr-1" />Line Items</TabsTrigger>
           <TabsTrigger value="analytics"><BarChart3 className="h-3 w-3 mr-1" />Analytics</TabsTrigger>
           <TabsTrigger value="products"><Package className="h-3 w-3 mr-1" />Products</TabsTrigger>
           <TabsTrigger value="mappings"><Link2 className="h-3 w-3 mr-1" />Mappings</TabsTrigger>
@@ -421,6 +423,10 @@ export default function Invoices() {
               </TableBody>
             </Table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="line-items">
+          <LineItemsTab suppliers={suppliers} />
         </TabsContent>
 
         <TabsContent value="analytics">
