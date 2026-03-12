@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Supplier } from "@/hooks/useInvoiceData";
 
 interface LineItemRow {
   id: string;
+  invoice_date: string;
   supplier_name: string;
   invoice_number: string;
   item_code: string;
@@ -28,24 +28,17 @@ export default function LineItemsTab({ suppliers }: Props) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<string>("invoice_number");
+  const [sortKey, setSortKey] = useState<string>("invoice_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      // Fetch line items with invoice + supplier info
-      const { data: items } = await supabase
-        .from("invoice_line_items")
-        .select("id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id");
-
-      const { data: invoices } = await supabase
-        .from("invoices")
-        .select("id, invoice_number, supplier_id");
-
-      const { data: products } = await supabase
-        .from("standard_products")
-        .select("id, name");
+      const [{ data: items }, { data: invoices }, { data: products }] = await Promise.all([
+        supabase.from("invoice_line_items").select("id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
+        supabase.from("invoices").select("id, invoice_number, supplier_id, invoice_date"),
+        supabase.from("standard_products").select("id, name"),
+      ]);
 
       if (!items || !invoices) { setLoading(false); return; }
 
@@ -57,6 +50,7 @@ export default function LineItemsTab({ suppliers }: Props) {
         const inv = invMap.get(li.invoice_id);
         return {
           id: li.id,
+          invoice_date: inv?.invoice_date || "",
           supplier_name: inv ? (supMap.get(inv.supplier_id) || "Unknown") : "Unknown",
           invoice_number: inv?.invoice_number || "",
           item_code: li.item_code || "",
@@ -105,88 +99,105 @@ export default function LineItemsTab({ suppliers }: Props) {
   };
 
   const SortIcon = ({ col }: { col: string }) => {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
-    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40 ml-1" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
-  const SortableHead = ({ col, label, className }: { col: string; label: string; className?: string }) => (
-    <TableHead className={className}>
-      <button onClick={() => toggleSort(col)} className="flex items-center gap-1 hover:text-foreground transition-colors">
-        {label} <SortIcon col={col} />
-      </button>
-    </TableHead>
-  );
-
   const formatCurrency = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatDate = (d: string) => {
+    if (!d) return "";
+    const dt = new Date(d + "T00:00:00");
+    return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
 
   const uniqueSuppliers = [...new Set(rows.map(r => r.supplier_name))].sort();
-
   const totalNet = filtered.reduce((s, r) => s + r.net_amount, 0);
 
-  if (loading) return <p className="text-muted-foreground p-4">Loading line items...</p>;
+  if (loading) return <p className="text-muted-foreground p-4 text-sm">Loading line items...</p>;
+
+  const columns: { key: string; label: string; align?: "right" | "left" }[] = [
+    { key: "invoice_date", label: "Date" },
+    { key: "supplier_name", label: "Supplier" },
+    { key: "invoice_number", label: "Invoice No." },
+    { key: "item_code", label: "Product No." },
+    { key: "master_name", label: "Master Name" },
+    { key: "description", label: "Product Description" },
+    { key: "quantity", label: "Qty", align: "right" },
+    { key: "unit", label: "Order Unit" },
+    { key: "unit_price", label: "Unit Price", align: "right" },
+    { key: "net_amount", label: "Net Amount", align: "right" },
+  ];
 
   return (
     <div className="space-y-3">
+      {/* Filters */}
       <div className="flex gap-2 flex-wrap items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search items..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Search items..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-xs" />
         </div>
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
+          <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Suppliers</SelectItem>
             {uniqueSuppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        <span className="text-xs text-muted-foreground ml-auto">
+        <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
           Showing {filtered.length} of {rows.length} items
         </span>
       </div>
 
-      <div className="rounded-lg border overflow-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <SortableHead col="supplier_name" label="Supplier" />
-              <SortableHead col="invoice_number" label="Invoice No." />
-              <SortableHead col="item_code" label="Product No." />
-              <SortableHead col="master_name" label="Master Name" />
-              <SortableHead col="description" label="Product Description" />
-              <SortableHead col="quantity" label="Qty" className="text-right" />
-              <SortableHead col="unit" label="Order Unit" />
-              <SortableHead col="unit_price" label="Unit Price" className="text-right" />
-              <SortableHead col="net_amount" label="Net Amount" className="text-right" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      {/* Table */}
+      <div className="rounded-lg border border-border overflow-auto bg-card">
+        <table className="w-full text-[12px] leading-tight">
+          <thead>
+            <tr className="bg-primary text-primary-foreground">
+              {columns.map(col => (
+                <th
+                  key={col.key}
+                  className={`px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-primary/80 ${col.align === "right" ? "text-right" : "text-left"}`}
+                  onClick={() => toggleSort(col.key)}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    {col.label}
+                    <SortIcon col={col.key} />
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
             {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">No line items found</TableCell>
-              </TableRow>
+              <tr>
+                <td colSpan={10} className="text-center text-muted-foreground py-10 text-sm">No line items found</td>
+              </tr>
             ) : (
-              filtered.map(row => (
-                <TableRow key={row.id} className="hover:bg-muted/30">
-                  <TableCell className="font-medium">{row.supplier_name}</TableCell>
-                  <TableCell>{row.invoice_number}</TableCell>
-                  <TableCell className="font-mono text-xs">{row.item_code}</TableCell>
-                  <TableCell>{row.master_name}</TableCell>
-                  <TableCell className="max-w-[300px] truncate">{row.description}</TableCell>
-                  <TableCell className="text-right">{row.quantity}</TableCell>
-                  <TableCell>{row.unit}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(row.unit_price)}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(row.net_amount)}</TableCell>
-                </TableRow>
+              filtered.map((row, idx) => (
+                <tr key={row.id} className={`border-b border-border/40 transition-colors hover:bg-accent/30 ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+                  <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{formatDate(row.invoice_date)}</td>
+                  <td className="px-3 py-2 font-medium text-foreground">{row.supplier_name}</td>
+                  <td className="px-3 py-2 tabular-nums">{row.invoice_number}</td>
+                  <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{row.item_code}</td>
+                  <td className="px-3 py-2 text-foreground">{row.master_name}</td>
+                  <td className="px-3 py-2 max-w-[280px] truncate text-muted-foreground">{row.description}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-foreground">{row.quantity}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{row.unit}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-foreground">{formatCurrency(row.unit_price)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{formatCurrency(row.net_amount)}</td>
+                </tr>
               ))
             )}
-            {filtered.length > 0 && (
-              <TableRow className="bg-muted/30 font-semibold">
-                <TableCell colSpan={8} className="text-right">Total</TableCell>
-                <TableCell className="text-right">{formatCurrency(totalNet)}</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+          </tbody>
+          {filtered.length > 0 && (
+            <tfoot>
+              <tr className="bg-primary/10 border-t-2 border-primary/30">
+                <td colSpan={9} className="px-3 py-2.5 text-right font-semibold text-foreground text-[12px]">Total</td>
+                <td className="px-3 py-2.5 text-right font-bold tabular-nums text-foreground text-[13px]">{formatCurrency(totalNet)}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
       </div>
     </div>
   );
