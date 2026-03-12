@@ -425,6 +425,10 @@ export default function Invoices() {
           </div>
         </TabsContent>
 
+        <TabsContent value="line-items">
+          <LineItemsTab suppliers={suppliers} />
+        </TabsContent>
+
         <TabsContent value="analytics">
           <InvoiceAnalytics invoices={invoices} />
         </TabsContent>
