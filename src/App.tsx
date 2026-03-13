@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
 import AccessDenied from "./pages/AccessDenied";
 import Invoices from "./pages/Invoices";
+import Procurement from "./pages/Procurement";
 import Inventory from "./pages/Inventory";
 import HREmployees from "./pages/hr/HREmployees";
 import HRSchedule from "./pages/hr/HRSchedule";
@@ -35,6 +36,7 @@ const pageKeyMap: Record<string, string> = {
   "/activity-log": "activity-log",
   "/pl-report": "pl-report",
   "/invoices": "invoices",
+  "/procurement": "invoices",
   "/inventory": "inventory",
 };
 
@@ -86,6 +88,7 @@ function App() {
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
+                <Route path="/procurement" element={<ProtectedRoute pageKey="invoices"><Procurement /></ProtectedRoute>} />
                 <Route path="/inventory" element={<ProtectedRoute pageKey="inventory"><Inventory /></ProtectedRoute>} />
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
                 <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />
