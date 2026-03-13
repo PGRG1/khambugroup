@@ -36,6 +36,7 @@ const pageKeyMap: Record<string, string> = {
   "/activity-log": "activity-log",
   "/pl-report": "pl-report",
   "/invoices": "invoices",
+  "/procurement": "invoices",
   "/inventory": "inventory",
 };
 
