@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
 import AccessDenied from "./pages/AccessDenied";
 import Invoices from "./pages/Invoices";
+import Procurement from "./pages/Procurement";
 import Inventory from "./pages/Inventory";
 import HREmployees from "./pages/hr/HREmployees";
 import HRSchedule from "./pages/hr/HRSchedule";
