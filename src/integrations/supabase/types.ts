@@ -1212,6 +1212,57 @@ export type Database = {
         }
         Relationships: []
       }
+      product_master: {
+        Row: {
+          created_at: string
+          external_sku: string
+          id: string
+          internal_product_name: string
+          internal_sku: string
+          level1_category: string
+          level2_category: string
+          level3_category: string
+          status: string
+          supplier: string
+          supplier_product_name: string
+          unit: string
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_sku?: string
+          id?: string
+          internal_product_name: string
+          internal_sku: string
+          level1_category?: string
+          level2_category?: string
+          level3_category?: string
+          status?: string
+          supplier?: string
+          supplier_product_name?: string
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_sku?: string
+          id?: string
+          internal_product_name?: string
+          internal_sku?: string
+          level1_category?: string
+          level2_category?: string
+          level3_category?: string
+          status?: string
+          supplier?: string
+          supplier_product_name?: string
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_pack_conversions: {
         Row: {
           conversion_factor: number
