@@ -1,18 +1,295 @@
-import React from "react";
-import { FileSpreadsheet } from "lucide-react";
+import React, { useState, useMemo, useRef } from "react";
+import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Label } from "@/components/ui/label";
+import { Search, Trash2, ScanLine, Pencil, Eye, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Plus, X } from "lucide-react";
+import InvoiceScanner from "@/components/invoices/InvoiceScanner";
+import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+  paid: "bg-green-100 text-green-800 border-green-300",
+  overdue: "bg-red-100 text-red-800 border-red-300",
+  partial: "bg-blue-100 text-blue-800 border-blue-300",
+  cancelled: "bg-muted text-muted-foreground",
+};
+
+const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = (d: string) => {
+  if (!d) return "—";
+  const date = new Date(d + "T00:00:00");
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
 
 export default function ProcurementInvoicesTab() {
+  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, createSupplier, fetchAll } = useInvoiceData();
+  const { user } = useAuth();
+
+  const [search, setSearch] = useState("");
+  const [venueFilter, setVenueFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("invoice_date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Detail drawer
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
+
+  const filtered = useMemo(() => {
+    let result = invoices.filter(inv => {
+      if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
+      if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return inv.invoice_number.toLowerCase().includes(q) || (inv.supplier_name || "").toLowerCase().includes(q);
+      }
+      return true;
+    });
+    result.sort((a, b) => {
+      const av = (a as any)[sortKey];
+      const bv = (b as any)[sortKey];
+      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return result;
+  }, [invoices, venueFilter, statusFilter, search, sortKey, sortDir]);
+
+  const openDetail = async (inv: Invoice) => {
+    setSelectedInvoice(inv);
+    const items = await fetchLineItems(inv.id);
+    setLineItems(items);
+    setDrawerOpen(true);
+  };
+
+  const openFile = async (inv: Invoice) => {
+    if (!inv.file_url) return;
+    const { data } = await supabase.storage.from("invoice-files").createSignedUrl(inv.file_url, 300);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  };
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+    await deleteInvoice(deletingId);
+    setDeleteOpen(false);
+    setDeletingId(null);
+    setDrawerOpen(false);
+  };
+
+  const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
+
+  const columns = [
+    { key: "invoice_date", label: "Date", w: "w-[100px]" },
+    { key: "invoice_number", label: "Invoice #", w: "w-[120px]" },
+    { key: "supplier_name", label: "Supplier", w: "min-w-[160px]" },
+    { key: "venue", label: "Venue", w: "w-[90px]" },
+    { key: "due_date", label: "Due Date", w: "w-[100px]" },
+    { key: "total_amount", label: "Total", w: "w-[110px]", align: "right" as const },
+    { key: "status", label: "Status", w: "w-[90px]" },
+  ];
+
+  if (loading) return <div className="py-12 text-center text-muted-foreground">Loading invoices...</div>;
+
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-      <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-        <FileSpreadsheet className="h-8 w-8 text-primary" />
+    <div className="space-y-4">
+      {/* Scanner */}
+      {scannerOpen && (
+        <InvoiceScanner
+          suppliers={suppliers}
+          onSave={async (inv, lines, file) => {
+            let fileUrl: string | null = null;
+            let fileName: string | null = null;
+            if (file) {
+              if (batchFileRef.current && batchFileRef.current.size === file.size) {
+                fileUrl = batchFileRef.current.url;
+                fileName = batchFileRef.current.name;
+              } else {
+                const ext = file.name.split(".").pop() || "pdf";
+                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}.${ext}`;
+                const { error: uploadErr } = await supabase.storage.from("invoice-files").upload(storagePath, file, { upsert: true });
+                if (!uploadErr) {
+                  fileUrl = storagePath;
+                  fileName = file.name;
+                  batchFileRef.current = { size: file.size, url: storagePath, name: file.name };
+                }
+              }
+            }
+            await createInvoice(
+              { ...inv, status: "pending", subtotal: lines.reduce((s, l) => s + l.total - l.tax_amount, 0), tax_amount: lines.reduce((s, l) => s + l.tax_amount, 0), total_amount: lines.reduce((s, l) => s + l.total, 0), entered_by: user?.id || "" },
+              lines, fileUrl, fileName
+            );
+          }}
+          onCreateSupplier={createSupplier}
+          onClose={() => { setScannerOpen(false); batchFileRef.current = null; }}
+          userId={user?.id || ""}
+        />
+      )}
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search invoice # or supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+        </div>
+        <Select value={venueFilter} onValueChange={setVenueFilter}>
+          <SelectTrigger className="w-[120px] h-9 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Venues</SelectItem>
+            <SelectItem value="Assembly">Assembly</SelectItem>
+            <SelectItem value="Caliente">Caliente</SelectItem>
+            <SelectItem value="Hanabi">Hanabi</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[110px] h-9 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)} className="h-9">
+          <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
+        </Button>
       </div>
-      <div>
-        <h3 className="text-lg font-semibold text-foreground">Invoices</h3>
-        <p className="text-sm text-muted-foreground max-w-md mt-1">
-          Invoice header records and original uploaded files will appear here. Each invoice will have its own internal reference ID, with OCR upload support coming next.
-        </p>
+
+      <p className="text-xs text-muted-foreground">
+        Showing {filtered.length} of {invoices.length} invoices · Total: <span className="font-semibold">${fmt(totalAmount)}</span>
+      </p>
+
+      {/* Table */}
+      <div className="card-glass rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px] leading-tight">
+            <thead>
+              <tr className="bg-primary text-primary-foreground">
+                {columns.map(col => (
+                  <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w} ${col.align === "right" ? "text-right" : ""}`} onClick={() => toggleSort(col.key)}>
+                    <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
+                  </th>
+                ))}
+                <th className="px-3 py-2.5 w-[90px]"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={columns.length + 1} className="text-center py-12 text-muted-foreground">No invoices found. Upload your first invoice above.</td></tr>
+              ) : filtered.map((inv, idx) => (
+                <tr key={inv.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors cursor-pointer ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`} onClick={() => openDetail(inv)}>
+                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(inv.invoice_date)}</td>
+                  <td className="px-3 py-2 font-mono font-medium text-primary">{inv.invoice_number}</td>
+                  <td className="px-3 py-2 font-medium text-foreground">{inv.supplier_name}</td>
+                  <td className="px-3 py-2">{inv.venue}</td>
+                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(inv.due_date || "")}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmt(Number(inv.total_amount))}</td>
+                  <td className="px-3 py-2">
+                    <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[inv.status] || ""}`}>{inv.status}</Badge>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-1">
+                      {inv.file_url && (
+                        <button onClick={e => { e.stopPropagation(); openFile(inv); }} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground" title="View original file">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button onClick={e => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr className="bg-muted/40 font-semibold text-[12px]">
+                  <td colSpan={5} className="px-3 py-2 text-right">Total</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(totalAmount)}</td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
       </div>
+
+      {/* Detail Drawer */}
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          {selectedInvoice && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  Invoice {selectedInvoice.invoice_number}
+                  <Badge className={`text-[10px] ${STATUS_COLORS[selectedInvoice.status] || ""}`}>{selectedInvoice.status}</Badge>
+                </SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-muted-foreground">Supplier:</span> <span className="font-medium">{selectedInvoice.supplier_name}</span></div>
+                  <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
+                  <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{fmtDate(selectedInvoice.invoice_date)}</span></div>
+                  <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{fmtDate(selectedInvoice.due_date || "")}</span></div>
+                  <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">${fmt(Number(selectedInvoice.total_amount))}</span></div>
+                  <div><span className="text-muted-foreground">ID:</span> <span className="font-mono text-xs text-muted-foreground">{selectedInvoice.id.slice(0, 8)}</span></div>
+                </div>
+
+                {selectedInvoice.file_url && (
+                  <Button variant="outline" size="sm" onClick={() => openFile(selectedInvoice)}>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" />View Original File
+                  </Button>
+                )}
+
+                {selectedInvoice.notes && (
+                  <div className="text-sm"><span className="text-muted-foreground">Notes:</span> {selectedInvoice.notes}</div>
+                )}
+
+                <h4 className="text-sm font-semibold pt-2">Line Items ({lineItems.length})</h4>
+                <div className="space-y-1">
+                  {lineItems.map((li, i) => (
+                    <div key={li.id} className={`text-xs grid grid-cols-[1fr_60px_80px_80px] gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-muted/30" : ""}`}>
+                      <div>
+                        <span className="font-medium">{li.description}</span>
+                        {li.pack_size && <span className="text-muted-foreground ml-1">[{li.pack_size}]</span>}
+                      </div>
+                      <div className="text-right tabular-nums">{li.quantity}</div>
+                      <div className="text-right tabular-nums">{fmt(li.unit_price)}</div>
+                      <div className="text-right tabular-nums font-medium">{fmt(li.total)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Invoice" description="This will permanently delete this invoice and all its line items." />
     </div>
   );
 }
