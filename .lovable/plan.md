@@ -1,65 +1,44 @@
 
 
-## Summary
+## Plan: Clean Up Orphaned Invoice Files from Storage
 
-This plan covers four changes to the Revenue dashboard:
+### Problem
+When invoices were previously deleted from the database, their associated files in the `invoice-files` storage bucket were not removed. There are ~130+ files in storage but only 6 are referenced by active invoices.
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+### Referenced files (to keep)
+- `2025-05-19/1536879.jpg`
+- `2025-05-26/1537473.jpg`
+- `2025-06-03/1538091.jpg`
+- `2025-07-08/SI25070156.jpg`
+- `2025-07-10/SI25070199.jpg`
+- `2025-08-14/SI25080288.jpg`
 
----
+### Solution (2 parts)
 
-## Changes
+**1. One-time cleanup: Delete orphaned storage files**
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
+Create a backend function that:
+- Lists all objects in the `invoice-files` bucket
+- Compares against `invoices.file_url` values
+- Deletes any file not referenced by an active invoice
 
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
+This must be done via an edge function since storage file deletion requires the Storage Admin API (cannot be done via SQL `DELETE FROM storage.objects` safely).
 
-### 2. Index.tsx -- Compute and pass new KPI values
+**2. Prevent future orphans: Update delete logic in code**
 
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
+Modify `useInvoiceData.ts` `deleteInvoice` function to also delete the associated file from storage before removing the database record. Currently it only deletes the DB rows.
 
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+### Changes
 
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
+**New edge function: `supabase/functions/cleanup-storage/index.ts`**
+- Accepts POST with `{ bucket: "invoice-files" }`
+- Uses service role to list all files in the bucket
+- Queries `invoices` table for all `file_url` values
+- Deletes any file not in the referenced set
+- Returns count of deleted files
 
-### 4. DashboardCharts.tsx -- Multiple updates
-
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
-
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
-
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+**`src/hooks/useInvoiceData.ts`** — `deleteInvoice` function
+- Before deleting the DB record, check if the invoice has a `file_url`
+- If so, call `supabase.storage.from('invoice-files').remove([file_url])` to delete the file
+- Then proceed with the existing DB deletion
 
