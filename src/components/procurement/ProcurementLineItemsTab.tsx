@@ -111,7 +111,8 @@ export default function ProcurementLineItemsTab() {
       if (search) {
         const q = search.toLowerCase();
         return r.description.toLowerCase().includes(q) ||
-          r.item_code.toLowerCase().includes(q) ||
+          r.internal_sku.toLowerCase().includes(q) ||
+          r.external_sku.toLowerCase().includes(q) ||
           r.invoice_number.toLowerCase().includes(q) ||
           r.supplier_name.toLowerCase().includes(q) ||
           r.master_name.toLowerCase().includes(q);
