@@ -232,6 +232,14 @@ export function useInvoiceData() {
   }, [fetchAll, toast]);
 
   const deleteInvoice = useCallback(async (id: string) => {
+    // Find the invoice to get file_url before deleting
+    const invoiceToDelete = invoices.find((inv) => inv.id === id);
+
+    // Delete storage file if exists
+    if (invoiceToDelete?.file_url) {
+      await supabase.storage.from("invoice-files").remove([invoiceToDelete.file_url]);
+    }
+
     // Delete line items first (FK constraint)
     await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
     const { error } = await supabase.from("invoices").delete().eq("id", id);
@@ -239,7 +247,7 @@ export function useInvoiceData() {
     await fetchAll();
     toast({ title: "Invoice deleted" });
     return true;
-  }, [fetchAll, toast]);
+  }, [fetchAll, toast, invoices]);
 
   const updateInvoiceStatus = useCallback(async (id: string, status: string) => {
     const { error } = await supabase.from("invoices").update({ status } as any).eq("id", id);
