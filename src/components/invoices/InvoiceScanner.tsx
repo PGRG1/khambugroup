@@ -51,6 +51,7 @@ interface ScannedInvoice {
 
 interface InvoiceScannerProps {
   suppliers: Supplier[];
+  productMaster?: ProductMasterEntry[];
   onSave: (invoice: {
     supplier_id: string;
     venue: string;
@@ -70,6 +71,7 @@ interface InvoiceScannerProps {
     tax_amount: number;
     total: number;
     notes: null;
+    product_master_id: string | null;
   }[], file?: File | null) => Promise<any>;
   onCreateSupplier: (supplier: Omit<Supplier, "id">) => Promise<any>;
   onClose: () => void;
