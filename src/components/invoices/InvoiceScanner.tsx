@@ -164,6 +164,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           unit_price: String(li.unit_price || 0),
           tax_amount: "0",
           total: li.total ? String(li.total) : "0",
+          matched_sku: li.matched_sku || "",
         }));
 
         processed.push({
