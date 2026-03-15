@@ -33,6 +33,13 @@ export default function ProcurementInvoicesTab() {
   const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, createSupplier, fetchAll } = useInvoiceData();
   const { user } = useAuth();
 
+  // Fetch product master for AI matching during OCR
+  const [productMaster, setProductMaster] = useState<any[]>([]);
+  useEffect(() => {
+    supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name")
+      .then(({ data }) => { if (data) setProductMaster(data as any[]); });
+  }, []);
+
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
