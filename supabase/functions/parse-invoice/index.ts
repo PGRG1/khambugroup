@@ -115,7 +115,7 @@ ${pmLines}`;
       model: "google/gemini-2.5-flash",
       max_tokens: 16000,
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: fullSystemPrompt },
         {
           role: "user",
           content: [
