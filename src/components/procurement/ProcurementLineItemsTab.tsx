@@ -11,7 +11,6 @@ interface LineItemRow {
   invoice_number: string;
   invoice_date: string;
   supplier_name: string;
-  item_code: string;
   description: string;
   pack_size: string;
   quantity: number;
@@ -21,6 +20,8 @@ interface LineItemRow {
   standard_product_id: string | null;
   product_master_id: string | null;
   master_name: string;
+  internal_sku: string;
+  external_sku: string;
 }
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -44,23 +45,23 @@ export default function ProcurementLineItemsTab() {
       supabase.from("invoice_line_items").select("*").order("created_at", { ascending: false }),
       supabase.from("invoices").select("id, invoice_number, invoice_date, supplier_id"),
       supabase.from("suppliers").select("id, name"),
-      supabase.from("product_master").select("id, internal_product_name"),
+      supabase.from("product_master").select("id, internal_product_name, internal_sku, external_sku"),
     ]);
 
     const invMap = new Map((invRes.data || []).map((i: any) => [i.id, i]));
     const supMap = new Map((supRes.data || []).map((s: any) => [s.id, s.name]));
-    const pmMap = new Map((pmRes.data || []).map((p: any) => [p.id, p.internal_product_name]));
+    const pmMap = new Map((pmRes.data || []).map((p: any) => [p.id, { name: p.internal_product_name, sku: p.internal_sku, ext_sku: p.external_sku }]));
 
     const mapped: LineItemRow[] = (liRes.data || []).map((li: any) => {
       const inv = invMap.get(li.invoice_id);
       const pmId = li.product_master_id || li.standard_product_id;
+      const pm = pmId ? pmMap.get(pmId) : null;
       return {
         id: li.id,
         invoice_id: li.invoice_id,
         invoice_number: inv?.invoice_number || "",
         invoice_date: inv?.invoice_date || "",
         supplier_name: inv ? (supMap.get(inv.supplier_id) || "Unknown") : "Unknown",
-        item_code: li.item_code || "",
         description: li.description || "",
         pack_size: li.pack_size || "",
         quantity: li.quantity || 0,
@@ -69,7 +70,9 @@ export default function ProcurementLineItemsTab() {
         total: li.total || 0,
         standard_product_id: li.standard_product_id,
         product_master_id: li.product_master_id,
-        master_name: pmId ? (pmMap.get(pmId) || "") : "",
+        master_name: pm?.name || "",
+        internal_sku: pm?.sku || "",
+        external_sku: pm?.ext_sku || "",
       };
     });
 
@@ -108,7 +111,8 @@ export default function ProcurementLineItemsTab() {
       if (search) {
         const q = search.toLowerCase();
         return r.description.toLowerCase().includes(q) ||
-          r.item_code.toLowerCase().includes(q) ||
+          r.internal_sku.toLowerCase().includes(q) ||
+          r.external_sku.toLowerCase().includes(q) ||
           r.invoice_number.toLowerCase().includes(q) ||
           r.supplier_name.toLowerCase().includes(q) ||
           r.master_name.toLowerCase().includes(q);
@@ -132,9 +136,10 @@ export default function ProcurementLineItemsTab() {
     { key: "invoice_date", label: "Date", w: "w-[95px]" },
     { key: "supplier_name", label: "Supplier", w: "min-w-[140px]" },
     { key: "invoice_number", label: "Invoice #", w: "w-[110px]" },
-    { key: "item_code", label: "Product No.", w: "w-[90px]" },
-    { key: "master_name", label: "Master Name", w: "min-w-[160px]" },
-    { key: "description", label: "Product Description", w: "min-w-[200px]" },
+    { key: "internal_sku", label: "Internal SKU", w: "w-[100px]" },
+    { key: "external_sku", label: "External SKU", w: "w-[100px]" },
+    { key: "master_name", label: "Internal Product Name", w: "min-w-[160px]" },
+    { key: "description", label: "Supplier Product Name", w: "min-w-[200px]" },
     { key: "quantity", label: "Qty", w: "w-[55px]", align: "right" as const },
     { key: "unit", label: "Unit", w: "w-[55px]" },
     { key: "unit_price", label: "Unit Price", w: "w-[90px]", align: "right" as const },
@@ -201,7 +206,8 @@ export default function ProcurementLineItemsTab() {
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{r.supplier_name}</td>
                   <td className="px-3 py-2 font-mono text-primary">{r.invoice_number}</td>
-                  <td className="px-3 py-2 font-mono text-muted-foreground">{r.item_code}</td>
+                  <td className="px-3 py-2 font-mono text-muted-foreground">{r.internal_sku || "—"}</td>
+                  <td className="px-3 py-2 font-mono text-muted-foreground">{r.external_sku || "—"}</td>
                   <td className="px-3 py-2">
                     {r.master_name ? (
                       <span className="text-foreground font-medium">{r.master_name}</span>
@@ -226,7 +232,7 @@ export default function ProcurementLineItemsTab() {
             {filtered.length > 0 && (
               <tfoot>
                 <tr className="bg-muted/40 font-semibold text-[12px]">
-                  <td colSpan={9} className="px-3 py-2 text-right">Total</td>
+                  <td colSpan={11} className="px-3 py-2 text-right">Total</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(totalNet)}</td>
                 </tr>
               </tfoot>
