@@ -125,6 +125,7 @@ export default function ProcurementLineItemsTab() {
   }, [rows, search, supplierFilter, sortKey, sortDir]);
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
+  const unmatchedCount = filtered.filter(r => !r.product_master_id && !r.standard_product_id).length;
   const hasFilters = search || supplierFilter !== "all";
 
   const columns = [
@@ -164,9 +165,16 @@ export default function ProcurementLineItemsTab() {
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Showing {filtered.length} of {rows.length} line items · Total: <span className="font-semibold">${fmt(totalNet)}</span>
-      </p>
+      <div className="flex items-center gap-3">
+        <p className="text-xs text-muted-foreground">
+          Showing {filtered.length} of {rows.length} line items · Total: <span className="font-semibold">${fmt(totalNet)}</span>
+        </p>
+        {unmatchedCount > 0 && (
+          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-700">
+            <AlertTriangle className="h-3 w-3 mr-1" />{unmatchedCount} unmatched
+          </Badge>
+        )}
+      </div>
 
       {/* Table */}
       <div className="card-glass rounded-xl overflow-hidden">
