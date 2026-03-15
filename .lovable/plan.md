@@ -1,65 +1,28 @@
 
 
-## Summary
+## Plan: Use Product Master Name for Matched Items
 
-This plan covers four changes to the Revenue dashboard:
+### Problem
+The AI scanner generates inconsistent descriptions for the same product across different invoices, even when the product is correctly matched to a Product Master entry.
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+### Solution
+After the AI returns extracted data, **post-process matched items** to replace the AI-generated description with the `supplier_product_name` from the Product Master. This is more reliable than prompt engineering since it guarantees consistency.
 
----
+For unmatched items (no `matched_sku`), keep the AI-extracted description as-is and visually flag them for user review.
 
-## Changes
+### Changes
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
+**`src/components/invoices/InvoiceScanner.tsx`** (~lines 155-170, where AI response is mapped to `ScannedLineItem[]`)
 
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
+After mapping line items from the AI response, add a post-processing step:
+- If a line item has a `matched_sku`, look up the corresponding Product Master entry
+- Replace `description` with `productMaster.supplier_product_name`
+- If the item has no `matched_sku`, leave description as-is (it already gets flagged as "Unmatched" in the Line Items view)
 
-### 2. Index.tsx -- Compute and pass new KPI values
+This is a small change — roughly 5 lines of logic added to the existing mapping block where `li.matched_sku` is already being read.
 
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
-
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
-
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
-
-### 4. DashboardCharts.tsx -- Multiple updates
-
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
-
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
-
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+### Why post-processing, not prompt changes
+- The AI prompt already does matching well — the issue is only the description text
+- Post-processing is deterministic: same SKU = same name, every time
+- No risk of the AI ignoring instructions or paraphrasing
 
