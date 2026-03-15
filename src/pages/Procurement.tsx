@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, FileSpreadsheet, FileText, ClipboardList } from "lucide-react";
+import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed } from "lucide-react";
 import ProductMasterTab from "@/components/procurement/ProductMasterTab";
 import ProcurementInvoicesTab from "@/components/procurement/ProcurementInvoicesTab";
 import ProcurementLineItemsTab from "@/components/procurement/ProcurementLineItemsTab";
 import InventoryOnHandTab from "@/components/procurement/InventoryOnHandTab";
+import MenuCostingTab from "@/components/procurement/MenuCostingTab";
 
 export default function Procurement() {
   const [activeTab, setActiveTab] = useState("product-master");
@@ -29,12 +30,16 @@ export default function Procurement() {
           <TabsTrigger value="inventory" className="gap-1.5">
             <ClipboardList className="h-3.5 w-3.5" />Inventory
           </TabsTrigger>
+          <TabsTrigger value="menu-costing" className="gap-1.5">
+            <UtensilsCrossed className="h-3.5 w-3.5" />Menu Costing
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
         <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
         <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
+        <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>
       </Tabs>
     </div>
   );
