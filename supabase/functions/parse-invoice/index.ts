@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { fileBase64, mimeType } = await req.json();
+    const { fileBase64, mimeType, productMaster } = await req.json();
 
     if (!fileBase64) {
       return new Response(
