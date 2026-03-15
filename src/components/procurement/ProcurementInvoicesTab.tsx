@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,13 @@ const fmtDate = (d: string) => {
 export default function ProcurementInvoicesTab() {
   const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, createSupplier, fetchAll } = useInvoiceData();
   const { user } = useAuth();
+
+  // Fetch product master for AI matching during OCR
+  const [productMaster, setProductMaster] = useState<any[]>([]);
+  useEffect(() => {
+    supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name")
+      .then(({ data }) => { if (data) setProductMaster(data as any[]); });
+  }, []);
 
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
@@ -120,6 +127,7 @@ export default function ProcurementInvoicesTab() {
       {scannerOpen && (
         <InvoiceScanner
           suppliers={suppliers}
+          productMaster={productMaster}
           onSave={async (inv, lines, file) => {
             let fileUrl: string | null = null;
             let fileName: string | null = null;

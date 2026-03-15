@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { fileBase64, mimeType } = await req.json();
+    const { fileBase64, mimeType, productMaster } = await req.json();
 
     if (!fileBase64) {
       return new Response(
@@ -86,15 +86,34 @@ Rules:
 - The date should always be in YYYY-MM-DD format, converting from DD/MM/YYYY if needed
 - IMPORTANT: Look for a DUE DATE, PAYMENT DUE, or similar field on the invoice. Extract it into "due_date" in YYYY-MM-DD format. If no due date is found, use an empty string.
 - Return ONLY the JSON object, no markdown, no explanation
-- Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry
-- IMPORTANT for weight-based items: When an item shows a weight (e.g. "16.3300 KG") and a price per KG (e.g. "310.00/KG"), set weight to the KG value, unit_price to the per-KG price, and total to weight * unit_price. The quantity is the number of pieces/cartons ordered.
-- Use the TOTAL AMOUNT column from the invoice as the "total" field — do NOT recalculate it`;
+- Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry`;
+
+    // Build product master context for matching
+    let productMasterContext = "";
+    if (productMaster && Array.isArray(productMaster) && productMaster.length > 0) {
+      const pmLines = productMaster.map((pm: any) =>
+        `SKU:${pm.internal_sku} | Name:${pm.internal_product_name} | SupplierName:${pm.supplier_product_name} | ExtSKU:${pm.external_sku}`
+      ).join("\n");
+      productMasterContext = `\n\nPRODUCT MASTER MATCHING — CRITICAL INSTRUCTIONS:
+Below is the Product Master list. For EACH line item you extract, you MUST try to match it to the closest Product Master entry.
+- Compare the extracted product description against "SupplierName" and "Name" fields
+- Compare any item/product code on the invoice against "ExtSKU"
+- If you find a match, add "matched_sku": "<internal_sku value>" to that line item
+- If NO match is found, set "matched_sku": ""
+- Be flexible with matching: ignore minor differences in spacing, capitalization, abbreviations (e.g. "J.W." vs "JW", "Whisky" vs "Whiskey", "75CL" vs "750ML")
+- The product description on the invoice may be slightly different from Product Master — use your best judgment
+
+PRODUCT MASTER LIST:
+${pmLines}`;
+    }
+
+    const fullSystemPrompt = systemPrompt + productMasterContext;
 
     const requestBody = JSON.stringify({
       model: "google/gemini-2.5-flash",
       max_tokens: 16000,
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: fullSystemPrompt },
         {
           role: "user",
           content: [

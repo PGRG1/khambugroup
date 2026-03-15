@@ -15,6 +15,14 @@ import { compressImageFile } from "@/utils/imageCompression";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
+interface ProductMasterEntry {
+  id: string;
+  internal_sku: string;
+  external_sku: string;
+  internal_product_name: string;
+  supplier_product_name: string;
+}
+
 interface ScannedLineItem {
   item_code: string;
   description: string;
@@ -25,6 +33,7 @@ interface ScannedLineItem {
   unit_price: string;
   tax_amount: string;
   total: string;
+  matched_sku: string;
 }
 
 interface ScannedInvoice {
@@ -42,6 +51,7 @@ interface ScannedInvoice {
 
 interface InvoiceScannerProps {
   suppliers: Supplier[];
+  productMaster?: ProductMasterEntry[];
   onSave: (invoice: {
     supplier_id: string;
     venue: string;
@@ -61,15 +71,16 @@ interface InvoiceScannerProps {
     tax_amount: number;
     total: number;
     notes: null;
+    product_master_id: string | null;
   }[], file?: File | null) => Promise<any>;
   onCreateSupplier: (supplier: Omit<Supplier, "id">) => Promise<any>;
   onClose: () => void;
   userId: string;
 }
 
-const emptyLine: ScannedLineItem = { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0", total: "0" };
+const emptyLine: ScannedLineItem = { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0", total: "0", matched_sku: "" };
 
-const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setInvoices] = useState<ScannedInvoice[]>([]);
@@ -130,7 +141,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
     try {
       const base64 = await fileToBase64(compressedFile);
       const { data, error } = await supabase.functions.invoke("parse-invoice", {
-        body: { fileBase64: base64, mimeType: compressedFile.type },
+        body: { fileBase64: base64, mimeType: compressedFile.type, productMaster: productMaster || [] },
       });
 
       if (error || !data?.success) {
@@ -153,6 +164,7 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
           unit_price: String(li.unit_price || 0),
           tax_amount: "0",
           total: li.total ? String(li.total) : "0",
+          matched_sku: li.matched_sku || "",
         }));
 
         processed.push({
@@ -277,7 +289,13 @@ const InvoiceScanner = ({ suppliers, onSave, onCreateSupplier, onClose, userId }
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
       const lineTotal = w ? w * price + tax : qty * price + tax;
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null };
+      // Resolve matched_sku to product_master_id
+      let pmId: string | null = null;
+      if (l.matched_sku && productMaster) {
+        const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
+        if (pm) pmId = pm.id;
+      }
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
     });
 
     // Build professional file name: YYYYMMDD_vendorname_invoice#
