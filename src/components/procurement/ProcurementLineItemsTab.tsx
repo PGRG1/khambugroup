@@ -232,7 +232,7 @@ export default function ProcurementLineItemsTab() {
             {filtered.length > 0 && (
               <tfoot>
                 <tr className="bg-muted/40 font-semibold text-[12px]">
-                  <td colSpan={9} className="px-3 py-2 text-right">Total</td>
+                  <td colSpan={11} className="px-3 py-2 text-right">Total</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(totalNet)}</td>
                 </tr>
               </tfoot>
