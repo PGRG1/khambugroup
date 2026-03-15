@@ -1,76 +1,65 @@
 
 
-## Plan: Clean Database + Replace Inventory Tab
+## Summary
 
-### 1. Database Cleanup
+This plan covers four changes to the Revenue dashboard:
 
-Delete all non-Beverage World data in this order (respecting foreign keys):
+1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
+2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
+3. Rename all "Customer" references to "Guest" across the dashboard charts
+4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
 
-```sql
--- Delete line items for non-Beverage World invoices
-DELETE FROM invoice_line_items WHERE invoice_id IN (
-  SELECT id FROM invoices WHERE supplier_id != '45e4cf56-b7eb-4144-9332-f5e83b4cbc65'
-);
+---
 
--- Delete payments for non-Beverage World invoices
-DELETE FROM invoice_payments WHERE invoice_id IN (
-  SELECT id FROM invoices WHERE supplier_id != '45e4cf56-b7eb-4144-9332-f5e83b4cbc65'
-);
+## Changes
 
--- Delete non-Beverage World invoices
-DELETE FROM invoices WHERE supplier_id != '45e4cf56-b7eb-4144-9332-f5e83b4cbc65';
+### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
 
--- Delete non-Beverage World suppliers
-DELETE FROM suppliers WHERE id != '45e4cf56-b7eb-4144-9332-f5e83b4cbc65';
+- Accept two new props: `salesPerDay` and `guestsPerDay`
+- Insert two new card entries after "Total Discount":
+  - "Sales / Day" showing `$X` with DollarSign icon
+  - "Guests / Day" showing `X` with Users icon
+- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
 
--- Clear old inventory tables (they'll be replaced)
-DELETE FROM inventory_counts;
-DELETE FROM inventory_periods;
-DELETE FROM inventory_items;
-```
+### 2. Index.tsx -- Compute and pass new KPI values
 
-### 2. Replace Inventory Tab
+- Calculate unique days count from filtered data
+- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
+- Pass both new values to `KPICards`
 
-Remove the old `Inventory.tsx` page and `useInventoryData.ts` hook entirely. Create a new **Inventory On Hand** component that derives its data from `product_master` + `invoice_line_items`.
+### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
 
-**Concept**: No separate `inventory_items` table needed. The inventory is computed from:
-- **Items**: All active `product_master` entries
-- **Qty on hand**: Sum of `invoice_line_items.quantity` for each matched `product_master_id`
-- **Weighted Average Cost**: Total spend / total qty purchased (from invoice line items)
-- **Supplier Value**: `product_master.unit_cost × qty_on_hand` (the supplier's listed price)
+- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
+- This computes the average total sales per day-of-week per month
 
-**New component**: `src/components/procurement/InventoryOnHandTab.tsx`
+### 4. DashboardCharts.tsx -- Multiple updates
 
-**Columns**:
-| Internal SKU | Product Name | Category | Qty On Hand | Unit | Avg Cost | Cost Value | Supplier Unit Price | Supplier Value |
+**a. Add "Avg Sales by Day of Week (MoM)" chart**
+- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
+- Uses `dayStats` data with `sales_{month}` keys
+- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
 
-Where:
-- **Avg Cost** = sum of `invoice_line_items.total` / sum of `invoice_line_items.quantity` per product_master_id (weighted average of actual purchases)
-- **Cost Value** = Avg Cost × Qty On Hand (accounting cost basis)
-- **Supplier Unit Price** = `product_master.unit_cost`
-- **Supplier Value** = Supplier Unit Price × Qty On Hand
+**b. Rename all "Customer" references to "Guest"**
+- "Daily Number of Customers" -> "Daily Guests"
+- "Avg Daily Customers" -> "Avg Daily Guests"
+- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
+- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
+- "Avg Spend/Customer" -> "Avg Spend/Guest"
+- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
+- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
 
-**Features**:
-- Summary cards: Total SKUs, Total Cost Value, Total Supplier Value
-- Search by name/SKU
-- Category filter (Level 1)
-- Sortable columns
-- Footer row with totals for Cost Value and Supplier Value
+**c. Fix Discount chart and rename**
+- Rename "Discount Report" to "Discount Trend"
+- Add `lg:col-span-2` class to make it span full width like other full-width charts
+- This fixes the chart not stretching to the right border
 
-### 3. File Changes
+---
 
-| File | Action |
-|------|--------|
-| `src/pages/Inventory.tsx` | Delete or gut entirely |
-| `src/hooks/useInventoryData.ts` | Delete (no longer needed) |
-| `src/components/procurement/InventoryOnHandTab.tsx` | **Create** — new component |
-| `src/pages/Procurement.tsx` | Replace lazy Inventory import with new InventoryOnHandTab |
-| `src/App.tsx` | Remove `/inventory` route if it exists |
+## Technical Details
 
-### Technical Notes
-
-- The new tab queries `product_master` joined with aggregated `invoice_line_items` data (grouped by `product_master_id`)
-- Weighted average cost recalculates on each load — no stored state needed
-- Items with no purchases show qty=0, cost=0, supplier value from product_master.unit_cost
-- This is a read-only view; stock adjustments happen through invoice uploads
+**Files modified:**
+- `src/components/dashboard/KPICards.tsx` -- new props and cards
+- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
+- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
+- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
 
