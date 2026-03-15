@@ -194,8 +194,10 @@ export default function ProcurementLineItemsTab() {
                 <tr><td colSpan={columns.length} className="text-center py-12 text-muted-foreground">
                   No line items found. Upload invoices in the Invoices tab to see extracted data here.
                 </td></tr>
-              ) : filtered.map((r, idx) => (
-                <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+              ) : filtered.map((r, idx) => {
+                const isUnmatched = !r.product_master_id && !r.standard_product_id;
+                return (
+                <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{r.supplier_name}</td>
                   <td className="px-3 py-2 font-mono text-primary">{r.invoice_number}</td>
@@ -204,7 +206,9 @@ export default function ProcurementLineItemsTab() {
                     {r.master_name ? (
                       <span className="text-foreground font-medium">{r.master_name}</span>
                     ) : (
-                      <span className="text-muted-foreground/50 italic">—</span>
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px] font-medium">
+                        <AlertTriangle className="h-3 w-3" />Unmatched
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-foreground">
@@ -216,7 +220,8 @@ export default function ProcurementLineItemsTab() {
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(r.unit_price)}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmt(r.total)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
             {filtered.length > 0 && (
               <tfoot>
