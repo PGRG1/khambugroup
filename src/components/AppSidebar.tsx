@@ -21,7 +21,7 @@ const navItems = [
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
   { title: "Procurement", url: "/procurement", icon: FileSpreadsheet, pageKey: "invoices" },
-  { title: "Inventory", url: "/inventory", icon: Package, pageKey: "inventory" },
+  
 ];
 
 export function AppSidebar() {

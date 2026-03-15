@@ -11,7 +11,6 @@ interface LineItemRow {
   invoice_number: string;
   invoice_date: string;
   supplier_name: string;
-  item_code: string;
   description: string;
   pack_size: string;
   quantity: number;
@@ -21,6 +20,8 @@ interface LineItemRow {
   standard_product_id: string | null;
   product_master_id: string | null;
   master_name: string;
+  internal_sku: string;
+  external_sku: string;
 }
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
