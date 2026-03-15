@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, FileSpreadsheet, FileText, ClipboardList } from "lucide-react";
+import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed } from "lucide-react";
 import ProductMasterTab from "@/components/procurement/ProductMasterTab";
 import ProcurementInvoicesTab from "@/components/procurement/ProcurementInvoicesTab";
 import ProcurementLineItemsTab from "@/components/procurement/ProcurementLineItemsTab";
 import InventoryOnHandTab from "@/components/procurement/InventoryOnHandTab";
+import MenuCostingTab from "@/components/procurement/MenuCostingTab";
 
 export default function Procurement() {
   const [activeTab, setActiveTab] = useState("product-master");
