@@ -1,65 +1,70 @@
 
 
-## Summary
+## Plan: Menu Costing Tab under Procurement
 
-This plan covers four changes to the Revenue dashboard:
+### Database Changes (3 new tables)
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+**1. `menu_items`**
+- `id` uuid PK
+- `name` text NOT NULL
+- `category` text NOT NULL DEFAULT ''
+- `theoretical_cost` numeric NOT NULL DEFAULT 0 (auto-updated via code)
+- `status` text NOT NULL DEFAULT 'Active'
+- `created_at`, `updated_at` timestamps
+- RLS: authenticated can read, admin/manager can manage
 
----
+**2. `menu_item_ingredients`**
+- `id` uuid PK
+- `menu_item_id` uuid FK → menu_items(id) ON DELETE CASCADE
+- `product_master_id` uuid FK → product_master(id)
+- `sku` text (denormalized from product_master for display)
+- `description` text (denormalized)
+- `quantity_used` numeric NOT NULL DEFAULT 0
+- `unit_used` text NOT NULL DEFAULT 'gms'
+- `reference_cost` numeric NOT NULL DEFAULT 0 (from product_master.unit_cost)
+- `line_cost` numeric NOT NULL DEFAULT 0 (quantity_used × reference_cost)
+- `created_at` timestamp
+- RLS: same pattern
 
-## Changes
+**3. `menu_item_pricing`**
+- `id` uuid PK
+- `menu_item_id` uuid FK → menu_items(id) ON DELETE CASCADE
+- `price_type` text NOT NULL (e.g. "Regular", "Taco Tuesday")
+- `selling_price` numeric NOT NULL DEFAULT 0
+- `gross_profit` numeric NOT NULL DEFAULT 0 (selling_price - theoretical_cost)
+- `food_cost_pct` numeric NOT NULL DEFAULT 0 (theoretical_cost / selling_price)
+- `created_at` timestamp
+- RLS: same pattern
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
+### Seed Data
+Insert 1 sample "Beef Taco" menu item with ingredient lines linked to existing Product Master items (flour tortilla, ground beef, etc.) and 4 pricing types (Regular, Taco Tuesday, Happy Hour, Delivery).
 
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
+### Frontend Changes
 
-### 2. Index.tsx -- Compute and pass new KPI values
+**New tab in `src/pages/Procurement.tsx`**
+- Add "Menu Costing" tab with `UtensilsCrossed` icon
 
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
+**New hook: `src/hooks/useMenuCosting.ts`**
+- CRUD for menu_items, menu_item_ingredients, menu_item_pricing
+- Auto-calculate theoretical_cost as sum of ingredient line_costs
+- Auto-calculate gross_profit and food_cost_pct from pricing
 
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+**New component: `src/components/procurement/MenuCostingTab.tsx`**
+- Table listing all menu items with name, category, theoretical cost, status
+- Click a menu item to open a detail panel/dialog with two sections:
+  - **Recipe / Ingredients**: table of ingredient lines with add/edit/delete, product master picker, quantity, unit, reference cost, line cost
+  - **Pricing Types**: table of price types with selling price, auto-calculated gross profit and food cost %
+- Add/edit/delete menu items
+- Clear label: "Theoretical Cost — for pricing analysis only"
 
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
+### Calculation Logic (all in frontend)
+- `line_cost = quantity_used × reference_cost`
+- `theoretical_cost = SUM(line_costs)` for all ingredients
+- `gross_profit = selling_price - theoretical_cost`
+- `food_cost_pct = theoretical_cost / selling_price × 100`
 
-### 4. DashboardCharts.tsx -- Multiple updates
-
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
-
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
-
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+### Notes
+- No connection to inventory, COGS, or accounting
+- Structured with proper FKs for future expansion
+- Follows existing patterns (hook + tab component, same RLS approach)
 
