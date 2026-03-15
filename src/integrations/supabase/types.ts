@@ -1165,6 +1165,128 @@ export type Database = {
           },
         ]
       }
+      menu_item_ingredients: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          line_cost: number
+          menu_item_id: string
+          product_master_id: string | null
+          quantity_used: number
+          reference_cost: number
+          sku: string
+          unit_used: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          line_cost?: number
+          menu_item_id: string
+          product_master_id?: string | null
+          quantity_used?: number
+          reference_cost?: number
+          sku?: string
+          unit_used?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          line_cost?: number
+          menu_item_id?: string
+          product_master_id?: string | null
+          quantity_used?: number
+          reference_cost?: number
+          sku?: string
+          unit_used?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_item_ingredients_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_item_ingredients_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_item_pricing: {
+        Row: {
+          created_at: string
+          food_cost_pct: number
+          gross_profit: number
+          id: string
+          menu_item_id: string
+          price_type: string
+          selling_price: number
+        }
+        Insert: {
+          created_at?: string
+          food_cost_pct?: number
+          gross_profit?: number
+          id?: string
+          menu_item_id: string
+          price_type: string
+          selling_price?: number
+        }
+        Update: {
+          created_at?: string
+          food_cost_pct?: number
+          gross_profit?: number
+          id?: string
+          menu_item_id?: string
+          price_type?: string
+          selling_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_item_pricing_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          status: string
+          theoretical_cost: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          name: string
+          status?: string
+          theoretical_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string
+          theoretical_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       page_visibility: {
         Row: {
           id: string
