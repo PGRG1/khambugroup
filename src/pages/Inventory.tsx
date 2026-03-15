@@ -283,9 +283,8 @@ export default function Inventory() {
   if (loading) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>;
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold font-display">Inventory</h1>
         <div className="flex gap-2 flex-wrap">
           <Select value={venueFilter} onValueChange={setVenueFilter}>
             <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
