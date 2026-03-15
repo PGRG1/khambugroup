@@ -289,7 +289,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
       const lineTotal = w ? w * price + tax : qty * price + tax;
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null };
+      // Resolve matched_sku to product_master_id
+      let pmId: string | null = null;
+      if (l.matched_sku && productMaster) {
+        const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
+        if (pm) pmId = pm.id;
+      }
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
     });
 
     // Build professional file name: YYYYMMDD_vendorname_invoice#
