@@ -206,7 +206,8 @@ export default function ProcurementLineItemsTab() {
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{r.supplier_name}</td>
                   <td className="px-3 py-2 font-mono text-primary">{r.invoice_number}</td>
-                  <td className="px-3 py-2 font-mono text-muted-foreground">{r.item_code}</td>
+                  <td className="px-3 py-2 font-mono text-muted-foreground">{r.internal_sku || "—"}</td>
+                  <td className="px-3 py-2 font-mono text-muted-foreground">{r.external_sku || "—"}</td>
                   <td className="px-3 py-2">
                     {r.master_name ? (
                       <span className="text-foreground font-medium">{r.master_name}</span>
