@@ -154,18 +154,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const processed: ScannedInvoice[] = [];
       for (const raw of rawInvoices) {
         const supplierId = await matchOrCreateSupplier(raw.supplier_name || "");
-        const lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => ({
-          item_code: li.item_code || "",
-          description: li.description || "",
-          pack_size: li.pack_size || "",
-          quantity: String(li.quantity || 1),
-          unit: li.unit || "",
-          weight: li.weight ? String(li.weight) : "",
-          unit_price: String(li.unit_price || 0),
-          tax_amount: "0",
-          total: li.total ? String(li.total) : "0",
-          matched_sku: li.matched_sku || "",
-        }));
+        const lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => {
+          const matchedSku = li.matched_sku || "";
+          // If matched to Product Master, use the standardized supplier_product_name
+          let description = li.description || "";
+          if (matchedSku && productMaster) {
+            const pmEntry = productMaster.find((pm: any) => pm.external_sku === matchedSku || pm.internal_sku === matchedSku);
+            if (pmEntry?.supplier_product_name) {
+              description = pmEntry.supplier_product_name;
+            }
+          }
+          return {
+            item_code: li.item_code || "",
+            description,
+            pack_size: li.pack_size || "",
+            quantity: String(li.quantity || 1),
+            unit: li.unit || "",
+            weight: li.weight ? String(li.weight) : "",
+            unit_price: String(li.unit_price || 0),
+            tax_amount: "0",
+            total: li.total ? String(li.total) : "0",
+            matched_sku: matchedSku,
+          };
+        });
 
         processed.push({
           supplier_name: raw.supplier_name || "",
