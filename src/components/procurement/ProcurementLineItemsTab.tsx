@@ -50,7 +50,7 @@ export default function ProcurementLineItemsTab() {
 
     const invMap = new Map((invRes.data || []).map((i: any) => [i.id, i]));
     const supMap = new Map((supRes.data || []).map((s: any) => [s.id, s.name]));
-    const pmMap = new Map((pmRes.data || []).map((p: any) => [p.id, p.internal_product_name]));
+    const pmMap = new Map((pmRes.data || []).map((p: any) => [p.id, { name: p.internal_product_name, sku: p.internal_sku, ext_sku: p.external_sku }]));
 
     const mapped: LineItemRow[] = (liRes.data || []).map((li: any) => {
       const inv = invMap.get(li.invoice_id);
