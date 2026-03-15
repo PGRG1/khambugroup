@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle } from "lucide-react";
 
 interface LineItemRow {
   id: string;
@@ -19,6 +19,7 @@ interface LineItemRow {
   unit_price: number;
   total: number;
   standard_product_id: string | null;
+  product_master_id: string | null;
   master_name: string;
 }
 
@@ -52,6 +53,7 @@ export default function ProcurementLineItemsTab() {
 
     const mapped: LineItemRow[] = (liRes.data || []).map((li: any) => {
       const inv = invMap.get(li.invoice_id);
+      const pmId = li.product_master_id || li.standard_product_id;
       return {
         id: li.id,
         invoice_id: li.invoice_id,
@@ -66,7 +68,8 @@ export default function ProcurementLineItemsTab() {
         unit_price: li.unit_price || 0,
         total: li.total || 0,
         standard_product_id: li.standard_product_id,
-        master_name: li.standard_product_id ? (pmMap.get(li.standard_product_id) || "") : "",
+        product_master_id: li.product_master_id,
+        master_name: pmId ? (pmMap.get(pmId) || "") : "",
       };
     });
 
@@ -122,6 +125,7 @@ export default function ProcurementLineItemsTab() {
   }, [rows, search, supplierFilter, sortKey, sortDir]);
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
+  const unmatchedCount = filtered.filter(r => !r.product_master_id && !r.standard_product_id).length;
   const hasFilters = search || supplierFilter !== "all";
 
   const columns = [
@@ -161,9 +165,16 @@ export default function ProcurementLineItemsTab() {
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Showing {filtered.length} of {rows.length} line items · Total: <span className="font-semibold">${fmt(totalNet)}</span>
-      </p>
+      <div className="flex items-center gap-3">
+        <p className="text-xs text-muted-foreground">
+          Showing {filtered.length} of {rows.length} line items · Total: <span className="font-semibold">${fmt(totalNet)}</span>
+        </p>
+        {unmatchedCount > 0 && (
+          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-700">
+            <AlertTriangle className="h-3 w-3 mr-1" />{unmatchedCount} unmatched
+          </Badge>
+        )}
+      </div>
 
       {/* Table */}
       <div className="card-glass rounded-xl overflow-hidden">
@@ -183,8 +194,10 @@ export default function ProcurementLineItemsTab() {
                 <tr><td colSpan={columns.length} className="text-center py-12 text-muted-foreground">
                   No line items found. Upload invoices in the Invoices tab to see extracted data here.
                 </td></tr>
-              ) : filtered.map((r, idx) => (
-                <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+              ) : filtered.map((r, idx) => {
+                const isUnmatched = !r.product_master_id && !r.standard_product_id;
+                return (
+                <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{r.supplier_name}</td>
                   <td className="px-3 py-2 font-mono text-primary">{r.invoice_number}</td>
@@ -193,7 +206,9 @@ export default function ProcurementLineItemsTab() {
                     {r.master_name ? (
                       <span className="text-foreground font-medium">{r.master_name}</span>
                     ) : (
-                      <span className="text-muted-foreground/50 italic">—</span>
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px] font-medium">
+                        <AlertTriangle className="h-3 w-3" />Unmatched
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-foreground">
@@ -205,7 +220,8 @@ export default function ProcurementLineItemsTab() {
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(r.unit_price)}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmt(r.total)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
             {filtered.length > 0 && (
               <tfoot>

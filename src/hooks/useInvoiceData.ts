@@ -146,6 +146,43 @@ export function useInvoiceData() {
     }
   }, []);
 
+  const matchLineItemsToProductMaster = useCallback(async (lineItems: any[]) => {
+    // Fetch all product master entries
+    const { data: pmData } = await supabase.from("product_master" as any).select("id, supplier_product_name, internal_product_name, external_sku");
+    if (!pmData || pmData.length === 0) return lineItems;
+
+    const pmEntries = pmData as any[];
+
+    return lineItems.map((li: any) => {
+      const desc = (li.description || "").trim().toLowerCase();
+      const itemCode = (li.item_code || "").trim().toLowerCase();
+
+      // Try matching by supplier_product_name (fuzzy contains match)
+      let match = pmEntries.find((pm: any) => {
+        const spn = (pm.supplier_product_name || "").trim().toLowerCase();
+        return spn && (spn === desc || desc.includes(spn) || spn.includes(desc));
+      });
+
+      // Try matching by external_sku to item_code
+      if (!match && itemCode) {
+        match = pmEntries.find((pm: any) => {
+          const eSku = (pm.external_sku || "").trim().toLowerCase();
+          return eSku && eSku === itemCode;
+        });
+      }
+
+      // Try matching by internal_product_name
+      if (!match) {
+        match = pmEntries.find((pm: any) => {
+          const ipn = (pm.internal_product_name || "").trim().toLowerCase();
+          return ipn && (ipn === desc || desc.includes(ipn) || ipn.includes(desc));
+        });
+      }
+
+      return { ...li, product_master_id: match ? match.id : null };
+    });
+  }, []);
+
   const createInvoice = useCallback(async (
     invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name" | "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes"> & Partial<Pick<Invoice, "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes">>,
     lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[],
@@ -156,8 +193,11 @@ export function useInvoiceData() {
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return null; }
 
     if (lineItems.length > 0) {
-      const items = lineItems.map((li) => ({ ...li, invoice_id: data.id }));
-      const { error: liErr } = await supabase.from("invoice_line_items").insert(items as any);
+      // Match line items against product master
+      const matchedItems = await matchLineItemsToProductMaster(
+        lineItems.map((li) => ({ ...li, invoice_id: data.id }))
+      );
+      const { error: liErr } = await supabase.from("invoice_line_items").insert(matchedItems as any);
       if (liErr) toast({ title: "Error adding line items", description: liErr.message, variant: "destructive" });
 
       // Sync to inventory
@@ -165,7 +205,7 @@ export function useInvoiceData() {
     }
     await fetchAll();
     return data;
-  }, [fetchAll, toast, syncLineItemsToInventory]);
+  }, [fetchAll, toast, syncLineItemsToInventory, matchLineItemsToProductMaster]);
 
   const updateInvoice = useCallback(async (
     id: string,

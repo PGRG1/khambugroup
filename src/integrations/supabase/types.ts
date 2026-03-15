@@ -968,6 +968,7 @@ export type Database = {
           item_code: string | null
           notes: string | null
           pack_size: string | null
+          product_master_id: string | null
           quantity: number
           standard_product_id: string | null
           tax_amount: number
@@ -985,6 +986,7 @@ export type Database = {
           item_code?: string | null
           notes?: string | null
           pack_size?: string | null
+          product_master_id?: string | null
           quantity?: number
           standard_product_id?: string | null
           tax_amount?: number
@@ -1002,6 +1004,7 @@ export type Database = {
           item_code?: string | null
           notes?: string | null
           pack_size?: string | null
+          product_master_id?: string | null
           quantity?: number
           standard_product_id?: string | null
           tax_amount?: number
@@ -1023,6 +1026,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
             referencedColumns: ["id"]
           },
           {
