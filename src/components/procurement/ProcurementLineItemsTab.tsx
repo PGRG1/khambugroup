@@ -19,6 +19,7 @@ interface LineItemRow {
   unit_price: number;
   total: number;
   standard_product_id: string | null;
+  product_master_id: string | null;
   master_name: string;
 }
 
