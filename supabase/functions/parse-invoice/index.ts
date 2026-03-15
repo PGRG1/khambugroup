@@ -108,8 +108,6 @@ ${pmLines}`;
     }
 
     const fullSystemPrompt = systemPrompt + productMasterContext;
-- IMPORTANT for weight-based items: When an item shows a weight (e.g. "16.3300 KG") and a price per KG (e.g. "310.00/KG"), set weight to the KG value, unit_price to the per-KG price, and total to weight * unit_price. The quantity is the number of pieces/cartons ordered.
-- Use the TOTAL AMOUNT column from the invoice as the "total" field — do NOT recalculate it`;
 
     const requestBody = JSON.stringify({
       model: "google/gemini-2.5-flash",
