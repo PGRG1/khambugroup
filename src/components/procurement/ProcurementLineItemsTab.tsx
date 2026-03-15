@@ -55,13 +55,13 @@ export default function ProcurementLineItemsTab() {
     const mapped: LineItemRow[] = (liRes.data || []).map((li: any) => {
       const inv = invMap.get(li.invoice_id);
       const pmId = li.product_master_id || li.standard_product_id;
+      const pm = pmId ? pmMap.get(pmId) : null;
       return {
         id: li.id,
         invoice_id: li.invoice_id,
         invoice_number: inv?.invoice_number || "",
         invoice_date: inv?.invoice_date || "",
         supplier_name: inv ? (supMap.get(inv.supplier_id) || "Unknown") : "Unknown",
-        item_code: li.item_code || "",
         description: li.description || "",
         pack_size: li.pack_size || "",
         quantity: li.quantity || 0,
@@ -70,7 +70,9 @@ export default function ProcurementLineItemsTab() {
         total: li.total || 0,
         standard_product_id: li.standard_product_id,
         product_master_id: li.product_master_id,
-        master_name: pmId ? (pmMap.get(pmId) || "") : "",
+        master_name: pm?.name || "",
+        internal_sku: pm?.sku || "",
+        external_sku: pm?.ext_sku || "",
       };
     });
 
