@@ -154,6 +154,9 @@ export function useInvoiceData() {
     const pmEntries = pmData as any[];
 
     return lineItems.map((li: any) => {
+      // Skip if already matched by AI
+      if (li.product_master_id) return li;
+
       const desc = (li.description || "").trim().toLowerCase();
       const itemCode = (li.item_code || "").trim().toLowerCase();
 
