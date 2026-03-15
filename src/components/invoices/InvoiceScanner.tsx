@@ -15,6 +15,14 @@ import { compressImageFile } from "@/utils/imageCompression";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
+interface ProductMasterEntry {
+  id: string;
+  internal_sku: string;
+  external_sku: string;
+  internal_product_name: string;
+  supplier_product_name: string;
+}
+
 interface ScannedLineItem {
   item_code: string;
   description: string;
@@ -25,6 +33,7 @@ interface ScannedLineItem {
   unit_price: string;
   tax_amount: string;
   total: string;
+  matched_sku: string;
 }
 
 interface ScannedInvoice {
