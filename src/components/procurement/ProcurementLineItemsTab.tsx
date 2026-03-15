@@ -45,7 +45,7 @@ export default function ProcurementLineItemsTab() {
       supabase.from("invoice_line_items").select("*").order("created_at", { ascending: false }),
       supabase.from("invoices").select("id, invoice_number, invoice_date, supplier_id"),
       supabase.from("suppliers").select("id, name"),
-      supabase.from("product_master").select("id, internal_product_name"),
+      supabase.from("product_master").select("id, internal_product_name, internal_sku, external_sku"),
     ]);
 
     const invMap = new Map((invRes.data || []).map((i: any) => [i.id, i]));
