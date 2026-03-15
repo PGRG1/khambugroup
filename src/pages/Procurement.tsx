@@ -30,12 +30,16 @@ export default function Procurement() {
           <TabsTrigger value="inventory" className="gap-1.5">
             <ClipboardList className="h-3.5 w-3.5" />Inventory
           </TabsTrigger>
+          <TabsTrigger value="menu-costing" className="gap-1.5">
+            <UtensilsCrossed className="h-3.5 w-3.5" />Menu Costing
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
         <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
         <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
+        <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>
       </Tabs>
     </div>
   );
