@@ -89,7 +89,7 @@ function App() {
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
                 <Route path="/procurement" element={<ProtectedRoute pageKey="invoices"><Procurement /></ProtectedRoute>} />
-                <Route path="/inventory" element={<ProtectedRoute pageKey="inventory"><Inventory /></ProtectedRoute>} />
+                
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
                 <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />
                 <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
