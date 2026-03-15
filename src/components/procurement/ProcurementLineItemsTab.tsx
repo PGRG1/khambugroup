@@ -53,6 +53,7 @@ export default function ProcurementLineItemsTab() {
 
     const mapped: LineItemRow[] = (liRes.data || []).map((li: any) => {
       const inv = invMap.get(li.invoice_id);
+      const pmId = li.product_master_id || li.standard_product_id;
       return {
         id: li.id,
         invoice_id: li.invoice_id,
@@ -67,7 +68,8 @@ export default function ProcurementLineItemsTab() {
         unit_price: li.unit_price || 0,
         total: li.total || 0,
         standard_product_id: li.standard_product_id,
-        master_name: li.standard_product_id ? (pmMap.get(li.standard_product_id) || "") : "",
+        product_master_id: li.product_master_id,
+        master_name: pmId ? (pmMap.get(pmId) || "") : "",
       };
     });
 
