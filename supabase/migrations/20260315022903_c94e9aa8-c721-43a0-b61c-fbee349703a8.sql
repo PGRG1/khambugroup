@@ -1,0 +1,1 @@
+ALTER TABLE public.invoice_line_items ADD COLUMN product_master_id uuid REFERENCES public.product_master(id) ON DELETE SET NULL;
