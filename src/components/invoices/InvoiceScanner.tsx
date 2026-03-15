@@ -141,7 +141,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     try {
       const base64 = await fileToBase64(compressedFile);
       const { data, error } = await supabase.functions.invoke("parse-invoice", {
-        body: { fileBase64: base64, mimeType: compressedFile.type },
+        body: { fileBase64: base64, mimeType: compressedFile.type, productMaster: productMaster || [] },
       });
 
       if (error || !data?.success) {
