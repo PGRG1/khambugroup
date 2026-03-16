@@ -838,7 +838,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {current.line_items.map((line, i) => (
-              <div key={i} className={`grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_75px_32px] gap-1 items-end ${line.sku_mismatch ? "bg-amber-500/10 rounded-md p-1 -mx-1" : ""}`}>
+              <div key={i} className={`grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_75px_32px] gap-1 items-end ${line.unmatched ? "bg-destructive/10 rounded-md p-1 -mx-1 border border-destructive/30" : line.sku_mismatch ? "bg-amber-500/10 rounded-md p-1 -mx-1" : line.price_changed ? "bg-blue-500/10 rounded-md p-1 -mx-1 border border-blue-500/30" : ""}`}>
                 <div>
                   {i === 0 && <Label className="text-xs">Code</Label>}
                   <div className="relative">
