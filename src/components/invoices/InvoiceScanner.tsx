@@ -638,6 +638,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             </div>
           </div>
 
+          {/* Validation warnings */}
+          {current.warnings && current.warnings.length > 0 && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-3 space-y-1">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 text-sm font-medium">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Auto-correction applied ({current.warnings.length} issue{current.warnings.length > 1 ? "s" : ""})
+              </div>
+              <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5 pl-6 list-disc">
+                {current.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {current.line_items.map((line, i) => (
