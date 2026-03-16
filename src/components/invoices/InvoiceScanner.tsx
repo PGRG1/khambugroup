@@ -346,7 +346,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         const tax = parseFloat(value) || 0;
         line.total = String(((w ? w * price : qty * price) + tax).toFixed(2));
       }
-      lines[i] = line;
+      // Re-evaluate flags when key fields change
+      if (["item_code", "unit_price", "matched_sku", "description"].includes(field)) {
+        const flagged = flagLineItemIssues([line], productMaster);
+        lines[i] = flagged[0];
+      } else {
+        lines[i] = line;
+      }
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
