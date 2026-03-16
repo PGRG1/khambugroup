@@ -270,6 +270,39 @@ ${pmLines}`;
         }
       }
       if (inv.notes) inv.notes = translateChinese(inv.notes);
+
+      // --- Post-extraction validation & auto-correction ---
+      const warnings: string[] = [];
+      if (inv.line_items && Array.isArray(inv.line_items)) {
+        for (let i = 0; i < inv.line_items.length; i++) {
+          const li = inv.line_items[i];
+          const qty = Number(li.quantity) || 0;
+          const weight = li.weight ? Number(li.weight) : null;
+          const unitPrice = Number(li.unit_price) || 0;
+          const reportedTotal = Number(li.total) || 0;
+          const expected = weight ? weight * unitPrice : qty * unitPrice;
+          const expectedRounded = Math.round(expected * 100) / 100;
+
+          if (Math.abs(expectedRounded - reportedTotal) > 0.5) {
+            warnings.push(
+              `Line ${i + 1} ("${(li.description || "").slice(0, 30)}"): total corrected from ${reportedTotal.toFixed(2)} to ${expectedRounded.toFixed(2)} (${weight ? `weight ${weight}` : `qty ${qty}`} × ${unitPrice})`
+            );
+            li.total = expectedRounded;
+          }
+        }
+
+        // Validate invoice total vs sum of line totals
+        const sumOfLines = inv.line_items.reduce((s: number, li: any) => s + (Number(li.total) || 0), 0);
+        const sumRounded = Math.round(sumOfLines * 100) / 100;
+        const invoiceTotal = Number(inv.total_amount) || 0;
+
+        if (Math.abs(sumRounded - invoiceTotal) > 1.0) {
+          warnings.push(
+            `Invoice total (${invoiceTotal.toFixed(2)}) differs from sum of line items (${sumRounded.toFixed(2)}) by ${Math.abs(sumRounded - invoiceTotal).toFixed(2)} — please verify`
+          );
+        }
+      }
+      inv.warnings = warnings;
     }
 
     return new Response(
