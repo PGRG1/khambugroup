@@ -46,7 +46,7 @@ interface ScannedInvoice {
   notes: string;
   line_items: ScannedLineItem[];
   saved?: boolean;
-  sourceFile?: File | null;
+  sourceFiles?: File[];
 }
 
 interface InvoiceScannerProps {
