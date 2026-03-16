@@ -1,46 +1,65 @@
 
 
-## Plan: Post-Extraction Validation and Auto-Correction for Invoice Totals
+## Summary
 
-### Problem
-The AI sometimes extracts line item totals that don't match `quantity * unit_price` (or `weight * unit_price` for weighted items), and the invoice `total_amount` sometimes doesn't match the sum of line totals. There's no validation or correction step.
+This plan covers four changes to the Revenue dashboard:
 
-### Solution
-Add a server-side validation pass in the `parse-invoice` edge function that runs after AI extraction. It will:
-1. For each line item, verify `qty * unit_price ≈ total` (or `weight * unit_price ≈ total` for weighted items)
-2. If mismatched, recalculate and overwrite the line total from the base values
-3. Sum all corrected line totals and compare against the invoice `total_amount`
-4. If the invoice total doesn't match the sum of line totals, flag it
-5. Return a `warnings` array per invoice so the frontend can display flagged issues
+1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
+2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
+3. Rename all "Customer" references to "Guest" across the dashboard charts
+4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
 
-On the frontend (InvoiceScanner), display any returned warnings as a yellow banner above the line items table.
+---
 
-### Technical Details
+## Changes
 
-**Edge function (`supabase/functions/parse-invoice/index.ts`)**:
-After the Chinese translation pass, add a validation loop:
-```
-for each invoice:
-  for each line_item:
-    expected = weight ? weight * unit_price : quantity * unit_price
-    if |expected - total| > 0.5:
-      line_item.total = round(expected, 2)  // auto-correct
-      add warning: "Line X: total corrected from Y to Z"
-  
-  sumOfLines = sum(line_item.total)
-  if |sumOfLines - total_amount| > 1.0:
-    add warning: "Invoice total (X) differs from sum of lines (Y)"
-    // Don't auto-correct invoice total — flag for user review
-```
+### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
 
-Return `warnings: string[]` alongside each invoice object.
+- Accept two new props: `salesPerDay` and `guestsPerDay`
+- Insert two new card entries after "Total Discount":
+  - "Sales / Day" showing `$X` with DollarSign icon
+  - "Guests / Day" showing `X` with Users icon
+- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
 
-**Frontend (`InvoiceScanner.tsx`)**:
-- Read `warnings` from the scanned invoice data
-- Display as a yellow/amber alert banner when warnings exist, listing each discrepancy
-- Warnings are informational — user can still edit and save
+### 2. Index.tsx -- Compute and pass new KPI values
 
-### Files Changed
-1. `supabase/functions/parse-invoice/index.ts` — add validation loop after translation
-2. `src/components/invoices/InvoiceScanner.tsx` — display warnings banner
+- Calculate unique days count from filtered data
+- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
+- Pass both new values to `KPICards`
+
+### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+
+- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
+- This computes the average total sales per day-of-week per month
+
+### 4. DashboardCharts.tsx -- Multiple updates
+
+**a. Add "Avg Sales by Day of Week (MoM)" chart**
+- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
+- Uses `dayStats` data with `sales_{month}` keys
+- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
+
+**b. Rename all "Customer" references to "Guest"**
+- "Daily Number of Customers" -> "Daily Guests"
+- "Avg Daily Customers" -> "Avg Daily Guests"
+- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
+- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
+- "Avg Spend/Customer" -> "Avg Spend/Guest"
+- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
+- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
+
+**c. Fix Discount chart and rename**
+- Rename "Discount Report" to "Discount Trend"
+- Add `lg:col-span-2` class to make it span full width like other full-width charts
+- This fixes the chart not stretching to the right border
+
+---
+
+## Technical Details
+
+**Files modified:**
+- `src/components/dashboard/KPICards.tsx` -- new props and cards
+- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
+- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
+- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
 
