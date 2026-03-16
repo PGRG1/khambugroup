@@ -346,7 +346,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         const tax = parseFloat(value) || 0;
         line.total = String(((w ? w * price : qty * price) + tax).toFixed(2));
       }
-      lines[i] = line;
+      // Re-evaluate flags when key fields change
+      if (["item_code", "unit_price", "matched_sku", "description"].includes(field)) {
+        const flagged = flagLineItemIssues([line], productMaster);
+        lines[i] = flagged[0];
+      } else {
+        lines[i] = line;
+      }
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
@@ -836,9 +842,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           </div>
 
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          <div className="space-y-2">
             {current.line_items.map((line, i) => (
-              <div key={i} className={`grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_75px_32px] gap-1 items-end ${line.unmatched ? "bg-destructive/10 rounded-md p-1 -mx-1 border border-destructive/30" : line.sku_mismatch ? "bg-amber-500/10 rounded-md p-1 -mx-1" : line.price_changed ? "bg-blue-500/10 rounded-md p-1 -mx-1 border border-blue-500/30" : ""}`}>
+              <div key={i} className={`grid grid-cols-[28px_80px_1fr_90px_55px_55px_65px_80px_70px_80px_32px] gap-1 items-end ${line.unmatched ? "bg-destructive/10 rounded-md p-1 -mx-1 border border-destructive/30" : line.sku_mismatch ? "bg-amber-500/10 rounded-md p-1 -mx-1" : line.price_changed ? "bg-blue-500/10 rounded-md p-1 -mx-1 border border-blue-500/30" : ""}`}>
+                <div>
+                  {i === 0 && <Label className="text-xs">#</Label>}
+                  <span className="flex items-center justify-center h-9 text-xs text-muted-foreground font-medium">{i + 1}</span>
+                </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Code</Label>}
                   <div className="relative">
@@ -914,7 +924,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             )}
             <span className="text-muted-foreground ml-4">Total: </span>
             <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
-              {displayTotal.toLocaleString(undefined, { minimumFractionDigits: isBeverageWorld ? 0 : 2, maximumFractionDigits: isBeverageWorld ? 0 : 2 })}
+              {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             {isBeverageWorld && (
               <span className="text-xs text-muted-foreground ml-1">(rounded)</span>
