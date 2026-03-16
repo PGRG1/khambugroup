@@ -1,65 +1,54 @@
 
 
-## Summary
+## Plan: Base Unit Costing for Product Master + Menu Costing Updates
 
-This plan covers four changes to the Revenue dashboard:
+### 1. Database Migration — Add base unit fields to `product_master`
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+Add 4 new columns:
 
----
+| Column | Type | Default |
+|--------|------|---------|
+| `purchase_unit` | text | `''` |
+| `purchase_unit_cost` | numeric | `0` |
+| `base_unit_type` | text | `'gms'` (one of: gms, mls, ea/pcs) |
+| `base_unit_qty` | numeric | `1` |
+| `cost_per_base_unit` | numeric | `0` |
 
-## Changes
+`cost_per_base_unit` is stored but always derived in code as `purchase_unit_cost / base_unit_qty`.
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
+Backfill existing rows: set `purchase_unit = unit`, `purchase_unit_cost = unit_cost`, `base_unit_qty = 1`, `cost_per_base_unit = unit_cost` so existing data has sensible defaults.
 
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
+### 2. Product Master UI — Add new fields
 
-### 2. Index.tsx -- Compute and pass new KPI values
+Update `ProductMasterTab.tsx` and `useProductMaster.ts`:
+- Add `purchase_unit`, `purchase_unit_cost`, `base_unit_type`, `base_unit_qty`, `cost_per_base_unit` to the interface and form
+- In the create/edit dialog, add inputs for these fields
+- Auto-calculate `cost_per_base_unit = purchase_unit_cost / base_unit_qty` on save
+- Add columns to the table: Purchase Unit, Base Unit Type, Cost/Base Unit
 
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
+### 3. Menu Costing — Use `cost_per_base_unit` instead of `unit_cost`
 
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+Update `MenuCostingTab.tsx`:
+- When adding an ingredient, set `reference_cost = pm.cost_per_base_unit` (not `pm.unit_cost`)
+- Column header: rename "Ref. Cost" to "Cost per Base Unit"
+- Auto-set `unit_used` from `pm.base_unit_type` when a product is selected
+- Show the cost per base unit preview when selecting a product
 
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
+Update `useMenuCosting.ts`:
+- `saveIngredient`: line_cost = `quantity_used × reference_cost` (already correct logic, just the input value changes)
 
-### 4. DashboardCharts.tsx -- Multiple updates
+### 4. Decimal Input Fix
 
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
+Replace `value={field || ""}` patterns with proper string-based state for decimal inputs:
+- Use `string` type for quantity_used and selling_price in form state
+- Parse to number only on save
+- This allows typing "0.01", "0.25" etc. without the input eating intermediate values
 
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
+### Files Changed
 
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+1. **Migration SQL** — add 5 columns to `product_master`, backfill existing rows
+2. **`src/hooks/useProductMaster.ts`** — add new fields to `ProductMasterItem` interface
+3. **`src/components/procurement/ProductMasterTab.tsx`** — add new fields to form + table + dialog
+4. **`src/components/procurement/MenuCostingTab.tsx`** — use `cost_per_base_unit`, auto-set unit, fix decimal inputs
+5. **`src/hooks/useMenuCosting.ts`** — no structural changes needed (reference_cost already used for line_cost calc)
 
