@@ -133,10 +133,12 @@ export default function ProductMasterTab() {
     { key: "internal_product_name", label: "Internal Product Name", w: "min-w-[180px]" },
     { key: "supplier_product_name", label: "Supplier Product Name", w: "min-w-[180px] hidden xl:table-cell" },
     { key: "level1_category", label: "L1 Category", w: "w-[100px] hidden lg:table-cell" },
+    { key: "level2_category", label: "L2 Category", w: "w-[100px] hidden lg:table-cell" },
     { key: "level3_category", label: "L3 Category", w: "w-[110px] hidden md:table-cell" },
     { key: "purchase_unit", label: "Purch. Unit", w: "w-[80px] hidden lg:table-cell" },
     { key: "unit_cost", label: "Unit Cost", w: "w-[80px]" },
     { key: "base_unit_type", label: "Base Unit", w: "w-[70px] hidden md:table-cell" },
+    { key: "base_unit_qty", label: "Base Qty", w: "w-[70px] hidden md:table-cell" },
     { key: "cost_per_base_unit", label: "Cost/Base", w: "w-[80px]" },
     { key: "supplier", label: "Supplier", w: "w-[120px] hidden md:table-cell" },
     { key: "status", label: "Status", w: "w-[70px]" },
@@ -214,10 +216,12 @@ export default function ProductMasterTab() {
                   <td className="px-3 py-2 font-medium text-foreground">{p.internal_product_name}</td>
                   <td className="px-3 py-2 text-muted-foreground hidden xl:table-cell">{p.supplier_product_name}</td>
                   <td className="px-3 py-2 hidden lg:table-cell">{p.level1_category}</td>
+                  <td className="px-3 py-2 hidden lg:table-cell">{p.level2_category}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{p.level3_category}</td>
                   <td className="px-3 py-2 hidden lg:table-cell">{p.purchase_unit}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(p.unit_cost)}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{p.base_unit_type}</td>
+                  <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{p.base_unit_qty}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt4(p.cost_per_base_unit)}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{p.supplier}</td>
                   <td className="px-3 py-2">
