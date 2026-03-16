@@ -232,8 +232,8 @@ export default function ProcurementInvoicesTab() {
                   <td className="px-3 py-2">
                     <div className="flex gap-1">
                       {inv.file_url && (
-                        <button onClick={e => { e.stopPropagation(); openFile(inv); }} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground" title="View original file">
-                          <ExternalLink className="h-3.5 w-3.5" />
+                        <button onClick={e => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground" title="View attachments">
+                          <Eye className="h-3.5 w-3.5" />
                         </button>
                       )}
                       <button onClick={e => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
