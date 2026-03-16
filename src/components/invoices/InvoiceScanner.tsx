@@ -46,6 +46,9 @@ interface ScannedLineItem {
   total: string;
   matched_sku: string;
   sku_mismatch?: boolean;
+  unmatched?: boolean;
+  price_changed?: boolean;
+  pm_unit_price?: number;
 }
 
 interface ScannedInvoice {
