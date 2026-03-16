@@ -327,9 +327,9 @@ export default function ProcurementInvoicesTab() {
       </div>
 
       {/* Detail Drawer */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <Sheet open={drawerOpen} onOpenChange={o => { setDrawerOpen(o); if (!o) setEditing(false); }}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          {selectedInvoice && (
+          {selectedInvoice && !editing && (
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
@@ -338,12 +338,15 @@ export default function ProcurementInvoicesTab() {
                 </SheetTitle>
               </SheetHeader>
               <div className="space-y-4 mt-4">
+                <Button size="sm" variant="outline" onClick={startEditing}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
+                </Button>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div><span className="text-muted-foreground">Supplier:</span> <span className="font-medium">{selectedInvoice.supplier_name}</span></div>
                   <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
                   <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{fmtDate(selectedInvoice.invoice_date)}</span></div>
                   <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{fmtDate(selectedInvoice.due_date || "")}</span></div>
-                  <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">${fmt(Number(selectedInvoice.total_amount))}</span></div>
+                  <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">${fmtForSupplier(Number(selectedInvoice.total_amount), selectedInvoice.supplier_name)}</span></div>
                   <div><span className="text-muted-foreground">ID:</span> <span className="font-mono text-xs text-muted-foreground">{selectedInvoice.id.slice(0, 8)}</span></div>
                 </div>
 
@@ -371,6 +374,103 @@ export default function ProcurementInvoicesTab() {
                       <div className="text-right tabular-nums font-medium">{fmt(li.total)}</div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Edit Mode */}
+          {selectedInvoice && editing && (
+            <>
+              <SheetHeader>
+                <SheetTitle>Edit Invoice</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Invoice #</Label>
+                    <Input value={editForm.invoice_number || ""} onChange={e => setEditForm(f => ({ ...f, invoice_number: e.target.value }))} className="h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Venue</Label>
+                    <Select value={editForm.venue || ""} onValueChange={v => setEditForm(f => ({ ...f, venue: v }))}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Assembly">Assembly</SelectItem>
+                        <SelectItem value="Caliente">Caliente</SelectItem>
+                        <SelectItem value="Hanabi">Hanabi</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Invoice Date</Label>
+                    <Input type="date" value={editForm.invoice_date || ""} onChange={e => setEditForm(f => ({ ...f, invoice_date: e.target.value }))} className="h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Due Date</Label>
+                    <Input type="date" value={editForm.due_date || ""} onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))} className="h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Status</Label>
+                    <Select value={editForm.status || ""} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Notes</Label>
+                  <Textarea value={editForm.notes || ""} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} className="text-sm min-h-[60px]" />
+                </div>
+
+                <h4 className="text-sm font-semibold pt-2">Line Items ({editLines.length})</h4>
+                <div className="space-y-2">
+                  {editLines.map((li, i) => (
+                    <div key={li.id || i} className="border border-border/50 rounded-lg p-2 space-y-1.5 bg-muted/20">
+                      <div className="flex items-center gap-2">
+                        <Input value={li.description} onChange={e => updateEditLine(i, "description", e.target.value)} className="h-7 text-xs flex-1" placeholder="Description" />
+                        <button onClick={() => setEditLines(prev => prev.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Qty</Label>
+                          <Input type="number" value={li.quantity} onChange={e => updateEditLine(i, "quantity", Number(e.target.value))} className="h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Unit Price</Label>
+                          <Input type="number" step="0.01" value={li.unit_price} onChange={e => updateEditLine(i, "unit_price", Number(e.target.value))} className="h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Tax</Label>
+                          <Input type="number" step="0.01" value={li.tax_amount} onChange={e => updateEditLine(i, "tax_amount", Number(e.target.value))} className="h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Total</Label>
+                          <Input type="number" step="0.01" value={li.total} readOnly className="h-7 text-xs bg-muted/50" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="text-sm font-semibold">
+                    Total: ${fmt(editLines.reduce((s, l) => s + l.total, 0))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button size="sm" onClick={handleSaveEdit} disabled={saving} className="flex-1">
+                    {saving ? "Saving..." : "Save Changes"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
                 </div>
               </div>
             </>
