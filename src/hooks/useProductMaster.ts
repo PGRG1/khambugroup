@@ -15,6 +15,11 @@ export interface ProductMasterItem {
   unit_cost: number;
   supplier: string;
   status: string;
+  purchase_unit: string;
+  purchase_unit_cost: number;
+  base_unit_type: string;
+  base_unit_qty: number;
+  cost_per_base_unit: number;
   created_at: string;
   updated_at: string;
 }
