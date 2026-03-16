@@ -95,8 +95,11 @@ export default function ProcurementInvoicesTab() {
 
   const openFile = async (inv: Invoice) => {
     if (!inv.file_url) return;
-    const { data } = await supabase.storage.from("invoice-files").createSignedUrl(inv.file_url, 300);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    const paths = inv.file_url.split(",");
+    for (const path of paths) {
+      const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 300);
+      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    }
   };
 
   const handleDelete = async () => {

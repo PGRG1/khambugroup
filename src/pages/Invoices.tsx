@@ -709,15 +709,23 @@ export default function Invoices() {
 
                 {/* Scanned copy link */}
                 {selectedInvoice.file_url && (
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium flex-1">{selectedInvoice.file_name || "Scanned copy"}</span>
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      const { data } = await supabase.storage.from("invoice-files").createSignedUrl(selectedInvoice.file_url!, 3600);
-                      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                    }}>
-                      <ExternalLink className="h-3 w-3 mr-1" />View
-                    </Button>
+                  <div className="space-y-2">
+                    {selectedInvoice.file_url.split(",").map((path, idx) => (
+                      <div key={idx} className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium flex-1">
+                          {selectedInvoice.file_url!.split(",").length > 1
+                            ? `Page ${idx + 1}`
+                            : (selectedInvoice.file_name || "Scanned copy")}
+                        </span>
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 3600);
+                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                        }}>
+                          <ExternalLink className="h-3 w-3 mr-1" />View
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
