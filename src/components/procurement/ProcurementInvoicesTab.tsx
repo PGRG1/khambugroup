@@ -58,6 +58,17 @@ export default function ProcurementInvoicesTab() {
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
+  // Attachment viewer state
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerFileUrl, setViewerFileUrl] = useState("");
+  const [viewerTitle, setViewerTitle] = useState("");
+
+  const openAttachmentViewer = (fileUrl: string, invoiceNumber: string) => {
+    setViewerFileUrl(fileUrl);
+    setViewerTitle(`Invoice ${invoiceNumber}`);
+    setViewerOpen(true);
+  };
+
   const toggleSort = (key: string) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
