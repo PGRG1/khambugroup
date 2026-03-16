@@ -850,7 +850,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Description</Label>}
-                  <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
+                  <div className="relative">
+                    <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
+                    {line.unmatched && (
+                      <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
+                    )}
+                    {line.price_changed && line.pm_unit_price !== undefined && (
+                      <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-blue-500 text-white">Price Δ</Badge>
+                    )}
+                  </div>
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Pack Size</Label>}
