@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Search, Trash2, ScanLine, Pencil, Eye, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Plus, X } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -57,6 +58,17 @@ export default function ProcurementInvoicesTab() {
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
+  // Attachment viewer state
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerFileUrl, setViewerFileUrl] = useState("");
+  const [viewerTitle, setViewerTitle] = useState("");
+
+  const openAttachmentViewer = (fileUrl: string, invoiceNumber: string) => {
+    setViewerFileUrl(fileUrl);
+    setViewerTitle(`Invoice ${invoiceNumber}`);
+    setViewerOpen(true);
+  };
+
   const toggleSort = (key: string) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
@@ -93,14 +105,6 @@ export default function ProcurementInvoicesTab() {
     setDrawerOpen(true);
   };
 
-  const openFile = async (inv: Invoice) => {
-    if (!inv.file_url) return;
-    const paths = inv.file_url.split(",");
-    for (const path of paths) {
-      const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 300);
-      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-    }
-  };
 
   const handleDelete = async () => {
     if (!deletingId) return;
@@ -228,8 +232,8 @@ export default function ProcurementInvoicesTab() {
                   <td className="px-3 py-2">
                     <div className="flex gap-1">
                       {inv.file_url && (
-                        <button onClick={e => { e.stopPropagation(); openFile(inv); }} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground" title="View original file">
-                          <ExternalLink className="h-3.5 w-3.5" />
+                        <button onClick={e => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground" title="View attachments">
+                          <Eye className="h-3.5 w-3.5" />
                         </button>
                       )}
                       <button onClick={e => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
@@ -275,17 +279,10 @@ export default function ProcurementInvoicesTab() {
                 </div>
 
                 {selectedInvoice.file_url && (
-                  <div className="space-y-2">
-                    {selectedInvoice.file_url.split(",").map((path, idx, arr) => (
-                      <Button key={idx} variant="outline" size="sm" onClick={async () => {
-                        const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 300);
-                        if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                      }}>
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                        {arr.length > 1 ? `View Page ${idx + 1}` : "View Original File"}
-                      </Button>
-                    ))}
-                  </div>
+                  <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
+                    <Eye className="h-3.5 w-3.5 mr-1" />
+                    View Attachments ({selectedInvoice.file_url.split(",").length} {selectedInvoice.file_url.split(",").length === 1 ? "page" : "pages"})
+                  </Button>
                 )}
 
                 {selectedInvoice.notes && (
@@ -313,6 +310,7 @@ export default function ProcurementInvoicesTab() {
       </Sheet>
 
       <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Invoice" description="This will permanently delete this invoice and all its line items." />
+      <AttachmentViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} fileUrl={viewerFileUrl} title={viewerTitle} />
     </div>
   );
 }
