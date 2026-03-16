@@ -1,20 +1,18 @@
 
 
-## Plan: Update Base Unit and Base Qty for All Products
+## Plan: Add Base Qty and L2 Category columns to Product Master table
 
 ### What
-Run a database migration to set `base_unit_type` and `base_unit_qty` for all existing products in `product_master` based on the data provided by the user.
+Add two missing columns to the Product Master table view:
+- **L2 Category** (`level2_category`) — insert between L1 Category and L3 Category
+- **Base Qty** (`base_unit_qty`) — insert after Base Unit column
 
-### How
-A single SQL migration with UPDATE statements matching each product by `internal_sku`, setting the correct `base_unit_type` and `base_unit_qty`. Also recalculate `cost_per_base_unit = purchase_unit_cost / base_unit_qty` for each updated row.
+### Changes
+**`src/components/procurement/ProductMasterTab.tsx`**
+- Add `{ key: "level2_category", label: "L2 Category", w: "w-[100px] hidden lg:table-cell" }` between L1 and L3 category columns
+- Add `{ key: "base_unit_qty", label: "Base Qty", w: "w-[70px] hidden md:table-cell" }` after the base_unit_type column
+- Add corresponding `<td>` cells in the table body for both new columns
+- Update the colspan for the empty-state row
 
-### Migration SQL
-- ~113 UPDATE statements, one per SKU (BEV-0001 through BEV-0105, DAI-0001, FRZ-0001 through FRZ-0004, PRO-0001, PRO-0002, SAU-0001, SPE-0001)
-- Each sets `base_unit_type` (ml, gms, or pcs) and `base_unit_qty` from the provided data
-- A final UPDATE recalculates `cost_per_base_unit = purchase_unit_cost / base_unit_qty` for all rows where `base_unit_qty > 0`
-
-### Files Changed
-1. **New migration SQL** — bulk UPDATE of `base_unit_type` and `base_unit_qty` per SKU, then recalculate `cost_per_base_unit`
-
-No frontend changes needed — the UI already displays and manages these fields.
+No database or hook changes needed — both fields are already fetched and available in the data.
 
