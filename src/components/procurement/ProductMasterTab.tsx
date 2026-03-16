@@ -216,10 +216,12 @@ export default function ProductMasterTab() {
                   <td className="px-3 py-2 font-medium text-foreground">{p.internal_product_name}</td>
                   <td className="px-3 py-2 text-muted-foreground hidden xl:table-cell">{p.supplier_product_name}</td>
                   <td className="px-3 py-2 hidden lg:table-cell">{p.level1_category}</td>
+                  <td className="px-3 py-2 hidden lg:table-cell">{p.level2_category}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{p.level3_category}</td>
                   <td className="px-3 py-2 hidden lg:table-cell">{p.purchase_unit}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(p.unit_cost)}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{p.base_unit_type}</td>
+                  <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{p.base_unit_qty}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt4(p.cost_per_base_unit)}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{p.supplier}</td>
                   <td className="px-3 py-2">
