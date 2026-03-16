@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Search, Trash2, ScanLine, Pencil, Eye, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Plus, X } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
