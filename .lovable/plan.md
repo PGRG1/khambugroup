@@ -1,65 +1,45 @@
 
 
-## Summary
+## Plan: Mandatory Product Master Matching, Price Change Detection, and CSV Downloads
 
-This plan covers four changes to the Revenue dashboard:
+### 1. Mandatory Product Master Matching — Flag Unmatched Items
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+**Current behavior**: Unmatched items (no `matched_sku`) only get an amber background. The user wants it treated as a problem that MUST be flagged prominently.
 
----
+**Changes in `InvoiceScanner.tsx`**:
+- Add an `unmatched` flag to `ScannedLineItem` (true when `matched_sku` is empty after scan)
+- Show a red "Unmatched" badge on each unmatched line item row with a red background highlight
+- Add a top-level warning banner (red) when ANY line items are unmatched: "X item(s) not matched to Product Master — review required"
+- Track `hasUnmatchedItems` alongside existing `hasSkuMismatches`
 
-## Changes
+### 2. Price Change Detection — Flag Price Differences vs Product Master
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
+**Changes in `ProcurementInvoicesTab.tsx`**:
+- Expand the product master fetch to include `purchase_unit_cost` field
 
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
+**Changes in `InvoiceScanner.tsx`**:
+- Expand `ProductMasterEntry` interface to include `purchase_unit_cost`
+- Add `price_changed` flag to `ScannedLineItem`
+- After scan, for each matched line item, compare the scanned `unit_price` against the Product Master's `purchase_unit_cost`
+- If they differ, set `price_changed: true` and store the expected price as `pm_unit_price`
+- Show a blue info badge on the line item: "Price changed: was $X → now $Y"
+- Add a top-level info banner summarizing price changes
 
-### 2. Index.tsx -- Compute and pass new KPI values
+### 3. CSV Download Button on Each Procurement Tab
 
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
+**Changes across all 5 tab components** (`ProductMasterTab.tsx`, `ProcurementInvoicesTab.tsx`, `ProcurementLineItemsTab.tsx`, `InventoryOnHandTab.tsx`, `MenuCostingTab.tsx`):
+- Add a `Download` icon button in each tab's toolbar/header area
+- On click, generate a CSV from the currently filtered/displayed data
+- Use `Blob` + `URL.createObjectURL` + temporary `<a>` element to trigger download
+- File naming: `product_master_YYYY-MM-DD.csv`, `invoices_YYYY-MM-DD.csv`, `invoice_line_items_YYYY-MM-DD.csv`, `inventory_YYYY-MM-DD.csv`, `menu_costing_YYYY-MM-DD.csv`
+- Each CSV includes all visible columns in the table
 
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+### Files to Change
 
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
-
-### 4. DashboardCharts.tsx -- Multiple updates
-
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
-
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
-
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+1. **`src/components/invoices/InvoiceScanner.tsx`** — unmatched item flags, price change detection, expanded interface
+2. **`src/components/procurement/ProcurementInvoicesTab.tsx`** — fetch `purchase_unit_cost` in product master query, add CSV download
+3. **`src/components/procurement/ProductMasterTab.tsx`** — add CSV download button
+4. **`src/components/procurement/ProcurementLineItemsTab.tsx`** — add CSV download button
+5. **`src/components/procurement/InventoryOnHandTab.tsx`** — add CSV download button
+6. **`src/components/procurement/MenuCostingTab.tsx`** — add CSV download button
 
