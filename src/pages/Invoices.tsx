@@ -1070,6 +1070,7 @@ export default function Invoices() {
         onDeleteMapping={stdProducts.deleteMapping}
         fetchPurchaseHistory={stdProducts.fetchPurchaseHistory}
       />
+      <AttachmentViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} fileUrl={viewerFileUrl} title={viewerTitle} />
     </div>
   );
 }
