@@ -551,6 +551,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const totalInvoices = invoices.length;
   const allSaved = totalInvoices > 0 && invoices.every((inv) => inv?.saved);
   const hasSkuMismatches = current?.line_items.some(l => l.sku_mismatch) || false;
+  const unmatchedItems = current?.line_items.filter(l => l.unmatched) || [];
+  const hasUnmatchedItems = unmatchedItems.length > 0;
+  const priceChangedItems = current?.line_items.filter(l => l.price_changed) || [];
+  const hasPriceChanges = priceChangedItems.length > 0;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
