@@ -485,7 +485,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               Drop your invoice files here or <span className="text-primary font-medium">click to browse</span>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Select multiple files from gallery, or add one at a time. Images are auto-compressed.
+              Drop multiple pages of the same invoice — they'll be scanned together as one document.
             </p>
           </div>
 
