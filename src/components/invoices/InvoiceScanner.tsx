@@ -283,8 +283,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           };
         });
 
-        // Flag SKU mismatches
-        lines = flagSkuMismatches(lines, productMaster);
+        // Flag issues: unmatched, SKU mismatches, price changes
+        lines = flagLineItemIssues(lines, productMaster);
 
         allInvoices.push({
           supplier_name: raw.supplier_name || "",
