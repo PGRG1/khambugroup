@@ -189,8 +189,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       }
 
       const rawInvoices = data.data?.invoices || [data.data];
-      // Use the first compressed file as the attachment for all invoices
-      const primaryFile = preparedFiles[0]?.compressedFile || null;
+      // Use all compressed files as attachments for each invoice
+      const allCompressedFiles = preparedFiles.map(f => f.compressedFile);
 
       const allInvoices: ScannedInvoice[] = [];
       for (const raw of rawInvoices) {
