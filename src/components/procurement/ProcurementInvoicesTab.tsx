@@ -95,8 +95,11 @@ export default function ProcurementInvoicesTab() {
 
   const openFile = async (inv: Invoice) => {
     if (!inv.file_url) return;
-    const { data } = await supabase.storage.from("invoice-files").createSignedUrl(inv.file_url, 300);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    const paths = inv.file_url.split(",");
+    for (const path of paths) {
+      const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 300);
+      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    }
   };
 
   const handleDelete = async () => {
@@ -128,22 +131,26 @@ export default function ProcurementInvoicesTab() {
         <InvoiceScanner
           suppliers={suppliers}
           productMaster={productMaster}
-          onSave={async (inv, lines, file) => {
+          onSave={async (inv, lines, files) => {
             let fileUrl: string | null = null;
             let fileName: string | null = null;
-            if (file) {
-              if (batchFileRef.current && batchFileRef.current.size === file.size) {
-                fileUrl = batchFileRef.current.url;
-                fileName = batchFileRef.current.name;
-              } else {
+            if (files && files.length > 0) {
+              const uploadedPaths: string[] = [];
+              const fileNames: string[] = [];
+              for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 const ext = file.name.split(".").pop() || "pdf";
-                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}.${ext}`;
+                const suffix = files.length > 1 ? `_page${i + 1}` : "";
+                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}${suffix}.${ext}`;
                 const { error: uploadErr } = await supabase.storage.from("invoice-files").upload(storagePath, file, { upsert: true });
                 if (!uploadErr) {
-                  fileUrl = storagePath;
-                  fileName = file.name;
-                  batchFileRef.current = { size: file.size, url: storagePath, name: file.name };
+                  uploadedPaths.push(storagePath);
+                  fileNames.push(file.name);
                 }
+              }
+              if (uploadedPaths.length > 0) {
+                fileUrl = uploadedPaths.join(",");
+                fileName = fileNames.join(", ");
               }
             }
             await createInvoice(

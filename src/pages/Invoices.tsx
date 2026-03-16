@@ -304,25 +304,28 @@ export default function Invoices() {
       {scannerOpen && (
         <InvoiceScanner
           suppliers={suppliers}
-          onSave={async (inv, lines, file) => {
+          onSave={async (inv, lines, files) => {
             let fileUrl: string | null = null;
             let fileName: string | null = null;
-            if (file) {
-              // Reuse already-uploaded file if same blob (multi-invoice from single document)
-              if (batchFileRef.current && batchFileRef.current.size === file.size) {
-                fileUrl = batchFileRef.current.url;
-                fileName = batchFileRef.current.name;
-              } else {
+            if (files && files.length > 0) {
+              const uploadedPaths: string[] = [];
+              const fileNames: string[] = [];
+              for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 const ext = file.name.split(".").pop() || "pdf";
-                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}.${ext}`;
+                const suffix = files.length > 1 ? `_page${i + 1}` : "";
+                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}${suffix}.${ext}`;
                 const { error: uploadErr } = await supabase.storage
                   .from("invoice-files")
                   .upload(storagePath, file, { upsert: true });
                 if (!uploadErr) {
-                  fileUrl = storagePath;
-                  fileName = file.name;
-                  batchFileRef.current = { size: file.size, url: storagePath, name: file.name };
+                  uploadedPaths.push(storagePath);
+                  fileNames.push(file.name);
                 }
+              }
+              if (uploadedPaths.length > 0) {
+                fileUrl = uploadedPaths.join(",");
+                fileName = fileNames.join(", ");
               }
             }
             await createInvoice(
@@ -614,8 +617,11 @@ export default function Invoices() {
                           <TableCell className="text-xs text-muted-foreground">{inv.file_name || "—"}</TableCell>
                           <TableCell>
                             <Button size="sm" variant="ghost" onClick={async () => {
-                              const { data } = await supabase.storage.from("invoice-files").createSignedUrl(inv.file_url!, 3600);
-                              if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                              const paths = inv.file_url!.split(",");
+                              for (const path of paths) {
+                                const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 3600);
+                                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                              }
                             }}>
                               <ExternalLink className="h-3 w-3 mr-1" />View
                             </Button>
@@ -706,15 +712,23 @@ export default function Invoices() {
 
                 {/* Scanned copy link */}
                 {selectedInvoice.file_url && (
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium flex-1">{selectedInvoice.file_name || "Scanned copy"}</span>
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      const { data } = await supabase.storage.from("invoice-files").createSignedUrl(selectedInvoice.file_url!, 3600);
-                      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                    }}>
-                      <ExternalLink className="h-3 w-3 mr-1" />View
-                    </Button>
+                  <div className="space-y-2">
+                    {selectedInvoice.file_url.split(",").map((path, idx) => (
+                      <div key={idx} className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium flex-1">
+                          {selectedInvoice.file_url!.split(",").length > 1
+                            ? `Page ${idx + 1}`
+                            : (selectedInvoice.file_name || "Scanned copy")}
+                        </span>
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 3600);
+                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                        }}>
+                          <ExternalLink className="h-3 w-3 mr-1" />View
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 )}
 

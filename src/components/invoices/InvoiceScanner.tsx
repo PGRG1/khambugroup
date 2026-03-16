@@ -46,7 +46,7 @@ interface ScannedInvoice {
   notes: string;
   line_items: ScannedLineItem[];
   saved?: boolean;
-  sourceFile?: File | null;
+  sourceFiles?: File[];
 }
 
 interface InvoiceScannerProps {
@@ -72,7 +72,7 @@ interface InvoiceScannerProps {
     total: number;
     notes: null;
     product_master_id: string | null;
-  }[], file?: File | null) => Promise<any>;
+  }[], files?: File[]) => Promise<any>;
   onCreateSupplier: (supplier: Omit<Supplier, "id">) => Promise<any>;
   onClose: () => void;
   userId: string;
@@ -189,8 +189,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       }
 
       const rawInvoices = data.data?.invoices || [data.data];
-      // Use the first compressed file as the attachment for all invoices
-      const primaryFile = preparedFiles[0]?.compressedFile || null;
+      // Use all compressed files as attachments for each invoice
+      const allCompressedFiles = preparedFiles.map(f => f.compressedFile);
 
       const allInvoices: ScannedInvoice[] = [];
       for (const raw of rawInvoices) {
@@ -225,10 +225,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           invoice_number: raw.invoice_number || "",
           invoice_date: raw.invoice_date || "",
           due_date: raw.due_date || "",
-          notes: raw.notes || "",
+          notes: "",
           line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
           saved: false,
-          sourceFile: primaryFile,
+          sourceFiles: allCompressedFiles,
         });
       }
 
@@ -333,11 +333,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     const invNum = (inv.invoice_number || "no-number").trim().replace(/[^a-zA-Z0-9]+/g, "_");
     const professionalName = `${dateStr}_${vendorName}_${invNum}`;
 
-    let fileToSave = inv.sourceFile || null;
-    if (fileToSave) {
-      const ext = fileToSave.name.split(".").pop() || "jpg";
-      fileToSave = new File([fileToSave], `${professionalName}.${ext}`, { type: fileToSave.type });
-    }
+    const filesToSave = (inv.sourceFiles || []).map((f, idx) => {
+      const ext = f.name.split(".").pop() || "jpg";
+      const suffix = (inv.sourceFiles || []).length > 1 ? `_page${idx + 1}` : "";
+      return new File([f], `${professionalName}${suffix}.${ext}`, { type: f.type });
+    });
 
     await onSave(
       {
@@ -349,7 +349,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         notes: inv.notes || null,
       },
       lines,
-      fileToSave
+      filesToSave.length > 0 ? filesToSave : undefined
     );
     return true;
   };
