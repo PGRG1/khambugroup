@@ -1346,6 +1346,9 @@ export type Database = {
       }
       product_master: {
         Row: {
+          base_unit_qty: number
+          base_unit_type: string
+          cost_per_base_unit: number
           created_at: string
           external_sku: string
           id: string
@@ -1354,6 +1357,8 @@ export type Database = {
           level1_category: string
           level2_category: string
           level3_category: string
+          purchase_unit: string
+          purchase_unit_cost: number
           status: string
           supplier: string
           supplier_product_name: string
@@ -1362,6 +1367,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          base_unit_qty?: number
+          base_unit_type?: string
+          cost_per_base_unit?: number
           created_at?: string
           external_sku?: string
           id?: string
@@ -1370,6 +1378,8 @@ export type Database = {
           level1_category?: string
           level2_category?: string
           level3_category?: string
+          purchase_unit?: string
+          purchase_unit_cost?: number
           status?: string
           supplier?: string
           supplier_product_name?: string
@@ -1378,6 +1388,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          base_unit_qty?: number
+          base_unit_type?: string
+          cost_per_base_unit?: number
           created_at?: string
           external_sku?: string
           id?: string
@@ -1386,6 +1399,8 @@ export type Database = {
           level1_category?: string
           level2_category?: string
           level3_category?: string
+          purchase_unit?: string
+          purchase_unit_cost?: number
           status?: string
           supplier?: string
           supplier_product_name?: string
