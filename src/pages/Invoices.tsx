@@ -723,8 +723,6 @@ export default function Invoices() {
                       <Eye className="h-3 w-3 mr-1" />View All
                     </Button>
                   </div>
-                    ))}
-                  </div>
                 )}
 
                 <div className="flex gap-2 flex-wrap">
