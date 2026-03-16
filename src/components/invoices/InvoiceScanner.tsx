@@ -447,117 +447,83 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
       {/* STEP 1: Add Attachments */}
       {invoices.length === 0 && !scanning && !showCamera && (
-        <div className="space-y-4">
-          {/* Step indicator */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">1</div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Add Attachments</p>
-              <p className="text-xs text-muted-foreground">Upload or photograph invoice pages. Add as many as you need.</p>
-            </div>
+        <div className="space-y-3">
+          {/* Drop zone — always visible, acts as both initial upload and "add more" */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDropToStaging}
+            className={`border-2 border-dashed rounded-lg p-10 text-center transition-colors cursor-pointer ${
+              dragging ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"
+            }`}
+            onClick={openFilePicker}
+          >
+            <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Drop your invoice files here or <span className="text-primary font-medium">click to browse</span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Select multiple files from gallery, or add one at a time. Images are auto-compressed.
+            </p>
           </div>
 
-          {/* Upload & Camera buttons row */}
-          <div className="grid grid-cols-2 gap-2">
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleDropToStaging}
-              onClick={openFilePicker}
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-                dragging ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground"
-              }`}
-            >
-              <Upload className="h-7 w-7 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-xs font-medium text-foreground">Upload Files</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">JPG, PNG, PDF</p>
-            </div>
-            <div
-              onClick={() => setShowCamera(true)}
-              className="border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer border-border hover:border-muted-foreground"
-            >
-              <Camera className="h-7 w-7 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-xs font-medium text-foreground">Take Photos</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Use camera</p>
-            </div>
-          </div>
-
-          {/* Pending files gallery */}
+          {/* Pending files strip */}
           {pendingFiles.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-foreground">
-                  {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} added
+                <p className="text-xs text-muted-foreground">
+                  {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
                 </p>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs h-6 text-muted-foreground hover:text-destructive"
+                  className="text-xs h-6"
                   onClick={() => setPendingFiles([])}
                 >
-                  <Trash2 className="h-3 w-3 mr-1" />
                   Clear all
                 </Button>
               </div>
-              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                {pendingFiles.map((f, i) => {
-                  const thumb = pendingThumbs.get(i);
-                  const isPdf = f.type === "application/pdf";
-                  return (
-                    <div key={i} className="relative group rounded-lg border border-border overflow-hidden bg-muted/30 aspect-[3/4]">
-                      {thumb ? (
-                        <img src={thumb} alt={f.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-1">
-                          <FileText className="h-5 w-5 text-muted-foreground" />
-                          <span className="text-[9px] text-muted-foreground mt-1 text-center leading-tight truncate w-full">{isPdf ? "PDF" : f.name.split(".").pop()?.toUpperCase()}</span>
-                        </div>
-                      )}
-                      <div className="absolute top-0.5 left-0.5">
-                        <Badge className="text-[9px] px-1 py-0 bg-black/60 text-white border-0 font-mono">{i + 1}</Badge>
-                      </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setPendingFiles((prev) => prev.filter((_, idx) => idx !== i)); }}
-                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-1">
-                        <p className="text-[8px] text-white truncate">{f.name}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {/* Add more card */}
-                <div
-                  onClick={openFilePicker}
-                  className="rounded-lg border-2 border-dashed border-border hover:border-muted-foreground cursor-pointer aspect-[3/4] flex flex-col items-center justify-center transition-colors"
-                >
-                  <Plus className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-[9px] text-muted-foreground mt-1">Add more</span>
-                </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="relative shrink-0 px-2 py-1 rounded-md border border-border bg-muted/50 flex items-center gap-1.5 text-xs">
+                    <FileText className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-[120px] truncate">{f.name}</span>
+                    <button onClick={() => setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  const files = [...pendingFiles];
+                  setPendingFiles([]);
+                  processMultipleFiles(files);
+                }}
+              >
+                <ScanLine className="h-3 w-3 mr-1" />
+                Scan {pendingFiles.length} File{pendingFiles.length > 1 ? "s" : ""}
+              </Button>
+            </div>
+          )}
+
+          {pendingFiles.length === 0 && (
+            <>
+              <div className="text-center">
+                <span className="text-xs text-muted-foreground">or</span>
               </div>
 
-              {/* Step 2 indicator + Scan button */}
-              <div className="flex items-center gap-3 pt-2 border-t border-border">
-                <div className="flex items-center justify-center h-7 w-7 rounded-full bg-muted text-muted-foreground text-xs font-bold shrink-0">2</div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-foreground">Scan with AI</p>
-                  <p className="text-xs text-muted-foreground">Extract invoice data from your {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""}.</p>
-                </div>
-                <Button
-                  onClick={() => {
-                    const files = [...pendingFiles];
-                    setPendingFiles([]);
-                    processMultipleFiles(files);
-                  }}
-                  className="shrink-0"
-                >
-                  <ScanLine className="h-4 w-4 mr-1.5" />
-                  Scan Now
-                </Button>
-              </div>
-            </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowCamera(true)}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Take Photos with Camera
+              </Button>
+            </>
           )}
         </div>
       )}
