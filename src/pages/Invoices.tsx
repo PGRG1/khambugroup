@@ -57,6 +57,11 @@ export default function Invoices() {
   const [categorySortKey, setCategorySortKey] = useState<string>("name");
   const [categorySortDir, setCategorySortDir] = useState<"asc" | "desc">("asc");
 
+  // Attachment viewer
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerFileUrl, setViewerFileUrl] = useState("");
+  const [viewerTitle, setViewerTitle] = useState("");
+
   const makeToggleSort = (
     key: string,
     currentKey: string, setKey: (k: string) => void,
