@@ -94,7 +94,7 @@ export default function AttachmentViewerDialog({ open, onOpenChange, fileUrl, ti
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
