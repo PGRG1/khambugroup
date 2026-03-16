@@ -51,7 +51,7 @@ export default function AttachmentViewerDialog({ open, onOpenChange, fileUrl, ti
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-4xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-3 border-b">
           <DialogTitle className="text-base">
             {title || "Attachments"} · {totalPages} {totalPages === 1 ? "page" : "pages"}
