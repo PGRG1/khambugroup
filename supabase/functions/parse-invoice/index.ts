@@ -145,7 +145,7 @@ ${pmLines}`;
 
     // --- FIRST PASS: Extract data ---
     const extractionBody = JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-2.5-flash",
       max_tokens: 32000,
       messages: [
         { role: "system", content: fullSystemPrompt },
@@ -276,7 +276,7 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-pro",
+            model: "google/gemini-2.5-flash",
             max_tokens: 32000,
             messages: [
               { role: "system", content: "You are verifying invoice data extraction accuracy. Return only corrected JSON." },
