@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useEffect } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle } from "lucide-react";
 import InvoiceCamera from "./InvoiceCamera";
+import ProductAutocomplete from "./ProductAutocomplete";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -353,6 +354,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       } else {
         lines[i] = line;
       }
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+  };
+
+  const selectProduct = (i: number, product: { id: string; internal_sku: string; external_sku: string; internal_product_name: string; supplier_product_name: string; purchase_unit_cost?: number }) => {
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const line = {
+        ...lines[i],
+        item_code: product.external_sku || product.internal_sku,
+        description: product.supplier_product_name || product.internal_product_name,
+        matched_sku: product.internal_sku,
+      };
+      const flagged = flagLineItemIssues([line], productMaster);
+      lines[i] = flagged[0];
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
@@ -852,7 +870,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                 <div>
                   {i === 0 && <Label className="text-xs">Code</Label>}
                   <div className="relative">
-                    <Input value={line.item_code} onChange={(e) => updateLine(i, "item_code", e.target.value)} placeholder="Code" className={`text-xs ${line.sku_mismatch ? "border-amber-500" : ""}`} />
+                    <ProductAutocomplete
+                      value={line.item_code}
+                      onChange={(v) => updateLine(i, "item_code", v)}
+                      onSelect={(p) => selectProduct(i, p)}
+                      products={productMaster || []}
+                      searchField="code"
+                      placeholder="Code"
+                      className={`text-xs ${line.sku_mismatch ? "border-amber-500" : ""}`}
+                    />
                     {line.sku_mismatch && (
                       <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" title="SKU mismatch with Product Master" />
                     )}
@@ -861,7 +887,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                 <div>
                   {i === 0 && <Label className="text-xs">Description</Label>}
                   <div className="relative">
-                    <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
+                    <ProductAutocomplete
+                      value={line.description}
+                      onChange={(v) => updateLine(i, "description", v)}
+                      onSelect={(p) => selectProduct(i, p)}
+                      products={productMaster || []}
+                      searchField="name"
+                      placeholder="Item"
+                      className="text-xs"
+                    />
                     {line.unmatched && (
                       <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
                     )}
