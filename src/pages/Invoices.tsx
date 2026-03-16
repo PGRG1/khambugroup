@@ -23,6 +23,7 @@ import SupplierItemMappingsTab from "@/components/invoices/SupplierItemMappingsT
 import StandardProductDetailModal from "@/components/invoices/StandardProductDetailModal";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import LineItemsTab from "@/components/invoices/LineItemsTab";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
