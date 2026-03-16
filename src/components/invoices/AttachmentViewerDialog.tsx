@@ -58,7 +58,7 @@ export default function AttachmentViewerDialog({ open, onOpenChange, fileUrl, ti
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0" style={{ maxHeight: "calc(90vh - 80px)" }}>
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-6 space-y-6">
             {loading ? (
               <div className="flex items-center justify-center py-20">
