@@ -72,7 +72,7 @@ interface InvoiceScannerProps {
     total: number;
     notes: null;
     product_master_id: string | null;
-  }[], file?: File | null) => Promise<any>;
+  }[], files?: File[]) => Promise<any>;
   onCreateSupplier: (supplier: Omit<Supplier, "id">) => Promise<any>;
   onClose: () => void;
   userId: string;
