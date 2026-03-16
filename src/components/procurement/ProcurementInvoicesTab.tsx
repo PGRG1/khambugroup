@@ -294,7 +294,7 @@ export default function ProcurementInvoicesTab() {
                   <td className="px-3 py-2 font-medium text-foreground">{inv.supplier_name}</td>
                   <td className="px-3 py-2">{inv.venue}</td>
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(inv.due_date || "")}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmt(Number(inv.total_amount))}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</td>
                   <td className="px-3 py-2">
                     <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[inv.status] || ""}`}>{inv.status}</Badge>
                   </td>
