@@ -10,9 +10,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { fileBase64, mimeType, productMaster } = await req.json();
+    const { fileBase64, mimeType, productMaster, files } = await req.json();
 
-    if (!fileBase64) {
+    // Support both single-file (fileBase64) and multi-file (files[]) formats
+    let fileEntries: { base64: string; mimeType: string }[] = [];
+    if (files && Array.isArray(files) && files.length > 0) {
+      fileEntries = files;
+    } else if (fileBase64) {
+      fileEntries = [{ base64: fileBase64, mimeType: mimeType || "application/pdf" }];
+    }
+
+    if (fileEntries.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: "No file data provided" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
