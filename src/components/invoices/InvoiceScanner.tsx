@@ -315,7 +315,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
     setScanning(false);
     setScanProgress({ current: 0, total: 0 });
-  }, [processFile, matchOrCreateSupplier, productMaster, flagSkuMismatches, checkDuplicates]);
+  }, [processFile, matchOrCreateSupplier, productMaster, flagLineItemIssues, checkDuplicates]);
 
   const current = invoices[currentIdx] || null;
 
