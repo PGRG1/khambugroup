@@ -8,12 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Search, Trash2, ScanLine, Pencil, Eye, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Plus, X } from "lucide-react";
+import { Search, Trash2, ScanLine, Pencil, Eye, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Plus, X, Download } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { downloadCSV } from "@/utils/csvDownload";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -37,7 +38,7 @@ export default function ProcurementInvoicesTab() {
   // Fetch product master for AI matching during OCR
   const [productMaster, setProductMaster] = useState<any[]>([]);
   useEffect(() => {
-    supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name")
+    supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost")
       .then(({ data }) => { if (data) setProductMaster(data as any[]); });
   }, []);
 
@@ -194,6 +195,17 @@ export default function ProcurementInvoicesTab() {
         </Select>
         <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)} className="h-9">
           <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(inv => ({
+          invoice_date: fmtDate(inv.invoice_date),
+          invoice_number: inv.invoice_number,
+          supplier_name: inv.supplier_name,
+          venue: inv.venue,
+          due_date: fmtDate(inv.due_date || ""),
+          total_amount: Number(inv.total_amount).toFixed(2),
+          status: inv.status,
+        })), columns.map(c => ({ key: c.key, label: c.label })), "invoices")} className="h-9">
+          <Download className="h-4 w-4 mr-1" />Download
         </Button>
       </div>
 

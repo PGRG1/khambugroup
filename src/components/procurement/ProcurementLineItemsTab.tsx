@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle, Download } from "lucide-react";
+import { downloadCSV } from "@/utils/csvDownload";
 
 interface LineItemRow {
   id: string;
@@ -168,6 +170,14 @@ export default function ProcurementLineItemsTab() {
             <X className="h-3 w-3" /> Clear
           </button>
         )}
+        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => ({
+          invoice_date: fmtDate(r.invoice_date), supplier_name: r.supplier_name, invoice_number: r.invoice_number,
+          internal_sku: r.internal_sku || "", external_sku: r.external_sku || "",
+          master_name: r.master_name || "", description: r.description,
+          quantity: r.quantity, unit: r.unit, unit_price: r.unit_price.toFixed(2), total: r.total.toFixed(2),
+        })), columns.map(c => ({ key: c.key, label: c.label })), "invoice_line_items")} className="h-9">
+          <Download className="h-4 w-4 mr-1" />Download
+        </Button>
       </div>
 
       <div className="flex items-center gap-3">

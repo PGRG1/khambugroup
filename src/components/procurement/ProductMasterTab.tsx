@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
+import { downloadCSV } from "@/utils/csvDownload";
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
@@ -186,6 +187,15 @@ export default function ProductMasterTab() {
             <X className="h-3 w-3" /> Clear
           </button>
         )}
+        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(p => ({
+          internal_sku: p.internal_sku, external_sku: p.external_sku,
+          internal_product_name: p.internal_product_name, supplier_product_name: p.supplier_product_name,
+          level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
+          purchase_unit: p.purchase_unit, unit_cost: p.unit_cost.toFixed(2),
+          base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty,
+          cost_per_base_unit: p.cost_per_base_unit.toFixed(4),
+          supplier: p.supplier, status: p.status,
+        })), columns.map(c => ({ key: c.key, label: c.label })), "product_master")} className="h-9"><Download className="h-4 w-4 mr-1" />Download</Button>
         <Button size="sm" onClick={openCreate} className="ml-auto h-9"><Plus className="h-4 w-4 mr-1" />Add Product</Button>
       </div>
 

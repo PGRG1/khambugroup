@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, DollarSign, TrendingUp, Search, ArrowUpDown } from "lucide-react";
+import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, Download } from "lucide-react";
+import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
 
 interface ProductRow {
@@ -169,6 +170,20 @@ export default function InventoryOnHandTab() {
             {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => ({
+          internal_sku: r.internal_sku, internal_product_name: r.internal_product_name,
+          level1_category: r.level1_category, qty_on_hand: r.qty_on_hand.toFixed(2),
+          unit: r.unit, avg_cost: r.avg_cost.toFixed(2), cost_value: r.cost_value.toFixed(2),
+          unit_cost: r.unit_cost.toFixed(2), supplier_value: r.supplier_value.toFixed(2),
+        })), [
+          { key: "internal_sku", label: "SKU" }, { key: "internal_product_name", label: "Product Name" },
+          { key: "level1_category", label: "Category" }, { key: "qty_on_hand", label: "Qty On Hand" },
+          { key: "unit", label: "Unit" }, { key: "avg_cost", label: "Avg Cost" },
+          { key: "cost_value", label: "Cost Value" }, { key: "unit_cost", label: "Supplier Price" },
+          { key: "supplier_value", label: "Supplier Value" },
+        ], "inventory")} className="h-9">
+          <Download className="h-4 w-4 mr-1" />Download
+        </Button>
       </div>
 
       {/* Table */}
