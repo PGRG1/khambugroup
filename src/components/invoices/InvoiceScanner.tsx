@@ -766,12 +766,32 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             </div>
           )}
 
+          {/* Unmatched items warning */}
+          {hasUnmatchedItems && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>
+                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Product Master</strong> — review required. These items could not be linked to any product in the master list.
+              </span>
+            </div>
+          )}
+
           {/* SKU mismatch warning */}
           {hasSkuMismatches && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
                 <strong>SKU mismatch:</strong> Some scanned item codes don't match the Product Master external SKU. Review highlighted rows.
+              </span>
+            </div>
+          )}
+
+          {/* Price change warning */}
+          {hasPriceChanges && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>
+                <strong>{priceChangedItems.length} price change{priceChangedItems.length > 1 ? "s" : ""} detected</strong> — invoice prices differ from Product Master. Review highlighted rows.
               </span>
             </div>
           )}
