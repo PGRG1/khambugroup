@@ -162,20 +162,36 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     }
   }, []);
 
-  // Flag SKU mismatches after scanning
-  const flagSkuMismatches = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined): ScannedLineItem[] => {
-    if (!pm) return lines;
+  // Flag SKU mismatches, unmatched items, and price changes after scanning
+  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined): ScannedLineItem[] => {
+    if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
     return lines.map(line => {
-      if (!line.matched_sku) return { ...line, sku_mismatch: false };
+      // Flag unmatched items
+      if (!line.matched_sku) {
+        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false };
+      }
       const pmEntry = pm.find(p => p.internal_sku === line.matched_sku);
-      if (!pmEntry) return { ...line, sku_mismatch: false };
-      // Compare scanned item_code (external SKU from invoice) with product master's external_sku
+      if (!pmEntry) {
+        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false };
+      }
+
+      // SKU mismatch check
       const scannedCode = (line.item_code || "").trim().toLowerCase();
       const pmExtSku = (pmEntry.external_sku || "").trim().toLowerCase();
-      if (scannedCode && pmExtSku && scannedCode !== pmExtSku) {
-        return { ...line, sku_mismatch: true };
-      }
-      return { ...line, sku_mismatch: false };
+      const skuMismatch = !!(scannedCode && pmExtSku && scannedCode !== pmExtSku);
+
+      // Price change detection
+      const scannedPrice = parseFloat(line.unit_price) || 0;
+      const pmPrice = pmEntry.purchase_unit_cost ?? 0;
+      const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
+
+      return {
+        ...line,
+        sku_mismatch: skuMismatch,
+        unmatched: false,
+        price_changed: priceChanged,
+        pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+      };
     });
   }, []);
 
