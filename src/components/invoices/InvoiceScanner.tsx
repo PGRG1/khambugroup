@@ -228,6 +228,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           due_date: raw.due_date || "",
           notes: "",
           line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
+          warnings: raw.warnings || [],
           saved: false,
           sourceFiles: allCompressedFiles,
         });
