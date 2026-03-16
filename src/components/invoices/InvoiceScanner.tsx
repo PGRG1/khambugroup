@@ -223,12 +223,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     setScanProgress({ current: 0, total: 0 });
   }, [processFile]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) processMultipleFiles(files);
-  }, [processMultipleFiles]);
+  // handleDrop is no longer needed — files are staged via handleDropToStaging
 
   const current = invoices[currentIdx] || null;
 
