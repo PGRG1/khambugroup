@@ -112,7 +112,55 @@ export default function ProcurementInvoicesTab() {
     setSelectedInvoice(inv);
     const items = await fetchLineItems(inv.id);
     setLineItems(items);
+    setEditing(false);
     setDrawerOpen(true);
+  };
+
+  const startEditing = () => {
+    if (!selectedInvoice) return;
+    setEditForm({
+      invoice_number: selectedInvoice.invoice_number,
+      invoice_date: selectedInvoice.invoice_date,
+      due_date: selectedInvoice.due_date,
+      venue: selectedInvoice.venue,
+      status: selectedInvoice.status,
+      notes: selectedInvoice.notes,
+    });
+    setEditLines(lineItems.map(li => ({ ...li })));
+    setEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedInvoice) return;
+    setSaving(true);
+    const lineTotals = editLines.reduce((s, l) => s + l.total, 0);
+    const lineTax = editLines.reduce((s, l) => s + l.tax_amount, 0);
+    const success = await updateInvoice(selectedInvoice.id, {
+      ...editForm,
+      subtotal: lineTotals - lineTax,
+      tax_amount: lineTax,
+      total_amount: lineTotals,
+    } as any, editLines.map(({ id, invoice_id, category_name, ...rest }) => rest));
+    setSaving(false);
+    if (success) {
+      setEditing(false);
+      setDrawerOpen(false);
+    }
+  };
+
+  const updateEditLine = (idx: number, field: string, value: any) => {
+    setEditLines(prev => {
+      const updated = [...prev];
+      const line = { ...updated[idx], [field]: value };
+      if (field === "quantity" || field === "unit_price" || field === "weight") {
+        const qty = field === "quantity" ? Number(value) : line.quantity;
+        const price = field === "unit_price" ? Number(value) : line.unit_price;
+        const weight = field === "weight" ? Number(value) : (line.weight || 0);
+        line.total = weight > 0 ? (weight * price) + line.tax_amount : (qty * price) + line.tax_amount;
+      }
+      updated[idx] = line;
+      return updated;
+    });
   };
 
 
