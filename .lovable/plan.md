@@ -1,65 +1,20 @@
 
 
-## Summary
+## Plan: Update Base Unit and Base Qty for All Products
 
-This plan covers four changes to the Revenue dashboard:
+### What
+Run a database migration to set `base_unit_type` and `base_unit_qty` for all existing products in `product_master` based on the data provided by the user.
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+### How
+A single SQL migration with UPDATE statements matching each product by `internal_sku`, setting the correct `base_unit_type` and `base_unit_qty`. Also recalculate `cost_per_base_unit = purchase_unit_cost / base_unit_qty` for each updated row.
 
----
+### Migration SQL
+- ~113 UPDATE statements, one per SKU (BEV-0001 through BEV-0105, DAI-0001, FRZ-0001 through FRZ-0004, PRO-0001, PRO-0002, SAU-0001, SPE-0001)
+- Each sets `base_unit_type` (ml, gms, or pcs) and `base_unit_qty` from the provided data
+- A final UPDATE recalculates `cost_per_base_unit = purchase_unit_cost / base_unit_qty` for all rows where `base_unit_qty > 0`
 
-## Changes
+### Files Changed
+1. **New migration SQL** — bulk UPDATE of `base_unit_type` and `base_unit_qty` per SKU, then recalculate `cost_per_base_unit`
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
-
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
-
-### 2. Index.tsx -- Compute and pass new KPI values
-
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
-
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
-
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
-
-### 4. DashboardCharts.tsx -- Multiple updates
-
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
-
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
-
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+No frontend changes needed — the UI already displays and manages these fields.
 
