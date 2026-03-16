@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Pencil, ChefHat, Info } from "lucide-react";
+import { Plus, Trash2, ChefHat, Info, BookOpen, DollarSign, Pencil, Tag } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -128,6 +128,21 @@ export default function MenuCostingTab() {
 
   const theoreticalCost = selectedItem?.theoretical_cost ?? 0;
 
+  // Fetch all pricing data for card display
+  const [allPricing, setAllPricing] = useState<Record<string, MenuItemPricing[]>>({});
+  useEffect(() => {
+    if (menuItems.length === 0) return;
+    const loadAll = async () => {
+      const results: Record<string, MenuItemPricing[]> = {};
+      await Promise.all(menuItems.map(async (item) => {
+        const p = await fetchPricing(item.id);
+        results[item.id] = p;
+      }));
+      setAllPricing(results);
+    };
+    loadAll();
+  }, [menuItems, fetchPricing]);
+
   // Live preview for ingredient form
   const selectedPm = products.find(p => p.id === ingForm.product_master_id);
   const liveQty = parseFloat(ingForm.quantity_used) || 0;
@@ -136,6 +151,22 @@ export default function MenuCostingTab() {
 
   // Live preview for pricing form
   const liveSellingPrice = parseFloat(priceForm.selling_price) || 0;
+
+  // Edit menu item
+  const [editItem, setEditItem] = useState<MenuItem | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", category: "", status: "Active" });
+
+  const openEdit = (item: MenuItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditItem(item);
+    setEditForm({ name: item.name, category: item.category, status: item.status });
+  };
+
+  const handleEdit = async () => {
+    if (!editItem) return;
+    await updateMenuItem(editItem.id, editForm);
+    setEditItem(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -151,39 +182,116 @@ export default function MenuCostingTab() {
         <Button size="sm" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1" />Add Menu Item</Button>
       </div>
 
-      {/* Menu items table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Theoretical Cost</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Loading...</TableCell></TableRow>
-            ) : menuItems.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No menu items yet</TableCell></TableRow>
-            ) : menuItems.map(item => (
-              <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => loadDetail(item)}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell>{item.category}</TableCell>
-                <TableCell className="text-right font-mono">${Number(item.theoretical_cost).toFixed(2)}</TableCell>
-                <TableCell><Badge variant={item.status === "Active" ? "default" : "secondary"}>{item.status}</Badge></TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
+      {/* Menu items cards */}
+      {loading ? (
+        <p className="text-center text-muted-foreground py-8">Loading...</p>
+      ) : menuItems.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">No menu items yet</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {menuItems.map(item => {
+            const itemPricing = allPricing[item.id] || [];
+            const regularPrice = itemPricing.find(p => p.price_type.toLowerCase().includes("regular"));
+            const sellingPrice = regularPrice?.selling_price ?? itemPricing[0]?.selling_price ?? 0;
+            const grossProfit = regularPrice?.gross_profit ?? itemPricing[0]?.gross_profit ?? 0;
+            const foodCostPct = regularPrice?.food_cost_pct ?? itemPricing[0]?.food_cost_pct ?? 0;
+            const tc = Number(item.theoretical_cost);
+
+            return (
+              <div
+                key={item.id}
+                className="card-glass rounded-xl p-4 flex flex-col gap-3 transition-shadow hover:shadow-md"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="font-display font-semibold text-foreground text-sm leading-snug truncate">{item.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.category || "Uncategorized"}</p>
+                  </div>
+                  <Badge
+                    variant={item.status === "Active" ? "default" : "secondary"}
+                    className="shrink-0 text-[10px] px-1.5 py-0"
+                  >
+                    {item.status}
+                  </Badge>
+                </div>
+
+                {/* Key figures */}
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Theo. Cost</span>
+                    <p className="text-sm font-mono font-semibold text-foreground">${tc.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sell Price</span>
+                    <p className="text-sm font-mono font-semibold text-foreground">
+                      {sellingPrice > 0 ? `$${Number(sellingPrice).toFixed(2)}` : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Gross Profit</span>
+                    <p className={`text-sm font-mono font-semibold ${Number(grossProfit) < 0 ? "text-destructive" : "text-foreground"}`}>
+                      {sellingPrice > 0 ? `$${Number(grossProfit).toFixed(2)}` : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Food Cost %</span>
+                    <p className={`text-sm font-mono font-semibold ${Number(foodCostPct) > 35 ? "text-destructive" : "text-foreground"}`}>
+                      {sellingPrice > 0 ? `${Number(foodCostPct).toFixed(1)}%` : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Pricing types badge */}
+                {itemPricing.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Tag className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[11px] text-muted-foreground">
+                      {itemPricing.length} pricing {itemPricing.length === 1 ? "type" : "types"}
+                    </span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 pt-1 border-t border-border">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1 flex-1"
+                    onClick={() => { loadDetail(item); setDetailTab("ingredients"); }}
+                  >
+                    <BookOpen className="h-3 w-3" /> Recipe
                   </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1 flex-1"
+                    onClick={() => { loadDetail(item); setDetailTab("pricing"); }}
+                  >
+                    <DollarSign className="h-3 w-3" /> Pricing
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={(e) => openEdit(item, e)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -410,6 +518,40 @@ export default function MenuCostingTab() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Edit menu item dialog */}
+      <Dialog open={!!editItem} onOpenChange={(open) => { if (!open) setEditItem(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Menu Item</DialogTitle>
+            <DialogDescription>Update the menu item details.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Name</Label>
+              <Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Category</Label>
+              <Input value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditItem(null)}>Cancel</Button>
+            <Button onClick={handleEdit}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
