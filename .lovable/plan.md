@@ -1,55 +1,65 @@
 
 
-## Plan: Improve Invoice Scanner Accuracy and Add Validation Flags
+## Summary
 
-### 1. Improve AI OCR Accuracy
+This plan covers four changes to the Revenue dashboard:
 
-**Edge function (`supabase/functions/parse-invoice/index.ts`)**:
-- Upgrade model from `google/gemini-2.5-flash` to `google/gemini-2.5-pro` for better number/text reading accuracy
-- Add a second-pass verification prompt: after extraction, send the data back with the images asking the AI to double-check all numbers, especially quantities, unit prices, and totals
-- Increase `max_tokens` from 16000 to 32000 to accommodate verification pass
-- Add stronger prompting: "Read each number digit by digit", "If a character is ambiguous, state the most likely reading", emphasize column alignment awareness
+1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
+2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
+3. Rename all "Customer" references to "Guest" across the dashboard charts
+4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
 
-### 2. Rounding Rules for Line Items and Invoice Totals
+---
 
-**InvoiceScanner.tsx** — in `calcLineTotal` and `saveInvoice`:
-- Keep line item totals at full precision (2 decimal places, no rounding beyond that) for all suppliers
-- At invoice total level: if supplier is "Beverage World" (match by name), round the total to nearest integer; for all others, show exact 2 decimal places
-- Display formatting: use `toFixed(2)` everywhere for line items; apply rounding only to the subtotal/total display and the saved `total_amount` for Beverage World
+## Changes
 
-### 3. Flag SKU Mismatches After Scan
+### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
 
-**InvoiceScanner.tsx** — in the review form:
-- After AI scan, for each line item with a `matched_sku`, compare `item_code` (external SKU from invoice) against the Product Master's `external_sku` for that matched entry
-- If they don't match, show an amber/warning badge next to the item code field: "SKU mismatch"
-- Add a visual indicator (amber background on that row) so the user can review
+- Accept two new props: `salesPerDay` and `guestsPerDay`
+- Insert two new card entries after "Total Discount":
+  - "Sales / Day" showing `$X` with DollarSign icon
+  - "Guests / Day" showing `X` with Users icon
+- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
 
-### 4. Flag Invoice Total Mismatch
+### 2. Index.tsx -- Compute and pass new KPI values
 
-**InvoiceScanner.tsx** — in the review form:
-- The AI returns `total_amount` on each invoice header. Store this as `ai_total` on the ScannedInvoice interface
-- Compare `ai_total` (the number read from the invoice document) against the calculated sum of line items
-- If they differ by more than $0.50, show a red warning banner: "Invoice total ($X) doesn't match line items total ($Y)"
-- This helps catch misread numbers
+- Calculate unique days count from filtered data
+- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
+- Pass both new values to `KPICards`
 
-### 5. Flag Duplicate Invoices
+### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
 
-**InvoiceScanner.tsx** — in `saveInvoice` and during scan review:
-- Before saving, query the `invoices` table for matching `invoice_number` + `supplier_id`
-- If a match is found, show a warning dialog: "Invoice #X from this supplier already exists (dated Y). Save anyway?"
-- Also check during scan review: after AI extraction, query existing invoices and flag any matches with a red badge on the invoice navigation bar
+- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
+- This computes the average total sales per day-of-week per month
 
-### 6. Default "Save All" Button for Multi-Page Single Invoice
+### 4. DashboardCharts.tsx -- Multiple updates
 
-**InvoiceScanner.tsx** — button layout:
-- Currently shows "Save This Invoice" as primary and "Save All" as secondary
-- When there's only 1 invoice extracted (even from multiple pages), the button already says "Save This Invoice" which is correct
-- When there are multiple invoices: make "Save All Invoices" the primary (default) button, and "Save This Invoice" the secondary
-- Swap the button order and styling so "Save All" is prominent by default
+**a. Add "Avg Sales by Day of Week (MoM)" chart**
+- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
+- Uses `dayStats` data with `sales_{month}` keys
+- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
 
-### Files to Change
+**b. Rename all "Customer" references to "Guest"**
+- "Daily Number of Customers" -> "Daily Guests"
+- "Avg Daily Customers" -> "Avg Daily Guests"
+- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
+- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
+- "Avg Spend/Customer" -> "Avg Spend/Guest"
+- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
+- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
 
-1. **`supabase/functions/parse-invoice/index.ts`** — upgrade model, add verification pass, return `total_amount` from AI
-2. **`src/components/invoices/InvoiceScanner.tsx`** — add `ai_total` field, SKU mismatch flags, total mismatch warning, duplicate check, rounding logic, button reordering
-3. **`src/components/procurement/ProcurementInvoicesTab.tsx`** — pass supplier name info for rounding logic, duplicate check query
+**c. Fix Discount chart and rename**
+- Rename "Discount Report" to "Discount Trend"
+- Add `lg:col-span-2` class to make it span full width like other full-width charts
+- This fixes the chart not stretching to the right border
+
+---
+
+## Technical Details
+
+**Files modified:**
+- `src/components/dashboard/KPICards.tsx` -- new props and cards
+- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
+- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
+- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
 
