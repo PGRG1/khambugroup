@@ -870,7 +870,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                 <div>
                   {i === 0 && <Label className="text-xs">Code</Label>}
                   <div className="relative">
-                    <Input value={line.item_code} onChange={(e) => updateLine(i, "item_code", e.target.value)} placeholder="Code" className={`text-xs ${line.sku_mismatch ? "border-amber-500" : ""}`} />
+                    <ProductAutocomplete
+                      value={line.item_code}
+                      onChange={(v) => updateLine(i, "item_code", v)}
+                      onSelect={(p) => selectProduct(i, p)}
+                      products={productMaster || []}
+                      searchField="code"
+                      placeholder="Code"
+                      className={`text-xs ${line.sku_mismatch ? "border-amber-500" : ""}`}
+                    />
                     {line.sku_mismatch && (
                       <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" title="SKU mismatch with Product Master" />
                     )}
@@ -879,7 +887,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                 <div>
                   {i === 0 && <Label className="text-xs">Description</Label>}
                   <div className="relative">
-                    <Input value={line.description} onChange={(e) => updateLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
+                    <ProductAutocomplete
+                      value={line.description}
+                      onChange={(v) => updateLine(i, "description", v)}
+                      onSelect={(p) => selectProduct(i, p)}
+                      products={productMaster || []}
+                      searchField="name"
+                      placeholder="Item"
+                      className="text-xs"
+                    />
                     {line.unmatched && (
                       <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
                     )}
