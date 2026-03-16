@@ -617,8 +617,11 @@ export default function Invoices() {
                           <TableCell className="text-xs text-muted-foreground">{inv.file_name || "—"}</TableCell>
                           <TableCell>
                             <Button size="sm" variant="ghost" onClick={async () => {
-                              const { data } = await supabase.storage.from("invoice-files").createSignedUrl(inv.file_url!, 3600);
-                              if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                              const paths = inv.file_url!.split(",");
+                              for (const path of paths) {
+                                const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 3600);
+                                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                              }
                             }}>
                               <ExternalLink className="h-3 w-3 mr-1" />View
                             </Button>
