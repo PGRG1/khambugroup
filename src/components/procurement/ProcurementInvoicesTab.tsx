@@ -275,9 +275,17 @@ export default function ProcurementInvoicesTab() {
                 </div>
 
                 {selectedInvoice.file_url && (
-                  <Button variant="outline" size="sm" onClick={() => openFile(selectedInvoice)}>
-                    <ExternalLink className="h-3.5 w-3.5 mr-1" />View Original File
-                  </Button>
+                  <div className="space-y-2">
+                    {selectedInvoice.file_url.split(",").map((path, idx, arr) => (
+                      <Button key={idx} variant="outline" size="sm" onClick={async () => {
+                        const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 300);
+                        if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                      }}>
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                        {arr.length > 1 ? `View Page ${idx + 1}` : "View Original File"}
+                      </Button>
+                    ))}
+                  </div>
                 )}
 
                 {selectedInvoice.notes && (
