@@ -61,6 +61,10 @@ export default function ProcurementInvoicesTab() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Invoice>>({});
+  const [editLines, setEditLines] = useState<InvoiceLineItem[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
