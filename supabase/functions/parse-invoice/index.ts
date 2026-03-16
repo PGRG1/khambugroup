@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
   try {
     const { fileBase64, mimeType, productMaster, files } = await req.json();
 
-    // Support both single-file (fileBase64) and multi-file (files[]) formats
     let fileEntries: { base64: string; mimeType: string }[] = [];
     if (files && Array.isArray(files) && files.length > 0) {
       fileEntries = files;
@@ -37,6 +36,14 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You are a highly accurate invoice data extractor for a restaurant/bar business (Assembly and Caliente venues in Hong Kong). A single document may contain MULTIPLE invoices (different dates, different invoice numbers, possibly from the same or different suppliers). You must extract ALL invoices found in the document.
 
+CRITICAL — READ NUMBERS WITH EXTREME CARE:
+- Read EVERY digit individually. Do not guess or approximate.
+- For each number, confirm by reading it digit by digit from left to right.
+- Pay close attention to similar-looking characters: 0 vs O, 1 vs l vs I, 5 vs S, 6 vs G, 8 vs B, 2 vs Z.
+- If a number is partially obscured or ambiguous, state your best reading but prefer the interpretation that makes the line item math (qty × unit_price = total) work out.
+- Be aware of column alignment — numbers in the QTY column are quantities, numbers in the PRICE column are prices. Do not mix up columns.
+- Some invoices use very small or compressed fonts. Zoom in mentally and read each character carefully.
+
 IMPORTANT — LANGUAGE RULES:
 - Supplier names: Keep EXACTLY as they appear on the invoice (including Chinese characters). Do NOT translate supplier names.
 - ALL OTHER text fields MUST be in English. You MUST translate Chinese/non-English text to English. This includes:
@@ -50,10 +57,15 @@ CRITICAL — NUMBER ACCURACY RULES:
 - "quantity" = the number in the QTY/QUANTITY column. It is typically a small integer (1-20). If you see a large number in the quantity field, double-check — it is likely wrong.
 - "unit_price" = the price per unit from the UNIT PRICE / PRICE column. Cross-check: quantity × unit_price should approximately equal the line total.
 - "total" = the AMOUNT column value for that line item. Read it directly from the invoice — do NOT calculate it.
-- "total_amount" on the invoice header = the grand TOTAL shown at the bottom. Read it directly.
+- "total_amount" on the invoice header = the grand TOTAL shown at the bottom. Read it directly. This is critical for validation.
 - VALIDATION: For each line item, verify that quantity × unit_price ≈ total (within rounding). If they don't match, re-read the numbers from the image more carefully.
 - Watch for multi-page invoices: the same invoice number on consecutive pages means those pages belong together. Merge all line items and use the grand total from the last page.
 - Be careful with columns — some invoices have a DISCOUNT column between UNIT PRICE and AMOUNT. Don't confuse discount with amount.
+
+CRITICAL — SUPPLIER NAME ACCURACY:
+- Read the supplier/company name character by character. Do not guess or autocomplete.
+- For Chinese characters, reproduce them exactly as printed.
+- For English names, spell them exactly including any abbreviations, periods, or unusual formatting.
 
 Return ONLY valid JSON with this exact structure — always an array, even if there's only one invoice:
 
@@ -127,18 +139,20 @@ ${pmLines}`;
     userContent.push({
       type: "text",
       text: fileEntries.length > 1
-        ? `These ${fileEntries.length} images/files are pages of the same document or related invoices. Extract ALL invoices found across all pages. Pages with the same invoice number belong to the same invoice — merge their line items. Read every number carefully and accurately.`
-        : "Extract ALL invoices from this document. There may be multiple invoices across pages. Read every number carefully and accurately. Return every single invoice found.",
+        ? `These ${fileEntries.length} images/files are pages of the same document or related invoices. Extract ALL invoices found across all pages. Pages with the same invoice number belong to the same invoice — merge their line items. Read every number carefully and accurately, digit by digit.`
+        : "Extract ALL invoices from this document. There may be multiple invoices across pages. Read every number carefully and accurately, digit by digit. Return every single invoice found.",
     });
 
-    const requestBody = JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      max_tokens: 16000,
+    // --- FIRST PASS: Extract data ---
+    const extractionBody = JSON.stringify({
+      model: "google/gemini-2.5-pro",
+      max_tokens: 32000,
       messages: [
         { role: "system", content: fullSystemPrompt },
         { role: "user", content: userContent },
       ],
     });
+
     const MAX_RETRIES = 3;
     let extractedData: any = null;
     let lastError = "";
@@ -146,7 +160,7 @@ ${pmLines}`;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+        const timeout = setTimeout(() => controller.abort(), 180000); // 3 min timeout for pro model
         const response = await fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -155,7 +169,7 @@ ${pmLines}`;
               Authorization: `Bearer ${LOVABLE_API_KEY}`,
               "Content-Type": "application/json",
             },
-            body: requestBody,
+            body: extractionBody,
             signal: controller.signal,
           }
         );
@@ -188,7 +202,6 @@ ${pmLines}`;
           );
         }
 
-        // Parse gateway response
         const responseText = await response.text();
         if (!responseText) {
           console.error(`Empty response (attempt ${attempt + 1})`);
@@ -212,7 +225,6 @@ ${pmLines}`;
         }
 
         extractedData = JSON.parse(cleaned);
-        // Success — break out of retry loop
         break;
       } catch (err) {
         console.error(`Parse/fetch error (attempt ${attempt + 1}):`, err);
@@ -230,6 +242,75 @@ ${pmLines}`;
         JSON.stringify({ success: false, error: "Could not extract invoice data after multiple attempts. Please try again or use a clearer image." }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // --- SECOND PASS: Verification ---
+    try {
+      const verificationPrompt = `You previously extracted the following invoice data from the document images. Please re-examine the images and VERIFY every number is correct. Focus especially on:
+1. Quantities — are they really what's shown in the QTY column?
+2. Unit prices — are they from the correct PRICE column (not the AMOUNT or DISCOUNT column)?
+3. Line totals — do they match what's in the AMOUNT column?
+4. Invoice total — does it match the grand total shown on the invoice?
+5. Supplier name — is it spelled exactly as printed?
+6. Invoice number — is every character correct?
+
+Here is the extracted data to verify:
+${JSON.stringify(extractedData, null, 2)}
+
+If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same format. If everything is correct, return the data unchanged. Return ONLY the JSON, no explanation.`;
+
+      const verifyContent: any[] = fileEntries.map((entry) => ({
+        type: "image_url",
+        image_url: { url: `data:${entry.mimeType};base64,${entry.base64}` },
+      }));
+      verifyContent.push({ type: "text", text: verificationPrompt });
+
+      const verifyController = new AbortController();
+      const verifyTimeout = setTimeout(() => verifyController.abort(), 180000);
+      const verifyResponse = await fetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-pro",
+            max_tokens: 32000,
+            messages: [
+              { role: "system", content: "You are verifying invoice data extraction accuracy. Return only corrected JSON." },
+              { role: "user", content: verifyContent },
+            ],
+          }),
+          signal: verifyController.signal,
+        }
+      );
+      clearTimeout(verifyTimeout);
+
+      if (verifyResponse.ok) {
+        const verifyText = await verifyResponse.text();
+        if (verifyText) {
+          const verifyAiData = JSON.parse(verifyText);
+          const verifyContent2 = verifyAiData.choices?.[0]?.message?.content || "";
+          let verifyCleaned = verifyContent2.trim();
+          if (verifyCleaned.startsWith("```")) {
+            verifyCleaned = verifyCleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+          }
+          try {
+            const verifiedData = JSON.parse(verifyCleaned);
+            extractedData = verifiedData;
+            console.log("Verification pass completed — using verified data");
+          } catch {
+            console.warn("Verification pass returned invalid JSON — using original extraction");
+          }
+        }
+      } else {
+        const vt = await verifyResponse.text();
+        console.warn("Verification pass failed:", verifyResponse.status, vt);
+      }
+    } catch (verifyErr) {
+      console.warn("Verification pass error (non-fatal):", verifyErr);
     }
 
     // Normalize: support both old single-invoice format and new multi-invoice format

@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText } from "lucide-react";
+import React, { useCallback, useState, useEffect } from "react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle } from "lucide-react";
 import InvoiceCamera from "./InvoiceCamera";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -12,6 +12,16 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -34,6 +44,7 @@ interface ScannedLineItem {
   tax_amount: string;
   total: string;
   matched_sku: string;
+  sku_mismatch?: boolean;
 }
 
 interface ScannedInvoice {
@@ -47,6 +58,9 @@ interface ScannedInvoice {
   line_items: ScannedLineItem[];
   saved?: boolean;
   sourceFiles?: File[];
+  ai_total?: number;
+  is_duplicate?: boolean;
+  duplicate_date?: string;
 }
 
 interface InvoiceScannerProps {
@@ -88,10 +102,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const [saving, setSaving] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
-  // originalFile is kept for backward compat but each invoice now carries its own sourceFile
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{ inv: ScannedInvoice; idx: number } | null>(null);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -101,28 +115,65 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       reader.readAsDataURL(file);
     });
 
-  // Track suppliers created within a single scan batch to avoid duplicates
   const batchCreatedSuppliers = React.useRef<Map<string, string>>(new Map());
 
   const matchOrCreateSupplier = useCallback(async (supplierName: string): Promise<string> => {
     if (!supplierName) return "";
     const normalised = supplierName.trim().toLowerCase();
-
-    // Check existing suppliers from props
     const match = suppliers.find((s) => s.name.toLowerCase() === normalised);
     if (match) return match.id;
-
-    // Check if we already created this supplier in this batch
     const batchMatch = batchCreatedSuppliers.current.get(normalised);
     if (batchMatch) return batchMatch;
-
-    // Create new supplier and cache it
     const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
     if (created?.id) {
       batchCreatedSuppliers.current.set(normalised, created.id);
     }
     return created?.id || "";
   }, [suppliers, onCreateSupplier]);
+
+  // Check for duplicate invoices in the database
+  const checkDuplicates = useCallback(async (invoicesToCheck: ScannedInvoice[]) => {
+    const updates: { idx: number; isDuplicate: boolean; date?: string }[] = [];
+    for (let i = 0; i < invoicesToCheck.length; i++) {
+      const inv = invoicesToCheck[i];
+      if (!inv.invoice_number || !inv.supplier_id) continue;
+      const { data } = await supabase
+        .from("invoices")
+        .select("id, invoice_date")
+        .eq("invoice_number", inv.invoice_number)
+        .eq("supplier_id", inv.supplier_id)
+        .limit(1);
+      if (data && data.length > 0) {
+        updates.push({ idx: i, isDuplicate: true, date: data[0].invoice_date });
+      }
+    }
+    if (updates.length > 0) {
+      setInvoices(prev => {
+        const copy = [...prev];
+        for (const u of updates) {
+          copy[u.idx] = { ...copy[u.idx], is_duplicate: u.isDuplicate, duplicate_date: u.date };
+        }
+        return copy;
+      });
+    }
+  }, []);
+
+  // Flag SKU mismatches after scanning
+  const flagSkuMismatches = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined): ScannedLineItem[] => {
+    if (!pm) return lines;
+    return lines.map(line => {
+      if (!line.matched_sku) return { ...line, sku_mismatch: false };
+      const pmEntry = pm.find(p => p.internal_sku === line.matched_sku);
+      if (!pmEntry) return { ...line, sku_mismatch: false };
+      // Compare scanned item_code (external SKU from invoice) with product master's external_sku
+      const scannedCode = (line.item_code || "").trim().toLowerCase();
+      const pmExtSku = (pmEntry.external_sku || "").trim().toLowerCase();
+      if (scannedCode && pmExtSku && scannedCode !== pmExtSku) {
+        return { ...line, sku_mismatch: true };
+      }
+      return { ...line, sku_mismatch: false };
+    });
+  }, []);
 
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
@@ -134,10 +185,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       toast({ title: "Unsupported format", description: "Please upload an image (JPG, PNG) or PDF.", variant: "destructive" });
       return [];
     }
-
-    // Compress image files for space efficiency
     const compressedFile = await compressImageFile(file);
-
     try {
       const base64 = await fileToBase64(compressedFile);
       return { base64, mimeType: compressedFile.type, compressedFile };
@@ -156,7 +204,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     batchCreatedSuppliers.current.clear();
     setScanProgress({ current: 0, total: files.length });
 
-    // Prepare all files first
     const preparedFiles: { base64: string; mimeType: string; compressedFile: File }[] = [];
     for (let i = 0; i < files.length; i++) {
       setScanProgress({ current: i + 1, total: files.length });
@@ -172,7 +219,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       return;
     }
 
-    // Send all files in a single AI request (treated as pages of the same document)
     try {
       const { data, error } = await supabase.functions.invoke("parse-invoice", {
         body: {
@@ -189,13 +235,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       }
 
       const rawInvoices = data.data?.invoices || [data.data];
-      // Use all compressed files as attachments for each invoice
       const allCompressedFiles = preparedFiles.map(f => f.compressedFile);
 
       const allInvoices: ScannedInvoice[] = [];
       for (const raw of rawInvoices) {
         const supplierId = await matchOrCreateSupplier(raw.supplier_name || "");
-        const lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => {
+        let lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => {
           const matchedSku = li.matched_sku || "";
           let description = li.description || "";
           if (matchedSku && productMaster) {
@@ -218,6 +263,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           };
         });
 
+        // Flag SKU mismatches
+        lines = flagSkuMismatches(lines, productMaster);
+
         allInvoices.push({
           supplier_name: raw.supplier_name || "",
           supplier_id: supplierId,
@@ -229,10 +277,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
           saved: false,
           sourceFiles: allCompressedFiles,
+          ai_total: typeof raw.total_amount === "number" ? raw.total_amount : parseFloat(raw.total_amount) || undefined,
         });
       }
 
       setInvoices(allInvoices);
+      // Check for duplicates
+      checkDuplicates(allInvoices);
+
       if (allInvoices.length > 0) {
         toast({ title: "Scan complete!", description: `Found ${allInvoices.length} invoice${allInvoices.length > 1 ? "s" : ""} from ${files.length} page${files.length > 1 ? "s" : ""}. Review and save.` });
       }
@@ -243,9 +295,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
     setScanning(false);
     setScanProgress({ current: 0, total: 0 });
-  }, [processFile, matchOrCreateSupplier, productMaster]);
-
-  // handleDrop is no longer needed — files are staged via handleDropToStaging
+  }, [processFile, matchOrCreateSupplier, productMaster, flagSkuMismatches, checkDuplicates]);
 
   const current = invoices[currentIdx] || null;
 
@@ -262,7 +312,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
       const line = { ...lines[i], [field]: value };
-      // Auto-calculate total when qty, weight, or unit_price change
       if (field === "quantity" || field === "weight" || field === "unit_price") {
         const w = line.weight ? parseFloat(line.weight) : null;
         const price = parseFloat(line.unit_price) || 0;
@@ -303,21 +352,49 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     const tax = parseFloat(l.tax_amount) || 0;
     return (w ? w * price : qty * price) + tax;
   };
+
   const subtotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
   const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
+  const calculatedTotal = subtotal + taxTotal;
+
+  // Check if current supplier is Beverage World for rounding
+  const currentSupplierName = current ? (suppliers.find(s => s.id === current.supplier_id)?.name || "") : "";
+  const isBeverageWorld = currentSupplierName.toLowerCase().includes("beverage world");
+
+  // Display total: round for Beverage World, 2dp for others
+  const displayTotal = isBeverageWorld ? Math.round(calculatedTotal) : parseFloat(calculatedTotal.toFixed(2));
+
+  // Total mismatch detection
+  const aiTotal = current?.ai_total;
+  const totalMismatch = aiTotal !== undefined && Math.abs(aiTotal - calculatedTotal) > 0.50;
 
   const saveInvoice = async (inv: ScannedInvoice): Promise<boolean> => {
     if (!inv.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return false; }
     if (!inv.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return false; }
     if (!inv.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return false; }
 
+    // Check for duplicate before saving
+    const { data: existingInvoices } = await supabase
+      .from("invoices")
+      .select("id, invoice_date")
+      .eq("invoice_number", inv.invoice_number)
+      .eq("supplier_id", inv.supplier_id)
+      .limit(1);
+
+    if (existingInvoices && existingInvoices.length > 0 && !inv.saved) {
+      // Return false and trigger confirmation dialog
+      return false;
+    }
+
+    const supplierName = suppliers.find(s => s.id === inv.supplier_id)?.name || "";
+    const isBW = supplierName.toLowerCase().includes("beverage world");
+
     const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
       const qty = parseFloat(l.quantity) || 0;
       const price = parseFloat(l.unit_price) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
-      const lineTotal = w ? w * price + tax : qty * price + tax;
-      // Resolve matched_sku to product_master_id
+      const lineTotal = parseFloat((w ? w * price + tax : qty * price + tax).toFixed(2));
       let pmId: string | null = null;
       if (l.matched_sku && productMaster) {
         const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
@@ -326,7 +403,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
     });
 
-    // Build professional file name: YYYYMMDD_vendorname_invoice#
     const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
     const vendorName = (suppliers.find((s) => s.id === inv.supplier_id)?.name || "unknown")
       .trim().replace(/[^a-zA-Z0-9\u4e00-\u9fff]+/g, "_").replace(/_+$/, "");
@@ -354,28 +430,83 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     return true;
   };
 
-  const handleSaveCurrent = async () => {
-    if (!current) return;
+  const doSaveCurrent = async (inv: ScannedInvoice, idx: number, skipDuplicateCheck = false) => {
+    if (!skipDuplicateCheck) {
+      // Check duplicate
+      const { data: existingInvoices } = await supabase
+        .from("invoices")
+        .select("id, invoice_date")
+        .eq("invoice_number", inv.invoice_number)
+        .eq("supplier_id", inv.supplier_id)
+        .limit(1);
+
+      if (existingInvoices && existingInvoices.length > 0) {
+        setDuplicateConfirm({ inv, idx });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
-      const ok = await saveInvoice(current);
-      if (ok) {
-        setInvoices((prev) => {
-          const copy = [...prev];
-          copy[currentIdx] = { ...copy[currentIdx], saved: true };
-          return copy;
-        });
-        setSavedCount((c) => c + 1);
-        toast({ title: `Invoice ${current.invoice_number} saved!` });
-        // Auto-advance to next unsaved
-        const nextUnsaved = invoices.findIndex((inv, idx) => idx > currentIdx && !inv.saved);
-        if (nextUnsaved >= 0) setCurrentIdx(nextUnsaved);
-      }
+      // Temporarily mark as saved to bypass duplicate check in saveInvoice
+      const invToSave = { ...inv, saved: true };
+      const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
+        const qty = parseFloat(l.quantity) || 0;
+        const price = parseFloat(l.unit_price) || 0;
+        const tax = parseFloat(l.tax_amount) || 0;
+        const w = l.weight ? parseFloat(l.weight) : null;
+        const lineTotal = parseFloat((w ? w * price + tax : qty * price + tax).toFixed(2));
+        let pmId: string | null = null;
+        if (l.matched_sku && productMaster) {
+          const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
+          if (pm) pmId = pm.id;
+        }
+        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
+      });
+
+      const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
+      const vendorName = (suppliers.find((s) => s.id === inv.supplier_id)?.name || "unknown")
+        .trim().replace(/[^a-zA-Z0-9\u4e00-\u9fff]+/g, "_").replace(/_+$/, "");
+      const invNum = (inv.invoice_number || "no-number").trim().replace(/[^a-zA-Z0-9]+/g, "_");
+      const professionalName = `${dateStr}_${vendorName}_${invNum}`;
+      const filesToSave = (inv.sourceFiles || []).map((f, fi) => {
+        const ext = f.name.split(".").pop() || "jpg";
+        const suffix = (inv.sourceFiles || []).length > 1 ? `_page${fi + 1}` : "";
+        return new File([f], `${professionalName}${suffix}.${ext}`, { type: f.type });
+      });
+
+      await onSave(
+        {
+          supplier_id: inv.supplier_id,
+          venue: inv.venue,
+          invoice_number: inv.invoice_number,
+          invoice_date: inv.invoice_date,
+          due_date: inv.due_date || null,
+          notes: inv.notes || null,
+        },
+        lines,
+        filesToSave.length > 0 ? filesToSave : undefined
+      );
+
+      setInvoices((prev) => {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], saved: true };
+        return copy;
+      });
+      setSavedCount((c) => c + 1);
+      toast({ title: `Invoice ${inv.invoice_number} saved!` });
+      const nextUnsaved = invoices.findIndex((inv2, i2) => i2 > idx && !inv2.saved);
+      if (nextUnsaved >= 0) setCurrentIdx(nextUnsaved);
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveCurrent = async () => {
+    if (!current) return;
+    await doSaveCurrent(current, currentIdx);
   };
 
   const handleSaveAll = async () => {
@@ -384,16 +515,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     for (let i = 0; i < invoices.length; i++) {
       if (invoices[i].saved) { saved++; continue; }
       try {
-        const ok = await saveInvoice(invoices[i]);
-        if (ok) {
-          setInvoices((prev) => {
-            const copy = [...prev];
-            copy[i] = { ...copy[i], saved: true };
-            return copy;
-          });
-          saved++;
-          setSavedCount(saved);
-        }
+        await doSaveCurrent(invoices[i], i, true); // skip duplicate check for batch save
+        saved++;
       } catch {
         toast({ title: `Failed to save invoice #${invoices[i].invoice_number}`, variant: "destructive" });
       }
@@ -407,6 +530,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
   const totalInvoices = invoices.length;
   const allSaved = totalInvoices > 0 && invoices.every((inv) => inv?.saved);
+  const hasSkuMismatches = current?.line_items.some(l => l.sku_mismatch) || false;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
@@ -431,7 +555,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     if (files.length > 0) addFilesToPending(files);
   }, [addFilesToPending]);
 
-  // Generate thumbnail URLs for pending image files
   const [pendingThumbs, setPendingThumbs] = useState<Map<number, string>>(new Map());
   React.useEffect(() => {
     const newThumbs = new Map<number, string>();
@@ -456,7 +579,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         </button>
       </div>
 
-      {/* Camera mode — adds to pending files instead of immediately scanning */}
+      {/* Camera mode */}
       {showCamera && !scanning && invoices.length === 0 && (
         <InvoiceCamera
           onCapture={(file) => {
@@ -470,7 +593,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       {/* STEP 1: Add Attachments */}
       {invoices.length === 0 && !scanning && !showCamera && (
         <div className="space-y-3">
-          {/* Drop zone — always visible, acts as both initial upload and "add more" */}
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
@@ -526,7 +648,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                 }}
               >
                 <ScanLine className="h-3 w-3 mr-1" />
-                Scan {pendingFiles.length} File{pendingFiles.length > 1 ? "s" : ""}
+                Scan All {pendingFiles.length} File{pendingFiles.length > 1 ? "s" : ""}
               </Button>
             </div>
           )}
@@ -536,7 +658,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               <div className="text-center">
                 <span className="text-xs text-muted-foreground">or</span>
               </div>
-
               <Button
                 variant="outline"
                 className="w-full"
@@ -579,6 +700,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                   Invoice {currentIdx + 1} of {totalInvoices}
                 </span>
                 {current.saved && <Badge className="bg-green-100 text-green-800 border-green-300">Saved</Badge>}
+                {current.is_duplicate && !current.saved && (
+                  <Badge variant="destructive" className="text-xs">Duplicate</Badge>
+                )}
               </div>
               <Button variant="ghost" size="sm" disabled={currentIdx === totalInvoices - 1} onClick={() => setCurrentIdx(currentIdx + 1)}>
                 Next<ChevronRight className="h-4 w-4 ml-1" />
@@ -594,6 +718,37 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                 <span>{Math.round((savedCount / totalInvoices) * 100)}%</span>
               </div>
               <Progress value={(savedCount / totalInvoices) * 100} className="h-2" />
+            </div>
+          )}
+
+          {/* Duplicate warning banner */}
+          {current.is_duplicate && !current.saved && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>
+                <strong>Duplicate detected:</strong> Invoice #{current.invoice_number} from this supplier already exists
+                {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""}.
+              </span>
+            </div>
+          )}
+
+          {/* Total mismatch warning banner */}
+          {totalMismatch && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>
+                <strong>Total mismatch:</strong> Invoice total from document (${aiTotal?.toFixed(2)}) doesn't match calculated line items total (${calculatedTotal.toFixed(2)}). Please review the numbers.
+              </span>
+            </div>
+          )}
+
+          {/* SKU mismatch warning */}
+          {hasSkuMismatches && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>
+                <strong>SKU mismatch:</strong> Some scanned item codes don't match the Product Master external SKU. Review highlighted rows.
+              </span>
             </div>
           )}
 
@@ -639,10 +794,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {current.line_items.map((line, i) => (
-              <div key={i} className="grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_75px_32px] gap-1 items-end">
+              <div key={i} className={`grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_75px_32px] gap-1 items-end ${line.sku_mismatch ? "bg-amber-500/10 rounded-md p-1 -mx-1" : ""}`}>
                 <div>
                   {i === 0 && <Label className="text-xs">Code</Label>}
-                  <Input value={line.item_code} onChange={(e) => updateLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
+                  <div className="relative">
+                    <Input value={line.item_code} onChange={(e) => updateLine(i, "item_code", e.target.value)} placeholder="Code" className={`text-xs ${line.sku_mismatch ? "border-amber-500" : ""}`} />
+                    {line.sku_mismatch && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" title="SKU mismatch with Product Master" />
+                    )}
+                  </div>
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Description</Label>}
@@ -688,32 +848,43 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
           <div className="text-right text-sm border-t pt-2">
             <span className="text-muted-foreground">Subtotal: </span>
-            <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             {taxTotal > 0 && (
               <>
                 <span className="text-muted-foreground ml-4">Tax: </span>
-                <span className="font-mono font-medium">{taxTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span className="font-mono font-medium">{taxTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </>
             )}
             <span className="text-muted-foreground ml-4">Total: </span>
-            <span className="font-mono font-bold">{(subtotal + taxTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
+              {displayTotal.toLocaleString(undefined, { minimumFractionDigits: isBeverageWorld ? 0 : 2, maximumFractionDigits: isBeverageWorld ? 0 : 2 })}
+            </span>
+            {isBeverageWorld && (
+              <span className="text-xs text-muted-foreground ml-1">(rounded)</span>
+            )}
+            {aiTotal !== undefined && (
+              <span className="text-xs text-muted-foreground ml-3">
+                Doc total: ${aiTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3 pt-2 flex-wrap">
+            {/* When multiple invoices, Save All is primary */}
+            {totalInvoices > 1 && !allSaved && (
+              <Button onClick={handleSaveAll} disabled={saving || savingAll}>
+                {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices} Invoices`}
+              </Button>
+            )}
+
             {!current.saved ? (
-              <Button onClick={handleSaveCurrent} disabled={saving || savingAll}>
+              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
                 {saving ? "Saving..." : "Save This Invoice"}
               </Button>
             ) : (
               <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
-            )}
-
-            {totalInvoices > 1 && !allSaved && (
-              <Button variant="secondary" onClick={handleSaveAll} disabled={saving || savingAll}>
-                {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices} Invoices`}
-              </Button>
             )}
 
             <Button variant="outline" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>Scan Another</Button>
@@ -728,17 +899,45 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                   onClick={() => setCurrentIdx(idx)}
                   className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
                     idx === currentIdx ? "border-primary bg-primary/10 text-primary font-medium" : 
-                    inv.saved ? "border-green-300 bg-green-50 text-green-700" : "border-border hover:border-muted-foreground"
+                    inv.saved ? "border-green-300 bg-green-50 text-green-700" :
+                    inv.is_duplicate ? "border-destructive bg-destructive/10 text-destructive" :
+                    "border-border hover:border-muted-foreground"
                   }`}
                 >
                   {inv.invoice_number || `#${idx + 1}`}
                   {inv.saved && " ✓"}
+                  {inv.is_duplicate && !inv.saved && " ⚠"}
                 </button>
               ))}
             </div>
           )}
         </div>
       )}
+
+      {/* Duplicate confirmation dialog */}
+      <AlertDialog open={!!duplicateConfirm} onOpenChange={(open) => !open && setDuplicateConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Invoice Detected</AlertDialogTitle>
+            <AlertDialogDescription>
+              Invoice #{duplicateConfirm?.inv.invoice_number} from this supplier already exists
+              {duplicateConfirm?.inv.duplicate_date ? ` (dated ${duplicateConfirm.inv.duplicate_date})` : ""}.
+              Do you want to save it anyway?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (duplicateConfirm) {
+                doSaveCurrent(duplicateConfirm.inv, duplicateConfirm.idx, true);
+                setDuplicateConfirm(null);
+              }
+            }}>
+              Save Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
