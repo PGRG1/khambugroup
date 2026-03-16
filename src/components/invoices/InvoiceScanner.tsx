@@ -140,23 +140,63 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
     try {
       const base64 = await fileToBase64(compressedFile);
+      return { base64, mimeType: compressedFile.type, compressedFile };
+    } catch (err) {
+      console.error("File processing error:", err);
+      toast({ title: "Failed to process", description: `Failed to process ${file.name}.`, variant: "destructive" });
+      return null;
+    }
+  }, []);
+
+  const processMultipleFiles = useCallback(async (files: File[]) => {
+    setScanning(true);
+    setInvoices([]);
+    setCurrentIdx(0);
+    setSavedCount(0);
+    batchCreatedSuppliers.current.clear();
+    setScanProgress({ current: 0, total: files.length });
+
+    // Prepare all files first
+    const preparedFiles: { base64: string; mimeType: string; compressedFile: File }[] = [];
+    for (let i = 0; i < files.length; i++) {
+      setScanProgress({ current: i + 1, total: files.length });
+      const result = await processFile(files[i]);
+      if (result && !Array.isArray(result)) {
+        preparedFiles.push(result);
+      }
+    }
+
+    if (preparedFiles.length === 0) {
+      setScanning(false);
+      setScanProgress({ current: 0, total: 0 });
+      return;
+    }
+
+    // Send all files in a single AI request (treated as pages of the same document)
+    try {
       const { data, error } = await supabase.functions.invoke("parse-invoice", {
-        body: { fileBase64: base64, mimeType: compressedFile.type, productMaster: productMaster || [] },
+        body: {
+          files: preparedFiles.map(f => ({ base64: f.base64, mimeType: f.mimeType })),
+          productMaster: productMaster || [],
+        },
       });
 
       if (error || !data?.success) {
         toast({ title: "Scan failed", description: data?.error || error?.message || "Could not extract data.", variant: "destructive" });
-        return [];
+        setScanning(false);
+        setScanProgress({ current: 0, total: 0 });
+        return;
       }
 
       const rawInvoices = data.data?.invoices || [data.data];
+      // Use the first compressed file as the attachment for all invoices
+      const primaryFile = preparedFiles[0]?.compressedFile || null;
 
-      const processed: ScannedInvoice[] = [];
+      const allInvoices: ScannedInvoice[] = [];
       for (const raw of rawInvoices) {
         const supplierId = await matchOrCreateSupplier(raw.supplier_name || "");
         const lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => {
           const matchedSku = li.matched_sku || "";
-          // If matched to Product Master, use the standardized supplier_product_name
           let description = li.description || "";
           if (matchedSku && productMaster) {
             const pmEntry = productMaster.find((pm: any) => pm.external_sku === matchedSku || pm.internal_sku === matchedSku);
@@ -178,7 +218,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           };
         });
 
-        processed.push({
+        allInvoices.push({
           supplier_name: raw.supplier_name || "",
           supplier_id: supplierId,
           venue: raw.venue || "Assembly",
@@ -188,40 +228,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           notes: raw.notes || "",
           line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
           saved: false,
-          sourceFile: compressedFile,
+          sourceFile: primaryFile,
         });
       }
 
-      return processed;
+      setInvoices(allInvoices);
+      if (allInvoices.length > 0) {
+        toast({ title: "Scan complete!", description: `Found ${allInvoices.length} invoice${allInvoices.length > 1 ? "s" : ""} from ${files.length} page${files.length > 1 ? "s" : ""}. Review and save.` });
+      }
     } catch (err) {
       console.error("Invoice scan error:", err);
-      toast({ title: "Scan failed", description: `Failed to scan ${file.name}. Please try again.`, variant: "destructive" });
-      return [];
-    }
-  }, [suppliers, matchOrCreateSupplier]);
-
-  const processMultipleFiles = useCallback(async (files: File[]) => {
-    setScanning(true);
-    setInvoices([]);
-    setCurrentIdx(0);
-    setSavedCount(0);
-    batchCreatedSuppliers.current.clear();
-    setScanProgress({ current: 0, total: files.length });
-
-    const allInvoices: ScannedInvoice[] = [];
-    for (let i = 0; i < files.length; i++) {
-      setScanProgress({ current: i + 1, total: files.length });
-      const result = await processFile(files[i]);
-      allInvoices.push(...result);
+      toast({ title: "Scan failed", description: "Failed to scan. Please try again.", variant: "destructive" });
     }
 
-    setInvoices(allInvoices);
-    if (allInvoices.length > 0) {
-      toast({ title: "Scan complete!", description: `Found ${allInvoices.length} invoice${allInvoices.length > 1 ? "s" : ""} from ${files.length} file${files.length > 1 ? "s" : ""}. Review and save.` });
-    }
     setScanning(false);
     setScanProgress({ current: 0, total: 0 });
-  }, [processFile]);
+  }, [processFile, matchOrCreateSupplier, productMaster]);
 
   // handleDrop is no longer needed — files are staged via handleDropToStaging
 
@@ -463,7 +485,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               Drop your invoice files here or <span className="text-primary font-medium">click to browse</span>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Select multiple files from gallery, or add one at a time. Images are auto-compressed.
+              Drop multiple pages of the same invoice — they'll be scanned together as one document.
             </p>
           </div>
 

@@ -10,9 +10,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { fileBase64, mimeType, productMaster } = await req.json();
+    const { fileBase64, mimeType, productMaster, files } = await req.json();
 
-    if (!fileBase64) {
+    // Support both single-file (fileBase64) and multi-file (files[]) formats
+    let fileEntries: { base64: string; mimeType: string }[] = [];
+    if (files && Array.isArray(files) && files.length > 0) {
+      fileEntries = files;
+    } else if (fileBase64) {
+      fileEntries = [{ base64: fileBase64, mimeType: mimeType || "application/pdf" }];
+    }
+
+    if (fileEntries.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: "No file data provided" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -109,26 +117,26 @@ ${pmLines}`;
 
     const fullSystemPrompt = systemPrompt + productMasterContext;
 
+    // Build user content with all file entries as separate images
+    const userContent: any[] = fileEntries.map((entry) => ({
+      type: "image_url",
+      image_url: {
+        url: `data:${entry.mimeType};base64,${entry.base64}`,
+      },
+    }));
+    userContent.push({
+      type: "text",
+      text: fileEntries.length > 1
+        ? `These ${fileEntries.length} images/files are pages of the same document or related invoices. Extract ALL invoices found across all pages. Pages with the same invoice number belong to the same invoice — merge their line items. Read every number carefully and accurately.`
+        : "Extract ALL invoices from this document. There may be multiple invoices across pages. Read every number carefully and accurately. Return every single invoice found.",
+    });
+
     const requestBody = JSON.stringify({
       model: "google/gemini-2.5-flash",
       max_tokens: 16000,
       messages: [
         { role: "system", content: fullSystemPrompt },
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType || "application/pdf"};base64,${fileBase64}`,
-              },
-            },
-            {
-              type: "text",
-              text: "Extract ALL invoices from this document. There may be multiple invoices across pages. Read every number carefully and accurately. Return every single invoice found.",
-            },
-          ],
-        },
+        { role: "user", content: userContent },
       ],
     });
     const MAX_RETRIES = 3;
