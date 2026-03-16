@@ -333,11 +333,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     const invNum = (inv.invoice_number || "no-number").trim().replace(/[^a-zA-Z0-9]+/g, "_");
     const professionalName = `${dateStr}_${vendorName}_${invNum}`;
 
-    let fileToSave = inv.sourceFile || null;
-    if (fileToSave) {
-      const ext = fileToSave.name.split(".").pop() || "jpg";
-      fileToSave = new File([fileToSave], `${professionalName}.${ext}`, { type: fileToSave.type });
-    }
+    const filesToSave = (inv.sourceFiles || []).map((f, idx) => {
+      const ext = f.name.split(".").pop() || "jpg";
+      const suffix = (inv.sourceFiles || []).length > 1 ? `_page${idx + 1}` : "";
+      return new File([f], `${professionalName}${suffix}.${ext}`, { type: f.type });
+    });
 
     await onSave(
       {
@@ -349,7 +349,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         notes: inv.notes || null,
       },
       lines,
-      fileToSave
+      filesToSave.length > 0 ? filesToSave : undefined
     );
     return true;
   };
