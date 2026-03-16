@@ -359,6 +359,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     });
   };
 
+  const selectProduct = (i: number, product: { id: string; internal_sku: string; external_sku: string; internal_product_name: string; supplier_product_name: string; purchase_unit_cost?: number }) => {
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const line = {
+        ...lines[i],
+        item_code: product.external_sku || product.internal_sku,
+        description: product.supplier_product_name || product.internal_product_name,
+        matched_sku: product.internal_sku,
+      };
+      const flagged = flagLineItemIssues([line], productMaster);
+      lines[i] = flagged[0];
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+  };
+
   const addLine = () => setInvoices((prev) => {
     const copy = [...prev];
     copy[currentIdx] = { ...copy[currentIdx], line_items: [...copy[currentIdx].line_items, { ...emptyLine }] };
