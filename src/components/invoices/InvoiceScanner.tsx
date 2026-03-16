@@ -31,6 +31,7 @@ interface ProductMasterEntry {
   external_sku: string;
   internal_product_name: string;
   supplier_product_name: string;
+  purchase_unit_cost?: number;
 }
 
 interface ScannedLineItem {
