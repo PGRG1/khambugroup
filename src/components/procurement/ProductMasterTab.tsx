@@ -13,6 +13,7 @@ const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
   level1_category: "", level2_category: "", level3_category: "",
   unit: "", unit_cost: "", supplier: "", status: "Active",
+  purchase_unit: "", purchase_unit_cost: "", base_unit_type: "gms", base_unit_qty: "1", cost_per_base_unit: "0",
 };
 
 export default function ProductMasterTab() {
@@ -83,12 +84,24 @@ export default function ProductMasterTab() {
       internal_product_name: p.internal_product_name, supplier_product_name: p.supplier_product_name,
       level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
       unit: p.unit, unit_cost: String(p.unit_cost), supplier: p.supplier, status: p.status,
+      purchase_unit: p.purchase_unit, purchase_unit_cost: String(p.purchase_unit_cost),
+      base_unit_type: p.base_unit_type, base_unit_qty: String(p.base_unit_qty),
+      cost_per_base_unit: String(p.cost_per_base_unit),
     });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    const data = { ...form, unit_cost: parseFloat(form.unit_cost) || 0 };
+    const purchaseUnitCost = parseFloat(form.purchase_unit_cost) || 0;
+    const baseUnitQty = parseFloat(form.base_unit_qty) || 1;
+    const costPerBaseUnit = baseUnitQty > 0 ? purchaseUnitCost / baseUnitQty : 0;
+    const data = {
+      ...form,
+      unit_cost: parseFloat(form.unit_cost) || 0,
+      purchase_unit_cost: purchaseUnitCost,
+      base_unit_qty: baseUnitQty,
+      cost_per_base_unit: costPerBaseUnit,
+    };
     if (editingId) {
       const ok = await updateProduct(editingId, data);
       if (ok) setDialogOpen(false);
@@ -103,21 +116,30 @@ export default function ProductMasterTab() {
   };
 
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt4 = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
+  // Live preview of cost per base unit in dialog
+  const liveCostPerBase = (() => {
+    const puc = parseFloat(form.purchase_unit_cost) || 0;
+    const buq = parseFloat(form.base_unit_qty) || 1;
+    return buq > 0 ? puc / buq : 0;
+  })();
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading products...</div>;
 
   const columns = [
     { key: "internal_sku", label: "Internal SKU", w: "w-[100px]" },
-    { key: "external_sku", label: "External SKU", w: "w-[100px]" },
-    { key: "internal_product_name", label: "Internal Product Name", w: "min-w-[200px]" },
-    { key: "supplier_product_name", label: "Supplier Product Name", w: "min-w-[200px] hidden xl:table-cell" },
+    { key: "external_sku", label: "External SKU", w: "w-[100px] hidden xl:table-cell" },
+    { key: "internal_product_name", label: "Internal Product Name", w: "min-w-[180px]" },
+    { key: "supplier_product_name", label: "Supplier Product Name", w: "min-w-[180px] hidden xl:table-cell" },
     { key: "level1_category", label: "L1 Category", w: "w-[100px] hidden lg:table-cell" },
-    { key: "level2_category", label: "L2 Category", w: "w-[100px] hidden lg:table-cell" },
     { key: "level3_category", label: "L3 Category", w: "w-[110px] hidden md:table-cell" },
-    { key: "unit", label: "Unit", w: "w-[60px]" },
-    { key: "unit_cost", label: "Unit Cost", w: "w-[90px]" },
-    { key: "supplier", label: "Supplier", w: "w-[140px] hidden md:table-cell" },
-    { key: "status", label: "Status", w: "w-[80px]" },
+    { key: "purchase_unit", label: "Purch. Unit", w: "w-[80px] hidden lg:table-cell" },
+    { key: "unit_cost", label: "Unit Cost", w: "w-[80px]" },
+    { key: "base_unit_type", label: "Base Unit", w: "w-[70px] hidden md:table-cell" },
+    { key: "cost_per_base_unit", label: "Cost/Base", w: "w-[80px]" },
+    { key: "supplier", label: "Supplier", w: "w-[120px] hidden md:table-cell" },
+    { key: "status", label: "Status", w: "w-[70px]" },
   ];
 
   return (
@@ -188,14 +210,15 @@ export default function ProductMasterTab() {
               ) : filtered.map((p, idx) => (
                 <tr key={p.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
                   <td className="px-3 py-2 font-mono font-medium text-primary">{p.internal_sku}</td>
-                  <td className="px-3 py-2 font-mono text-muted-foreground">{p.external_sku}</td>
+                  <td className="px-3 py-2 font-mono text-muted-foreground hidden xl:table-cell">{p.external_sku}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{p.internal_product_name}</td>
                   <td className="px-3 py-2 text-muted-foreground hidden xl:table-cell">{p.supplier_product_name}</td>
                   <td className="px-3 py-2 hidden lg:table-cell">{p.level1_category}</td>
-                  <td className="px-3 py-2 hidden lg:table-cell">{p.level2_category}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{p.level3_category}</td>
-                  <td className="px-3 py-2 text-center">{p.unit}</td>
+                  <td className="px-3 py-2 hidden lg:table-cell">{p.purchase_unit}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(p.unit_cost)}</td>
+                  <td className="px-3 py-2 hidden md:table-cell">{p.base_unit_type}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt4(p.cost_per_base_unit)}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{p.supplier}</td>
                   <td className="px-3 py-2">
                     <Badge variant={p.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
@@ -232,6 +255,32 @@ export default function ProductMasterTab() {
             <div><Label className="text-xs">Unit</Label><Input value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} className="h-9 text-sm" /></div>
             <div><Label className="text-xs">Unit Cost</Label><Input type="number" step="0.01" value={form.unit_cost} onChange={e => setForm({ ...form, unit_cost: e.target.value })} className="h-9 text-sm" /></div>
             <div><Label className="text-xs">Supplier</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} className="h-9 text-sm" /></div>
+
+            {/* Base unit costing fields */}
+            <div className="col-span-2 border-t pt-3 mt-1">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Base Unit Costing (for recipe use)</p>
+            </div>
+            <div><Label className="text-xs">Purchase Unit</Label><Input value={form.purchase_unit} onChange={e => setForm({ ...form, purchase_unit: e.target.value })} placeholder="e.g. case, bottle, pack" className="h-9 text-sm" /></div>
+            <div><Label className="text-xs">Purchase Unit Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
+            <div>
+              <Label className="text-xs">Base Unit Type</Label>
+              <Select value={form.base_unit_type} onValueChange={v => setForm({ ...form, base_unit_type: v })}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gms">gms</SelectItem>
+                  <SelectItem value="mls">mls</SelectItem>
+                  <SelectItem value="ea/pcs">ea/pcs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs">Base Unit Quantity</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
+            <div className="col-span-2">
+              <p className="text-xs text-muted-foreground">
+                Cost per Base Unit: <span className="font-mono font-semibold">${fmt4(liveCostPerBase)}</span>
+                <span className="ml-2 text-muted-foreground/70">(Purchase Unit Cost ÷ Base Unit Qty)</span>
+              </p>
+            </div>
+
             <div>
               <Label className="text-xs">Status</Label>
               <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>

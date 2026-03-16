@@ -27,12 +27,12 @@ export default function MenuCostingTab() {
   const [pricing, setPricing] = useState<MenuItemPricing[]>([]);
   const [detailTab, setDetailTab] = useState("ingredients");
 
-  // Ingredient form
-  const [ingForm, setIngForm] = useState({ product_master_id: "", quantity_used: 0, unit_used: "gms" });
+  // Ingredient form - use string for decimal support
+  const [ingForm, setIngForm] = useState({ product_master_id: "", quantity_used: "", unit_used: "gms" });
   const [showIngForm, setShowIngForm] = useState(false);
 
-  // Pricing form
-  const [priceForm, setPriceForm] = useState({ price_type: "", selling_price: 0 });
+  // Pricing form - use string for decimal support
+  const [priceForm, setPriceForm] = useState({ price_type: "", selling_price: "" });
   const [showPriceForm, setShowPriceForm] = useState(false);
 
   const loadDetail = useCallback(async (item: MenuItem) => {
@@ -58,20 +58,22 @@ export default function MenuCostingTab() {
     if (!selectedItem || !ingForm.product_master_id) return;
     const pm = products.find(p => p.id === ingForm.product_master_id);
     if (!pm) return;
+    const qtyUsed = parseFloat(ingForm.quantity_used) || 0;
+    const refCost = pm.cost_per_base_unit;
     const ok = await saveIngredient({
       menu_item_id: selectedItem.id,
       product_master_id: pm.id,
       sku: pm.internal_sku,
       description: pm.internal_product_name,
-      quantity_used: ingForm.quantity_used,
+      quantity_used: qtyUsed,
       unit_used: ingForm.unit_used,
-      reference_cost: pm.unit_cost,
+      reference_cost: refCost,
       line_cost: 0,
     });
     if (ok) {
       await recalcTheoreticalCost(selectedItem.id);
-      await loadDetail({ ...selectedItem, theoretical_cost: 0 }); // will reload
-      setIngForm({ product_master_id: "", quantity_used: 0, unit_used: "gms" });
+      await loadDetail({ ...selectedItem, theoretical_cost: 0 });
+      setIngForm({ product_master_id: "", quantity_used: "", unit_used: "gms" });
       setShowIngForm(false);
     }
   };
@@ -87,14 +89,15 @@ export default function MenuCostingTab() {
     if (!selectedItem || !priceForm.price_type.trim()) return;
     const currentItem = menuItems.find(m => m.id === selectedItem.id);
     const tc = currentItem?.theoretical_cost ?? 0;
+    const sellingPrice = parseFloat(priceForm.selling_price) || 0;
     const ok = await savePricing({
       menu_item_id: selectedItem.id,
       price_type: priceForm.price_type,
-      selling_price: priceForm.selling_price,
+      selling_price: sellingPrice,
     }, tc);
     if (ok) {
       await loadDetail(selectedItem);
-      setPriceForm({ price_type: "", selling_price: 0 });
+      setPriceForm({ price_type: "", selling_price: "" });
       setShowPriceForm(false);
     }
   };
@@ -103,6 +106,16 @@ export default function MenuCostingTab() {
     if (!selectedItem) return;
     await deletePricing(id);
     await loadDetail(selectedItem);
+  };
+
+  // Auto-set unit_used from product's base_unit_type when product is selected
+  const handleProductSelect = (productId: string) => {
+    const pm = products.find(p => p.id === productId);
+    setIngForm(f => ({
+      ...f,
+      product_master_id: productId,
+      unit_used: pm?.base_unit_type || "gms",
+    }));
   };
 
   // Refresh selected item from menuItems when it changes
@@ -114,6 +127,15 @@ export default function MenuCostingTab() {
   }, [menuItems]);
 
   const theoreticalCost = selectedItem?.theoretical_cost ?? 0;
+
+  // Live preview for ingredient form
+  const selectedPm = products.find(p => p.id === ingForm.product_master_id);
+  const liveQty = parseFloat(ingForm.quantity_used) || 0;
+  const liveRefCost = selectedPm?.cost_per_base_unit ?? 0;
+  const liveLineCost = liveQty * liveRefCost;
+
+  // Live preview for pricing form
+  const liveSellingPrice = parseFloat(priceForm.selling_price) || 0;
 
   return (
     <div className="space-y-4">
@@ -218,7 +240,7 @@ export default function MenuCostingTab() {
                         <TableHead>Product Description</TableHead>
                         <TableHead className="text-right">Qty Used</TableHead>
                         <TableHead>Unit</TableHead>
-                        <TableHead className="text-right">Ref. Cost</TableHead>
+                        <TableHead className="text-right">Cost per Base Unit</TableHead>
                         <TableHead className="text-right">Line Cost</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
@@ -232,7 +254,7 @@ export default function MenuCostingTab() {
                           <TableCell>{ing.description}</TableCell>
                           <TableCell className="text-right font-mono">{Number(ing.quantity_used).toFixed(2)}</TableCell>
                           <TableCell>{ing.unit_used}</TableCell>
-                          <TableCell className="text-right font-mono">${Number(ing.reference_cost).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono">${Number(ing.reference_cost).toFixed(4)}</TableCell>
                           <TableCell className="text-right font-mono font-semibold">${Number(ing.line_cost).toFixed(2)}</TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={() => handleDeleteIngredient(ing.id)}>
@@ -262,7 +284,7 @@ export default function MenuCostingTab() {
                     <div className="space-y-3">
                       <div>
                         <Label>Product</Label>
-                        <Select value={ingForm.product_master_id} onValueChange={v => setIngForm(f => ({ ...f, product_master_id: v }))}>
+                        <Select value={ingForm.product_master_id} onValueChange={handleProductSelect}>
                           <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                           <SelectContent>
                             {products.filter(p => p.status === "Active").map(p => (
@@ -274,24 +296,32 @@ export default function MenuCostingTab() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label>Quantity Used</Label>
-                          <Input type="number" step="0.01" value={ingForm.quantity_used || ""} onChange={e => setIngForm(f => ({ ...f, quantity_used: parseFloat(e.target.value) || 0 }))} />
+                          <Input
+                            type="number"
+                            step="any"
+                            min="0"
+                            value={ingForm.quantity_used}
+                            onChange={e => setIngForm(f => ({ ...f, quantity_used: e.target.value }))}
+                            placeholder="e.g. 150"
+                          />
                         </div>
                         <div>
                           <Label>Unit</Label>
                           <Select value={ingForm.unit_used} onValueChange={v => setIngForm(f => ({ ...f, unit_used: v }))}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              {["gms", "kgs", "mls", "ltrs", "pcs", "each", "oz", "lbs"].map(u => (
+                              {["gms", "kgs", "mls", "ltrs", "ea/pcs", "pcs", "each", "oz", "lbs"].map(u => (
                                 <SelectItem key={u} value={u}>{u}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
                       </div>
-                      {ingForm.product_master_id && (
-                        <p className="text-xs text-muted-foreground">
-                          Reference cost from Product Master: <span className="font-mono font-semibold">${Number(products.find(p => p.id === ingForm.product_master_id)?.unit_cost ?? 0).toFixed(2)}</span>
-                        </p>
+                      {selectedPm && (
+                        <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 rounded-md p-2">
+                          <p>Cost per Base Unit: <span className="font-mono font-semibold">${liveRefCost.toFixed(4)}</span> per {selectedPm.base_unit_type}</p>
+                          <p>Line Cost: <span className="font-mono font-semibold">${liveLineCost.toFixed(2)}</span> ({liveQty} × ${liveRefCost.toFixed(4)})</p>
+                        </div>
                       )}
                     </div>
                     <DialogFooter>
@@ -355,12 +385,18 @@ export default function MenuCostingTab() {
                       </div>
                       <div>
                         <Label>Selling Price ($)</Label>
-                        <Input type="number" step="0.01" value={priceForm.selling_price || ""} onChange={e => setPriceForm(f => ({ ...f, selling_price: parseFloat(e.target.value) || 0 }))} />
+                        <Input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={priceForm.selling_price}
+                          onChange={e => setPriceForm(f => ({ ...f, selling_price: e.target.value }))}
+                        />
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Theoretical Cost: <span className="font-mono font-semibold">${Number(theoreticalCost).toFixed(2)}</span> · 
-                        Gross Profit: <span className="font-mono">${(priceForm.selling_price - theoreticalCost).toFixed(2)}</span> · 
-                        Food Cost: <span className="font-mono">{priceForm.selling_price > 0 ? ((theoreticalCost / priceForm.selling_price) * 100).toFixed(1) : "0.0"}%</span>
+                        Gross Profit: <span className="font-mono">${(liveSellingPrice - theoreticalCost).toFixed(2)}</span> · 
+                        Food Cost: <span className="font-mono">{liveSellingPrice > 0 ? ((theoreticalCost / liveSellingPrice) * 100).toFixed(1) : "0.0"}%</span>
                       </p>
                     </div>
                     <DialogFooter>
