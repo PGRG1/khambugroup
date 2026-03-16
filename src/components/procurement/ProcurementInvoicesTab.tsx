@@ -43,7 +43,7 @@ export default function ProcurementInvoicesTab() {
   // Fetch product master for AI matching during OCR
   const [productMaster, setProductMaster] = useState<any[]>([]);
   useEffect(() => {
-    supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name")
+    supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost")
       .then(({ data }) => { if (data) setProductMaster(data as any[]); });
   }, []);
 
