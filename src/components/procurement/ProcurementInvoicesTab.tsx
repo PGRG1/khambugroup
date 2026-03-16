@@ -14,12 +14,6 @@ import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { downloadCSV } from "@/utils/csvDownload";
-import InvoiceScanner from "@/components/invoices/InvoiceScanner";
-import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
-import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
