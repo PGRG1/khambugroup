@@ -878,7 +878,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Unit Price</Label>}
-                  <Input type="number" value={line.unit_price} onChange={(e) => updateLine(i, "unit_price", e.target.value)} className="text-xs" />
+                  <div className="relative">
+                    <Input type="number" value={line.unit_price} onChange={(e) => updateLine(i, "unit_price", e.target.value)} className={`text-xs ${line.price_changed ? "border-blue-500" : ""}`} />
+                    {line.price_changed && line.pm_unit_price !== undefined && (
+                      <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5">was ${line.pm_unit_price.toFixed(2)}</span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Tax</Label>}
