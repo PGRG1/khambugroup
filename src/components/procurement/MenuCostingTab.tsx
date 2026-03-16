@@ -180,7 +180,27 @@ export default function MenuCostingTab() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Menu Items</h2>
-        <Button size="sm" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1" />Add Menu Item</Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => downloadCSV(menuItems.map(item => {
+            const itemPricing = allPricing[item.id] || [];
+            const regularPrice = itemPricing.find(p => p.price_type.toLowerCase().includes("regular"));
+            const sp = regularPrice?.selling_price ?? itemPricing[0]?.selling_price ?? 0;
+            const gp = regularPrice?.gross_profit ?? itemPricing[0]?.gross_profit ?? 0;
+            const fcp = regularPrice?.food_cost_pct ?? itemPricing[0]?.food_cost_pct ?? 0;
+            return {
+              name: item.name, category: item.category, status: item.status,
+              theoretical_cost: Number(item.theoretical_cost).toFixed(2),
+              selling_price: Number(sp).toFixed(2),
+              gross_profit: Number(gp).toFixed(2),
+              food_cost_pct: Number(fcp).toFixed(1),
+            };
+          }), [
+            { key: "name", label: "Name" }, { key: "category", label: "Category" }, { key: "status", label: "Status" },
+            { key: "theoretical_cost", label: "Theo. Cost" }, { key: "selling_price", label: "Sell Price" },
+            { key: "gross_profit", label: "Gross Profit" }, { key: "food_cost_pct", label: "Food Cost %" },
+          ], "menu_costing")}><Download className="h-4 w-4 mr-1" />Download</Button>
+          <Button size="sm" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1" />Add Menu Item</Button>
+        </div>
       </div>
 
       {/* Menu items cards */}

@@ -201,6 +201,17 @@ export default function ProcurementInvoicesTab() {
         <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)} className="h-9">
           <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
         </Button>
+        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(inv => ({
+          invoice_date: fmtDate(inv.invoice_date),
+          invoice_number: inv.invoice_number,
+          supplier_name: inv.supplier_name,
+          venue: inv.venue,
+          due_date: fmtDate(inv.due_date || ""),
+          total_amount: Number(inv.total_amount).toFixed(2),
+          status: inv.status,
+        })), columns.map(c => ({ key: c.key, label: c.label })), "invoices")} className="h-9">
+          <Download className="h-4 w-4 mr-1" />Download
+        </Button>
       </div>
 
       <p className="text-xs text-muted-foreground">
