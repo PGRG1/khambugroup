@@ -518,6 +518,40 @@ export default function MenuCostingTab() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Edit menu item dialog */}
+      <Dialog open={!!editItem} onOpenChange={(open) => { if (!open) setEditItem(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Menu Item</DialogTitle>
+            <DialogDescription>Update the menu item details.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Name</Label>
+              <Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Category</Label>
+              <Input value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditItem(null)}>Cancel</Button>
+            <Button onClick={handleEdit}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
