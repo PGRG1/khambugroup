@@ -616,14 +616,12 @@ export default function Invoices() {
                           <TableCell className="text-right font-mono">{Number(inv.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{inv.file_name || "—"}</TableCell>
                           <TableCell>
-                            <Button size="sm" variant="ghost" onClick={async () => {
-                              const paths = inv.file_url!.split(",");
-                              for (const path of paths) {
-                                const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path.trim(), 3600);
-                                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                              }
+                          <Button size="sm" variant="ghost" onClick={() => {
+                              setViewerFileUrl(inv.file_url!);
+                              setViewerTitle(`Invoice ${inv.invoice_number}`);
+                              setViewerOpen(true);
                             }}>
-                              <ExternalLink className="h-3 w-3 mr-1" />View
+                              <Eye className="h-3 w-3 mr-1" />View
                             </Button>
                           </TableCell>
                         </TableRow>
