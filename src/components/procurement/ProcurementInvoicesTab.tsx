@@ -40,11 +40,37 @@ export default function ProcurementInvoicesTab() {
   const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, createSupplier, fetchAll } = useInvoiceData();
   const { user } = useAuth();
 
-  // Fetch product master for AI matching during OCR
+  // Fetch product master + supplier pricing for AI matching during OCR
   const [productMaster, setProductMaster] = useState<any[]>([]);
   useEffect(() => {
-    supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost")
-      .then(({ data }) => { if (data) setProductMaster(data as any[]); });
+    Promise.all([
+      supabase.from("product_master" as any).select("id, internal_sku, internal_product_name"),
+      supabase.from("product_suppliers" as any).select("product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost"),
+    ]).then(([pmRes, psRes]) => {
+      const pm = (pmRes.data || []) as any[];
+      const ps = (psRes.data || []) as any[];
+      // Create flattened entries: one per product-supplier combo for matching
+      const entries: any[] = [];
+      for (const p of pm) {
+        const supplierEntries = ps.filter((s: any) => s.product_master_id === p.id);
+        if (supplierEntries.length > 0) {
+          for (const s of supplierEntries) {
+            entries.push({
+              id: p.id,
+              internal_sku: p.internal_sku,
+              external_sku: s.external_sku || '',
+              internal_product_name: p.internal_product_name,
+              supplier_product_name: s.supplier_product_name || '',
+              purchase_unit_cost: s.purchase_unit_cost ?? 0,
+              supplier: s.supplier || '',
+            });
+          }
+        } else {
+          entries.push({ id: p.id, internal_sku: p.internal_sku, external_sku: '', internal_product_name: p.internal_product_name, supplier_product_name: '', purchase_unit_cost: 0, supplier: '' });
+        }
+      }
+      setProductMaster(entries);
+    });
   }, []);
 
   const [search, setSearch] = useState("");
