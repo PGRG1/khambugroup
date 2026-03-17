@@ -66,15 +66,22 @@ export default function ProductMasterTab() {
     let result = products.filter(p => {
       if (catFilter !== "all" && p.level1_category !== catFilter) return false;
       if (subCatFilter !== "all" && p.level3_category !== subCatFilter) return false;
-      if (supplierFilter !== "all" && p.supplier !== supplierFilter) return false;
+      if (supplierFilter !== "all") {
+        const hasSupplier = p.supplier === supplierFilter || p.suppliers?.some(s => s.supplier === supplierFilter);
+        if (!hasSupplier) return false;
+      }
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (search) {
         const q = search.toLowerCase();
+        const supplierNames = (p.suppliers || []).map(s => s.supplier.toLowerCase()).join(" ");
+        const supplierProducts = (p.suppliers || []).map(s => s.supplier_product_name.toLowerCase()).join(" ");
         return p.internal_sku.toLowerCase().includes(q) ||
           p.external_sku.toLowerCase().includes(q) ||
           p.internal_product_name.toLowerCase().includes(q) ||
           p.supplier_product_name.toLowerCase().includes(q) ||
-          p.supplier.toLowerCase().includes(q);
+          p.supplier.toLowerCase().includes(q) ||
+          supplierNames.includes(q) ||
+          supplierProducts.includes(q);
       }
       return true;
     });
