@@ -33,6 +33,7 @@ interface ProductMasterEntry {
   internal_product_name: string;
   supplier_product_name: string;
   purchase_unit_cost?: number;
+  supplier?: string;
 }
 
 interface ScannedLineItem {

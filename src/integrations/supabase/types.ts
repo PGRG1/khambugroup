@@ -1445,6 +1445,53 @@ export type Database = {
           },
         ]
       }
+      product_suppliers: {
+        Row: {
+          created_at: string
+          external_sku: string
+          id: string
+          product_master_id: string
+          purchase_unit: string
+          purchase_unit_cost: number
+          status: string
+          supplier: string
+          supplier_product_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_sku?: string
+          id?: string
+          product_master_id: string
+          purchase_unit?: string
+          purchase_unit_cost?: number
+          status?: string
+          supplier?: string
+          supplier_product_name?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_sku?: string
+          id?: string
+          product_master_id?: string
+          purchase_unit?: string
+          purchase_unit_cost?: number
+          status?: string
+          supplier?: string
+          supplier_product_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_suppliers_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

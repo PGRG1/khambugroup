@@ -1,57 +1,65 @@
 
 
-## Plan: Add Multi-Supplier Pricing for Products
+## Summary
 
-### Problem
-The `product_master` table correctly uses a unique constraint on `internal_sku` for inventory tracking. But the same product (e.g. BEV-0002 Campari) can be sourced from multiple suppliers at different prices. Currently, duplicate SKU inserts are simply skipped.
+This plan covers four changes to the Revenue dashboard:
 
-### Solution: New `product_suppliers` table
+1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
+2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
+3. Rename all "Customer" references to "Guest" across the dashboard charts
+4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
 
-Create a separate table to store supplier-specific pricing and naming for each product, while keeping `product_master` as the single canonical product record.
+---
 
-```text
-product_master (unique on internal_sku)     product_suppliers
-┌──────────────────────────────────┐       ┌─────────────────────────────────┐
-│ id (PK)                         │◄──────│ product_master_id (FK)          │
-│ internal_sku (UNIQUE)            │       │ supplier                        │
-│ internal_product_name            │       │ external_sku                    │
-│ level1/2/3_category              │       │ supplier_product_name           │
-│ base_unit_type, base_unit_qty    │       │ purchase_unit, purchase_unit_cost│
-│ cost_per_base_unit               │       │ UNIQUE(product_master_id, supplier)│
-│ ...                              │       └─────────────────────────────────┘
-└──────────────────────────────────┘
-```
+## Changes
 
-### Changes
+### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
 
-**1. Database migration**
-- Create `product_suppliers` table with columns: `id`, `product_master_id` (FK), `supplier`, `external_sku`, `supplier_product_name`, `purchase_unit`, `purchase_unit_cost`, `status`, timestamps
-- Add unique constraint on `(product_master_id, supplier)`
-- Migrate existing supplier data from `product_master` rows into `product_suppliers`
-- Add RLS policies matching `product_master` (read for authenticated, manage for admin/manager)
+- Accept two new props: `salesPerDay` and `guestsPerDay`
+- Insert two new card entries after "Total Discount":
+  - "Sales / Day" showing `$X` with DollarSign icon
+  - "Guests / Day" showing `X` with Users icon
+- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
 
-**2. Insert the 11 missing supplier records**
-- For duplicates like BEV-0002 (Campari) that exist under "Beverage World HK", add a new row in `product_suppliers` for "Vintage Wines & Spirits Limited" with their pricing
+### 2. Index.tsx -- Compute and pass new KPI values
 
-**3. Update ProductMasterTab.tsx**
-- Show supplier info by joining/fetching from `product_suppliers`
-- Display multiple supplier rows per product (expandable or inline)
-- Edit/add supplier pricing entries per product
+- Calculate unique days count from filtered data
+- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
+- Pass both new values to `KPICards`
 
-**4. Update invoice scanner autocomplete**
-- When matching by code/name, also show which suppliers offer the product and at what price
-- On selection, set the `product_master_id` (same product regardless of supplier)
+### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
 
-**5. Update InventoryOnHandTab.tsx**
-- No change needed -- inventory already aggregates by `product_master_id`, which remains one-per-product
+- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
+- This computes the average total sales per day-of-week per month
 
-**6. Update MenuCostingTab.tsx**
-- When selecting a product for ingredients, optionally show available supplier prices for reference cost
+### 4. DashboardCharts.tsx -- Multiple updates
 
-### Files modified
-- Database: new `product_suppliers` table + data migration
-- `src/hooks/useProductMaster.ts` -- fetch supplier pricing alongside products
-- `src/components/procurement/ProductMasterTab.tsx` -- display multi-supplier info
-- `src/components/invoices/InvoiceScanner.tsx` -- autocomplete shows supplier context
-- `src/components/invoices/ProductAutocomplete.tsx` -- minor: show supplier in suggestions
+**a. Add "Avg Sales by Day of Week (MoM)" chart**
+- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
+- Uses `dayStats` data with `sales_{month}` keys
+- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
+
+**b. Rename all "Customer" references to "Guest"**
+- "Daily Number of Customers" -> "Daily Guests"
+- "Avg Daily Customers" -> "Avg Daily Guests"
+- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
+- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
+- "Avg Spend/Customer" -> "Avg Spend/Guest"
+- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
+- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
+
+**c. Fix Discount chart and rename**
+- Rename "Discount Report" to "Discount Trend"
+- Add `lg:col-span-2` class to make it span full width like other full-width charts
+- This fixes the chart not stretching to the right border
+
+---
+
+## Technical Details
+
+**Files modified:**
+- `src/components/dashboard/KPICards.tsx` -- new props and cards
+- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
+- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
+- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
 

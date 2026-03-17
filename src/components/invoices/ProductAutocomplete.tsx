@@ -9,6 +9,7 @@ interface ProductMasterEntry {
   internal_product_name: string;
   supplier_product_name: string;
   purchase_unit_cost?: number;
+  supplier?: string;
 }
 
 interface ProductAutocompleteProps {
@@ -134,6 +135,9 @@ const ProductAutocomplete = ({
               <span className="font-mono font-medium text-primary">{p.external_sku || p.internal_sku}</span>
               <span className="mx-1.5 text-muted-foreground">·</span>
               <span>{p.supplier_product_name || p.internal_product_name}</span>
+              {p.supplier && (
+                <span className="ml-1.5 text-[10px] text-muted-foreground/70">({p.supplier})</span>
+              )}
             </button>
           ))}
         </div>
