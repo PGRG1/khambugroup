@@ -18,7 +18,7 @@ const EMPTY_FORM = {
 };
 
 export default function ProductMasterTab() {
-  const { products, loading, createProduct, updateProduct, deleteProduct } = useProductMaster();
+  const { products, loading, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier } = useProductMaster();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [subCatFilter, setSubCatFilter] = useState("all");
@@ -31,6 +31,12 @@ export default function ProductMasterTab() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+  const [supplierForm, setSupplierForm] = useState({ product_master_id: "", supplier: "", external_sku: "", supplier_product_name: "", purchase_unit: "", purchase_unit_cost: "" });
+  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
+  const [deleteSupplierOpen, setDeleteSupplierOpen] = useState(false);
+  const [deletingSupplierEntryId, setDeletingSupplierEntryId] = useState<string | null>(null);
 
   const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].sort(), [products]);
   const subCategories = useMemo(() => {
