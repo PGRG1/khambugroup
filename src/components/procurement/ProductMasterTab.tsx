@@ -43,7 +43,14 @@ export default function ProductMasterTab() {
     const filtered = catFilter !== "all" ? products.filter(p => p.level1_category === catFilter) : products;
     return [...new Set(filtered.map(p => p.level3_category).filter(Boolean))].sort();
   }, [products, catFilter]);
-  const suppliers = useMemo(() => [...new Set(products.map(p => p.supplier).filter(Boolean))].sort(), [products]);
+  const suppliers = useMemo(() => {
+    const allSuppliers = new Set<string>();
+    products.forEach(p => {
+      if (p.supplier) allSuppliers.add(p.supplier);
+      p.suppliers?.forEach(s => { if (s.supplier) allSuppliers.add(s.supplier); });
+    });
+    return [...allSuppliers].sort();
+  }, [products]);
 
   const toggleSort = (key: string) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
