@@ -263,6 +263,91 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       return null;
     }
   }, []);
+
+  const processMultipleFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
+
+    setScanning(true);
+    setInvoices([]);
+    setCurrentIdx(0);
+    setSavedCount(0);
+    batchCreatedSuppliers.current.clear();
+    setScanProgress({ current: 0, total: files.length });
+
+    try {
+      const preparedFiles: { base64: string; mimeType: string; compressedFile: File }[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        setScanProgress({ current: i + 1, total: files.length });
+        const result = await processFile(files[i]);
+        if (result && !Array.isArray(result)) {
+          preparedFiles.push(result);
+        }
+      }
+
+      if (preparedFiles.length === 0) return;
+
+      const { data, error } = await supabase.functions.invoke("parse-invoice", {
+        body: {
+          files: preparedFiles.map((file) => ({ base64: file.base64, mimeType: file.mimeType })),
+          productMaster: productMaster || [],
+          userId,
+        },
+      });
+
+      if (error) throw error;
+
+      const rawInvoices = Array.isArray(data) ? data : Array.isArray(data?.invoices) ? data.invoices : [];
+
+      const parsedInvoices: ScannedInvoice[] = [];
+      for (const raw of rawInvoices) {
+        const supplierName = raw?.supplier_name || "";
+        const supplierId = await matchOrCreateSupplier(supplierName);
+        const lineItems = flagLineItemIssues(
+          (raw?.line_items || []).map((li: any) => ({
+            item_code: li?.item_code || "",
+            description: li?.description || "",
+            pack_size: li?.pack_size || "",
+            quantity: String(li?.quantity ?? "1"),
+            unit: li?.unit || "",
+            weight: li?.weight != null ? String(li.weight) : "",
+            unit_price: String(li?.unit_price ?? "0"),
+            tax_amount: String(li?.tax_amount ?? "0"),
+            total: String(li?.total ?? "0"),
+            matched_sku: li?.matched_sku || "",
+          })),
+          productMaster
+        );
+
+        parsedInvoices.push({
+          supplier_name: supplierName,
+          supplier_id: supplierId,
+          venue: raw?.venue || "Hanabi",
+          invoice_number: raw?.invoice_number || "",
+          invoice_date: raw?.invoice_date || "",
+          due_date: raw?.due_date || "",
+          notes: raw?.notes || "",
+          line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
+          sourceFiles: files,
+          ai_total: raw?.total_amount ?? raw?.ai_total,
+        });
+      }
+
+      setInvoices(parsedInvoices);
+      await checkDuplicates(parsedInvoices);
+    } catch (err: any) {
+      console.error("Invoice scan error:", err);
+      toast({
+        title: "Scan failed",
+        description: err?.message || "Could not scan invoice files.",
+        variant: "destructive",
+      });
+    } finally {
+      setScanning(false);
+      setScanProgress({ current: 0, total: 0 });
+    }
+  }, [checkDuplicates, flagLineItemIssues, matchOrCreateSupplier, processFile, productMaster, userId]);
+
   const updateField = (field: keyof ScannedInvoice, value: string) => {
     setInvoices((prev) => {
       const copy = [...prev];
