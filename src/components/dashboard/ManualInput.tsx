@@ -11,7 +11,7 @@ const emptyRecord = {
   date: "", day: "", venue: "Assembly" as const, reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0,
   totalSales: 0, visa: 0, mastercard: 0, amex: 0, unionPay: 0,
-  alipay: 0, wechat: 0, cash: 0, cardTips: 0,
+  jcb: 0, alipay: 0, wechat: 0, cash: 0, cardTips: 0,
 };
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
