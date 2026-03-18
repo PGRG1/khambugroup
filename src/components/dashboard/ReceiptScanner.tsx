@@ -185,7 +185,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     : 0;
   const calcPaymentTotal = extractedData
     ? extractedData.visa + extractedData.mastercard + extractedData.amex +
-      extractedData.unionPay + extractedData.alipay + extractedData.wechat + extractedData.cash
+      extractedData.unionPay + extractedData.jcb + extractedData.alipay + extractedData.wechat + extractedData.cash
     : 0;
 
   const totalSalesMismatch = extractedData
