@@ -44,7 +44,7 @@ const ProductAutocomplete = ({
       .filter((p) => p.supplier_product_name) // only show products with supplier data
       .filter((p) => {
         if (searchField === "code") {
-          return p.external_sku.toLowerCase().includes(query);
+          return p.external_sku.trim() !== "" && p.external_sku.toLowerCase().includes(query);
         }
         return p.supplier_product_name.toLowerCase().includes(query);
       });
