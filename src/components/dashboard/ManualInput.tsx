@@ -121,7 +121,7 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             </span>
           </div>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {numField("VISA", "visa")}
           {numField("Mastercard", "mastercard")}
           {numField("AMEX", "amex")}
