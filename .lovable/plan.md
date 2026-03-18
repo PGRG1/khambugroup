@@ -1,65 +1,29 @@
 
 
-## Summary
+## Plan: Add 22 Telford International Products to Product Master
 
-This plan covers four changes to the Revenue dashboard:
+This is a data insertion task — 22 new products from **Telford International Company Limited** (a new supplier) need to be added to the `product_master` and `product_suppliers` tables.
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+### Data Summary
+- **Supplier**: Telford International Company Limited (new — not in current list)
+- **Products**: 22 items across Beverages (draft beer, wine, liqueur, cognac), Operating Supplies (coasters, glassware, stirrers, paper cups, beer towers, CO2 gas), and Deposits (keg deposits)
 
----
+### Implementation
 
-## Changes
+**Step 1: Insert into `product_master`** — 22 rows with fields:
+- `internal_sku`, `internal_product_name`, `level1_category`, `level2_category`, `level3_category`, `status = 'Active'`
+- `purchase_unit`, `base_unit_type`, `base_unit_qty`, `cost_per_base_unit`
+- `unit_cost` (mapped from the Unit Cost column)
+- Legacy fields (`external_sku`, `supplier_product_name`, `supplier`) left as defaults since the real data goes into `product_suppliers`
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
+**Step 2: Insert into `product_suppliers`** — 22 corresponding rows linking each product to "Telford International Company Limited" with:
+- `external_sku`, `supplier_product_name`, `purchase_unit`, `purchase_unit_cost`, `status = 'Active'`
+- `product_master_id` referencing the newly created product_master entries
 
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
+This will be done via two SQL operations using the data insertion tool. The supplier will automatically appear in the Invoice scanner/edit dropdowns since those are derived dynamically from Product Master data.
 
-### 2. Index.tsx -- Compute and pass new KPI values
-
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
-
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
-
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
-
-### 4. DashboardCharts.tsx -- Multiple updates
-
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
-
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
-
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+### Notes
+- Base Unit mapping: most items use `ml` or `pcs` based on the data
+- Cost/Base is derived as `unit_cost / base_unit_qty`
+- Items with Unit Cost = 0 (operating supplies, some deposits) will have `cost_per_base_unit = 0`
 
