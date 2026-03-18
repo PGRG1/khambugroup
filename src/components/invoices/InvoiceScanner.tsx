@@ -271,6 +271,32 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     });
   };
 
+  const handleSupplierChange = async (value: string) => {
+    const targetIdx = currentIdx;
+    if (value.startsWith("pm:")) {
+      const supplierName = value.slice(3);
+      const supplierId = await matchOrCreateSupplier(supplierName);
+      if (!supplierId) return;
+      setInvoices((prev) => {
+        const copy = [...prev];
+        copy[targetIdx] = { ...copy[targetIdx], supplier_id: supplierId, supplier_name: supplierName };
+        return copy;
+      });
+      return;
+    }
+
+    const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
+    setInvoices((prev) => {
+      const copy = [...prev];
+      copy[targetIdx] = {
+        ...copy[targetIdx],
+        supplier_id: value,
+        supplier_name: selectedSupplier?.name || copy[targetIdx].supplier_name,
+      };
+      return copy;
+    });
+  };
+
   const updateLine = (i: number, field: string, value: string) => {
     setInvoices((prev) => {
       const copy = [...prev];
