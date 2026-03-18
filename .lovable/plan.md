@@ -2,28 +2,22 @@
 
 ## Problem
 
-Products added via the earlier bulk insert (FRU-0007 through VEG-0005) are missing `product_suppliers` entries. The autocomplete dropdown falls back to showing internal SKU and internal product name when `external_sku` and `supplier_product_name` are empty, which is the expected fallback behavior in the code.
+The ProductAutocomplete dropdown in the Invoice Scanner shows **internal SKUs** (e.g., `JUI-0001`) and falls back to **internal product names** when supplier data is missing. The user wants:
 
-## Solution
+1. **Description field**: When typing, search only against `supplier_product_name`. Display supplier product name in dropdown. On select, fill description with `supplier_product_name`.
+2. **Code field**: Search only against `external_sku`. Display external SKU in dropdown. On select, fill code with `external_sku` (leave empty if no external SKU exists).
+3. **Dropdown display**: Show `external_sku` (blank if empty) and `supplier_product_name` — never fall back to internal SKU/name.
 
-Insert the missing `product_suppliers` rows for all 8 bulk-inserted products so the dropdown displays the correct external/supplier data.
+## Changes
 
-### Database Insert
+### 1. Update `ProductAutocomplete.tsx`
 
-Insert `product_suppliers` entries for all products that currently lack them, using the supplier data originally provided:
+- **Search logic**: For `searchField="name"`, search only `supplier_product_name`. For `searchField="code"`, search only `external_sku`.
+- **Dropdown display**: Show `p.external_sku` (not falling back to `p.internal_sku`) and `p.supplier_product_name` (not falling back to `p.internal_product_name`). Skip rendering SKU portion if `external_sku` is empty.
+- Filter out products that have no `supplier_product_name` (they can't be meaningfully matched from an invoice context).
 
-| Internal SKU | Supplier | External SKU | Supplier Product Name | Purchase Unit | Purchase Unit Cost |
-|---|---|---|---|---|---|
-| JUI-0002 | Green Valley | (empty) | Fresh Lemon Juice (per Litre) | LITRE | 65.00 |
-| FRU-0007 | Green Valley | (empty) | Passionfruit (per Pc) | PCS | 4.50 |
-| FRU-0008 | Green Valley | (empty) | Green Apple (per pc) | PCS | 5.50 |
-| FRU-0009 | Green Valley | (empty) | Red Apple (per pc) | PCS | 5.50 |
-| FRU-0010 | Green Valley | (empty) | Pineapple (Per pc) | PCS | 30.00 |
-| FRU-0011 | Green Valley | (empty) | Red Dragon fruit (per pc) | PCS | 18.00 |
-| FRU-0012 | Green Valley | (empty) | Sunkist Lemon per pc | PCS | 4.20 |
-| VEG-0005 | Green Valley | (empty) | Pineapple Leaf 1pc | PCS | 0.00 |
+### 2. Update `selectProduct()` in `InvoiceScanner.tsx`
 
-This will make the autocomplete show supplier product names (e.g., "Pineapple (Per pc)") instead of internal names (e.g., "Pineapple").
-
-No code changes needed -- the existing fallback logic (`p.supplier_product_name || p.internal_product_name`) will automatically pick up the supplier names once the data exists.
+- Set `item_code` to `product.external_sku` only (empty string if none exists, not falling back to `internal_sku`).
+- Keep `description` as `product.supplier_product_name || product.internal_product_name` (supplier name is the priority, internal is last resort).
 
