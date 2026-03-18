@@ -126,6 +126,7 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
           {numField("Mastercard", "mastercard")}
           {numField("AMEX", "amex")}
           {numField("Union Pay", "unionPay")}
+          {numField("JCB", "jcb")}
           {numField("Alipay", "alipay")}
           {numField("WeChat", "wechat")}
           {numField("Cash", "cash")}

@@ -147,6 +147,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
               <Row label="Mastercard" value={active.mastercard} fieldKey="mastercard" />
               <Row label="AMEX" value={active.amex} fieldKey="amex" />
               <Row label="Union Pay" value={active.unionPay} fieldKey="unionPay" />
+              <Row label="JCB" value={active.jcb} fieldKey="jcb" />
               <Row label="Alipay" value={active.alipay} fieldKey="alipay" />
               <Row label="WeChat" value={active.wechat} fieldKey="wechat" />
               <Row label="Cash" value={active.cash} fieldKey="cash" />

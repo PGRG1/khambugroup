@@ -176,10 +176,11 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
       mastercard: parsePositive(row[11]),
       amex: parsePositive(row[12]),
       unionPay: parsePositive(row[13]),
-      alipay: parsePositive(row[14]),
-      wechat: parsePositive(row[15]),
-      cash: parsePositive(row[16]),
-      cardTips: parsePositive(row[17]),
+      jcb: parsePositive(row[14]),
+      alipay: parsePositive(row[15]),
+      wechat: parsePositive(row[16]),
+      cash: parsePositive(row[17]),
+      cardTips: parsePositive(row[18]),
     };
 
     const result = SalesRecordSchema.safeParse(record);

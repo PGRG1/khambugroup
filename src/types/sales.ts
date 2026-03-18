@@ -13,6 +13,7 @@ export interface SalesRecord {
   mastercard: number;
   amex: number;
   unionPay: number;
+  jcb: number;
   alipay: number;
   wechat: number;
   cash: number;

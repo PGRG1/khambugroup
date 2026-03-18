@@ -131,6 +131,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
         mastercard: Number(raw.mastercard) || 0,
         amex: Number(raw.amex) || 0,
         unionPay: Number(raw.unionPay) || 0,
+        jcb: Number(raw.jcb) || 0,
         alipay: Number(raw.alipay) || 0,
         wechat: Number(raw.wechat) || 0,
         cash: Number(raw.cash) || 0,
