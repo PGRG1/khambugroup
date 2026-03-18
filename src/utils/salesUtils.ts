@@ -107,6 +107,7 @@ export function getPaymentBreakdown(data: SalesRecord[]) {
     { key: "mastercard", label: "Mastercard" },
     { key: "amex", label: "AMEX" },
     { key: "unionPay", label: "Union Pay" },
+    { key: "jcb", label: "JCB" },
     { key: "alipay", label: "Alipay" },
     { key: "wechat", label: "WeChat" },
     { key: "cash", label: "Cash" },
