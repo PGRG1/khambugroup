@@ -98,7 +98,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
   };
 
   const downloadCSV = () => {
-    const headers = ["Date","Day","Venue","Report #","Orders","Guests","Subtotal","Service Charge","Discount","Total Sales","VISA","Mastercard","AMEX","Union Pay","Alipay","WeChat","Cash","Card Tips"];
+    const headers = ["Date","Day","Venue","Report #","Orders","Guests","Subtotal","Service Charge","Discount","Total Sales","VISA","Mastercard","AMEX","Union Pay","JCB","Alipay","WeChat","Cash","Card Tips"];
     const sanitize = (v: string | number) => {
       if (typeof v === "number") return String(v);
       const s = String(v);
