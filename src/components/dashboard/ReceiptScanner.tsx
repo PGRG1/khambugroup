@@ -16,7 +16,7 @@ interface ReceiptScannerProps {
 
 const numberFields = [
   "orders", "guests", "subtotal", "serviceCharge", "discount", "totalSales",
-  "visa", "mastercard", "amex", "unionPay", "alipay", "wechat", "cash", "cardTips",
+  "visa", "mastercard", "amex", "unionPay", "jcb", "alipay", "wechat", "cash", "cardTips",
 ] as const;
 
 const fieldLabels: Record<string, string> = {
