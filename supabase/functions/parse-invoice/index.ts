@@ -95,6 +95,25 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
   ]
 }
 
+CRITICAL — RETURNED/EMPTY KEGS (MUST FOLLOW EXACTLY — DO NOT SKIP):
+Look for sections labeled "Returned 收回", "Empty KEG 酒桶", "空桶", or similar at the bottom of invoices (often after the main line items table). These list returned empty kegs with quantities (e.g., "ASAHI 10L ×1", "PERONI 19L ×8").
+For EACH returned keg, add a line item using the EXACT values below. Do NOT use the pack_size, unit, or price from the invoice — use ONLY the values from this mapping table:
+
+When you see "ASAHI 10L" in returned section → item_code: "ABADEK", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
+When you see "ASAHI 20L" → item_code: "ABADE2", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L", pack_size: "", unit: "Keg", unit_price: 50
+When you see "ASAHI SOUR" or "ASAHI SOUR (BLUE)" → item_code: "ABASEK", description: "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
+When you see "PERONI" → item_code: "ABPNEK", description: "PERONI NASTRO AZZURRO KEG (EMPTY) DEP - 19L", pack_size: "", unit: "Keg", unit_price: 50
+When you see "KURONAMA" or "DARK" keg → item_code: "ABAKBKZJ", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
+When you see "SINGHA" → item_code: "", description: "SINGHA KEG (EMPTY) DEPOSIT - 30L", pack_size: "", unit: "Keg", unit_price: 50
+
+Additional rules for returned kegs:
+- quantity MUST be NEGATIVE (e.g., -1, -8)
+- unit_price MUST be 50 — NEVER 0
+- total = quantity × 50 (will be negative, e.g., -400)
+- pack_size MUST be "" (empty string) — NEVER "4X4LB" or any other value
+- unit MUST be "Keg" — NEVER "CTN"
+- Do NOT skip these items — they represent deposit refunds and are financially important
+
 Rules:
 - CRITICAL: Look for ALL separate invoices in the document. Different invoice numbers or dates mean different invoices.
 - CRITICAL: The "unit" field must NEVER contain Chinese characters. Always use English unit names.
@@ -105,19 +124,6 @@ Rules:
 - Parse ALL line items from each invoice table
 - The date should always be in YYYY-MM-DD format, converting from DD/MM/YYYY if needed
 - IMPORTANT: Look for a DUE DATE, PAYMENT DUE, or similar field on the invoice. Extract it into "due_date" in YYYY-MM-DD format. If no due date is found, use an empty string.
-- RETURNED/EMPTY KEGS: Look for sections labeled "Returned 收回", "Empty KEG 酒桶", "空桶", or similar at the bottom of invoices (often after the main line items table). These list returned empty kegs with quantities (e.g., "ASAHI 10L ×1", "ASAHI 20L ×1", "PERONI 19L ×8"). Extract EACH returned keg type as an additional line item with:
-  - quantity as a NEGATIVE number (e.g., -8 for 8 returned kegs)
-  - unit_price = 50 (the standard keg deposit value)
-  - total = quantity × unit_price (will be negative, e.g., -400)
-  - Use this EXACT mapping table for item_code and description:
-    * ASAHI 20L keg → item_code: "ABADE2", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L"
-    * ASAHI 10L keg (Super Dry) → item_code: "ABADEK", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 10L"
-    * ASAHI SOUR 10L keg → item_code: "ABASEK", description: "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L"
-    * PERONI 19L keg → item_code: "ABPNEK", description: "PERONI NASTRO AZZURRO KEG (EMPTY) DEP - 19L"
-    * ASAHI KURONAMA / DARK 10L keg → item_code: "ABAKBKZJ", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L"
-    * SINGHA 30L keg → item_code: "", description: "SINGHA KEG (EMPTY) DEPOSIT - 30L"
-  - unit: use the unit shown on the invoice (e.g., "Keg", "Each")
-  - Do NOT skip these items — they represent deposit refunds and are financially important
 - Return ONLY the JSON object, no markdown, no explanation
 - Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry`;
 
