@@ -1,28 +1,11 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SalesRecord } from "@/types/sales";
-import { formatCurrency } from "@/utils/salesUtils";
-import { Pencil, Trash2 } from "lucide-react";
-import DeleteConfirmDialog from "./DeleteConfirmDialog";
-
-interface Props {
-  record: SalesRecord | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onEdit?: (record: SalesRecord) => void;
-  onDelete?: (record: SalesRecord) => void;
-}
-
-export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete }: Props) {
-  const [editing, setEditing] = useState(false);
-  const [editData, setEditData] = useState<SalesRecord | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  if (!record) return null;
-
+import { formatCurrency, getPaymentTotal } from "@/utils/salesUtils";
+...
   const active = editing && editData ? editData : record;
 
-  const paymentTotal = active.visa + active.mastercard + active.amex + active.unionPay + active.jcb + active.alipay + active.wechat + active.cash;
+  const paymentTotal = getPaymentTotal(active);
   const paymentMismatch = Math.abs(paymentTotal - active.totalSales) > 0.01;
   const expectedTotal = active.subtotal + active.serviceCharge + active.discount;
   const totalMismatch = Math.abs(active.totalSales - expectedTotal) > 0.01;

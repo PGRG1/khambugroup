@@ -46,6 +46,10 @@ export function formatCurrency(value: number): string {
   return value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
+export function getPaymentTotal(record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "cash">): number {
+  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.cash;
+}
+
 export function getMonthKey(date: string): string {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
