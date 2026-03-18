@@ -1,37 +1,65 @@
 
 
-## Plan: Strengthen Returned Keg Extraction in Scanner Prompt
+## Summary
 
-### Problem
-The scanner is not applying the keg mapping table. The screenshot shows returned kegs extracted with generic descriptions ("ASAHI 10L"), wrong pack_size ("4X4LB"), wrong unit ("CTN"), and zero prices — the AI model is ignoring the mapping instructions.
+This plan covers four changes to the Revenue dashboard:
 
-### Root Cause
-The mapping instructions are buried in a long rules list. The AI model is likely extracting the returned keg rows as regular line items before reaching the mapping rules, or isn't recognizing them as "returned kegs" because the invoice format differs from what the prompt describes.
+1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
+2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
+3. Rename all "Customer" references to "Guest" across the dashboard charts
+4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
 
-### Fix: `supabase/functions/parse-invoice/index.ts`
+---
 
-1. **Move the returned kegs instructions higher in the prompt** — place them right after the line_items JSON schema definition (around line 90), not buried in the rules list at line 108+.
+## Changes
 
-2. **Make the instructions more explicit and forceful**:
-   - Add "CRITICAL" prefix to ensure the AI prioritizes this
-   - Explicitly state: these are NOT regular products — do NOT use the pack_size, unit, or price from the invoice table
-   - Specify that `pack_size` should be empty string `""` for deposits
-   - Specify that `unit` should be `"Keg"` or `"Each"` (not CTN)
-   - Reiterate that `unit_price` MUST be `50`, not `0`
+### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
 
-3. **Update the mapping table format** to be clearer — use a structured block that's harder for the model to skip:
-   ```
-   CRITICAL — RETURNED/EMPTY KEGS MAPPING (MUST FOLLOW EXACTLY):
-   When you see "ASAHI 10L" in returned section → item_code: "ABADEK", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
-   When you see "ASAHI 20L" → item_code: "ABADE2", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L", pack_size: "", unit: "Keg", unit_price: 50
-   When you see "ASAHI SOUR" or "ASAHI SOUR (BLUE)" → item_code: "ABASEK", description: "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
-   When you see "PERONI" → item_code: "ABPNEK", description: "PERONI NASTRO AZZURRO KEG (EMPTY) DEP - 19L", pack_size: "", unit: "Keg", unit_price: 50
-   When you see "KURONAMA" or "DARK" keg → item_code: "ABAKBKZJ", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L", pack_size: "", unit: "Keg", unit_price: 50
-   When you see "SINGHA" → item_code: "", description: "SINGHA KEG (EMPTY) DEPOSIT - 30L", pack_size: "", unit: "Keg", unit_price: 50
-   ```
+- Accept two new props: `salesPerDay` and `guestsPerDay`
+- Insert two new card entries after "Total Discount":
+  - "Sales / Day" showing `$X` with DollarSign icon
+  - "Guests / Day" showing `X` with Users icon
+- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
 
-4. **Add explicit anti-patterns**: "Do NOT output pack_size '4X4LB' or unit 'CTN' or unit_price 0 for returned kegs."
+### 2. Index.tsx -- Compute and pass new KPI values
 
-### Files Changed
-- `supabase/functions/parse-invoice/index.ts` — rewrite the returned kegs section of the system prompt
+- Calculate unique days count from filtered data
+- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
+- Pass both new values to `KPICards`
+
+### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+
+- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
+- This computes the average total sales per day-of-week per month
+
+### 4. DashboardCharts.tsx -- Multiple updates
+
+**a. Add "Avg Sales by Day of Week (MoM)" chart**
+- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
+- Uses `dayStats` data with `sales_{month}` keys
+- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
+
+**b. Rename all "Customer" references to "Guest"**
+- "Daily Number of Customers" -> "Daily Guests"
+- "Avg Daily Customers" -> "Avg Daily Guests"
+- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
+- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
+- "Avg Spend/Customer" -> "Avg Spend/Guest"
+- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
+- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
+
+**c. Fix Discount chart and rename**
+- Rename "Discount Report" to "Discount Trend"
+- Add `lg:col-span-2` class to make it span full width like other full-width charts
+- This fixes the chart not stretching to the right border
+
+---
+
+## Technical Details
+
+**Files modified:**
+- `src/components/dashboard/KPICards.tsx` -- new props and cards
+- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
+- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
+- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
 
