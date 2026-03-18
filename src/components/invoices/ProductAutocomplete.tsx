@@ -40,18 +40,14 @@ const ProductAutocomplete = ({
 
   const suggestions = useMemo(() => {
     if (!query || query.length < 1) return [];
-    const results = products.filter((p) => {
-      if (searchField === "code") {
-        return (
-          p.internal_sku.toLowerCase().includes(query) ||
-          p.external_sku.toLowerCase().includes(query)
-        );
-      }
-      return (
-        p.internal_product_name.toLowerCase().includes(query) ||
-        p.supplier_product_name.toLowerCase().includes(query)
-      );
-    });
+    const results = products
+      .filter((p) => p.supplier_product_name) // only show products with supplier data
+      .filter((p) => {
+        if (searchField === "code") {
+          return p.external_sku.toLowerCase().includes(query);
+        }
+        return p.supplier_product_name.toLowerCase().includes(query);
+      });
     return results.slice(0, 8);
   }, [query, products, searchField]);
 
