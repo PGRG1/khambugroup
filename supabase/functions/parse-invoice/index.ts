@@ -109,8 +109,14 @@ Rules:
   - quantity as a NEGATIVE number (e.g., -8 for 8 returned kegs)
   - unit_price = 50 (the standard keg deposit value)
   - total = quantity × unit_price (will be negative, e.g., -400)
-  - description = the keg deposit product name, e.g., "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L", "PERONI KEG (EMPTY) DEPOSIT - 19L", "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L", "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L"
-  - These should match Product Master deposit entries with DEP-xxxx SKUs
+  - Use this EXACT mapping table for item_code and description:
+    * ASAHI 20L keg → item_code: "ABADE2", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L"
+    * ASAHI 10L keg (Super Dry) → item_code: "ABADEK", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 10L"
+    * ASAHI SOUR 10L keg → item_code: "ABASEK", description: "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L"
+    * PERONI 19L keg → item_code: "ABPNEK", description: "PERONI NASTRO AZZURRO KEG (EMPTY) DEP - 19L"
+    * ASAHI KURONAMA / DARK 10L keg → item_code: "ABAKBKZJ", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L"
+    * SINGHA 30L keg → item_code: "", description: "SINGHA KEG (EMPTY) DEPOSIT - 30L"
+  - unit: use the unit shown on the invoice (e.g., "Keg", "Each")
   - Do NOT skip these items — they represent deposit refunds and are financially important
 - Return ONLY the JSON object, no markdown, no explanation
 - Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry`;
