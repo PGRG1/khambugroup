@@ -2,7 +2,24 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getPaymentTotal } from "@/utils/salesUtils";
-...
+import { Pencil, Trash2 } from "lucide-react";
+import DeleteConfirmDialog from "./DeleteConfirmDialog";
+
+interface Props {
+  record: SalesRecord | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onEdit?: (record: SalesRecord) => void;
+  onDelete?: (record: SalesRecord) => void;
+}
+
+export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete }: Props) {
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState<SalesRecord | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  if (!record) return null;
+
   const active = editing && editData ? editData : record;
 
   const paymentTotal = getPaymentTotal(active);

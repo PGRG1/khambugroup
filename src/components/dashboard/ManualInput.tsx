@@ -2,7 +2,39 @@ import { useState } from "react";
 import { X, Plus } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { getPaymentTotal } from "@/utils/salesUtils";
-...
+
+interface ManualInputProps {
+  onAdd: (record: SalesRecord) => void;
+  onClose: () => void;
+}
+
+const emptyRecord = {
+  date: "", day: "", venue: "Assembly" as const, reportNumber: "",
+  orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0,
+  totalSales: 0, visa: 0, mastercard: 0, amex: 0, unionPay: 0,
+  jcb: 0, alipay: 0, wechat: 0, cash: 0, cardTips: 0,
+};
+
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
+  const [form, setForm] = useState<SalesRecord>(emptyRecord);
+
+  const set = (key: keyof SalesRecord, value: string | number) =>
+    setForm((f) => ({ ...f, [key]: value }));
+
+  const handleDateChange = (date: string) => {
+    const d = new Date(date);
+    const dayName = days[(d.getDay() + 6) % 7]; // Monday=0
+    set("date", date);
+    set("day", dayName);
+  };
+
+  // Auto-calculate expected total
+  const normalizedDiscount = -Math.abs(form.discount);
+  const expectedTotal = form.subtotal + form.serviceCharge + normalizedDiscount;
+  const totalMismatch = form.totalSales !== 0 && Math.abs(form.totalSales - expectedTotal) > 0.01;
+
   // Payment method validation
   const paymentTotal = getPaymentTotal(form);
   const paymentMismatch = form.totalSales !== 0 && paymentTotal !== 0 && Math.abs(paymentTotal - form.totalSales) > 0.01;
