@@ -115,9 +115,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
   const productMasterSuppliers = useMemo(() => {
     if (!productMaster) return suppliers;
-    const pmSupplierNames = new Set(
-      productMaster.map(p => p.supplier?.toLowerCase()).filter(Boolean)
-    );
+    const pmSupplierNames = new Set<string>();
+    for (const p of productMaster) {
+      if (p.supplier) pmSupplierNames.add(p.supplier.toLowerCase());
+      if ((p as any).suppliers) {
+        for (const s of (p as any).suppliers) {
+          if (s.supplier) pmSupplierNames.add(s.supplier.toLowerCase());
+        }
+      }
+    }
     return suppliers.filter(s => pmSupplierNames.has(s.name.toLowerCase()));
   }, [suppliers, productMaster]);
 
