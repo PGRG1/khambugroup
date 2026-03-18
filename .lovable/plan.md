@@ -1,35 +1,28 @@
 
 
-## Plan: Fix Incorrectly Linked Telford Products
+## Plan: Extract Returned Empty Kegs as Negative Line Items
 
 ### Problem
-SKUs `BEV-0110` through `BEV-0113` already existed as different products (House Tequila, House Gin, Finest Call Lime Cordial, Potters Vodka). The Telford supplier entries for the 4 Asahi/Peroni kegs were incorrectly added to these existing products instead of creating new product_master records.
+Telford invoices have a "Returned / Empty KEG" section at the bottom listing returned kegs (e.g., ASAHI 10L ×1, ASAHI 20L ×1, PERONI 19L ×8). These are deposit refunds and should appear as negative-value line items. The deposit products already exist in the Product Master (DEP-0003 through DEP-0006, each $50).
 
-Additionally, supplier product names for the Asahi Sour and Kuronama kegs are missing the "(JPN)" prefix from the Excel file.
+### Implementation
 
-### Fix (data operations only, no code changes)
+**Single file change: `supabase/functions/parse-invoice/index.ts`**
 
-**Step 1: Delete the 4 incorrect `product_suppliers` entries** that linked Telford keg products to the wrong product_master records:
-- `20428f7c-...` (ASAHI SUPER DRY KEG → wrongly on House Tequila BEV-0110)
-- `7a878963-...` (PERONI KEG → wrongly on House Gin BEV-0111)
-- `d1007e17-...` (ASAHI SOUR KEG → wrongly on Lime Cordial BEV-0112)
-- `367fe826-...` (ASAHI KURONAMA KEG → wrongly on Potters Vodka BEV-0113)
+Add instructions to the AI system prompt (around line 98-109, in the Rules section) telling it to:
 
-**Step 2: Create 4 new `product_master` entries** with new SKUs (BEV-0124 through BEV-0127):
+1. Look for "Returned" / "Empty KEG" / "收回" sections on invoices (typically at the bottom)
+2. Extract each returned keg type and its quantity as additional line items
+3. Set `quantity` as a **negative** number (e.g., -8 for 8 returned Peroni kegs)
+4. Set `unit_price` to the deposit value (50 per keg, which will come from Product Master matching)
+5. Set `total` as `quantity × unit_price` (negative total)
+6. Use the description matching the deposit product names (e.g., "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L")
+7. Match these to the DEP-xxxx SKUs in the Product Master
 
-| New SKU | Internal Product Name | L1 | L2 | L3 | Purch Unit | Unit Cost | Base Unit | Base Qty | Cost/Base |
-|---|---|---|---|---|---|---|---|---|---|
-| BEV-0124 | Asahi Super Dry Keg 20L | Beverages | Alcoholic | Draft Beer | KEG | 1150 | ml | 20000 | 0.0575 |
-| BEV-0125 | Peroni Nastro Azzurro Keg 19L | Beverages | Alcoholic | Draft Beer | KEG | 1250 | ml | 19000 | 0.0658 |
-| BEV-0126 | Asahi Sour Keg 10L | Beverages | Alcoholic | Draft Beer | KEG | 780 | ml | 10000 | 0.078 |
-| BEV-0127 | Asahi Kuronama Dark Keg 10L | Beverages | Alcoholic | Draft Beer | KEG | 640 | ml | 10000 | 0.064 |
+The prompt addition will be something like:
+```
+- RETURNED/EMPTY KEGS: Look for sections labeled "Returned 收回", "Empty KEG 酒桶", or similar at the bottom of invoices. These list returned empty kegs (e.g., ASAHI 10L, ASAHI 20L, PERONI 19L, SINGHA 30L). Extract each as a line item with NEGATIVE quantity (e.g., quantity: -8). The unit_price should be the deposit value. Match these against Product Master deposit entries (DEP-xxxx SKUs). The description should reflect the deposit product name.
+```
 
-**Step 3: Create 4 new `product_suppliers` entries** linking the new products to Telford, with correct supplier product names (including "(JPN)" prefix for BEV-0126 and BEV-0127):
-- ABADK2 → ASAHI SUPER DRY KEG 1X20L
-- ABPNKZ → PERONI NASTRO AZZURRO KEG 1X19L
-- ABASKZJ → (JPN) ASAHI SOUR KEG 1X10L
-- ABAKBKZJ → (JPN) ASAHI KURONAMA DARK KEG 1X10L
-
-### Files changed
-None — this is purely a data fix using the database insert tool.
+No database changes needed — the deposit products and supplier entries already exist.
 
