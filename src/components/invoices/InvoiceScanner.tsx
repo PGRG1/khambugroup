@@ -113,6 +113,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const [duplicateConfirm, setDuplicateConfirm] = useState<{ inv: ScannedInvoice; idx: number } | null>(null);
 
+  const productMasterSuppliers = useMemo(() => {
+    if (!productMaster) return suppliers;
+    const pmSupplierNames = new Set(
+      productMaster.map(p => p.supplier?.toLowerCase()).filter(Boolean)
+    );
+    return suppliers.filter(s => pmSupplierNames.has(s.name.toLowerCase()));
+  }, [suppliers, productMaster]);
+
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
