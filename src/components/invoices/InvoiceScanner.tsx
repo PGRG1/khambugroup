@@ -366,7 +366,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const lines = [...copy[currentIdx].line_items];
       const line = {
         ...lines[i],
-        item_code: product.external_sku || product.internal_sku,
+        item_code: product.external_sku || "",
         description: product.supplier_product_name || product.internal_product_name,
         matched_sku: product.internal_sku,
       };
