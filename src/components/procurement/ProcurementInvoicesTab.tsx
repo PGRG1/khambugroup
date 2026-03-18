@@ -40,6 +40,9 @@ export default function ProcurementInvoicesTab() {
   const { user } = useAuth();
 
   const [productMaster, setProductMaster] = useState<any[]>([]);
+  const normalizeSupplierName = (value: string) =>
+    value.toLowerCase().replace(/[\r\n\t]+/g, " ").replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ").replace(/\b(limited|ltd|co|company)\b/g, " ").replace(/\s+/g, " ").trim();
+
   useEffect(() => {
     Promise.all([
       supabase.from("product_master" as any).select("id, internal_sku, internal_product_name"),
@@ -215,6 +218,36 @@ export default function ProcurementInvoicesTab() {
     setDeletingId(null);
     setDrawerOpen(false);
   };
+
+  const editSupplierOptions = useMemo(() => {
+    const pmNames = Array.from(
+      new Set(
+        productMaster
+          .map((entry) => entry.supplier?.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim())
+          .filter((name: string) => Boolean(name))
+      )
+    ).sort((a: string, b: string) => a.localeCompare(b));
+
+    const options = (pmNames.length > 0 ? pmNames : suppliers.map((s) => s.name))
+      .map((name: string) => {
+        const norm = normalizeSupplierName(name);
+        const match = suppliers.find((s) => normalizeSupplierName(s.name) === norm)
+          ?? suppliers.find((s) => {
+            const ns = normalizeSupplierName(s.name);
+            return ns.includes(norm) || norm.includes(ns);
+          });
+        return { label: name, value: match?.id ?? `pm:${name}` };
+      })
+      .filter((opt, i, all) => all.findIndex((o) => o.label === opt.label) === i);
+
+    // Ensure current edit supplier is in the list
+    if (editForm.supplier_id && !options.some((o) => o.value === editForm.supplier_id)) {
+      const cur = suppliers.find((s) => s.id === editForm.supplier_id);
+      if (cur) options.unshift({ label: cur.name, value: cur.id });
+    }
+
+    return options;
+  }, [productMaster, suppliers, editForm.supplier_id, normalizeSupplierName]);
 
   const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
 
@@ -457,11 +490,19 @@ export default function ProcurementInvoicesTab() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Supplier</Label>
-                    <Select value={editForm.supplier_id || ""} onValueChange={(v) => setEditForm((f) => ({ ...f, supplier_id: v }))}>
+                    <Select value={editForm.supplier_id || ""} onValueChange={async (v) => {
+                      if (v.startsWith("pm:")) {
+                        const supplierName = v.slice(3);
+                        const created = await createSupplier({ name: supplierName, contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
+                        if (created?.id) setEditForm((f) => ({ ...f, supplier_id: created.id }));
+                      } else {
+                        setEditForm((f) => ({ ...f, supplier_id: v }));
+                      }
+                    }}>
                       <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
                       <SelectContent>
-                        {suppliers.map((supplier) => (
-                          <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>
+                        {editSupplierOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
