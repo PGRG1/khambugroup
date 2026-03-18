@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import InvoiceCamera from "@/components/invoices/InvoiceCamera";
+import { getPaymentTotal } from "@/utils/salesUtils";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -114,7 +115,9 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       if (dateStr) {
         try {
           dayStr = format(parseISO(dateStr), "EEE"); // Mon, Tue, etc.
-        } catch { dayStr = ""; }
+        } catch {
+          dayStr = "";
+        }
       }
       const record: SalesRecord = {
         date: dateStr,
@@ -184,8 +187,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     ? extractedData.subtotal + extractedData.serviceCharge + extractedData.discount // discount is already negative
     : 0;
   const calcPaymentTotal = extractedData
-    ? extractedData.visa + extractedData.mastercard + extractedData.amex +
-      extractedData.unionPay + extractedData.jcb + extractedData.alipay + extractedData.wechat + extractedData.cash
+    ? getPaymentTotal(extractedData)
     : 0;
 
   const totalSalesMismatch = extractedData

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SalesRecord } from "@/types/sales";
-import { formatCurrency } from "@/utils/salesUtils";
+import { formatCurrency, getPaymentTotal } from "@/utils/salesUtils";
 import { Pencil, Trash2 } from "lucide-react";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 
@@ -22,7 +22,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
 
   const active = editing && editData ? editData : record;
 
-  const paymentTotal = active.visa + active.mastercard + active.amex + active.unionPay + active.jcb + active.alipay + active.wechat + active.cash;
+  const paymentTotal = getPaymentTotal(active);
   const paymentMismatch = Math.abs(paymentTotal - active.totalSales) > 0.01;
   const expectedTotal = active.subtotal + active.serviceCharge + active.discount;
   const totalMismatch = Math.abs(active.totalSales - expectedTotal) > 0.01;
