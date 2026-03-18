@@ -1534,6 +1534,7 @@ export type Database = {
           discount: number
           guests: number
           id: string
+          jcb: number
           mastercard: number
           orders: number
           report_number: string
@@ -1556,6 +1557,7 @@ export type Database = {
           discount?: number
           guests?: number
           id?: string
+          jcb?: number
           mastercard?: number
           orders?: number
           report_number: string
@@ -1578,6 +1580,7 @@ export type Database = {
           discount?: number
           guests?: number
           id?: string
+          jcb?: number
           mastercard?: number
           orders?: number
           report_number?: string

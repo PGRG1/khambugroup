@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_records ADD COLUMN jcb numeric NOT NULL DEFAULT 0;

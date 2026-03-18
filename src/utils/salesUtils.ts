@@ -16,6 +16,7 @@ const SalesRecordSchema = z.object({
   mastercard: z.number().min(0).max(100000000),
   amex: z.number().min(0).max(100000000),
   unionPay: z.number().min(0).max(100000000),
+  jcb: z.number().min(0).max(100000000),
   alipay: z.number().min(0).max(100000000),
   wechat: z.number().min(0).max(100000000),
   cash: z.number().min(0).max(100000000),
@@ -106,6 +107,7 @@ export function getPaymentBreakdown(data: SalesRecord[]) {
     { key: "mastercard", label: "Mastercard" },
     { key: "amex", label: "AMEX" },
     { key: "unionPay", label: "Union Pay" },
+    { key: "jcb", label: "JCB" },
     { key: "alipay", label: "Alipay" },
     { key: "wechat", label: "WeChat" },
     { key: "cash", label: "Cash" },
@@ -174,10 +176,11 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
       mastercard: parsePositive(row[11]),
       amex: parsePositive(row[12]),
       unionPay: parsePositive(row[13]),
-      alipay: parsePositive(row[14]),
-      wechat: parsePositive(row[15]),
-      cash: parsePositive(row[16]),
-      cardTips: parsePositive(row[17]),
+      jcb: parsePositive(row[14]),
+      alipay: parsePositive(row[15]),
+      wechat: parsePositive(row[16]),
+      cash: parsePositive(row[17]),
+      cardTips: parsePositive(row[18]),
     };
 
     const result = SalesRecordSchema.safeParse(record);

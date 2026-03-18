@@ -11,7 +11,7 @@ const emptyRecord = {
   date: "", day: "", venue: "Assembly" as const, reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0,
   totalSales: 0, visa: 0, mastercard: 0, amex: 0, unionPay: 0,
-  alipay: 0, wechat: 0, cash: 0, cardTips: 0,
+  jcb: 0, alipay: 0, wechat: 0, cash: 0, cardTips: 0,
 };
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -35,7 +35,7 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const totalMismatch = form.totalSales !== 0 && Math.abs(form.totalSales - expectedTotal) > 0.01;
 
   // Payment method validation
-  const paymentTotal = form.visa + form.mastercard + form.amex + form.unionPay + form.alipay + form.wechat + form.cash;
+  const paymentTotal = form.visa + form.mastercard + form.amex + form.unionPay + form.jcb + form.alipay + form.wechat + form.cash;
   const paymentMismatch = form.totalSales !== 0 && paymentTotal !== 0 && Math.abs(paymentTotal - form.totalSales) > 0.01;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -121,11 +121,12 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             </span>
           </div>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {numField("VISA", "visa")}
           {numField("Mastercard", "mastercard")}
           {numField("AMEX", "amex")}
           {numField("Union Pay", "unionPay")}
+          {numField("JCB", "jcb")}
           {numField("Alipay", "alipay")}
           {numField("WeChat", "wechat")}
           {numField("Cash", "cash")}

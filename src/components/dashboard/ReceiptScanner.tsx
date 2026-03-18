@@ -16,7 +16,7 @@ interface ReceiptScannerProps {
 
 const numberFields = [
   "orders", "guests", "subtotal", "serviceCharge", "discount", "totalSales",
-  "visa", "mastercard", "amex", "unionPay", "alipay", "wechat", "cash", "cardTips",
+  "visa", "mastercard", "amex", "unionPay", "jcb", "alipay", "wechat", "cash", "cardTips",
 ] as const;
 
 const fieldLabels: Record<string, string> = {
@@ -34,6 +34,7 @@ const fieldLabels: Record<string, string> = {
   mastercard: "Mastercard",
   amex: "AMEX",
   unionPay: "Union Pay",
+  jcb: "JCB",
   alipay: "Alipay",
   wechat: "WeChat",
   cash: "Cash",
@@ -43,7 +44,7 @@ const fieldLabels: Record<string, string> = {
 const emptyRecord: SalesRecord = {
   date: "", day: "", venue: "Assembly", reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0, totalSales: 0,
-  visa: 0, mastercard: 0, amex: 0, unionPay: 0, alipay: 0, wechat: 0, cash: 0, cardTips: 0,
+  visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, cash: 0, cardTips: 0,
 };
 
 const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
@@ -130,6 +131,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
         mastercard: Number(raw.mastercard) || 0,
         amex: Number(raw.amex) || 0,
         unionPay: Number(raw.unionPay) || 0,
+        jcb: Number(raw.jcb) || 0,
         alipay: Number(raw.alipay) || 0,
         wechat: Number(raw.wechat) || 0,
         cash: Number(raw.cash) || 0,

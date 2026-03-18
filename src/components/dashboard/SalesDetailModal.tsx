@@ -22,7 +22,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
 
   const active = editing && editData ? editData : record;
 
-  const paymentTotal = active.visa + active.mastercard + active.amex + active.unionPay + active.alipay + active.wechat + active.cash;
+  const paymentTotal = active.visa + active.mastercard + active.amex + active.unionPay + active.jcb + active.alipay + active.wechat + active.cash;
   const paymentMismatch = Math.abs(paymentTotal - active.totalSales) > 0.01;
   const expectedTotal = active.subtotal + active.serviceCharge + active.discount;
   const totalMismatch = Math.abs(active.totalSales - expectedTotal) > 0.01;
@@ -147,6 +147,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
               <Row label="Mastercard" value={active.mastercard} fieldKey="mastercard" />
               <Row label="AMEX" value={active.amex} fieldKey="amex" />
               <Row label="Union Pay" value={active.unionPay} fieldKey="unionPay" />
+              <Row label="JCB" value={active.jcb} fieldKey="jcb" />
               <Row label="Alipay" value={active.alipay} fieldKey="alipay" />
               <Row label="WeChat" value={active.wechat} fieldKey="wechat" />
               <Row label="Cash" value={active.cash} fieldKey="cash" />
