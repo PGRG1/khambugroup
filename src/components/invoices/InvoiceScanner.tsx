@@ -828,7 +828,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               <Label className="text-xs">Supplier</Label>
               <Select value={current.supplier_id} onValueChange={(v) => updateField("supplier_id", v)}>
                 <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{productMasterSuppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
