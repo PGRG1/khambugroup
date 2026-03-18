@@ -1,28 +1,65 @@
 
 
-## Plan: Extract Returned Empty Kegs as Negative Line Items
+## Summary
 
-### Problem
-Telford invoices have a "Returned / Empty KEG" section at the bottom listing returned kegs (e.g., ASAHI 10L ×1, ASAHI 20L ×1, PERONI 19L ×8). These are deposit refunds and should appear as negative-value line items. The deposit products already exist in the Product Master (DEP-0003 through DEP-0006, each $50).
+This plan covers four changes to the Revenue dashboard:
 
-### Implementation
+1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
+2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
+3. Rename all "Customer" references to "Guest" across the dashboard charts
+4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
 
-**Single file change: `supabase/functions/parse-invoice/index.ts`**
+---
 
-Add instructions to the AI system prompt (around line 98-109, in the Rules section) telling it to:
+## Changes
 
-1. Look for "Returned" / "Empty KEG" / "收回" sections on invoices (typically at the bottom)
-2. Extract each returned keg type and its quantity as additional line items
-3. Set `quantity` as a **negative** number (e.g., -8 for 8 returned Peroni kegs)
-4. Set `unit_price` to the deposit value (50 per keg, which will come from Product Master matching)
-5. Set `total` as `quantity × unit_price` (negative total)
-6. Use the description matching the deposit product names (e.g., "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L")
-7. Match these to the DEP-xxxx SKUs in the Product Master
+### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
 
-The prompt addition will be something like:
-```
-- RETURNED/EMPTY KEGS: Look for sections labeled "Returned 收回", "Empty KEG 酒桶", or similar at the bottom of invoices. These list returned empty kegs (e.g., ASAHI 10L, ASAHI 20L, PERONI 19L, SINGHA 30L). Extract each as a line item with NEGATIVE quantity (e.g., quantity: -8). The unit_price should be the deposit value. Match these against Product Master deposit entries (DEP-xxxx SKUs). The description should reflect the deposit product name.
-```
+- Accept two new props: `salesPerDay` and `guestsPerDay`
+- Insert two new card entries after "Total Discount":
+  - "Sales / Day" showing `$X` with DollarSign icon
+  - "Guests / Day" showing `X` with Users icon
+- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
 
-No database changes needed — the deposit products and supplier entries already exist.
+### 2. Index.tsx -- Compute and pass new KPI values
+
+- Calculate unique days count from filtered data
+- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
+- Pass both new values to `KPICards`
+
+### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+
+- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
+- This computes the average total sales per day-of-week per month
+
+### 4. DashboardCharts.tsx -- Multiple updates
+
+**a. Add "Avg Sales by Day of Week (MoM)" chart**
+- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
+- Uses `dayStats` data with `sales_{month}` keys
+- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
+
+**b. Rename all "Customer" references to "Guest"**
+- "Daily Number of Customers" -> "Daily Guests"
+- "Avg Daily Customers" -> "Avg Daily Guests"
+- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
+- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
+- "Avg Spend/Customer" -> "Avg Spend/Guest"
+- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
+- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
+
+**c. Fix Discount chart and rename**
+- Rename "Discount Report" to "Discount Trend"
+- Add `lg:col-span-2` class to make it span full width like other full-width charts
+- This fixes the chart not stretching to the right border
+
+---
+
+## Technical Details
+
+**Files modified:**
+- `src/components/dashboard/KPICards.tsx` -- new props and cards
+- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
+- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
+- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
 

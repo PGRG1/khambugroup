@@ -105,6 +105,13 @@ Rules:
 - Parse ALL line items from each invoice table
 - The date should always be in YYYY-MM-DD format, converting from DD/MM/YYYY if needed
 - IMPORTANT: Look for a DUE DATE, PAYMENT DUE, or similar field on the invoice. Extract it into "due_date" in YYYY-MM-DD format. If no due date is found, use an empty string.
+- RETURNED/EMPTY KEGS: Look for sections labeled "Returned 收回", "Empty KEG 酒桶", "空桶", or similar at the bottom of invoices (often after the main line items table). These list returned empty kegs with quantities (e.g., "ASAHI 10L ×1", "ASAHI 20L ×1", "PERONI 19L ×8"). Extract EACH returned keg type as an additional line item with:
+  - quantity as a NEGATIVE number (e.g., -8 for 8 returned kegs)
+  - unit_price = 50 (the standard keg deposit value)
+  - total = quantity × unit_price (will be negative, e.g., -400)
+  - description = the keg deposit product name, e.g., "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L", "PERONI KEG (EMPTY) DEPOSIT - 19L", "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L", "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L"
+  - These should match Product Master deposit entries with DEP-xxxx SKUs
+  - Do NOT skip these items — they represent deposit refunds and are financially important
 - Return ONLY the JSON object, no markdown, no explanation
 - Pages that are continuations of the same invoice (same invoice number) should have their line items merged into one invoice entry`;
 
