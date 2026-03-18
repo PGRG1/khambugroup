@@ -145,6 +145,7 @@ export default function ProcurementInvoicesTab() {
   const startEditing = () => {
     if (!selectedInvoice) return;
     setEditForm({
+      supplier_id: selectedInvoice.supplier_id,
       invoice_number: selectedInvoice.invoice_number,
       invoice_date: selectedInvoice.invoice_date,
       due_date: selectedInvoice.due_date,
@@ -173,246 +174,19 @@ export default function ProcurementInvoicesTab() {
       setDrawerOpen(false);
     }
   };
-
-  const updateEditLine = (idx: number, field: string, value: any) => {
-    setEditLines(prev => {
-      const updated = [...prev];
-      const line = { ...updated[idx], [field]: value };
-      if (field === "quantity" || field === "unit_price" || field === "weight") {
-        const qty = field === "quantity" ? Number(value) : line.quantity;
-        const price = field === "unit_price" ? Number(value) : line.unit_price;
-        const weight = field === "weight" ? Number(value) : (line.weight || 0);
-        line.total = weight > 0 ? (weight * price) + line.tax_amount : (qty * price) + line.tax_amount;
-      }
-      updated[idx] = line;
-      return updated;
-    });
-  };
-
-
-  const handleDelete = async () => {
-    if (!deletingId) return;
-    await deleteInvoice(deletingId);
-    setDeleteOpen(false);
-    setDeletingId(null);
-    setDrawerOpen(false);
-  };
-
-  const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
-
-  const columns = [
-    { key: "invoice_date", label: "Date", w: "w-[100px]" },
-    { key: "invoice_number", label: "Invoice #", w: "w-[120px]" },
-    { key: "supplier_name", label: "Supplier", w: "min-w-[160px]" },
-    { key: "venue", label: "Venue", w: "w-[90px]" },
-    { key: "due_date", label: "Due Date", w: "w-[100px]" },
-    { key: "total_amount", label: "Total", w: "w-[110px]", align: "right" as const },
-    { key: "status", label: "Status", w: "w-[90px]" },
-  ];
-
-  if (loading) return <div className="py-12 text-center text-muted-foreground">Loading invoices...</div>;
-
-  return (
-    <div className="space-y-4">
-      {/* Scanner */}
-      {scannerOpen && (
-        <InvoiceScanner
-          suppliers={suppliers}
-          productMaster={productMaster}
-          onSave={async (inv, lines, files) => {
-            let fileUrl: string | null = null;
-            let fileName: string | null = null;
-            if (files && files.length > 0) {
-              const uploadedPaths: string[] = [];
-              const fileNames: string[] = [];
-              for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const ext = file.name.split(".").pop() || "pdf";
-                const suffix = files.length > 1 ? `_page${i + 1}` : "";
-                const storagePath = `${inv.invoice_date}/${inv.invoice_number.replace(/[^a-zA-Z0-9-_]/g, "_")}${suffix}.${ext}`;
-                const { error: uploadErr } = await supabase.storage.from("invoice-files").upload(storagePath, file, { upsert: true });
-                if (!uploadErr) {
-                  uploadedPaths.push(storagePath);
-                  fileNames.push(file.name);
-                }
-              }
-              if (uploadedPaths.length > 0) {
-                fileUrl = uploadedPaths.join(",");
-                fileName = fileNames.join(", ");
-              }
-            }
-            await createInvoice(
-              { ...inv, status: "pending", subtotal: lines.reduce((s, l) => s + l.total - l.tax_amount, 0), tax_amount: lines.reduce((s, l) => s + l.tax_amount, 0), total_amount: lines.reduce((s, l) => s + l.total, 0), entered_by: user?.id || "" },
-              lines, fileUrl, fileName
-            );
-          }}
-          onCreateSupplier={createSupplier}
-          onClose={() => { setScannerOpen(false); batchFileRef.current = null; }}
-          userId={user?.id || ""}
-        />
-      )}
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search invoice # or supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
-        </div>
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-[120px] h-9 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Venues</SelectItem>
-            <SelectItem value="Assembly">Assembly</SelectItem>
-            <SelectItem value="Caliente">Caliente</SelectItem>
-            <SelectItem value="Hanabi">Hanabi</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[110px] h-9 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)} className="h-9">
-          <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(inv => ({
-          invoice_date: fmtDate(inv.invoice_date),
-          invoice_number: inv.invoice_number,
-          supplier_name: inv.supplier_name,
-          venue: inv.venue,
-          due_date: fmtDate(inv.due_date || ""),
-          total_amount: Number(inv.total_amount).toFixed(2),
-          status: inv.status,
-        })), columns.map(c => ({ key: c.key, label: c.label })), "invoices")} className="h-9">
-          <Download className="h-4 w-4 mr-1" />Download
-        </Button>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Showing {filtered.length} of {invoices.length} invoices · Total: <span className="font-semibold">${fmt(totalAmount)}</span>
-      </p>
-
-      {/* Table */}
-      <div className="card-glass rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px] leading-tight">
-            <thead>
-              <tr className="bg-primary text-primary-foreground">
-                {columns.map(col => (
-                  <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w} ${col.align === "right" ? "text-right" : ""}`} onClick={() => toggleSort(col.key)}>
-                    <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
-                  </th>
-                ))}
-                <th className="px-3 py-2.5 w-[90px]"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={columns.length + 1} className="text-center py-12 text-muted-foreground">No invoices found. Upload your first invoice above.</td></tr>
-              ) : filtered.map((inv, idx) => (
-                <tr key={inv.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors cursor-pointer ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`} onClick={() => openDetail(inv)}>
-                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(inv.invoice_date)}</td>
-                  <td className="px-3 py-2 font-mono font-medium text-primary">{inv.invoice_number}</td>
-                  <td className="px-3 py-2 font-medium text-foreground">{inv.supplier_name}</td>
-                  <td className="px-3 py-2">{inv.venue}</td>
-                  <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(inv.due_date || "")}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</td>
-                  <td className="px-3 py-2">
-                    <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[inv.status] || ""}`}>{inv.status}</Badge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1">
-                      {inv.file_url && (
-                        <button onClick={e => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground" title="View attachments">
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <button onClick={e => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {filtered.length > 0 && (
-              <tfoot>
-                <tr className="bg-muted/40 font-semibold text-[12px]">
-                  <td colSpan={5} className="px-3 py-2 text-right">Total</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(totalAmount)}</td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </div>
-
-      {/* Detail Drawer */}
-      <Sheet open={drawerOpen} onOpenChange={o => { setDrawerOpen(o); if (!o) setEditing(false); }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          {selectedInvoice && !editing && (
-            <>
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  Invoice {selectedInvoice.invoice_number}
-                  <Badge className={`text-[10px] ${STATUS_COLORS[selectedInvoice.status] || ""}`}>{selectedInvoice.status}</Badge>
-                </SheetTitle>
-              </SheetHeader>
-              <div className="space-y-4 mt-4">
-                <Button size="sm" variant="outline" onClick={startEditing}>
-                  <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
-                </Button>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">Supplier:</span> <span className="font-medium">{selectedInvoice.supplier_name}</span></div>
-                  <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
-                  <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{fmtDate(selectedInvoice.invoice_date)}</span></div>
-                  <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{fmtDate(selectedInvoice.due_date || "")}</span></div>
-                  <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">${fmtForSupplier(Number(selectedInvoice.total_amount), selectedInvoice.supplier_name)}</span></div>
-                  <div><span className="text-muted-foreground">ID:</span> <span className="font-mono text-xs text-muted-foreground">{selectedInvoice.id.slice(0, 8)}</span></div>
-                </div>
-
-                {selectedInvoice.file_url && (
-                  <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
-                    <Eye className="h-3.5 w-3.5 mr-1" />
-                    View Attachments ({selectedInvoice.file_url.split(",").length} {selectedInvoice.file_url.split(",").length === 1 ? "page" : "pages"})
-                  </Button>
-                )}
-
-                {selectedInvoice.notes && (
-                  <div className="text-sm"><span className="text-muted-foreground">Notes:</span> {selectedInvoice.notes}</div>
-                )}
-
-                <h4 className="text-sm font-semibold pt-2">Line Items ({lineItems.length})</h4>
-                <div className="space-y-1">
-                  {lineItems.map((li, i) => (
-                    <div key={li.id} className={`text-xs grid grid-cols-[1fr_60px_80px_80px] gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-muted/30" : ""}`}>
-                      <div>
-                        <span className="font-medium">{li.description}</span>
-                        {li.pack_size && <span className="text-muted-foreground ml-1">[{li.pack_size}]</span>}
-                      </div>
-                      <div className="text-right tabular-nums">{li.quantity}</div>
-                      <div className="text-right tabular-nums">{fmt(li.unit_price)}</div>
-                      <div className="text-right tabular-nums font-medium">{fmt(li.total)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Edit Mode */}
-          {selectedInvoice && editing && (
-            <>
-              <SheetHeader>
-                <SheetTitle>Edit Invoice</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-4 mt-4">
+...
                 <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Supplier</Label>
+                    <Select value={editForm.supplier_id || ""} onValueChange={v => setEditForm(f => ({ ...f, supplier_id: v }))}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                      <SelectContent>
+                        {suppliers.map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label className="text-xs">Invoice #</Label>
                     <Input value={editForm.invoice_number || ""} onChange={e => setEditForm(f => ({ ...f, invoice_number: e.target.value }))} className="h-8 text-sm" />

@@ -113,19 +113,51 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const [duplicateConfirm, setDuplicateConfirm] = useState<{ inv: ScannedInvoice; idx: number } | null>(null);
 
-  const productMasterSuppliers = useMemo(() => {
-    if (!productMaster) return suppliers;
-    const pmSupplierNames = new Set<string>();
-    for (const p of productMaster) {
-      if (p.supplier) pmSupplierNames.add(p.supplier.toLowerCase());
-      if ((p as any).suppliers) {
-        for (const s of (p as any).suppliers) {
-          if (s.supplier) pmSupplierNames.add(s.supplier.toLowerCase());
-        }
+  const current = invoices[currentIdx] || null;
+
+  const normalizeSupplierName = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
+      .replace(/\b(limited|ltd|co|company)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const productMasterSupplierOptions = useMemo(() => {
+    const productMasterNames = Array.from(
+      new Set(
+        (productMaster || [])
+          .map((entry) => entry.supplier?.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim())
+          .filter((name): name is string => Boolean(name))
+      )
+    ).sort((a, b) => a.localeCompare(b));
+
+    const options = (productMasterNames.length > 0 ? productMasterNames : suppliers.map((supplier) => supplier.name))
+      .map((name) => {
+        const normalizedName = normalizeSupplierName(name);
+        const matchedSupplier = suppliers.find((supplier) => normalizeSupplierName(supplier.name) === normalizedName)
+          ?? suppliers.find((supplier) => {
+            const normalizedSupplierName = normalizeSupplierName(supplier.name);
+            return normalizedSupplierName.includes(normalizedName) || normalizedName.includes(normalizedSupplierName);
+          });
+
+        return {
+          label: name,
+          value: matchedSupplier?.id ?? `pm:${name}`,
+        };
+      })
+      .filter((option, index, allOptions) => allOptions.findIndex((candidate) => candidate.label === option.label) === index);
+
+    if (current?.supplier_id && !options.some((option) => option.value === current.supplier_id)) {
+      const currentSupplier = suppliers.find((supplier) => supplier.id === current.supplier_id);
+      if (currentSupplier) {
+        return [{ label: currentSupplier.name, value: currentSupplier.id }, ...options];
       }
     }
-    return suppliers.filter(s => pmSupplierNames.has(s.name.toLowerCase()));
-  }, [suppliers, productMaster]);
+
+    return options;
+  }, [current?.supplier_id, productMaster, suppliers]);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -231,110 +263,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       return null;
     }
   }, []);
-
-  const processMultipleFiles = useCallback(async (files: File[]) => {
-    setScanning(true);
-    setInvoices([]);
-    setCurrentIdx(0);
-    setSavedCount(0);
-    batchCreatedSuppliers.current.clear();
-    setScanProgress({ current: 0, total: files.length });
-
-    const preparedFiles: { base64: string; mimeType: string; compressedFile: File }[] = [];
-    for (let i = 0; i < files.length; i++) {
-      setScanProgress({ current: i + 1, total: files.length });
-      const result = await processFile(files[i]);
-      if (result && !Array.isArray(result)) {
-        preparedFiles.push(result);
-      }
-    }
-
-    if (preparedFiles.length === 0) {
-      setScanning(false);
-      setScanProgress({ current: 0, total: 0 });
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.functions.invoke("parse-invoice", {
-        body: {
-          files: preparedFiles.map(f => ({ base64: f.base64, mimeType: f.mimeType })),
-          productMaster: productMaster || [],
-        },
-      });
-
-      if (error || !data?.success) {
-        toast({ title: "Scan failed", description: data?.error || error?.message || "Could not extract data.", variant: "destructive" });
-        setScanning(false);
-        setScanProgress({ current: 0, total: 0 });
-        return;
-      }
-
-      const rawInvoices = data.data?.invoices || [data.data];
-      const allCompressedFiles = preparedFiles.map(f => f.compressedFile);
-
-      const allInvoices: ScannedInvoice[] = [];
-      for (const raw of rawInvoices) {
-        const supplierId = await matchOrCreateSupplier(raw.supplier_name || "");
-        let lines: ScannedLineItem[] = (raw.line_items || []).map((li: any) => {
-          const matchedSku = li.matched_sku || "";
-          let description = li.description || "";
-          if (matchedSku && productMaster) {
-            const pmEntry = productMaster.find((pm: any) => pm.external_sku === matchedSku || pm.internal_sku === matchedSku);
-            if (pmEntry?.supplier_product_name) {
-              description = pmEntry.supplier_product_name;
-            }
-          }
-          return {
-            item_code: li.item_code || "",
-            description,
-            pack_size: li.pack_size || "",
-            quantity: String(li.quantity || 1),
-            unit: li.unit || "",
-            weight: li.weight ? String(li.weight) : "",
-            unit_price: String(li.unit_price || 0),
-            tax_amount: "0",
-            total: li.total ? String(li.total) : "0",
-            matched_sku: matchedSku,
-          };
-        });
-
-        // Flag issues: unmatched, SKU mismatches, price changes
-        lines = flagLineItemIssues(lines, productMaster);
-
-        allInvoices.push({
-          supplier_name: raw.supplier_name || "",
-          supplier_id: supplierId,
-          venue: raw.venue || "Assembly",
-          invoice_number: raw.invoice_number || "",
-          invoice_date: raw.invoice_date || "",
-          due_date: raw.due_date || "",
-          notes: "",
-          line_items: lines.length > 0 ? lines : [{ ...emptyLine }],
-          saved: false,
-          sourceFiles: allCompressedFiles,
-          ai_total: typeof raw.total_amount === "number" ? raw.total_amount : parseFloat(raw.total_amount) || undefined,
-        });
-      }
-
-      setInvoices(allInvoices);
-      // Check for duplicates
-      checkDuplicates(allInvoices);
-
-      if (allInvoices.length > 0) {
-        toast({ title: "Scan complete!", description: `Found ${allInvoices.length} invoice${allInvoices.length > 1 ? "s" : ""} from ${files.length} page${files.length > 1 ? "s" : ""}. Review and save.` });
-      }
-    } catch (err) {
-      console.error("Invoice scan error:", err);
-      toast({ title: "Scan failed", description: "Failed to scan. Please try again.", variant: "destructive" });
-    }
-
-    setScanning(false);
-    setScanProgress({ current: 0, total: 0 });
-  }, [processFile, matchOrCreateSupplier, productMaster, flagLineItemIssues, checkDuplicates]);
-
-  const current = invoices[currentIdx] || null;
-
   const updateField = (field: keyof ScannedInvoice, value: string) => {
     setInvoices((prev) => {
       const copy = [...prev];
