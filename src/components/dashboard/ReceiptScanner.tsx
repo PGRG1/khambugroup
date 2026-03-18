@@ -34,6 +34,7 @@ const fieldLabels: Record<string, string> = {
   mastercard: "Mastercard",
   amex: "AMEX",
   unionPay: "Union Pay",
+  jcb: "JCB",
   alipay: "Alipay",
   wechat: "WeChat",
   cash: "Cash",
