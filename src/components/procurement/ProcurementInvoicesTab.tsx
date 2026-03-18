@@ -219,6 +219,36 @@ export default function ProcurementInvoicesTab() {
     setDrawerOpen(false);
   };
 
+  const editSupplierOptions = useMemo(() => {
+    const pmNames = Array.from(
+      new Set(
+        productMaster
+          .map((entry) => entry.supplier?.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim())
+          .filter((name: string) => Boolean(name))
+      )
+    ).sort((a: string, b: string) => a.localeCompare(b));
+
+    const options = (pmNames.length > 0 ? pmNames : suppliers.map((s) => s.name))
+      .map((name: string) => {
+        const norm = normalizeSupplierName(name);
+        const match = suppliers.find((s) => normalizeSupplierName(s.name) === norm)
+          ?? suppliers.find((s) => {
+            const ns = normalizeSupplierName(s.name);
+            return ns.includes(norm) || norm.includes(ns);
+          });
+        return { label: name, value: match?.id ?? `pm:${name}` };
+      })
+      .filter((opt, i, all) => all.findIndex((o) => o.label === opt.label) === i);
+
+    // Ensure current edit supplier is in the list
+    if (editForm.supplier_id && !options.some((o) => o.value === editForm.supplier_id)) {
+      const cur = suppliers.find((s) => s.id === editForm.supplier_id);
+      if (cur) options.unshift({ label: cur.name, value: cur.id });
+    }
+
+    return options;
+  }, [productMaster, suppliers, editForm.supplier_id, normalizeSupplierName]);
+
   const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
 
   const columns = [
