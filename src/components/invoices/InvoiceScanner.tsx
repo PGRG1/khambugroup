@@ -297,7 +297,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
       if (error) throw error;
 
-      const rawInvoices = Array.isArray(data) ? data : Array.isArray(data?.invoices) ? data.invoices : [];
+      const rawInvoices = Array.isArray(data) ? data : Array.isArray(data?.invoices) ? data.invoices : Array.isArray(data?.data?.invoices) ? data.data.invoices : [];
 
       const parsedInvoices: ScannedInvoice[] = [];
       for (const raw of rawInvoices) {
