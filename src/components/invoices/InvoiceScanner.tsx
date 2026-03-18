@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useMemo } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle } from "lucide-react";
 import InvoiceCamera from "./InvoiceCamera";
 import ProductAutocomplete from "./ProductAutocomplete";
@@ -112,6 +112,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const [duplicateConfirm, setDuplicateConfirm] = useState<{ inv: ScannedInvoice; idx: number } | null>(null);
+
+  const productMasterSuppliers = useMemo(() => {
+    if (!productMaster) return suppliers;
+    const pmSupplierNames = new Set(
+      productMaster.map(p => p.supplier?.toLowerCase()).filter(Boolean)
+    );
+    return suppliers.filter(s => pmSupplierNames.has(s.name.toLowerCase()));
+  }, [suppliers, productMaster]);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -828,7 +836,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               <Label className="text-xs">Supplier</Label>
               <Select value={current.supplier_id} onValueChange={(v) => updateField("supplier_id", v)}>
                 <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{productMasterSuppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
