@@ -360,6 +360,16 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
       return result;
     }
 
+    // Post-process: force-correct returned keg deposit items regardless of AI output
+    const kegMappings: { pattern: RegExp; item_code: string; description: string }[] = [
+      { pattern: /asahi\s*(super\s*dry\s*)?20\s*l/i, item_code: "ABADE2", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 20L" },
+      { pattern: /asahi\s*sour|asahi\s*sour\s*\(blue\)/i, item_code: "ABASEK", description: "ASAHI SOUR KEG (EMPTY) DEPOSIT - 10L" },
+      { pattern: /kuronama|dark.*keg/i, item_code: "ABAKBKZJ", description: "ASAHI KURONAMA DARK KEG (EMPTY) DEPOSIT - 10L" },
+      { pattern: /asahi\s*(super\s*dry\s*)?10\s*l|asahi\s*(super\s*dry\s*)?keg(?!.*20)/i, item_code: "ABADEK", description: "ASAHI SUPER DRY KEG (EMPTY) DEPOSIT - 10L" },
+      { pattern: /peroni/i, item_code: "ABPNEK", description: "PERONI NASTRO AZZURRO KEG (EMPTY) DEP - 19L" },
+      { pattern: /singha/i, item_code: "", description: "SINGHA KEG (EMPTY) DEPOSIT - 30L" },
+    ];
+
     for (const inv of invoicesArray) {
       if (inv.line_items && Array.isArray(inv.line_items)) {
         for (const li of inv.line_items) {
@@ -367,6 +377,22 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
           if (li.pack_size) li.pack_size = translateChinese(li.pack_size);
           if (li.description) li.description = translateChinese(li.description);
           if (li.notes) li.notes = translateChinese(li.notes);
+
+          // Force-correct returned keg items: if quantity is negative, match against keg mappings
+          if (li.quantity < 0) {
+            const desc = (li.description || "").toLowerCase();
+            for (const mapping of kegMappings) {
+              if (mapping.pattern.test(desc)) {
+                li.item_code = mapping.item_code;
+                li.description = mapping.description;
+                li.pack_size = "";
+                li.unit = "Keg";
+                if (!li.unit_price || li.unit_price === 0) li.unit_price = 50;
+                li.total = li.quantity * li.unit_price;
+                break;
+              }
+            }
+          }
         }
       }
       if (inv.notes) inv.notes = translateChinese(inv.notes);
