@@ -16,6 +16,7 @@ const SalesRecordSchema = z.object({
   mastercard: z.number().min(0).max(100000000),
   amex: z.number().min(0).max(100000000),
   unionPay: z.number().min(0).max(100000000),
+  jcb: z.number().min(0).max(100000000),
   alipay: z.number().min(0).max(100000000),
   wechat: z.number().min(0).max(100000000),
   cash: z.number().min(0).max(100000000),
