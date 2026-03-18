@@ -35,7 +35,7 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const totalMismatch = form.totalSales !== 0 && Math.abs(form.totalSales - expectedTotal) > 0.01;
 
   // Payment method validation
-  const paymentTotal = form.visa + form.mastercard + form.amex + form.unionPay + form.alipay + form.wechat + form.cash;
+  const paymentTotal = form.visa + form.mastercard + form.amex + form.unionPay + form.jcb + form.alipay + form.wechat + form.cash;
   const paymentMismatch = form.totalSales !== 0 && paymentTotal !== 0 && Math.abs(paymentTotal - form.totalSales) > 0.01;
 
   const handleSubmit = (e: React.FormEvent) => {
