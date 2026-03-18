@@ -19,6 +19,7 @@ function toDbRecord(r: SalesRecord) {
     mastercard: r.mastercard,
     amex: r.amex,
     union_pay: r.unionPay,
+    jcb: r.jcb,
     alipay: r.alipay,
     wechat: r.wechat,
     cash: r.cash,
