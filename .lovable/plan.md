@@ -1,65 +1,54 @@
 
 
-## Summary
+## Plan: Five Invoice Scanner Improvements
 
-This plan covers four changes to the Revenue dashboard:
+### 1. Block duplicate invoice recording (not just warn)
+Currently duplicates show a warning but allow "Save Anyway". Change behavior to **block** saving entirely for duplicates — remove the confirmation dialog and disable the save button when `is_duplicate` is true. The "Save All" flow should skip duplicates and report them.
 
-1. Add two new KPI boxes: "Sales / Day" and "Guests / Day"
-2. Add a new "Avg Sales by Day of Week (MoM)" chart before the existing "Avg Guests by Day of Week" chart
-3. Rename all "Customer" references to "Guest" across the dashboard charts
-4. Fix the "Discount Report" chart -- rename to "Discount Trend" and fix its layout to stretch full width like other charts
+**Files:** `src/components/invoices/InvoiceScanner.tsx`
+- In `doSaveCurrent`: if duplicate detected, toast an error and return (no dialog)
+- In `handleSaveAll`: skip invoices flagged as `is_duplicate`, count and report skipped
+- Disable "Save This Invoice" button when `current.is_duplicate`
+- Remove the duplicate confirmation `AlertDialog` entirely
+- Change duplicate banner text to say "Cannot be recorded — already exists"
 
----
+### 2. Fuzzy-match supplier name from AI to Product Master list
+Currently `matchOrCreateSupplier` does exact lowercase match only. The AI reads the supplier name from the receipt (e.g. "Telford International Ltd") but the Product Master may have "Telford International". Apply the same `normalizeSupplierName` fuzzy logic (strip Ltd/Co, partial contains) already used for the dropdown.
 
-## Changes
+**File:** `src/components/invoices/InvoiceScanner.tsx`
+- Update `matchOrCreateSupplier` to:
+  1. Exact match (existing)
+  2. Normalized match using `normalizeSupplierName`
+  3. Partial contains match (both directions)
+  4. Only create new supplier if none of these match
 
-### 1. KPICards.tsx -- Add "Sales / Day" and "Guests / Day"
+### 3. Add ProductAutocomplete to the edit drawer line items
+Currently the edit drawer in `ProcurementInvoicesTab.tsx` uses plain `Input` fields for description — no autocomplete/partial matching. Add `ProductAutocomplete` for both `item_code` and `description` fields, matching the scanner's behavior.
 
-- Accept two new props: `salesPerDay` and `guestsPerDay`
-- Insert two new card entries after "Total Discount":
-  - "Sales / Day" showing `$X` with DollarSign icon
-  - "Guests / Day" showing `X` with Users icon
-- Update grid to `lg:grid-cols-8` (8 KPI boxes total) to accommodate the new cards
+**File:** `src/components/procurement/ProcurementInvoicesTab.tsx`
+- Import `ProductAutocomplete` component
+- Replace the description `Input` in edit mode with `ProductAutocomplete` (searchField="name")
+- Add an `item_code` field with `ProductAutocomplete` (searchField="code")
+- On product select, update `item_code`, `description`, and `product_master_id` on the edit line
 
-### 2. Index.tsx -- Compute and pass new KPI values
+### 4. Clear notes field after AI extraction
+The AI extracts notes (payment terms, remarks) from the invoice. The user wants notes blank for manual entry. Simply set `notes: ""` instead of `raw?.notes || ""` after parsing.
 
-- Calculate unique days count from filtered data
-- Compute `salesPerDay = totalSales / uniqueDays` and `guestsPerDay = totalGuests / uniqueDays`
-- Pass both new values to `KPICards`
+**File:** `src/components/invoices/InvoiceScanner.tsx` (line 329)
+- Change `notes: raw?.notes || ""` to `notes: ""`
 
-### 3. salesUtils.ts -- Add `sales_` keys to `getDayOfWeekStats`
+### 5. For Telford, prioritize External SKU (item_code) for matching
+Currently the AI matching in the edge function compares description against SupplierName/Name and item_code against ExtSKU. For Telford specifically, the external code on the invoice IS the primary matching key. Update the product master matching instructions to emphasize: "If the invoice has an item/product code, ALWAYS try matching it against ExtSKU FIRST — this is the most reliable match."
 
-- Inside the `getDayOfWeekStats` function, add `sales_{month}` entries alongside the existing `guests_`, `spendPerGuest_`, and `spendPerOrder_` keys
-- This computes the average total sales per day-of-week per month
+**File:** `supabase/functions/parse-invoice/index.ts`
+- In the `PRODUCT MASTER MATCHING` section (around line 136-146), add instruction: "PRIORITY: If the line item has an item_code/product code, match it against ExtSKU first. An exact ExtSKU match takes priority over description matching."
+- Also update client-side `matchLineItemsToProductMaster` in `useInvoiceData.ts` to check `item_code` → `external_sku` match BEFORE description matching
 
-### 4. DashboardCharts.tsx -- Multiple updates
+### Technical Details
 
-**a. Add "Avg Sales by Day of Week (MoM)" chart**
-- Insert a new chart card before the existing "Avg Guests by Day of Week" chart (before line 229)
-- Uses `dayStats` data with `sales_{month}` keys
-- Same grouped bar chart pattern, Y-axis formatted as `$Xk`
-
-**b. Rename all "Customer" references to "Guest"**
-- "Daily Number of Customers" -> "Daily Guests"
-- "Avg Daily Customers" -> "Avg Daily Guests"
-- "Avg Customers by Day of Week (MoM)" -> "Avg Guests by Day of Week (MoM)"
-- "Avg Spend Per Customer" -> "Avg Spend Per Guest"
-- "Avg Spend/Customer" -> "Avg Spend/Guest"
-- Monthly view: "Avg Customers/Day" -> "Avg Guests/Day", "Avg Customers/Order" -> "Avg Guests/Order", etc.
-- Update tooltip labels and data key names in monthly averages (`customersPerDay` -> `guestsPerDay`, `customersPerOrder` -> `guestsPerOrder`)
-
-**c. Fix Discount chart and rename**
-- Rename "Discount Report" to "Discount Trend"
-- Add `lg:col-span-2` class to make it span full width like other full-width charts
-- This fixes the chart not stretching to the right border
-
----
-
-## Technical Details
-
-**Files modified:**
-- `src/components/dashboard/KPICards.tsx` -- new props and cards
-- `src/pages/Index.tsx` -- compute salesPerDay/guestsPerDay
-- `src/utils/salesUtils.ts` -- add sales data to day-of-week stats
-- `src/components/dashboard/DashboardCharts.tsx` -- new chart, renames, discount fix
+**Files changed:**
+1. `src/components/invoices/InvoiceScanner.tsx` — block duplicates, clear notes, fuzzy supplier match
+2. `src/components/procurement/ProcurementInvoicesTab.tsx` — add ProductAutocomplete to edit drawer
+3. `supabase/functions/parse-invoice/index.ts` — prioritize ExtSKU matching
+4. `src/hooks/useInvoiceData.ts` — reorder matching logic to check item_code→ExtSKU first
 
