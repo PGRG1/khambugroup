@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Label } from "@/components/ui/label";
 import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
+import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { Textarea } from "@/components/ui/textarea";
