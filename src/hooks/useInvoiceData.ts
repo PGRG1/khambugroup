@@ -160,17 +160,20 @@ export function useInvoiceData() {
       const desc = (li.description || "").trim().toLowerCase();
       const itemCode = (li.item_code || "").trim().toLowerCase();
 
-      // Try matching by supplier_product_name (fuzzy contains match)
-      let match = pmEntries.find((pm: any) => {
-        const spn = (pm.supplier_product_name || "").trim().toLowerCase();
-        return spn && (spn === desc || desc.includes(spn) || spn.includes(desc));
-      });
-
-      // Try matching by external_sku to item_code
-      if (!match && itemCode) {
+      // PRIORITY: Try matching by external_sku to item_code FIRST
+      let match: any = null;
+      if (itemCode) {
         match = pmEntries.find((pm: any) => {
           const eSku = (pm.external_sku || "").trim().toLowerCase();
           return eSku && eSku === itemCode;
+        });
+      }
+
+      // Then try matching by supplier_product_name (fuzzy contains match)
+      if (!match) {
+        match = pmEntries.find((pm: any) => {
+          const spn = (pm.supplier_product_name || "").trim().toLowerCase();
+          return spn && (spn === desc || desc.includes(spn) || spn.includes(desc));
         });
       }
 

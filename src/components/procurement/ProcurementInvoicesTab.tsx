@@ -554,7 +554,40 @@ export default function ProcurementInvoicesTab() {
                   {editLines.map((li, i) => (
                     <div key={li.id || i} className="border border-border/50 rounded-lg p-2 space-y-1.5 bg-muted/20">
                       <div className="flex items-center gap-2">
-                        <Input value={li.description} onChange={(e) => updateEditLine(i, "description", e.target.value)} className="h-7 text-xs flex-1" placeholder="Description" />
+                        <div className="w-[80px] shrink-0">
+                          <ProductAutocomplete
+                            value={li.item_code || ""}
+                            onChange={(v) => updateEditLine(i, "item_code", v)}
+                            onSelect={(p) => {
+                              setEditLines((prev) => {
+                                const updated = [...prev];
+                                updated[i] = { ...updated[i], item_code: p.external_sku || "", description: p.supplier_product_name || p.internal_product_name };
+                                return updated;
+                              });
+                            }}
+                            products={productMaster}
+                            searchField="code"
+                            placeholder="Code"
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <ProductAutocomplete
+                            value={li.description}
+                            onChange={(v) => updateEditLine(i, "description", v)}
+                            onSelect={(p) => {
+                              setEditLines((prev) => {
+                                const updated = [...prev];
+                                updated[i] = { ...updated[i], item_code: p.external_sku || "", description: p.supplier_product_name || p.internal_product_name };
+                                return updated;
+                              });
+                            }}
+                            products={productMaster}
+                            searchField="name"
+                            placeholder="Description"
+                            className="h-7 text-xs"
+                          />
+                        </div>
                         <button onClick={() => setEditLines((prev) => prev.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
                           <X className="h-3.5 w-3.5" />
                         </button>

@@ -135,8 +135,10 @@ Rules:
       ).join("\n");
       productMasterContext = `\n\nPRODUCT MASTER MATCHING — CRITICAL INSTRUCTIONS:
 Below is the Product Master list. For EACH line item you extract, you MUST try to match it to the closest Product Master entry.
-- Compare the extracted product description against "SupplierName" and "Name" fields
-- Compare any item/product code on the invoice against "ExtSKU"
+
+PRIORITY — MATCH BY ExtSKU FIRST:
+- If the invoice line item has an item_code/product code, ALWAYS try matching it against "ExtSKU" FIRST. An exact ExtSKU match takes absolute priority over any description matching.
+- Only if no ExtSKU match is found, fall back to comparing the extracted product description against "SupplierName" and "Name" fields.
 - If you find a match, add "matched_sku": "<internal_sku value>" to that line item
 - If NO match is found, set "matched_sku": ""
 - Be flexible with matching: ignore minor differences in spacing, capitalization, abbreviations (e.g. "J.W." vs "JW", "Whisky" vs "Whiskey", "75CL" vs "750ML")

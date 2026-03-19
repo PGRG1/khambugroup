@@ -1091,30 +1091,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         </div>
       )}
 
-      {/* Duplicate confirmation dialog */}
-      <AlertDialog open={!!duplicateConfirm} onOpenChange={(open) => !open && setDuplicateConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Duplicate Invoice Detected</AlertDialogTitle>
-            <AlertDialogDescription>
-              Invoice #{duplicateConfirm?.inv.invoice_number} from this supplier already exists
-              {duplicateConfirm?.inv.duplicate_date ? ` (dated ${duplicateConfirm.inv.duplicate_date})` : ""}.
-              Do you want to save it anyway?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (duplicateConfirm) {
-                doSaveCurrent(duplicateConfirm.inv, duplicateConfirm.idx, true);
-                setDuplicateConfirm(null);
-              }
-            }}>
-              Save Anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Duplicate confirmation dialog removed — duplicates are now blocked entirely */}
     </div>
   );
 };
