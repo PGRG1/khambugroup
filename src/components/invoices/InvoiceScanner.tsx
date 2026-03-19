@@ -846,8 +846,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>Duplicate detected:</strong> Invoice #{current.invoice_number} from this supplier already exists
-                {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""}.
+                <strong>Cannot be recorded — already exists:</strong> Invoice #{current.invoice_number} from this supplier
+                {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""} is already in the system.
               </span>
             </div>
           )}
