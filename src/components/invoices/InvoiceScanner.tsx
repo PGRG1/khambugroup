@@ -172,10 +172,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const matchOrCreateSupplier = useCallback(async (supplierName: string): Promise<string> => {
     if (!supplierName) return "";
     const normalised = supplierName.trim().toLowerCase();
-    const match = suppliers.find((s) => s.name.toLowerCase() === normalised);
-    if (match) return match.id;
+    // 1. Exact match
+    const exactMatch = suppliers.find((s) => s.name.toLowerCase() === normalised);
+    if (exactMatch) return exactMatch.id;
+    // 2. Normalized match (strip Ltd/Co etc.)
+    const normInput = normalizeSupplierName(supplierName);
+    const normMatch = suppliers.find((s) => normalizeSupplierName(s.name) === normInput);
+    if (normMatch) return normMatch.id;
+    // 3. Partial contains match (both directions)
+    const partialMatch = suppliers.find((s) => {
+      const ns = normalizeSupplierName(s.name);
+      return ns.includes(normInput) || normInput.includes(ns);
+    });
+    if (partialMatch) return partialMatch.id;
+    // 4. Check batch-created suppliers
     const batchMatch = batchCreatedSuppliers.current.get(normalised);
     if (batchMatch) return batchMatch;
+    // 5. Create new supplier
     const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
     if (created?.id) {
       batchCreatedSuppliers.current.set(normalised, created.id);
