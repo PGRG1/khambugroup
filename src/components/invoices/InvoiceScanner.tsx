@@ -111,7 +111,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
-  const [duplicateConfirm, setDuplicateConfirm] = useState<{ inv: ScannedInvoice; idx: number } | null>(null);
+  // duplicateConfirm state removed — duplicates are now blocked entirely
 
   const current = invoices[currentIdx] || null;
 
