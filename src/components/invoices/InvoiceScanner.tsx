@@ -339,7 +339,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           invoice_number: raw?.invoice_number || "",
           invoice_date: raw?.invoice_date || "",
           due_date: raw?.due_date || "",
-          notes: raw?.notes || "",
+          notes: "",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
