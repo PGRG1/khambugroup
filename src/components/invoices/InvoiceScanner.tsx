@@ -542,8 +542,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   };
 
   const doSaveCurrent = async (inv: ScannedInvoice, idx: number, skipDuplicateCheck = false) => {
+    // Block duplicates entirely — no "Save Anyway"
     if (!skipDuplicateCheck) {
-      // Check duplicate
       const { data: existingInvoices } = await supabase
         .from("invoices")
         .select("id, invoice_date")
@@ -552,7 +552,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         .limit(1);
 
       if (existingInvoices && existingInvoices.length > 0) {
-        setDuplicateConfirm({ inv, idx });
+        toast({ title: "Duplicate invoice", description: `Invoice #${inv.invoice_number} already exists and cannot be recorded again.`, variant: "destructive" });
         return;
       }
     }
