@@ -111,7 +111,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
-  const [duplicateConfirm, setDuplicateConfirm] = useState<{ inv: ScannedInvoice; idx: number } | null>(null);
+  // duplicateConfirm state removed — duplicates are now blocked entirely
 
   const current = invoices[currentIdx] || null;
 
@@ -172,10 +172,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const matchOrCreateSupplier = useCallback(async (supplierName: string): Promise<string> => {
     if (!supplierName) return "";
     const normalised = supplierName.trim().toLowerCase();
-    const match = suppliers.find((s) => s.name.toLowerCase() === normalised);
-    if (match) return match.id;
+    // 1. Exact match
+    const exactMatch = suppliers.find((s) => s.name.toLowerCase() === normalised);
+    if (exactMatch) return exactMatch.id;
+    // 2. Normalized match (strip Ltd/Co etc.)
+    const normInput = normalizeSupplierName(supplierName);
+    const normMatch = suppliers.find((s) => normalizeSupplierName(s.name) === normInput);
+    if (normMatch) return normMatch.id;
+    // 3. Partial contains match (both directions)
+    const partialMatch = suppliers.find((s) => {
+      const ns = normalizeSupplierName(s.name);
+      return ns.includes(normInput) || normInput.includes(ns);
+    });
+    if (partialMatch) return partialMatch.id;
+    // 4. Check batch-created suppliers
     const batchMatch = batchCreatedSuppliers.current.get(normalised);
     if (batchMatch) return batchMatch;
+    // 5. Create new supplier
     const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
     if (created?.id) {
       batchCreatedSuppliers.current.set(normalised, created.id);
@@ -326,7 +339,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           invoice_number: raw?.invoice_number || "",
           invoice_date: raw?.invoice_date || "",
           due_date: raw?.due_date || "",
-          notes: raw?.notes || "",
+          notes: "",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
@@ -529,8 +542,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   };
 
   const doSaveCurrent = async (inv: ScannedInvoice, idx: number, skipDuplicateCheck = false) => {
+    // Block duplicates entirely — no "Save Anyway"
     if (!skipDuplicateCheck) {
-      // Check duplicate
       const { data: existingInvoices } = await supabase
         .from("invoices")
         .select("id, invoice_date")
@@ -539,7 +552,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         .limit(1);
 
       if (existingInvoices && existingInvoices.length > 0) {
-        setDuplicateConfirm({ inv, idx });
+        toast({ title: "Duplicate invoice", description: `Invoice #${inv.invoice_number} already exists and cannot be recorded again.`, variant: "destructive" });
         return;
       }
     }
@@ -610,18 +623,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const handleSaveAll = async () => {
     setSavingAll(true);
     let saved = 0;
+    let skippedDuplicates = 0;
     for (let i = 0; i < invoices.length; i++) {
       if (invoices[i].saved) { saved++; continue; }
+      if (invoices[i].is_duplicate) { skippedDuplicates++; continue; }
       try {
-        await doSaveCurrent(invoices[i], i, true); // skip duplicate check for batch save
+        await doSaveCurrent(invoices[i], i, false);
         saved++;
       } catch {
         toast({ title: `Failed to save invoice #${invoices[i].invoice_number}`, variant: "destructive" });
       }
     }
-    toast({ title: `Saved ${saved} of ${invoices.length} invoices!` });
+    const msg = skippedDuplicates > 0
+      ? `Saved ${saved} of ${invoices.length} invoices. ${skippedDuplicates} duplicate(s) skipped.`
+      : `Saved ${saved} of ${invoices.length} invoices!`;
+    toast({ title: msg });
     setSavingAll(false);
-    if (saved === invoices.length) {
+    if (saved + skippedDuplicates === invoices.length) {
       setTimeout(onClose, 800);
     }
   };
@@ -828,8 +846,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>Duplicate detected:</strong> Invoice #{current.invoice_number} from this supplier already exists
-                {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""}.
+                <strong>Cannot be recorded — already exists:</strong> Invoice #{current.invoice_number} from this supplier
+                {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""} is already in the system.
               </span>
             </div>
           )}
@@ -1038,9 +1056,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             )}
 
             {!current.saved ? (
-              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll}>
+              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {saving ? "Saving..." : "Save This Invoice"}
+                {current.is_duplicate ? "Duplicate — Cannot Save" : saving ? "Saving..." : "Save This Invoice"}
               </Button>
             ) : (
               <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
@@ -1073,30 +1091,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         </div>
       )}
 
-      {/* Duplicate confirmation dialog */}
-      <AlertDialog open={!!duplicateConfirm} onOpenChange={(open) => !open && setDuplicateConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Duplicate Invoice Detected</AlertDialogTitle>
-            <AlertDialogDescription>
-              Invoice #{duplicateConfirm?.inv.invoice_number} from this supplier already exists
-              {duplicateConfirm?.inv.duplicate_date ? ` (dated ${duplicateConfirm.inv.duplicate_date})` : ""}.
-              Do you want to save it anyway?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (duplicateConfirm) {
-                doSaveCurrent(duplicateConfirm.inv, duplicateConfirm.idx, true);
-                setDuplicateConfirm(null);
-              }
-            }}>
-              Save Anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Duplicate confirmation dialog removed — duplicates are now blocked entirely */}
     </div>
   );
 };
