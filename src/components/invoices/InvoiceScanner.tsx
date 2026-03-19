@@ -623,18 +623,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const handleSaveAll = async () => {
     setSavingAll(true);
     let saved = 0;
+    let skippedDuplicates = 0;
     for (let i = 0; i < invoices.length; i++) {
       if (invoices[i].saved) { saved++; continue; }
+      if (invoices[i].is_duplicate) { skippedDuplicates++; continue; }
       try {
-        await doSaveCurrent(invoices[i], i, true); // skip duplicate check for batch save
+        await doSaveCurrent(invoices[i], i, false);
         saved++;
       } catch {
         toast({ title: `Failed to save invoice #${invoices[i].invoice_number}`, variant: "destructive" });
       }
     }
-    toast({ title: `Saved ${saved} of ${invoices.length} invoices!` });
+    const msg = skippedDuplicates > 0
+      ? `Saved ${saved} of ${invoices.length} invoices. ${skippedDuplicates} duplicate(s) skipped.`
+      : `Saved ${saved} of ${invoices.length} invoices!`;
+    toast({ title: msg });
     setSavingAll(false);
-    if (saved === invoices.length) {
+    if (saved + skippedDuplicates === invoices.length) {
       setTimeout(onClose, 800);
     }
   };
