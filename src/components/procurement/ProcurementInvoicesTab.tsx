@@ -200,11 +200,12 @@ export default function ProcurementInvoicesTab() {
       const updated = [...prev];
       const line = { ...updated[idx], [field]: value };
 
-      if (field === "quantity" || field === "unit_price" || field === "weight") {
+      if (field === "quantity" || field === "unit_price" || field === "weight" || field === "discount") {
         const qty = field === "quantity" ? Number(value) : line.quantity;
         const price = field === "unit_price" ? Number(value) : line.unit_price;
         const weight = field === "weight" ? Number(value) : (line.weight || 0);
-        line.total = weight > 0 ? (weight * price) + line.tax_amount : (qty * price) + line.tax_amount;
+        const disc = field === "discount" ? Number(value) : (line.discount || 0);
+        line.total = weight > 0 ? (weight * price) - disc + line.tax_amount : (qty * price) - disc + line.tax_amount;
       }
 
       updated[idx] = line;
