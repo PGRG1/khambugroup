@@ -1006,6 +1006,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                   </div>
                 </div>
                 <div>
+                  {i === 0 && <Label className="text-xs">Discount</Label>}
+                  <Input type="number" value={line.discount} onChange={(e) => updateLine(i, "discount", e.target.value)} className="text-xs" />
+                </div>
+                <div>
                   {i === 0 && <Label className="text-xs">Tax</Label>}
                   <Input type="number" value={line.tax_amount} onChange={(e) => updateLine(i, "tax_amount", e.target.value)} className="text-xs" />
                 </div>
