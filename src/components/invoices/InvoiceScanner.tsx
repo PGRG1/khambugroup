@@ -99,7 +99,7 @@ interface InvoiceScannerProps {
   userId: string;
 }
 
-const emptyLine: ScannedLineItem = { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0", total: "0", matched_sku: "", unmatched: false, price_changed: false };
+const emptyLine: ScannedLineItem = { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "", unmatched: false, price_changed: false };
 
 const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
