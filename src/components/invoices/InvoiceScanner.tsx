@@ -326,6 +326,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             unit: li?.unit || "",
             weight: li?.weight != null ? String(li.weight) : "",
             unit_price: String(li?.unit_price ?? "0"),
+            discount: String(li?.discount ?? "0"),
             tax_amount: String(li?.tax_amount ?? "0"),
             total: String(li?.total ?? "0"),
             matched_sku: li?.matched_sku || "",
