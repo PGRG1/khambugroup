@@ -32,6 +32,7 @@ export interface InvoiceLineItem {
   unit: string | null;
   weight: number | null;
   unit_price: number;
+  discount: number;
   tax_amount: number;
   total: number;
   notes: string | null;

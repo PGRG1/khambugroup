@@ -44,6 +44,7 @@ interface ScannedLineItem {
   unit: string;
   weight: string;
   unit_price: string;
+  discount: string;
   tax_amount: string;
   total: string;
   matched_sku: string;
@@ -88,6 +89,7 @@ interface InvoiceScannerProps {
     unit: string | null;
     weight: number | null;
     unit_price: number;
+    discount: number;
     tax_amount: number;
     total: number;
     notes: null;
@@ -98,7 +100,7 @@ interface InvoiceScannerProps {
   userId: string;
 }
 
-const emptyLine: ScannedLineItem = { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0", total: "0", matched_sku: "", unmatched: false, price_changed: false };
+const emptyLine: ScannedLineItem = { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "", unmatched: false, price_changed: false };
 
 const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
@@ -325,6 +327,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             unit: li?.unit || "",
             weight: li?.weight != null ? String(li.weight) : "",
             unit_price: String(li?.unit_price ?? "0"),
+            discount: String(li?.discount ?? "0"),
             tax_amount: String(li?.tax_amount ?? "0"),
             total: String(li?.total ?? "0"),
             matched_sku: li?.matched_sku || "",
@@ -400,19 +403,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
       const line = { ...lines[i], [field]: value };
-      if (field === "quantity" || field === "weight" || field === "unit_price") {
+      if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
         const w = line.weight ? parseFloat(line.weight) : null;
         const price = parseFloat(line.unit_price) || 0;
         const qty = parseFloat(line.quantity) || 0;
+        const disc = parseFloat(line.discount) || 0;
         const tax = parseFloat(line.tax_amount) || 0;
-        line.total = String(((w ? w * price : qty * price) + tax).toFixed(2));
-      }
-      if (field === "tax_amount") {
-        const w = line.weight ? parseFloat(line.weight) : null;
-        const price = parseFloat(line.unit_price) || 0;
-        const qty = parseFloat(line.quantity) || 0;
-        const tax = parseFloat(value) || 0;
-        line.total = String(((w ? w * price : qty * price) + tax).toFixed(2));
+        line.total = String(((w ? w * price : qty * price) - disc + tax).toFixed(2));
       }
       // Re-evaluate flags when key fields change
       if (["item_code", "unit_price", "matched_sku", "description"].includes(field)) {
@@ -460,8 +457,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     const w = l.weight ? parseFloat(l.weight) : null;
     const price = parseFloat(l.unit_price) || 0;
     const qty = parseFloat(l.quantity) || 0;
+    const disc = parseFloat(l.discount) || 0;
     const tax = parseFloat(l.tax_amount) || 0;
-    return (w ? w * price : qty * price) + tax;
+    return (w ? w * price : qty * price) - disc + tax;
   };
 
   const subtotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
@@ -503,15 +501,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
       const qty = parseFloat(l.quantity) || 0;
       const price = parseFloat(l.unit_price) || 0;
+      const disc = parseFloat(l.discount) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
-      const lineTotal = parseFloat((w ? w * price + tax : qty * price + tax).toFixed(2));
+      const lineTotal = parseFloat(((w ? w * price : qty * price) - disc + tax).toFixed(2));
       let pmId: string | null = null;
       if (l.matched_sku && productMaster) {
         const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
         if (pm) pmId = pm.id;
       }
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
     });
 
     const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
@@ -564,15 +563,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
         const qty = parseFloat(l.quantity) || 0;
         const price = parseFloat(l.unit_price) || 0;
+        const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
         const w = l.weight ? parseFloat(l.weight) : null;
-        const lineTotal = parseFloat((w ? w * price + tax : qty * price + tax).toFixed(2));
+        const lineTotal = parseFloat(((w ? w * price : qty * price) - disc + tax).toFixed(2));
         let pmId: string | null = null;
         if (l.matched_sku && productMaster) {
           const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
           if (pm) pmId = pm.id;
         }
-        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
+        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
       });
 
       const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
@@ -938,7 +938,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="space-y-2">
             {current.line_items.map((line, i) => (
-              <div key={i} className={`grid grid-cols-[28px_80px_1fr_90px_55px_55px_65px_80px_70px_80px_32px] gap-1 items-end ${line.unmatched ? "bg-destructive/10 rounded-md p-1 -mx-1 border border-destructive/30" : line.sku_mismatch ? "bg-amber-500/10 rounded-md p-1 -mx-1" : line.price_changed ? "bg-blue-500/10 rounded-md p-1 -mx-1 border border-blue-500/30" : ""}`}>
+              <div key={i} className={`grid grid-cols-[28px_80px_1fr_90px_55px_55px_65px_80px_70px_70px_80px_32px] gap-1 items-end ${line.unmatched ? "bg-destructive/10 rounded-md p-1 -mx-1 border border-destructive/30" : line.sku_mismatch ? "bg-amber-500/10 rounded-md p-1 -mx-1" : line.price_changed ? "bg-blue-500/10 rounded-md p-1 -mx-1 border border-blue-500/30" : ""}`}>
                 <div>
                   {i === 0 && <Label className="text-xs">#</Label>}
                   <span className="flex items-center justify-center h-9 text-xs text-muted-foreground font-medium">{i + 1}</span>
@@ -1004,6 +1004,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                       <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5">was ${line.pm_unit_price.toFixed(2)}</span>
                     )}
                   </div>
+                </div>
+                <div>
+                  {i === 0 && <Label className="text-xs">Discount</Label>}
+                  <Input type="number" value={line.discount} onChange={(e) => updateLine(i, "discount", e.target.value)} className="text-xs" />
                 </div>
                 <div>
                   {i === 0 && <Label className="text-xs">Tax</Label>}

@@ -200,11 +200,12 @@ export default function ProcurementInvoicesTab() {
       const updated = [...prev];
       const line = { ...updated[idx], [field]: value };
 
-      if (field === "quantity" || field === "unit_price" || field === "weight") {
+      if (field === "quantity" || field === "unit_price" || field === "weight" || field === "discount") {
         const qty = field === "quantity" ? Number(value) : line.quantity;
         const price = field === "unit_price" ? Number(value) : line.unit_price;
         const weight = field === "weight" ? Number(value) : (line.weight || 0);
-        line.total = weight > 0 ? (weight * price) + line.tax_amount : (qty * price) + line.tax_amount;
+        const disc = field === "discount" ? Number(value) : (line.discount || 0);
+        line.total = weight > 0 ? (weight * price) - disc + line.tax_amount : (qty * price) - disc + line.tax_amount;
       }
 
       updated[idx] = line;
@@ -592,7 +593,7 @@ export default function ProcurementInvoicesTab() {
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5">
+                      <div className="grid grid-cols-5 gap-1.5">
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Qty</Label>
                           <Input type="number" value={li.quantity} onChange={(e) => updateEditLine(i, "quantity", Number(e.target.value))} className="h-7 text-xs" />
@@ -600,6 +601,10 @@ export default function ProcurementInvoicesTab() {
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Unit Price</Label>
                           <Input type="number" step="0.01" value={li.unit_price} onChange={(e) => updateEditLine(i, "unit_price", Number(e.target.value))} className="h-7 text-xs" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Discount</Label>
+                          <Input type="number" step="0.01" value={li.discount || 0} onChange={(e) => updateEditLine(i, "discount", Number(e.target.value))} className="h-7 text-xs" />
                         </div>
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Tax</Label>
