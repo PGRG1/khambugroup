@@ -963,6 +963,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string
+          discount: number
           id: string
           invoice_id: string
           item_code: string | null
@@ -981,6 +982,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description: string
+          discount?: number
           id?: string
           invoice_id: string
           item_code?: string | null
@@ -999,6 +1001,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string
+          discount?: number
           id?: string
           invoice_id?: string
           item_code?: string | null
