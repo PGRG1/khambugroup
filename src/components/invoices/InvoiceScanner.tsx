@@ -44,6 +44,7 @@ interface ScannedLineItem {
   unit: string;
   weight: string;
   unit_price: string;
+  discount: string;
   tax_amount: string;
   total: string;
   matched_sku: string;
