@@ -403,19 +403,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
       const line = { ...lines[i], [field]: value };
-      if (field === "quantity" || field === "weight" || field === "unit_price") {
+      if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
         const w = line.weight ? parseFloat(line.weight) : null;
         const price = parseFloat(line.unit_price) || 0;
         const qty = parseFloat(line.quantity) || 0;
+        const disc = parseFloat(line.discount) || 0;
         const tax = parseFloat(line.tax_amount) || 0;
-        line.total = String(((w ? w * price : qty * price) + tax).toFixed(2));
-      }
-      if (field === "tax_amount") {
-        const w = line.weight ? parseFloat(line.weight) : null;
-        const price = parseFloat(line.unit_price) || 0;
-        const qty = parseFloat(line.quantity) || 0;
-        const tax = parseFloat(value) || 0;
-        line.total = String(((w ? w * price : qty * price) + tax).toFixed(2));
+        line.total = String(((w ? w * price : qty * price) - disc + tax).toFixed(2));
       }
       // Re-evaluate flags when key fields change
       if (["item_code", "unit_price", "matched_sku", "description"].includes(field)) {
