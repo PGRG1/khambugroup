@@ -563,15 +563,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
         const qty = parseFloat(l.quantity) || 0;
         const price = parseFloat(l.unit_price) || 0;
+        const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
         const w = l.weight ? parseFloat(l.weight) : null;
-        const lineTotal = parseFloat((w ? w * price + tax : qty * price + tax).toFixed(2));
+        const lineTotal = parseFloat(((w ? w * price : qty * price) - disc + tax).toFixed(2));
         let pmId: string | null = null;
         if (l.matched_sku && productMaster) {
           const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
           if (pm) pmId = pm.id;
         }
-        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
+        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
       });
 
       const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
