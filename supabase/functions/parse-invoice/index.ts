@@ -88,7 +88,8 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
           "unit": "unit of measure in ENGLISH ONLY (Bucket, Dozen, Roll, Case, Box, Pack, Bag, Bottle, Piece, KG, LB, etc.) — NEVER Chinese characters",
           "weight": number or null (actual weight in KG if item is priced per KG, otherwise null),
           "unit_price": number (price per unit — if priced per KG this is the price per KG),
-          "total": number (the total amount from the AMOUNT column for this line item)
+          "discount": number (line-level discount amount in dollars if shown, otherwise 0),
+          "total": number (the total amount from the AMOUNT column for this line item — after discount)
         }
       ]
     }
