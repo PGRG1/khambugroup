@@ -41,7 +41,7 @@ export default function LineItemsTab({ suppliers }: Props) {
         supabase.from("standard_products").select("id, name"),
       ]);
 
-      if (!items || !invoices) { setLoading(false); return; }
+      if (!items.length || !invoices) { setLoading(false); return; }
 
       const invMap = new Map(invoices.map((i: any) => [i.id, i]));
       const supMap = new Map(suppliers.map(s => [s.id, s.name]));
