@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -79,13 +80,13 @@ export default function ProcurementDashboardTab() {
 
   useEffect(() => {
     (async () => {
-      const [invRes, liRes, supRes] = await Promise.all([
+      const [invRes, liData, supRes] = await Promise.all([
         supabase.from("invoices").select("id, supplier_id, invoice_date, invoice_number, total_amount, payment_status, status, venue"),
-        supabase.from("invoice_line_items").select("id, invoice_id, description, quantity, unit_price, total, product_master_id"),
+        fetchAllRows("invoice_line_items", "id, invoice_id, description, quantity, unit_price, total, product_master_id"),
         supabase.from("suppliers").select("id, name"),
       ]);
       if (invRes.data) setInvoices(invRes.data);
-      if (liRes.data) setLineItems(liRes.data);
+      setLineItems(liData);
       if (supRes.data) setSuppliers(supRes.data);
       setLoading(false);
     })();

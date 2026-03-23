@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
@@ -34,13 +35,13 @@ export default function LineItemsTab({ suppliers }: Props) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: items }, { data: invoices }, { data: products }] = await Promise.all([
-        supabase.from("invoice_line_items").select("id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
+      const [items, { data: invoices }, { data: products }] = await Promise.all([
+        fetchAllRows("invoice_line_items", "id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
         supabase.from("invoices").select("id, invoice_number, supplier_id, invoice_date"),
         supabase.from("standard_products").select("id, name"),
       ]);
 
-      if (!items || !invoices) { setLoading(false); return; }
+      if (!items.length || !invoices) { setLoading(false); return; }
 
       const invMap = new Map(invoices.map((i: any) => [i.id, i]));
       const supMap = new Map(suppliers.map(s => [s.id, s.name]));

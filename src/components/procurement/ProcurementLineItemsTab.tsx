@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,8 +44,8 @@ export default function ProcurementLineItemsTab() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [liRes, invRes, supRes, pmRes] = await Promise.all([
-      supabase.from("invoice_line_items").select("*").order("created_at", { ascending: false }),
+    const [liData, invRes, supRes, pmRes] = await Promise.all([
+      fetchAllRows("invoice_line_items", "*", { col: "created_at", asc: false }),
       supabase.from("invoices").select("id, invoice_number, invoice_date, supplier_id"),
       supabase.from("suppliers").select("id, name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, external_sku"),
@@ -54,7 +55,7 @@ export default function ProcurementLineItemsTab() {
     const supMap = new Map((supRes.data || []).map((s: any) => [s.id, s.name]));
     const pmMap = new Map((pmRes.data || []).map((p: any) => [p.id, { name: p.internal_product_name, sku: p.internal_sku, ext_sku: p.external_sku }]));
 
-    const mapped: LineItemRow[] = (liRes.data || []).map((li: any) => {
+    const mapped: LineItemRow[] = liData.map((li: any) => {
       const inv = invMap.get(li.invoice_id);
       const pmId = li.product_master_id || li.standard_product_id;
       const pm = pmId ? pmMap.get(pmId) : null;
