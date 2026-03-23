@@ -19,6 +19,9 @@ export default function Procurement() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="dashboard" className="gap-1.5">
+            <LayoutDashboard className="h-3.5 w-3.5" />Dashboard
+          </TabsTrigger>
           <TabsTrigger value="product-master" className="gap-1.5">
             <Package className="h-3.5 w-3.5" />Product Master
           </TabsTrigger>
@@ -36,6 +39,7 @@ export default function Procurement() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
         <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
         <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
