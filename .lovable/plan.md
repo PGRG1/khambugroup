@@ -1,54 +1,47 @@
 
 
-## Plan: Five Invoice Scanner Improvements
+## Problem
 
-### 1. Block duplicate invoice recording (not just warn)
-Currently duplicates show a warning but allow "Save Anyway". Change behavior to **block** saving entirely for duplicates — remove the confirmation dialog and disable the save button when `is_duplicate` is true. The "Save All" flow should skip duplicates and report them.
+Supabase returns a maximum of 1,000 rows per query by default. The project has 3,358 invoice line items, so the line items tab only displays ~1,000 of them, causing the total to appear lower than the actual invoice total.
 
-**Files:** `src/components/invoices/InvoiceScanner.tsx`
-- In `doSaveCurrent`: if duplicate detected, toast an error and return (no dialog)
-- In `handleSaveAll`: skip invoices flagged as `is_duplicate`, count and report skipped
-- Disable "Save This Invoice" button when `current.is_duplicate`
-- Remove the duplicate confirmation `AlertDialog` entirely
-- Change duplicate banner text to say "Cannot be recorded — already exists"
+The same issue affects the Procurement Dashboard tab, which also queries `invoice_line_items` without pagination.
 
-### 2. Fuzzy-match supplier name from AI to Product Master list
-Currently `matchOrCreateSupplier` does exact lowercase match only. The AI reads the supplier name from the receipt (e.g. "Telford International Ltd") but the Product Master may have "Telford International". Apply the same `normalizeSupplierName` fuzzy logic (strip Ltd/Co, partial contains) already used for the dropdown.
+## Solution
 
-**File:** `src/components/invoices/InvoiceScanner.tsx`
-- Update `matchOrCreateSupplier` to:
-  1. Exact match (existing)
-  2. Normalized match using `normalizeSupplierName`
-  3. Partial contains match (both directions)
-  4. Only create new supplier if none of these match
+Implement a paginated fetch loop that retrieves all rows in batches of 1,000 for all components that query `invoice_line_items`.
 
-### 3. Add ProductAutocomplete to the edit drawer line items
-Currently the edit drawer in `ProcurementInvoicesTab.tsx` uses plain `Input` fields for description — no autocomplete/partial matching. Add `ProductAutocomplete` for both `item_code` and `description` fields, matching the scanner's behavior.
+### Files to modify
 
-**File:** `src/components/procurement/ProcurementInvoicesTab.tsx`
-- Import `ProductAutocomplete` component
-- Replace the description `Input` in edit mode with `ProductAutocomplete` (searchField="name")
-- Add an `item_code` field with `ProductAutocomplete` (searchField="code")
-- On product select, update `item_code`, `description`, and `product_master_id` on the edit line
+**1. `src/components/procurement/ProcurementLineItemsTab.tsx`**
+- Replace the single `supabase.from("invoice_line_items").select("*")` call with a loop that fetches in batches of 1,000 using `.range(offset, offset + 999)` until fewer than 1,000 rows are returned.
+- Concatenate all batches before mapping.
 
-### 4. Clear notes field after AI extraction
-The AI extracts notes (payment terms, remarks) from the invoice. The user wants notes blank for manual entry. Simply set `notes: ""` instead of `raw?.notes || ""` after parsing.
+**2. `src/components/invoices/LineItemsTab.tsx`**
+- Same paginated fetch pattern for the `invoice_line_items` query.
 
-**File:** `src/components/invoices/InvoiceScanner.tsx` (line 329)
-- Change `notes: raw?.notes || ""` to `notes: ""`
+**3. `src/components/procurement/ProcurementDashboardTab.tsx`**
+- Same paginated fetch pattern for the `invoice_line_items` query used in the dashboard analytics.
 
-### 5. For Telford, prioritize External SKU (item_code) for matching
-Currently the AI matching in the edge function compares description against SupplierName/Name and item_code against ExtSKU. For Telford specifically, the external code on the invoice IS the primary matching key. Update the product master matching instructions to emphasize: "If the invoice has an item/product code, ALWAYS try matching it against ExtSKU FIRST — this is the most reliable match."
+### Technical detail
 
-**File:** `supabase/functions/parse-invoice/index.ts`
-- In the `PRODUCT MASTER MATCHING` section (around line 136-146), add instruction: "PRIORITY: If the line item has an item_code/product code, match it against ExtSKU first. An exact ExtSKU match takes priority over description matching."
-- Also update client-side `matchLineItemsToProductMaster` in `useInvoiceData.ts` to check `item_code` → `external_sku` match BEFORE description matching
+```typescript
+// Helper to fetch all rows from a table
+async function fetchAllRows(table: string, select: string, order?: { col: string; asc: boolean }) {
+  const PAGE = 1000;
+  let all: any[] = [];
+  let offset = 0;
+  while (true) {
+    let q = supabase.from(table).select(select).range(offset, offset + PAGE - 1);
+    if (order) q = q.order(order.col, { ascending: order.asc });
+    const { data } = await q;
+    if (!data || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+```
 
-### Technical Details
-
-**Files changed:**
-1. `src/components/invoices/InvoiceScanner.tsx` — block duplicates, clear notes, fuzzy supplier match
-2. `src/components/procurement/ProcurementInvoicesTab.tsx` — add ProductAutocomplete to edit drawer
-3. `supabase/functions/parse-invoice/index.ts` — prioritize ExtSKU matching
-4. `src/hooks/useInvoiceData.ts` — reorder matching logic to check item_code→ExtSKU first
+This will be extracted as a shared utility or inlined in each component. No database changes needed.
 
