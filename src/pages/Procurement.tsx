@@ -1,14 +1,15 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed } from "lucide-react";
+import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed, LayoutDashboard } from "lucide-react";
 import ProductMasterTab from "@/components/procurement/ProductMasterTab";
 import ProcurementInvoicesTab from "@/components/procurement/ProcurementInvoicesTab";
 import ProcurementLineItemsTab from "@/components/procurement/ProcurementLineItemsTab";
 import InventoryOnHandTab from "@/components/procurement/InventoryOnHandTab";
 import MenuCostingTab from "@/components/procurement/MenuCostingTab";
+import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboardTab";
 
 export default function Procurement() {
-  const [activeTab, setActiveTab] = useState("product-master");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
@@ -18,6 +19,9 @@ export default function Procurement() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="dashboard" className="gap-1.5">
+            <LayoutDashboard className="h-3.5 w-3.5" />Dashboard
+          </TabsTrigger>
           <TabsTrigger value="product-master" className="gap-1.5">
             <Package className="h-3.5 w-3.5" />Product Master
           </TabsTrigger>
@@ -35,6 +39,7 @@ export default function Procurement() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
         <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
         <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
