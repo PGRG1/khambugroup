@@ -9,7 +9,7 @@ import MenuCostingTab from "@/components/procurement/MenuCostingTab";
 import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboardTab";
 
 export default function Procurement() {
-  const [activeTab, setActiveTab] = useState("product-master");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
