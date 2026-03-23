@@ -1,8 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Fetches all rows from a Supabase table, bypassing the default 1000-row limit
- * by paginating in batches.
+ * Fetches all rows from a Supabase table, bypassing the default 1000-row limit.
  */
 export async function fetchAllRows(
   table: string,
@@ -13,7 +12,7 @@ export async function fetchAllRows(
   let all: any[] = [];
   let offset = 0;
   while (true) {
-    let q = supabase.from(table).select(select).range(offset, offset + PAGE - 1);
+    let q = (supabase.from(table as any) as any).select(select).range(offset, offset + PAGE - 1);
     if (order) q = q.order(order.col, { ascending: order.asc });
     const { data } = await q;
     if (!data || data.length === 0) break;
