@@ -80,7 +80,7 @@ export default function ProcurementDashboardTab() {
   useEffect(() => {
     (async () => {
       const [invRes, liRes, supRes] = await Promise.all([
-        supabase.from("invoices").select("id, supplier_id, invoice_date, total_amount, payment_status, status, venue"),
+        supabase.from("invoices").select("id, supplier_id, invoice_date, invoice_number, total_amount, payment_status, status, venue"),
         supabase.from("invoice_line_items").select("id, invoice_id, description, quantity, unit_price, total, product_master_id"),
         supabase.from("suppliers").select("id, name"),
       ]);
