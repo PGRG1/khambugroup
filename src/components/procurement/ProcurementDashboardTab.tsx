@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, FileText, Package, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
+  LineChart, Line, Legend,
 } from "recharts";
 
 interface InvoiceRow {
@@ -33,30 +33,54 @@ interface SupplierRow {
   name: string;
 }
 
-const COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--accent))",
+const SUPPLIER_COLORS = [
   "hsl(48, 96%, 53%)",
+  "hsl(var(--primary))",
   "hsl(142, 71%, 45%)",
   "hsl(0, 84%, 60%)",
   "hsl(262, 83%, 58%)",
   "hsl(199, 89%, 48%)",
   "hsl(25, 95%, 53%)",
+  "hsl(330, 80%, 55%)",
+  "hsl(180, 60%, 45%)",
+  "hsl(60, 70%, 50%)",
 ];
 
-const fmt = (v: number) => `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const fmt = (v: number) => `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtShort = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`;
+
+function getMonthOptions(invoices: InvoiceRow[]) {
+  const months = new Set<string>();
+  invoices.forEach(inv => {
+    const d = new Date(inv.invoice_date);
+    months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  });
+  return Array.from(months).sort().reverse();
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatMonthLabel(key: string) {
+  const [y, m] = key.split("-");
+  return `${MONTH_NAMES[parseInt(m) - 1]} ${y}`;
+}
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month, 0).getDate();
+}
 
 export default function ProcurementDashboardTab() {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [periodFilter, setPeriodFilter] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
       const [invRes, liRes, supRes] = await Promise.all([
-        supabase.from("invoices").select("id, supplier_id, invoice_date, total_amount, payment_status, status, venue"),
+        supabase.from("invoices").select("id, supplier_id, invoice_date, invoice_number, total_amount, payment_status, status, venue"),
         supabase.from("invoice_line_items").select("id, invoice_id, description, quantity, unit_price, total, product_master_id"),
         supabase.from("suppliers").select("id, name"),
       ]);
@@ -68,243 +92,286 @@ export default function ProcurementDashboardTab() {
   }, []);
 
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
+  const monthOptions = useMemo(() => getMonthOptions(invoices), [invoices]);
 
+  // Filter invoices by selected month
   const filteredInvoices = useMemo(() => {
-    if (periodFilter === "all") return invoices;
-    const now = new Date();
-    const cutoff = new Date();
-    if (periodFilter === "30d") cutoff.setDate(now.getDate() - 30);
-    else if (periodFilter === "90d") cutoff.setDate(now.getDate() - 90);
-    else if (periodFilter === "ytd") { cutoff.setMonth(0); cutoff.setDate(1); }
-    return invoices.filter(inv => new Date(inv.invoice_date) >= cutoff);
-  }, [invoices, periodFilter]);
+    if (selectedMonth === "all") return invoices;
+    const [y, m] = selectedMonth.split("-").map(Number);
+    return invoices.filter(inv => {
+      const d = new Date(inv.invoice_date);
+      return d.getFullYear() === y && d.getMonth() + 1 === m;
+    });
+  }, [invoices, selectedMonth]);
 
   const filteredInvoiceIds = useMemo(() => new Set(filteredInvoices.map(i => i.id)), [filteredInvoices]);
   const filteredLineItems = useMemo(() => lineItems.filter(li => filteredInvoiceIds.has(li.invoice_id)), [lineItems, filteredInvoiceIds]);
 
-  // KPIs
-  const totalSpend = filteredInvoices.reduce((s, i) => s + Number(i.total_amount), 0);
-  const invoiceCount = filteredInvoices.length;
-  const avgInvoiceValue = invoiceCount ? totalSpend / invoiceCount : 0;
-  const unpaidTotal = filteredInvoices.filter(i => i.payment_status === "unpaid").reduce((s, i) => s + Number(i.total_amount), 0);
-  const uniqueProducts = new Set(filteredLineItems.map(li => li.description?.toLowerCase().trim())).size;
-  const unmatchedItems = filteredLineItems.filter(li => !li.product_master_id).length;
+  // ─── SECTION 1: Spend per supplier ───
 
-  // Spend by supplier
-  const spendBySupplier = useMemo(() => {
-    const map = new Map<string, number>();
-    filteredInvoices.forEach(inv => {
-      const name = supplierMap.get(inv.supplier_id) || "Unknown";
-      map.set(name, (map.get(name) || 0) + Number(inv.total_amount));
-    });
-    return Array.from(map.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredInvoices, supplierMap]);
-
-  // Monthly spend trend
-  const monthlySpend = useMemo(() => {
-    const map = new Map<string, number>();
+  // Daily spend by supplier for line chart (only when a month is selected)
+  const dailySupplierSpend = useMemo(() => {
+    if (selectedMonth === "all") return [];
+    const [y, m] = selectedMonth.split("-").map(Number);
+    const daysCount = getDaysInMonth(y, m);
+    const supplierNames = new Set<string>();
+    
+    // Build day -> supplier -> amount map
+    const dayMap = new Map<number, Map<string, number>>();
     filteredInvoices.forEach(inv => {
       const d = new Date(inv.invoice_date);
+      const day = d.getDate();
+      const name = supplierMap.get(inv.supplier_id) || "Unknown";
+      supplierNames.add(name);
+      if (!dayMap.has(day)) dayMap.set(day, new Map());
+      const sm = dayMap.get(day)!;
+      sm.set(name, (sm.get(name) || 0) + Number(inv.total_amount));
+    });
+
+    const result: any[] = [];
+    for (let d = 1; d <= daysCount; d++) {
+      const entry: any = { day: d };
+      const sm = dayMap.get(d);
+      supplierNames.forEach(name => {
+        entry[name] = sm?.get(name) || 0;
+      });
+      result.push(entry);
+    }
+    return result;
+  }, [filteredInvoices, selectedMonth, supplierMap]);
+
+  const activeSupplierNames = useMemo(() => {
+    const names = new Set<string>();
+    filteredInvoices.forEach(inv => names.add(supplierMap.get(inv.supplier_id) || "Unknown"));
+    return Array.from(names).sort();
+  }, [filteredInvoices, supplierMap]);
+
+  // Monthly spend by supplier for line chart (when "all" is selected)
+  const monthlySupplierSpend = useMemo(() => {
+    if (selectedMonth !== "all") return [];
+    const supplierNames = new Set<string>();
+    const monthMap = new Map<string, Map<string, number>>();
+    
+    invoices.forEach(inv => {
+      const d = new Date(inv.invoice_date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      map.set(key, (map.get(key) || 0) + Number(inv.total_amount));
+      const name = supplierMap.get(inv.supplier_id) || "Unknown";
+      supplierNames.add(name);
+      if (!monthMap.has(key)) monthMap.set(key, new Map());
+      const sm = monthMap.get(key)!;
+      sm.set(name, (sm.get(name) || 0) + Number(inv.total_amount));
+    });
+
+    return Array.from(monthMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, sm]) => {
+        const entry: any = { period: formatMonthLabel(key) };
+        supplierNames.forEach(name => { entry[name] = sm.get(name) || 0; });
+        return entry;
+      });
+  }, [invoices, selectedMonth, supplierMap]);
+
+  // Tree view: supplier totals with invoice breakdown
+  const supplierTree = useMemo(() => {
+    const map = new Map<string, { total: number; supplierId: string; invoices: { date: string; number: string; amount: number }[] }>();
+    filteredInvoices.forEach(inv => {
+      const name = supplierMap.get(inv.supplier_id) || "Unknown";
+      if (!map.has(name)) map.set(name, { total: 0, supplierId: inv.supplier_id, invoices: [] });
+      const entry = map.get(name)!;
+      entry.total += Number(inv.total_amount);
+      entry.invoices.push({
+        date: inv.invoice_date,
+        number: (inv as any).invoice_number || inv.id.slice(0, 8),
+        amount: Number(inv.total_amount),
+      });
     });
     return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, total]) => {
-        const [y, m] = month.split("-");
-        return { month: `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(m) - 1]} ${y.slice(2)}`, total };
-      });
-  }, [filteredInvoices]);
+      .map(([name, data]) => ({
+        name,
+        total: data.total,
+        invoices: data.invoices.sort((a, b) => a.date.localeCompare(b.date)),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [filteredInvoices, supplierMap]);
 
-  // Top products by total spend
-  const topProducts = useMemo(() => {
+  const grandTotal = supplierTree.reduce((s, t) => s + t.total, 0);
+
+  const toggleSupplier = (name: string) => {
+    setExpandedSuppliers(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  // ─── SECTION 2: Expenses by product ───
+  const productExpenses = useMemo(() => {
     const map = new Map<string, number>();
     filteredLineItems.forEach(li => {
       const desc = li.description?.trim() || "Unknown";
       map.set(desc, (map.get(desc) || 0) + Number(li.total));
     });
     return Array.from(map.entries())
-      .map(([name, value]) => ({ name: name.length > 25 ? name.slice(0, 25) + "…" : name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
-  }, [filteredLineItems]);
-
-  // Payment status breakdown
-  const paymentBreakdown = useMemo(() => {
-    const map = new Map<string, number>();
-    filteredInvoices.forEach(inv => {
-      const status = inv.payment_status || "unknown";
-      map.set(status, (map.get(status) || 0) + 1);
-    });
-    return Array.from(map.entries()).map(([name, value]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      value,
-    }));
-  }, [filteredInvoices]);
-
-  // Spend by venue
-  const spendByVenue = useMemo(() => {
-    const map = new Map<string, number>();
-    filteredInvoices.forEach(inv => {
-      const venue = inv.venue || "Unknown";
-      map.set(venue, (map.get(venue) || 0) + Number(inv.total_amount));
-    });
-    return Array.from(map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [filteredInvoices]);
+  }, [filteredLineItems]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-12"><p className="text-muted-foreground">Loading dashboard...</p></div>;
   }
 
+  const chartData = selectedMonth === "all" ? monthlySupplierSpend : dailySupplierSpend;
+  const xKey = selectedMonth === "all" ? "period" : "day";
+
   return (
-    <div className="space-y-4 mt-4">
+    <div className="space-y-6 mt-4">
       {/* Period filter */}
-      <div className="flex justify-end">
-        <Select value={periodFilter} onValueChange={setPeriodFilter}>
-          <SelectTrigger className="w-[160px]">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold font-display">Procurement Analytics</h2>
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Time</SelectItem>
-            <SelectItem value="30d">Last 30 Days</SelectItem>
-            <SelectItem value="90d">Last 90 Days</SelectItem>
-            <SelectItem value="ytd">Year to Date</SelectItem>
+            <SelectItem value="all">All Time (Monthly)</SelectItem>
+            {monthOptions.map(m => (
+              <SelectItem key={m} value={m}>{formatMonthLabel(m)}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPICard icon={DollarSign} label="Total Spend" value={fmt(totalSpend)} />
-        <KPICard icon={FileText} label="Invoices" value={String(invoiceCount)} />
-        <KPICard icon={TrendingUp} label="Avg Invoice" value={fmt(avgInvoiceValue)} />
-        <KPICard icon={TrendingDown} label="Unpaid" value={fmt(unpaidTotal)} accent />
-        <KPICard icon={Package} label="Unique Products" value={String(uniqueProducts)} />
-        <KPICard icon={AlertTriangle} label="Unmatched Items" value={String(unmatchedItems)} accent={unmatchedItems > 0} />
-      </div>
+      {/* ─── 1. Spend per Supplier ─── */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Spend by Supplier</h3>
 
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Monthly Spend Trend */}
+        {/* Time-series chart */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Spend Trend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlySpend}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <Tooltip formatter={(v: number) => [fmt(v), "Spend"]} />
-                  <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Spend by Supplier */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Spend by Supplier</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={spendBySupplier} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={{ strokeWidth: 1 }} fontSize={11}>
-                    {spendBySupplier.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Top Products */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Top 10 Products by Spend</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {selectedMonth === "all" ? "Monthly Spend by Supplier" : `Daily Spend — ${formatMonthLabel(selectedMonth)}`}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topProducts} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                  <XAxis type="number" tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip formatter={(v: number) => [fmt(v), "Spend"]} />
-                  <Bar dataKey="value" fill="hsl(48, 96%, 53%)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis dataKey={xKey} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                    <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                    <Tooltip formatter={(v: number, name: string) => [fmt(v), name]} />
+                    <Legend />
+                    {activeSupplierNames.map((name, i) => (
+                      <Line
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={SUPPLIER_COLORS[i % SUPPLIER_COLORS.length]}
+                        strokeWidth={2}
+                        dot={{ r: 2 }}
+                        connectNulls={false}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data for this period</div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Spend by Venue + Payment Status */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Spend by Venue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[130px]">
+        {/* Tree view totals */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">
+              Supplier Totals {selectedMonth !== "all" && `— ${formatMonthLabel(selectedMonth)}`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {/* Grand total header */}
+              <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40">
+                <span className="text-sm font-semibold">Grand Total</span>
+                <span className="text-sm font-bold font-mono">{fmt(grandTotal)}</span>
+              </div>
+
+              {supplierTree.map((supplier, idx) => {
+                const isExpanded = expandedSuppliers.has(supplier.name);
+                const pct = grandTotal > 0 ? ((supplier.total / grandTotal) * 100).toFixed(1) : "0";
+                return (
+                  <div key={supplier.name}>
+                    {/* Supplier row */}
+                    <button
+                      onClick={() => toggleSupplier(supplier.name)}
+                      className="flex items-center w-full px-4 py-2.5 hover:bg-muted/30 transition-colors text-left"
+                    >
+                      {isExpanded ? <ChevronDown className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />}
+                      <div
+                        className="h-2.5 w-2.5 rounded-full mr-2.5 shrink-0"
+                        style={{ backgroundColor: SUPPLIER_COLORS[idx % SUPPLIER_COLORS.length] }}
+                      />
+                      <span className="text-sm font-medium flex-1">{supplier.name}</span>
+                      <span className="text-xs text-muted-foreground mr-3">{pct}%</span>
+                      <span className="text-sm font-mono font-semibold tabular-nums">{fmt(supplier.total)}</span>
+                    </button>
+
+                    {/* Expanded invoice list */}
+                    {isExpanded && (
+                      <div className="bg-muted/10 border-t border-border">
+                        {supplier.invoices.map((inv, i) => (
+                          <div key={i} className="flex items-center px-4 py-1.5 pl-12 text-xs">
+                            <span className="text-muted-foreground w-24 shrink-0">{inv.date}</span>
+                            <span className="flex-1 text-muted-foreground truncate">{inv.number}</span>
+                            <span className="font-mono tabular-nums">{fmt(inv.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ─── 2. Expenses by Product ─── */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+          Expenses by Product ({productExpenses.length} items)
+        </h3>
+        <Card>
+          <CardContent className="pt-4 pb-2">
+            {productExpenses.length > 0 ? (
+              <div style={{ height: Math.max(400, productExpenses.length * 28) }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={spendByVenue}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                    <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                    <Tooltip formatter={(v: number) => [fmt(v), "Spend"]} />
-                    <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <BarChart data={productExpenses} layout="vertical" margin={{ left: 0, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" horizontal={false} />
+                    <XAxis type="number" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={180}
+                      tick={{ fontSize: 10 }}
+                      className="fill-muted-foreground"
+                      interval={0}
+                    />
+                    <Tooltip
+                      formatter={(v: number) => [fmt(v), "Spend"]}
+                      labelStyle={{ fontWeight: 600 }}
+                    />
+                    <Bar dataKey="value" fill="hsl(48, 96%, 53%)" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Payment Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[130px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={paymentBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={50} label={({ name, value }) => `${name}: ${value}`} fontSize={11}>
-                      {paymentBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            ) : (
+              <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">No product data for this period</div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
-  );
-}
-
-function KPICard({ icon: Icon, label, value, accent }: { icon: any; label: string; value: string; accent?: boolean }) {
-  return (
-    <Card className={accent ? "border-destructive/30" : ""}>
-      <CardContent className="p-3">
-        <div className="flex items-center gap-2 mb-1">
-          <Icon className={`h-3.5 w-3.5 ${accent ? "text-destructive" : "text-muted-foreground"}`} />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">{label}</span>
-        </div>
-        <p className={`text-lg font-bold font-display ${accent ? "text-destructive" : ""}`}>{value}</p>
-      </CardContent>
-    </Card>
   );
 }
