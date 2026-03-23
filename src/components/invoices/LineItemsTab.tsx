@@ -35,8 +35,8 @@ export default function LineItemsTab({ suppliers }: Props) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: items }, { data: invoices }, { data: products }] = await Promise.all([
-        supabase.from("invoice_line_items").select("id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
+      const [items, { data: invoices }, { data: products }] = await Promise.all([
+        fetchAllRows("invoice_line_items", "id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
         supabase.from("invoices").select("id, invoice_number, supplier_id, invoice_date"),
         supabase.from("standard_products").select("id, name"),
       ]);
