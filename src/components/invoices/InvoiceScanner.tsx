@@ -266,7 +266,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
     return lines.map(line => {
       if (!line.matched_sku) {
-        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "" };
+        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
       }
       // Try supplier-scoped match first
       let pmEntry: ProductMasterEntry | undefined;
