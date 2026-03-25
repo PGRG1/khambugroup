@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
@@ -14,14 +15,15 @@ const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
   level1_category: "", level2_category: "", level3_category: "",
   unit: "", unit_cost: "", supplier: "", status: "Active",
-  purchase_unit: "", purchase_unit_cost: "", base_unit_type: "gms", base_unit_qty: "1", cost_per_base_unit: "0",
+  purchase_unit: "", purchase_unit_cost: "",
+  stock_uom: "", stock_qty: "1", cost_per_stock_unit: "0",
+  base_unit_type: "g", base_unit_qty: "1", cost_per_base_unit: "0",
+  notes: "",
 };
 
-// A flattened row: product + one supplier entry
 interface FlatRow {
   product: ProductMasterItem;
   supplier_entry: ProductSupplierEntry | null;
-  // Display fields
   internal_sku: string;
   external_sku: string;
   internal_product_name: string;
@@ -31,13 +33,16 @@ interface FlatRow {
   level3_category: string;
   purchase_unit: string;
   purchase_unit_cost: number;
+  stock_uom: string;
+  stock_qty: number;
+  cost_per_stock_unit: number;
   base_unit_type: string;
   base_unit_qty: number;
   cost_per_base_unit: number;
   supplier: string;
   status: string;
   unit_cost: number;
-  // Unique key for react
+  notes: string;
   rowKey: string;
 }
 
@@ -71,7 +76,6 @@ export default function ProductMasterTab() {
     return [...s].sort();
   }, [products]);
 
-  // Flatten products into rows: one row per product-supplier combo
   const flatRows = useMemo((): FlatRow[] => {
     const rows: FlatRow[] = [];
     for (const p of products) {
@@ -84,8 +88,9 @@ export default function ProductMasterTab() {
             internal_product_name: p.internal_product_name, supplier_product_name: s.supplier_product_name,
             level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
             purchase_unit: s.purchase_unit, purchase_unit_cost: s.purchase_unit_cost,
+            stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: p.cost_per_stock_unit,
             base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
-            supplier: s.supplier, status: p.status, unit_cost: p.unit_cost,
+            supplier: s.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
           });
         }
       } else {
@@ -95,8 +100,9 @@ export default function ProductMasterTab() {
           internal_product_name: p.internal_product_name, supplier_product_name: p.supplier_product_name,
           level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
           purchase_unit: p.purchase_unit, purchase_unit_cost: p.purchase_unit_cost,
+          stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: p.cost_per_stock_unit,
           base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
-          supplier: p.supplier, status: p.status, unit_cost: p.unit_cost,
+          supplier: p.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
         });
       }
     }
@@ -157,26 +163,30 @@ export default function ProductMasterTab() {
       level1_category: row.level1_category, level2_category: row.level2_category, level3_category: row.level3_category,
       unit: row.product.unit, unit_cost: String(row.unit_cost), supplier: row.supplier, status: row.status,
       purchase_unit: row.purchase_unit, purchase_unit_cost: String(row.purchase_unit_cost),
+      stock_uom: row.stock_uom, stock_qty: String(row.stock_qty), cost_per_stock_unit: String(row.cost_per_stock_unit),
       base_unit_type: row.base_unit_type, base_unit_qty: String(row.base_unit_qty),
       cost_per_base_unit: String(row.cost_per_base_unit),
+      notes: row.notes,
     });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     const purchaseUnitCost = parseFloat(form.purchase_unit_cost) || 0;
-    const baseUnitQty = parseFloat(form.base_unit_qty) || 1;
-    const costPerBaseUnit = baseUnitQty > 0 ? purchaseUnitCost / baseUnitQty : 0;
+    const stockQty = parseFloat(form.stock_qty) || 1;
+    const costPerStockUnit = stockQty > 0 ? purchaseUnitCost / stockQty : 0;
+    const recipeQty = parseFloat(form.base_unit_qty) || 1;
+    const costPerRecipeUnit = recipeQty > 0 ? purchaseUnitCost / recipeQty : 0;
 
     if (editingProductId) {
-      // Update product master fields
       await updateProduct(editingProductId, {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
-        base_unit_type: form.base_unit_type, base_unit_qty: baseUnitQty, cost_per_base_unit: costPerBaseUnit,
+        stock_uom: form.stock_uom, stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
+        base_unit_type: form.base_unit_type, base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
+        notes: form.notes,
       });
-      // Update supplier entry if exists
       if (editingSupplierEntryId) {
         await updateSupplier(editingSupplierEntryId, {
           supplier: form.supplier, external_sku: form.external_sku,
@@ -186,13 +196,12 @@ export default function ProductMasterTab() {
       }
       setDialogOpen(false);
     } else {
-      // Create new product + supplier entry
       const data = {
         ...form,
         unit_cost: parseFloat(form.unit_cost) || 0,
         purchase_unit_cost: purchaseUnitCost,
-        base_unit_qty: baseUnitQty,
-        cost_per_base_unit: costPerBaseUnit,
+        stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
+        base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
       };
       const ok = await createProduct(data as any);
       if (ok) setDialogOpen(false);
@@ -202,12 +211,10 @@ export default function ProductMasterTab() {
   const handleDelete = async () => {
     if (!deletingRow) return;
     if (deletingRow.supplier_entry) {
-      // If product has multiple suppliers, just delete this supplier entry
       const supplierCount = deletingRow.product.suppliers?.length || 0;
       if (supplierCount > 1) {
         await deleteSupplier(deletingRow.supplier_entry.id);
       } else {
-        // Last supplier entry — delete the whole product
         await deleteProduct(deletingRow.product.id);
       }
     } else {
@@ -220,10 +227,16 @@ export default function ProductMasterTab() {
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmt4 = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
-  const liveCostPerBase = (() => {
+  const liveCostPerStock = (() => {
     const puc = parseFloat(form.purchase_unit_cost) || 0;
-    const buq = parseFloat(form.base_unit_qty) || 1;
-    return buq > 0 ? puc / buq : 0;
+    const sq = parseFloat(form.stock_qty) || 1;
+    return sq > 0 ? puc / sq : 0;
+  })();
+
+  const liveCostPerRecipe = (() => {
+    const puc = parseFloat(form.purchase_unit_cost) || 0;
+    const rq = parseFloat(form.base_unit_qty) || 1;
+    return rq > 0 ? puc / rq : 0;
   })();
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading products...</div>;
@@ -236,11 +249,14 @@ export default function ProductMasterTab() {
     { key: "level1_category", label: "L1 Category", w: "w-[100px] hidden lg:table-cell" },
     { key: "level2_category", label: "L2 Category", w: "w-[100px] hidden lg:table-cell" },
     { key: "level3_category", label: "L3 Category", w: "w-[110px] hidden md:table-cell" },
-    { key: "purchase_unit", label: "Purch. Unit", w: "w-[80px] hidden lg:table-cell" },
+    { key: "purchase_unit", label: "Purch. UOM", w: "w-[80px] hidden lg:table-cell" },
     { key: "purchase_unit_cost", label: "Purch. Cost", w: "w-[80px]" },
-    { key: "base_unit_type", label: "Base Unit", w: "w-[70px] hidden md:table-cell" },
-    { key: "base_unit_qty", label: "Base Qty", w: "w-[70px] hidden md:table-cell" },
-    { key: "cost_per_base_unit", label: "Cost/Base", w: "w-[80px]" },
+    { key: "stock_uom", label: "Stock UOM", w: "w-[80px] hidden lg:table-cell" },
+    { key: "stock_qty", label: "Stock Qty", w: "w-[70px] hidden lg:table-cell" },
+    { key: "cost_per_stock_unit", label: "Cost/Stock", w: "w-[80px] hidden lg:table-cell" },
+    { key: "base_unit_type", label: "Recipe UOM", w: "w-[80px] hidden md:table-cell" },
+    { key: "base_unit_qty", label: "Recipe Qty", w: "w-[80px] hidden md:table-cell" },
+    { key: "cost_per_base_unit", label: "Cost/Recipe", w: "w-[80px]" },
     { key: "supplier", label: "Supplier", w: "w-[120px] hidden md:table-cell" },
     { key: "status", label: "Status", w: "w-[70px]" },
   ];
@@ -292,14 +308,14 @@ export default function ProductMasterTab() {
           internal_product_name: r.internal_product_name, supplier_product_name: r.supplier_product_name,
           level1_category: r.level1_category, level2_category: r.level2_category, level3_category: r.level3_category,
           purchase_unit: r.purchase_unit, purchase_unit_cost: r.purchase_unit_cost.toFixed(2),
-          base_unit_type: r.base_unit_type, base_unit_qty: r.base_unit_qty,
-          cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
-          supplier: r.supplier, status: r.status,
+          stock_uom: r.stock_uom, stock_qty: r.stock_qty, cost_per_stock_unit: r.cost_per_stock_unit.toFixed(4),
+          recipe_uom: r.base_unit_type, recipe_qty: r.base_unit_qty,
+          cost_per_recipe_unit: r.cost_per_base_unit.toFixed(4),
+          supplier: r.supplier, status: r.status, notes: r.notes,
         })), columns.map(c => ({ key: c.key, label: c.label })), "product_master")} className="h-9"><Download className="h-4 w-4 mr-1" />Download</Button>
         <Button size="sm" onClick={openCreate} className="ml-auto h-9"><Plus className="h-4 w-4 mr-1" />Add Product</Button>
       </div>
 
-      {/* Count */}
       <p className="text-xs text-muted-foreground">Showing {filtered.length} rows ({products.length} unique products)</p>
 
       {/* Table */}
@@ -330,8 +346,11 @@ export default function ProductMasterTab() {
                   <td className="px-3 py-2 hidden md:table-cell">{r.level3_category}</td>
                   <td className="px-3 py-2 hidden lg:table-cell">{r.purchase_unit}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</td>
+                  <td className="px-3 py-2 hidden lg:table-cell">{r.stock_uom}</td>
+                  <td className="px-3 py-2 text-right tabular-nums hidden lg:table-cell">{fmt(r.stock_qty)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums hidden lg:table-cell">{fmt(r.cost_per_stock_unit)}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{r.base_unit_type}</td>
-                  <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{r.base_unit_qty}</td>
+                  <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{fmt(r.base_unit_qty)}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt4(r.cost_per_base_unit)}</td>
                   <td className="px-3 py-2 hidden md:table-cell">{r.supplier}</td>
                   <td className="px-3 py-2">
@@ -366,33 +385,39 @@ export default function ProductMasterTab() {
             <div><Label className="text-xs">L1 Category</Label><Input value={form.level1_category} onChange={e => setForm({ ...form, level1_category: e.target.value })} className="h-9 text-sm" /></div>
             <div><Label className="text-xs">L2 Category</Label><Input value={form.level2_category} onChange={e => setForm({ ...form, level2_category: e.target.value })} className="h-9 text-sm" /></div>
             <div><Label className="text-xs">L3 Category</Label><Input value={form.level3_category} onChange={e => setForm({ ...form, level3_category: e.target.value })} className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">Unit</Label><Input value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">Unit Cost</Label><Input type="number" step="0.01" value={form.unit_cost} onChange={e => setForm({ ...form, unit_cost: e.target.value })} className="h-9 text-sm" /></div>
             <div><Label className="text-xs">Supplier</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} className="h-9 text-sm" /></div>
 
-            {/* Base unit costing fields */}
+            {/* Purchase & Stock */}
             <div className="col-span-2 border-t pt-3 mt-1">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Base Unit Costing (for recipe use)</p>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Purchase & Stock Units</p>
             </div>
-            <div><Label className="text-xs">Purchase Unit</Label><Input value={form.purchase_unit} onChange={e => setForm({ ...form, purchase_unit: e.target.value })} placeholder="e.g. case, bottle, pack" className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">Purchase Unit Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
-            <div>
-              <Label className="text-xs">Base Unit Type</Label>
-              <Select value={form.base_unit_type} onValueChange={v => setForm({ ...form, base_unit_type: v })}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gms">gms</SelectItem>
-                  <SelectItem value="mls">mls</SelectItem>
-                  <SelectItem value="ea/pcs">ea/pcs</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div><Label className="text-xs">Base Unit Quantity</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
+            <div><Label className="text-xs">Purchase UOM</Label><Input value={form.purchase_unit} onChange={e => setForm({ ...form, purchase_unit: e.target.value })} placeholder="e.g. Case, Pack, Bag" className="h-9 text-sm" /></div>
+            <div><Label className="text-xs">Purchase Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
+            <div><Label className="text-xs">Stock UOM</Label><Input value={form.stock_uom} onChange={e => setForm({ ...form, stock_uom: e.target.value })} placeholder="e.g. Case, Bottle, Pack" className="h-9 text-sm" /></div>
+            <div><Label className="text-xs">Stock Qty</Label><Input type="number" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm" /></div>
             <div className="col-span-2">
               <p className="text-xs text-muted-foreground">
-                Cost per Base Unit: <span className="font-mono font-semibold">${fmt4(liveCostPerBase)}</span>
-                <span className="ml-2 text-muted-foreground/70">(Purchase Unit Cost ÷ Base Unit Qty)</span>
+                Cost per Stock Unit: <span className="font-mono font-semibold">${fmt(liveCostPerStock)}</span>
+                <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
               </p>
+            </div>
+
+            {/* Recipe units */}
+            <div className="col-span-2 border-t pt-3 mt-1">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
+            </div>
+            <div><Label className="text-xs">Recipe UOM</Label><Input value={form.base_unit_type} onChange={e => setForm({ ...form, base_unit_type: e.target.value })} placeholder="e.g. g, ml, ea" className="h-9 text-sm" /></div>
+            <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
+            <div className="col-span-2">
+              <p className="text-xs text-muted-foreground">
+                Standard Cost per Recipe Unit: <span className="font-mono font-semibold">${fmt4(liveCostPerRecipe)}</span>
+                <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Recipe Qty)</span>
+              </p>
+            </div>
+
+            <div className="col-span-2 border-t pt-3 mt-1">
+              <Label className="text-xs">Notes</Label>
+              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-16" />
             </div>
 
             <div>
