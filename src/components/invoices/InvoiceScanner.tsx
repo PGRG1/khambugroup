@@ -383,6 +383,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               matched_sku: matchedSku,
               matched_internal_name: pmData.internal_name,
               matched_stock_uom: pmData.stock_uom,
+              matched_purchase_uom: pmData.purchase_uom,
+              matched_stock_qty_ratio: pmData.stock_qty_ratio,
             };
           }),
           productMaster,
