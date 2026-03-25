@@ -1352,6 +1352,7 @@ export type Database = {
           base_unit_qty: number
           base_unit_type: string
           cost_per_base_unit: number
+          cost_per_stock_unit: number
           created_at: string
           external_sku: string
           id: string
@@ -1360,9 +1361,12 @@ export type Database = {
           level1_category: string
           level2_category: string
           level3_category: string
+          notes: string | null
           purchase_unit: string
           purchase_unit_cost: number
           status: string
+          stock_qty: number
+          stock_uom: string
           supplier: string
           supplier_product_name: string
           unit: string
@@ -1373,6 +1377,7 @@ export type Database = {
           base_unit_qty?: number
           base_unit_type?: string
           cost_per_base_unit?: number
+          cost_per_stock_unit?: number
           created_at?: string
           external_sku?: string
           id?: string
@@ -1381,9 +1386,12 @@ export type Database = {
           level1_category?: string
           level2_category?: string
           level3_category?: string
+          notes?: string | null
           purchase_unit?: string
           purchase_unit_cost?: number
           status?: string
+          stock_qty?: number
+          stock_uom?: string
           supplier?: string
           supplier_product_name?: string
           unit?: string
@@ -1394,6 +1402,7 @@ export type Database = {
           base_unit_qty?: number
           base_unit_type?: string
           cost_per_base_unit?: number
+          cost_per_stock_unit?: number
           created_at?: string
           external_sku?: string
           id?: string
@@ -1402,9 +1411,12 @@ export type Database = {
           level1_category?: string
           level2_category?: string
           level3_category?: string
+          notes?: string | null
           purchase_unit?: string
           purchase_unit_cost?: number
           status?: string
+          stock_qty?: number
+          stock_uom?: string
           supplier?: string
           supplier_product_name?: string
           unit?: string
