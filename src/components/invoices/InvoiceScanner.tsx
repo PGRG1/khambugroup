@@ -280,7 +280,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       }
       if (!pmEntry) pmEntry = pm.find(p => p.internal_sku === line.matched_sku);
       if (!pmEntry) {
-        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "" };
+        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
       }
 
       const scannedCode = (line.item_code || "").trim().toLowerCase();
