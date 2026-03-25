@@ -111,7 +111,7 @@ interface InvoiceScannerProps {
 const emptyLine: ScannedLineItem = {
   item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "",
   unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "",
-  matched_internal_name: "", matched_stock_uom: "",
+  matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
   unmatched: false, price_changed: false,
 };
 
