@@ -490,6 +490,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         matched_sku: product.internal_sku,
         matched_internal_name: product.internal_product_name || "",
         matched_stock_uom: product.stock_uom || "",
+        matched_purchase_uom: product.purchase_unit || "",
+        matched_stock_qty_ratio: product.stock_qty ?? 1,
       };
       const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
       lines[i] = flagged[0];
