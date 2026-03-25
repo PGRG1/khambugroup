@@ -1028,13 +1028,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                           )}
                         </div>
                       </td>
-                      {/* Purchase UOM - editable */}
+                      {/* Purchase UOM - read-only from PM */}
                       <td className="px-1 py-1 align-top">
                         <Input
-                          value={line.unit}
-                          onChange={(e) => updateLine(i, "unit", e.target.value)}
-                          placeholder="UOM"
-                          className="text-xs h-8"
+                          value={line.matched_purchase_uom}
+                          readOnly
+                          tabIndex={-1}
+                          className="text-xs bg-muted/50 cursor-default h-8"
+                          placeholder="—"
                         />
                       </td>
                       {/* Purchase Qty - editable */}
@@ -1053,6 +1054,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                           readOnly
                           tabIndex={-1}
                           className="text-xs bg-muted/50 cursor-default h-8"
+                          placeholder="—"
+                        />
+                      </td>
+                      {/* Stock Qty - auto-calculated: Purchase Qty × PM stock_qty */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
+                          readOnly
+                          tabIndex={-1}
+                          className="text-xs bg-muted/50 cursor-default h-8 font-mono"
                           placeholder="—"
                         />
                       </td>
