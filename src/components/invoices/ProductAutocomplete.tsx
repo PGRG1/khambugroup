@@ -10,6 +10,8 @@ interface ProductMasterEntry {
   supplier_product_name: string;
   purchase_unit_cost?: number;
   supplier?: string;
+  purchase_unit?: string;
+  stock_uom?: string;
 }
 
 interface ProductAutocompleteProps {
