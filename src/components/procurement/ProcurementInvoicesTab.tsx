@@ -67,6 +67,7 @@ export default function ProcurementInvoicesTab() {
               supplier: s.supplier || "",
               purchase_unit: s.purchase_unit || p.purchase_unit || "",
               stock_uom: p.stock_uom || "",
+              stock_qty: p.stock_qty ?? 1,
             });
           }
         } else {
