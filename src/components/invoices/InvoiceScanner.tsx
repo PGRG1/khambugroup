@@ -944,17 +944,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full text-xs border-collapse min-w-[1100px]">
+            <table className="w-full text-xs border-collapse min-w-[1200px]">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Internal SKU</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">External Name</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Purch. UOM</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[60px]">Purch. Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[65px]">Stock Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Cost</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[80px]">Total</th>
                   <th className="w-8"></th>
