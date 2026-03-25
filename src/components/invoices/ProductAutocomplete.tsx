@@ -12,6 +12,7 @@ interface ProductMasterEntry {
   supplier?: string;
   purchase_unit?: string;
   stock_uom?: string;
+  stock_qty?: number;
 }
 
 interface ProductAutocompleteProps {
