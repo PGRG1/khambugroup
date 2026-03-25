@@ -53,6 +53,8 @@ interface ScannedLineItem {
   matched_sku: string;
   matched_internal_name: string;
   matched_stock_uom: string;
+  matched_purchase_uom: string;
+  matched_stock_qty_ratio: number;
   sku_mismatch?: boolean;
   unmatched?: boolean;
   price_changed?: boolean;
