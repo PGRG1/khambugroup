@@ -36,6 +36,7 @@ interface ProductMasterEntry {
   supplier?: string;
   purchase_unit?: string;
   stock_uom?: string;
+  stock_qty?: number;
 }
 
 interface ScannedLineItem {
@@ -52,6 +53,8 @@ interface ScannedLineItem {
   matched_sku: string;
   matched_internal_name: string;
   matched_stock_uom: string;
+  matched_purchase_uom: string;
+  matched_stock_qty_ratio: number;
   sku_mismatch?: boolean;
   unmatched?: boolean;
   price_changed?: boolean;
@@ -108,7 +111,7 @@ interface InvoiceScannerProps {
 const emptyLine: ScannedLineItem = {
   item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "",
   unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "",
-  matched_internal_name: "", matched_stock_uom: "",
+  matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
   unmatched: false, price_changed: false,
 };
 
@@ -245,8 +248,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
   // Resolve PM data for a matched line
   const resolvePMData = useCallback((matchedSku: string, pm: ProductMasterEntry[] | undefined, supplierName?: string) => {
-    if (!pm || !matchedSku) return { internal_name: "", stock_uom: "" };
-    // Try supplier-scoped match first
+    if (!pm || !matchedSku) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1 };
     if (supplierName) {
       const normSupplier = normalizeSupplierName(supplierName);
       const supplierMatch = pm.find(p => p.internal_sku === matchedSku && p.supplier && (
@@ -254,17 +256,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         normalizeSupplierName(p.supplier).includes(normSupplier) ||
         normSupplier.includes(normalizeSupplierName(p.supplier))
       ));
-      if (supplierMatch) return { internal_name: supplierMatch.internal_product_name, stock_uom: supplierMatch.stock_uom || "" };
+      if (supplierMatch) return { internal_name: supplierMatch.internal_product_name, stock_uom: supplierMatch.stock_uom || "", purchase_uom: supplierMatch.purchase_unit || "", stock_qty_ratio: supplierMatch.stock_qty ?? 1 };
     }
     const entry = pm.find(p => p.internal_sku === matchedSku);
-    return { internal_name: entry?.internal_product_name || "", stock_uom: entry?.stock_uom || "" };
+    return { internal_name: entry?.internal_product_name || "", stock_uom: entry?.stock_uom || "", purchase_uom: entry?.purchase_unit || "", stock_qty_ratio: entry?.stock_qty ?? 1 };
   }, []);
 
   const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
     if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
     return lines.map(line => {
       if (!line.matched_sku) {
-        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "" };
+        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
       }
       // Try supplier-scoped match first
       let pmEntry: ProductMasterEntry | undefined;
@@ -278,7 +280,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       }
       if (!pmEntry) pmEntry = pm.find(p => p.internal_sku === line.matched_sku);
       if (!pmEntry) {
-        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "" };
+        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
       }
 
       const scannedCode = (line.item_code || "").trim().toLowerCase();
@@ -289,15 +291,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const pmPrice = pmEntry.purchase_unit_cost ?? 0;
       const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
 
-      return {
-        ...line,
-        sku_mismatch: skuMismatch,
-        unmatched: false,
-        price_changed: priceChanged,
-        pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
-        matched_internal_name: pmEntry.internal_product_name || "",
-        matched_stock_uom: pmEntry.stock_uom || "",
-      };
+        return {
+          ...line,
+          sku_mismatch: skuMismatch,
+          unmatched: false,
+          price_changed: priceChanged,
+          pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+          matched_internal_name: pmEntry.internal_product_name || "",
+          matched_stock_uom: pmEntry.stock_uom || "",
+          matched_purchase_uom: pmEntry.purchase_unit || "",
+          matched_stock_qty_ratio: pmEntry.stock_qty ?? 1,
+        };
     });
   }, []);
 
@@ -379,6 +383,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               matched_sku: matchedSku,
               matched_internal_name: pmData.internal_name,
               matched_stock_uom: pmData.stock_uom,
+              matched_purchase_uom: pmData.purchase_uom,
+              matched_stock_qty_ratio: pmData.stock_qty_ratio,
             };
           }),
           productMaster,
@@ -484,6 +490,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         matched_sku: product.internal_sku,
         matched_internal_name: product.internal_product_name || "",
         matched_stock_uom: product.stock_uom || "",
+        matched_purchase_uom: product.purchase_unit || "",
+        matched_stock_qty_ratio: product.stock_qty ?? 1,
       };
       const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
       lines[i] = flagged[0];
@@ -936,17 +944,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full text-xs border-collapse min-w-[1100px]">
+            <table className="w-full text-xs border-collapse min-w-[1200px]">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Internal SKU</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">External Name</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Purch. UOM</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[60px]">Purch. Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[65px]">Stock Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Cost</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[80px]">Total</th>
                   <th className="w-8"></th>
@@ -1019,13 +1028,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                           )}
                         </div>
                       </td>
-                      {/* Purchase UOM - editable */}
+                      {/* Purchase UOM - read-only from PM */}
                       <td className="px-1 py-1 align-top">
                         <Input
-                          value={line.unit}
-                          onChange={(e) => updateLine(i, "unit", e.target.value)}
-                          placeholder="UOM"
-                          className="text-xs h-8"
+                          value={line.matched_purchase_uom}
+                          readOnly
+                          tabIndex={-1}
+                          className="text-xs bg-muted/50 cursor-default h-8"
+                          placeholder="—"
                         />
                       </td>
                       {/* Purchase Qty - editable */}
@@ -1044,6 +1054,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
                           readOnly
                           tabIndex={-1}
                           className="text-xs bg-muted/50 cursor-default h-8"
+                          placeholder="—"
+                        />
+                      </td>
+                      {/* Stock Qty - auto-calculated: Purchase Qty × PM stock_qty */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
+                          readOnly
+                          tabIndex={-1}
+                          className="text-xs bg-muted/50 cursor-default h-8 font-mono"
                           placeholder="—"
                         />
                       </td>

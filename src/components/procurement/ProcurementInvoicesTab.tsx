@@ -46,7 +46,7 @@ export default function ProcurementInvoicesTab() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from("product_master" as any).select("id, internal_sku, internal_product_name, purchase_unit, stock_uom"),
+      supabase.from("product_master" as any).select("id, internal_sku, internal_product_name, purchase_unit, stock_uom, stock_qty"),
       supabase.from("product_suppliers" as any).select("product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit"),
     ]).then(([pmRes, psRes]) => {
       const pm = (pmRes.data || []) as any[];
@@ -67,6 +67,7 @@ export default function ProcurementInvoicesTab() {
               supplier: s.supplier || "",
               purchase_unit: s.purchase_unit || p.purchase_unit || "",
               stock_uom: p.stock_uom || "",
+              stock_qty: p.stock_qty ?? 1,
             });
           }
         } else {
@@ -80,6 +81,7 @@ export default function ProcurementInvoicesTab() {
             supplier: "",
             purchase_unit: p.purchase_unit || "",
             stock_uom: p.stock_uom || "",
+            stock_qty: p.stock_qty ?? 1,
           });
         }
       }
