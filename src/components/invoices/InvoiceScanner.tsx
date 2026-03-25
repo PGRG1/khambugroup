@@ -34,6 +34,8 @@ interface ProductMasterEntry {
   supplier_product_name: string;
   purchase_unit_cost?: number;
   supplier?: string;
+  purchase_unit?: string;
+  stock_uom?: string;
 }
 
 interface ScannedLineItem {
@@ -48,6 +50,8 @@ interface ScannedLineItem {
   tax_amount: string;
   total: string;
   matched_sku: string;
+  matched_internal_name: string;
+  matched_stock_uom: string;
   sku_mismatch?: boolean;
   unmatched?: boolean;
   price_changed?: boolean;
@@ -62,6 +66,7 @@ interface ScannedInvoice {
   invoice_date: string;
   due_date: string;
   notes: string;
+  invoice_status: string;
   line_items: ScannedLineItem[];
   saved?: boolean;
   sourceFiles?: File[];
@@ -100,7 +105,12 @@ interface InvoiceScannerProps {
   userId: string;
 }
 
-const emptyLine: ScannedLineItem = { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "", unmatched: false, price_changed: false };
+const emptyLine: ScannedLineItem = {
+  item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "",
+  unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "",
+  matched_internal_name: "", matched_stock_uom: "",
+  unmatched: false, price_changed: false,
+};
 
 const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
@@ -113,7 +123,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
-  // duplicateConfirm state removed — duplicates are now blocked entirely
 
   const current = invoices[currentIdx] || null;
 
@@ -161,6 +170,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     return options;
   }, [current?.supplier_id, productMaster, suppliers]);
 
+  // Filter product master by current supplier context
+  const supplierFilteredPM = useMemo(() => {
+    if (!productMaster || !current) return productMaster || [];
+    const supplierName = current.supplier_name || "";
+    if (!supplierName) return productMaster;
+    const normSupplier = normalizeSupplierName(supplierName);
+    const filtered = productMaster.filter((p) => {
+      if (!p.supplier) return false;
+      const normPM = normalizeSupplierName(p.supplier);
+      return normPM === normSupplier || normPM.includes(normSupplier) || normSupplier.includes(normPM);
+    });
+    // If no matches found for this supplier, fall back to full list
+    return filtered.length > 0 ? filtered : productMaster;
+  }, [productMaster, current?.supplier_name]);
+
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -174,23 +198,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const matchOrCreateSupplier = useCallback(async (supplierName: string): Promise<string> => {
     if (!supplierName) return "";
     const normalised = supplierName.trim().toLowerCase();
-    // 1. Exact match
     const exactMatch = suppliers.find((s) => s.name.toLowerCase() === normalised);
     if (exactMatch) return exactMatch.id;
-    // 2. Normalized match (strip Ltd/Co etc.)
     const normInput = normalizeSupplierName(supplierName);
     const normMatch = suppliers.find((s) => normalizeSupplierName(s.name) === normInput);
     if (normMatch) return normMatch.id;
-    // 3. Partial contains match (both directions)
     const partialMatch = suppliers.find((s) => {
       const ns = normalizeSupplierName(s.name);
       return ns.includes(normInput) || normInput.includes(ns);
     });
     if (partialMatch) return partialMatch.id;
-    // 4. Check batch-created suppliers
     const batchMatch = batchCreatedSuppliers.current.get(normalised);
     if (batchMatch) return batchMatch;
-    // 5. Create new supplier
     const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
     if (created?.id) {
       batchCreatedSuppliers.current.set(normalised, created.id);
@@ -198,7 +217,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     return created?.id || "";
   }, [suppliers, onCreateSupplier]);
 
-  // Check for duplicate invoices in the database
   const checkDuplicates = useCallback(async (invoicesToCheck: ScannedInvoice[]) => {
     const updates: { idx: number; isDuplicate: boolean; date?: string }[] = [];
     for (let i = 0; i < invoicesToCheck.length; i++) {
@@ -225,25 +243,48 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     }
   }, []);
 
-  // Flag SKU mismatches, unmatched items, and price changes after scanning
-  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined): ScannedLineItem[] => {
+  // Resolve PM data for a matched line
+  const resolvePMData = useCallback((matchedSku: string, pm: ProductMasterEntry[] | undefined, supplierName?: string) => {
+    if (!pm || !matchedSku) return { internal_name: "", stock_uom: "" };
+    // Try supplier-scoped match first
+    if (supplierName) {
+      const normSupplier = normalizeSupplierName(supplierName);
+      const supplierMatch = pm.find(p => p.internal_sku === matchedSku && p.supplier && (
+        normalizeSupplierName(p.supplier) === normSupplier ||
+        normalizeSupplierName(p.supplier).includes(normSupplier) ||
+        normSupplier.includes(normalizeSupplierName(p.supplier))
+      ));
+      if (supplierMatch) return { internal_name: supplierMatch.internal_product_name, stock_uom: supplierMatch.stock_uom || "" };
+    }
+    const entry = pm.find(p => p.internal_sku === matchedSku);
+    return { internal_name: entry?.internal_product_name || "", stock_uom: entry?.stock_uom || "" };
+  }, []);
+
+  const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
     if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
     return lines.map(line => {
-      // Flag unmatched items
       if (!line.matched_sku) {
-        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false };
+        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "" };
       }
-      const pmEntry = pm.find(p => p.internal_sku === line.matched_sku);
+      // Try supplier-scoped match first
+      let pmEntry: ProductMasterEntry | undefined;
+      if (supplierName) {
+        const normSupplier = normalizeSupplierName(supplierName);
+        pmEntry = pm.find(p => p.internal_sku === line.matched_sku && p.supplier && (
+          normalizeSupplierName(p.supplier) === normSupplier ||
+          normalizeSupplierName(p.supplier).includes(normSupplier) ||
+          normSupplier.includes(normalizeSupplierName(p.supplier))
+        ));
+      }
+      if (!pmEntry) pmEntry = pm.find(p => p.internal_sku === line.matched_sku);
       if (!pmEntry) {
-        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false };
+        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "" };
       }
 
-      // SKU mismatch check
       const scannedCode = (line.item_code || "").trim().toLowerCase();
       const pmExtSku = (pmEntry.external_sku || "").trim().toLowerCase();
       const skuMismatch = !!(scannedCode && pmExtSku && scannedCode !== pmExtSku);
 
-      // Price change detection
       const scannedPrice = parseFloat(line.unit_price) || 0;
       const pmPrice = pmEntry.purchase_unit_cost ?? 0;
       const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
@@ -254,6 +295,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         unmatched: false,
         price_changed: priceChanged,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+        matched_internal_name: pmEntry.internal_product_name || "",
+        matched_stock_uom: pmEntry.stock_uom || "",
       };
     });
   }, []);
@@ -319,20 +362,27 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         const supplierName = raw?.supplier_name || "";
         const supplierId = await matchOrCreateSupplier(supplierName);
         const lineItems = flagLineItemIssues(
-          (raw?.line_items || []).map((li: any) => ({
-            item_code: li?.item_code || "",
-            description: li?.description || "",
-            pack_size: li?.pack_size || "",
-            quantity: String(li?.quantity ?? "1"),
-            unit: li?.unit || "",
-            weight: li?.weight != null ? String(li.weight) : "",
-            unit_price: String(li?.unit_price ?? "0"),
-            discount: String(li?.discount ?? "0"),
-            tax_amount: String(li?.tax_amount ?? "0"),
-            total: String(li?.total ?? "0"),
-            matched_sku: li?.matched_sku || "",
-          })),
-          productMaster
+          (raw?.line_items || []).map((li: any) => {
+            const matchedSku = li?.matched_sku || "";
+            const pmData = resolvePMData(matchedSku, productMaster, supplierName);
+            return {
+              item_code: li?.item_code || "",
+              description: li?.description || "",
+              pack_size: li?.pack_size || "",
+              quantity: String(li?.quantity ?? "1"),
+              unit: li?.unit || "",
+              weight: li?.weight != null ? String(li.weight) : "",
+              unit_price: String(li?.unit_price ?? "0"),
+              discount: String(li?.discount ?? "0"),
+              tax_amount: String(li?.tax_amount ?? "0"),
+              total: String(li?.total ?? "0"),
+              matched_sku: matchedSku,
+              matched_internal_name: pmData.internal_name,
+              matched_stock_uom: pmData.stock_uom,
+            };
+          }),
+          productMaster,
+          supplierName
         );
 
         parsedInvoices.push({
@@ -343,6 +393,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           invoice_date: raw?.invoice_date || "",
           due_date: raw?.due_date || "",
           notes: "",
+          invoice_status: "Outstanding",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
@@ -362,7 +413,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
-  }, [checkDuplicates, flagLineItemIssues, matchOrCreateSupplier, processFile, productMaster, userId]);
+  }, [checkDuplicates, flagLineItemIssues, matchOrCreateSupplier, processFile, productMaster, resolvePMData, userId]);
 
   const updateField = (field: keyof ScannedInvoice, value: string) => {
     setInvoices((prev) => {
@@ -411,9 +462,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         const tax = parseFloat(line.tax_amount) || 0;
         line.total = String(((w ? w * price : qty * price) - disc + tax).toFixed(2));
       }
-      // Re-evaluate flags when key fields change
       if (["item_code", "unit_price", "matched_sku", "description"].includes(field)) {
-        const flagged = flagLineItemIssues([line], productMaster);
+        const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
         lines[i] = flagged[0];
       } else {
         lines[i] = line;
@@ -423,7 +473,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     });
   };
 
-  const selectProduct = (i: number, product: { id: string; internal_sku: string; external_sku: string; internal_product_name: string; supplier_product_name: string; purchase_unit_cost?: number }) => {
+  const selectProduct = (i: number, product: ProductMasterEntry) => {
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
@@ -432,8 +482,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         item_code: product.external_sku || "",
         description: product.supplier_product_name || product.internal_product_name,
         matched_sku: product.internal_sku,
+        matched_internal_name: product.internal_product_name || "",
+        matched_stock_uom: product.stock_uom || "",
       };
-      const flagged = flagLineItemIssues([line], productMaster);
+      const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
       lines[i] = flagged[0];
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
@@ -466,82 +518,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
   const calculatedTotal = subtotal + taxTotal;
 
-  // Check if current supplier is Beverage World for rounding
   const currentSupplierName = current ? (suppliers.find(s => s.id === current.supplier_id)?.name || "") : "";
   const isBeverageWorld = currentSupplierName.toLowerCase().includes("beverage world");
-
-  // Display total: round for Beverage World, 2dp for others
   const displayTotal = isBeverageWorld ? Math.round(calculatedTotal) : parseFloat(calculatedTotal.toFixed(2));
 
-  // Total mismatch detection
   const aiTotal = current?.ai_total;
   const totalMismatch = aiTotal !== undefined && Math.abs(aiTotal - calculatedTotal) > 0.50;
 
-  const saveInvoice = async (inv: ScannedInvoice): Promise<boolean> => {
-    if (!inv.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return false; }
-    if (!inv.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return false; }
-    if (!inv.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return false; }
-
-    // Check for duplicate before saving
-    const { data: existingInvoices } = await supabase
-      .from("invoices")
-      .select("id, invoice_date")
-      .eq("invoice_number", inv.invoice_number)
-      .eq("supplier_id", inv.supplier_id)
-      .limit(1);
-
-    if (existingInvoices && existingInvoices.length > 0 && !inv.saved) {
-      // Return false and trigger confirmation dialog
-      return false;
-    }
-
-    const supplierName = suppliers.find(s => s.id === inv.supplier_id)?.name || "";
-    const isBW = supplierName.toLowerCase().includes("beverage world");
-
-    const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
-      const qty = parseFloat(l.quantity) || 0;
-      const price = parseFloat(l.unit_price) || 0;
-      const disc = parseFloat(l.discount) || 0;
-      const tax = parseFloat(l.tax_amount) || 0;
-      const w = l.weight ? parseFloat(l.weight) : null;
-      const lineTotal = parseFloat(((w ? w * price : qty * price) - disc + tax).toFixed(2));
-      let pmId: string | null = null;
-      if (l.matched_sku && productMaster) {
-        const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
-        if (pm) pmId = pm.id;
-      }
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
-    });
-
-    const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
-    const vendorName = (suppliers.find((s) => s.id === inv.supplier_id)?.name || "unknown")
-      .trim().replace(/[^a-zA-Z0-9\u4e00-\u9fff]+/g, "_").replace(/_+$/, "");
-    const invNum = (inv.invoice_number || "no-number").trim().replace(/[^a-zA-Z0-9]+/g, "_");
-    const professionalName = `${dateStr}_${vendorName}_${invNum}`;
-
-    const filesToSave = (inv.sourceFiles || []).map((f, idx) => {
-      const ext = f.name.split(".").pop() || "jpg";
-      const suffix = (inv.sourceFiles || []).length > 1 ? `_page${idx + 1}` : "";
-      return new File([f], `${professionalName}${suffix}.${ext}`, { type: f.type });
-    });
-
-    await onSave(
-      {
-        supplier_id: inv.supplier_id,
-        venue: inv.venue,
-        invoice_number: inv.invoice_number,
-        invoice_date: inv.invoice_date,
-        due_date: inv.due_date || null,
-        notes: inv.notes || null,
-      },
-      lines,
-      filesToSave.length > 0 ? filesToSave : undefined
-    );
-    return true;
-  };
-
   const doSaveCurrent = async (inv: ScannedInvoice, idx: number, skipDuplicateCheck = false) => {
-    // Block duplicates entirely — no "Save Anyway"
     if (!skipDuplicateCheck) {
       const { data: existingInvoices } = await supabase
         .from("invoices")
@@ -558,8 +542,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
     setSaving(true);
     try {
-      // Temporarily mark as saved to bypass duplicate check in saveInvoice
-      const invToSave = { ...inv, saved: true };
+      const supplierName = suppliers.find(s => s.id === inv.supplier_id)?.name || "";
+      const isBW = supplierName.toLowerCase().includes("beverage world");
+
       const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
         const qty = parseFloat(l.quantity) || 0;
         const price = parseFloat(l.unit_price) || 0;
@@ -617,6 +602,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
   const handleSaveCurrent = async () => {
     if (!current) return;
+    if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
+    if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
+    if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
     await doSaveCurrent(current, currentIdx);
   };
 
@@ -687,6 +675,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     return () => { newThumbs.forEach((url) => URL.revokeObjectURL(url)); };
   }, [pendingFiles]);
 
+  // Status badge color helper
+  const statusBadgeClass = (status: string) => {
+    switch (status) {
+      case "Paid": return "bg-green-100 text-green-800 border-green-300";
+      case "Outstanding": return "bg-amber-100 text-amber-800 border-amber-300";
+      case "Under Review": return "bg-blue-100 text-blue-800 border-blue-300";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
   return (
     <div className="card-glass rounded-xl p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
@@ -731,19 +729,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             </p>
           </div>
 
-          {/* Pending files strip */}
           {pendingFiles.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
                   {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
                 </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs h-6"
-                  onClick={() => setPendingFiles([])}
-                >
+                <Button variant="ghost" size="sm" className="text-xs h-6" onClick={() => setPendingFiles([])}>
                   Clear all
                 </Button>
               </div>
@@ -778,11 +770,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               <div className="text-center">
                 <span className="text-xs text-muted-foreground">or</span>
               </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setShowCamera(true)}
-              >
+              <Button variant="outline" className="w-full" onClick={() => setShowCamera(true)}>
                 <Camera className="h-4 w-4 mr-2" />
                 Take Photos with Camera
               </Button>
@@ -841,7 +829,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             </div>
           )}
 
-          {/* Duplicate warning banner */}
+          {/* Warning banners */}
           {current.is_duplicate && !current.saved && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -852,7 +840,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             </div>
           )}
 
-          {/* Total mismatch warning banner */}
           {totalMismatch && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -862,17 +849,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             </div>
           )}
 
-          {/* Unmatched items warning */}
           {hasUnmatchedItems && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Product Master</strong> — review required. These items could not be linked to any product in the master list.
+                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Product Master</strong> — review required.
               </span>
             </div>
           )}
 
-          {/* SKU mismatch warning */}
           {hasSkuMismatches && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -882,7 +867,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             </div>
           )}
 
-          {/* Price change warning */}
           {hasPriceChanges && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -894,7 +878,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
           <p className="text-sm text-muted-foreground">Review and correct the extracted data, then save.</p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {/* Header fields */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs">Supplier</Label>
               <Select value={current.supplier_id} onValueChange={handleSupplierChange}>
@@ -922,6 +907,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               <Input value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
             </div>
             <div>
+              <Label className="text-xs">Status</Label>
+              <Select value={current.invoice_status} onValueChange={(v) => updateField("invoice_status", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Outstanding">Outstanding</SelectItem>
+                  <SelectItem value="Paid">Paid</SelectItem>
+                  <SelectItem value="Under Review">Under Review</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-xs">Invoice Date</Label>
               <Input type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
             </div>
@@ -929,104 +927,168 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               <Label className="text-xs">Due Date</Label>
               <Input type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <Label className="text-xs">Notes</Label>
               <Textarea value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
             </div>
           </div>
 
+          {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
-          <div className="space-y-2">
-            {current.line_items.map((line, i) => (
-              <div key={i} className={`grid grid-cols-[28px_80px_1fr_90px_55px_55px_65px_80px_70px_70px_80px_32px] gap-1 items-end ${line.unmatched ? "bg-destructive/10 rounded-md p-1 -mx-1 border border-destructive/30" : line.sku_mismatch ? "bg-amber-500/10 rounded-md p-1 -mx-1" : line.price_changed ? "bg-blue-500/10 rounded-md p-1 -mx-1 border border-blue-500/30" : ""}`}>
-                <div>
-                  {i === 0 && <Label className="text-xs">#</Label>}
-                  <span className="flex items-center justify-center h-9 text-xs text-muted-foreground font-medium">{i + 1}</span>
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Code</Label>}
-                  <div className="relative">
-                    <ProductAutocomplete
-                      value={line.item_code}
-                      onChange={(v) => updateLine(i, "item_code", v)}
-                      onSelect={(p) => selectProduct(i, p)}
-                      products={productMaster || []}
-                      searchField="code"
-                      placeholder="Code"
-                      className={`text-xs ${line.sku_mismatch ? "border-amber-500" : ""}`}
-                    />
-                    {line.sku_mismatch && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" title="SKU mismatch with Product Master" />
-                    )}
-                  </div>
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Description</Label>}
-                  <div className="relative">
-                    <ProductAutocomplete
-                      value={line.description}
-                      onChange={(v) => updateLine(i, "description", v)}
-                      onSelect={(p) => selectProduct(i, p)}
-                      products={productMaster || []}
-                      searchField="name"
-                      placeholder="Item"
-                      className="text-xs"
-                    />
-                    {line.unmatched && (
-                      <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
-                    )}
-                    {line.price_changed && line.pm_unit_price !== undefined && (
-                      <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-blue-500 text-white">Price Δ</Badge>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Pack Size</Label>}
-                  <Input value={line.pack_size} onChange={(e) => updateLine(i, "pack_size", e.target.value)} placeholder="4X4LB" className="text-xs" />
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Qty</Label>}
-                  <Input type="number" value={line.quantity} onChange={(e) => updateLine(i, "quantity", e.target.value)} className="text-xs" />
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Unit</Label>}
-                  <Input value={line.unit} onChange={(e) => updateLine(i, "unit", e.target.value)} placeholder="CTN" className="text-xs" />
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Weight</Label>}
-                  <Input type="number" value={line.weight} onChange={(e) => updateLine(i, "weight", e.target.value)} placeholder="KG" className="text-xs" />
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Unit Price</Label>}
-                  <div className="relative">
-                    <Input type="number" value={line.unit_price} onChange={(e) => updateLine(i, "unit_price", e.target.value)} className={`text-xs ${line.price_changed ? "border-blue-500" : ""}`} />
-                    {line.price_changed && line.pm_unit_price !== undefined && (
-                      <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5">was ${line.pm_unit_price.toFixed(2)}</span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Discount</Label>}
-                  <Input type="number" value={line.discount} onChange={(e) => updateLine(i, "discount", e.target.value)} className="text-xs" />
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Tax</Label>}
-                  <Input type="number" value={line.tax_amount} onChange={(e) => updateLine(i, "tax_amount", e.target.value)} className="text-xs" />
-                </div>
-                <div>
-                  {i === 0 && <Label className="text-xs">Total</Label>}
-                  <Input type="number" value={line.total} onChange={(e) => updateLine(i, "total", e.target.value)} className="text-xs font-medium" />
-                </div>
-                <div>
-                  {current.line_items.length > 1 && (
-                    <Button size="icon" variant="ghost" onClick={() => removeLine(i)} className="h-9 w-9"><Trash2 className="h-3 w-3" /></Button>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-xs border-collapse min-w-[1100px]">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Internal SKU</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">External Name</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Purch. UOM</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[60px]">Purch. Qty</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Cost</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[80px]">Total</th>
+                  <th className="w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {current.line_items.map((line, i) => {
+                  const rowClass = line.unmatched
+                    ? "bg-destructive/10 border-l-2 border-l-destructive"
+                    : line.sku_mismatch
+                    ? "bg-amber-500/10 border-l-2 border-l-amber-500"
+                    : line.price_changed
+                    ? "bg-blue-500/10 border-l-2 border-l-blue-500"
+                    : "";
+                  return (
+                    <tr key={i} className={`border-b border-border/50 ${rowClass}`}>
+                      {/* # */}
+                      <td className="px-1 py-1 text-muted-foreground font-medium align-top pt-2.5">{i + 1}</td>
+                      {/* Internal SKU - read-only */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          value={line.matched_sku}
+                          readOnly
+                          tabIndex={-1}
+                          className="text-xs bg-muted/50 cursor-default font-mono h-8"
+                          placeholder="—"
+                        />
+                      </td>
+                      {/* Internal Product Name - read-only */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          value={line.matched_internal_name}
+                          readOnly
+                          tabIndex={-1}
+                          className="text-xs bg-muted/50 cursor-default h-8"
+                          placeholder="—"
+                        />
+                      </td>
+                      {/* External SKU - editable with autocomplete */}
+                      <td className="px-1 py-1 align-top">
+                        <div className="relative">
+                          <ProductAutocomplete
+                            value={line.item_code}
+                            onChange={(v) => updateLine(i, "item_code", v)}
+                            onSelect={(p) => selectProduct(i, p)}
+                            products={supplierFilteredPM}
+                            searchField="code"
+                            placeholder="Code"
+                            className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
+                          />
+                          {line.sku_mismatch && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" title="SKU mismatch" />
+                          )}
+                        </div>
+                      </td>
+                      {/* External Name - editable with autocomplete */}
+                      <td className="px-1 py-1 align-top">
+                        <div className="relative">
+                          <ProductAutocomplete
+                            value={line.description}
+                            onChange={(v) => updateLine(i, "description", v)}
+                            onSelect={(p) => selectProduct(i, p)}
+                            products={supplierFilteredPM}
+                            searchField="name"
+                            placeholder="Item name"
+                            className="text-xs h-8"
+                          />
+                          {line.unmatched && (
+                            <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
+                          )}
+                        </div>
+                      </td>
+                      {/* Purchase UOM - editable */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          value={line.unit}
+                          onChange={(e) => updateLine(i, "unit", e.target.value)}
+                          placeholder="UOM"
+                          className="text-xs h-8"
+                        />
+                      </td>
+                      {/* Purchase Qty - editable */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          type="number"
+                          value={line.quantity}
+                          onChange={(e) => updateLine(i, "quantity", e.target.value)}
+                          className="text-xs h-8"
+                        />
+                      </td>
+                      {/* Stock UOM - read-only from PM */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          value={line.matched_stock_uom}
+                          readOnly
+                          tabIndex={-1}
+                          className="text-xs bg-muted/50 cursor-default h-8"
+                          placeholder="—"
+                        />
+                      </td>
+                      {/* Purchase Cost - editable */}
+                      <td className="px-1 py-1 align-top">
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            value={line.unit_price}
+                            onChange={(e) => updateLine(i, "unit_price", e.target.value)}
+                            className={`text-xs h-8 ${line.price_changed ? "border-blue-500" : ""}`}
+                          />
+                          {line.price_changed && line.pm_unit_price !== undefined && (
+                            <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
+                              PM: ${line.pm_unit_price.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      {/* Total */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          type="number"
+                          value={line.total}
+                          onChange={(e) => updateLine(i, "total", e.target.value)}
+                          className="text-xs font-medium h-8"
+                        />
+                      </td>
+                      {/* Delete */}
+                      <td className="px-1 py-1 align-top">
+                        {current.line_items.length > 1 && (
+                          <Button size="icon" variant="ghost" onClick={() => removeLine(i)} className="h-8 w-8">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
           <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
 
+          {/* Totals */}
           <div className="text-right text-sm border-t pt-2">
             <span className="text-muted-foreground">Subtotal: </span>
             <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -1050,8 +1112,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             )}
           </div>
 
+          {/* Save actions */}
           <div className="flex items-center gap-3 pt-2 flex-wrap">
-            {/* When multiple invoices, Save All is primary */}
             {totalInvoices > 1 && !allSaved && (
               <Button onClick={handleSaveAll} disabled={saving || savingAll}>
                 {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
@@ -1066,6 +1128,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
               </Button>
             ) : (
               <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
+            )}
+
+            {current.invoice_status && (
+              <Badge className={`${statusBadgeClass(current.invoice_status)} py-1 px-2.5`}>
+                {current.invoice_status}
+              </Badge>
             )}
 
             <Button variant="outline" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>Scan Another</Button>
@@ -1094,8 +1162,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           )}
         </div>
       )}
-
-      {/* Duplicate confirmation dialog removed — duplicates are now blocked entirely */}
     </div>
   );
 };
