@@ -28,9 +28,13 @@ export interface ProductMasterItem {
   status: string;
   purchase_unit: string;
   purchase_unit_cost: number;
+  stock_uom: string;
+  stock_qty: number;
+  cost_per_stock_unit: number;
   base_unit_type: string;
   base_unit_qty: number;
   cost_per_base_unit: number;
+  notes: string;
   created_at: string;
   updated_at: string;
   suppliers?: ProductSupplierEntry[];
