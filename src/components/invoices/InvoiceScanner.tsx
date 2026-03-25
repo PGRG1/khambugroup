@@ -248,8 +248,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
   // Resolve PM data for a matched line
   const resolvePMData = useCallback((matchedSku: string, pm: ProductMasterEntry[] | undefined, supplierName?: string) => {
-    if (!pm || !matchedSku) return { internal_name: "", stock_uom: "" };
-    // Try supplier-scoped match first
+    if (!pm || !matchedSku) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1 };
     if (supplierName) {
       const normSupplier = normalizeSupplierName(supplierName);
       const supplierMatch = pm.find(p => p.internal_sku === matchedSku && p.supplier && (
@@ -257,10 +256,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
         normalizeSupplierName(p.supplier).includes(normSupplier) ||
         normSupplier.includes(normalizeSupplierName(p.supplier))
       ));
-      if (supplierMatch) return { internal_name: supplierMatch.internal_product_name, stock_uom: supplierMatch.stock_uom || "" };
+      if (supplierMatch) return { internal_name: supplierMatch.internal_product_name, stock_uom: supplierMatch.stock_uom || "", purchase_uom: supplierMatch.purchase_unit || "", stock_qty_ratio: supplierMatch.stock_qty ?? 1 };
     }
     const entry = pm.find(p => p.internal_sku === matchedSku);
-    return { internal_name: entry?.internal_product_name || "", stock_uom: entry?.stock_uom || "" };
+    return { internal_name: entry?.internal_product_name || "", stock_uom: entry?.stock_uom || "", purchase_uom: entry?.purchase_unit || "", stock_qty_ratio: entry?.stock_qty ?? 1 };
   }, []);
 
   const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
