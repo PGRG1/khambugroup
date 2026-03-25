@@ -291,15 +291,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const pmPrice = pmEntry.purchase_unit_cost ?? 0;
       const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
 
-      return {
-        ...line,
-        sku_mismatch: skuMismatch,
-        unmatched: false,
-        price_changed: priceChanged,
-        pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
-        matched_internal_name: pmEntry.internal_product_name || "",
-        matched_stock_uom: pmEntry.stock_uom || "",
-      };
+        return {
+          ...line,
+          sku_mismatch: skuMismatch,
+          unmatched: false,
+          price_changed: priceChanged,
+          pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+          matched_internal_name: pmEntry.internal_product_name || "",
+          matched_stock_uom: pmEntry.stock_uom || "",
+          matched_purchase_uom: pmEntry.purchase_unit || "",
+          matched_stock_qty_ratio: pmEntry.stock_qty ?? 1,
+        };
     });
   }, []);
 
