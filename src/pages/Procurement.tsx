@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed, LayoutDashboard } from "lucide-react";
+import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed, LayoutDashboard, Building2 } from "lucide-react";
 import ProductMasterTab from "@/components/procurement/ProductMasterTab";
+import SuppliersTab from "@/components/procurement/SuppliersTab";
 import ProcurementInvoicesTab from "@/components/procurement/ProcurementInvoicesTab";
 import ProcurementLineItemsTab from "@/components/procurement/ProcurementLineItemsTab";
 import InventoryOnHandTab from "@/components/procurement/InventoryOnHandTab";
