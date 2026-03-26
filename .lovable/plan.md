@@ -1,53 +1,33 @@
 
 
-## Problem
+## Suppliers Tab for Procurement
 
-Two issues cause products to not appear in the invoice scanner autocomplete:
+### What
+Add a new "Suppliers" tab to the Procurement page that serves as the master list for all suppliers. This tab will provide CRUD operations on the existing `suppliers` database table (already has: `name`, `contact_person`, `email`, `phone`, `address`, `notes`, `payment_terms`, `is_active`).
 
-1. **Missing `product_suppliers` entries**: SKU `1120602` (Barilla Linguine) exists in `product_master` with its external_sku, supplier, and supplier_product_name, but has NO corresponding row in `product_suppliers`. The data assembly code (ProcurementInvoicesTab lines 73-86) falls back to empty strings for these fields when no supplier entry exists.
+### Why
+Currently, supplier names are stored as free-text strings across Product Master and Invoices. A dedicated Suppliers tab centralizes supplier management and will serve as the canonical source for supplier data throughout the system.
 
-2. **Autocomplete filter**: `ProductAutocomplete` (line 47) filters out any product where `supplier_product_name` is empty: `.filter((p) => p.supplier_product_name)`. So products without `product_suppliers` entries are invisible.
+### Plan
 
-## Solution
+**1. Create `SuppliersTab` component** (`src/components/procurement/SuppliersTab.tsx`)
+- Table displaying all suppliers with columns: Name, Contact Person, Email, Phone, Payment Terms, Status (Active/Inactive), Notes
+- Search/filter bar
+- Add Supplier dialog (form with all fields)
+- Inline edit or edit dialog for existing suppliers
+- Delete with confirmation
+- CSV export
+- Uses `supabase.from("suppliers")` directly (table already exists with proper RLS)
 
-### 1. Fix data assembly in `ProcurementInvoicesTab.tsx` (lines 47-91)
+**2. Add tab to Procurement page** (`src/pages/Procurement.tsx`)
+- New tab trigger with `Building2` icon and "Suppliers" label, placed after Dashboard
+- Import and render `SuppliersTab` component
 
-Update the `product_master` query to also fetch `external_sku`, `supplier_product_name`, `supplier`, and `purchase_unit_cost`. In the `else` branch (no supplier entries), use the product_master's own fields as fallback instead of empty strings:
+**3. No database changes needed** — the `suppliers` table already exists with appropriate columns and RLS policies (admin/manager can manage, authenticated can read).
 
-```typescript
-// Query now includes fallback fields
-supabase.from("product_master").select("id, internal_sku, internal_product_name, purchase_unit, stock_uom, stock_qty, external_sku, supplier_product_name, supplier, purchase_unit_cost")
-```
-
-```typescript
-// else branch uses PM's own data as fallback
-entries.push({
-  id: p.id,
-  internal_sku: p.internal_sku,
-  external_sku: p.external_sku || "",
-  internal_product_name: p.internal_product_name,
-  supplier_product_name: p.supplier_product_name || p.internal_product_name || "",
-  purchase_unit_cost: p.purchase_unit_cost ?? 0,
-  supplier: p.supplier || "",
-  purchase_unit: p.purchase_unit || "",
-  stock_uom: p.stock_uom || "",
-  stock_qty: p.stock_qty ?? 1,
-});
-```
-
-### 2. Update `ProductAutocomplete.tsx` filter (line 47)
-
-Make the filter more lenient -- allow products that have either a `supplier_product_name` OR an `internal_product_name`, so no valid product is excluded:
-
-```typescript
-.filter((p) => p.supplier_product_name || p.internal_product_name)
-```
-
-When searching by name, also search against `internal_product_name` as a fallback.
-
-### Files to modify
-- `src/components/procurement/ProcurementInvoicesTab.tsx` -- expand PM query and fix fallback assembly
-- `src/components/invoices/ProductAutocomplete.tsx` -- relax filter to include products without supplier-specific names
-
-No database changes needed.
+### Technical details
+- Component follows the same patterns as `ProductMasterTab` (table + dialog + filters)
+- Queries `supabase.from("suppliers")` for CRUD
+- Payment terms options: COD, Net 7, Net 14, Net 30, Net 60
+- Status toggle between active/inactive via `is_active` boolean
 
