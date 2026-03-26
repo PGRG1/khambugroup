@@ -22,6 +22,9 @@ export default function Procurement() {
           <TabsTrigger value="dashboard" className="gap-1.5">
             <LayoutDashboard className="h-3.5 w-3.5" />Dashboard
           </TabsTrigger>
+          <TabsTrigger value="suppliers" className="gap-1.5">
+            <Building2 className="h-3.5 w-3.5" />Suppliers
+          </TabsTrigger>
           <TabsTrigger value="product-master" className="gap-1.5">
             <Package className="h-3.5 w-3.5" />Product Master
           </TabsTrigger>
