@@ -44,12 +44,13 @@ const ProductAutocomplete = ({
   const suggestions = useMemo(() => {
     if (!query || query.length < 1) return [];
     const results = products
-      .filter((p) => p.supplier_product_name) // only show products with supplier data
+      .filter((p) => p.supplier_product_name || p.internal_product_name)
       .filter((p) => {
         if (searchField === "code") {
           return p.external_sku.trim() !== "" && p.external_sku.toLowerCase().includes(query);
         }
-        return p.supplier_product_name.toLowerCase().includes(query);
+        const name = (p.supplier_product_name || p.internal_product_name || "").toLowerCase();
+        return name.includes(query);
       });
     return results.slice(0, 8);
   }, [query, products, searchField]);
