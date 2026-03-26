@@ -43,6 +43,7 @@ export default function Procurement() {
         </TabsList>
 
         <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
+        <TabsContent value="suppliers"><SuppliersTab /></TabsContent>
         <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
         <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
