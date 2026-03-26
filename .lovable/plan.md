@@ -1,33 +1,40 @@
 
 
-## Suppliers Tab for Procurement
+## Update Suppliers Master Data
 
-### What
-Add a new "Suppliers" tab to the Procurement page that serves as the master list for all suppliers. This tab will provide CRUD operations on the existing `suppliers` database table (already has: `name`, `contact_person`, `email`, `phone`, `address`, `notes`, `payment_terms`, `is_active`).
+### Current State
+There are 32 supplier records with many duplicates (OCR variants, Chinese names, typos). These need to be consolidated to exactly 15 canonical suppliers.
 
-### Why
-Currently, supplier names are stored as free-text strings across Product Master and Invoices. A dedicated Suppliers tab centralizes supplier management and will serve as the canonical source for supplier data throughout the system.
+### Mapping (Current → Canonical)
 
-### Plan
+| Canonical Name | Current Variants to Merge |
+|---|---|
+| Angliss HK Food Service | Angliss HK Food Service LTD |
+| Beverage World HK | *(already correct)* |
+| Fountain Food Products | Fountain Food Products LTD, FOUNTAIN FOOD PRODUCTS LTD., FOUNTAIN FOOD PRODUCTS LTD. 甘泉食品有限公司, 甘泉食品有限公司 |
+| Global Fine Foods | Global Fine Foods Limited |
+| Green Valley HK | Green Valley |
+| Lovecraft Ltd | H.K. Lovecraft Limited |
+| Indian Food Marts | Indian Food Marts Limited |
+| Ming Kee Seafood | *(already correct)* |
+| Normex Group | Normex Group Limited |
+| SAISON Food Service | SAISON Food Service LIMITED, + 4 Chinese variants |
+| Telford International Company | Telford International Company Limited, + 7 variants with Chinese/typos |
+| Toyo Paper | Toyo Paper Mfy.LTD. |
+| VegFresh HK | *(already correct)* |
+| Vintage Wines & Spirits | Vintage Wines & Spirits Limited |
+| ONGO Food Ltd | 安高食材有限公司 ONGO FOOD LIMITED, 安高食財有限公司 ONGO FOOD LIMITED |
 
-**1. Create `SuppliersTab` component** (`src/components/procurement/SuppliersTab.tsx`)
-- Table displaying all suppliers with columns: Name, Contact Person, Email, Phone, Payment Terms, Status (Active/Inactive), Notes
-- Search/filter bar
-- Add Supplier dialog (form with all fields)
-- Inline edit or edit dialog for existing suppliers
-- Delete with confirmation
-- CSV export
-- Uses `supabase.from("suppliers")` directly (table already exists with proper RLS)
+### Steps
 
-**2. Add tab to Procurement page** (`src/pages/Procurement.tsx`)
-- New tab trigger with `Building2` icon and "Suppliers" label, placed after Dashboard
-- Import and render `SuppliersTab` component
+1. **Pick one canonical supplier ID per group** -- keep the one with invoices, rename it to the canonical name
+2. **Reassign invoices** -- UPDATE `invoices.supplier_id` from duplicate IDs to the canonical ID
+3. **Update product_master.supplier** -- UPDATE the text field to canonical name
+4. **Update product_suppliers.supplier** -- UPDATE the text field to canonical name
+5. **Delete duplicate supplier rows** -- remove all non-canonical supplier records
+6. **No code changes needed** -- this is purely a data cleanup task
 
-**3. No database changes needed** — the `suppliers` table already exists with appropriate columns and RLS policies (admin/manager can manage, authenticated can read).
+### Technical Details
 
-### Technical details
-- Component follows the same patterns as `ProductMasterTab` (table + dialog + filters)
-- Queries `supabase.from("suppliers")` for CRUD
-- Payment terms options: COD, Net 7, Net 14, Net 30, Net 60
-- Status toggle between active/inactive via `is_active` boolean
+All operations are data updates (UPDATE/DELETE on existing rows), executed via the insert tool. No schema migrations required. The supplier field in `product_master` and `product_suppliers` is a text field, so we update the string values directly. The `invoices` table uses `supplier_id` (UUID FK), so we reassign to the canonical UUID.
 
