@@ -138,7 +138,7 @@ const ProductAutocomplete = ({
                   <span className="mx-1.5 text-muted-foreground">·</span>
                 </>
               )}
-              <span>{p.supplier_product_name}</span>
+              <span>{p.supplier_product_name || p.internal_product_name}</span>
               {p.supplier && (
                 <span className="ml-1.5 text-[10px] text-muted-foreground/70">({p.supplier})</span>
               )}
