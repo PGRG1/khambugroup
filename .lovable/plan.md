@@ -1,27 +1,29 @@
 
 
-## Fix: Duplicate flag not updating when invoice number changes
+## Fix: Stop auto-creating suppliers during invoice scanning
 
 ### Problem
-The duplicate check runs only once after scanning. When the user edits the invoice number field, `updateField` updates the value but never re-runs `checkDuplicates`. The "Cannot be recorded" banner stays stuck even after changing the invoice number.
+The `matchOrCreateSupplier` function in `InvoiceScanner.tsx` (line 201-221) automatically creates a new supplier record when the scanned supplier name doesn't match any existing supplier. This caused a duplicate "匯泉國際有限公司 TELFORD INTERNATIONAL COMPANY LIMITED" entry because the OCR returned the full Chinese+English name which didn't match the existing "Telford International Company" via the partial matching logic.
+
+The supplier list should only ever be modified manually through the Suppliers tab.
 
 ### Solution
-After updating `invoice_number` or `supplier_id`, re-run the duplicate check for the current invoice and clear/set the flag accordingly.
+Remove the auto-create behavior. When no match is found, return an empty string (unmatched) so the user can manually select the correct supplier from the dropdown.
 
 ### Changes
 
 **File: `src/components/invoices/InvoiceScanner.tsx`**
 
-1. Modify `updateField` (line ~488): After setting the new value, if the changed field is `invoice_number`, trigger a re-check of the duplicate status for the current invoice. Clear `is_duplicate` immediately, then query the database with the new invoice number + supplier_id combo. If a match is found, re-set the flag; otherwise leave it cleared.
+1. In `matchOrCreateSupplier` (lines 214-220): Remove the `batchCreatedSuppliers` logic and the `onCreateSupplier` call. When no match is found, simply return `""` (empty/unmatched). The user will then manually pick the correct supplier from the dropdown during reconciliation.
 
-2. Similarly in `handleSupplierChange` (line ~496): After updating the supplier, re-check duplicate status since duplicates are keyed on invoice_number + supplier_id.
+2. Remove the `batchCreatedSuppliers` ref (line 199) since it's no longer needed.
 
-3. Extract a single-invoice duplicate check helper to avoid duplicating logic:
-   ```text
-   recheckDuplicate(idx, invoiceNumber, supplierId)
-     -> query DB for matching invoice
-     -> update is_duplicate / duplicate_date on that index
-   ```
+3. Rename function to `matchSupplier` to reflect it no longer creates.
 
-This ensures the duplicate banner updates in real-time as the user edits the invoice number or supplier fields.
+**File: `src/components/procurement/ProcurementInvoicesTab.tsx`**
+
+4. Line ~504: Remove the `createSupplier` call in the supplier select's `pm:` prefix handler that also auto-creates suppliers. Instead, this code path should be removed or replaced with a toast telling the user to add suppliers via the Suppliers tab.
+
+### Result
+Scanning will still attempt to match supplier names to existing records. Unmatched suppliers will show as blank in the scanned invoice, requiring manual selection from the dropdown. No new supplier records will ever be created automatically.
 
