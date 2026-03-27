@@ -389,7 +389,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     setInvoices([]);
     setCurrentIdx(0);
     setSavedCount(0);
-    batchCreatedSuppliers.current.clear();
+    
     setScanProgress({ current: 0, total: files.length });
 
     try {
