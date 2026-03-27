@@ -475,7 +475,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
-  }, [checkDuplicates, flagLineItemIssues, matchOrCreateSupplier, processFile, productMaster, resolvePMData, userId]);
+  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, userId]);
 
   const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
     if (!invoiceNumber || !supplierId) {
