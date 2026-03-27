@@ -420,7 +420,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const parsedInvoices: ScannedInvoice[] = [];
       for (const raw of rawInvoices) {
         const supplierName = raw?.supplier_name || "";
-        const supplierId = await matchOrCreateSupplier(supplierName);
+        const supplierId = matchSupplier(supplierName);
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any) => {
             const matchedSku = li?.matched_sku || "";
