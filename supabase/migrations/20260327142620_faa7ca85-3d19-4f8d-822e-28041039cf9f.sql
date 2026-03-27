@@ -1,0 +1,1 @@
+ALTER TABLE product_master DROP CONSTRAINT product_master_internal_sku_key;
