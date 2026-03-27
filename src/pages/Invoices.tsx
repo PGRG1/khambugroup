@@ -341,7 +341,7 @@ export default function Invoices() {
               fileName
             );
           }}
-          onCreateSupplier={createSupplier}
+          
           onClose={() => { setScannerOpen(false); batchFileRef.current = null; }}
           userId={user?.id || ""}
         />
