@@ -402,7 +402,7 @@ export default function ProductMasterTab() {
               <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
                 <SelectContent>
-                  {dbSuppliers.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                  {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
