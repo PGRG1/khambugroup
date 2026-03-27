@@ -516,31 +516,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     }
   };
 
-  const handleSupplierChange = async (value: string) => {
+  const handleSupplierChange = (value: string) => {
     const targetIdx = currentIdx;
-    let newSupplierId = value;
     if (value.startsWith("pm:")) {
       return; // Suppliers must be added manually via the Suppliers tab
     }
-      setInvoices((prev) => {
-        const copy = [...prev];
-        copy[targetIdx] = { ...copy[targetIdx], supplier_id: supplierId, supplier_name: supplierName };
-        return copy;
-      });
-    } else {
-      const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
-      setInvoices((prev) => {
-        const copy = [...prev];
-        copy[targetIdx] = {
-          ...copy[targetIdx],
-          supplier_id: value,
-          supplier_name: selectedSupplier?.name || copy[targetIdx].supplier_name,
-        };
-        return copy;
-      });
-    }
+    const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
+    setInvoices((prev) => {
+      const copy = [...prev];
+      copy[targetIdx] = {
+        ...copy[targetIdx],
+        supplier_id: value,
+        supplier_name: selectedSupplier?.name || copy[targetIdx].supplier_name,
+      };
+      return copy;
+    });
     const inv = invoices[targetIdx];
-    recheckDuplicate(targetIdx, inv?.invoice_number || "", newSupplierId);
+    recheckDuplicate(targetIdx, inv?.invoice_number || "", value);
   };
 
   const updateLine = (i: number, field: string, value: string) => {
