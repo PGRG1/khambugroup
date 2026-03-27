@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useProductMaster, ProductMasterItem, ProductSupplierEntry } from "@/hooks/useProductMaster";
+import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,13 @@ export default function ProductMasterTab() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<FlatRow | null>(null);
+  const [dbSuppliers, setDbSuppliers] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    supabase.from("suppliers").select("id, name").eq("is_active", true).order("name").then(({ data }) => {
+      setDbSuppliers((data || []) as { id: string; name: string }[]);
+    });
+  }, []);
 
   const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].sort(), [products]);
   const subCategories = useMemo(() => {
@@ -186,6 +194,10 @@ export default function ProductMasterTab() {
         stock_uom: form.stock_uom, stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
         base_unit_type: form.base_unit_type, base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
         notes: form.notes,
+        // Always include supplier-level fields on product_master
+        supplier: form.supplier, external_sku: form.external_sku,
+        supplier_product_name: form.supplier_product_name,
+        purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
       });
       if (editingSupplierEntryId) {
         await updateSupplier(editingSupplierEntryId, {
@@ -385,7 +397,15 @@ export default function ProductMasterTab() {
             <div><Label className="text-xs">L1 Category</Label><Input value={form.level1_category} onChange={e => setForm({ ...form, level1_category: e.target.value })} className="h-9 text-sm" /></div>
             <div><Label className="text-xs">L2 Category</Label><Input value={form.level2_category} onChange={e => setForm({ ...form, level2_category: e.target.value })} className="h-9 text-sm" /></div>
             <div><Label className="text-xs">L3 Category</Label><Input value={form.level3_category} onChange={e => setForm({ ...form, level3_category: e.target.value })} className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">Supplier</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} className="h-9 text-sm" /></div>
+            <div>
+              <Label className="text-xs">Supplier</Label>
+              <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectContent>
+                  {dbSuppliers.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Purchase & Stock */}
             <div className="col-span-2 border-t pt-3 mt-1">
