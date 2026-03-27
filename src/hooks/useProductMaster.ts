@@ -88,8 +88,8 @@ export function useProductMaster() {
   }, [fetchProducts, toast]);
 
   const updateProduct = useCallback(async (id: string, updates: Partial<Omit<ProductMasterItem, "id" | "created_at" | "updated_at" | "suppliers">>) => {
-    const { supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost, ...pmUpdates } = updates;
-    const { error } = await supabase.from("product_master" as any).update(pmUpdates as any).eq("id", id);
+    // Don't strip supplier-level fields — they exist on product_master too
+    const { error } = await supabase.from("product_master" as any).update(updates as any).eq("id", id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchProducts();
     return true;
