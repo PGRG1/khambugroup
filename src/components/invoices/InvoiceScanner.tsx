@@ -275,11 +275,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
           let fallbackMatch: ProductMasterEntry | undefined;
 
           // Try matching by item_code (external SKU) first if present
+          // Supports pipe-separated SKUs (e.g. "0000|SA15DP0704")
           if (itemCode) {
+            // 1. Exact match
             fallbackMatch = pm.find(p => {
               const eSku = (p.external_sku || "").trim().toLowerCase();
               return eSku && eSku === itemCode;
             });
+            // 2. Segment match: check if itemCode matches any pipe-separated segment, or contains/is contained
+            if (!fallbackMatch) {
+              fallbackMatch = pm.find(p => {
+                const eSku = (p.external_sku || "").trim().toLowerCase();
+                if (!eSku) return false;
+                const segments = eSku.split("|").map(s => s.trim());
+                return segments.some(seg => seg === itemCode) || eSku.includes(itemCode) || itemCode.includes(eSku);
+              });
+            }
           }
 
           // Fallback: match by description + supplier name
