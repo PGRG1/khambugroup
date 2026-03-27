@@ -317,7 +317,7 @@ export default function ProcurementInvoicesTab() {
               fileName
             );
           }}
-          onCreateSupplier={createSupplier}
+          
           onClose={() => {
             setScannerOpen(false);
             batchFileRef.current = null;
@@ -498,14 +498,8 @@ export default function ProcurementInvoicesTab() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Supplier</Label>
-                    <Select value={editForm.supplier_id || ""} onValueChange={async (v) => {
-                      if (v.startsWith("pm:")) {
-                        const supplierName = v.slice(3);
-                        const created = await createSupplier({ name: supplierName, contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
-                        if (created?.id) setEditForm((f) => ({ ...f, supplier_id: created.id }));
-                      } else {
-                        setEditForm((f) => ({ ...f, supplier_id: v }));
-                      }
+                    <Select value={editForm.supplier_id || ""} onValueChange={(v) => {
+                      setEditForm((f) => ({ ...f, supplier_id: v }));
                     }}>
                       <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
                       <SelectContent>

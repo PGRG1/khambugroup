@@ -103,7 +103,7 @@ interface InvoiceScannerProps {
     notes: null;
     product_master_id: string | null;
   }[], files?: File[]) => Promise<any>;
-  onCreateSupplier: (supplier: Omit<Supplier, "id">) => Promise<any>;
+  
   onClose: () => void;
   userId: string;
 }
@@ -115,7 +115,7 @@ const emptyLine: ScannedLineItem = {
   unmatched: false, price_changed: false,
 };
 
-const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, onClose, userId }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setInvoices] = useState<ScannedInvoice[]>([]);
@@ -196,9 +196,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       reader.readAsDataURL(file);
     });
 
-  const batchCreatedSuppliers = React.useRef<Map<string, string>>(new Map());
-
-  const matchOrCreateSupplier = useCallback(async (supplierName: string): Promise<string> => {
+  const matchSupplier = useCallback((supplierName: string): string => {
     if (!supplierName) return "";
     const normalised = supplierName.trim().toLowerCase();
     const exactMatch = suppliers.find((s) => s.name.toLowerCase() === normalised);
@@ -211,14 +209,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       return ns.includes(normInput) || normInput.includes(ns);
     });
     if (partialMatch) return partialMatch.id;
-    const batchMatch = batchCreatedSuppliers.current.get(normalised);
-    if (batchMatch) return batchMatch;
-    const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
-    if (created?.id) {
-      batchCreatedSuppliers.current.set(normalised, created.id);
-    }
-    return created?.id || "";
-  }, [suppliers, onCreateSupplier]);
+    return "";
+  }, [suppliers]);
 
   const checkDuplicates = useCallback(async (invoicesToCheck: ScannedInvoice[]) => {
     const updates: { idx: number; isDuplicate: boolean; date?: string }[] = [];
@@ -397,7 +389,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     setInvoices([]);
     setCurrentIdx(0);
     setSavedCount(0);
-    batchCreatedSuppliers.current.clear();
+    
     setScanProgress({ current: 0, total: files.length });
 
     try {
@@ -428,7 +420,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       const parsedInvoices: ScannedInvoice[] = [];
       for (const raw of rawInvoices) {
         const supplierName = raw?.supplier_name || "";
-        const supplierId = await matchOrCreateSupplier(supplierName);
+        const supplierId = matchSupplier(supplierName);
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any) => {
             const matchedSku = li?.matched_sku || "";
@@ -483,7 +475,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
-  }, [checkDuplicates, flagLineItemIssues, matchOrCreateSupplier, processFile, productMaster, resolvePMData, userId]);
+  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, userId]);
 
   const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
     if (!invoiceNumber || !supplierId) {
@@ -524,33 +516,23 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     }
   };
 
-  const handleSupplierChange = async (value: string) => {
+  const handleSupplierChange = (value: string) => {
     const targetIdx = currentIdx;
-    let newSupplierId = value;
     if (value.startsWith("pm:")) {
-      const supplierName = value.slice(3);
-      const supplierId = await matchOrCreateSupplier(supplierName);
-      if (!supplierId) return;
-      newSupplierId = supplierId;
-      setInvoices((prev) => {
-        const copy = [...prev];
-        copy[targetIdx] = { ...copy[targetIdx], supplier_id: supplierId, supplier_name: supplierName };
-        return copy;
-      });
-    } else {
-      const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
-      setInvoices((prev) => {
-        const copy = [...prev];
-        copy[targetIdx] = {
-          ...copy[targetIdx],
-          supplier_id: value,
-          supplier_name: selectedSupplier?.name || copy[targetIdx].supplier_name,
-        };
-        return copy;
-      });
+      return; // Suppliers must be added manually via the Suppliers tab
     }
+    const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
+    setInvoices((prev) => {
+      const copy = [...prev];
+      copy[targetIdx] = {
+        ...copy[targetIdx],
+        supplier_id: value,
+        supplier_name: selectedSupplier?.name || copy[targetIdx].supplier_name,
+      };
+      return copy;
+    });
     const inv = invoices[targetIdx];
-    recheckDuplicate(targetIdx, inv?.invoice_number || "", newSupplierId);
+    recheckDuplicate(targetIdx, inv?.invoice_number || "", value);
   };
 
   const updateLine = (i: number, field: string, value: string) => {
