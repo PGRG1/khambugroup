@@ -657,15 +657,26 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     }
   };
 
+  const hasUnmatchedForSave = useCallback((inv: ScannedInvoice) => {
+    return inv.line_items.some(l => l.description.trim() && l.unmatched);
+  }, []);
+
   const handleSaveCurrent = async () => {
     if (!current) return;
     if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
+    if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Product Master", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
     await doSaveCurrent(current, currentIdx);
   };
 
   const handleSaveAll = async () => {
+    // Check all unsaved invoices for unmatched items
+    const unmatchedInvoices = invoices.filter((inv, i) => !inv.saved && !inv.is_duplicate && hasUnmatchedForSave(inv));
+    if (unmatchedInvoices.length > 0) {
+      toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Product Master first.`, variant: "destructive" });
+      return;
+    }
     setSavingAll(true);
     let saved = 0;
     let skippedDuplicates = 0;
@@ -1191,9 +1202,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             )}
 
             {!current.saved ? (
-              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate}>
+              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {current.is_duplicate ? "Duplicate — Cannot Save" : saving ? "Saving..." : "Save This Invoice"}
+                {current.is_duplicate ? "Duplicate — Cannot Save" : hasUnmatchedItems ? "Match All Items to Save" : saving ? "Saving..." : "Save This Invoice"}
               </Button>
             ) : (
               <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
