@@ -317,7 +317,7 @@ export default function ProcurementInvoicesTab() {
               fileName
             );
           }}
-          onCreateSupplier={createSupplier}
+          
           onClose={() => {
             setScannerOpen(false);
             batchFileRef.current = null;
