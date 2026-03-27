@@ -94,7 +94,11 @@ export default function InventoryOnHandTab() {
     });
   }, [products, aggMap]);
 
-  const categories = useMemo(() => [...new Set(products.map((p) => p.level1_category))].sort(), [products]);
+  const categories = useMemo(
+    () =>
+      [...new Set(products.map((p) => p.level1_category?.trim()).filter((category): category is string => Boolean(category)))].sort(),
+    [products]
+  );
 
   const filtered = useMemo(() => {
     let list = rows;
@@ -210,7 +214,7 @@ export default function InventoryOnHandTab() {
                 <TableRow key={r.id} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
                   <TableCell className="text-xs font-mono tabular-nums">{r.internal_sku}</TableCell>
                   <TableCell className="text-xs font-medium">{r.internal_product_name}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{r.level1_category}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{r.level1_category || "—"}</TableCell>
                   <TableCell className="text-xs text-right tabular-nums font-medium">{r.qty_on_hand > 0 ? fmt(r.qty_on_hand) : "—"}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.unit}</TableCell>
                   <TableCell className="text-xs text-right tabular-nums">{r.qty_on_hand > 0 ? `$${fmt(r.avg_cost)}` : "—"}</TableCell>
