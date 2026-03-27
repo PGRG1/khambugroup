@@ -285,7 +285,7 @@ export default function ProductMasterTab() {
           <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="L1 Category" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All L1</SelectItem>
-            {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={subCatFilter} onValueChange={setSubCatFilter}>
