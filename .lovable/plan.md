@@ -1,40 +1,42 @@
 
 
-## Update Suppliers Master Data
+## Fix Product Master CSV Download
 
-### Current State
-There are 32 supplier records with many duplicates (OCR variants, Chinese names, typos). These need to be consolidated to exactly 15 canonical suppliers.
+### Problem
+The CSV download maps data fields to different keys than what the `columns` array defines, causing mismatched headers and empty columns:
 
-### Mapping (Current → Canonical)
+- CSV uses `recipe_uom` but columns define `base_unit_type`
+- CSV uses `recipe_qty` but columns define `base_unit_qty`  
+- CSV uses `cost_per_recipe_unit` but columns define `cost_per_base_unit`
+- CSV includes `notes` but columns array has no `notes` entry (so no header match)
 
-| Canonical Name | Current Variants to Merge |
-|---|---|
-| Angliss HK Food Service | Angliss HK Food Service LTD |
-| Beverage World HK | *(already correct)* |
-| Fountain Food Products | Fountain Food Products LTD, FOUNTAIN FOOD PRODUCTS LTD., FOUNTAIN FOOD PRODUCTS LTD. 甘泉食品有限公司, 甘泉食品有限公司 |
-| Global Fine Foods | Global Fine Foods Limited |
-| Green Valley HK | Green Valley |
-| Lovecraft Ltd | H.K. Lovecraft Limited |
-| Indian Food Marts | Indian Food Marts Limited |
-| Ming Kee Seafood | *(already correct)* |
-| Normex Group | Normex Group Limited |
-| SAISON Food Service | SAISON Food Service LIMITED, + 4 Chinese variants |
-| Telford International Company | Telford International Company Limited, + 7 variants with Chinese/typos |
-| Toyo Paper | Toyo Paper Mfy.LTD. |
-| VegFresh HK | *(already correct)* |
-| Vintage Wines & Spirits | Vintage Wines & Spirits Limited |
-| ONGO Food Ltd | 安高食材有限公司 ONGO FOOD LIMITED, 安高食財有限公司 ONGO FOOD LIMITED |
+### Fix
+Update the `downloadCSV` call (line 306-315) to use the same keys as the `columns` definition, so the CSV columns match the table exactly.
 
-### Steps
+**File**: `src/components/procurement/ProductMasterTab.tsx` (lines 306-315)
 
-1. **Pick one canonical supplier ID per group** -- keep the one with invoices, rename it to the canonical name
-2. **Reassign invoices** -- UPDATE `invoices.supplier_id` from duplicate IDs to the canonical ID
-3. **Update product_master.supplier** -- UPDATE the text field to canonical name
-4. **Update product_suppliers.supplier** -- UPDATE the text field to canonical name
-5. **Delete duplicate supplier rows** -- remove all non-canonical supplier records
-6. **No code changes needed** -- this is purely a data cleanup task
+Change the data mapping to use matching keys:
+```typescript
+downloadCSV(filtered.map(r => ({
+  internal_sku: r.internal_sku,
+  external_sku: r.external_sku,
+  internal_product_name: r.internal_product_name,
+  supplier_product_name: r.supplier_product_name,
+  level1_category: r.level1_category,
+  level2_category: r.level2_category,
+  level3_category: r.level3_category,
+  purchase_unit: r.purchase_unit,
+  purchase_unit_cost: r.purchase_unit_cost.toFixed(2),
+  stock_uom: r.stock_uom,
+  stock_qty: r.stock_qty,
+  cost_per_stock_unit: r.cost_per_stock_unit.toFixed(4),
+  base_unit_type: r.base_unit_type,
+  base_unit_qty: r.base_unit_qty,
+  cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
+  supplier: r.supplier,
+  status: r.status,
+})), columns.map(c => ({ key: c.key, label: c.label })), "product_master")
+```
 
-### Technical Details
-
-All operations are data updates (UPDATE/DELETE on existing rows), executed via the insert tool. No schema migrations required. The supplier field in `product_master` and `product_suppliers` is a text field, so we update the string values directly. The `invoices` table uses `supplier_id` (UUID FK), so we reassign to the canonical UUID.
+This ensures every CSV column header matches its data key, and the exported file mirrors the on-screen table exactly.
 
