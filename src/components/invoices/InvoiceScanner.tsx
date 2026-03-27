@@ -265,34 +265,83 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
     if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
     return lines.map(line => {
-      if (!line.matched_sku) {
-        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
+      // If no matched_sku yet, try fallback matching by name+supplier when no item_code
+      let workingLine = { ...line };
+      if (!workingLine.matched_sku) {
+        const desc = (workingLine.description || "").trim().toLowerCase();
+        const itemCode = (workingLine.item_code || "").trim().toLowerCase();
+
+        if (desc || itemCode) {
+          let fallbackMatch: ProductMasterEntry | undefined;
+
+          // Try matching by item_code (external SKU) first if present
+          if (itemCode) {
+            fallbackMatch = pm.find(p => {
+              const eSku = (p.external_sku || "").trim().toLowerCase();
+              return eSku && eSku === itemCode;
+            });
+          }
+
+          // Fallback: match by description + supplier name
+          if (!fallbackMatch && desc) {
+            const normSupplier = supplierName ? normalizeSupplierName(supplierName) : "";
+            fallbackMatch = pm.find(p => {
+              const spn = (p.supplier_product_name || "").trim().toLowerCase();
+              const ipn = (p.internal_product_name || "").trim().toLowerCase();
+              const nameMatch = (spn && (spn === desc || desc.includes(spn) || spn.includes(desc)))
+                || (ipn && (ipn === desc || desc.includes(ipn) || ipn.includes(desc)));
+              if (!nameMatch) return false;
+              // If supplier context available, prefer supplier-scoped match
+              if (normSupplier && p.supplier) {
+                const normPM = normalizeSupplierName(p.supplier);
+                return normPM === normSupplier || normPM.includes(normSupplier) || normSupplier.includes(normPM);
+              }
+              return true;
+            });
+          }
+
+          if (fallbackMatch) {
+            workingLine.matched_sku = fallbackMatch.internal_sku;
+            workingLine.item_code = workingLine.item_code || fallbackMatch.external_sku || "";
+          }
+        }
+      }
+
+      if (!workingLine.matched_sku) {
+        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
       }
       // Try supplier-scoped match first
       let pmEntry: ProductMasterEntry | undefined;
       if (supplierName) {
         const normSupplier = normalizeSupplierName(supplierName);
-        pmEntry = pm.find(p => p.internal_sku === line.matched_sku && p.supplier && (
+        pmEntry = pm.find(p => p.internal_sku === workingLine.matched_sku && p.supplier && (
           normalizeSupplierName(p.supplier) === normSupplier ||
           normalizeSupplierName(p.supplier).includes(normSupplier) ||
           normSupplier.includes(normalizeSupplierName(p.supplier))
         ));
       }
-      if (!pmEntry) pmEntry = pm.find(p => p.internal_sku === line.matched_sku);
+      if (!pmEntry) pmEntry = pm.find(p => p.internal_sku === workingLine.matched_sku);
       if (!pmEntry) {
-        return { ...line, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
+        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
       }
 
-      const scannedCode = (line.item_code || "").trim().toLowerCase();
+      const scannedCode = (workingLine.item_code || "").trim().toLowerCase();
       const pmExtSku = (pmEntry.external_sku || "").trim().toLowerCase();
       const skuMismatch = !!(scannedCode && pmExtSku && scannedCode !== pmExtSku);
 
-      const scannedPrice = parseFloat(line.unit_price) || 0;
+      const scannedPrice = parseFloat(workingLine.unit_price) || 0;
       const pmPrice = pmEntry.purchase_unit_cost ?? 0;
       const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
 
+      // Auto-fill description from PM's supplier_product_name when matched via SKU
+      const autoDescription = pmEntry.supplier_product_name || pmEntry.internal_product_name || "";
+      const shouldAutoFill = autoDescription && (
+        !workingLine.description.trim() || workingLine.item_code.trim()
+      );
+
         return {
-          ...line,
+          ...workingLine,
+          description: shouldAutoFill ? autoDescription : workingLine.description,
           sku_mismatch: skuMismatch,
           unmatched: false,
           price_changed: priceChanged,
