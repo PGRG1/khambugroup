@@ -520,10 +520,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     const targetIdx = currentIdx;
     let newSupplierId = value;
     if (value.startsWith("pm:")) {
-      const supplierName = value.slice(3);
-      const supplierId = await matchOrCreateSupplier(supplierName);
-      if (!supplierId) return;
-      newSupplierId = supplierId;
+      return; // Suppliers must be added manually via the Suppliers tab
+    }
       setInvoices((prev) => {
         const copy = [...prev];
         copy[targetIdx] = { ...copy[targetIdx], supplier_id: supplierId, supplier_name: supplierName };
