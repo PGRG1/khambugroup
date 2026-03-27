@@ -62,6 +62,13 @@ export default function ProductMasterTab() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<FlatRow | null>(null);
+  const [dbSuppliers, setDbSuppliers] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    supabase.from("suppliers").select("id, name").eq("is_active", true).order("name").then(({ data }) => {
+      setDbSuppliers((data || []) as { id: string; name: string }[]);
+    });
+  }, []);
 
   const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].sort(), [products]);
   const subCategories = useMemo(() => {
