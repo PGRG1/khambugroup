@@ -1202,9 +1202,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
             )}
 
             {!current.saved ? (
-              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate}>
+              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {current.is_duplicate ? "Duplicate — Cannot Save" : saving ? "Saving..." : "Save This Invoice"}
+                {current.is_duplicate ? "Duplicate — Cannot Save" : hasUnmatchedItems ? "Match All Items to Save" : saving ? "Saving..." : "Save This Invoice"}
               </Button>
             ) : (
               <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
