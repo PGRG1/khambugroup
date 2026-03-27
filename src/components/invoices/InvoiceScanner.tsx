@@ -671,6 +671,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
   };
 
   const handleSaveAll = async () => {
+    // Check all unsaved invoices for unmatched items
+    const unmatchedInvoices = invoices.filter((inv, i) => !inv.saved && !inv.is_duplicate && hasUnmatchedForSave(inv));
+    if (unmatchedInvoices.length > 0) {
+      toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Product Master first.`, variant: "destructive" });
+      return;
+    }
     setSavingAll(true);
     let saved = 0;
     let skippedDuplicates = 0;
