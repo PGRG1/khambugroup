@@ -74,12 +74,30 @@ export function useProductMaster() {
 
   const createProduct = useCallback(async (product: Omit<ProductMasterItem, "id" | "created_at" | "updated_at" | "suppliers">) => {
     const { supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost, ...pmData } = product;
-    const { data, error } = await supabase.from("product_master" as any).insert(pmData as any).select("id").single();
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
+
+    // Check if a product with the same internal_sku already exists
+    const { data: existing } = await supabase
+      .from("product_master" as any)
+      .select("id")
+      .eq("internal_sku", product.internal_sku)
+      .limit(1);
+
+    let productId: string;
+
+    if (existing && (existing as any[]).length > 0) {
+      // SKU already exists — reuse existing product_master row
+      productId = (existing as any[])[0].id;
+    } else {
+      // New SKU — insert into product_master
+      const { data, error } = await supabase.from("product_master" as any).insert(pmData as any).select("id").single();
+      if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
+      productId = (data as any).id;
+    }
+
     // Insert supplier entry if supplier is provided
-    if (supplier && (data as any)?.id) {
+    if (supplier && productId) {
       await supabase.from("product_suppliers" as any).insert({
-        product_master_id: (data as any).id,
+        product_master_id: productId,
         supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost,
       } as any);
     }
