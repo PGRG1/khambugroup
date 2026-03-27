@@ -1,42 +1,27 @@
 
 
-## Fix Product Master CSV Download
+## Fix: Duplicate flag not updating when invoice number changes
 
 ### Problem
-The CSV download maps data fields to different keys than what the `columns` array defines, causing mismatched headers and empty columns:
+The duplicate check runs only once after scanning. When the user edits the invoice number field, `updateField` updates the value but never re-runs `checkDuplicates`. The "Cannot be recorded" banner stays stuck even after changing the invoice number.
 
-- CSV uses `recipe_uom` but columns define `base_unit_type`
-- CSV uses `recipe_qty` but columns define `base_unit_qty`  
-- CSV uses `cost_per_recipe_unit` but columns define `cost_per_base_unit`
-- CSV includes `notes` but columns array has no `notes` entry (so no header match)
+### Solution
+After updating `invoice_number` or `supplier_id`, re-run the duplicate check for the current invoice and clear/set the flag accordingly.
 
-### Fix
-Update the `downloadCSV` call (line 306-315) to use the same keys as the `columns` definition, so the CSV columns match the table exactly.
+### Changes
 
-**File**: `src/components/procurement/ProductMasterTab.tsx` (lines 306-315)
+**File: `src/components/invoices/InvoiceScanner.tsx`**
 
-Change the data mapping to use matching keys:
-```typescript
-downloadCSV(filtered.map(r => ({
-  internal_sku: r.internal_sku,
-  external_sku: r.external_sku,
-  internal_product_name: r.internal_product_name,
-  supplier_product_name: r.supplier_product_name,
-  level1_category: r.level1_category,
-  level2_category: r.level2_category,
-  level3_category: r.level3_category,
-  purchase_unit: r.purchase_unit,
-  purchase_unit_cost: r.purchase_unit_cost.toFixed(2),
-  stock_uom: r.stock_uom,
-  stock_qty: r.stock_qty,
-  cost_per_stock_unit: r.cost_per_stock_unit.toFixed(4),
-  base_unit_type: r.base_unit_type,
-  base_unit_qty: r.base_unit_qty,
-  cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
-  supplier: r.supplier,
-  status: r.status,
-})), columns.map(c => ({ key: c.key, label: c.label })), "product_master")
-```
+1. Modify `updateField` (line ~488): After setting the new value, if the changed field is `invoice_number`, trigger a re-check of the duplicate status for the current invoice. Clear `is_duplicate` immediately, then query the database with the new invoice number + supplier_id combo. If a match is found, re-set the flag; otherwise leave it cleared.
 
-This ensures every CSV column header matches its data key, and the exported file mirrors the on-screen table exactly.
+2. Similarly in `handleSupplierChange` (line ~496): After updating the supplier, re-check duplicate status since duplicates are keyed on invoice_number + supplier_id.
+
+3. Extract a single-invoice duplicate check helper to avoid duplicating logic:
+   ```text
+   recheckDuplicate(idx, invoiceNumber, supplierId)
+     -> query DB for matching invoice
+     -> update is_duplicate / duplicate_date on that index
+   ```
+
+This ensures the duplicate banner updates in real-time as the user edits the invoice number or supplier fields.
 
