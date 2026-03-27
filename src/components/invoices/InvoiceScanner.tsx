@@ -196,9 +196,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       reader.readAsDataURL(file);
     });
 
-  const batchCreatedSuppliers = React.useRef<Map<string, string>>(new Map());
-
-  const matchOrCreateSupplier = useCallback(async (supplierName: string): Promise<string> => {
+  const matchSupplier = useCallback((supplierName: string): string => {
     if (!supplierName) return "";
     const normalised = supplierName.trim().toLowerCase();
     const exactMatch = suppliers.find((s) => s.name.toLowerCase() === normalised);
@@ -211,14 +209,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
       return ns.includes(normInput) || normInput.includes(ns);
     });
     if (partialMatch) return partialMatch.id;
-    const batchMatch = batchCreatedSuppliers.current.get(normalised);
-    if (batchMatch) return batchMatch;
-    const created = await onCreateSupplier({ name: supplierName.trim(), contact_person: null, email: null, phone: null, address: null, notes: null, payment_terms: "COD", is_active: true });
-    if (created?.id) {
-      batchCreatedSuppliers.current.set(normalised, created.id);
-    }
-    return created?.id || "";
-  }, [suppliers, onCreateSupplier]);
+    return "";
+  }, [suppliers]);
 
   const checkDuplicates = useCallback(async (invoicesToCheck: ScannedInvoice[]) => {
     const updates: { idx: number; isDuplicate: boolean; date?: string }[] = [];
