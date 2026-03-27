@@ -485,38 +485,72 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
     }
   }, [checkDuplicates, flagLineItemIssues, matchOrCreateSupplier, processFile, productMaster, resolvePMData, userId]);
 
-  const updateField = (field: keyof ScannedInvoice, value: string) => {
-    setInvoices((prev) => {
+  const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
+    if (!invoiceNumber || !supplierId) {
+      setInvoices(prev => {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], is_duplicate: false, duplicate_date: undefined };
+        return copy;
+      });
+      return;
+    }
+    const { data } = await supabase
+      .from("invoices")
+      .select("id, invoice_date")
+      .eq("invoice_number", invoiceNumber)
+      .eq("supplier_id", supplierId)
+      .limit(1);
+    setInvoices(prev => {
       const copy = [...prev];
-      copy[currentIdx] = { ...copy[currentIdx], [field]: value };
+      if (data && data.length > 0) {
+        copy[idx] = { ...copy[idx], is_duplicate: true, duplicate_date: data[0].invoice_date };
+      } else {
+        copy[idx] = { ...copy[idx], is_duplicate: false, duplicate_date: undefined };
+      }
       return copy;
     });
+  }, []);
+
+  const updateField = (field: keyof ScannedInvoice, value: string) => {
+    const targetIdx = currentIdx;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      copy[targetIdx] = { ...copy[targetIdx], [field]: value };
+      return copy;
+    });
+    if (field === "invoice_number") {
+      const inv = invoices[targetIdx];
+      recheckDuplicate(targetIdx, value, inv?.supplier_id || "");
+    }
   };
 
   const handleSupplierChange = async (value: string) => {
     const targetIdx = currentIdx;
+    let newSupplierId = value;
     if (value.startsWith("pm:")) {
       const supplierName = value.slice(3);
       const supplierId = await matchOrCreateSupplier(supplierName);
       if (!supplierId) return;
+      newSupplierId = supplierId;
       setInvoices((prev) => {
         const copy = [...prev];
         copy[targetIdx] = { ...copy[targetIdx], supplier_id: supplierId, supplier_name: supplierName };
         return copy;
       });
-      return;
+    } else {
+      const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
+      setInvoices((prev) => {
+        const copy = [...prev];
+        copy[targetIdx] = {
+          ...copy[targetIdx],
+          supplier_id: value,
+          supplier_name: selectedSupplier?.name || copy[targetIdx].supplier_name,
+        };
+        return copy;
+      });
     }
-
-    const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
-    setInvoices((prev) => {
-      const copy = [...prev];
-      copy[targetIdx] = {
-        ...copy[targetIdx],
-        supplier_id: value,
-        supplier_name: selectedSupplier?.name || copy[targetIdx].supplier_name,
-      };
-      return copy;
-    });
+    const inv = invoices[targetIdx];
+    recheckDuplicate(targetIdx, inv?.invoice_number || "", newSupplierId);
   };
 
   const updateLine = (i: number, field: string, value: string) => {
