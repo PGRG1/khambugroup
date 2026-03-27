@@ -309,9 +309,9 @@ export default function ProductMasterTab() {
           level1_category: r.level1_category, level2_category: r.level2_category, level3_category: r.level3_category,
           purchase_unit: r.purchase_unit, purchase_unit_cost: r.purchase_unit_cost.toFixed(2),
           stock_uom: r.stock_uom, stock_qty: r.stock_qty, cost_per_stock_unit: r.cost_per_stock_unit.toFixed(4),
-          recipe_uom: r.base_unit_type, recipe_qty: r.base_unit_qty,
-          cost_per_recipe_unit: r.cost_per_base_unit.toFixed(4),
-          supplier: r.supplier, status: r.status, notes: r.notes,
+          base_unit_type: r.base_unit_type, base_unit_qty: r.base_unit_qty,
+          cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
+          supplier: r.supplier, status: r.status,
         })), columns.map(c => ({ key: c.key, label: c.label })), "product_master")} className="h-9"><Download className="h-4 w-4 mr-1" />Download</Button>
         <Button size="sm" onClick={openCreate} className="ml-auto h-9"><Plus className="h-4 w-4 mr-1" />Add Product</Button>
       </div>
