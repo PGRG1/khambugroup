@@ -285,14 +285,14 @@ export default function ProductMasterTab() {
           <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="L1 Category" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All L1</SelectItem>
-            {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={subCatFilter} onValueChange={setSubCatFilter}>
           <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="L3 Category" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All L3</SelectItem>
-            {subCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {subCategories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
@@ -402,7 +402,7 @@ export default function ProductMasterTab() {
               <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
                 <SelectContent>
-                  {dbSuppliers.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                  {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
