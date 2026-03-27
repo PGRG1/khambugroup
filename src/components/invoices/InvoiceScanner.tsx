@@ -338,7 +338,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onCreateSupplier, on
 
       const scannedCode = (workingLine.item_code || "").trim().toLowerCase();
       const pmExtSku = (pmEntry.external_sku || "").trim().toLowerCase();
-      const skuMismatch = !!(scannedCode && pmExtSku && scannedCode !== pmExtSku);
+      // Allow partial/segment matches for pipe-separated SKUs
+      const skuMatches = !scannedCode || !pmExtSku || scannedCode === pmExtSku
+        || pmExtSku.includes(scannedCode) || scannedCode.includes(pmExtSku)
+        || pmExtSku.split("|").some(seg => seg.trim() === scannedCode);
+      const skuMismatch = !!(scannedCode && pmExtSku && !skuMatches);
 
       const scannedPrice = parseFloat(workingLine.unit_price) || 0;
       const pmPrice = pmEntry.purchase_unit_cost ?? 0;
