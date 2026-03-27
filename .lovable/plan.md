@@ -1,29 +1,28 @@
 
 
-## Fix: Stop auto-creating suppliers during invoice scanning
+## Fix: Allow duplicate Internal SKU for same product with different suppliers
 
 ### Problem
-The `matchOrCreateSupplier` function in `InvoiceScanner.tsx` (line 201-221) automatically creates a new supplier record when the scanned supplier name doesn't match any existing supplier. This caused a duplicate "匯泉國際有限公司 TELFORD INTERNATIONAL COMPANY LIMITED" entry because the OCR returned the full Chinese+English name which didn't match the existing "Telford International Company" via the partial matching logic.
-
-The supplier list should only ever be modified manually through the Suppliers tab.
+The `product_master` table has a `UNIQUE` constraint on `internal_sku`. When adding the same product with a different supplier (e.g., BEV-0112 from a second supplier), the insert fails because the SKU already exists. The intended design is that shared products use the same internal SKU and internal name, with distinct entries only in `product_suppliers`.
 
 ### Solution
-Remove the auto-create behavior. When no match is found, return an empty string (unmatched) so the user can manually select the correct supplier from the dropdown.
+Change the create flow: when the user enters an Internal SKU that already exists, look up the existing `product_master` row and add a new `product_suppliers` entry instead of inserting a new product_master record.
 
 ### Changes
 
-**File: `src/components/invoices/InvoiceScanner.tsx`**
+**File: `src/hooks/useProductMaster.ts`**
+1. In `createProduct`: Before inserting into `product_master`, check if a record with the same `internal_sku` already exists. If it does, skip the product_master insert and use the existing product's `id` to insert only a new `product_suppliers` entry.
 
-1. In `matchOrCreateSupplier` (lines 214-220): Remove the `batchCreatedSuppliers` logic and the `onCreateSupplier` call. When no match is found, simply return `""` (empty/unmatched). The user will then manually pick the correct supplier from the dropdown during reconciliation.
+**File: `src/components/procurement/ProductMasterTab.tsx`**
+2. No structural changes needed — the existing form already collects all required fields. Optionally, when the user types an existing SKU in the "Add Product" dialog, auto-fill the Internal Product Name and category fields from the existing record (nice UX touch, but not required for the fix).
 
-2. Remove the `batchCreatedSuppliers` ref (line 199) since it's no longer needed.
+### Technical detail
 
-3. Rename function to `matchSupplier` to reflect it no longer creates.
-
-**File: `src/components/procurement/ProcurementInvoicesTab.tsx`**
-
-4. Line ~504: Remove the `createSupplier` call in the supplier select's `pm:` prefix handler that also auto-creates suppliers. Instead, this code path should be removed or replaced with a toast telling the user to add suppliers via the Suppliers tab.
-
-### Result
-Scanning will still attempt to match supplier names to existing records. Unmatched suppliers will show as blank in the scanned invoice, requiring manual selection from the dropdown. No new supplier records will ever be created automatically.
+```text
+createProduct flow:
+  1. Query product_master WHERE internal_sku = sku
+  2. If found → use existing id, skip product_master insert
+  3. If not found → insert new product_master row, get id
+  4. Insert into product_suppliers with the id + supplier fields
+```
 
