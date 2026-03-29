@@ -11,6 +11,12 @@ import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboa
 
 export default function Procurement() {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null);
+
+  const handleViewInvoice = (invoiceId: string) => {
+    setOpenInvoiceId(invoiceId);
+    setActiveTab("invoices");
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
