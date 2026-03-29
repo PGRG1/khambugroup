@@ -43,7 +43,9 @@ export default function ProcurementLineItemsTab() {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [sortKey, setSortKey] = useState("invoice_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerFileUrl, setViewerFileUrl] = useState("");
+  const [viewerTitle, setViewerTitle] = useState("");
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [liData, invRes, supRes, pmRes] = await Promise.all([
