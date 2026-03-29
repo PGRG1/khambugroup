@@ -36,7 +36,12 @@ const fmtDate = (d: string) => {
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-export default function ProcurementInvoicesTab() {
+interface ProcurementInvoicesTabProps {
+  openInvoiceId?: string | null;
+  onOpenInvoiceHandled?: () => void;
+}
+
+export default function ProcurementInvoicesTab({ openInvoiceId, onOpenInvoiceHandled }: ProcurementInvoicesTabProps) {
   const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, createSupplier } = useInvoiceData();
   const { user } = useAuth();
 
