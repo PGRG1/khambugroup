@@ -80,6 +80,7 @@ export default function ProcurementLineItemsTab() {
         master_name: pm?.name || "",
         internal_sku: pm?.sku || "",
         external_sku: pm?.ext_sku || "",
+        file_url: inv?.file_url || "",
       };
     });
 
