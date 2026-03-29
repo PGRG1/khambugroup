@@ -1,28 +1,23 @@
 
 
-## Fix: Allow duplicate Internal SKU for same product with different suppliers
+## Add attachment link to Invoice Line Items tab
 
 ### Problem
-The `product_master` table has a `UNIQUE` constraint on `internal_sku`. When adding the same product with a different supplier (e.g., BEV-0112 from a second supplier), the insert fails because the SKU already exists. The intended design is that shared products use the same internal SKU and internal name, with distinct entries only in `product_suppliers`.
-
-### Solution
-Change the create flow: when the user enters an Internal SKU that already exists, look up the existing `product_master` row and add a new `product_suppliers` entry instead of inserting a new product_master record.
+The Line Items tab shows invoice data but has no way to view the scanned attachment. The Invoices tab already has an eye icon button that opens `AttachmentViewerDialog` — we need the same in Line Items.
 
 ### Changes
 
-**File: `src/hooks/useProductMaster.ts`**
-1. In `createProduct`: Before inserting into `product_master`, check if a record with the same `internal_sku` already exists. If it does, skip the product_master insert and use the existing product's `id` to insert only a new `product_suppliers` entry.
+**File: `src/components/invoices/LineItemsTab.tsx`**
 
-**File: `src/components/procurement/ProductMasterTab.tsx`**
-2. No structural changes needed — the existing form already collects all required fields. Optionally, when the user types an existing SKU in the "Add Product" dialog, auto-fill the Internal Product Name and category fields from the existing record (nice UX touch, but not required for the fix).
+1. **Fetch `file_url` from invoices query** — change the select from `"id, invoice_number, supplier_id, invoice_date"` to also include `file_url`.
 
-### Technical detail
+2. **Add `file_url` to `LineItemRow` interface** and populate it from the invoice map during mapping.
 
-```text
-createProduct flow:
-  1. Query product_master WHERE internal_sku = sku
-  2. If found → use existing id, skip product_master insert
-  3. If not found → insert new product_master row, get id
-  4. Insert into product_suppliers with the id + supplier fields
-```
+3. **Add a new first column** with an eye icon button (using `Eye` from lucide-react). Only show the icon if `file_url` is non-empty. Clicking opens the `AttachmentViewerDialog`.
+
+4. **Add state** for `viewerOpen`, `viewerFileUrl`, `viewerTitle` and render `AttachmentViewerDialog` at the bottom of the component.
+
+5. **Import** `AttachmentViewerDialog` and the `Eye` icon.
+
+The eye icon column will be non-sortable and appear as the first column, matching the pattern used in the Invoices tab.
 
