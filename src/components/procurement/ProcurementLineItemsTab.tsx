@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle, Download } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle, Download, Eye } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
 interface LineItemRow {
   id: string;
@@ -25,6 +26,7 @@ interface LineItemRow {
   master_name: string;
   internal_sku: string;
   external_sku: string;
+  file_url: string;
 }
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -41,12 +43,14 @@ export default function ProcurementLineItemsTab() {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [sortKey, setSortKey] = useState("invoice_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerFileUrl, setViewerFileUrl] = useState("");
+  const [viewerTitle, setViewerTitle] = useState("");
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [liData, invRes, supRes, pmRes] = await Promise.all([
       fetchAllRows("invoice_line_items", "*", { col: "created_at", asc: false }),
-      supabase.from("invoices").select("id, invoice_number, invoice_date, supplier_id"),
+      supabase.from("invoices").select("id, invoice_number, invoice_date, supplier_id, file_url"),
       supabase.from("suppliers").select("id, name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, external_sku"),
     ]);
@@ -76,6 +80,7 @@ export default function ProcurementLineItemsTab() {
         master_name: pm?.name || "",
         internal_sku: pm?.sku || "",
         external_sku: pm?.ext_sku || "",
+        file_url: inv?.file_url || "",
       };
     });
 
@@ -198,6 +203,7 @@ export default function ProcurementLineItemsTab() {
           <table className="w-full text-[12px] leading-tight">
             <thead>
               <tr className="bg-primary text-primary-foreground">
+                <th className="px-2 py-2.5 w-8"></th>
                 {columns.map(col => (
                   <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w} ${col.align === "right" ? "text-right" : ""}`} onClick={() => toggleSort(col.key)}>
                     <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
@@ -214,6 +220,17 @@ export default function ProcurementLineItemsTab() {
                 const isUnmatched = !r.product_master_id && !r.standard_product_id;
                 return (
                 <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+                  <td className="px-2 py-2 text-center">
+                    {r.file_url ? (
+                      <button
+                        onClick={() => { setViewerFileUrl(r.file_url); setViewerTitle(`Invoice ${r.invoice_number}`); setViewerOpen(true); }}
+                        className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                        title="View attachment"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{r.supplier_name}</td>
                   <td className="px-3 py-2 font-mono text-primary">{r.invoice_number}</td>
@@ -243,7 +260,7 @@ export default function ProcurementLineItemsTab() {
             {filtered.length > 0 && (
               <tfoot>
                 <tr className="bg-muted/40 font-semibold text-[12px]">
-                  <td colSpan={11} className="px-3 py-2 text-right">Total</td>
+                  <td colSpan={12} className="px-3 py-2 text-right">Total</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(totalNet)}</td>
                 </tr>
               </tfoot>
@@ -251,6 +268,13 @@ export default function ProcurementLineItemsTab() {
           </table>
         </div>
       </div>
+
+      <AttachmentViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        fileUrl={viewerFileUrl}
+        title={viewerTitle}
+      />
     </div>
   );
 }
