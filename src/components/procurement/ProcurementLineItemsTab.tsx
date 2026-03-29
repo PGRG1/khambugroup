@@ -34,7 +34,11 @@ const fmtDate = (d: string) => {
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-export default function ProcurementLineItemsTab() {
+interface ProcurementLineItemsTabProps {
+  onViewInvoice?: (invoiceId: string) => void;
+}
+
+export default function ProcurementLineItemsTab({ onViewInvoice }: ProcurementLineItemsTabProps) {
   const [rows, setRows] = useState<LineItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -216,7 +220,13 @@ export default function ProcurementLineItemsTab() {
                 <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{r.supplier_name}</td>
-                  <td className="px-3 py-2 font-mono text-primary">{r.invoice_number}</td>
+                  <td className="px-3 py-2 font-mono">
+                    {onViewInvoice ? (
+                      <button onClick={() => onViewInvoice(r.invoice_id)} className="text-primary hover:underline cursor-pointer">{r.invoice_number}</button>
+                    ) : (
+                      <span className="text-primary">{r.invoice_number}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 font-mono text-muted-foreground">{r.internal_sku || "—"}</td>
                   <td className="px-3 py-2 font-mono text-muted-foreground">{r.external_sku || "—"}</td>
                   <td className="px-3 py-2">
