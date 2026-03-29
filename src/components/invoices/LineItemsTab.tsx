@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Eye } from "lucide-react";
 import { Supplier } from "@/hooks/useInvoiceData";
+import AttachmentViewerDialog from "./AttachmentViewerDialog";
 
 interface LineItemRow {
   id: string;
