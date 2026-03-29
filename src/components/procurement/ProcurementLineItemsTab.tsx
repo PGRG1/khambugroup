@@ -220,6 +220,17 @@ export default function ProcurementLineItemsTab() {
                 const isUnmatched = !r.product_master_id && !r.standard_product_id;
                 return (
                 <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+                  <td className="px-2 py-2 text-center">
+                    {r.file_url ? (
+                      <button
+                        onClick={() => { setViewerFileUrl(r.file_url); setViewerTitle(`Invoice ${r.invoice_number}`); setViewerOpen(true); }}
+                        className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                        title="View attachment"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{r.supplier_name}</td>
                   <td className="px-3 py-2 font-mono text-primary">{r.invoice_number}</td>
