@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Eye } from "lucide-react";
 import { Supplier } from "@/hooks/useInvoiceData";
+import AttachmentViewerDialog from "./AttachmentViewerDialog";
 
 interface LineItemRow {
   id: string;
@@ -18,6 +19,7 @@ interface LineItemRow {
   unit: string;
   unit_price: number;
   net_amount: number;
+  file_url: string;
 }
 
 interface Props {
@@ -31,13 +33,16 @@ export default function LineItemsTab({ suppliers }: Props) {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [sortKey, setSortKey] = useState<string>("invoice_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerFileUrl, setViewerFileUrl] = useState("");
+  const [viewerTitle, setViewerTitle] = useState("");
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       const [items, { data: invoices }, { data: products }] = await Promise.all([
         fetchAllRows("invoice_line_items", "id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
-        supabase.from("invoices").select("id, invoice_number, supplier_id, invoice_date"),
+        supabase.from("invoices").select("id, invoice_number, supplier_id, invoice_date, file_url"),
         supabase.from("standard_products").select("id, name"),
       ]);
 
@@ -61,6 +66,7 @@ export default function LineItemsTab({ suppliers }: Props) {
           unit: li.unit || "unit",
           unit_price: li.unit_price || 0,
           net_amount: li.total || 0,
+          file_url: inv?.file_url || "",
         };
       });
 
@@ -154,6 +160,7 @@ export default function LineItemsTab({ suppliers }: Props) {
         <table className="w-full text-[12px] leading-tight">
           <thead>
             <tr className="bg-primary text-primary-foreground">
+              <th className="px-2 py-2.5 w-8"></th>
               {columns.map(col => (
                 <th
                   key={col.key}
@@ -171,11 +178,22 @@ export default function LineItemsTab({ suppliers }: Props) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center text-muted-foreground py-10 text-sm">No line items found</td>
+                <td colSpan={11} className="text-center text-muted-foreground py-10 text-sm">No line items found</td>
               </tr>
             ) : (
               filtered.map((row, idx) => (
                 <tr key={row.id} className={`border-b border-border/40 transition-colors hover:bg-accent/30 ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+                  <td className="px-2 py-2 text-center">
+                    {row.file_url ? (
+                      <button
+                        onClick={() => { setViewerFileUrl(row.file_url); setViewerTitle(`Invoice ${row.invoice_number}`); setViewerOpen(true); }}
+                        className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                        title="View attachment"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{formatDate(row.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{row.supplier_name}</td>
                   <td className="px-3 py-2 tabular-nums">{row.invoice_number}</td>
@@ -193,13 +211,20 @@ export default function LineItemsTab({ suppliers }: Props) {
           {filtered.length > 0 && (
             <tfoot>
               <tr className="bg-primary/10 border-t-2 border-primary/30">
-                <td colSpan={9} className="px-3 py-2.5 text-right font-semibold text-foreground text-[12px]">Total</td>
+                <td colSpan={10} className="px-3 py-2.5 text-right font-semibold text-foreground text-[12px]">Total</td>
                 <td className="px-3 py-2.5 text-right font-bold tabular-nums text-foreground text-[13px]">{formatCurrency(totalNet)}</td>
               </tr>
             </tfoot>
           )}
         </table>
       </div>
+
+      <AttachmentViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        fileUrl={viewerFileUrl}
+        title={viewerTitle}
+      />
     </div>
   );
 }
