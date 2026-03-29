@@ -95,6 +95,23 @@ export default function ProcurementInvoicesTab({ openInvoiceId, onOpenInvoiceHan
     });
   }, []);
 
+  // Auto-open invoice detail when navigated from line items tab
+  useEffect(() => {
+    if (openInvoiceId && invoices.length > 0) {
+      const inv = invoices.find(i => i.id === openInvoiceId);
+      if (inv) {
+        (async () => {
+          setSelectedInvoice(inv);
+          const items = await fetchLineItems(inv.id);
+          setLineItems(items);
+          setEditing(false);
+          setDrawerOpen(true);
+        })();
+      }
+      onOpenInvoiceHandled?.();
+    }
+  }, [openInvoiceId, invoices]);
+
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
