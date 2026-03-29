@@ -36,12 +36,7 @@ const fmtDate = (d: string) => {
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-interface ProcurementInvoicesTabProps {
-  openInvoiceId?: string | null;
-  onOpenInvoiceHandled?: () => void;
-}
-
-export default function ProcurementInvoicesTab({ openInvoiceId, onOpenInvoiceHandled }: ProcurementInvoicesTabProps) {
+export default function ProcurementInvoicesTab() {
   const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, createSupplier } = useInvoiceData();
   const { user } = useAuth();
 
@@ -94,23 +89,6 @@ export default function ProcurementInvoicesTab({ openInvoiceId, onOpenInvoiceHan
       setProductMaster(entries);
     });
   }, []);
-
-  // Auto-open invoice detail when navigated from line items tab
-  useEffect(() => {
-    if (openInvoiceId && invoices.length > 0) {
-      const inv = invoices.find(i => i.id === openInvoiceId);
-      if (inv) {
-        (async () => {
-          setSelectedInvoice(inv);
-          const items = await fetchLineItems(inv.id);
-          setLineItems(items);
-          setEditing(false);
-          setDrawerOpen(true);
-        })();
-      }
-      onOpenInvoiceHandled?.();
-    }
-  }, [openInvoiceId, invoices]);
 
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
