@@ -50,7 +50,7 @@ export default function ProcurementLineItemsTab() {
     setLoading(true);
     const [liData, invRes, supRes, pmRes] = await Promise.all([
       fetchAllRows("invoice_line_items", "*", { col: "created_at", asc: false }),
-      supabase.from("invoices").select("id, invoice_number, invoice_date, supplier_id"),
+      supabase.from("invoices").select("id, invoice_number, invoice_date, supplier_id, file_url"),
       supabase.from("suppliers").select("id, name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, external_sku"),
     ]);
