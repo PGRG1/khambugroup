@@ -159,6 +159,7 @@ export default function LineItemsTab({ suppliers }: Props) {
         <table className="w-full text-[12px] leading-tight">
           <thead>
             <tr className="bg-primary text-primary-foreground">
+              <th className="px-2 py-2.5 w-8"></th>
               {columns.map(col => (
                 <th
                   key={col.key}
