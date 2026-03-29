@@ -182,6 +182,17 @@ export default function LineItemsTab({ suppliers }: Props) {
             ) : (
               filtered.map((row, idx) => (
                 <tr key={row.id} className={`border-b border-border/40 transition-colors hover:bg-accent/30 ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+                  <td className="px-2 py-2 text-center">
+                    {row.file_url ? (
+                      <button
+                        onClick={() => { setViewerFileUrl(row.file_url); setViewerTitle(`Invoice ${row.invoice_number}`); setViewerOpen(true); }}
+                        className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                        title="View attachment"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{formatDate(row.invoice_date)}</td>
                   <td className="px-3 py-2 font-medium text-foreground">{row.supplier_name}</td>
                   <td className="px-3 py-2 tabular-nums">{row.invoice_number}</td>
