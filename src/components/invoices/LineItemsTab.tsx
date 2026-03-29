@@ -65,6 +65,7 @@ export default function LineItemsTab({ suppliers }: Props) {
           unit: li.unit || "unit",
           unit_price: li.unit_price || 0,
           net_amount: li.total || 0,
+          file_url: inv?.file_url || "",
         };
       });
 
