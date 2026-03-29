@@ -217,6 +217,13 @@ export default function LineItemsTab({ suppliers }: Props) {
           )}
         </table>
       </div>
+
+      <AttachmentViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        fileUrl={viewerFileUrl}
+        title={viewerTitle}
+      />
     </div>
   );
 }
