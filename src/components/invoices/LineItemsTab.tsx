@@ -177,7 +177,7 @@ export default function LineItemsTab({ suppliers }: Props) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center text-muted-foreground py-10 text-sm">No line items found</td>
+                <td colSpan={11} className="text-center text-muted-foreground py-10 text-sm">No line items found</td>
               </tr>
             ) : (
               filtered.map((row, idx) => (
