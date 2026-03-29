@@ -210,7 +210,7 @@ export default function LineItemsTab({ suppliers }: Props) {
           {filtered.length > 0 && (
             <tfoot>
               <tr className="bg-primary/10 border-t-2 border-primary/30">
-                <td colSpan={9} className="px-3 py-2.5 text-right font-semibold text-foreground text-[12px]">Total</td>
+                <td colSpan={10} className="px-3 py-2.5 text-right font-semibold text-foreground text-[12px]">Total</td>
                 <td className="px-3 py-2.5 text-right font-bold tabular-nums text-foreground text-[13px]">{formatCurrency(totalNet)}</td>
               </tr>
             </tfoot>
