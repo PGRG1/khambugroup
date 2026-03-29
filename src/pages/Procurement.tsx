@@ -46,8 +46,8 @@ export default function Procurement() {
         <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
         <TabsContent value="suppliers"><SuppliersTab /></TabsContent>
         <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
-        <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
-        <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
+        <TabsContent value="invoices"><ProcurementInvoicesTab openInvoiceId={openInvoiceId} onOpenInvoiceHandled={() => setOpenInvoiceId(null)} /></TabsContent>
+        <TabsContent value="line-items"><ProcurementLineItemsTab onViewInvoice={handleViewInvoice} /></TabsContent>
         <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
         <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>
       </Tabs>
