@@ -26,6 +26,7 @@ interface LineItemRow {
   master_name: string;
   internal_sku: string;
   external_sku: string;
+  file_url: string;
 }
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
