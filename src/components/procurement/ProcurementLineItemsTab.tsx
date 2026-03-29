@@ -203,6 +203,7 @@ export default function ProcurementLineItemsTab() {
           <table className="w-full text-[12px] leading-tight">
             <thead>
               <tr className="bg-primary text-primary-foreground">
+                <th className="px-2 py-2.5 w-8"></th>
                 {columns.map(col => (
                   <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w} ${col.align === "right" ? "text-right" : ""}`} onClick={() => toggleSort(col.key)}>
                     <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
