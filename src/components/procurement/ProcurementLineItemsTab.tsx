@@ -268,6 +268,13 @@ export default function ProcurementLineItemsTab() {
           </table>
         </div>
       </div>
+
+      <AttachmentViewerDialog
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        fileUrl={viewerFileUrl}
+        title={viewerTitle}
+      />
     </div>
   );
 }
