@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle, Download } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle, Download, Eye } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
 interface LineItemRow {
   id: string;
