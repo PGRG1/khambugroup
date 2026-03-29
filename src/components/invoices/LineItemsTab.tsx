@@ -32,6 +32,9 @@ export default function LineItemsTab({ suppliers }: Props) {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [sortKey, setSortKey] = useState<string>("invoice_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerFileUrl, setViewerFileUrl] = useState("");
+  const [viewerTitle, setViewerTitle] = useState("");
 
   useEffect(() => {
     (async () => {
