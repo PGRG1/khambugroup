@@ -49,10 +49,11 @@ const ProductAutocomplete = ({
         if (searchField === "code") {
           return p.external_sku.trim() !== "" && p.external_sku.toLowerCase().includes(query);
         }
-        const name = (p.supplier_product_name || p.internal_product_name || "").toLowerCase();
-        return name.includes(query);
+        const supName = (p.supplier_product_name || "").toLowerCase();
+        const intName = (p.internal_product_name || "").toLowerCase();
+        return supName.includes(query) || intName.includes(query);
       });
-    return results.slice(0, 8);
+    return results.slice(0, 12);
   }, [query, products, searchField]);
 
   useEffect(() => {
@@ -139,8 +140,11 @@ const ProductAutocomplete = ({
                 </>
               )}
               <span>{p.supplier_product_name || p.internal_product_name}</span>
+              {p.purchase_unit && (
+                <span className="ml-1 text-[10px] text-muted-foreground">({p.purchase_unit})</span>
+              )}
               {p.supplier && (
-                <span className="ml-1.5 text-[10px] text-muted-foreground/70">({p.supplier})</span>
+                <span className="ml-1.5 text-[10px] text-muted-foreground/70">— {p.supplier}</span>
               )}
             </button>
           ))}
