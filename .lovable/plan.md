@@ -1,30 +1,29 @@
 
 
-## Fix: Editing Internal SKU on one row should not affect other rows sharing the same product
+## Fix: Per-supplier cost calculations in Product Master display
 
 ### Problem
-When two supplier entries share the same `product_master` record (same Internal SKU), editing the Internal SKU or Internal Product Name on one row updates the shared `product_master` record, changing both rows. The user needs to correct a mistakenly assigned SKU on just one supplier entry.
+When two suppliers share the same `product_master` record (same Internal SKU), the `cost_per_stock_unit` and `cost_per_base_unit` values displayed are identical because they are stored on the shared `product_master` row. In reality, each supplier has a different `purchase_unit_cost` (e.g., Ming Kee at 165.00 vs ONGO at 150.00), so the derived costs should differ per row.
 
 ### Root Cause
-In `handleSave` (ProductMasterTab.tsx line 189-201), `updateProduct(editingProductId, ...)` directly updates the shared `product_master` row. Both supplier entries point to the same `product_master_id`, so both are affected.
+In `flatRows` (ProductMasterTab.tsx ~line 100), `cost_per_stock_unit` and `cost_per_base_unit` are taken directly from `p.*` (the shared product_master record). These should be recalculated on-the-fly using each supplier's `purchase_unit_cost`.
 
-### Solution: "Split on SKU change"
-When saving an edit, if the `internal_sku` has changed AND other supplier entries share the same `product_master_id`:
+### Solution
+Compute `cost_per_stock_unit` and `cost_per_base_unit` dynamically per-supplier-row instead of reading the stored product_master values.
 
-1. **Create a new `product_master` record** with the updated SKU/name/categories
-2. **Reassign the current supplier entry** (`product_suppliers` row) to point to the new `product_master_id`
-3. **Leave the original product_master untouched** so the other supplier entry is unaffected
-
-If the SKU hasn't changed, or the product has only one supplier entry, update in place as before.
+Formulas (from existing logic):
+- `cost_per_stock_unit = purchase_unit_cost / stock_qty`
+- `cost_per_base_unit = purchase_unit_cost / base_unit_qty`
 
 ### Changes
 
-**File: `src/hooks/useProductMaster.ts`**
-- Add a new function `splitProduct(productId, supplierEntryId, updates)` that:
-  1. Inserts a new `product_master` row with the updated fields
-  2. Updates the `product_suppliers` row to point to the new product_master_id
-  3. Refreshes the product list
-
 **File: `src/components/procurement/ProductMasterTab.tsx`**
-- In `handleSave`: Before calling `updateProduct`, check if `internal_sku` changed and the product has multiple supplier entries. If so, call `splitProduct` instead of `updateProduct`.
+
+1. In the `flatRows` builder (~line 93-104, supplier entry branch): Replace `cost_per_stock_unit: p.cost_per_stock_unit` and `cost_per_base_unit: p.cost_per_base_unit` with dynamically calculated values:
+   - `cost_per_stock_unit = s.purchase_unit_cost / (p.stock_qty || 1)`
+   - `cost_per_base_unit = s.purchase_unit_cost / (p.base_unit_qty || 1)`
+
+2. In the no-supplier fallback branch (~line 106-116): Keep using `p.cost_per_stock_unit` and `p.cost_per_base_unit` as-is (or recalculate from `p.purchase_unit_cost`).
+
+This is a display-only change — no database or hook modifications needed.
 
