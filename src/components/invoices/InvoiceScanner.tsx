@@ -173,25 +173,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return options;
   }, [current?.supplier_id, productMaster, suppliers]);
 
-  // Rank product master: current supplier first, then others
-  const rankedPM = useMemo(() => {
+  // Filter product master by current supplier context
+  const supplierFilteredPM = useMemo(() => {
     if (!productMaster || !current) return productMaster || [];
     const supplierName = current.supplier_name || "";
     if (!supplierName) return productMaster;
     const normSupplier = normalizeSupplierName(supplierName);
-    const currentSupplierItems: typeof productMaster = [];
-    const otherItems: typeof productMaster = [];
-    for (const p of productMaster) {
-      if (p.supplier) {
-        const normPM = normalizeSupplierName(p.supplier);
-        if (normPM === normSupplier || normPM.includes(normSupplier) || normSupplier.includes(normPM)) {
-          currentSupplierItems.push(p);
-          continue;
-        }
-      }
-      otherItems.push(p);
-    }
-    return [...currentSupplierItems, ...otherItems];
+    const filtered = productMaster.filter((p) => {
+      if (!p.supplier) return false;
+      const normPM = normalizeSupplierName(p.supplier);
+      return normPM === normSupplier || normPM.includes(normSupplier) || normSupplier.includes(normPM);
+    });
+    // If no matches found for this supplier, fall back to full list
+    return filtered.length > 0 ? filtered : productMaster;
   }, [productMaster, current?.supplier_name]);
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -1098,7 +1092,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             value={line.item_code}
                             onChange={(v) => updateLine(i, "item_code", v)}
                             onSelect={(p) => selectProduct(i, p)}
-                            products={rankedPM}
+                            products={supplierFilteredPM}
                             searchField="code"
                             placeholder="Code"
                             className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
@@ -1115,7 +1109,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             value={line.description}
                             onChange={(v) => updateLine(i, "description", v)}
                             onSelect={(p) => selectProduct(i, p)}
-                            products={rankedPM}
+                            products={supplierFilteredPM}
                             searchField="name"
                             placeholder="Item name"
                             className="text-xs h-8"
