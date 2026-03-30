@@ -49,10 +49,11 @@ const ProductAutocomplete = ({
         if (searchField === "code") {
           return p.external_sku.trim() !== "" && p.external_sku.toLowerCase().includes(query);
         }
-        const name = (p.supplier_product_name || p.internal_product_name || "").toLowerCase();
-        return name.includes(query);
+        const supName = (p.supplier_product_name || "").toLowerCase();
+        const intName = (p.internal_product_name || "").toLowerCase();
+        return supName.includes(query) || intName.includes(query);
       });
-    return results.slice(0, 8);
+    return results.slice(0, 12);
   }, [query, products, searchField]);
 
   useEffect(() => {
