@@ -59,6 +59,7 @@ export default function ProductMasterTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
+  const [originalSku, setOriginalSku] = useState<string>("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<FlatRow | null>(null);
