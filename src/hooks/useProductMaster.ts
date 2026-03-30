@@ -11,6 +11,10 @@ export interface ProductSupplierEntry {
   purchase_unit: string;
   purchase_unit_cost: number;
   status: string;
+  stock_uom: string;
+  stock_qty: number;
+  base_unit_type: string;
+  base_unit_qty: number;
 }
 
 export interface ProductMasterItem {
