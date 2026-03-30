@@ -120,7 +120,7 @@ const ProductAutocomplete = ({
         >
           {suggestions.map((p, idx) => (
             <button
-              key={p.id}
+              key={`${p.id}-${p.supplier || idx}`}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSelect(p)}
