@@ -166,6 +166,7 @@ export default function ProductMasterTab() {
   const openEdit = (row: FlatRow) => {
     setEditingProductId(row.product.id);
     setEditingSupplierEntryId(row.supplier_entry?.id || null);
+    setOriginalSku(row.internal_sku);
     setForm({
       internal_sku: row.internal_sku, external_sku: row.external_sku,
       internal_product_name: row.internal_product_name, supplier_product_name: row.supplier_product_name,
