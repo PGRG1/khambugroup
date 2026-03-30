@@ -97,8 +97,8 @@ export default function ProductMasterTab() {
             internal_product_name: p.internal_product_name, supplier_product_name: s.supplier_product_name,
             level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
             purchase_unit: s.purchase_unit, purchase_unit_cost: s.purchase_unit_cost,
-            stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: p.cost_per_stock_unit,
-            base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
+            stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: s.purchase_unit_cost / (p.stock_qty || 1),
+            base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: s.purchase_unit_cost / (p.base_unit_qty || 1),
             supplier: s.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
           });
         }
