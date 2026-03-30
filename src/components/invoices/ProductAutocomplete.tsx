@@ -140,8 +140,11 @@ const ProductAutocomplete = ({
                 </>
               )}
               <span>{p.supplier_product_name || p.internal_product_name}</span>
+              {p.purchase_unit && (
+                <span className="ml-1 text-[10px] text-muted-foreground">({p.purchase_unit})</span>
+              )}
               {p.supplier && (
-                <span className="ml-1.5 text-[10px] text-muted-foreground/70">({p.supplier})</span>
+                <span className="ml-1.5 text-[10px] text-muted-foreground/70">— {p.supplier}</span>
               )}
             </button>
           ))}
