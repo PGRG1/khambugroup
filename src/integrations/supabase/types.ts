@@ -1462,6 +1462,8 @@ export type Database = {
       }
       product_suppliers: {
         Row: {
+          base_unit_qty: number
+          base_unit_type: string
           created_at: string
           external_sku: string
           id: string
@@ -1469,11 +1471,15 @@ export type Database = {
           purchase_unit: string
           purchase_unit_cost: number
           status: string
+          stock_qty: number
+          stock_uom: string
           supplier: string
           supplier_product_name: string
           updated_at: string
         }
         Insert: {
+          base_unit_qty?: number
+          base_unit_type?: string
           created_at?: string
           external_sku?: string
           id?: string
@@ -1481,11 +1487,15 @@ export type Database = {
           purchase_unit?: string
           purchase_unit_cost?: number
           status?: string
+          stock_qty?: number
+          stock_uom?: string
           supplier?: string
           supplier_product_name?: string
           updated_at?: string
         }
         Update: {
+          base_unit_qty?: number
+          base_unit_type?: string
           created_at?: string
           external_sku?: string
           id?: string
@@ -1493,6 +1503,8 @@ export type Database = {
           purchase_unit?: string
           purchase_unit_cost?: number
           status?: string
+          stock_qty?: number
+          stock_uom?: string
           supplier?: string
           supplier_product_name?: string
           updated_at?: string

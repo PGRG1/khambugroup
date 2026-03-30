@@ -193,12 +193,18 @@ export default function ProductMasterTab() {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
-        stock_uom: form.stock_uom, stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
-        base_unit_type: form.base_unit_type, base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
         notes: form.notes,
         supplier: form.supplier, external_sku: form.external_sku,
         supplier_product_name: form.supplier_product_name,
         purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
+      };
+
+      const supplierLevelFields = {
+        supplier: form.supplier, external_sku: form.external_sku,
+        supplier_product_name: form.supplier_product_name,
+        purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
+        stock_uom: form.stock_uom, stock_qty: stockQty,
+        base_unit_type: form.base_unit_type, base_unit_qty: recipeQty,
       };
 
       // Check if SKU changed and product is shared by multiple supplier entries
@@ -212,27 +218,15 @@ export default function ProductMasterTab() {
         : null;
 
       if (existingMatch && editingSupplierEntryId) {
-        // Reassign this supplier entry to the existing product_master record
         await reassignSupplier(editingSupplierEntryId, existingMatch.id);
-        // Also update the supplier-level fields on the supplier entry
-        await updateSupplier(editingSupplierEntryId, {
-          supplier: form.supplier, external_sku: form.external_sku,
-          supplier_product_name: form.supplier_product_name,
-          purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
-        });
-        // Clean up the old product_master if it has no remaining suppliers
+        await updateSupplier(editingSupplierEntryId, supplierLevelFields);
         await deleteProductIfOrphaned(editingProductId);
       } else if (skuChanged && isShared && editingSupplierEntryId) {
-        // Split: create new product_master and reassign this supplier entry
         await splitProduct(editingProductId, editingSupplierEntryId, pmUpdates);
       } else {
         await updateProduct(editingProductId, pmUpdates);
         if (editingSupplierEntryId) {
-          await updateSupplier(editingSupplierEntryId, {
-            supplier: form.supplier, external_sku: form.external_sku,
-            supplier_product_name: form.supplier_product_name,
-            purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
-          });
+          await updateSupplier(editingSupplierEntryId, supplierLevelFields);
         }
       }
       setDialogOpen(false);
