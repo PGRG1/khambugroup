@@ -48,7 +48,7 @@ interface FlatRow {
 }
 
 export default function ProductMasterTab() {
-  const { products, loading, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct } = useProductMaster();
+  const { products, loading, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [subCatFilter, setSubCatFilter] = useState("all");
@@ -206,7 +206,23 @@ export default function ProductMasterTab() {
       const isShared = editedProduct && (editedProduct.suppliers?.length ?? 0) > 1;
       const skuChanged = form.internal_sku !== originalSku;
 
-      if (skuChanged && isShared && editingSupplierEntryId) {
+      // Merge-on-SKU-match: if SKU changed to one that already exists on a different product_master
+      const existingMatch = skuChanged
+        ? products.find(p => p.internal_sku === form.internal_sku && p.id !== editingProductId)
+        : null;
+
+      if (existingMatch && editingSupplierEntryId) {
+        // Reassign this supplier entry to the existing product_master record
+        await reassignSupplier(editingSupplierEntryId, existingMatch.id);
+        // Also update the supplier-level fields on the supplier entry
+        await updateSupplier(editingSupplierEntryId, {
+          supplier: form.supplier, external_sku: form.external_sku,
+          supplier_product_name: form.supplier_product_name,
+          purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
+        });
+        // Clean up the old product_master if it has no remaining suppliers
+        await deleteProductIfOrphaned(editingProductId);
+      } else if (skuChanged && isShared && editingSupplierEntryId) {
         // Split: create new product_master and reassign this supplier entry
         await splitProduct(editingProductId, editingSupplierEntryId, pmUpdates);
       } else {

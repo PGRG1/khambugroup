@@ -169,5 +169,23 @@ export function useProductMaster() {
     return true;
   }, [fetchProducts, toast]);
 
-  return { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct };
+  const reassignSupplier = useCallback(async (supplierEntryId: string, newProductMasterId: string) => {
+    const { error } = await supabase.from("product_suppliers" as any)
+      .update({ product_master_id: newProductMasterId } as any)
+      .eq("id", supplierEntryId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
+    await fetchProducts();
+    return true;
+  }, [fetchProducts, toast]);
+
+  const deleteProductIfOrphaned = useCallback(async (productId: string) => {
+    // Check if any supplier entries still reference this product
+    const { data } = await supabase.from("product_suppliers" as any).select("id").eq("product_master_id", productId).limit(1);
+    if (data && (data as any[]).length === 0) {
+      await supabase.from("product_master" as any).delete().eq("id", productId);
+    }
+    await fetchProducts();
+  }, [fetchProducts]);
+
+  return { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned };
 }
