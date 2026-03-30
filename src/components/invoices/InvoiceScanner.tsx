@@ -1115,7 +1115,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             value={line.description}
                             onChange={(v) => updateLine(i, "description", v)}
                             onSelect={(p) => selectProduct(i, p)}
-                            products={supplierFilteredPM}
+                            products={rankedPM}
                             searchField="name"
                             placeholder="Item name"
                             className="text-xs h-8"
