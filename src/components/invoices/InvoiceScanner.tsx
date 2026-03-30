@@ -1098,7 +1098,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             value={line.item_code}
                             onChange={(v) => updateLine(i, "item_code", v)}
                             onSelect={(p) => selectProduct(i, p)}
-                            products={supplierFilteredPM}
+                            products={rankedPM}
                             searchField="code"
                             placeholder="Code"
                             className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
