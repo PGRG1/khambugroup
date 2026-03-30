@@ -1,23 +1,30 @@
 
 
-## Add attachment link to Invoice Line Items tab
+## Fix: Editing Internal SKU on one row should not affect other rows sharing the same product
 
 ### Problem
-The Line Items tab shows invoice data but has no way to view the scanned attachment. The Invoices tab already has an eye icon button that opens `AttachmentViewerDialog` — we need the same in Line Items.
+When two supplier entries share the same `product_master` record (same Internal SKU), editing the Internal SKU or Internal Product Name on one row updates the shared `product_master` record, changing both rows. The user needs to correct a mistakenly assigned SKU on just one supplier entry.
+
+### Root Cause
+In `handleSave` (ProductMasterTab.tsx line 189-201), `updateProduct(editingProductId, ...)` directly updates the shared `product_master` row. Both supplier entries point to the same `product_master_id`, so both are affected.
+
+### Solution: "Split on SKU change"
+When saving an edit, if the `internal_sku` has changed AND other supplier entries share the same `product_master_id`:
+
+1. **Create a new `product_master` record** with the updated SKU/name/categories
+2. **Reassign the current supplier entry** (`product_suppliers` row) to point to the new `product_master_id`
+3. **Leave the original product_master untouched** so the other supplier entry is unaffected
+
+If the SKU hasn't changed, or the product has only one supplier entry, update in place as before.
 
 ### Changes
 
-**File: `src/components/invoices/LineItemsTab.tsx`**
+**File: `src/hooks/useProductMaster.ts`**
+- Add a new function `splitProduct(productId, supplierEntryId, updates)` that:
+  1. Inserts a new `product_master` row with the updated fields
+  2. Updates the `product_suppliers` row to point to the new product_master_id
+  3. Refreshes the product list
 
-1. **Fetch `file_url` from invoices query** — change the select from `"id, invoice_number, supplier_id, invoice_date"` to also include `file_url`.
-
-2. **Add `file_url` to `LineItemRow` interface** and populate it from the invoice map during mapping.
-
-3. **Add a new first column** with an eye icon button (using `Eye` from lucide-react). Only show the icon if `file_url` is non-empty. Clicking opens the `AttachmentViewerDialog`.
-
-4. **Add state** for `viewerOpen`, `viewerFileUrl`, `viewerTitle` and render `AttachmentViewerDialog` at the bottom of the component.
-
-5. **Import** `AttachmentViewerDialog` and the `Eye` icon.
-
-The eye icon column will be non-sortable and appear as the first column, matching the pattern used in the Invoices tab.
+**File: `src/components/procurement/ProductMasterTab.tsx`**
+- In `handleSave`: Before calling `updateProduct`, check if `internal_sku` changed and the product has multiple supplier entries. If so, call `splitProduct` instead of `updateProduct`.
 
