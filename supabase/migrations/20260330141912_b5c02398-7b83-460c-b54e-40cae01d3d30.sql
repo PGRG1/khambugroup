@@ -1,0 +1,1 @@
+ALTER TABLE product_suppliers DROP CONSTRAINT product_suppliers_product_master_id_supplier_key;
