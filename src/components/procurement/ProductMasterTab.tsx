@@ -48,7 +48,7 @@ interface FlatRow {
 }
 
 export default function ProductMasterTab() {
-  const { products, loading, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier } = useProductMaster();
+  const { products, loading, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct } = useProductMaster();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [subCatFilter, setSubCatFilter] = useState("all");
@@ -59,6 +59,7 @@ export default function ProductMasterTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
+  const [originalSku, setOriginalSku] = useState<string>("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<FlatRow | null>(null);
@@ -165,6 +166,7 @@ export default function ProductMasterTab() {
   const openEdit = (row: FlatRow) => {
     setEditingProductId(row.product.id);
     setEditingSupplierEntryId(row.supplier_entry?.id || null);
+    setOriginalSku(row.internal_sku);
     setForm({
       internal_sku: row.internal_sku, external_sku: row.external_sku,
       internal_product_name: row.internal_product_name, supplier_product_name: row.supplier_product_name,
@@ -187,24 +189,35 @@ export default function ProductMasterTab() {
     const costPerRecipeUnit = recipeQty > 0 ? purchaseUnitCost / recipeQty : 0;
 
     if (editingProductId) {
-      await updateProduct(editingProductId, {
+      const pmUpdates = {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         stock_uom: form.stock_uom, stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
         base_unit_type: form.base_unit_type, base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
         notes: form.notes,
-        // Always include supplier-level fields on product_master
         supplier: form.supplier, external_sku: form.external_sku,
         supplier_product_name: form.supplier_product_name,
         purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
-      });
-      if (editingSupplierEntryId) {
-        await updateSupplier(editingSupplierEntryId, {
-          supplier: form.supplier, external_sku: form.external_sku,
-          supplier_product_name: form.supplier_product_name,
-          purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
-        });
+      };
+
+      // Check if SKU changed and product is shared by multiple supplier entries
+      const editedProduct = products.find(p => p.id === editingProductId);
+      const isShared = editedProduct && (editedProduct.suppliers?.length ?? 0) > 1;
+      const skuChanged = form.internal_sku !== originalSku;
+
+      if (skuChanged && isShared && editingSupplierEntryId) {
+        // Split: create new product_master and reassign this supplier entry
+        await splitProduct(editingProductId, editingSupplierEntryId, pmUpdates);
+      } else {
+        await updateProduct(editingProductId, pmUpdates);
+        if (editingSupplierEntryId) {
+          await updateSupplier(editingSupplierEntryId, {
+            supplier: form.supplier, external_sku: form.external_sku,
+            supplier_product_name: form.supplier_product_name,
+            purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
+          });
+        }
       }
       setDialogOpen(false);
     } else {

@@ -142,5 +142,32 @@ export function useProductMaster() {
     return true;
   }, [fetchProducts, toast]);
 
-  return { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier };
+  // Split: create a new product_master row and reassign the supplier entry to it
+  const splitProduct = useCallback(async (
+    oldProductId: string,
+    supplierEntryId: string,
+    updates: Partial<Omit<ProductMasterItem, "id" | "created_at" | "updated_at" | "suppliers">>
+  ) => {
+    // Get the current product_master row to use as base
+    const { data: existing } = await supabase.from("product_master" as any).select("*").eq("id", oldProductId).single();
+    if (!existing) { toast({ title: "Error", description: "Product not found", variant: "destructive" }); return false; }
+
+    // Merge updates into existing to create a new row
+    const { id, created_at, updated_at, ...base } = existing as any;
+    const newRow = { ...base, ...updates };
+
+    const { data: inserted, error: insertErr } = await supabase.from("product_master" as any).insert(newRow as any).select("id").single();
+    if (insertErr) { toast({ title: "Error", description: insertErr.message, variant: "destructive" }); return false; }
+
+    // Reassign the supplier entry to the new product_master row
+    const { error: updateErr } = await supabase.from("product_suppliers" as any)
+      .update({ product_master_id: (inserted as any).id } as any)
+      .eq("id", supplierEntryId);
+    if (updateErr) { toast({ title: "Error", description: updateErr.message, variant: "destructive" }); return false; }
+
+    await fetchProducts();
+    return true;
+  }, [fetchProducts, toast]);
+
+  return { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct };
 }
