@@ -1,43 +1,28 @@
 
 
-## Upgrade Edit Invoice dialog to match Scanner's full entry view
+## Make Edit Invoice a full-page view matching the Scanner layout
 
 ### Problem
-The Edit Invoice dialog only shows basic fields (Code, Description, Pack Size, Qty, Unit, Weight, Price, Tax) for line items. It is missing the Product Master integration fields that the Scanner provides: Internal SKU, Internal Product Name, Stock UOM, Purchase UOM, Stock Qty, Discount, Total, and the ProductAutocomplete matching. This means users cannot update or re-match line items against the Product Master after initial entry.
+The Edit Invoice opens as a dialog overlay while the detail Sheet/drawer may still be visible behind it. The user wants an identical experience to the Invoice Scanner — a clean, full-page view with all Product Master fields visible and no side panel.
 
 ### Solution
-Rebuild the Edit Invoice line items section to mirror the InvoiceScanner's line item layout, including:
-- ProductAutocomplete for matching items against Product Master
-- Read-only auto-populated fields: Internal SKU, Internal Product Name, Stock UOM, Purchase UOM
-- Auto-calculated Stock Qty (Purchase Qty × PM ratio)
-- Discount and Total columns
-- Price mismatch highlighting
+Replace the Edit Invoice `Dialog` with a full-page overlay (same pattern as the Scanner), and close the detail drawer when entering edit mode. The line items layout will match the scanner screenshot exactly.
 
 ### Changes
 
 **File: `src/pages/Invoices.tsx`**
 
-1. **Expand `editLines` state shape** — Add fields: `matched_sku`, `matched_internal_name`, `matched_stock_uom`, `matched_purchase_uom`, `matched_stock_qty_ratio`, `discount`, `total`, `product_master_id`, `price_changed`, `pm_unit_price`.
+1. **Replace `<Dialog>` with full-page overlay** — Change the edit invoice from a `Dialog` component to a full-screen `Dialog` with `max-w-[98vw] h-[95vh]` or use the same full-page pattern as the Scanner (a conditional render that takes over the content area). Ensure `setDrawerOpen(false)` fires before opening edit.
 
-2. **Update `openEdit`** — When loading existing line items, fetch Product Master data to populate the matched fields (query `product_master` + `product_suppliers` for each line item's `product_master_id`).
+2. **Match scanner layout exactly** — The line items table already has Internal SKU, Internal Name, External SKU, External Name, Purchase UOM, Purchase Qty, Stock UOM, Stock Qty, Purchase Cost, and Total columns. Verify column widths and ordering match the scanner screenshot:
+   - `#` | `Internal SKU` | `Internal Name` | `External SKU` | `External Name` | `Purch. UOM` | `Purch. Qty` | `Stock UOM` | `Stock Qty` | `Purch. Cost` | `Total` | Delete
 
-3. **Fetch Product Master entries** — Load the full product master list (similar to InvoiceScanner) so ProductAutocomplete can be used in edit mode.
+3. **Remove `max-w-lg` constraint** — Use a full-viewport approach: the DialogContent should use `max-w-none w-[98vw] h-[92vh]` with internal scroll, so the layout doesn't feel cramped and matches the spacious scanner view.
 
-4. **Replace the edit line items grid** — Replace the current simple grid (lines ~842-880) with the scanner-style layout:
-   - External SKU field with ProductAutocomplete (code search)
-   - Supplier Product Name with ProductAutocomplete (name search)
-   - Read-only: Internal SKU, Internal Product Name, Stock UOM, Purchase UOM
-   - Auto-calculated: Stock Qty
-   - Editable: Purchase Qty, Unit Price, Discount, Tax
-   - Auto-calculated: Total (line total)
-   - Unmatched/price-changed visual indicators
-
-5. **Update `handleEditSave`** — Include `product_master_id` and `discount` when building line items for save. Preserve matched PM fields.
-
-6. **Add `handleProductMatch` for edit** — When a product is selected from autocomplete, populate the matched fields (same logic as InvoiceScanner's match handler).
+4. **Ensure drawer is fully closed** — Verify `setDrawerOpen(false)` is called in `openEdit` (already present at line 312, but confirm it executes before `setEditOpen(true)`).
 
 ### Technical notes
-- Reuses the existing `ProductAutocomplete` component
-- Product Master data fetch uses the same query pattern as InvoiceScanner
-- The dialog width may need to increase (`max-w-5xl` or `max-w-6xl`) to accommodate the additional columns
+- The edit dialog code (lines 948-1150) already has the correct column structure with ProductAutocomplete integration — the main fix is making it full-page instead of a constrained dialog
+- No database changes needed
+- Scanner reference layout is at `src/components/invoices/InvoiceScanner.tsx`
 
