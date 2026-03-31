@@ -368,7 +368,7 @@ export default function Invoices() {
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
       const lineTotal = w ? w * price + tax : qty * price + tax;
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: 0, tax_amount: tax, total: lineTotal, notes: null };
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: 0, tax_amount: tax, total: lineTotal, notes: null, product_master_id: null };
     });
     const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
