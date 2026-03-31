@@ -36,6 +36,7 @@ export interface InvoiceLineItem {
   tax_amount: number;
   total: number;
   notes: string | null;
+  product_master_id: string | null;
 }
 
 export interface Invoice {

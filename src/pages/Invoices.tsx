@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useStandardProducts, StandardProduct } from "@/hooks/useStandardProducts";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,7 +14,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Package, Link2 } from "lucide-react";
+import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Package, Link2, AlertTriangle } from "lucide-react";
+import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import InvoiceAnalytics from "@/components/invoices/InvoiceAnalytics";
@@ -38,6 +39,50 @@ export default function Invoices() {
   const stdProducts = useStandardProducts();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Product Master data for edit dialog
+  interface EditPMEntry {
+    id: string;
+    internal_sku: string;
+    external_sku: string;
+    internal_product_name: string;
+    supplier_product_name: string;
+    purchase_unit_cost?: number;
+    supplier?: string;
+    purchase_unit?: string;
+    stock_uom?: string;
+    stock_qty?: number;
+  }
+  const [editPMData, setEditPMData] = useState<EditPMEntry[]>([]);
+
+  const loadProductMaster = useCallback(async () => {
+    const { data: pmData } = await supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost, supplier, purchase_unit, stock_uom, stock_qty");
+    const { data: psData } = await supabase.from("product_suppliers").select("*");
+    if (!pmData) { setEditPMData([]); return; }
+    const entries: EditPMEntry[] = [];
+    for (const pm of pmData as any[]) {
+      const supplierEntries = (psData || []).filter((ps: any) => ps.product_master_id === pm.id);
+      if (supplierEntries.length > 0) {
+        for (const ps of supplierEntries) {
+          entries.push({
+            id: pm.id,
+            internal_sku: pm.internal_sku,
+            external_sku: ps.external_sku || pm.external_sku || "",
+            internal_product_name: pm.internal_product_name,
+            supplier_product_name: ps.supplier_product_name || pm.supplier_product_name || "",
+            purchase_unit_cost: ps.purchase_unit_cost ?? pm.purchase_unit_cost,
+            supplier: ps.supplier || pm.supplier || "",
+            purchase_unit: ps.purchase_unit || pm.purchase_unit || "",
+            stock_uom: ps.stock_uom || pm.stock_uom || "",
+            stock_qty: ps.stock_qty ?? pm.stock_qty ?? 1,
+          });
+        }
+      } else {
+        entries.push(pm as EditPMEntry);
+      }
+    }
+    setEditPMData(entries);
+  }, []);
 
   // Standard Product detail modal state
   const [detailProduct, setDetailProduct] = useState<StandardProduct | null>(null);
@@ -120,9 +165,16 @@ export default function Invoices() {
   const [auditVenue, setAuditVenue] = useState("all");
 
   // Edit state
+  interface EditLineItem {
+    item_code: string; description: string; pack_size: string; quantity: string; unit: string; weight: string;
+    unit_price: string; discount: string; tax_amount: string; total: string;
+    matched_sku: string; matched_internal_name: string; matched_stock_uom: string;
+    matched_purchase_uom: string; matched_stock_qty_ratio: number;
+    product_master_id: string | null; price_changed?: boolean; pm_unit_price?: number; unmatched?: boolean;
+  }
   const [editOpen, setEditOpen] = useState(false);
   const [editInv, setEditInv] = useState({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "", status: "pending" });
-  const [editLines, setEditLines] = useState<{ item_code: string; description: string; pack_size: string; quantity: string; unit: string; weight: string; unit_price: string; tax_amount: string }[]>([]);
+  const [editLines, setEditLines] = useState<EditLineItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Delete state
@@ -139,6 +191,25 @@ export default function Invoices() {
   const [newSupplier, setNewSupplier] = useState({ name: "", contact_person: "", email: "", phone: "", address: "", notes: "", payment_terms: "COD" });
   // Category form
   const [newCatName, setNewCatName] = useState("");
+
+  // Filter PM by supplier for edit
+  const editSupplierName = useMemo(() => {
+    return suppliers.find(s => s.id === editInv.supplier_id)?.name || "";
+  }, [editInv.supplier_id, suppliers]);
+
+  const normalizeSupplierName = (value: string) =>
+    value.toLowerCase().replace(/[\r\n\t]+/g, " ").replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ").replace(/\b(limited|ltd|co|company)\b/g, " ").replace(/\s+/g, " ").trim();
+
+  const editFilteredPM = useMemo(() => {
+    if (!editPMData.length || !editSupplierName) return editPMData;
+    const norm = normalizeSupplierName(editSupplierName);
+    const filtered = editPMData.filter(p => {
+      if (!p.supplier) return false;
+      const normPM = normalizeSupplierName(p.supplier);
+      return normPM === norm || normPM.includes(norm) || norm.includes(normPM);
+    });
+    return filtered.length > 0 ? filtered : editPMData;
+  }, [editPMData, editSupplierName]);
 
   const filtered = useMemo(() => {
     let result = invoices.filter((inv) => {
@@ -179,17 +250,65 @@ export default function Invoices() {
       notes: inv.notes || "",
       status: inv.status,
     });
+    // Load PM data
+    await loadProductMaster();
     const items = await fetchLineItems(inv.id);
-    setEditLines(items.map((li) => ({
-      item_code: li.item_code || "",
-      description: li.description,
-      pack_size: li.pack_size || "",
-      quantity: String(li.quantity),
-      unit: li.unit || "",
-      weight: li.weight ? String(li.weight) : "",
-      unit_price: String(li.unit_price),
-      tax_amount: String(li.tax_amount),
-    })));
+    // Resolve PM fields for each line
+    const { data: pmAll } = await supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost, supplier, purchase_unit, stock_uom, stock_qty");
+    const { data: psAll } = await supabase.from("product_suppliers").select("*");
+    setEditLines(items.map((li) => {
+      let matched_sku = "";
+      let matched_internal_name = "";
+      let matched_stock_uom = "";
+      let matched_purchase_uom = "";
+      let matched_stock_qty_ratio = 1;
+      let pm_unit_price: number | undefined;
+      if (li.product_master_id && pmAll) {
+        const pm = (pmAll as any[]).find(p => p.id === li.product_master_id);
+        if (pm) {
+          matched_sku = pm.internal_sku || "";
+          matched_internal_name = pm.internal_product_name || "";
+          // Try supplier-specific data
+          const supplierName = suppliers.find(s => s.id === inv.supplier_id)?.name || "";
+          const normSupplier = normalizeSupplierName(supplierName);
+          const ps = (psAll || []).find((p: any) => p.product_master_id === pm.id && p.supplier && (
+            normalizeSupplierName(p.supplier) === normSupplier || normalizeSupplierName(p.supplier).includes(normSupplier) || normSupplier.includes(normalizeSupplierName(p.supplier))
+          ));
+          matched_stock_uom = ps?.stock_uom || pm.stock_uom || "";
+          matched_purchase_uom = ps?.purchase_unit || pm.purchase_unit || "";
+          matched_stock_qty_ratio = ps?.stock_qty ?? pm.stock_qty ?? 1;
+          pm_unit_price = ps?.purchase_unit_cost ?? pm.purchase_unit_cost;
+        }
+      }
+      const qty = Number(li.quantity) || 0;
+      const price = Number(li.unit_price) || 0;
+      const disc = Number(li.discount) || 0;
+      const tax = Number(li.tax_amount) || 0;
+      const w = li.weight ? Number(li.weight) : null;
+      const total = ((w ? w * price : qty * price) - disc + tax);
+      const priceChanged = pm_unit_price != null && pm_unit_price > 0 && Math.abs(price - pm_unit_price) > 0.01;
+      return {
+        item_code: li.item_code || "",
+        description: li.description,
+        pack_size: li.pack_size || "",
+        quantity: String(li.quantity),
+        unit: li.unit || "",
+        weight: li.weight ? String(li.weight) : "",
+        unit_price: String(li.unit_price),
+        discount: String(li.discount || 0),
+        tax_amount: String(li.tax_amount),
+        total: String(total.toFixed(2)),
+        matched_sku,
+        matched_internal_name,
+        matched_stock_uom,
+        matched_purchase_uom,
+        matched_stock_qty_ratio,
+        product_master_id: li.product_master_id || null,
+        price_changed: priceChanged,
+        pm_unit_price,
+        unmatched: !li.product_master_id,
+      };
+    }));
     setDrawerOpen(false);
     setEditOpen(true);
   };
@@ -199,10 +318,16 @@ export default function Invoices() {
     const lines = editLines.filter((l) => l.description.trim()).map((l) => {
       const qty = parseFloat(l.quantity) || 0;
       const price = parseFloat(l.unit_price) || 0;
+      const disc = parseFloat(l.discount) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
-      const lineTotal = w ? w * price + tax : qty * price + tax;
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: 0, tax_amount: tax, total: lineTotal, notes: null };
+      const lineTotal = parseFloat(((w ? w * price : qty * price) - disc + tax).toFixed(2));
+      let pmId: string | null = l.product_master_id;
+      if (!pmId && l.matched_sku && editPMData.length) {
+        const pm = editPMData.find(p => p.internal_sku === l.matched_sku);
+        if (pm) pmId = pm.id;
+      }
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null, product_master_id: pmId };
     });
     const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
@@ -243,7 +368,7 @@ export default function Invoices() {
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
       const lineTotal = w ? w * price + tax : qty * price + tax;
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: 0, tax_amount: tax, total: lineTotal, notes: null };
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: 0, tax_amount: tax, total: lineTotal, notes: null, product_master_id: null };
     });
     const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
@@ -270,11 +395,48 @@ export default function Invoices() {
   };
 
   // Edit line helpers
-  const addEditLine = () => setEditLines([...editLines, { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
+  const emptyEditLine: EditLineItem = {
+    item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "",
+    unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "",
+    matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
+    product_master_id: null, unmatched: true, price_changed: false,
+  };
+  const addEditLine = () => setEditLines([...editLines, { ...emptyEditLine }]);
   const removeEditLine = (i: number) => { if (editLines.length > 1) setEditLines(editLines.filter((_, idx) => idx !== i)); };
   const updateEditLine = (i: number, field: string, value: string) => {
     const updated = [...editLines];
-    (updated[i] as any)[field] = value;
+    const line = { ...updated[i], [field]: value };
+    if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
+      const w = line.weight ? parseFloat(line.weight) : null;
+      const price = parseFloat(line.unit_price) || 0;
+      const qty = parseFloat(line.quantity) || 0;
+      const disc = parseFloat(line.discount) || 0;
+      const tax = parseFloat(line.tax_amount) || 0;
+      line.total = String(((w ? w * price : qty * price) - disc + tax).toFixed(2));
+    }
+    updated[i] = line;
+    setEditLines(updated);
+  };
+
+  const selectEditProduct = (i: number, product: EditPMEntry) => {
+    const updated = [...editLines];
+    const scannedPrice = parseFloat(updated[i].unit_price) || 0;
+    const pmPrice = product.purchase_unit_cost ?? 0;
+    const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
+    updated[i] = {
+      ...updated[i],
+      item_code: product.external_sku || updated[i].item_code,
+      description: product.supplier_product_name || product.internal_product_name || updated[i].description,
+      matched_sku: product.internal_sku,
+      matched_internal_name: product.internal_product_name || "",
+      matched_stock_uom: product.stock_uom || "",
+      matched_purchase_uom: product.purchase_unit || "",
+      matched_stock_qty_ratio: product.stock_qty ?? 1,
+      product_master_id: product.id,
+      unmatched: false,
+      price_changed: priceChanged,
+      pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+    };
     setEditLines(updated);
   };
 
@@ -784,19 +946,19 @@ export default function Invoices() {
 
       {/* Edit Invoice Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Invoice</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <Label>Supplier</Label>
+                <Label className="text-xs">Supplier</Label>
                 <Select value={editInv.supplier_id} onValueChange={(v) => setEditInv({ ...editInv, supplier_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
                   <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Venue</Label>
+                <Label className="text-xs">Venue</Label>
                 <Select value={editInv.venue} onValueChange={(v) => setEditInv({ ...editInv, venue: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -807,19 +969,11 @@ export default function Invoices() {
                 </Select>
               </div>
               <div>
-                <Label>Invoice Number</Label>
+                <Label className="text-xs">Invoice #</Label>
                 <Input value={editInv.invoice_number} onChange={(e) => setEditInv({ ...editInv, invoice_number: e.target.value })} />
               </div>
               <div>
-                <Label>Invoice Date</Label>
-                <Input type="date" value={editInv.invoice_date} onChange={(e) => setEditInv({ ...editInv, invoice_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Due Date</Label>
-                <Input type="date" value={editInv.due_date} onChange={(e) => setEditInv({ ...editInv, due_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Status</Label>
+                <Label className="text-xs">Status</Label>
                 <Select value={editInv.status} onValueChange={(v) => setEditInv({ ...editInv, status: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -831,55 +985,145 @@ export default function Invoices() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2">
-                <Label>Notes</Label>
-                <Textarea value={editInv.notes} onChange={(e) => setEditInv({ ...editInv, notes: e.target.value })} rows={2} />
+              <div>
+                <Label className="text-xs">Invoice Date</Label>
+                <Input type="date" value={editInv.invoice_date} onChange={(e) => setEditInv({ ...editInv, invoice_date: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Due Date</Label>
+                <Input type="date" value={editInv.due_date} onChange={(e) => setEditInv({ ...editInv, due_date: e.target.value })} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Notes</Label>
+                <Textarea value={editInv.notes} onChange={(e) => setEditInv({ ...editInv, notes: e.target.value })} rows={1} />
               </div>
             </div>
 
-            <h3 className="text-sm font-semibold">Line Items</h3>
-            <div className="space-y-2">
-              {editLines.map((line, i) => (
-                <div key={i} className="grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_32px] gap-1 items-end">
-                  <div>
-                    {i === 0 && <Label className="text-xs">Code</Label>}
-                    <Input value={line.item_code} onChange={(e) => updateEditLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Description</Label>}
-                    <Input value={line.description} onChange={(e) => updateEditLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Pack Size</Label>}
-                    <Input value={line.pack_size} onChange={(e) => updateEditLine(i, "pack_size", e.target.value)} placeholder="4X4LB" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Qty</Label>}
-                    <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Unit</Label>}
-                    <Input value={line.unit} onChange={(e) => updateEditLine(i, "unit", e.target.value)} placeholder="CTN" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Weight</Label>}
-                    <Input type="number" value={line.weight} onChange={(e) => updateEditLine(i, "weight", e.target.value)} placeholder="KG" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Price</Label>}
-                    <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Tax</Label>}
-                    <Input type="number" value={line.tax_amount} onChange={(e) => updateEditLine(i, "tax_amount", e.target.value)} className="text-xs" />
-                  </div>
-                  <div>
-                    {editLines.length > 1 && <Button size="icon" variant="ghost" onClick={() => removeEditLine(i)}><Trash2 className="h-4 w-4" /></Button>}
-                  </div>
-                </div>
-              ))}
-              <Button variant="outline" size="sm" onClick={addEditLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
+            {/* Warning banners */}
+            {editLines.some(l => l.unmatched && l.description.trim()) && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span><strong>{editLines.filter(l => l.unmatched && l.description.trim()).length} item(s) not matched to Product Master</strong> — use autocomplete to match.</span>
+              </div>
+            )}
+            {editLines.some(l => l.price_changed) && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span><strong>{editLines.filter(l => l.price_changed).length} price change(s) detected</strong> — invoice prices differ from Product Master.</span>
+              </div>
+            )}
+
+            <h3 className="text-sm font-semibold">Line Items ({editLines.length})</h3>
+            <div className="overflow-x-auto -mx-2">
+              <table className="w-full text-xs border-collapse min-w-[1200px]">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Internal SKU</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Purch. UOM</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[60px]">Purch. Qty</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[65px]">Stock Qty</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Cost</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[80px]">Total</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editLines.map((line, i) => {
+                    const rowClass = line.unmatched && line.description.trim()
+                      ? "bg-destructive/10 border-l-2 border-l-destructive"
+                      : line.price_changed
+                      ? "bg-blue-500/10 border-l-2 border-l-blue-500"
+                      : "";
+                    return (
+                      <tr key={i} className={`border-b border-border/50 ${rowClass}`}>
+                        <td className="px-1 py-1 text-muted-foreground font-medium align-top pt-2.5">{i + 1}</td>
+                        {/* Internal SKU - read-only */}
+                        <td className="px-1 py-1 align-top">
+                          <Input value={line.matched_sku} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default font-mono h-8" placeholder="—" />
+                        </td>
+                        {/* Internal Product Name - read-only */}
+                        <td className="px-1 py-1 align-top">
+                          <Input value={line.matched_internal_name} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8" placeholder="—" />
+                        </td>
+                        {/* External SKU - editable with autocomplete */}
+                        <td className="px-1 py-1 align-top">
+                          <ProductAutocomplete
+                            value={line.item_code}
+                            onChange={(v) => updateEditLine(i, "item_code", v)}
+                            onSelect={(p) => selectEditProduct(i, p as any)}
+                            products={editFilteredPM as any}
+                            searchField="code"
+                            placeholder="Code"
+                            className="text-xs h-8"
+                          />
+                        </td>
+                        {/* External Name - editable with autocomplete */}
+                        <td className="px-1 py-1 align-top">
+                          <div className="relative">
+                            <ProductAutocomplete
+                              value={line.description}
+                              onChange={(v) => updateEditLine(i, "description", v)}
+                              onSelect={(p) => selectEditProduct(i, p as any)}
+                              products={editFilteredPM as any}
+                              searchField="name"
+                              placeholder="Item name"
+                              className="text-xs h-8"
+                            />
+                            {line.unmatched && line.description.trim() && (
+                              <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
+                            )}
+                          </div>
+                        </td>
+                        {/* Purchase UOM - read-only */}
+                        <td className="px-1 py-1 align-top">
+                          <Input value={line.matched_purchase_uom} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8" placeholder="—" />
+                        </td>
+                        {/* Purchase Qty - editable */}
+                        <td className="px-1 py-1 align-top">
+                          <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs h-8" />
+                        </td>
+                        {/* Stock UOM - read-only */}
+                        <td className="px-1 py-1 align-top">
+                          <Input value={line.matched_stock_uom} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8" placeholder="—" />
+                        </td>
+                        {/* Stock Qty - auto-calculated */}
+                        <td className="px-1 py-1 align-top">
+                          <Input
+                            value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
+                            readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8 font-mono" placeholder="—"
+                          />
+                        </td>
+                        {/* Purchase Cost - editable */}
+                        <td className="px-1 py-1 align-top">
+                          <div className="relative">
+                            <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className={`text-xs h-8 ${line.price_changed ? "border-blue-500" : ""}`} />
+                            {line.price_changed && line.pm_unit_price !== undefined && (
+                              <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">PM: ${line.pm_unit_price.toFixed(2)}</span>
+                            )}
+                          </div>
+                        </td>
+                        {/* Total */}
+                        <td className="px-1 py-1 align-top">
+                          <Input type="number" value={line.total} onChange={(e) => updateEditLine(i, "total", e.target.value)} className="text-xs font-medium h-8" />
+                        </td>
+                        {/* Delete */}
+                        <td className="px-1 py-1 align-top">
+                          {editLines.length > 1 && (
+                            <Button size="icon" variant="ghost" onClick={() => removeEditLine(i)} className="h-8 w-8"><Trash2 className="h-3 w-3" /></Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+            <Button variant="outline" size="sm" onClick={addEditLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
 
             <div className="text-right text-sm border-t pt-2">
               <span className="text-muted-foreground">Subtotal: </span>
@@ -888,8 +1132,13 @@ export default function Invoices() {
                   const w = l.weight ? parseFloat(l.weight) : null;
                   const price = parseFloat(l.unit_price) || 0;
                   const qty = parseFloat(l.quantity) || 0;
-                  return s + (w ? w * price : qty * price);
+                  const disc = parseFloat(l.discount) || 0;
+                  return s + ((w ? w * price : qty * price) - disc);
                 }, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-muted-foreground ml-4">Total: </span>
+              <span className="font-mono font-bold">
+                {editLines.reduce((s, l) => s + (parseFloat(l.total) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
