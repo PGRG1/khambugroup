@@ -946,7 +946,7 @@ export default function Invoices() {
 
       {/* Edit Invoice Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-[95vw] w-full max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-none w-[98vw] h-[92vh] flex flex-col overflow-hidden">
           <DialogHeader><DialogTitle>Edit Invoice</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
