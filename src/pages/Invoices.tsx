@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useStandardProducts, StandardProduct } from "@/hooks/useStandardProducts";
 import { useAuth } from "@/hooks/useAuth";
