@@ -946,19 +946,19 @@ export default function Invoices() {
 
       {/* Edit Invoice Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Invoice</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <Label>Supplier</Label>
+                <Label className="text-xs">Supplier</Label>
                 <Select value={editInv.supplier_id} onValueChange={(v) => setEditInv({ ...editInv, supplier_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
                   <SelectContent>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Venue</Label>
+                <Label className="text-xs">Venue</Label>
                 <Select value={editInv.venue} onValueChange={(v) => setEditInv({ ...editInv, venue: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -969,19 +969,11 @@ export default function Invoices() {
                 </Select>
               </div>
               <div>
-                <Label>Invoice Number</Label>
+                <Label className="text-xs">Invoice #</Label>
                 <Input value={editInv.invoice_number} onChange={(e) => setEditInv({ ...editInv, invoice_number: e.target.value })} />
               </div>
               <div>
-                <Label>Invoice Date</Label>
-                <Input type="date" value={editInv.invoice_date} onChange={(e) => setEditInv({ ...editInv, invoice_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Due Date</Label>
-                <Input type="date" value={editInv.due_date} onChange={(e) => setEditInv({ ...editInv, due_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Status</Label>
+                <Label className="text-xs">Status</Label>
                 <Select value={editInv.status} onValueChange={(v) => setEditInv({ ...editInv, status: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -993,55 +985,145 @@ export default function Invoices() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2">
-                <Label>Notes</Label>
-                <Textarea value={editInv.notes} onChange={(e) => setEditInv({ ...editInv, notes: e.target.value })} rows={2} />
+              <div>
+                <Label className="text-xs">Invoice Date</Label>
+                <Input type="date" value={editInv.invoice_date} onChange={(e) => setEditInv({ ...editInv, invoice_date: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Due Date</Label>
+                <Input type="date" value={editInv.due_date} onChange={(e) => setEditInv({ ...editInv, due_date: e.target.value })} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Notes</Label>
+                <Textarea value={editInv.notes} onChange={(e) => setEditInv({ ...editInv, notes: e.target.value })} rows={1} />
               </div>
             </div>
 
-            <h3 className="text-sm font-semibold">Line Items</h3>
-            <div className="space-y-2">
-              {editLines.map((line, i) => (
-                <div key={i} className="grid grid-cols-[70px_1fr_80px_55px_55px_65px_75px_70px_32px] gap-1 items-end">
-                  <div>
-                    {i === 0 && <Label className="text-xs">Code</Label>}
-                    <Input value={line.item_code} onChange={(e) => updateEditLine(i, "item_code", e.target.value)} placeholder="Code" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Description</Label>}
-                    <Input value={line.description} onChange={(e) => updateEditLine(i, "description", e.target.value)} placeholder="Item" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Pack Size</Label>}
-                    <Input value={line.pack_size} onChange={(e) => updateEditLine(i, "pack_size", e.target.value)} placeholder="4X4LB" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Qty</Label>}
-                    <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Unit</Label>}
-                    <Input value={line.unit} onChange={(e) => updateEditLine(i, "unit", e.target.value)} placeholder="CTN" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Weight</Label>}
-                    <Input type="number" value={line.weight} onChange={(e) => updateEditLine(i, "weight", e.target.value)} placeholder="KG" className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Price</Label>}
-                    <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className="text-xs" />
-                  </div>
-                  <div>
-                    {i === 0 && <Label className="text-xs">Tax</Label>}
-                    <Input type="number" value={line.tax_amount} onChange={(e) => updateEditLine(i, "tax_amount", e.target.value)} className="text-xs" />
-                  </div>
-                  <div>
-                    {editLines.length > 1 && <Button size="icon" variant="ghost" onClick={() => removeEditLine(i)}><Trash2 className="h-4 w-4" /></Button>}
-                  </div>
-                </div>
-              ))}
-              <Button variant="outline" size="sm" onClick={addEditLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
+            {/* Warning banners */}
+            {editLines.some(l => l.unmatched && l.description.trim()) && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span><strong>{editLines.filter(l => l.unmatched && l.description.trim()).length} item(s) not matched to Product Master</strong> — use autocomplete to match.</span>
+              </div>
+            )}
+            {editLines.some(l => l.price_changed) && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span><strong>{editLines.filter(l => l.price_changed).length} price change(s) detected</strong> — invoice prices differ from Product Master.</span>
+              </div>
+            )}
+
+            <h3 className="text-sm font-semibold">Line Items ({editLines.length})</h3>
+            <div className="overflow-x-auto -mx-2">
+              <table className="w-full text-xs border-collapse min-w-[1200px]">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Internal SKU</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Purch. UOM</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[60px]">Purch. Qty</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[65px]">Stock Qty</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Cost</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[80px]">Total</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editLines.map((line, i) => {
+                    const rowClass = line.unmatched && line.description.trim()
+                      ? "bg-destructive/10 border-l-2 border-l-destructive"
+                      : line.price_changed
+                      ? "bg-blue-500/10 border-l-2 border-l-blue-500"
+                      : "";
+                    return (
+                      <tr key={i} className={`border-b border-border/50 ${rowClass}`}>
+                        <td className="px-1 py-1 text-muted-foreground font-medium align-top pt-2.5">{i + 1}</td>
+                        {/* Internal SKU - read-only */}
+                        <td className="px-1 py-1 align-top">
+                          <Input value={line.matched_sku} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default font-mono h-8" placeholder="—" />
+                        </td>
+                        {/* Internal Product Name - read-only */}
+                        <td className="px-1 py-1 align-top">
+                          <Input value={line.matched_internal_name} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8" placeholder="—" />
+                        </td>
+                        {/* External SKU - editable with autocomplete */}
+                        <td className="px-1 py-1 align-top">
+                          <ProductAutocomplete
+                            value={line.item_code}
+                            onChange={(v) => updateEditLine(i, "item_code", v)}
+                            onSelect={(p) => selectEditProduct(i, p as any)}
+                            products={editFilteredPM as any}
+                            searchField="code"
+                            placeholder="Code"
+                            className="text-xs h-8"
+                          />
+                        </td>
+                        {/* External Name - editable with autocomplete */}
+                        <td className="px-1 py-1 align-top">
+                          <div className="relative">
+                            <ProductAutocomplete
+                              value={line.description}
+                              onChange={(v) => updateEditLine(i, "description", v)}
+                              onSelect={(p) => selectEditProduct(i, p as any)}
+                              products={editFilteredPM as any}
+                              searchField="name"
+                              placeholder="Item name"
+                              className="text-xs h-8"
+                            />
+                            {line.unmatched && line.description.trim() && (
+                              <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
+                            )}
+                          </div>
+                        </td>
+                        {/* Purchase UOM - read-only */}
+                        <td className="px-1 py-1 align-top">
+                          <Input value={line.matched_purchase_uom} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8" placeholder="—" />
+                        </td>
+                        {/* Purchase Qty - editable */}
+                        <td className="px-1 py-1 align-top">
+                          <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs h-8" />
+                        </td>
+                        {/* Stock UOM - read-only */}
+                        <td className="px-1 py-1 align-top">
+                          <Input value={line.matched_stock_uom} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8" placeholder="—" />
+                        </td>
+                        {/* Stock Qty - auto-calculated */}
+                        <td className="px-1 py-1 align-top">
+                          <Input
+                            value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
+                            readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8 font-mono" placeholder="—"
+                          />
+                        </td>
+                        {/* Purchase Cost - editable */}
+                        <td className="px-1 py-1 align-top">
+                          <div className="relative">
+                            <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className={`text-xs h-8 ${line.price_changed ? "border-blue-500" : ""}`} />
+                            {line.price_changed && line.pm_unit_price !== undefined && (
+                              <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">PM: ${line.pm_unit_price.toFixed(2)}</span>
+                            )}
+                          </div>
+                        </td>
+                        {/* Total */}
+                        <td className="px-1 py-1 align-top">
+                          <Input type="number" value={line.total} onChange={(e) => updateEditLine(i, "total", e.target.value)} className="text-xs font-medium h-8" />
+                        </td>
+                        {/* Delete */}
+                        <td className="px-1 py-1 align-top">
+                          {editLines.length > 1 && (
+                            <Button size="icon" variant="ghost" onClick={() => removeEditLine(i)} className="h-8 w-8"><Trash2 className="h-3 w-3" /></Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+            <Button variant="outline" size="sm" onClick={addEditLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
 
             <div className="text-right text-sm border-t pt-2">
               <span className="text-muted-foreground">Subtotal: </span>
@@ -1050,8 +1132,13 @@ export default function Invoices() {
                   const w = l.weight ? parseFloat(l.weight) : null;
                   const price = parseFloat(l.unit_price) || 0;
                   const qty = parseFloat(l.quantity) || 0;
-                  return s + (w ? w * price : qty * price);
+                  const disc = parseFloat(l.discount) || 0;
+                  return s + ((w ? w * price : qty * price) - disc);
                 }, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-muted-foreground ml-4">Total: </span>
+              <span className="font-mono font-bold">
+                {editLines.reduce((s, l) => s + (parseFloat(l.total) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
