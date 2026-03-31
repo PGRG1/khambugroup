@@ -165,9 +165,16 @@ export default function Invoices() {
   const [auditVenue, setAuditVenue] = useState("all");
 
   // Edit state
+  interface EditLineItem {
+    item_code: string; description: string; pack_size: string; quantity: string; unit: string; weight: string;
+    unit_price: string; discount: string; tax_amount: string; total: string;
+    matched_sku: string; matched_internal_name: string; matched_stock_uom: string;
+    matched_purchase_uom: string; matched_stock_qty_ratio: number;
+    product_master_id: string | null; price_changed?: boolean; pm_unit_price?: number; unmatched?: boolean;
+  }
   const [editOpen, setEditOpen] = useState(false);
   const [editInv, setEditInv] = useState({ supplier_id: "", venue: "Assembly", invoice_number: "", invoice_date: "", due_date: "", notes: "", status: "pending" });
-  const [editLines, setEditLines] = useState<{ item_code: string; description: string; pack_size: string; quantity: string; unit: string; weight: string; unit_price: string; tax_amount: string }[]>([]);
+  const [editLines, setEditLines] = useState<EditLineItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Delete state
@@ -184,6 +191,25 @@ export default function Invoices() {
   const [newSupplier, setNewSupplier] = useState({ name: "", contact_person: "", email: "", phone: "", address: "", notes: "", payment_terms: "COD" });
   // Category form
   const [newCatName, setNewCatName] = useState("");
+
+  // Filter PM by supplier for edit
+  const editSupplierName = useMemo(() => {
+    return suppliers.find(s => s.id === editInv.supplier_id)?.name || "";
+  }, [editInv.supplier_id, suppliers]);
+
+  const normalizeSupplierName = (value: string) =>
+    value.toLowerCase().replace(/[\r\n\t]+/g, " ").replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ").replace(/\b(limited|ltd|co|company)\b/g, " ").replace(/\s+/g, " ").trim();
+
+  const editFilteredPM = useMemo(() => {
+    if (!editPMData.length || !editSupplierName) return editPMData;
+    const norm = normalizeSupplierName(editSupplierName);
+    const filtered = editPMData.filter(p => {
+      if (!p.supplier) return false;
+      const normPM = normalizeSupplierName(p.supplier);
+      return normPM === norm || normPM.includes(norm) || norm.includes(normPM);
+    });
+    return filtered.length > 0 ? filtered : editPMData;
+  }, [editPMData, editSupplierName]);
 
   const filtered = useMemo(() => {
     let result = invoices.filter((inv) => {
@@ -224,17 +250,65 @@ export default function Invoices() {
       notes: inv.notes || "",
       status: inv.status,
     });
+    // Load PM data
+    await loadProductMaster();
     const items = await fetchLineItems(inv.id);
-    setEditLines(items.map((li) => ({
-      item_code: li.item_code || "",
-      description: li.description,
-      pack_size: li.pack_size || "",
-      quantity: String(li.quantity),
-      unit: li.unit || "",
-      weight: li.weight ? String(li.weight) : "",
-      unit_price: String(li.unit_price),
-      tax_amount: String(li.tax_amount),
-    })));
+    // Resolve PM fields for each line
+    const { data: pmAll } = await supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost, supplier, purchase_unit, stock_uom, stock_qty");
+    const { data: psAll } = await supabase.from("product_suppliers").select("*");
+    setEditLines(items.map((li) => {
+      let matched_sku = "";
+      let matched_internal_name = "";
+      let matched_stock_uom = "";
+      let matched_purchase_uom = "";
+      let matched_stock_qty_ratio = 1;
+      let pm_unit_price: number | undefined;
+      if (li.product_master_id && pmAll) {
+        const pm = (pmAll as any[]).find(p => p.id === li.product_master_id);
+        if (pm) {
+          matched_sku = pm.internal_sku || "";
+          matched_internal_name = pm.internal_product_name || "";
+          // Try supplier-specific data
+          const supplierName = suppliers.find(s => s.id === inv.supplier_id)?.name || "";
+          const normSupplier = normalizeSupplierName(supplierName);
+          const ps = (psAll || []).find((p: any) => p.product_master_id === pm.id && p.supplier && (
+            normalizeSupplierName(p.supplier) === normSupplier || normalizeSupplierName(p.supplier).includes(normSupplier) || normSupplier.includes(normalizeSupplierName(p.supplier))
+          ));
+          matched_stock_uom = ps?.stock_uom || pm.stock_uom || "";
+          matched_purchase_uom = ps?.purchase_unit || pm.purchase_unit || "";
+          matched_stock_qty_ratio = ps?.stock_qty ?? pm.stock_qty ?? 1;
+          pm_unit_price = ps?.purchase_unit_cost ?? pm.purchase_unit_cost;
+        }
+      }
+      const qty = Number(li.quantity) || 0;
+      const price = Number(li.unit_price) || 0;
+      const disc = Number(li.discount) || 0;
+      const tax = Number(li.tax_amount) || 0;
+      const w = li.weight ? Number(li.weight) : null;
+      const total = ((w ? w * price : qty * price) - disc + tax);
+      const priceChanged = pm_unit_price != null && pm_unit_price > 0 && Math.abs(price - pm_unit_price) > 0.01;
+      return {
+        item_code: li.item_code || "",
+        description: li.description,
+        pack_size: li.pack_size || "",
+        quantity: String(li.quantity),
+        unit: li.unit || "",
+        weight: li.weight ? String(li.weight) : "",
+        unit_price: String(li.unit_price),
+        discount: String(li.discount || 0),
+        tax_amount: String(li.tax_amount),
+        total: String(total.toFixed(2)),
+        matched_sku,
+        matched_internal_name,
+        matched_stock_uom,
+        matched_purchase_uom,
+        matched_stock_qty_ratio,
+        product_master_id: li.product_master_id || null,
+        price_changed: priceChanged,
+        pm_unit_price,
+        unmatched: !li.product_master_id,
+      };
+    }));
     setDrawerOpen(false);
     setEditOpen(true);
   };
@@ -244,10 +318,16 @@ export default function Invoices() {
     const lines = editLines.filter((l) => l.description.trim()).map((l) => {
       const qty = parseFloat(l.quantity) || 0;
       const price = parseFloat(l.unit_price) || 0;
+      const disc = parseFloat(l.discount) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
       const w = l.weight ? parseFloat(l.weight) : null;
-      const lineTotal = w ? w * price + tax : qty * price + tax;
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: 0, tax_amount: tax, total: lineTotal, notes: null };
+      const lineTotal = parseFloat(((w ? w * price : qty * price) - disc + tax).toFixed(2));
+      let pmId: string | null = l.product_master_id;
+      if (!pmId && l.matched_sku && editPMData.length) {
+        const pm = editPMData.find(p => p.internal_sku === l.matched_sku);
+        if (pm) pmId = pm.id;
+      }
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null, product_master_id: pmId };
     });
     const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
@@ -315,11 +395,48 @@ export default function Invoices() {
   };
 
   // Edit line helpers
-  const addEditLine = () => setEditLines([...editLines, { item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "", unit_price: "0", tax_amount: "0" }]);
+  const emptyEditLine: EditLineItem = {
+    item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "",
+    unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "",
+    matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
+    product_master_id: null, unmatched: true, price_changed: false,
+  };
+  const addEditLine = () => setEditLines([...editLines, { ...emptyEditLine }]);
   const removeEditLine = (i: number) => { if (editLines.length > 1) setEditLines(editLines.filter((_, idx) => idx !== i)); };
   const updateEditLine = (i: number, field: string, value: string) => {
     const updated = [...editLines];
-    (updated[i] as any)[field] = value;
+    const line = { ...updated[i], [field]: value };
+    if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
+      const w = line.weight ? parseFloat(line.weight) : null;
+      const price = parseFloat(line.unit_price) || 0;
+      const qty = parseFloat(line.quantity) || 0;
+      const disc = parseFloat(line.discount) || 0;
+      const tax = parseFloat(line.tax_amount) || 0;
+      line.total = String(((w ? w * price : qty * price) - disc + tax).toFixed(2));
+    }
+    updated[i] = line;
+    setEditLines(updated);
+  };
+
+  const selectEditProduct = (i: number, product: EditPMEntry) => {
+    const updated = [...editLines];
+    const scannedPrice = parseFloat(updated[i].unit_price) || 0;
+    const pmPrice = product.purchase_unit_cost ?? 0;
+    const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
+    updated[i] = {
+      ...updated[i],
+      item_code: product.external_sku || updated[i].item_code,
+      description: product.supplier_product_name || product.internal_product_name || updated[i].description,
+      matched_sku: product.internal_sku,
+      matched_internal_name: product.internal_product_name || "",
+      matched_stock_uom: product.stock_uom || "",
+      matched_purchase_uom: product.purchase_unit || "",
+      matched_stock_qty_ratio: product.stock_qty ?? 1,
+      product_master_id: product.id,
+      unmatched: false,
+      price_changed: priceChanged,
+      pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+    };
     setEditLines(updated);
   };
 
