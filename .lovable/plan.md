@@ -1,39 +1,43 @@
 
 
-## Fix: Move per-supplier sizing fields from shared product_master to product_suppliers
+## Upgrade Edit Invoice dialog to match Scanner's full entry view
 
 ### Problem
-Fields like `stock_uom`, `stock_qty`, `base_unit_type`, `base_unit_qty` are stored on the shared `product_master` row. When two suppliers share the same Internal SKU (e.g., Korea Granulated Sugar — Ming Kee sends per Kg, ONGO sends per Bag of 30kg), editing the stock/recipe quantities for one supplier overwrites the values for the other.
+The Edit Invoice dialog only shows basic fields (Code, Description, Pack Size, Qty, Unit, Weight, Price, Tax) for line items. It is missing the Product Master integration fields that the Scanner provides: Internal SKU, Internal Product Name, Stock UOM, Purchase UOM, Stock Qty, Discount, Total, and the ProductAutocomplete matching. This means users cannot update or re-match line items against the Product Master after initial entry.
 
 ### Solution
-Move these per-supplier sizing fields into the `product_suppliers` table so each supplier entry has its own independent values.
+Rebuild the Edit Invoice line items section to mirror the InvoiceScanner's line item layout, including:
+- ProductAutocomplete for matching items against Product Master
+- Read-only auto-populated fields: Internal SKU, Internal Product Name, Stock UOM, Purchase UOM
+- Auto-calculated Stock Qty (Purchase Qty × PM ratio)
+- Discount and Total columns
+- Price mismatch highlighting
 
 ### Changes
 
-**1. Database migration** — Add columns to `product_suppliers`:
-```sql
-ALTER TABLE product_suppliers
-  ADD COLUMN IF NOT EXISTS stock_uom text NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS stock_qty numeric NOT NULL DEFAULT 1,
-  ADD COLUMN IF NOT EXISTS base_unit_type text NOT NULL DEFAULT 'g',
-  ADD COLUMN IF NOT EXISTS base_unit_qty numeric NOT NULL DEFAULT 1;
+**File: `src/pages/Invoices.tsx`**
 
--- Backfill from product_master
-UPDATE product_suppliers ps
-SET stock_uom = pm.stock_uom,
-    stock_qty = pm.stock_qty,
-    base_unit_type = pm.base_unit_type,
-    base_unit_qty = pm.base_unit_qty
-FROM product_master pm
-WHERE ps.product_master_id = pm.id;
-```
+1. **Expand `editLines` state shape** — Add fields: `matched_sku`, `matched_internal_name`, `matched_stock_uom`, `matched_purchase_uom`, `matched_stock_qty_ratio`, `discount`, `total`, `product_master_id`, `price_changed`, `pm_unit_price`.
 
-**2. `src/hooks/useProductMaster.ts`** — Update `ProductSupplierEntry` interface to include `stock_uom`, `stock_qty`, `base_unit_type`, `base_unit_qty`. Update `updateSupplier` calls to pass these fields.
+2. **Update `openEdit`** — When loading existing line items, fetch Product Master data to populate the matched fields (query `product_master` + `product_suppliers` for each line item's `product_master_id`).
 
-**3. `src/components/procurement/ProductMasterTab.tsx`**:
-- **flatRows**: Read `stock_uom`, `stock_qty`, `base_unit_type`, `base_unit_qty` from the supplier entry (`s`) instead of from the product (`p`).
-- **handleSave**: When updating, write these fields to the `product_suppliers` row via `updateSupplier` instead of (or in addition to) `updateProduct`. The shared `product_master` row should only get product-level fields (SKU, name, categories).
-- **openEdit**: Populate form from the supplier entry's values for these fields.
+3. **Fetch Product Master entries** — Load the full product master list (similar to InvoiceScanner) so ProductAutocomplete can be used in edit mode.
 
-This ensures each supplier entry independently stores its own packaging/sizing data.
+4. **Replace the edit line items grid** — Replace the current simple grid (lines ~842-880) with the scanner-style layout:
+   - External SKU field with ProductAutocomplete (code search)
+   - Supplier Product Name with ProductAutocomplete (name search)
+   - Read-only: Internal SKU, Internal Product Name, Stock UOM, Purchase UOM
+   - Auto-calculated: Stock Qty
+   - Editable: Purchase Qty, Unit Price, Discount, Tax
+   - Auto-calculated: Total (line total)
+   - Unmatched/price-changed visual indicators
+
+5. **Update `handleEditSave`** — Include `product_master_id` and `discount` when building line items for save. Preserve matched PM fields.
+
+6. **Add `handleProductMatch` for edit** — When a product is selected from autocomplete, populate the matched fields (same logic as InvoiceScanner's match handler).
+
+### Technical notes
+- Reuses the existing `ProductAutocomplete` component
+- Product Master data fetch uses the same query pattern as InvoiceScanner
+- The dialog width may need to increase (`max-w-5xl` or `max-w-6xl`) to accommodate the additional columns
 
