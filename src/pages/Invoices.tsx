@@ -40,6 +40,50 @@ export default function Invoices() {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Product Master data for edit dialog
+  interface EditPMEntry {
+    id: string;
+    internal_sku: string;
+    external_sku: string;
+    internal_product_name: string;
+    supplier_product_name: string;
+    purchase_unit_cost?: number;
+    supplier?: string;
+    purchase_unit?: string;
+    stock_uom?: string;
+    stock_qty?: number;
+  }
+  const [editPMData, setEditPMData] = useState<EditPMEntry[]>([]);
+
+  const loadProductMaster = useCallback(async () => {
+    const { data: pmData } = await supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost, supplier, purchase_unit, stock_uom, stock_qty");
+    const { data: psData } = await supabase.from("product_suppliers").select("*");
+    if (!pmData) { setEditPMData([]); return; }
+    const entries: EditPMEntry[] = [];
+    for (const pm of pmData as any[]) {
+      const supplierEntries = (psData || []).filter((ps: any) => ps.product_master_id === pm.id);
+      if (supplierEntries.length > 0) {
+        for (const ps of supplierEntries) {
+          entries.push({
+            id: pm.id,
+            internal_sku: pm.internal_sku,
+            external_sku: ps.external_sku || pm.external_sku || "",
+            internal_product_name: pm.internal_product_name,
+            supplier_product_name: ps.supplier_product_name || pm.supplier_product_name || "",
+            purchase_unit_cost: ps.purchase_unit_cost ?? pm.purchase_unit_cost,
+            supplier: ps.supplier || pm.supplier || "",
+            purchase_unit: ps.purchase_unit || pm.purchase_unit || "",
+            stock_uom: ps.stock_uom || pm.stock_uom || "",
+            stock_qty: ps.stock_qty ?? pm.stock_qty ?? 1,
+          });
+        }
+      } else {
+        entries.push(pm as EditPMEntry);
+      }
+    }
+    setEditPMData(entries);
+  }, []);
+
   // Standard Product detail modal state
   const [detailProduct, setDetailProduct] = useState<StandardProduct | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
