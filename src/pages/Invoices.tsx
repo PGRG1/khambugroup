@@ -14,7 +14,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Package, Link2 } from "lucide-react";
+import { Plus, Eye, Search, Trash2, ScanLine, Pencil, FileText, Download, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, Package, Link2, AlertTriangle } from "lucide-react";
+import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import InvoiceAnalytics from "@/components/invoices/InvoiceAnalytics";
