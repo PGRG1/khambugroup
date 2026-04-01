@@ -629,6 +629,7 @@ export default function ProcurementInvoicesTab() {
                           searchField="code"
                           placeholder="Code"
                           className="h-8 text-xs"
+                          currentSupplier={selectedInvoice ? suppliers.find(s => s.id === selectedInvoice.supplier_id)?.name : undefined}
                         />
                       </td>
                       <td className="px-1 py-1 align-top">
