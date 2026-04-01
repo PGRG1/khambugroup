@@ -1105,6 +1105,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             searchField="code"
                             placeholder="Code"
                             className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
+                            currentSupplier={current?.supplier_name}
                           />
                           {line.sku_mismatch && (
                             <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" title="SKU mismatch" />
