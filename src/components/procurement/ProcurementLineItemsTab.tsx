@@ -41,6 +41,7 @@ export default function ProcurementLineItemsTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
   const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([{ key: "invoice_date", dir: "desc" }]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerFileUrl, setViewerFileUrl] = useState("");
