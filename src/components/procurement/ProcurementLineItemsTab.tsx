@@ -140,6 +140,7 @@ export default function ProcurementLineItemsTab() {
   const filtered = useMemo(() => {
     let result = rows.filter(r => {
       if (supplierFilter !== "all" && r.supplier_name !== supplierFilter) return false;
+      if (monthFilter !== "all" && (!r.invoice_date || !r.invoice_date.startsWith(monthFilter))) return false;
       if (search) {
         const q = search.toLowerCase();
         return r.description.toLowerCase().includes(q) ||
@@ -152,7 +153,7 @@ export default function ProcurementLineItemsTab() {
       return true;
     });
     if (sortColumns.length > 0) {
-      result.sort((a, b) => {
+      result = [...result].sort((a, b) => {
         for (const { key, dir } of sortColumns) {
           const av = (a as any)[key], bv = (b as any)[key];
           const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
@@ -162,7 +163,7 @@ export default function ProcurementLineItemsTab() {
       });
     }
     return result;
-  }, [rows, search, supplierFilter, sortColumns]);
+  }, [rows, search, supplierFilter, monthFilter, sortColumns]);
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
   const unmatchedCount = filtered.filter(r => !r.product_master_id && !r.standard_product_id).length;
