@@ -39,8 +39,7 @@ export default function InventoryOnHandTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("internal_sku");
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortColumns, setSortColumns] = useState<Array<{key: SortKey, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
