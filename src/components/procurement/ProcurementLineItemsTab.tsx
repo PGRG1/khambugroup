@@ -41,6 +41,7 @@ export default function ProcurementLineItemsTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
   const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([{ key: "invoice_date", dir: "desc" }]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerFileUrl, setViewerFileUrl] = useState("");
@@ -102,6 +103,20 @@ export default function ProcurementLineItemsTab() {
 
   const suppliers = useMemo(() => [...new Set(rows.map(r => r.supplier_name))].sort(), [rows]);
 
+  const months = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      if (r.invoice_date) set.add(r.invoice_date.substring(0, 7)); // "YYYY-MM"
+    }
+    return [...set].sort().reverse();
+  }, [rows]);
+
+  const fmtMonth = (ym: string) => {
+    const [y, m] = ym.split("-");
+    const date = new Date(Number(y), Number(m) - 1);
+    return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  };
+
   const toggleSort = (key: string) => {
     setSortColumns(prev => {
       const idx = prev.findIndex(s => s.key === key);
@@ -125,6 +140,7 @@ export default function ProcurementLineItemsTab() {
   const filtered = useMemo(() => {
     let result = rows.filter(r => {
       if (supplierFilter !== "all" && r.supplier_name !== supplierFilter) return false;
+      if (monthFilter !== "all" && (!r.invoice_date || !r.invoice_date.startsWith(monthFilter))) return false;
       if (search) {
         const q = search.toLowerCase();
         return r.description.toLowerCase().includes(q) ||
@@ -137,7 +153,7 @@ export default function ProcurementLineItemsTab() {
       return true;
     });
     if (sortColumns.length > 0) {
-      result.sort((a, b) => {
+      result = [...result].sort((a, b) => {
         for (const { key, dir } of sortColumns) {
           const av = (a as any)[key], bv = (b as any)[key];
           const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
@@ -147,11 +163,11 @@ export default function ProcurementLineItemsTab() {
       });
     }
     return result;
-  }, [rows, search, supplierFilter, sortColumns]);
+  }, [rows, search, supplierFilter, monthFilter, sortColumns]);
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
   const unmatchedCount = filtered.filter(r => !r.product_master_id && !r.standard_product_id).length;
-  const hasFilters = search || supplierFilter !== "all";
+  const hasFilters = search || supplierFilter !== "all" || monthFilter !== "all";
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[95px]" },
@@ -184,8 +200,15 @@ export default function ProcurementLineItemsTab() {
             {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={monthFilter} onValueChange={setMonthFilter}>
+          <SelectTrigger className="w-[140px] h-9 text-xs"><SelectValue placeholder="Month" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Months</SelectItem>
+            {months.map(m => <SelectItem key={m} value={m}>{fmtMonth(m)}</SelectItem>)}
+          </SelectContent>
+        </Select>
         {hasFilters && (
-          <button onClick={() => { setSearch(""); setSupplierFilter("all"); }} className="text-xs text-primary hover:underline flex items-center gap-1">
+          <button onClick={() => { setSearch(""); setSupplierFilter("all"); setMonthFilter("all"); }} className="text-xs text-primary hover:underline flex items-center gap-1">
             <X className="h-3 w-3" /> Clear
           </button>
         )}
@@ -232,7 +255,7 @@ export default function ProcurementLineItemsTab() {
               ) : filtered.map((r, idx) => {
                 const isUnmatched = !r.product_master_id && !r.standard_product_id;
                 return (
-                <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+                <tr key={`${r.id}-${idx}`} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
                   <td className="px-2 py-2 text-center">
                     {r.file_url ? (
                       <button
