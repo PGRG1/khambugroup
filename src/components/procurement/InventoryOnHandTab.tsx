@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, Download } from "lucide-react";
+import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
 
