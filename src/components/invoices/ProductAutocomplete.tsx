@@ -57,6 +57,8 @@ const ProductAutocomplete = ({
         const name = (p.supplier_product_name || p.internal_product_name || "").toLowerCase();
         return name.includes(query);
       });
+    // Prioritize supplier matches (products array is already sorted supplier-first)
+    // Just slice to limit
     return results.slice(0, 8);
   }, [query, products, searchField]);
 
