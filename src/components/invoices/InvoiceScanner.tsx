@@ -173,19 +173,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return options;
   }, [current?.supplier_id, productMaster, suppliers]);
 
-  // Filter product master by current supplier context
+  // Sort product master: supplier matches first, then everything else
   const supplierFilteredPM = useMemo(() => {
     if (!productMaster || !current) return productMaster || [];
     const supplierName = current.supplier_name || "";
     if (!supplierName) return productMaster;
     const normSupplier = normalizeSupplierName(supplierName);
-    const filtered = productMaster.filter((p) => {
-      if (!p.supplier) return false;
-      const normPM = normalizeSupplierName(p.supplier);
-      return normPM === normSupplier || normPM.includes(normSupplier) || normSupplier.includes(normPM);
+    return [...productMaster].sort((a, b) => {
+      const aMatch = a.supplier && (() => { const n = normalizeSupplierName(a.supplier!); return n === normSupplier || n.includes(normSupplier) || normSupplier.includes(n); })() ? 0 : 1;
+      const bMatch = b.supplier && (() => { const n = normalizeSupplierName(b.supplier!); return n === normSupplier || n.includes(normSupplier) || normSupplier.includes(n); })() ? 0 : 1;
+      return aMatch - bMatch;
     });
-    // If no matches found for this supplier, fall back to full list
-    return filtered.length > 0 ? filtered : productMaster;
   }, [productMaster, current?.supplier_name]);
 
   const fileToBase64 = (file: File): Promise<string> =>

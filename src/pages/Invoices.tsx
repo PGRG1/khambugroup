@@ -203,12 +203,11 @@ export default function Invoices() {
   const editFilteredPM = useMemo(() => {
     if (!editPMData.length || !editSupplierName) return editPMData;
     const norm = normalizeSupplierName(editSupplierName);
-    const filtered = editPMData.filter(p => {
-      if (!p.supplier) return false;
-      const normPM = normalizeSupplierName(p.supplier);
-      return normPM === norm || normPM.includes(norm) || norm.includes(normPM);
+    return [...editPMData].sort((a, b) => {
+      const aMatch = a.supplier && (() => { const n = normalizeSupplierName(a.supplier!); return n === norm || n.includes(norm) || norm.includes(n); })() ? 0 : 1;
+      const bMatch = b.supplier && (() => { const n = normalizeSupplierName(b.supplier!); return n === norm || n.includes(norm) || norm.includes(n); })() ? 0 : 1;
+      return aMatch - bMatch;
     });
-    return filtered.length > 0 ? filtered : editPMData;
   }, [editPMData, editSupplierName]);
 
   const filtered = useMemo(() => {

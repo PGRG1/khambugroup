@@ -231,13 +231,11 @@ export default function ProcurementInvoicesTab() {
     if (!supplierName) return productMaster;
 
     const normSupplier = normalizeSupplierName(supplierName);
-    const filteredProducts = productMaster.filter((product) => {
-      if (!product.supplier) return false;
-      const normPM = normalizeSupplierName(product.supplier);
-      return normPM === normSupplier || normPM.includes(normSupplier) || normSupplier.includes(normPM);
+    return [...productMaster].sort((a, b) => {
+      const aMatch = a.supplier && (() => { const n = normalizeSupplierName(a.supplier!); return n === normSupplier || n.includes(normSupplier) || normSupplier.includes(n); })() ? 0 : 1;
+      const bMatch = b.supplier && (() => { const n = normalizeSupplierName(b.supplier!); return n === normSupplier || n.includes(normSupplier) || normSupplier.includes(n); })() ? 0 : 1;
+      return aMatch - bMatch;
     });
-
-    return filteredProducts.length > 0 ? filteredProducts : productMaster;
   };
 
   const findProductMatch = (line: Partial<InvoiceLineItem> | Partial<EditableInvoiceLine>, supplierId?: string | null) => {
