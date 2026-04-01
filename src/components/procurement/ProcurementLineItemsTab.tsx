@@ -103,6 +103,20 @@ export default function ProcurementLineItemsTab() {
 
   const suppliers = useMemo(() => [...new Set(rows.map(r => r.supplier_name))].sort(), [rows]);
 
+  const months = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      if (r.invoice_date) set.add(r.invoice_date.substring(0, 7)); // "YYYY-MM"
+    }
+    return [...set].sort().reverse();
+  }, [rows]);
+
+  const fmtMonth = (ym: string) => {
+    const [y, m] = ym.split("-");
+    const date = new Date(Number(y), Number(m) - 1);
+    return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  };
+
   const toggleSort = (key: string) => {
     setSortColumns(prev => {
       const idx = prev.findIndex(s => s.key === key);
