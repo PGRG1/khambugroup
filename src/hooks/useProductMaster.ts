@@ -103,6 +103,7 @@ export function useProductMaster() {
       await supabase.from("product_suppliers" as any).insert({
         product_master_id: productId,
         supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost,
+        stock_uom, stock_qty, base_unit_type, base_unit_qty,
       } as any);
     }
     await fetchProducts();
