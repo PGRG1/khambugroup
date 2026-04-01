@@ -137,7 +137,7 @@ const ProductAutocomplete = ({
                   : "hover:bg-muted"
               )}
             >
-              {p.external_sku && (
+              {p.external_sku && (!currentSupplier || (p.supplier && normalizeSupplierName(p.supplier) === normalizeSupplierName(currentSupplier))) && (
                 <>
                   <span className="font-mono font-medium text-primary">{p.external_sku}</span>
                   <span className="mx-1.5 text-muted-foreground">·</span>
