@@ -15,6 +15,9 @@ interface ProductMasterEntry {
   stock_qty?: number;
 }
 
+const normalizeSupplierName = (value: string) =>
+  value.toLowerCase().replace(/[\r\n\t]+/g, " ").replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ").replace(/\b(limited|ltd|co|company)\b/g, " ").replace(/\s+/g, " ").trim();
+
 interface ProductAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
@@ -23,6 +26,7 @@ interface ProductAutocompleteProps {
   searchField: "code" | "name";
   placeholder?: string;
   className?: string;
+  currentSupplier?: string;
 }
 
 const ProductAutocomplete = ({
