@@ -1,21 +1,46 @@
 
 
-## Fix: Product Master creation loses UOM fields after save
+## Fix: ProductAutocomplete not showing results for some product names
 
 ### Problem
-When creating a new product, `stock_uom`, `stock_qty`, `base_unit_type`, and `base_unit_qty` are NOT passed to the `product_suppliers` insert. The `product_suppliers` table has defaults (`stock_uom: ''`, `stock_qty: 1`, `base_unit_type: 'g'`, `base_unit_qty: 1`), so those defaults overwrite what the user entered. Since the flat row display uses `s.stock_uom ?? p.stock_uom`, and `''` is not null/undefined, the empty string from the supplier row takes precedence over the correct value on `product_master`.
+When typing a product name like "Gourmet's Kitchen Oil" in the autocomplete, no suggestions appear even though the product exists under the current supplier (e.g., Ming Kee). This happens because the `supplierFilteredPM` filter is too restrictive — it excludes all products that don't have a supplier match, meaning products where the supplier field is empty or slightly different get dropped entirely.
 
 ### Root cause
-In `useProductMaster.ts` line 80, destructuring strips `supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost` into separate variables for the supplier insert. But `stock_uom, stock_qty, base_unit_type, base_unit_qty` are left in `pmData` (going to `product_master` only) and never included in the supplier insert on lines 103-106.
+In both `InvoiceScanner.tsx` and `ProcurementInvoicesTab.tsx`, the `supplierFilteredPM` / `editFilteredPM` filter:
+1. **Excludes products with no supplier** (`if (!p.supplier) return false`) — products in the PM that lack a supplier entry are invisible
+2. **Only shows supplier-matched products** — if a product exists in the PM but isn't specifically mapped to the current invoice's supplier, it won't appear even though the user needs to match it
+
+The autocomplete should show **all** products but **prioritize** supplier-matched ones, so users can still find and match any PM product.
 
 ### Fix
 
-**File: `src/hooks/useProductMaster.ts`**
+**File: `src/components/invoices/InvoiceScanner.tsx`** (~line 177-189)
+- Change `supplierFilteredPM` to include ALL products, but sort supplier-matched ones to the top
+- Products matching the current supplier appear first, followed by all others
 
-1. **Destructure packaging fields** from product alongside the other supplier-level fields (line 80) — add `stock_uom, stock_qty, base_unit_type, base_unit_qty` to the destructured variables.
+**File: `src/components/procurement/ProcurementInvoicesTab.tsx`** (equivalent `editFilteredPM`)
+- Apply the same sorting logic
 
-2. **Include packaging fields in the supplier insert** (lines 103-106) — add `stock_uom, stock_qty, base_unit_type, base_unit_qty` to the insert payload so the supplier entry stores the user's actual values instead of DB defaults.
+**File: `src/components/invoices/ProductAutocomplete.tsx`** (line 49-61)
+- Update the `suggestions` memo to prioritize supplier-matched results first, then others
+- Keep the limit at 8 but ensure supplier matches always appear before non-supplier matches
 
-### Technical detail
-Single file change, ~5 lines modified. No database migration needed — the `product_suppliers` table already has these columns.
+### Implementation detail
+```typescript
+// InvoiceScanner.tsx — replace filter with sort-to-top
+const supplierFilteredPM = useMemo(() => {
+  if (!productMaster || !current) return productMaster || [];
+  const supplierName = current.supplier_name || "";
+  if (!supplierName) return productMaster;
+  const normSupplier = normalizeSupplierName(supplierName);
+  // Sort: supplier matches first, then everything else
+  return [...productMaster].sort((a, b) => {
+    const aMatch = a.supplier && (normalizeSupplierName(a.supplier) === normSupplier) ? 0 : 1;
+    const bMatch = b.supplier && (normalizeSupplierName(b.supplier) === normSupplier) ? 0 : 1;
+    return aMatch - bMatch;
+  });
+}, [productMaster, current?.supplier_name]);
+```
+
+This ensures every PM product is searchable, but supplier-specific matches rank higher in the dropdown.
 
