@@ -77,7 +77,7 @@ export function useProductMaster() {
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   const createProduct = useCallback(async (product: Omit<ProductMasterItem, "id" | "created_at" | "updated_at" | "suppliers">) => {
-    const { supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost, ...pmData } = product;
+    const { supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost, stock_uom, stock_qty, base_unit_type, base_unit_qty, ...pmData } = product;
 
     // Check if a product with the same internal_sku already exists
     const { data: existing } = await supabase
@@ -103,6 +103,7 @@ export function useProductMaster() {
       await supabase.from("product_suppliers" as any).insert({
         product_master_id: productId,
         supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost,
+        stock_uom, stock_qty, base_unit_type, base_unit_qty,
       } as any);
     }
     await fetchProducts();
