@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, Download } from "lucide-react";
+import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
 
@@ -39,8 +39,7 @@ export default function InventoryOnHandTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("internal_sku");
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortColumns, setSortColumns] = useState<Array<{key: SortKey, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -107,13 +106,18 @@ export default function InventoryOnHandTab() {
       const q = search.toLowerCase();
       list = list.filter((r) => r.internal_product_name.toLowerCase().includes(q) || r.internal_sku.toLowerCase().includes(q));
     }
-    list.sort((a, b) => {
-      const av = a[sortKey], bv = b[sortKey];
-      if (typeof av === "number" && typeof bv === "number") return sortAsc ? av - bv : bv - av;
-      return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
-    });
+    if (sortColumns.length > 0) {
+      list.sort((a, b) => {
+        for (const { key, dir } of sortColumns) {
+          const av = a[key], bv = b[key];
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
     return list;
-  }, [rows, categoryFilter, search, sortKey, sortAsc]);
+  }, [rows, categoryFilter, search, sortColumns]);
 
   const totals = useMemo(() => ({
     costValue: filtered.reduce((s, r) => s + r.cost_value, 0),
@@ -122,18 +126,30 @@ export default function InventoryOnHandTab() {
   }), [filtered]);
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortAsc(!sortAsc);
-    else { setSortKey(key); setSortAsc(true); }
+    setSortColumns(prev => {
+      const idx = prev.findIndex(s => s.key === key);
+      if (idx === -1) return [...prev, { key, dir: "asc" as const }];
+      if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" as const } : s);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const SortHeader = ({ label, col }: { label: string; col: SortKey }) => (
-    <Button variant="ghost" size="sm" className="h-auto p-0 font-medium text-xs hover:bg-transparent" onClick={() => handleSort(col)}>
-      {label}
-      <ArrowUpDown className="ml-1 h-3 w-3" />
-    </Button>
-  );
+  const SortHeader = ({ label, col }: { label: string; col: SortKey }) => {
+    const entry = sortColumns.find(s => s.key === col);
+    return (
+      <Button variant="ghost" size="sm" className="h-auto p-0 font-medium text-xs hover:bg-transparent" onClick={() => handleSort(col)}>
+        {label}
+        {!entry ? <ArrowUpDown className="ml-1 h-3 w-3 opacity-30" /> : (
+          <span className="ml-1 inline-flex items-center gap-0.5">
+            {entry.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+            {sortColumns.length > 1 && <span className="text-[9px] font-bold">{sortColumns.indexOf(entry) + 1}</span>}
+          </span>
+        )}
+      </Button>
+    );
+  };
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading inventory…</div>;
 

@@ -103,8 +103,7 @@ export default function ProcurementInvoicesTab() {
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortKey, setSortKey] = useState("invoice_date");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([{ key: "invoice_date", dir: "desc" }]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -177,16 +176,23 @@ export default function ProcurementInvoicesTab() {
   };
 
   const toggleSort = (key: string) => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+    setSortColumns(prev => {
+      const idx = prev.findIndex(s => s.key === key);
+      if (idx === -1) return [...prev, { key, dir: "asc" as const }];
+      if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" as const } : s);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   const SortIcon = ({ col }: { col: string }) => {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
-    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    const entry = sortColumns.find(s => s.key === col);
+    if (!entry) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {entry.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+        {sortColumns.length > 1 && <span className="text-[9px] font-bold">{sortColumns.indexOf(entry) + 1}</span>}
+      </span>
+    );
   };
 
   const filtered = useMemo(() => {
@@ -199,15 +205,19 @@ export default function ProcurementInvoicesTab() {
       return inv.invoice_number.toLowerCase().includes(q) || (inv.supplier_name || "").toLowerCase().includes(q);
     });
 
-    result.sort((a, b) => {
-      const av = (a as any)[sortKey];
-      const bv = (b as any)[sortKey];
-      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
+    if (sortColumns.length > 0) {
+      result.sort((a, b) => {
+        for (const { key, dir } of sortColumns) {
+          const av = (a as any)[key], bv = (b as any)[key];
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
 
     return result;
-  }, [invoices, venueFilter, statusFilter, search, sortKey, sortDir]);
+  }, [invoices, venueFilter, statusFilter, search, sortColumns]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },

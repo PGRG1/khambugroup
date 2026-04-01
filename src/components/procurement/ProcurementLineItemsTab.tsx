@@ -41,8 +41,7 @@ export default function ProcurementLineItemsTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [sortKey, setSortKey] = useState("invoice_date");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([{ key: "invoice_date", dir: "desc" }]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerFileUrl, setViewerFileUrl] = useState("");
   const [viewerTitle, setViewerTitle] = useState("");
@@ -104,13 +103,23 @@ export default function ProcurementLineItemsTab() {
   const suppliers = useMemo(() => [...new Set(rows.map(r => r.supplier_name))].sort(), [rows]);
 
   const toggleSort = (key: string) => {
-    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("asc"); }
+    setSortColumns(prev => {
+      const idx = prev.findIndex(s => s.key === key);
+      if (idx === -1) return [...prev, { key, dir: "asc" as const }];
+      if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" as const } : s);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   const SortIcon = ({ col }: { col: string }) => {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
-    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    const entry = sortColumns.find(s => s.key === col);
+    if (!entry) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {entry.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+        {sortColumns.length > 1 && <span className="text-[9px] font-bold">{sortColumns.indexOf(entry) + 1}</span>}
+      </span>
+    );
   };
 
   const filtered = useMemo(() => {
@@ -127,14 +136,18 @@ export default function ProcurementLineItemsTab() {
       }
       return true;
     });
-    result.sort((a, b) => {
-      const av = (a as any)[sortKey];
-      const bv = (b as any)[sortKey];
-      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
+    if (sortColumns.length > 0) {
+      result.sort((a, b) => {
+        for (const { key, dir } of sortColumns) {
+          const av = (a as any)[key], bv = (b as any)[key];
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
     return result;
-  }, [rows, search, supplierFilter, sortKey, sortDir]);
+  }, [rows, search, supplierFilter, sortColumns]);
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
   const unmatchedCount = filtered.filter(r => !r.product_master_id && !r.standard_product_id).length;
