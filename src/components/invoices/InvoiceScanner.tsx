@@ -568,9 +568,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
+      // Only use the product's external SKU if it belongs to the same supplier
+      const invoiceSupplier = copy[currentIdx].supplier_name;
+      const productSupplierMatch = invoiceSupplier && product.supplier &&
+        normalizeSupplierName(product.supplier) === normalizeSupplierName(invoiceSupplier);
       const line = {
         ...lines[i],
-        item_code: product.external_sku || "",
+        item_code: productSupplierMatch ? (product.external_sku || lines[i].item_code) : lines[i].item_code,
         description: product.supplier_product_name || product.internal_product_name,
         matched_sku: product.internal_sku,
         matched_internal_name: product.internal_product_name || "",
