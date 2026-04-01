@@ -37,6 +37,7 @@ const ProductAutocomplete = ({
   searchField,
   placeholder,
   className,
+  currentSupplier,
 }: ProductAutocompleteProps) => {
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
