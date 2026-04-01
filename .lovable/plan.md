@@ -1,27 +1,21 @@
 
 
-## Fix: ProductAutocomplete dropdown showing External SKUs from wrong suppliers
+## Fix: Product Master creation loses UOM fields after save
 
 ### Problem
-The ProductAutocomplete dropdown displays the `external_sku` (orange code) for every product entry, even when that SKU belongs to a different supplier. For example, when scanning a Ming Kee invoice, Bleach Liquid shows ONGO's external SKU in the dropdown. The selection logic already prevents incorrect assignment, but the **display** is misleading.
+When creating a new product, `stock_uom`, `stock_qty`, `base_unit_type`, and `base_unit_qty` are NOT passed to the `product_suppliers` insert. The `product_suppliers` table has defaults (`stock_uom: ''`, `stock_qty: 1`, `base_unit_type: 'g'`, `base_unit_qty: 1`), so those defaults overwrite what the user entered. Since the flat row display uses `s.stock_uom ?? p.stock_uom`, and `''` is not null/undefined, the empty string from the supplier row takes precedence over the correct value on `product_master`.
 
-### Solution
-Pass the current invoice supplier name into `ProductAutocomplete` and only display the `external_sku` in the dropdown when it belongs to the matching supplier.
+### Root cause
+In `useProductMaster.ts` line 80, destructuring strips `supplier, external_sku, supplier_product_name, purchase_unit, purchase_unit_cost` into separate variables for the supplier insert. But `stock_uom, stock_qty, base_unit_type, base_unit_qty` are left in `pmData` (going to `product_master` only) and never included in the supplier insert on lines 103-106.
 
-### Changes
+### Fix
 
-**File: `src/components/invoices/ProductAutocomplete.tsx`**
-- Add optional `currentSupplier?: string` prop
-- In the dropdown rendering (line 135), only show `p.external_sku` if `currentSupplier` is not set OR if `p.supplier` matches `currentSupplier` (using normalized comparison)
-- Add a `normalizeSupplierName` helper (same logic used elsewhere)
+**File: `src/hooks/useProductMaster.ts`**
 
-**File: `src/components/invoices/InvoiceScanner.tsx`**
-- Pass `currentSupplier={current.supplier_name}` to both ProductAutocomplete instances (lines ~1101-1122)
+1. **Destructure packaging fields** from product alongside the other supplier-level fields (line 80) — add `stock_uom, stock_qty, base_unit_type, base_unit_qty` to the destructured variables.
 
-**File: `src/components/procurement/ProcurementInvoicesTab.tsx`**
-- Pass `currentSupplier` (from the editing invoice's supplier name) to ProductAutocomplete instances in the edit view
+2. **Include packaging fields in the supplier insert** (lines 103-106) — add `stock_uom, stock_qty, base_unit_type, base_unit_qty` to the insert payload so the supplier entry stores the user's actual values instead of DB defaults.
 
-### Technical notes
-- No database changes needed
-- The `selectProduct` guard logic remains as a safety net, but the dropdown will no longer confuse users by showing irrelevant SKUs
+### Technical detail
+Single file change, ~5 lines modified. No database migration needed — the `product_suppliers` table already has these columns.
 
