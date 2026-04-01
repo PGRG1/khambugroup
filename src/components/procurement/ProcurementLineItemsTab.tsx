@@ -200,8 +200,15 @@ export default function ProcurementLineItemsTab() {
             {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={monthFilter} onValueChange={setMonthFilter}>
+          <SelectTrigger className="w-[140px] h-9 text-xs"><SelectValue placeholder="Month" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Months</SelectItem>
+            {months.map(m => <SelectItem key={m} value={m}>{fmtMonth(m)}</SelectItem>)}
+          </SelectContent>
+        </Select>
         {hasFilters && (
-          <button onClick={() => { setSearch(""); setSupplierFilter("all"); }} className="text-xs text-primary hover:underline flex items-center gap-1">
+          <button onClick={() => { setSearch(""); setSupplierFilter("all"); setMonthFilter("all"); }} className="text-xs text-primary hover:underline flex items-center gap-1">
             <X className="h-3 w-3" /> Clear
           </button>
         )}
