@@ -255,7 +255,7 @@ export default function ProcurementLineItemsTab() {
               ) : filtered.map((r, idx) => {
                 const isUnmatched = !r.product_master_id && !r.standard_product_id;
                 return (
-                <tr key={r.id} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
+                <tr key={`${r.id}-${idx}`} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
                   <td className="px-2 py-2 text-center">
                     {r.file_url ? (
                       <button
