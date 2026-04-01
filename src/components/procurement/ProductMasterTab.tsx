@@ -118,13 +118,23 @@ export default function ProductMasterTab() {
   }, [products]);
 
   const toggleSort = (key: string) => {
-    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("asc"); }
+    setSortColumns(prev => {
+      const idx = prev.findIndex(s => s.key === key);
+      if (idx === -1) return [...prev, { key, dir: "asc" as const }];
+      if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" as const } : s);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   const SortIcon = ({ col }: { col: string }) => {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
-    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    const entry = sortColumns.find(s => s.key === col);
+    if (!entry) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {entry.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+        {sortColumns.length > 1 && <span className="text-[9px] font-bold">{sortColumns.indexOf(entry) + 1}</span>}
+      </span>
+    );
   };
 
   const filtered = useMemo(() => {
