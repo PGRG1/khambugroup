@@ -136,12 +136,20 @@ export default function InventoryOnHandTab() {
 
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const SortHeader = ({ label, col }: { label: string; col: SortKey }) => (
-    <Button variant="ghost" size="sm" className="h-auto p-0 font-medium text-xs hover:bg-transparent" onClick={() => handleSort(col)}>
-      {label}
-      <ArrowUpDown className="ml-1 h-3 w-3" />
-    </Button>
-  );
+  const SortHeader = ({ label, col }: { label: string; col: SortKey }) => {
+    const entry = sortColumns.find(s => s.key === col);
+    return (
+      <Button variant="ghost" size="sm" className="h-auto p-0 font-medium text-xs hover:bg-transparent" onClick={() => handleSort(col)}>
+        {label}
+        {!entry ? <ArrowUpDown className="ml-1 h-3 w-3 opacity-30" /> : (
+          <span className="ml-1 inline-flex items-center gap-0.5">
+            {entry.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+            {sortColumns.length > 1 && <span className="text-[9px] font-bold">{sortColumns.indexOf(entry) + 1}</span>}
+          </span>
+        )}
+      </Button>
+    );
+  };
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading inventory…</div>;
 

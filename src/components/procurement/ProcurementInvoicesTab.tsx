@@ -205,15 +205,19 @@ export default function ProcurementInvoicesTab() {
       return inv.invoice_number.toLowerCase().includes(q) || (inv.supplier_name || "").toLowerCase().includes(q);
     });
 
-    result.sort((a, b) => {
-      const av = (a as any)[sortKey];
-      const bv = (b as any)[sortKey];
-      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
+    if (sortColumns.length > 0) {
+      result.sort((a, b) => {
+        for (const { key, dir } of sortColumns) {
+          const av = (a as any)[key], bv = (b as any)[key];
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
 
     return result;
-  }, [invoices, venueFilter, statusFilter, search, sortKey, sortDir]);
+  }, [invoices, venueFilter, statusFilter, search, sortColumns]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },

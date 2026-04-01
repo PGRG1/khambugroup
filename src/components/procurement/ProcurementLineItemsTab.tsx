@@ -136,14 +136,18 @@ export default function ProcurementLineItemsTab() {
       }
       return true;
     });
-    result.sort((a, b) => {
-      const av = (a as any)[sortKey];
-      const bv = (b as any)[sortKey];
-      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
+    if (sortColumns.length > 0) {
+      result.sort((a, b) => {
+        for (const { key, dir } of sortColumns) {
+          const av = (a as any)[key], bv = (b as any)[key];
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
     return result;
-  }, [rows, search, supplierFilter, sortKey, sortDir]);
+  }, [rows, search, supplierFilter, sortColumns]);
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
   const unmatchedCount = filtered.filter(r => !r.product_master_id && !r.standard_product_id).length;

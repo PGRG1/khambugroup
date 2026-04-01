@@ -153,14 +153,18 @@ export default function ProductMasterTab() {
       }
       return true;
     });
-    result.sort((a, b) => {
-      const av = (a as any)[sortKey];
-      const bv = (b as any)[sortKey];
-      let cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
+    if (sortColumns.length > 0) {
+      result.sort((a, b) => {
+        for (const { key, dir } of sortColumns) {
+          const av = (a as any)[key], bv = (b as any)[key];
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
     return result;
-  }, [flatRows, search, catFilter, subCatFilter, supplierFilter, statusFilter, sortKey, sortDir]);
+  }, [flatRows, search, catFilter, subCatFilter, supplierFilter, statusFilter, sortColumns]);
 
   const hasFilters = catFilter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || search;
   const clearFilters = () => { setCatFilter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setSearch(""); };
