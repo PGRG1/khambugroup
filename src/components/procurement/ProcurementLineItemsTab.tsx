@@ -167,7 +167,7 @@ export default function ProcurementLineItemsTab() {
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
   const unmatchedCount = filtered.filter(r => !r.product_master_id && !r.standard_product_id).length;
-  const hasFilters = search || supplierFilter !== "all";
+  const hasFilters = search || supplierFilter !== "all" || monthFilter !== "all";
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[95px]" },
