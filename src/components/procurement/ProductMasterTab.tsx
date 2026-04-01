@@ -54,8 +54,7 @@ export default function ProductMasterTab() {
   const [subCatFilter, setSubCatFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortKey, setSortKey] = useState("internal_sku");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
