@@ -305,7 +305,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
           if (fallbackMatch) {
             workingLine.matched_sku = fallbackMatch.internal_sku;
-            workingLine.item_code = workingLine.item_code || fallbackMatch.external_sku || "";
+            // Only auto-fill external SKU if the matched PM entry belongs to the same supplier
+            const matchSupplierOk = supplierName && fallbackMatch.supplier &&
+              normalizeSupplierName(fallbackMatch.supplier) === normalizeSupplierName(supplierName);
+            if (matchSupplierOk) {
+              workingLine.item_code = workingLine.item_code || fallbackMatch.external_sku || "";
+            }
           }
         }
       }
