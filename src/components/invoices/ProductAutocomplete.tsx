@@ -15,6 +15,9 @@ interface ProductMasterEntry {
   stock_qty?: number;
 }
 
+const normalizeSupplierName = (value: string) =>
+  value.toLowerCase().replace(/[\r\n\t]+/g, " ").replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ").replace(/\b(limited|ltd|co|company)\b/g, " ").replace(/\s+/g, " ").trim();
+
 interface ProductAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
@@ -23,6 +26,7 @@ interface ProductAutocompleteProps {
   searchField: "code" | "name";
   placeholder?: string;
   className?: string;
+  currentSupplier?: string;
 }
 
 const ProductAutocomplete = ({
@@ -33,6 +37,7 @@ const ProductAutocomplete = ({
   searchField,
   placeholder,
   className,
+  currentSupplier,
 }: ProductAutocompleteProps) => {
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
@@ -132,7 +137,7 @@ const ProductAutocomplete = ({
                   : "hover:bg-muted"
               )}
             >
-              {p.external_sku && (
+              {p.external_sku && (!currentSupplier || (p.supplier && normalizeSupplierName(p.supplier) === normalizeSupplierName(currentSupplier))) && (
                 <>
                   <span className="font-mono font-medium text-primary">{p.external_sku}</span>
                   <span className="mx-1.5 text-muted-foreground">·</span>
