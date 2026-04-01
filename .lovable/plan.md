@@ -1,46 +1,77 @@
 
 
-## Fix: ProductAutocomplete not showing results for some product names
+## Fix: Multi-column sorting with 3-state cycle across procurement tabs
 
 ### Problem
-When typing a product name like "Gourmet's Kitchen Oil" in the autocomplete, no suggestions appear even though the product exists under the current supplier (e.g., Ming Kee). This happens because the `supplierFilteredPM` filter is too restrictive — it excludes all products that don't have a supplier match, meaning products where the supplier field is empty or slightly different get dropped entirely.
+1. Sorting only supports one column at a time — clicking a new column resets the previous sort
+2. Only two states exist (asc/desc) — no way to reset/clear a column's sort
+3. The "partial sorting" issue stems from single-column sort losing context when filters change
 
-### Root cause
-In both `InvoiceScanner.tsx` and `ProcurementInvoicesTab.tsx`, the `supplierFilteredPM` / `editFilteredPM` filter:
-1. **Excludes products with no supplier** (`if (!p.supplier) return false`) — products in the PM that lack a supplier entry are invisible
-2. **Only shows supplier-matched products** — if a product exists in the PM but isn't specifically mapped to the current invoice's supplier, it won't appear even though the user needs to match it
+### Solution
+Replace the single `sortKey`/`sortDir` state with a `sortColumns` array that supports multi-column sorting and a 3-state cycle: **ascending → descending → reset (unsorted)**.
 
-The autocomplete should show **all** products but **prioritize** supplier-matched ones, so users can still find and match any PM product.
+### Files to change
 
-### Fix
+**1. `src/components/procurement/ProcurementLineItemsTab.tsx`**
+- Replace `sortKey`/`sortDir` with `sortColumns: Array<{key: string, dir: "asc"|"desc"}>` state
+- Update `toggleSort` to cycle: unsorted → asc → desc → unsorted. If column exists, cycle its state; if not, append it
+- Update sort logic in `filtered` memo to apply multi-column comparisons in order
+- Update `SortIcon` to show sort priority number when multiple columns are sorted
 
-**File: `src/components/invoices/InvoiceScanner.tsx`** (~line 177-189)
-- Change `supplierFilteredPM` to include ALL products, but sort supplier-matched ones to the top
-- Products matching the current supplier appear first, followed by all others
+**2. `src/components/procurement/ProductMasterTab.tsx`**
+- Same refactor as above
 
-**File: `src/components/procurement/ProcurementInvoicesTab.tsx`** (equivalent `editFilteredPM`)
-- Apply the same sorting logic
+**3. `src/components/procurement/ProcurementInvoicesTab.tsx`**
+- Same refactor as above
 
-**File: `src/components/invoices/ProductAutocomplete.tsx`** (line 49-61)
-- Update the `suggestions` memo to prioritize supplier-matched results first, then others
-- Keep the limit at 8 but ensure supplier matches always appear before non-supplier matches
+**4. `src/components/procurement/InventoryOnHandTab.tsx`**
+- Same refactor (uses `sortKey`/`sortAsc` naming but same pattern)
 
-### Implementation detail
+**5. `src/components/procurement/SuppliersTab.tsx`**
+- Check and apply same refactor if sorting exists
+
+### Implementation pattern (shared across all tabs)
+
 ```typescript
-// InvoiceScanner.tsx — replace filter with sort-to-top
-const supplierFilteredPM = useMemo(() => {
-  if (!productMaster || !current) return productMaster || [];
-  const supplierName = current.supplier_name || "";
-  if (!supplierName) return productMaster;
-  const normSupplier = normalizeSupplierName(supplierName);
-  // Sort: supplier matches first, then everything else
-  return [...productMaster].sort((a, b) => {
-    const aMatch = a.supplier && (normalizeSupplierName(a.supplier) === normSupplier) ? 0 : 1;
-    const bMatch = b.supplier && (normalizeSupplierName(b.supplier) === normSupplier) ? 0 : 1;
-    return aMatch - bMatch;
+// State
+const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([]);
+
+// 3-state toggle: none → asc → desc → none
+const toggleSort = (key: string) => {
+  setSortColumns(prev => {
+    const idx = prev.findIndex(s => s.key === key);
+    if (idx === -1) return [...prev, { key, dir: "asc" }];
+    if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" } : s);
+    return prev.filter((_, i) => i !== idx); // remove = reset
   });
-}, [productMaster, current?.supplier_name]);
+};
+
+// Multi-column sort
+result.sort((a, b) => {
+  for (const { key, dir } of sortColumns) {
+    const av = (a as any)[key], bv = (b as any)[key];
+    let cmp = typeof av === "number" && typeof bv === "number"
+      ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+    if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+  }
+  return 0;
+});
+
+// Sort icon with priority badge
+const SortIcon = ({ col }: { col: string }) => {
+  const entry = sortColumns.find(s => s.key === col);
+  if (!entry) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {entry.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+      {sortColumns.length > 1 && <span className="text-[9px] font-bold">{sortColumns.indexOf(entry) + 1}</span>}
+    </span>
+  );
+};
 ```
 
-This ensures every PM product is searchable, but supplier-specific matches rank higher in the dropdown.
+### Scope
+- 4-5 files, same mechanical refactor in each
+- No database changes
+- No new dependencies
 
