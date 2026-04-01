@@ -417,9 +417,13 @@ export default function ProcurementInvoicesTab() {
     setEditLines((prev) => {
       const updated = [...prev];
       const currentLine = updated[idx];
+      // Only use the product's external SKU if it belongs to the same supplier
+      const editSupplierName = selectedInvoice ? suppliers.find(s => s.id === selectedInvoice.supplier_id)?.name : "";
+      const supplierMatch = editSupplierName && product.supplier &&
+        product.supplier.toLowerCase().includes(editSupplierName.toLowerCase());
       const nextLine: EditableInvoiceLine = {
         ...currentLine,
-        item_code: product.external_sku || currentLine.item_code,
+        item_code: supplierMatch ? (product.external_sku || currentLine.item_code) : currentLine.item_code,
         description: product.supplier_product_name || product.internal_product_name || currentLine.description,
         product_master_id: product.id,
         matched_sku: product.internal_sku,
