@@ -106,13 +106,18 @@ export default function InventoryOnHandTab() {
       const q = search.toLowerCase();
       list = list.filter((r) => r.internal_product_name.toLowerCase().includes(q) || r.internal_sku.toLowerCase().includes(q));
     }
-    list.sort((a, b) => {
-      const av = a[sortKey], bv = b[sortKey];
-      if (typeof av === "number" && typeof bv === "number") return sortAsc ? av - bv : bv - av;
-      return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
-    });
+    if (sortColumns.length > 0) {
+      list.sort((a, b) => {
+        for (const { key, dir } of sortColumns) {
+          const av = a[key], bv = b[key];
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
+          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
     return list;
-  }, [rows, categoryFilter, search, sortKey, sortAsc]);
+  }, [rows, categoryFilter, search, sortColumns]);
 
   const totals = useMemo(() => ({
     costValue: filtered.reduce((s, r) => s + r.cost_value, 0),
