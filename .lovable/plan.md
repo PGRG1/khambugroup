@@ -1,71 +1,72 @@
 
 
-## Revamp Procurement Dashboard Charts
+## Refine Procurement Dashboard — Consistent Styling, Custom Period, Cumulative View, L1 Only, Supplier Labels
 
-### What changes
+### Changes
 
 **File: `src/components/procurement/ProcurementDashboardTab.tsx`**
 
-#### 1. Remove the daily/monthly supplier line chart
-Delete the entire `<Card>` block (lines 250–284) containing the `LineChart`. The supplier tree view below it stays.
+#### 1. Consistent color palette (no rainbow)
+Replace the 12-color `COLORS` array with a muted warm palette derived from the platform's CSS variables (`--primary`, `--accent`, `--chart-1` through `--chart-5`). All charts will use these 5-6 tones with opacity variations instead of saturated rainbow colors.
 
-#### 2. Add KPI summary row
-Add a row of 4 KPI cards at the top (below the header): **Total Spend**, **Invoice Count**, **Avg Invoice Value**, **Unique Suppliers** — filtered by the selected period.
+#### 2. Period filter: add Custom date range
+- Add `customFrom` / `customTo` state + calendar popovers (same pattern as `DateFilter.tsx`)
+- Add a "Custom" option in the period `<Select>`
+- When "Custom" is selected, show two date pickers inline
+- Filter invoices by custom date range when active
 
-#### 3. Add "Spend by Supplier" horizontal bar chart
-Replace the removed line chart with a horizontal bar chart ranking suppliers by total spend (highest first). Uses the same data as the tree view. Color-coded bars with percentage labels.
+#### 3. Monthly Spend → Daily + Cumulative when a single month is selected
+- When `selectedMonth !== "all"` (a specific month or custom range):
+  - Show a **daily spend bar chart** (one bar per day)
+  - Add an overlaid **cumulative line chart** (running total as a line on a secondary Y-axis)
+- When "All Time" is selected, keep the existing monthly bar chart
+- Use `ComposedChart` from recharts with `Bar` + `Line` + dual Y-axes
 
-#### 4. Add "Spend by Category" charts (L1, L2, L3)
-- Fetch `product_master` data on mount (id, level1_category, level2_category, level3_category)
-- Join line items → product_master via `product_master_id` to get categories
-- **L1 Category**: Donut/pie chart showing top-level category breakdown
-- **L2 Category**: Horizontal bar chart, grouped under L1 context
-- **L3 Category**: Horizontal bar chart for granular detail
-- Unmatched line items (no product_master_id) grouped as "Uncategorized"
+#### 4. Remove L2 and L3 charts
+- Delete the L2 horizontal bar card (lines 447-473)
+- Delete the L3 card (lines 477-497)
+- Keep only L1 donut chart, make it full width
+- Improve L1 donut: add a legend below with $ amounts and % labels, use the warm palette
 
-#### 5. Improve "Expenses by Product" chart
-- Add a gradient fill instead of flat color
-- Show top 20 by default with a "Show all" toggle to avoid an impossibly long chart
-- Add spend amount labels on bars
-- Better truncation of long product names
+#### 5. Supplier chart: show both % and $ on bars
+- Add a custom bar label renderer that shows `$XXk (XX.X%)` on each bar
+- Include percentage calculation based on `grandTotal`
+- Use the warm palette instead of rainbow colors
 
-#### 6. Additional analytics charts (data science perspective)
-- **Spend Trend Over Time**: Monthly bar chart of total spend (simple, replaces the complex multi-supplier line chart with a clear single-series view)
-- **Top 10 Price Variance Items**: Bar chart showing items with highest unit price change between first and last invoice occurrence (helps spot inflation/supplier price changes)
-- **Supplier Concentration**: A simple metric showing % of total spend from top 3 suppliers (Pareto insight)
+#### 6. Professional polish across all charts
+- Increase chart margins to prevent label cropping (left margin for Y-axis labels, right margin for bar labels)
+- Use `textAnchor` and padding on YAxis to prevent text truncation
+- Set minimum heights properly
+- Consistent tooltip styling with `contentStyle` matching `card-glass`
+- Consistent font sizes: axis labels 11px, bar labels 10px
+- All gradients use the warm primary/accent tones
 
-### Data fetching changes
-- Add `product_master` fetch: `supabase.from("product_master").select("id, level1_category, level2_category, level3_category, internal_product_name")`
-- Build a `pmCategoryMap: Map<string, {l1, l2, l3}>` for fast lookups from line items
-
-### Layout
+### Layout (updated)
 ```text
 ┌─────────────────────────────────────────────┐
-│  Header + Period Filter                     │
+│  Header + Period Filter (+ Custom dates)    │
 ├──────────┬──────────┬──────────┬────────────┤
 │ Total    │ Invoice  │ Avg      │ Unique     │
 │ Spend    │ Count    │ Invoice  │ Suppliers  │
-├──────────┴──────────┴──────────┴────────────┤
-│  Monthly Spend Trend (bar chart)            │
+├─────────────────────────────────────────────┤
+│ Monthly Spend (all) OR Daily+Cumulative     │
 ├─────────────────────┬───────────────────────┤
 │  Spend by Supplier  │  Supplier Concentr.   │
-│  (horiz bar)        │  (top 3 % metric)     │
+│  ($ + % labels)     │                       │
 ├─────────────────────┴───────────────────────┤
-│  L1 Category (pie)  │  L2 Category (bar)    │
-├─────────────────────┴───────────────────────┤
-│  L3 Category (horizontal bar)               │
+│  Spend by Category L1 (full width donut)    │
 ├─────────────────────────────────────────────┤
 │  Expenses by Product (top 20 + show all)    │
 ├─────────────────────────────────────────────┤
-│  Price Variance (top 10 items)              │
+│  Price Variance                             │
 ├─────────────────────────────────────────────┤
-│  Supplier Tree View (existing, unchanged)   │
+│  Supplier Tree View                         │
 └─────────────────────────────────────────────┘
 ```
 
 ### Technical details
+- Add `ComposedChart, Line` imports from recharts
+- Add `Calendar`, `Popover` imports for custom date picker
 - Single file change: `ProcurementDashboardTab.tsx`
-- Add `PieChart, Pie, Cell` imports from recharts (already a dependency)
-- No database changes needed
-- All new charts respect the existing month filter
+- No database changes
 
