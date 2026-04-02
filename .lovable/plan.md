@@ -1,77 +1,71 @@
 
 
-## Fix: Multi-column sorting with 3-state cycle across procurement tabs
+## Revamp Procurement Dashboard Charts
 
-### Problem
-1. Sorting only supports one column at a time — clicking a new column resets the previous sort
-2. Only two states exist (asc/desc) — no way to reset/clear a column's sort
-3. The "partial sorting" issue stems from single-column sort losing context when filters change
+### What changes
 
-### Solution
-Replace the single `sortKey`/`sortDir` state with a `sortColumns` array that supports multi-column sorting and a 3-state cycle: **ascending → descending → reset (unsorted)**.
+**File: `src/components/procurement/ProcurementDashboardTab.tsx`**
 
-### Files to change
+#### 1. Remove the daily/monthly supplier line chart
+Delete the entire `<Card>` block (lines 250–284) containing the `LineChart`. The supplier tree view below it stays.
 
-**1. `src/components/procurement/ProcurementLineItemsTab.tsx`**
-- Replace `sortKey`/`sortDir` with `sortColumns: Array<{key: string, dir: "asc"|"desc"}>` state
-- Update `toggleSort` to cycle: unsorted → asc → desc → unsorted. If column exists, cycle its state; if not, append it
-- Update sort logic in `filtered` memo to apply multi-column comparisons in order
-- Update `SortIcon` to show sort priority number when multiple columns are sorted
+#### 2. Add KPI summary row
+Add a row of 4 KPI cards at the top (below the header): **Total Spend**, **Invoice Count**, **Avg Invoice Value**, **Unique Suppliers** — filtered by the selected period.
 
-**2. `src/components/procurement/ProductMasterTab.tsx`**
-- Same refactor as above
+#### 3. Add "Spend by Supplier" horizontal bar chart
+Replace the removed line chart with a horizontal bar chart ranking suppliers by total spend (highest first). Uses the same data as the tree view. Color-coded bars with percentage labels.
 
-**3. `src/components/procurement/ProcurementInvoicesTab.tsx`**
-- Same refactor as above
+#### 4. Add "Spend by Category" charts (L1, L2, L3)
+- Fetch `product_master` data on mount (id, level1_category, level2_category, level3_category)
+- Join line items → product_master via `product_master_id` to get categories
+- **L1 Category**: Donut/pie chart showing top-level category breakdown
+- **L2 Category**: Horizontal bar chart, grouped under L1 context
+- **L3 Category**: Horizontal bar chart for granular detail
+- Unmatched line items (no product_master_id) grouped as "Uncategorized"
 
-**4. `src/components/procurement/InventoryOnHandTab.tsx`**
-- Same refactor (uses `sortKey`/`sortAsc` naming but same pattern)
+#### 5. Improve "Expenses by Product" chart
+- Add a gradient fill instead of flat color
+- Show top 20 by default with a "Show all" toggle to avoid an impossibly long chart
+- Add spend amount labels on bars
+- Better truncation of long product names
 
-**5. `src/components/procurement/SuppliersTab.tsx`**
-- Check and apply same refactor if sorting exists
+#### 6. Additional analytics charts (data science perspective)
+- **Spend Trend Over Time**: Monthly bar chart of total spend (simple, replaces the complex multi-supplier line chart with a clear single-series view)
+- **Top 10 Price Variance Items**: Bar chart showing items with highest unit price change between first and last invoice occurrence (helps spot inflation/supplier price changes)
+- **Supplier Concentration**: A simple metric showing % of total spend from top 3 suppliers (Pareto insight)
 
-### Implementation pattern (shared across all tabs)
+### Data fetching changes
+- Add `product_master` fetch: `supabase.from("product_master").select("id, level1_category, level2_category, level3_category, internal_product_name")`
+- Build a `pmCategoryMap: Map<string, {l1, l2, l3}>` for fast lookups from line items
 
-```typescript
-// State
-const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([]);
-
-// 3-state toggle: none → asc → desc → none
-const toggleSort = (key: string) => {
-  setSortColumns(prev => {
-    const idx = prev.findIndex(s => s.key === key);
-    if (idx === -1) return [...prev, { key, dir: "asc" }];
-    if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" } : s);
-    return prev.filter((_, i) => i !== idx); // remove = reset
-  });
-};
-
-// Multi-column sort
-result.sort((a, b) => {
-  for (const { key, dir } of sortColumns) {
-    const av = (a as any)[key], bv = (b as any)[key];
-    let cmp = typeof av === "number" && typeof bv === "number"
-      ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-    if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
-  }
-  return 0;
-});
-
-// Sort icon with priority badge
-const SortIcon = ({ col }: { col: string }) => {
-  const entry = sortColumns.find(s => s.key === col);
-  if (!entry) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {entry.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-      {sortColumns.length > 1 && <span className="text-[9px] font-bold">{sortColumns.indexOf(entry) + 1}</span>}
-    </span>
-  );
-};
+### Layout
+```text
+┌─────────────────────────────────────────────┐
+│  Header + Period Filter                     │
+├──────────┬──────────┬──────────┬────────────┤
+│ Total    │ Invoice  │ Avg      │ Unique     │
+│ Spend    │ Count    │ Invoice  │ Suppliers  │
+├──────────┴──────────┴──────────┴────────────┤
+│  Monthly Spend Trend (bar chart)            │
+├─────────────────────┬───────────────────────┤
+│  Spend by Supplier  │  Supplier Concentr.   │
+│  (horiz bar)        │  (top 3 % metric)     │
+├─────────────────────┴───────────────────────┤
+│  L1 Category (pie)  │  L2 Category (bar)    │
+├─────────────────────┴───────────────────────┤
+│  L3 Category (horizontal bar)               │
+├─────────────────────────────────────────────┤
+│  Expenses by Product (top 20 + show all)    │
+├─────────────────────────────────────────────┤
+│  Price Variance (top 10 items)              │
+├─────────────────────────────────────────────┤
+│  Supplier Tree View (existing, unchanged)   │
+└─────────────────────────────────────────────┘
 ```
 
-### Scope
-- 4-5 files, same mechanical refactor in each
-- No database changes
-- No new dependencies
+### Technical details
+- Single file change: `ProcurementDashboardTab.tsx`
+- Add `PieChart, Pie, Cell` imports from recharts (already a dependency)
+- No database changes needed
+- All new charts respect the existing month filter
 
