@@ -1,43 +1,73 @@
 
 
-## Add Line-Level & Invoice-Level Discount to Invoice Scanner
+## Implement Two-Step Invoice Approval Workflow
 
-### Current state
-- The `invoice_line_items` table already has a `discount` column, and the scanner already stores/calculates with it internally — but **the column is hidden from the UI table**.
-- The `invoices` table has **no discount column** — invoice-level discount needs a new DB column.
+### What changes
 
-### Changes
+The invoice status flow becomes: **Pending → Verified → Approved** (plus existing Paid/Overdue/Cancelled). Any authenticated user with edit/admin access can verify and approve. Approval is a status change only — invoices remain editable after approval.
 
-**1. Database migration: add `discount` column to `invoices` table**
-- `ALTER TABLE public.invoices ADD COLUMN discount numeric DEFAULT 0 NOT NULL;`
-- This stores the invoice-level discount ($ value).
+### 1. Update STATUS_COLORS and status labels
 
-**2. `src/components/invoices/InvoiceScanner.tsx`**
+**Files: `src/pages/Invoices.tsx`, `src/components/procurement/ProcurementInvoicesTab.tsx`**
 
-- **Add "Discount" column** to the line items table between "Purch. Cost" and "Total" — an editable `<Input type="number">` bound to `line.discount`. The field already exists in the data model (`ScannedLineItem.discount`) and the calculation logic (`calcLineTotal`) already subtracts it — it's just not rendered.
+Add two new statuses to `STATUS_COLORS`:
+- `verified` — blue/indigo styling (e.g. `bg-indigo-100 text-indigo-800 border-indigo-300`)
+- `approved` — green styling (e.g. `bg-emerald-100 text-emerald-800 border-emerald-300`)
 
-- **Add invoice-level discount field** below the line items table, next to the totals row. A labeled `<Input>` for invoice-level discount ($). Store in a new `ScannedInvoice` field `invoice_discount: string`.
+Keep existing statuses (pending, paid, overdue, cancelled).
 
-- **Update totals display**: `displayTotal = lineItemsTotal - invoiceDiscount`. Show breakdown: `Subtotal: X | Discount: -Y | Total: Z`.
+### 2. Update Invoice detail drawer actions
 
-- **Update `doSaveCurrent`**: Pass the invoice-level discount to `onSave` so it gets saved to the `invoices.discount` column.
+**File: `src/pages/Invoices.tsx`** (lines ~900-905)
 
-**3. `src/hooks/useInvoiceData.ts`**
-- Update `createInvoice` to accept and persist the `discount` field on the invoice record.
-- Update `Invoice` interface to include `discount: number`.
+Replace the current action buttons with a workflow-aware set:
+- **Pending** invoice → show "Verify" button
+- **Verified** invoice → show "Approve" button + "Revert to Pending" option
+- **Approved** invoice → show "Mark Paid" button
+- Always show "Mark Overdue", "Cancel", and "Delete" options regardless of step
 
-### Layout change (line items table)
-```text
-... | Purch. Cost | Discount | Total | 🗑
+### 3. Update the scanner default status
+
+**File: `src/pages/Invoices.tsx`** (line ~499)
+
+New invoices from the scanner already save as `status: "pending"` — no change needed.
+
+### 4. Update the Procurement Invoices tab
+
+**File: `src/components/procurement/ProcurementInvoicesTab.tsx`**
+
+- Add `verified` and `approved` to the status filter dropdown
+- Update the detail drawer to show the same workflow buttons
+
+### 5. Add status filter options
+
+Both `Invoices.tsx` and `ProcurementInvoicesTab.tsx` currently have status filter dropdowns — add "Verified" and "Approved" as filter options.
+
+### 6. Add verified/approved metadata columns to invoices table
+
+**Database migration:**
+```sql
+ALTER TABLE public.invoices 
+  ADD COLUMN verified_by uuid DEFAULT NULL,
+  ADD COLUMN verified_at timestamptz DEFAULT NULL,
+  ADD COLUMN approved_by uuid DEFAULT NULL,
+  ADD COLUMN approved_at timestamptz DEFAULT NULL;
 ```
 
-### Invoice-level discount (below line items)
-```text
-Subtotal: 5,164.00    Discount: [___0.00___]    Total: 5,164.00    Doc total: $3,614.80
-```
+This tracks who verified/approved and when. Displayed in the invoice detail drawer.
 
-### Files
-1. DB migration (1 column)
-2. `src/components/invoices/InvoiceScanner.tsx` — show discount column + invoice discount input
-3. `src/hooks/useInvoiceData.ts` — update interface and save logic
+### 7. Update `useInvoiceData.ts`
+
+- Add `verified_by`, `verified_at`, `approved_by`, `approved_at` to the `Invoice` interface
+- Update `updateInvoiceStatus` to accept optional metadata (user ID, timestamp) and set the appropriate `*_by` / `*_at` fields
+
+### Files changed
+1. DB migration (4 columns)
+2. `src/hooks/useInvoiceData.ts` — interface + status update logic
+3. `src/pages/Invoices.tsx` — STATUS_COLORS, filter options, detail drawer buttons, metadata display
+4. `src/components/procurement/ProcurementInvoicesTab.tsx` — same updates
+
+### No other changes needed
+- No new RLS policies (existing update policy covers these columns)
+- No new dependencies
 
