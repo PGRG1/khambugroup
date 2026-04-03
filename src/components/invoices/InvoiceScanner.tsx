@@ -1225,26 +1225,42 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
 
           {/* Totals */}
-          <div className="text-right text-sm border-t pt-2">
-            <span className="text-muted-foreground">Subtotal: </span>
-            <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
+            <div>
+              <span className="text-muted-foreground">Subtotal: </span>
+              <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
             {taxTotal > 0 && (
-              <>
-                <span className="text-muted-foreground ml-4">Tax: </span>
+              <div>
+                <span className="text-muted-foreground">Tax: </span>
                 <span className="font-mono font-medium">{taxTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </>
+              </div>
             )}
-            <span className="text-muted-foreground ml-4">Total: </span>
-            <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
-              {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            {isBeverageWorld && (
-              <span className="text-xs text-muted-foreground ml-1">(rounded)</span>
-            )}
-            {aiTotal !== undefined && (
-              <span className="text-xs text-muted-foreground ml-3">
-                Doc total: ${aiTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">Discount:</span>
+              <Input
+                type="number"
+                value={current.invoice_discount}
+                onChange={(e) => updateField("invoice_discount", e.target.value)}
+                className="text-xs h-7 w-24 font-mono text-right"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <span className="text-muted-foreground">Total: </span>
+              <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
+                {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
+              {isBeverageWorld && (
+                <span className="text-xs text-muted-foreground ml-1">(rounded)</span>
+              )}
+            </div>
+            {aiTotal !== undefined && (
+              <div>
+                <span className="text-xs text-muted-foreground">
+                  Doc total: ${aiTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
             )}
           </div>
 
