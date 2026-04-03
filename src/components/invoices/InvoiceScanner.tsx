@@ -611,9 +611,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return (w ? w * price : qty * price) - disc + tax;
   };
 
-  const subtotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
+  const lineItemsTotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
   const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
-  const calculatedTotal = subtotal + taxTotal;
+  const invoiceDiscount = parseFloat(current?.invoice_discount || "0") || 0;
+  const subtotal = lineItemsTotal;
+  const calculatedTotal = lineItemsTotal - invoiceDiscount;
 
   const currentSupplierName = current ? (suppliers.find(s => s.id === current.supplier_id)?.name || "") : "";
   const isBeverageWorld = currentSupplierName.toLowerCase().includes("beverage world");
