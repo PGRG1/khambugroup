@@ -1060,6 +1060,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[65px]">Stock Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Cost</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[70px]">Discount</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[80px]">Total</th>
                   <th className="w-8"></th>
                 </tr>
