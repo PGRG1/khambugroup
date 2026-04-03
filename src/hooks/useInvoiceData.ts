@@ -63,6 +63,10 @@ export interface Invoice {
   remaining_balance: number;
   payment_method: string | null;
   dispute_notes: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   line_items?: InvoiceLineItem[];
 }
 
