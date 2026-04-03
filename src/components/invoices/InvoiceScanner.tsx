@@ -678,6 +678,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           invoice_date: inv.invoice_date,
           due_date: inv.due_date || null,
           notes: inv.notes || null,
+          discount: parseFloat(inv.invoice_discount || "0") || 0,
         },
         lines,
         filesToSave.length > 0 ? filesToSave : undefined
