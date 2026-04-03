@@ -896,6 +896,14 @@ export default function Invoices() {
                   </div>
                 )}
 
+                {/* Verified / Approved metadata */}
+                {selectedInvoice.verified_at && (
+                  <div className="text-xs text-muted-foreground">Verified: {new Date(selectedInvoice.verified_at).toLocaleString()}</div>
+                )}
+                {selectedInvoice.approved_at && (
+                  <div className="text-xs text-muted-foreground">Approved: {new Date(selectedInvoice.approved_at).toLocaleString()}</div>
+                )}
+
                 <div className="flex gap-2 flex-wrap">
                   <Button size="sm" variant="outline" onClick={() => openEdit(selectedInvoice)}>
                     <Pencil className="h-4 w-4 mr-1" />Edit
@@ -903,9 +911,25 @@ export default function Invoices() {
                   <Button size="sm" variant="destructive" onClick={() => confirmDelete(selectedInvoice.id)}>
                     <Trash2 className="h-4 w-4 mr-1" />Delete
                   </Button>
-                  {selectedInvoice.status !== "paid" && <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "paid"); setDrawerOpen(false); }}>Mark Paid</Button>}
-                  {selectedInvoice.status !== "overdue" && <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "overdue"); setDrawerOpen(false); }}>Mark Overdue</Button>}
-                  {selectedInvoice.status !== "cancelled" && <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "cancelled"); setDrawerOpen(false); }}>Cancel</Button>}
+                  {/* Workflow buttons */}
+                  {selectedInvoice.status === "pending" && (
+                    <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "verified", { verified_by: user?.id, verified_at: new Date().toISOString() }); setDrawerOpen(false); }}>✓ Verify</Button>
+                  )}
+                  {selectedInvoice.status === "verified" && (
+                    <>
+                      <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "approved", { approved_by: user?.id, approved_at: new Date().toISOString() }); setDrawerOpen(false); }}>✓ Approve</Button>
+                      <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "pending", { verified_by: null, verified_at: null } as any); setDrawerOpen(false); }}>Revert to Pending</Button>
+                    </>
+                  )}
+                  {selectedInvoice.status === "approved" && (
+                    <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "paid"); setDrawerOpen(false); }}>Mark Paid</Button>
+                  )}
+                  {!["overdue", "cancelled"].includes(selectedInvoice.status) && (
+                    <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "overdue"); setDrawerOpen(false); }}>Mark Overdue</Button>
+                  )}
+                  {selectedInvoice.status !== "cancelled" && (
+                    <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "cancelled"); setDrawerOpen(false); }}>Cancel</Button>
+                  )}
                 </div>
 
                 <h3 className="text-sm font-semibold mt-4">Line Items</h3>
