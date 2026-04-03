@@ -70,6 +70,7 @@ interface ScannedInvoice {
   due_date: string;
   notes: string;
   invoice_status: string;
+  invoice_discount: string;
   line_items: ScannedLineItem[];
   saved?: boolean;
   sourceFiles?: File[];
@@ -88,6 +89,7 @@ interface InvoiceScannerProps {
     invoice_date: string;
     due_date: string | null;
     notes: string | null;
+    discount?: number;
   }, lineItems: {
     item_code: string;
     description: string;
@@ -459,6 +461,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           due_date: raw?.due_date || "",
           notes: "",
           invoice_status: "Outstanding",
+          invoice_discount: "0",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
@@ -609,9 +612,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return (w ? w * price : qty * price) - disc + tax;
   };
 
-  const subtotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
+  const lineItemsTotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
   const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
-  const calculatedTotal = subtotal + taxTotal;
+  const invoiceDiscount = parseFloat(current?.invoice_discount || "0") || 0;
+  const subtotal = lineItemsTotal;
+  const calculatedTotal = lineItemsTotal - invoiceDiscount;
 
   const currentSupplierName = current ? (suppliers.find(s => s.id === current.supplier_id)?.name || "") : "";
   const isBeverageWorld = currentSupplierName.toLowerCase().includes("beverage world");
@@ -674,6 +679,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           invoice_date: inv.invoice_date,
           due_date: inv.due_date || null,
           notes: inv.notes || null,
+          discount: parseFloat(inv.invoice_discount || "0") || 0,
         },
         lines,
         filesToSave.length > 0 ? filesToSave : undefined
@@ -1055,6 +1061,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[65px]">Stock Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Cost</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[70px]">Discount</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[80px]">Total</th>
                   <th className="w-8"></th>
                 </tr>
@@ -1183,6 +1190,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           )}
                         </div>
                       </td>
+                      {/* Discount */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          type="number"
+                          value={line.discount}
+                          onChange={(e) => updateLine(i, "discount", e.target.value)}
+                          className="text-xs h-8"
+                          placeholder="0"
+                        />
+                      </td>
                       {/* Total */}
                       <td className="px-1 py-1 align-top">
                         <Input
@@ -1209,26 +1226,42 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
 
           {/* Totals */}
-          <div className="text-right text-sm border-t pt-2">
-            <span className="text-muted-foreground">Subtotal: </span>
-            <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
+            <div>
+              <span className="text-muted-foreground">Subtotal: </span>
+              <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
             {taxTotal > 0 && (
-              <>
-                <span className="text-muted-foreground ml-4">Tax: </span>
+              <div>
+                <span className="text-muted-foreground">Tax: </span>
                 <span className="font-mono font-medium">{taxTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </>
+              </div>
             )}
-            <span className="text-muted-foreground ml-4">Total: </span>
-            <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
-              {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            {isBeverageWorld && (
-              <span className="text-xs text-muted-foreground ml-1">(rounded)</span>
-            )}
-            {aiTotal !== undefined && (
-              <span className="text-xs text-muted-foreground ml-3">
-                Doc total: ${aiTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">Discount:</span>
+              <Input
+                type="number"
+                value={current.invoice_discount}
+                onChange={(e) => updateField("invoice_discount", e.target.value)}
+                className="text-xs h-7 w-24 font-mono text-right"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <span className="text-muted-foreground">Total: </span>
+              <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
+                {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
+              {isBeverageWorld && (
+                <span className="text-xs text-muted-foreground ml-1">(rounded)</span>
+              )}
+            </div>
+            {aiTotal !== undefined && (
+              <div>
+                <span className="text-xs text-muted-foreground">
+                  Doc total: ${aiTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
             )}
           </div>
 

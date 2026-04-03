@@ -1089,6 +1089,7 @@ export type Database = {
         Row: {
           amount_paid: number
           created_at: string
+          discount: number
           dispute_notes: string | null
           due_date: string | null
           entered_by: string
@@ -1113,6 +1114,7 @@ export type Database = {
         Insert: {
           amount_paid?: number
           created_at?: string
+          discount?: number
           dispute_notes?: string | null
           due_date?: string | null
           entered_by: string
@@ -1137,6 +1139,7 @@ export type Database = {
         Update: {
           amount_paid?: number
           created_at?: string
+          discount?: number
           dispute_notes?: string | null
           due_date?: string | null
           entered_by?: string

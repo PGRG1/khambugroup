@@ -51,6 +51,7 @@ export interface Invoice {
   subtotal: number;
   tax_amount: number;
   total_amount: number;
+  discount: number;
   notes: string | null;
   entered_by: string;
   created_at: string;

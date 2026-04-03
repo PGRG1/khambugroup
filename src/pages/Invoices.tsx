@@ -373,7 +373,7 @@ export default function Invoices() {
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
 
     await createInvoice(
-      { supplier_id: newInv.supplier_id, venue: newInv.venue, invoice_number: newInv.invoice_number, invoice_date: newInv.invoice_date, due_date: newInv.due_date || null, status: "pending", subtotal, tax_amount: taxTotal, total_amount: subtotal + taxTotal, notes: newInv.notes || null, entered_by: user?.id || "" },
+      { supplier_id: newInv.supplier_id, venue: newInv.venue, invoice_number: newInv.invoice_number, invoice_date: newInv.invoice_date, due_date: newInv.due_date || null, status: "pending", subtotal, tax_amount: taxTotal, total_amount: subtotal + taxTotal, notes: newInv.notes || null, entered_by: user?.id || "", discount: 0 },
       lines
     );
     setCreateOpen(false);
@@ -496,7 +496,7 @@ export default function Invoices() {
               }
             }
             await createInvoice(
-              { ...inv, status: "pending", subtotal: lines.reduce((s, l) => s + l.total - l.tax_amount, 0), tax_amount: lines.reduce((s, l) => s + l.tax_amount, 0), total_amount: lines.reduce((s, l) => s + l.total, 0), entered_by: user?.id || "" },
+              { ...inv, discount: inv.discount ?? 0, status: "pending", subtotal: lines.reduce((s, l) => s + l.total - l.tax_amount, 0), tax_amount: lines.reduce((s, l) => s + l.tax_amount, 0), total_amount: lines.reduce((s, l) => s + l.total, 0), entered_by: user?.id || "" },
               lines,
               fileUrl,
               fileName
