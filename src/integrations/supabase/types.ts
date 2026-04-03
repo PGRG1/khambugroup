@@ -1088,6 +1088,8 @@ export type Database = {
       invoices: {
         Row: {
           amount_paid: number
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
           discount: number
           dispute_notes: string | null
@@ -1110,9 +1112,13 @@ export type Database = {
           total_amount: number
           updated_at: string
           venue: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           amount_paid?: number
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           discount?: number
           dispute_notes?: string | null
@@ -1135,9 +1141,13 @@ export type Database = {
           total_amount?: number
           updated_at?: string
           venue: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           amount_paid?: number
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           discount?: number
           dispute_notes?: string | null
@@ -1160,6 +1170,8 @@ export type Database = {
           total_amount?: number
           updated_at?: string
           venue?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
