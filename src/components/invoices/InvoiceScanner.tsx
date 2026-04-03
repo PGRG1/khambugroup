@@ -1189,6 +1189,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           )}
                         </div>
                       </td>
+                      {/* Discount */}
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          type="number"
+                          value={line.discount}
+                          onChange={(e) => updateLine(i, "discount", e.target.value)}
+                          className="text-xs h-8"
+                          placeholder="0"
+                        />
+                      </td>
                       {/* Total */}
                       <td className="px-1 py-1 align-top">
                         <Input
