@@ -197,7 +197,7 @@ export function useInvoiceData() {
   }, []);
 
   const createInvoice = useCallback(async (
-    invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name" | "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes"> & Partial<Pick<Invoice, "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes">>,
+    invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name" | "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes" | "verified_by" | "verified_at" | "approved_by" | "approved_at"> & Partial<Pick<Invoice, "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes" | "verified_by" | "verified_at" | "approved_by" | "approved_at">>,
     lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[],
     fileUrl?: string | null,
     fileName?: string | null
