@@ -63,6 +63,10 @@ export interface Invoice {
   remaining_balance: number;
   payment_method: string | null;
   dispute_notes: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   line_items?: InvoiceLineItem[];
 }
 
@@ -193,7 +197,7 @@ export function useInvoiceData() {
   }, []);
 
   const createInvoice = useCallback(async (
-    invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name" | "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes"> & Partial<Pick<Invoice, "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes">>,
+    invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name" | "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes" | "verified_by" | "verified_at" | "approved_by" | "approved_at"> & Partial<Pick<Invoice, "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes" | "verified_by" | "verified_at" | "approved_by" | "approved_at">>,
     lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[],
     fileUrl?: string | null,
     fileName?: string | null
@@ -255,8 +259,9 @@ export function useInvoiceData() {
     return true;
   }, [fetchAll, toast, invoices]);
 
-  const updateInvoiceStatus = useCallback(async (id: string, status: string) => {
-    const { error } = await supabase.from("invoices").update({ status } as any).eq("id", id);
+  const updateInvoiceStatus = useCallback(async (id: string, status: string, metadata?: { verified_by?: string; verified_at?: string; approved_by?: string; approved_at?: string }) => {
+    const updates: any = { status, ...metadata };
+    const { error } = await supabase.from("invoices").update(updates).eq("id", id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
     await fetchAll();
   }, [fetchAll, toast]);
