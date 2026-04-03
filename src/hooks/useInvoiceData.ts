@@ -259,8 +259,9 @@ export function useInvoiceData() {
     return true;
   }, [fetchAll, toast, invoices]);
 
-  const updateInvoiceStatus = useCallback(async (id: string, status: string) => {
-    const { error } = await supabase.from("invoices").update({ status } as any).eq("id", id);
+  const updateInvoiceStatus = useCallback(async (id: string, status: string, metadata?: { verified_by?: string; verified_at?: string; approved_by?: string; approved_at?: string }) => {
+    const updates: any = { status, ...metadata };
+    const { error } = await supabase.from("invoices").update(updates).eq("id", id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
     await fetchAll();
   }, [fetchAll, toast]);
