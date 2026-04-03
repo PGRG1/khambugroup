@@ -70,6 +70,7 @@ interface ScannedInvoice {
   due_date: string;
   notes: string;
   invoice_status: string;
+  invoice_discount: string;
   line_items: ScannedLineItem[];
   saved?: boolean;
   sourceFiles?: File[];
