@@ -1,72 +1,43 @@
 
 
-## Refine Procurement Dashboard — Consistent Styling, Custom Period, Cumulative View, L1 Only, Supplier Labels
+## Add Line-Level & Invoice-Level Discount to Invoice Scanner
+
+### Current state
+- The `invoice_line_items` table already has a `discount` column, and the scanner already stores/calculates with it internally — but **the column is hidden from the UI table**.
+- The `invoices` table has **no discount column** — invoice-level discount needs a new DB column.
 
 ### Changes
 
-**File: `src/components/procurement/ProcurementDashboardTab.tsx`**
+**1. Database migration: add `discount` column to `invoices` table**
+- `ALTER TABLE public.invoices ADD COLUMN discount numeric DEFAULT 0 NOT NULL;`
+- This stores the invoice-level discount ($ value).
 
-#### 1. Consistent color palette (no rainbow)
-Replace the 12-color `COLORS` array with a muted warm palette derived from the platform's CSS variables (`--primary`, `--accent`, `--chart-1` through `--chart-5`). All charts will use these 5-6 tones with opacity variations instead of saturated rainbow colors.
+**2. `src/components/invoices/InvoiceScanner.tsx`**
 
-#### 2. Period filter: add Custom date range
-- Add `customFrom` / `customTo` state + calendar popovers (same pattern as `DateFilter.tsx`)
-- Add a "Custom" option in the period `<Select>`
-- When "Custom" is selected, show two date pickers inline
-- Filter invoices by custom date range when active
+- **Add "Discount" column** to the line items table between "Purch. Cost" and "Total" — an editable `<Input type="number">` bound to `line.discount`. The field already exists in the data model (`ScannedLineItem.discount`) and the calculation logic (`calcLineTotal`) already subtracts it — it's just not rendered.
 
-#### 3. Monthly Spend → Daily + Cumulative when a single month is selected
-- When `selectedMonth !== "all"` (a specific month or custom range):
-  - Show a **daily spend bar chart** (one bar per day)
-  - Add an overlaid **cumulative line chart** (running total as a line on a secondary Y-axis)
-- When "All Time" is selected, keep the existing monthly bar chart
-- Use `ComposedChart` from recharts with `Bar` + `Line` + dual Y-axes
+- **Add invoice-level discount field** below the line items table, next to the totals row. A labeled `<Input>` for invoice-level discount ($). Store in a new `ScannedInvoice` field `invoice_discount: string`.
 
-#### 4. Remove L2 and L3 charts
-- Delete the L2 horizontal bar card (lines 447-473)
-- Delete the L3 card (lines 477-497)
-- Keep only L1 donut chart, make it full width
-- Improve L1 donut: add a legend below with $ amounts and % labels, use the warm palette
+- **Update totals display**: `displayTotal = lineItemsTotal - invoiceDiscount`. Show breakdown: `Subtotal: X | Discount: -Y | Total: Z`.
 
-#### 5. Supplier chart: show both % and $ on bars
-- Add a custom bar label renderer that shows `$XXk (XX.X%)` on each bar
-- Include percentage calculation based on `grandTotal`
-- Use the warm palette instead of rainbow colors
+- **Update `doSaveCurrent`**: Pass the invoice-level discount to `onSave` so it gets saved to the `invoices.discount` column.
 
-#### 6. Professional polish across all charts
-- Increase chart margins to prevent label cropping (left margin for Y-axis labels, right margin for bar labels)
-- Use `textAnchor` and padding on YAxis to prevent text truncation
-- Set minimum heights properly
-- Consistent tooltip styling with `contentStyle` matching `card-glass`
-- Consistent font sizes: axis labels 11px, bar labels 10px
-- All gradients use the warm primary/accent tones
+**3. `src/hooks/useInvoiceData.ts`**
+- Update `createInvoice` to accept and persist the `discount` field on the invoice record.
+- Update `Invoice` interface to include `discount: number`.
 
-### Layout (updated)
+### Layout change (line items table)
 ```text
-┌─────────────────────────────────────────────┐
-│  Header + Period Filter (+ Custom dates)    │
-├──────────┬──────────┬──────────┬────────────┤
-│ Total    │ Invoice  │ Avg      │ Unique     │
-│ Spend    │ Count    │ Invoice  │ Suppliers  │
-├─────────────────────────────────────────────┤
-│ Monthly Spend (all) OR Daily+Cumulative     │
-├─────────────────────┬───────────────────────┤
-│  Spend by Supplier  │  Supplier Concentr.   │
-│  ($ + % labels)     │                       │
-├─────────────────────┴───────────────────────┤
-│  Spend by Category L1 (full width donut)    │
-├─────────────────────────────────────────────┤
-│  Expenses by Product (top 20 + show all)    │
-├─────────────────────────────────────────────┤
-│  Price Variance                             │
-├─────────────────────────────────────────────┤
-│  Supplier Tree View                         │
-└─────────────────────────────────────────────┘
+... | Purch. Cost | Discount | Total | 🗑
 ```
 
-### Technical details
-- Add `ComposedChart, Line` imports from recharts
-- Add `Calendar`, `Popover` imports for custom date picker
-- Single file change: `ProcurementDashboardTab.tsx`
-- No database changes
+### Invoice-level discount (below line items)
+```text
+Subtotal: 5,164.00    Discount: [___0.00___]    Total: 5,164.00    Doc total: $3,614.80
+```
+
+### Files
+1. DB migration (1 column)
+2. `src/components/invoices/InvoiceScanner.tsx` — show discount column + invoice discount input
+3. `src/hooks/useInvoiceData.ts` — update interface and save logic
 
