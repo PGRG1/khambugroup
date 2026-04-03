@@ -89,6 +89,7 @@ interface InvoiceScannerProps {
     invoice_date: string;
     due_date: string | null;
     notes: string | null;
+    discount?: number;
   }, lineItems: {
     item_code: string;
     description: string;
