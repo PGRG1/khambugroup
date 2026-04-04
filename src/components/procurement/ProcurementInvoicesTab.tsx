@@ -561,21 +561,6 @@ export default function ProcurementInvoicesTab() {
               <Label className="text-xs">Due Date</Label>
               <Input type="date" value={editForm.due_date || ""} onChange={(e) => setEditForm((form) => ({ ...form, due_date: e.target.value }))} />
             </div>
-            <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={editForm.status || "pending"} onValueChange={(value) => setEditForm((form) => ({ ...form, status: value }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="verified">Verified</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="partial">Partial</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="md:col-span-2 xl:col-span-2">
               <Label className="text-xs">Notes</Label>
               <Textarea value={editForm.notes || ""} onChange={(e) => setEditForm((form) => ({ ...form, notes: e.target.value }))} className="min-h-[42px]" rows={1} />
