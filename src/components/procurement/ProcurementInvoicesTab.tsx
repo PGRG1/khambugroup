@@ -98,7 +98,7 @@ const emptyEditLine: EditableInvoiceLine = {
 };
 
 export default function ProcurementInvoicesTab() {
-  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice } = useInvoiceData();
+  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } = useInvoiceData();
   const { user } = useAuth();
 
   const [productMaster, setProductMaster] = useState<ProductMasterEntry[]>([]);
