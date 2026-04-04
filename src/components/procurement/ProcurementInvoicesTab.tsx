@@ -98,7 +98,7 @@ const emptyEditLine: EditableInvoiceLine = {
 };
 
 export default function ProcurementInvoicesTab() {
-  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice } = useInvoiceData();
+  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } = useInvoiceData();
   const { user } = useAuth();
 
   const [productMaster, setProductMaster] = useState<ProductMasterEntry[]>([]);
@@ -913,6 +913,37 @@ export default function ProcurementInvoicesTab() {
                   <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{fmtDate(selectedInvoice.due_date || "")}</span></div>
                   <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">${fmtForSupplier(Number(selectedInvoice.total_amount), selectedInvoice.supplier_name)}</span></div>
                   <div><span className="text-muted-foreground">ID:</span> <span className="font-mono text-xs text-muted-foreground">{selectedInvoice.id.slice(0, 8)}</span></div>
+                </div>
+
+                {selectedInvoice.verified_at && (
+                  <div className="text-xs text-muted-foreground">Verified: {new Date(selectedInvoice.verified_at).toLocaleString()}</div>
+                )}
+                {selectedInvoice.approved_at && (
+                  <div className="text-xs text-muted-foreground">Approved: {new Date(selectedInvoice.approved_at).toLocaleString()}</div>
+                )}
+
+                <div className="flex gap-2 flex-wrap">
+                  {selectedInvoice.status === "pending" && (
+                    <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "verified", { verified_by: user?.id, verified_at: new Date().toISOString() }); setDrawerOpen(false); }}>✓ Verify</Button>
+                  )}
+                  {selectedInvoice.status === "verified" && (
+                    <>
+                      <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "approved", { approved_by: user?.id, approved_at: new Date().toISOString() }); setDrawerOpen(false); }}>✓ Approve</Button>
+                      <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "pending", { verified_by: null, verified_at: null } as any); setDrawerOpen(false); }}>Revert to Pending</Button>
+                    </>
+                  )}
+                  {selectedInvoice.status === "approved" && (
+                    <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "paid"); setDrawerOpen(false); }}>Mark Paid</Button>
+                  )}
+                  {!["overdue", "cancelled"].includes(selectedInvoice.status) && (
+                    <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "overdue"); setDrawerOpen(false); }}>Mark Overdue</Button>
+                  )}
+                  {selectedInvoice.status !== "cancelled" && (
+                    <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "cancelled"); setDrawerOpen(false); }}>Cancel</Button>
+                  )}
+                  <Button size="sm" variant="destructive" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                  </Button>
                 </div>
 
                 {selectedInvoice.file_url && (
