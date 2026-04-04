@@ -941,7 +941,7 @@ export default function ProcurementInvoicesTab() {
                   {selectedInvoice.status !== "cancelled" && (
                     <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "cancelled"); setDrawerOpen(false); }}>Cancel</Button>
                   )}
-                  <Button size="sm" variant="destructive" onClick={() => { setDrawerOpen(false); confirmDelete(selectedInvoice.id); }}>
+                  <Button size="sm" variant="destructive" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
                     <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
                   </Button>
                 </div>
