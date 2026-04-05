@@ -80,7 +80,30 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && !isPreviewActive && (
+        {showProcurement && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Procurement</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {procurementItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
           <SidebarGroup>
             <SidebarGroupLabel>Human Resources</SidebarGroupLabel>
             <SidebarGroupContent>
