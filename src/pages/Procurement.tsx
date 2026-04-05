@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed, LayoutDashboard, Building2 } from "lucide-react";
+import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed, LayoutDashboard, Building2, FolderDown } from "lucide-react";
 import ProductMasterTab from "@/components/procurement/ProductMasterTab";
 import SuppliersTab from "@/components/procurement/SuppliersTab";
 import ProcurementInvoicesTab from "@/components/procurement/ProcurementInvoicesTab";
@@ -8,6 +8,7 @@ import ProcurementLineItemsTab from "@/components/procurement/ProcurementLineIte
 import InventoryOnHandTab from "@/components/procurement/InventoryOnHandTab";
 import MenuCostingTab from "@/components/procurement/MenuCostingTab";
 import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboardTab";
+import DocumentsTab from "@/components/procurement/DocumentsTab";
 
 export default function Procurement() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -41,6 +42,9 @@ export default function Procurement() {
           <TabsTrigger value="menu-costing" className="gap-1.5">
             <UtensilsCrossed className="h-3.5 w-3.5" />Menu Costing
           </TabsTrigger>
+          <TabsTrigger value="documents" className="gap-1.5">
+            <FolderDown className="h-3.5 w-3.5" />Documents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
@@ -50,6 +54,7 @@ export default function Procurement() {
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
         <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
         <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>
+        <TabsContent value="documents"><DocumentsTab /></TabsContent>
       </Tabs>
     </div>
   );
