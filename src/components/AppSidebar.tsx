@@ -104,6 +104,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
+        {isAdmin && !isPreviewActive && (
           <SidebarGroup>
             <SidebarGroupLabel>Human Resources</SidebarGroupLabel>
             <SidebarGroupContent>
