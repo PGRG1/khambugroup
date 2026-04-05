@@ -20,8 +20,16 @@ const navItems = [
   { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
-  { title: "Procurement", url: "/procurement", icon: FileSpreadsheet, pageKey: "invoices" },
-  
+];
+
+const procurementItems = [
+  { title: "Dashboard", url: "/procurement/dashboard", icon: LayoutDashboard },
+  { title: "Suppliers", url: "/procurement/suppliers", icon: Building2 },
+  { title: "Products", url: "/procurement/products", icon: Package },
+  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
+  { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
+  { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
+  { title: "Documents", url: "/procurement/documents", icon: FolderDown },
 ];
 
 export function AppSidebar() {
