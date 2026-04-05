@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Package, FileSpreadsheet, FileText, ClipboardList, UtensilsCrossed, LayoutDashboard, Building2, FolderDown } from "lucide-react";
 import ProductMasterTab from "@/components/procurement/ProductMasterTab";
@@ -16,6 +16,10 @@ interface ProcurementProps {
 
 export default function Procurement({ defaultTab = "dashboard" }: ProcurementProps) {
   const [activeTab, setActiveTab] = useState(defaultTab);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
