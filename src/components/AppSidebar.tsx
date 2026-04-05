@@ -41,10 +41,11 @@ export function AppSidebar() {
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
 
   const visibleItems = navItems.filter(item => {
-    // Admins see everything unless previewing
     if (isAdmin && !isPreviewActive) return true;
     return showInSidebar(item.pageKey);
   });
+
+  const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
 
   return (
     <Sidebar className="border-r border-sidebar-border">
