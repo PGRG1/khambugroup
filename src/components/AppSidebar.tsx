@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -20,8 +20,16 @@ const navItems = [
   { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
-  { title: "Procurement", url: "/procurement", icon: FileSpreadsheet, pageKey: "invoices" },
-  
+];
+
+const procurementItems = [
+  { title: "Dashboard", url: "/procurement/dashboard", icon: LayoutDashboard },
+  { title: "Suppliers", url: "/procurement/suppliers", icon: Building2 },
+  { title: "Products", url: "/procurement/products", icon: Package },
+  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
+  { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
+  { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
+  { title: "Documents", url: "/procurement/documents", icon: FolderDown },
 ];
 
 export function AppSidebar() {
@@ -33,10 +41,11 @@ export function AppSidebar() {
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
 
   const visibleItems = navItems.filter(item => {
-    // Admins see everything unless previewing
     if (isAdmin && !isPreviewActive) return true;
     return showInSidebar(item.pageKey);
   });
+
+  const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
 
   return (
     <Sidebar className="border-r border-sidebar-border">
@@ -70,6 +79,30 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {showProcurement && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Procurement</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {procurementItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {isAdmin && !isPreviewActive && (
           <SidebarGroup>
