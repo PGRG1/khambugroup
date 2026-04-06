@@ -453,82 +453,98 @@ export default function ProductMasterTab() {
         </div>
       </div>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingProductId ? "Edit Product" : "Add Product"}</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
-            <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
-            <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">L1 Category</Label><Input value={form.level1_category} onChange={e => setForm({ ...form, level1_category: e.target.value })} className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">L2 Category</Label><Input value={form.level2_category} onChange={e => setForm({ ...form, level2_category: e.target.value })} className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">L3 Category</Label><Input value={form.level3_category} onChange={e => setForm({ ...form, level3_category: e.target.value })} className="h-9 text-sm" /></div>
-            <div>
-              <Label className="text-xs">Supplier</Label>
-              <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                <SelectContent>
-                  {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+      {/* Draggable Create/Edit Modal */}
+      {dialogOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setDialogOpen(false)} />
+          <div
+            ref={modalRef}
+            className="fixed z-50 left-1/2 top-1/2 w-full max-w-lg bg-background border rounded-xl shadow-xl"
+            style={{ transform: `translate(calc(-50% + ${dragPos?.x ?? 0}px), calc(-50% + ${dragPos?.y ?? 0}px))` }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b cursor-grab active:cursor-grabbing select-none"
+              onMouseDown={onDragStart}
+            >
+              <div className="flex items-center gap-2">
+                <GripHorizontal className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">{editingProductId ? "Edit Product" : "Add Product"}</h2>
+              </div>
+              <button onClick={() => setDialogOpen(false)} className="p-1 rounded hover:bg-accent"><X className="h-4 w-4" /></button>
             </div>
+            <div className="px-4 py-4 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
+                <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
+                <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">L1 Category</Label><Input value={form.level1_category} onChange={e => setForm({ ...form, level1_category: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">L2 Category</Label><Input value={form.level2_category} onChange={e => setForm({ ...form, level2_category: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">L3 Category</Label><Input value={form.level3_category} onChange={e => setForm({ ...form, level3_category: e.target.value })} className="h-9 text-sm" /></div>
+                <div>
+                  <Label className="text-xs">Supplier</Label>
+                  <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                    <SelectContent>
+                      {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Purchase & Stock */}
-            <div className="col-span-2 border-t pt-3 mt-1">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Purchase & Stock Units</p>
-            </div>
-            <div><Label className="text-xs">Purchase UOM</Label><Input value={form.purchase_unit} onChange={e => setForm({ ...form, purchase_unit: e.target.value })} placeholder="e.g. Case, Pack, Bag" className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">Purchase Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">Stock UOM</Label><Input value={form.stock_uom} onChange={e => setForm({ ...form, stock_uom: e.target.value })} placeholder="e.g. Case, Bottle, Pack" className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">Stock Qty</Label><Input type="number" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm" /></div>
-            <div className="col-span-2">
-              <p className="text-xs text-muted-foreground">
-                Cost per Stock Unit: <span className="font-mono font-semibold">${fmt(liveCostPerStock)}</span>
-                <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
-              </p>
-            </div>
+                {/* Purchase & Stock */}
+                <div className="col-span-2 border-t pt-3 mt-1">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">Purchase & Stock Units</p>
+                </div>
+                <div><Label className="text-xs">Purchase UOM</Label><Input value={form.purchase_unit} onChange={e => setForm({ ...form, purchase_unit: e.target.value })} placeholder="e.g. Case, Pack, Bag" className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">Purchase Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">Stock UOM</Label><Input value={form.stock_uom} onChange={e => setForm({ ...form, stock_uom: e.target.value })} placeholder="e.g. Case, Bottle, Pack" className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">Stock Qty</Label><Input type="number" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm" /></div>
+                <div className="col-span-2 bg-muted/30 rounded-lg p-2">
+                  <p className="text-xs text-muted-foreground">
+                    Cost per Stock Unit: <span className="font-mono font-semibold text-foreground">${fmt(liveCostPerStock)}</span>
+                    <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
+                  </p>
+                </div>
 
-            {/* Recipe units */}
-            <div className="col-span-2 border-t pt-3 mt-1">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
-            </div>
-            <div><Label className="text-xs">Recipe UOM</Label><Input value={form.base_unit_type} onChange={e => setForm({ ...form, base_unit_type: e.target.value })} placeholder="e.g. g, ml, ea" className="h-9 text-sm" /></div>
-            <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
-            <div className="col-span-2">
-              <p className="text-xs text-muted-foreground">
-                Standard Cost per Recipe Unit: <span className="font-mono font-semibold">${fmt4(liveCostPerRecipe)}</span>
-                <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Recipe Qty)</span>
-              </p>
-            </div>
+                {/* Recipe units */}
+                <div className="col-span-2 border-t pt-3 mt-1">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
+                </div>
+                <div><Label className="text-xs">Recipe UOM</Label><Input value={form.base_unit_type} onChange={e => setForm({ ...form, base_unit_type: e.target.value })} placeholder="e.g. g, ml, ea" className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
+                <div className="col-span-2 bg-muted/30 rounded-lg p-2">
+                  <p className="text-xs text-muted-foreground">
+                    Standard Cost per Recipe Unit: <span className="font-mono font-semibold text-foreground">${fmt4(liveCostPerRecipe)}</span>
+                    <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Recipe Qty)</span>
+                  </p>
+                </div>
 
-            <div className="col-span-2 border-t pt-3 mt-1">
-              <Label className="text-xs">Notes</Label>
-              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-16" />
-            </div>
+                <div className="col-span-2 border-t pt-3 mt-1">
+                  <Label className="text-xs">Notes</Label>
+                  <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-16" />
+                </div>
 
-            <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
+                <div>
+                  <Label className="text-xs">Status</Label>
+                  <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
+                {editingProductId ? "Update" : "Create"}
+              </Button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
-              {editingProductId ? "Update" : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </>
+      )}
 
       <DeleteConfirmDialog
         open={deleteOpen}
