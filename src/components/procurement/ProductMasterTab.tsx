@@ -175,6 +175,7 @@ export default function ProductMasterTab() {
     setEditingProductId(null);
     setEditingSupplierEntryId(null);
     setForm(EMPTY_FORM);
+    setDragPos(null);
     setDialogOpen(true);
   };
 
