@@ -240,6 +240,8 @@ export default function ProductMasterTab() {
         supplier: form.supplier, external_sku: form.external_sku,
         supplier_product_name: form.supplier_product_name,
         purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
+        stock_uom: form.stock_uom, stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
+        base_unit_type: form.base_unit_type, base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
       };
 
       const supplierLevelFields = {
@@ -248,6 +250,7 @@ export default function ProductMasterTab() {
         purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
         stock_uom: form.stock_uom, stock_qty: stockQty,
         base_unit_type: form.base_unit_type, base_unit_qty: recipeQty,
+        status: form.status,
       };
 
       // Check if SKU changed and product is shared by multiple supplier entries
@@ -262,16 +265,18 @@ export default function ProductMasterTab() {
 
       if (existingMatch && editingSupplierEntryId) {
         await reassignSupplier(editingSupplierEntryId, existingMatch.id);
-        await updateSupplier(editingSupplierEntryId, { ...supplierLevelFields, status: form.status });
+        await updateSupplier(editingSupplierEntryId, supplierLevelFields);
         await deleteProductIfOrphaned(editingProductId);
       } else if (skuChanged && isShared && editingSupplierEntryId) {
         await splitProduct(editingProductId, editingSupplierEntryId, pmUpdates);
       } else {
-        // Update product_master first without refetching
-        await supabase.from("product_master" as any).update(pmUpdates as any).eq("id", editingProductId);
+        // Update product_master
+        const { error: pmErr } = await supabase.from("product_master" as any).update(pmUpdates as any).eq("id", editingProductId);
+        if (pmErr) { console.error("product_master update error:", pmErr); }
         // Update supplier entry if present
         if (editingSupplierEntryId) {
-          await supabase.from("product_suppliers" as any).update({ ...supplierLevelFields, status: form.status } as any).eq("id", editingSupplierEntryId);
+          const { error: psErr } = await supabase.from("product_suppliers" as any).update(supplierLevelFields as any).eq("id", editingSupplierEntryId);
+          if (psErr) { console.error("product_suppliers update error:", psErr); }
         }
         // Single fetch after both updates are committed
         await fetchProducts();
