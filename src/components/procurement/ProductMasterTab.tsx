@@ -62,6 +62,9 @@ export default function ProductMasterTab() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<FlatRow | null>(null);
   const [dbSuppliers, setDbSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.from("suppliers").select("id, name").eq("is_active", true).order("name").then(({ data }) => {
