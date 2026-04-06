@@ -48,7 +48,7 @@ interface FlatRow {
 }
 
 export default function ProductMasterTab() {
-  const { products, loading, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
+  const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [subCatFilter, setSubCatFilter] = useState("all");
@@ -232,15 +232,19 @@ export default function ProductMasterTab() {
 
       if (existingMatch && editingSupplierEntryId) {
         await reassignSupplier(editingSupplierEntryId, existingMatch.id);
-        await updateSupplier(editingSupplierEntryId, supplierLevelFields);
+        await updateSupplier(editingSupplierEntryId, { ...supplierLevelFields, status: form.status });
         await deleteProductIfOrphaned(editingProductId);
       } else if (skuChanged && isShared && editingSupplierEntryId) {
         await splitProduct(editingProductId, editingSupplierEntryId, pmUpdates);
       } else {
-        await updateProduct(editingProductId, pmUpdates);
+        // Update product_master first without refetching
+        await supabase.from("product_master" as any).update(pmUpdates as any).eq("id", editingProductId);
+        // Update supplier entry if present
         if (editingSupplierEntryId) {
-          await updateSupplier(editingSupplierEntryId, supplierLevelFields);
+          await supabase.from("product_suppliers" as any).update({ ...supplierLevelFields, status: form.status } as any).eq("id", editingSupplierEntryId);
         }
+        // Single fetch after both updates are committed
+        await fetchProducts();
       }
       setDialogOpen(false);
     } else {
