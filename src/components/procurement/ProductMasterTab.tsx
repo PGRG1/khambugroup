@@ -194,8 +194,35 @@ export default function ProductMasterTab() {
       cost_per_base_unit: String(row.cost_per_base_unit),
       notes: row.notes,
     });
+    setDragPos(null);
     setDialogOpen(true);
   };
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const modal = modalRef.current;
+    if (!modal) return;
+    const rect = modal.getBoundingClientRect();
+    const orig = dragPos || { x: 0, y: 0 };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: orig.x, origY: orig.y };
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx = ev.clientX - dragRef.current.startX;
+      const dy = ev.clientY - dragRef.current.startY;
+      let newX = dragRef.current.origX + dx;
+      let newY = dragRef.current.origY + dy;
+      const maxX = window.innerWidth - rect.width;
+      const maxY = window.innerHeight - rect.height;
+      const centerX = (window.innerWidth - rect.width) / 2;
+      const centerY = (window.innerHeight - rect.height) / 2;
+      newX = Math.max(-centerX, Math.min(maxX - centerX, newX));
+      newY = Math.max(-centerY, Math.min(maxY - centerY, newY));
+      setDragPos({ x: newX, y: newY });
+    };
+    const onUp = () => { dragRef.current = null; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [dragPos]);
 
   const handleSave = async () => {
     const purchaseUnitCost = parseFloat(form.purchase_unit_cost) || 0;
