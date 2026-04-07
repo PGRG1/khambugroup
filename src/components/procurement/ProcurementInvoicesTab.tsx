@@ -24,6 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
   overdue: "bg-red-100 text-red-800 border-red-300",
   partial: "bg-blue-100 text-blue-800 border-blue-300",
   cancelled: "bg-muted text-muted-foreground",
+  under_review: "bg-orange-100 text-orange-800 border-orange-300",
 };
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -561,6 +562,21 @@ export default function ProcurementInvoicesTab() {
               <Label className="text-xs">Due Date</Label>
               <Input type="date" value={editForm.due_date || ""} onChange={(e) => setEditForm((form) => ({ ...form, due_date: e.target.value }))} />
             </div>
+            <div>
+              <Label className="text-xs">Status</Label>
+              <Select value={editForm.status || "pending"} onValueChange={(value) => setEditForm((form) => ({ ...form, status: value }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="under_review">Under Review</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="md:col-span-2 xl:col-span-2">
               <Label className="text-xs">Notes</Label>
               <Textarea value={editForm.notes || ""} onChange={(e) => setEditForm((form) => ({ ...form, notes: e.target.value }))} className="min-h-[42px]" rows={1} />
@@ -783,6 +799,7 @@ export default function ProcurementInvoicesTab() {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="under_review">Under Review</SelectItem>
             <SelectItem value="verified">Verified</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
