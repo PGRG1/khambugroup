@@ -27,6 +27,7 @@ const procurementItems = [
   { title: "Suppliers", url: "/procurement/suppliers", icon: Building2 },
   { title: "Products", url: "/procurement/products", icon: Package },
   { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
+  { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
   { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
   { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
   { title: "Documents", url: "/procurement/documents", icon: FolderDown },
