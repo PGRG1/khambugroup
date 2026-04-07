@@ -1,39 +1,24 @@
 
 
-## Fix: Stop Writing Supplier-Specific Fields to Shared Product Master Row
+## Fix: Persist "Under Review" Status When Saving Invoices
 
 ### Problem
-When updating a product that shares an internal SKU with other suppliers, the save handler writes supplier-specific fields (`external_sku`, `supplier_product_name`, `supplier`, `purchase_unit`, `purchase_unit_cost`, `stock_uom`, `stock_qty`, etc.) to the `product_master` table. This overwrites the shared row with one supplier's data, causing incorrect External SKUs (and other supplier-level values) to appear for other suppliers.
+The invoice scanner lets you select a status (e.g. "Under Review"), but when saving:
+1. `doSaveCurrent` in `InvoiceScanner.tsx` never passes `invoice_status` to the `onSave` callback
+2. Both save handlers in `Invoices.tsx` and `ProcurementInvoicesTab.tsx` hardcode `status: "pending"`, overriding whatever the user selected
 
-### Fix
+### Fix (3 files)
 
-**File: `src/components/procurement/ProductMasterTab.tsx`**
+**`src/components/invoices/InvoiceScanner.tsx`**
+- Add `status` to the `onSave` callback type (line 85-107)
+- Pass `inv.invoice_status` in the `doSaveCurrent` call to `onSave` (line 674-686)
 
-Strip supplier-level fields from `pmUpdates` so only true product-level fields are written to `product_master`:
+**`src/pages/Invoices.tsx`**
+- Replace hardcoded `status: "pending"` with `status: inv.status || "pending"` (line 501)
 
-```text
-pmUpdates = {
-  internal_sku, internal_product_name,
-  level1_category, level2_category, level3_category,
-  unit, unit_cost, status, notes
-}
-```
+**`src/components/procurement/ProcurementInvoicesTab.tsx`**
+- Same change: replace hardcoded `status: "pending"` with `status: inv.status || "pending"` (line 748)
 
-All supplier-specific fields remain exclusively in `supplierLevelFields` and are written only to the `product_suppliers` table:
-
-```text
-supplierLevelFields = {
-  supplier, external_sku, supplier_product_name,
-  purchase_unit, purchase_unit_cost,
-  stock_uom, stock_qty,
-  base_unit_type, base_unit_qty,
-  status
-}
-```
-
-This ensures editing one supplier's entry never contaminates the shared `product_master` record. The table display already pulls `external_sku` from `supplier_entry` (line 97), so no UI changes are needed.
-
-### Scope
-- Single file change: `src/components/procurement/ProductMasterTab.tsx` (lines 235-245)
-- No database changes
+### Result
+When the user sets "Under Review" (or any status) before saving, the selected status persists to the database and displays correctly in invoice lists.
 
