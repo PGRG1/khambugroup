@@ -237,11 +237,6 @@ export default function ProductMasterTab() {
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         notes: form.notes,
-        supplier: form.supplier, external_sku: form.external_sku,
-        supplier_product_name: form.supplier_product_name,
-        purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
-        stock_uom: form.stock_uom, stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
-        base_unit_type: form.base_unit_type, base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
       };
 
       const supplierLevelFields = {
