@@ -90,6 +90,7 @@ interface InvoiceScannerProps {
     due_date: string | null;
     notes: string | null;
     discount?: number;
+    status?: string;
   }, lineItems: {
     item_code: string;
     description: string;
@@ -680,6 +681,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           due_date: inv.due_date || null,
           notes: inv.notes || null,
           discount: parseFloat(inv.invoice_discount || "0") || 0,
+          status: inv.invoice_status || undefined,
         },
         lines,
         filesToSave.length > 0 ? filesToSave : undefined
