@@ -799,6 +799,7 @@ export default function ProcurementInvoicesTab() {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="under_review">Under Review</SelectItem>
             <SelectItem value="verified">Verified</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
