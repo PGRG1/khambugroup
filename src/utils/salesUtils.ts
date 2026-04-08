@@ -19,6 +19,7 @@ const SalesRecordSchema = z.object({
   jcb: z.number().min(0).max(100000000),
   alipay: z.number().min(0).max(100000000),
   wechat: z.number().min(0).max(100000000),
+  payme: z.number().min(0).max(100000000),
   cash: z.number().min(0).max(100000000),
   cardTips: z.number().min(0).max(100000000),
 });
@@ -46,8 +47,8 @@ export function formatCurrency(value: number): string {
   return value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-export function getPaymentTotal(record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "cash">): number {
-  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.cash;
+export function getPaymentTotal(record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "payme" | "cash">): number {
+  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.payme + record.cash;
 }
 
 export function getMonthKey(date: string): string {
@@ -114,6 +115,7 @@ export function getPaymentBreakdown(data: SalesRecord[]) {
     { key: "jcb", label: "JCB" },
     { key: "alipay", label: "Alipay" },
     { key: "wechat", label: "WeChat" },
+    { key: "payme", label: "PayMe" },
     { key: "cash", label: "Cash" },
   ];
 
@@ -183,8 +185,9 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
       jcb: parsePositive(row[14]),
       alipay: parsePositive(row[15]),
       wechat: parsePositive(row[16]),
-      cash: parsePositive(row[17]),
-      cardTips: parsePositive(row[18]),
+      payme: parsePositive(row[17]),
+      cash: parsePositive(row[18]),
+      cardTips: parsePositive(row[19]),
     };
 
     const result = SalesRecordSchema.safeParse(record);

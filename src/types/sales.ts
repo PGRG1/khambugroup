@@ -16,6 +16,7 @@ export interface SalesRecord {
   jcb: number;
   alipay: number;
   wechat: number;
+  payme: number;
   cash: number;
   cardTips: number;
 }

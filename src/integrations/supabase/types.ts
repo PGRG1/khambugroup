@@ -1579,6 +1579,7 @@ export type Database = {
           jcb: number
           mastercard: number
           orders: number
+          payme: number
           report_number: string
           service_charge: number
           subtotal: number
@@ -1602,6 +1603,7 @@ export type Database = {
           jcb?: number
           mastercard?: number
           orders?: number
+          payme?: number
           report_number: string
           service_charge?: number
           subtotal?: number
@@ -1625,6 +1627,7 @@ export type Database = {
           jcb?: number
           mastercard?: number
           orders?: number
+          payme?: number
           report_number?: string
           service_charge?: number
           subtotal?: number

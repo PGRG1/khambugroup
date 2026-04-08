@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_records ADD COLUMN payme numeric NOT NULL DEFAULT 0;

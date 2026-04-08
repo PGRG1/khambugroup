@@ -70,6 +70,7 @@ const ForecastInput = () => {
               jcb: Number(r.jcb),
               alipay: Number(r.alipay),
               wechat: Number(r.wechat),
+              payme: Number(r.payme),
               cash: Number(r.cash),
               cardTips: Number(r.card_tips),
             }))
