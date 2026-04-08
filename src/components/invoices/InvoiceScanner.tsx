@@ -461,7 +461,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           invoice_date: raw?.invoice_date || "",
           due_date: raw?.due_date || "",
           notes: "",
-          invoice_status: "Outstanding",
+          invoice_status: "outstanding",
           invoice_discount: "0",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
@@ -792,9 +792,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   // Status badge color helper
   const statusBadgeClass = (status: string) => {
     switch (status) {
-      case "Paid": return "bg-green-100 text-green-800 border-green-300";
-      case "Outstanding": return "bg-amber-100 text-amber-800 border-amber-300";
-      case "Under Review": return "bg-blue-100 text-blue-800 border-blue-300";
+      case "paid": return "bg-green-100 text-green-800 border-green-300";
+      case "outstanding": return "bg-amber-100 text-amber-800 border-amber-300";
+      case "under_review": return "bg-blue-100 text-blue-800 border-blue-300";
       default: return "bg-muted text-muted-foreground";
     }
   };
@@ -1027,9 +1027,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Outstanding">Outstanding</SelectItem>
-                  <SelectItem value="Paid">Paid</SelectItem>
-                  <SelectItem value="Under Review">Under Review</SelectItem>
+                  <SelectItem value="outstanding">Outstanding</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="under_review">Under Review</SelectItem>
                 </SelectContent>
               </Select>
             </div>
