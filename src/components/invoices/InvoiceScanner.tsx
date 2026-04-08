@@ -605,12 +605,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   });
 
   const calcLineTotal = (l: ScannedLineItem) => {
-    const w = l.weight ? parseFloat(l.weight) : null;
     const price = parseFloat(l.unit_price) || 0;
     const qty = parseFloat(l.quantity) || 0;
     const disc = parseFloat(l.discount) || 0;
     const tax = parseFloat(l.tax_amount) || 0;
-    return (w ? w * price : qty * price) - disc + tax;
+    return qty * price - disc + tax;
   };
 
   const lineItemsTotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
