@@ -1,0 +1,2 @@
+ALTER TABLE public.invoices DROP CONSTRAINT invoices_status_check;
+ALTER TABLE public.invoices ADD CONSTRAINT invoices_status_check CHECK (status = ANY (ARRAY['pending', 'paid', 'overdue', 'partial', 'cancelled', 'outstanding', 'under_review']));
