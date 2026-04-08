@@ -48,6 +48,7 @@ IMPORTANT: ALL output text MUST be in English. If the document contains Chinese 
   "jcb": number,
   "alipay": number,
   "wechat": number,
+  "payme": number,
   "cash": number,
   "cardTips": number
 }

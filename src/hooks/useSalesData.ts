@@ -22,6 +22,7 @@ function toDbRecord(r: SalesRecord) {
     jcb: r.jcb,
     alipay: r.alipay,
     wechat: r.wechat,
+    payme: r.payme,
     cash: r.cash,
     card_tips: r.cardTips,
   };
@@ -51,6 +52,7 @@ function fromDbRecord(r: any): SalesRecord {
     jcb: Number(r.jcb),
     alipay: Number(r.alipay),
     wechat: Number(r.wechat),
+    payme: Number(r.payme),
     cash: Number(r.cash),
     cardTips: Number(r.card_tips),
   };
