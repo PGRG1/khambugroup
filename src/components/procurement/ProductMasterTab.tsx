@@ -239,7 +239,16 @@ export default function ProductMasterTab() {
     window.addEventListener("mouseup", onUp);
   }, [dragPos]);
 
+  const attemptSave = () => {
+    if (!editingProductId && duplicateSku) {
+      setConfirmDuplicateOpen(true);
+      return;
+    }
+    handleSave();
+  };
+
   const handleSave = async () => {
+    setConfirmDuplicateOpen(false);
     const purchaseUnitCost = parseFloat(form.purchase_unit_cost) || 0;
     const stockQty = parseFloat(form.stock_qty) || 1;
     const costPerStockUnit = stockQty > 0 ? purchaseUnitCost / stockQty : 0;
