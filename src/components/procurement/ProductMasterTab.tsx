@@ -69,7 +69,6 @@ export default function ProductMasterTab() {
   const modalRef = useRef<HTMLDivElement>(null);
   const [duplicateSku, setDuplicateSku] = useState(false);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.from("suppliers").select("id, name").eq("is_active", true).order("name").then(({ data }) => {
