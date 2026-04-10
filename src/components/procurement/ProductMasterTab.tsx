@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
@@ -65,6 +67,8 @@ export default function ProductMasterTab() {
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const [duplicateSku, setDuplicateSku] = useState(false);
+  const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
 
   useEffect(() => {
     supabase.from("suppliers").select("id, name").eq("is_active", true).order("name").then(({ data }) => {
@@ -171,11 +175,22 @@ export default function ProductMasterTab() {
   const hasFilters = catFilter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || search;
   const clearFilters = () => { setCatFilter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setSearch(""); };
 
+  // Duplicate SKU detection for create mode
+  useEffect(() => {
+    if (editingProductId || !form.internal_sku.trim()) {
+      setDuplicateSku(false);
+      return;
+    }
+    const match = products.some(p => p.internal_sku === form.internal_sku.trim());
+    setDuplicateSku(match);
+  }, [form.internal_sku, editingProductId, products]);
+
   const openCreate = () => {
     setEditingProductId(null);
     setEditingSupplierEntryId(null);
     setForm(EMPTY_FORM);
     setDragPos(null);
+    setDuplicateSku(false);
     setDialogOpen(true);
   };
 
@@ -224,7 +239,16 @@ export default function ProductMasterTab() {
     window.addEventListener("mouseup", onUp);
   }, [dragPos]);
 
+  const attemptSave = () => {
+    if (!editingProductId && duplicateSku) {
+      setConfirmDuplicateOpen(true);
+      return;
+    }
+    handleSave();
+  };
+
   const handleSave = async () => {
+    setConfirmDuplicateOpen(false);
     const purchaseUnitCost = parseFloat(form.purchase_unit_cost) || 0;
     const stockQty = parseFloat(form.stock_qty) || 1;
     const costPerStockUnit = stockQty > 0 ? purchaseUnitCost / stockQty : 0;
@@ -474,8 +498,17 @@ export default function ProductMasterTab() {
             </div>
             <div className="px-4 py-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className={`h-9 text-sm ${duplicateSku ? "border-amber-500" : ""}`} /></div>
                 <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
+                {duplicateSku && !editingProductId && (
+                  <div className="col-span-2">
+                    <Alert className="border-amber-400 bg-amber-50 py-2">
+                      <AlertDescription className="text-xs text-amber-800">
+                        ⚠ SKU "{form.internal_sku}" already exists. Saving will add a new supplier entry to the existing product.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
                 <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
                 <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
                 <div><Label className="text-xs">L1 Category</Label><Input value={form.level1_category} onChange={e => setForm({ ...form, level1_category: e.target.value })} className="h-9 text-sm" /></div>
@@ -538,7 +571,7 @@ export default function ProductMasterTab() {
             </div>
             <div className="flex justify-end gap-2 px-4 py-3 border-t">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
+              <Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
                 {editingProductId ? "Update" : "Create"}
               </Button>
             </div>
@@ -557,6 +590,21 @@ export default function ProductMasterTab() {
             : "This will permanently remove this product and all its supplier entries from the master list."
         }
       />
+
+      <AlertDialog open={confirmDuplicateOpen} onOpenChange={setConfirmDuplicateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate SKU Detected</AlertDialogTitle>
+            <AlertDialogDescription>
+              A product with SKU "{form.internal_sku}" already exists. This will add a new supplier entry to the existing product. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSave}>Yes, Add Supplier Entry</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

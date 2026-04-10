@@ -89,8 +89,22 @@ export function useProductMaster() {
     let productId: string;
 
     if (existing && (existing as any[]).length > 0) {
-      // SKU already exists — reuse existing product_master row
+      // SKU already exists — reuse existing product_master row but update shared fields
       productId = (existing as any[])[0].id;
+      const sharedUpdates: Record<string, any> = {};
+      if (pmData.internal_product_name) sharedUpdates.internal_product_name = pmData.internal_product_name;
+      if (pmData.level1_category) sharedUpdates.level1_category = pmData.level1_category;
+      if (pmData.level2_category !== undefined) sharedUpdates.level2_category = pmData.level2_category;
+      if (pmData.level3_category !== undefined) sharedUpdates.level3_category = pmData.level3_category;
+      if (pmData.unit) sharedUpdates.unit = pmData.unit;
+      if (pmData.unit_cost !== undefined) sharedUpdates.unit_cost = pmData.unit_cost;
+      if (pmData.status) sharedUpdates.status = pmData.status;
+      if (pmData.notes !== undefined) sharedUpdates.notes = pmData.notes;
+      if (pmData.cost_per_stock_unit !== undefined) sharedUpdates.cost_per_stock_unit = pmData.cost_per_stock_unit;
+      if (pmData.cost_per_base_unit !== undefined) sharedUpdates.cost_per_base_unit = pmData.cost_per_base_unit;
+      if (Object.keys(sharedUpdates).length > 0) {
+        await supabase.from("product_master" as any).update(sharedUpdates as any).eq("id", productId);
+      }
     } else {
       // New SKU — insert into product_master
       const { data, error } = await supabase.from("product_master" as any).insert(pmData as any).select("id").single();
