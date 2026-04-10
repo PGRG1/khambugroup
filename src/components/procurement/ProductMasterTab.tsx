@@ -562,7 +562,7 @@ export default function ProductMasterTab() {
             </div>
             <div className="flex justify-end gap-2 px-4 py-3 border-t">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
+              <Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
                 {editingProductId ? "Update" : "Create"}
               </Button>
             </div>
