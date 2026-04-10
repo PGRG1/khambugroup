@@ -590,6 +590,21 @@ export default function ProductMasterTab() {
             : "This will permanently remove this product and all its supplier entries from the master list."
         }
       />
+
+      <AlertDialog open={confirmDuplicateOpen} onOpenChange={setConfirmDuplicateOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate SKU Detected</AlertDialogTitle>
+            <AlertDialogDescription>
+              A product with SKU "{form.internal_sku}" already exists. This will add a new supplier entry to the existing product. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSave}>Yes, Add Supplier Entry</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
