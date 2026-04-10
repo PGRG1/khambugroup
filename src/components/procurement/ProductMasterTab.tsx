@@ -175,11 +175,22 @@ export default function ProductMasterTab() {
   const hasFilters = catFilter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || search;
   const clearFilters = () => { setCatFilter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setSearch(""); };
 
+  // Duplicate SKU detection for create mode
+  useEffect(() => {
+    if (editingProductId || !form.internal_sku.trim()) {
+      setDuplicateSku(false);
+      return;
+    }
+    const match = products.some(p => p.internal_sku === form.internal_sku.trim());
+    setDuplicateSku(match);
+  }, [form.internal_sku, editingProductId, products]);
+
   const openCreate = () => {
     setEditingProductId(null);
     setEditingSupplierEntryId(null);
     setForm(EMPTY_FORM);
     setDragPos(null);
+    setDuplicateSku(false);
     setDialogOpen(true);
   };
 
