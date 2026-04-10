@@ -498,8 +498,17 @@ export default function ProductMasterTab() {
             </div>
             <div className="px-4 py-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className={`h-9 text-sm ${duplicateSku ? "border-amber-500" : ""}`} /></div>
                 <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
+                {duplicateSku && !editingProductId && (
+                  <div className="col-span-2">
+                    <Alert className="border-amber-400 bg-amber-50 py-2">
+                      <AlertDescription className="text-xs text-amber-800">
+                        ⚠ SKU "{form.internal_sku}" already exists. Saving will add a new supplier entry to the existing product.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
                 <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
                 <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
                 <div><Label className="text-xs">L1 Category</Label><Input value={form.level1_category} onChange={e => setForm({ ...form, level1_category: e.target.value })} className="h-9 text-sm" /></div>
