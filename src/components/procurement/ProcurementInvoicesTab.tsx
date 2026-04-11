@@ -608,11 +608,11 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[90px] px-1 py-1.5 text-left font-medium text-muted-foreground">External SKU</th>
                   <th className="min-w-[160px] px-1 py-1.5 text-left font-medium text-muted-foreground">External Name</th>
                   <th className="w-[75px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. UOM</th>
-                  <th className="w-[60px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Qty</th>
+                  <th className="w-[85px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Qty</th>
                   <th className="w-[75px] px-1 py-1.5 text-left font-medium text-muted-foreground">Stock UOM</th>
-                  <th className="w-[65px] px-1 py-1.5 text-left font-medium text-muted-foreground">Stock Qty</th>
-                  <th className="w-[85px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Cost</th>
-                  <th className="w-[80px] px-1 py-1.5 text-left font-medium text-muted-foreground">Total</th>
+                  <th className="w-[85px] px-1 py-1.5 text-left font-medium text-muted-foreground">Stock Qty</th>
+                  <th className="w-[95px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Cost</th>
+                  <th className="w-[90px] px-1 py-1.5 text-left font-medium text-muted-foreground">Total</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
@@ -666,7 +666,7 @@ export default function ProcurementInvoicesTab() {
                         <Input value={line.matched_purchase_uom} readOnly tabIndex={-1} className="h-8 cursor-default bg-muted/50 text-xs" placeholder="—" />
                       </td>
                       <td className="px-1 py-1 align-top">
-                        <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(index, "quantity", e.target.value)} className="h-8 text-xs" />
+                        <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(index, "quantity", e.target.value)} className="h-8 text-xs min-w-[75px]" />
                       </td>
                       <td className="px-1 py-1 align-top">
                         <Input value={line.matched_stock_uom} readOnly tabIndex={-1} className="h-8 cursor-default bg-muted/50 text-xs" placeholder="—" />
@@ -676,7 +676,7 @@ export default function ProcurementInvoicesTab() {
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
                           tabIndex={-1}
-                          className="h-8 cursor-default bg-muted/50 font-mono text-xs"
+                           className="h-8 cursor-default bg-muted/50 font-mono text-xs min-w-[75px]"
                           placeholder="—"
                         />
                       </td>
@@ -686,7 +686,7 @@ export default function ProcurementInvoicesTab() {
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateEditLine(index, "unit_price", e.target.value)}
-                            className={`h-8 text-xs ${line.price_changed ? "border-primary" : ""}`}
+                            className={`h-8 text-xs min-w-[75px] ${line.price_changed ? "border-primary" : ""}`}
                           />
                           {line.price_changed && line.pm_unit_price !== undefined && (
                             <span className="mt-0.5 block whitespace-nowrap text-[9px] text-primary">PM: ${line.pm_unit_price.toFixed(2)}</span>
@@ -694,7 +694,7 @@ export default function ProcurementInvoicesTab() {
                         </div>
                       </td>
                       <td className="px-1 py-1 align-top">
-                        <Input type="number" value={line.total} onChange={(e) => updateEditLine(index, "total", e.target.value)} className="h-8 text-xs font-medium" />
+                        <Input type="number" value={line.total} onChange={(e) => updateEditLine(index, "total", e.target.value)} className="h-8 text-xs font-medium min-w-[75px]" />
                       </td>
                       <td className="px-1 py-1 align-top">
                         {editLines.length > 1 && (

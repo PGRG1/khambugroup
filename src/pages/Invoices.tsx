@@ -1038,11 +1038,11 @@ export default function Invoices() {
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Purch. UOM</th>
-                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[60px]">Purch. Qty</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Qty</th>
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
-                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[65px]">Stock Qty</th>
-                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Cost</th>
-                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[80px]">Total</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Stock Qty</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[95px]">Purch. Cost</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Total</th>
                     <th className="w-8"></th>
                   </tr>
                 </thead>
@@ -1099,7 +1099,7 @@ export default function Invoices() {
                         </td>
                         {/* Purchase Qty - editable */}
                         <td className="px-1 py-1 align-top">
-                          <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs h-8" />
+                          <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs h-8 min-w-[75px]" />
                         </td>
                         {/* Stock UOM - read-only */}
                         <td className="px-1 py-1 align-top">
@@ -1109,13 +1109,13 @@ export default function Invoices() {
                         <td className="px-1 py-1 align-top">
                           <Input
                             value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
-                            readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8 font-mono" placeholder="—"
+                            readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8 font-mono min-w-[75px]" placeholder="—"
                           />
                         </td>
                         {/* Purchase Cost - editable */}
                         <td className="px-1 py-1 align-top">
                           <div className="relative">
-                            <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className={`text-xs h-8 ${line.price_changed ? "border-blue-500" : ""}`} />
+                            <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className={`text-xs h-8 min-w-[75px] ${line.price_changed ? "border-blue-500" : ""}`} />
                             {line.price_changed && line.pm_unit_price !== undefined && (
                               <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">PM: ${line.pm_unit_price.toFixed(2)}</span>
                             )}
@@ -1123,7 +1123,7 @@ export default function Invoices() {
                         </td>
                         {/* Total */}
                         <td className="px-1 py-1 align-top">
-                          <Input type="number" value={line.total} onChange={(e) => updateEditLine(i, "total", e.target.value)} className="text-xs font-medium h-8" />
+                          <Input type="number" value={line.total} onChange={(e) => updateEditLine(i, "total", e.target.value)} className="text-xs font-medium h-8 min-w-[75px]" />
                         </td>
                         {/* Delete */}
                         <td className="px-1 py-1 align-top">
