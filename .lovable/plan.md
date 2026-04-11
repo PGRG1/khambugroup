@@ -1,25 +1,25 @@
 
 
-## Plan: Fix Product Master Save Issues + Add Duplicate SKU Confirmation
+## Fix: Widen All Narrow Numeric Columns in Invoice Scanner
 
-### Problem 1: Data not saving properly
-When creating a new product with a duplicate internal SKU, the `createProduct` function silently reuses the existing `product_master` row **without updating its shared fields** (internal product name, categories, costs, etc.). So the new values you entered appear lost — the row keeps its old data.
+### Problem
+Multiple numeric columns (Purch. Qty, Stock Qty, Purch. Cost, Discount, Total) have narrow widths that crop decimal values.
 
-**Fix**: When a duplicate SKU is found during creation, update the existing `product_master` row with the new shared fields before inserting the supplier entry.
+### Changes
 
-### Problem 2: No duplicate SKU warning
-When entering an internal SKU that already exists, there's no confirmation prompt.
+**`src/components/invoices/InvoiceScanner.tsx`** — Widen all numeric column headers and their inputs:
 
-**Fix**: Add a real-time check in the create dialog. When the user types an internal SKU that already exists, show a warning banner. On save, show a confirmation dialog asking "A product with SKU X already exists. Add a new supplier entry to the existing product?"
+| Column | Current | New |
+|--------|---------|-----|
+| Purch. Qty | `w-[60px]` | `w-[85px]` |
+| Stock Qty | `w-[65px]` | `w-[85px]` |
+| Purch. Cost | `w-[85px]` | `w-[95px]` |
+| Discount | `w-[70px]` | `w-[85px]` |
+| Total | `w-[80px]` | `w-[90px]` |
 
-### Technical Changes
+Also add `min-w-[75px]` to the corresponding `<Input>` fields for Purch. Qty, Stock Qty, Purch. Cost, and Discount to prevent input text from being cropped.
 
-**`src/hooks/useProductMaster.ts`** — `createProduct` function:
-- When duplicate SKU is found, also run an `update` on the existing `product_master` row with the new shared fields (internal_product_name, categories, unit, unit_cost, status, notes, cost fields)
+Increase the table `min-w` from `1200px` to `1350px` to accommodate the wider columns.
 
-**`src/components/procurement/ProductMasterTab.tsx`**:
-- Add state for duplicate SKU detection (`duplicateSku: boolean`)
-- Add a `useEffect` or `onBlur` on the internal_sku input that checks against existing products
-- Show a yellow warning badge/banner below the SKU field when duplicate detected (e.g. "⚠ SKU already exists — saving will add a supplier entry to the existing product")
-- Add a confirmation dialog (`AlertDialog`) that triggers on save when duplicate is detected, asking the user to confirm before proceeding
+**Same fixes in `src/pages/Invoices.tsx`** and **`src/components/procurement/ProcurementInvoicesTab.tsx`** if they render the same table layout.
 
