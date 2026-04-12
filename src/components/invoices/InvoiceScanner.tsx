@@ -335,12 +335,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       }
 
       const scannedCode = (workingLine.item_code || "").trim().toLowerCase();
-      const pmExtSku = (pmEntry.external_sku || "").trim().toLowerCase();
-      // Allow partial/segment matches for pipe-separated SKUs
-      const skuMatches = !scannedCode || !pmExtSku || scannedCode === pmExtSku
-        || pmExtSku.includes(scannedCode) || scannedCode.includes(pmExtSku)
-        || pmExtSku.split("|").some(seg => seg.trim() === scannedCode);
-      const skuMismatch = !!(scannedCode && pmExtSku && !skuMatches);
+      // Collect all external SKUs for entries sharing this internal_sku
+      const allExtSkus = pm
+        .filter(p => p.internal_sku === workingLine.matched_sku)
+        .map(p => (p.external_sku || "").trim().toLowerCase())
+        .filter(Boolean);
+      const skuMatches = !scannedCode || allExtSkus.length === 0
+        || allExtSkus.some(sku =>
+          scannedCode === sku
+          || sku.includes(scannedCode)
+          || scannedCode.includes(sku)
+          || sku.split("|").some(seg => seg.trim() === scannedCode)
+        );
+      const skuMismatch = !!(scannedCode && allExtSkus.length > 0 && !skuMatches);
 
       const scannedPrice = parseFloat(workingLine.unit_price) || 0;
       const pmPrice = pmEntry.purchase_unit_cost ?? 0;
