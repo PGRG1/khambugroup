@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
+import { resolveProductMatch } from "@/utils/productMasterResolver";
 import {
   AlertDialog,
   AlertDialogAction,
