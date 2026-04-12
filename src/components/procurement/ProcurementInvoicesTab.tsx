@@ -255,37 +255,17 @@ export default function ProcurementInvoicesTab() {
   };
 
   const findProductMatch = (line: Partial<InvoiceLineItem> | Partial<EditableInvoiceLine>, supplierId?: string | null) => {
-    const scopedProducts = getScopedProductMaster(supplierId);
-
-    // 1. SKU match takes top priority — disambiguates entries sharing the same product_master_id
-    const itemCode = (line.item_code || "").trim().toLowerCase();
-    if (itemCode) {
-      const codeMatch = scopedProducts.find((product) => (product.external_sku || "").trim().toLowerCase() === itemCode)
-        || productMaster.find((product) => (product.external_sku || "").trim().toLowerCase() === itemCode);
-      if (codeMatch) return codeMatch;
-    }
-
-    // 2. Fall back to product_master_id only when no SKU is present
-    if (line.product_master_id) {
-      return scopedProducts.find((product) => product.id === line.product_master_id)
-        || productMaster.find((product) => product.id === line.product_master_id)
-        || null;
-    }
-
-    // 3. Name match as last resort
-    const description = (line.description || "").trim().toLowerCase();
-    if (description) {
-      const nameMatch = scopedProducts.find((product) => {
-        const supplierName = (product.supplier_product_name || "").trim().toLowerCase();
-        return supplierName && (supplierName === description || supplierName.includes(description) || description.includes(supplierName));
-      }) || productMaster.find((product) => {
-        const supplierName = (product.supplier_product_name || "").trim().toLowerCase();
-        return supplierName && (supplierName === description || supplierName.includes(description) || description.includes(supplierName));
-      });
-      if (nameMatch) return nameMatch;
-    }
-
-    return null;
+    const supplierName = getSupplierNameById(supplierId) || selectedInvoice?.supplier_name || "";
+    return resolveProductMatch(
+      {
+        itemCode: line.item_code || "",
+        description: line.description || "",
+        productMasterId: line.product_master_id,
+        internalSku: "matched_sku" in line ? (line as any).matched_sku : undefined,
+      },
+      productMaster,
+      supplierName,
+    );
   };
 
   const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">) => {
