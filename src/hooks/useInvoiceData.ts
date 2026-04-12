@@ -154,40 +154,65 @@ export function useInvoiceData() {
   }, []);
 
   const matchLineItemsToProductMaster = useCallback(async (lineItems: any[]) => {
-    // Fetch all product master entries
-    const { data: pmData } = await supabase.from("product_master" as any).select("id, supplier_product_name, internal_product_name, external_sku");
-    if (!pmData || pmData.length === 0) return lineItems;
+    // Fetch all product master and supplier entries
+    const [pmRes, psRes] = await Promise.all([
+      supabase.from("product_master" as any).select("id, supplier_product_name, internal_product_name, external_sku, internal_sku"),
+      supabase.from("product_suppliers" as any).select("id, product_master_id, supplier, external_sku, supplier_product_name"),
+    ]);
+    const pmData = pmRes.data as any[] || [];
+    const psData = psRes.data as any[] || [];
+    if (pmData.length === 0 && psData.length === 0) return lineItems;
 
-    const pmEntries = pmData as any[];
-
-    return lineItems.map((li: any) => {
-      // Skip if already matched by AI
-      if (li.product_master_id) return li;
-
-      const desc = (li.description || "").trim().toLowerCase();
-      const itemCode = (li.item_code || "").trim().toLowerCase();
-
-      // PRIORITY: Try matching by external_sku to item_code FIRST
-      let match: any = null;
-      if (itemCode) {
-        match = pmEntries.find((pm: any) => {
-          const eSku = (pm.external_sku || "").trim().toLowerCase();
-          return eSku && eSku === itemCode;
+    // Build flattened entries similar to the UI
+    const entries: Array<{ id: string; external_sku: string; supplier_product_name: string; internal_product_name: string; internal_sku: string; supplier?: string }> = [];
+    for (const p of pmData) {
+      const supplierEntries = psData.filter((s: any) => s.product_master_id === p.id);
+      if (supplierEntries.length > 0) {
+        for (const s of supplierEntries) {
+          entries.push({
+            id: p.id,
+            external_sku: s.external_sku || p.external_sku || "",
+            supplier_product_name: s.supplier_product_name || p.supplier_product_name || "",
+            internal_product_name: p.internal_product_name || "",
+            internal_sku: p.internal_sku || "",
+            supplier: s.supplier || "",
+          });
+        }
+      } else {
+        entries.push({
+          id: p.id,
+          external_sku: p.external_sku || "",
+          supplier_product_name: p.supplier_product_name || "",
+          internal_product_name: p.internal_product_name || "",
+          internal_sku: p.internal_sku || "",
         });
       }
+    }
 
-      // Then try matching by supplier_product_name (fuzzy contains match)
-      if (!match) {
-        match = pmEntries.find((pm: any) => {
-          const spn = (pm.supplier_product_name || "").trim().toLowerCase();
+    return lineItems.map((li: any) => {
+      if (li.product_master_id) return li;
+
+      const itemCode = (li.item_code || "").trim().toLowerCase();
+      const desc = (li.description || "").trim().toLowerCase();
+
+      // Priority 1: Exact external SKU match
+      let match: any = null;
+      if (itemCode) {
+        match = entries.find(e => (e.external_sku || "").trim().toLowerCase() === itemCode);
+      }
+
+      // Priority 2: Exact name match
+      if (!match && desc) {
+        match = entries.find(e => {
+          const spn = (e.supplier_product_name || "").trim().toLowerCase();
           return spn && (spn === desc || desc.includes(spn) || spn.includes(desc));
         });
       }
 
-      // Try matching by internal_product_name
-      if (!match) {
-        match = pmEntries.find((pm: any) => {
-          const ipn = (pm.internal_product_name || "").trim().toLowerCase();
+      // Priority 3: Internal product name
+      if (!match && desc) {
+        match = entries.find(e => {
+          const ipn = (e.internal_product_name || "").trim().toLowerCase();
           return ipn && (ipn === desc || desc.includes(ipn) || ipn.includes(desc));
         });
       }
