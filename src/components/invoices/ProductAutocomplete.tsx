@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface ProductMasterEntry {
   id: string;
+  supplier_entry_id?: string;
   internal_sku: string;
   external_sku: string;
   internal_product_name: string;
@@ -44,6 +45,7 @@ const ProductAutocomplete = ({
   const [dropUp, setDropUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const justSelectedRef = useRef(false);
 
   const query = value.trim().toLowerCase();
 
@@ -76,7 +78,10 @@ const ProductAutocomplete = ({
       : [];
 
     if (supplierMatches.length === 1) return supplierMatches[0];
+    // For SKU searches, exact SKU match is unique per supplier entry — always resolve
+    if (searchField === "code" && supplierMatches.length > 0) return supplierMatches[0];
     if (exactMatches.length === 1) return exactMatches[0];
+    if (searchField === "code" && exactMatches.length > 0) return exactMatches[0];
     return undefined;
   };
 
@@ -118,6 +123,7 @@ const ProductAutocomplete = ({
   }, [highlightIdx]);
 
   const handleSelect = (product: ProductMasterEntry) => {
+    justSelectedRef.current = true;
     onSelect(product);
     setOpen(false);
   };
@@ -154,6 +160,10 @@ const ProductAutocomplete = ({
           }
         }}
         onBlur={(e) => {
+          if (justSelectedRef.current) {
+            justSelectedRef.current = false;
+            return;
+          }
           const exactMatch = resolveExactMatch(e.currentTarget.value);
           if (exactMatch) {
             onSelect(exactMatch);

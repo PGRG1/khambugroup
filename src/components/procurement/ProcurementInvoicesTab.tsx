@@ -43,6 +43,7 @@ const normalizeSupplierName = (value: string) =>
 
 interface ProductMasterEntry {
   id: string;
+  supplier_entry_id?: string;
   internal_sku: string;
   external_sku: string;
   internal_product_name: string;
@@ -129,7 +130,7 @@ export default function ProcurementInvoicesTab() {
   useEffect(() => {
     Promise.all([
       supabase.from("product_master" as any).select("id, internal_sku, internal_product_name, external_sku, supplier_product_name, supplier, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
-      supabase.from("product_suppliers" as any).select("product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
+      supabase.from("product_suppliers" as any).select("id, product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
     ]).then(([pmRes, psRes]) => {
       const pm = (pmRes.data || []) as any[];
       const ps = (psRes.data || []) as any[];
@@ -141,6 +142,7 @@ export default function ProcurementInvoicesTab() {
           for (const s of supplierEntries) {
             entries.push({
               id: p.id,
+              supplier_entry_id: s.id,
               internal_sku: p.internal_sku,
               external_sku: s.external_sku || p.external_sku || "",
               internal_product_name: p.internal_product_name,
@@ -446,9 +448,13 @@ export default function ProcurementInvoicesTab() {
 
           const exactMatch = supplierMatches.length === 1
             ? supplierMatches[0]
-            : exactMatches.length === 1
-              ? exactMatches[0]
-              : null;
+            : supplierMatches.length > 1 && field === "item_code"
+              ? supplierMatches[0]
+              : exactMatches.length === 1
+                ? exactMatches[0]
+                : field === "item_code" && exactMatches.length > 0
+                  ? exactMatches[0]
+                  : null;
 
           if (exactMatch) {
             nextLine.item_code = exactMatch.external_sku || nextLine.item_code;
