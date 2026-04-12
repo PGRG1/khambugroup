@@ -261,119 +261,68 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
     if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
     return lines.map(line => {
-      // If no matched_sku yet, try fallback matching by name+supplier when no item_code
       let workingLine = { ...line };
-      if (!workingLine.matched_sku) {
-        const desc = (workingLine.description || "").trim().toLowerCase();
-        const itemCode = (workingLine.item_code || "").trim().toLowerCase();
 
-        if (desc || itemCode) {
-          let fallbackMatch: ProductMasterEntry | undefined;
+      // Use shared resolver to find the best match
+      const resolved = resolveProductMatch(
+        {
+          itemCode: workingLine.item_code,
+          description: workingLine.description,
+          internalSku: workingLine.matched_sku || undefined,
+        },
+        pm,
+        supplierName,
+      );
 
-          // Try matching by item_code (external SKU) first if present
-          // Supports pipe-separated SKUs (e.g. "0000|SA15DP0704")
-          if (itemCode) {
-            // 1. Exact match
-            fallbackMatch = pm.find(p => {
-              const eSku = (p.external_sku || "").trim().toLowerCase();
-              return eSku && eSku === itemCode;
-            });
-            // 2. Segment match: check if itemCode matches any pipe-separated segment, or contains/is contained
-            if (!fallbackMatch) {
-              fallbackMatch = pm.find(p => {
-                const eSku = (p.external_sku || "").trim().toLowerCase();
-                if (!eSku) return false;
-                const segments = eSku.split("|").map(s => s.trim());
-                return segments.some(seg => seg === itemCode) || eSku.includes(itemCode) || itemCode.includes(eSku);
-              });
-            }
-          }
-
-          // Fallback: match by description + supplier name
-          if (!fallbackMatch && desc) {
-            const normSupplier = supplierName ? normalizeSupplierName(supplierName) : "";
-            fallbackMatch = pm.find(p => {
-              const spn = (p.supplier_product_name || "").trim().toLowerCase();
-              const ipn = (p.internal_product_name || "").trim().toLowerCase();
-              const nameMatch = (spn && (spn === desc || desc.includes(spn) || spn.includes(desc)))
-                || (ipn && (ipn === desc || desc.includes(ipn) || ipn.includes(desc)));
-              if (!nameMatch) return false;
-              // If supplier context available, prefer supplier-scoped match
-              if (normSupplier && p.supplier) {
-                const normPM = normalizeSupplierName(p.supplier);
-                return normPM === normSupplier || normPM.includes(normSupplier) || normSupplier.includes(normPM);
-              }
-              return true;
-            });
-          }
-
-          if (fallbackMatch) {
-            workingLine.matched_sku = fallbackMatch.internal_sku;
-            // Only auto-fill external SKU if the matched PM entry belongs to the same supplier
-            const matchSupplierOk = supplierName && fallbackMatch.supplier &&
-              normalizeSupplierName(fallbackMatch.supplier) === normalizeSupplierName(supplierName);
-            if (matchSupplierOk) {
-              workingLine.item_code = workingLine.item_code || fallbackMatch.external_sku || "";
-            }
-          }
+      if (resolved) {
+        workingLine.matched_sku = resolved.internal_sku;
+        // Only auto-fill external SKU if supplier matches
+        const matchSupplierOk = supplierName && resolved.supplier &&
+          normalizeSupplierName(resolved.supplier) === normalizeSupplierName(supplierName);
+        if (matchSupplierOk && !workingLine.item_code) {
+          workingLine.item_code = resolved.external_sku || "";
         }
       }
 
-      if (!workingLine.matched_sku) {
-        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
-      }
-      // Try supplier-scoped match first
-      let pmEntry: ProductMasterEntry | undefined;
-      if (supplierName) {
-        const normSupplier = normalizeSupplierName(supplierName);
-        pmEntry = pm.find(p => p.internal_sku === workingLine.matched_sku && p.supplier && (
-          normalizeSupplierName(p.supplier) === normSupplier ||
-          normalizeSupplierName(p.supplier).includes(normSupplier) ||
-          normSupplier.includes(normalizeSupplierName(p.supplier))
-        ));
-      }
-      if (!pmEntry) pmEntry = pm.find(p => p.internal_sku === workingLine.matched_sku);
-      if (!pmEntry) {
-        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
+      if (!resolved) {
+        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_sku: "", matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
       }
 
+      // SKU mismatch check
       const scannedCode = (workingLine.item_code || "").trim().toLowerCase();
-      // Collect all external SKUs for entries sharing this internal_sku
       const allExtSkus = pm
-        .filter(p => p.internal_sku === workingLine.matched_sku)
+        .filter(p => p.internal_sku === resolved.internal_sku)
         .map(p => (p.external_sku || "").trim().toLowerCase())
         .filter(Boolean);
       const skuMatches = !scannedCode || allExtSkus.length === 0
         || allExtSkus.some(sku =>
-          scannedCode === sku
-          || sku.includes(scannedCode)
-          || scannedCode.includes(sku)
+          scannedCode === sku || sku.includes(scannedCode) || scannedCode.includes(sku)
           || sku.split("|").some(seg => seg.trim() === scannedCode)
         );
       const skuMismatch = !!(scannedCode && allExtSkus.length > 0 && !skuMatches);
 
       const scannedPrice = parseFloat(workingLine.unit_price) || 0;
-      const pmPrice = pmEntry.purchase_unit_cost ?? 0;
+      const pmPrice = resolved.purchase_unit_cost ?? 0;
       const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
 
-      // Auto-fill description from PM's supplier_product_name when matched via SKU
-      const autoDescription = pmEntry.supplier_product_name || pmEntry.internal_product_name || "";
-      const shouldAutoFill = autoDescription && (
-        !workingLine.description.trim() || workingLine.item_code.trim()
-      );
+      // If matched via external SKU, always override description from the PM entry
+      const hasItemCode = (workingLine.item_code || "").trim();
+      const autoDescription = resolved.supplier_product_name || resolved.internal_product_name || "";
+      const shouldOverrideDesc = hasItemCode && autoDescription;
 
-        return {
-          ...workingLine,
-          description: shouldAutoFill ? autoDescription : workingLine.description,
-          sku_mismatch: skuMismatch,
-          unmatched: false,
-          price_changed: priceChanged,
-          pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
-          matched_internal_name: pmEntry.internal_product_name || "",
-          matched_stock_uom: pmEntry.stock_uom || "",
-          matched_purchase_uom: pmEntry.purchase_unit || "",
-          matched_stock_qty_ratio: pmEntry.stock_qty ?? 1,
-        };
+      return {
+        ...workingLine,
+        description: shouldOverrideDesc ? autoDescription : (workingLine.description || autoDescription),
+        matched_sku: resolved.internal_sku,
+        sku_mismatch: skuMismatch,
+        unmatched: false,
+        price_changed: priceChanged,
+        pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+        matched_internal_name: resolved.internal_product_name || "",
+        matched_stock_uom: resolved.stock_uom || "",
+        matched_purchase_uom: resolved.purchase_unit || "",
+        matched_stock_qty_ratio: resolved.stock_qty ?? 1,
+      };
     });
   }, []);
 
