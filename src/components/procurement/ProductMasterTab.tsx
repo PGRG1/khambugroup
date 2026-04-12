@@ -67,7 +67,7 @@ export default function ProductMasterTab() {
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
-  const [duplicateSku, setDuplicateSku] = useState(false);
+  const [duplicateSku, setDuplicateSku] = useState<string | null>(null);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
 
   useEffect(() => {
@@ -178,11 +178,11 @@ export default function ProductMasterTab() {
   // Duplicate SKU detection for create mode
   useEffect(() => {
     if (editingProductId || !form.internal_sku.trim()) {
-      setDuplicateSku(false);
+      setDuplicateSku(null);
       return;
     }
-    const match = products.some(p => p.internal_sku === form.internal_sku.trim());
-    setDuplicateSku(match);
+    const matched = products.find(p => p.internal_sku === form.internal_sku.trim());
+    setDuplicateSku(matched ? matched.internal_product_name : null);
   }, [form.internal_sku, editingProductId, products]);
 
   const openCreate = () => {
@@ -190,7 +190,7 @@ export default function ProductMasterTab() {
     setEditingSupplierEntryId(null);
     setForm(EMPTY_FORM);
     setDragPos(null);
-    setDuplicateSku(false);
+    setDuplicateSku(null);
     setDialogOpen(true);
   };
 
@@ -240,7 +240,7 @@ export default function ProductMasterTab() {
   }, [dragPos]);
 
   const attemptSave = () => {
-    if (!editingProductId && duplicateSku) {
+    if (!editingProductId && duplicateSku !== null) {
       setConfirmDuplicateOpen(true);
       return;
     }
@@ -498,13 +498,13 @@ export default function ProductMasterTab() {
             </div>
             <div className="px-4 py-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className={`h-9 text-sm ${duplicateSku ? "border-amber-500" : ""}`} /></div>
+                <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className={`h-9 text-sm ${duplicateSku !== null ? "border-amber-500" : ""}`} /></div>
                 <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
-                {duplicateSku && !editingProductId && (
+                {duplicateSku !== null && !editingProductId && (
                   <div className="col-span-2">
                     <Alert className="border-amber-400 bg-amber-50 py-2">
                       <AlertDescription className="text-xs text-amber-800">
-                        ⚠ SKU "{form.internal_sku}" already exists. Saving will add a new supplier entry to the existing product.
+                        ⚠ SKU "{form.internal_sku}" already exists — "{duplicateSku}". Saving will add a new supplier entry (e.g. different weight/pack size) to this product.
                       </AlertDescription>
                     </Alert>
                   </div>
@@ -596,7 +596,7 @@ export default function ProductMasterTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate SKU Detected</AlertDialogTitle>
             <AlertDialogDescription>
-              A product with SKU "{form.internal_sku}" already exists. This will add a new supplier entry to the existing product. Are you sure you want to continue?
+              A product with SKU "{form.internal_sku}" ("{duplicateSku}") already exists. This will add a new supplier entry to the existing product — useful when the same supplier sells different weights or pack sizes under the same internal SKU. Continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
