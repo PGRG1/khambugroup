@@ -413,7 +413,7 @@ export default function Invoices() {
       const qty = parseFloat(line.quantity) || 0;
       const disc = parseFloat(line.discount) || 0;
       const tax = parseFloat(line.tax_amount) || 0;
-      line.total = String(((w ? w * price : qty * price) - disc + tax).toFixed(2));
+      line.total = String(((qty * price) - disc + tax).toFixed(2));
     }
     updated[i] = line;
     setEditLines(updated);
@@ -1029,7 +1029,7 @@ export default function Invoices() {
 
             <h3 className="text-sm font-semibold">Line Items ({editLines.length})</h3>
             <div className="overflow-x-auto -mx-2">
-              <table className="w-full text-xs border-collapse min-w-[1200px]">
+              <table className="w-full text-xs border-collapse min-w-[1500px]">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
@@ -1037,10 +1037,10 @@ export default function Invoices() {
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
-                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Purch. UOM</th>
-                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Qty</th>
-                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
-                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Stock Qty</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. UOM</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Purch. Qty</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Stock UOM</th>
+                    <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Stock Qty</th>
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[95px]">Purch. Cost</th>
                     <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Total</th>
                     <th className="w-8"></th>
@@ -1099,7 +1099,7 @@ export default function Invoices() {
                         </td>
                         {/* Purchase Qty - editable */}
                         <td className="px-1 py-1 align-top">
-                          <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs h-8 min-w-[75px]" />
+                          <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(i, "quantity", e.target.value)} className="text-xs h-8 min-w-[80px]" />
                         </td>
                         {/* Stock UOM - read-only */}
                         <td className="px-1 py-1 align-top">
@@ -1109,13 +1109,13 @@ export default function Invoices() {
                         <td className="px-1 py-1 align-top">
                           <Input
                             value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
-                            readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8 font-mono min-w-[75px]" placeholder="—"
+                            readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8 font-mono min-w-[80px]" placeholder="—"
                           />
                         </td>
                         {/* Purchase Cost - editable */}
                         <td className="px-1 py-1 align-top">
                           <div className="relative">
-                            <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className={`text-xs h-8 min-w-[75px] ${line.price_changed ? "border-blue-500" : ""}`} />
+                            <Input type="number" value={line.unit_price} onChange={(e) => updateEditLine(i, "unit_price", e.target.value)} className={`text-xs h-8 min-w-[80px] ${line.price_changed ? "border-blue-500" : ""}`} />
                             {line.price_changed && line.pm_unit_price !== undefined && (
                               <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">PM: ${line.pm_unit_price.toFixed(2)}</span>
                             )}
@@ -1123,7 +1123,7 @@ export default function Invoices() {
                         </td>
                         {/* Total */}
                         <td className="px-1 py-1 align-top">
-                          <Input type="number" value={line.total} onChange={(e) => updateEditLine(i, "total", e.target.value)} className="text-xs font-medium h-8 min-w-[75px]" />
+                          <Input type="number" value={line.total} onChange={(e) => updateEditLine(i, "total", e.target.value)} className="text-xs font-medium h-8 min-w-[80px]" />
                         </td>
                         {/* Delete */}
                         <td className="px-1 py-1 align-top">
@@ -1143,11 +1143,10 @@ export default function Invoices() {
               <span className="text-muted-foreground">Subtotal: </span>
               <span className="font-mono font-medium">
                 {editLines.reduce((s, l) => {
-                  const w = l.weight ? parseFloat(l.weight) : null;
                   const price = parseFloat(l.unit_price) || 0;
                   const qty = parseFloat(l.quantity) || 0;
                   const disc = parseFloat(l.discount) || 0;
-                  return s + ((w ? w * price : qty * price) - disc);
+                  return s + ((qty * price) - disc);
                 }, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
               <span className="text-muted-foreground ml-4">Total: </span>

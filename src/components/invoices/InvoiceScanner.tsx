@@ -560,7 +560,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const qty = parseFloat(line.quantity) || 0;
         const disc = parseFloat(line.discount) || 0;
         const tax = parseFloat(line.tax_amount) || 0;
-        line.total = String(((w ? w * price : qty * price) - disc + tax).toFixed(2));
+        line.total = String(((qty * price) - disc + tax).toFixed(2));
       }
       if (["item_code", "unit_price", "matched_sku", "description"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
@@ -1056,7 +1056,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full text-xs border-collapse min-w-[1200px]">
+            <table className="w-full text-xs border-collapse min-w-[1500px]">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
@@ -1064,10 +1064,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Purch. UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[75px]">Stock UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Stock Qty</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. UOM</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Purch. Qty</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Stock UOM</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Stock Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[95px]">Purch. Cost</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Discount</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Total</th>
@@ -1098,7 +1098,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Internal Product Name - read-only */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top whitespace-normal break-words">
                         <Input
                           value={line.matched_internal_name}
                           readOnly
@@ -1159,7 +1159,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           type="number"
                           value={line.quantity}
                           onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                          className="text-xs h-8 min-w-[75px]"
+                          className="text-xs h-8 min-w-[80px]"
                         />
                       </td>
                       {/* Stock UOM - read-only from PM */}
@@ -1178,7 +1178,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8 font-mono min-w-[75px]"
+                          className="text-xs bg-muted/50 cursor-default h-8 font-mono min-w-[80px]"
                           placeholder="—"
                         />
                       </td>
@@ -1189,7 +1189,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                            className={`text-xs h-8 min-w-[75px] ${line.price_changed ? "border-blue-500" : ""}`}
+                            className={`text-xs h-8 min-w-[80px] ${line.price_changed ? "border-blue-500" : ""}`}
                           />
                           {line.price_changed && line.pm_unit_price !== undefined && (
                             <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
@@ -1204,7 +1204,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           type="number"
                           value={line.discount}
                           onChange={(e) => updateLine(i, "discount", e.target.value)}
-                          className="text-xs h-8 min-w-[75px]"
+                          className="text-xs h-8 min-w-[80px]"
                           placeholder="0"
                         />
                       </td>
@@ -1214,7 +1214,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           type="number"
                           value={line.total}
                           onChange={(e) => updateLine(i, "total", e.target.value)}
-                          className="text-xs font-medium h-8 min-w-[75px]"
+                          className="text-xs font-medium h-8 min-w-[80px]"
                         />
                       </td>
                       {/* Delete */}
