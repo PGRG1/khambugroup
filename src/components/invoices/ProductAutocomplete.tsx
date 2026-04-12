@@ -41,6 +41,7 @@ const ProductAutocomplete = ({
 }: ProductAutocompleteProps) => {
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
+  const [dropUp, setDropUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -114,7 +115,13 @@ const ProductAutocomplete = ({
           onChange(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => query.length >= 1 && setOpen(true)}
+       onFocus={() => {
+          if (query.length >= 1) setOpen(true);
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setDropUp(rect.bottom > window.innerHeight - 220);
+          }
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={className}
@@ -123,7 +130,10 @@ const ProductAutocomplete = ({
       {open && suggestions.length > 0 && (
         <div
           ref={listRef}
-          className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-md"
+          className={cn(
+            "absolute z-50 left-0 right-0 max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-md",
+            dropUp ? "bottom-full mb-1" : "top-full mt-1"
+          )}
         >
           {suggestions.map((p, idx) => (
             <button
