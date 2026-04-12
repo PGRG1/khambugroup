@@ -413,8 +413,41 @@ export default function ProcurementInvoicesTab() {
         nextLine.price_changed = Math.abs((parseFloat(value) || 0) - nextLine.pm_unit_price) > 0.01;
       }
 
-      if ((field === "description" || field === "item_code") && !nextLine.product_master_id) {
-        nextLine.unmatched = Boolean((field === "description" ? value : nextLine.description).trim());
+      // When item_code or description changes manually, do an exact Product Master lookup
+      if (field === "item_code" || field === "description") {
+        const trimmed = value.trim();
+        if (trimmed) {
+          const exactMatch = editFilteredPM.find((p) => {
+            if (field === "item_code") {
+              return p.external_sku.trim().toLowerCase() === trimmed.toLowerCase();
+            }
+            return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === trimmed.toLowerCase();
+          });
+          if (exactMatch) {
+            // Auto-fill both fields and update product match data
+            nextLine.item_code = exactMatch.external_sku || nextLine.item_code;
+            nextLine.description = exactMatch.supplier_product_name || exactMatch.internal_product_name || nextLine.description;
+            nextLine.product_master_id = exactMatch.id;
+            nextLine.matched_sku = exactMatch.internal_sku;
+            nextLine.matched_internal_name = exactMatch.internal_product_name || "";
+            nextLine.matched_stock_uom = exactMatch.stock_uom || "";
+            nextLine.matched_purchase_uom = exactMatch.purchase_unit || "";
+            nextLine.matched_stock_qty_ratio = exactMatch.stock_qty ?? 1;
+            nextLine.unmatched = false;
+            nextLine.pm_unit_price = exactMatch.purchase_unit_cost;
+            nextLine.price_changed = typeof exactMatch.purchase_unit_cost === "number" && exactMatch.purchase_unit_cost > 0
+              ? Math.abs((parseFloat(nextLine.unit_price) || 0) - exactMatch.purchase_unit_cost) > 0.01
+              : false;
+          } else {
+            // Clear stale match so old name doesn't stick
+            nextLine.product_master_id = undefined;
+            nextLine.matched_sku = undefined;
+            nextLine.matched_internal_name = undefined;
+            nextLine.unmatched = Boolean(nextLine.description?.trim());
+          }
+        } else if (!nextLine.product_master_id) {
+          nextLine.unmatched = Boolean((field === "description" ? value : nextLine.description).trim());
+        }
       }
 
       updated[idx] = nextLine;

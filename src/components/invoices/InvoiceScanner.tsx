@@ -553,7 +553,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
-      const line = { ...lines[i], [field]: value };
+      let line = { ...lines[i], [field]: value };
+
+      // When item_code or description changes manually, do an exact Product Master lookup
+      if (field === "item_code" || field === "description") {
+        const trimmed = value.trim();
+        if (trimmed) {
+          const exactMatch = supplierFilteredPM.find((p) => {
+            if (field === "item_code") {
+              return p.external_sku.trim().toLowerCase() === trimmed.toLowerCase();
+            }
+            return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === trimmed.toLowerCase();
+          });
+          if (exactMatch) {
+            line.item_code = exactMatch.external_sku || line.item_code;
+            line.description = exactMatch.supplier_product_name || exactMatch.internal_product_name || line.description;
+            line.matched_sku = exactMatch.internal_sku;
+            line.matched_internal_name = exactMatch.internal_product_name || "";
+            line.matched_stock_uom = exactMatch.stock_uom || "";
+            line.matched_purchase_uom = exactMatch.purchase_unit || "";
+            line.matched_stock_qty_ratio = exactMatch.stock_qty ?? 1;
+          }
+        }
+      }
+
       if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
         const w = line.weight ? parseFloat(line.weight) : null;
         const price = parseFloat(line.unit_price) || 0;
