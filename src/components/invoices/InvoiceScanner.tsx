@@ -638,10 +638,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
         const lineTotal = parseFloat(((qty * price) - disc + tax).toFixed(2));
+        // Resolve product_master_id using external SKU first, then internal SKU
         let pmId: string | null = null;
-        if (l.matched_sku && productMaster) {
-          const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
-          if (pm) pmId = pm.id;
+        if (productMaster) {
+          const resolved = resolveProductMatch(
+            { itemCode: l.item_code, internalSku: l.matched_sku || undefined },
+            productMaster,
+            supplierName,
+          );
+          if (resolved) pmId = resolved.id;
         }
         return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
       });
