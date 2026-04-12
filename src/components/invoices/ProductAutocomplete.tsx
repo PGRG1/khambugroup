@@ -122,13 +122,14 @@ const ProductAutocomplete = ({
             setDropUp(rect.bottom > window.innerHeight - 220);
           }
         }}
-        onBlur={() => {
-          if (query.length > 0) {
+        onBlur={(e) => {
+          const currentValue = e.currentTarget.value.trim().toLowerCase();
+          if (currentValue.length > 0) {
             const exactMatch = products.find((p) => {
               if (searchField === "code") {
-                return p.external_sku.trim().toLowerCase() === query;
+                return p.external_sku.trim().toLowerCase() === currentValue;
               }
-              return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === query;
+              return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === currentValue;
             });
             if (exactMatch) {
               onSelect(exactMatch);
