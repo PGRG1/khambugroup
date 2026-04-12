@@ -254,12 +254,7 @@ export default function ProcurementInvoicesTab() {
   const findProductMatch = (line: Partial<InvoiceLineItem> | Partial<EditableInvoiceLine>, supplierId?: string | null) => {
     const scopedProducts = getScopedProductMaster(supplierId);
 
-    if (line.product_master_id) {
-      return scopedProducts.find((product) => product.id === line.product_master_id)
-        || productMaster.find((product) => product.id === line.product_master_id)
-        || null;
-    }
-
+    // 1. SKU match takes top priority — disambiguates entries sharing the same product_master_id
     const itemCode = (line.item_code || "").trim().toLowerCase();
     if (itemCode) {
       const codeMatch = scopedProducts.find((product) => (product.external_sku || "").trim().toLowerCase() === itemCode)
@@ -267,6 +262,14 @@ export default function ProcurementInvoicesTab() {
       if (codeMatch) return codeMatch;
     }
 
+    // 2. Fall back to product_master_id only when no SKU is present
+    if (line.product_master_id) {
+      return scopedProducts.find((product) => product.id === line.product_master_id)
+        || productMaster.find((product) => product.id === line.product_master_id)
+        || null;
+    }
+
+    // 3. Name match as last resort
     const description = (line.description || "").trim().toLowerCase();
     if (description) {
       const nameMatch = scopedProducts.find((product) => {
