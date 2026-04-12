@@ -1,55 +1,57 @@
 
+Goal
 
-## Fix: Use unique supplier entry IDs to distinguish products sharing the same product_master_id
+- Enforce one rule everywhere in invoice matching: if an External SKU exists, it is the authoritative key. The External Name must be overwritten from the exact Product Master row for that SKU. Only when no External SKU exists should the app fall back to name matching.
 
-### Problem
-Both SKUs (`141189135M15` and `14189169148`) are flattened into the `productMaster` array with the same `id` value (the shared `product_master_id`). When `selectEditProduct` or `hydrateEditLine` resolves by `id`, `.find()` returns whichever entry appears first — always the wrong one.
+What I found
 
-### Root Cause
-In the data-loading effect (line 142), every flattened entry gets `id: p.id` (the product_master_id). Two entries with different SKUs but the same master product end up with identical `id` values. The SKU-first priority in `findProductMatch` works, but the `onBlur` handler in `ProductAutocomplete` can call `onSelect` a second time after `handleSelect` already set the correct product, potentially overwriting it. Also, when `resolveExactMatch` fails (e.g., multiple supplier matches), no auto-select happens on blur, but the `updateEditLine` exact-match logic may also be racing with `selectEditProduct`.
+- The scanner flow still re-resolves rows by `matched_sku` / internal SKU after a user edits or selects a product.
+- That is the wrong key for this case, because `141189135M15` and `14189169148` both sit under internal SKU `MET-1010`.
+- So the app can correctly see `141189135M15` first, then later re-pick the wrong MET-1010 supplier row and overwrite the External Name back to `CHILLED CUBE ROLL / 7 RIB G/F AUST 36 SOUTH`.
+- The procurement editor is closer to correct, but matching logic is duplicated across scanner/editor/save paths, which is why this keeps coming back.
 
-### Fix — 3 changes
+Plan
 
-**1. Give each flattened entry a unique ID (`src/components/procurement/ProcurementInvoicesTab.tsx`)**
+1. Create one shared Product Master resolver
+- Add a small shared matching utility used by scanner and invoice editor.
+- Resolution order for assignment will be:
+  1. exact External SKU
+  2. if no SKU, exact External Name
+  3. only then existing linked ids for hydration
+- `matched_sku` will stay display metadata only, not the key that decides External Name when an External SKU exists.
 
-In the data-loading effect (line 129-172), use `supplier_entry_id` as a unique key alongside the shared `id`:
-- Add `supplier_entry_id: s.id` (the `product_suppliers` row PK) to each supplier-sourced entry
-- Update the `ProductMasterEntry` interface to include `supplier_entry_id?: string`
+2. Fix scanner overwrite logic
+- Update `src/components/invoices/InvoiceScanner.tsx`.
+- Make `updateLine`, `selectProduct`, `resolvePMData`, and `flagLineItemIssues` all use the shared resolver.
+- If `item_code = 141189135M15`, force the matched row to the exact supplier entry for that SKU and force `description = "Chilled Cube Roll A' Aust 3.1K/Up Teys Classic"` regardless of what AI scanned before.
+- Remove the current internal-SKU-first re-resolution that is overwriting the chosen name.
 
-**2. Fix `ProductAutocomplete` onBlur to not overwrite a valid dropdown selection (`src/components/invoices/ProductAutocomplete.tsx`)**
+3. Preserve the exact chosen supplier row during editing
+- Extend scanner line state to carry the exact resolved row identity in UI state (`supplier_entry_id` plus `product_master_id`).
+- Use that stored exact row during rechecks instead of guessing again from shared internal SKU values.
 
-The `onBlur` handler currently calls `onSelect` even after a dropdown click already called it. Add a flag (`justSelected`) that is set in `handleSelect` and checked in `onBlur` to skip the redundant call. This prevents the blur from potentially resolving to a different entry or re-triggering matching logic.
+4. Align the procurement invoice editor with the same rule
+- Update `src/components/procurement/ProcurementInvoicesTab.tsx` to use the same shared resolver.
+- Typing or selecting an External SKU will always overwrite External Name from the exact Product Master row.
+- Name matching remains fallback-only for suppliers that do not have an External SKU.
 
-```typescript
-const justSelectedRef = useRef(false);
+5. Fix save-time persistence
+- Update save mapping in the scanner so `product_master_id` comes from the exact resolved row, not from `matched_sku` / internal SKU lookups.
+- If needed, align the fallback matcher in `src/hooks/useInvoiceData.ts` so persisted matches follow the same SKU-first rule.
 
-const handleSelect = (product: ProductMasterEntry) => {
-  justSelectedRef.current = true;
-  onSelect(product);
-  setOpen(false);
-};
+6. Safety pass on legacy invoice screen
+- Mirror the same resolver in `src/pages/Invoices.tsx` if that screen is still reachable, to avoid split behavior between old and new invoice flows.
 
-// In onBlur:
-onBlur={(e) => {
-  if (justSelectedRef.current) {
-    justSelectedRef.current = false;
-    return; // dropdown selection already handled it
-  }
-  const exactMatch = resolveExactMatch(e.currentTarget.value);
-  if (exactMatch) onSelect(exactMatch);
-}}
-```
+Technical details
 
-**3. Fix `resolveExactMatch` to handle multiple supplier entries from the same supplier (`src/components/invoices/ProductAutocomplete.tsx`)**
+- No backend schema change is required for this fix.
+- The real behavior change is simple:
+  - if External SKU exists and exactly matches Product Master, that row wins every time
+  - AI-scanned description must not survive against a valid SKU
+  - only lines with no External SKU should fall back to exact name matching
 
-Currently, if `supplierMatches.length > 1` AND `exactMatches.length > 1`, it returns `undefined` — no auto-match happens. But for SKU searches, an exact SKU match should always be unique. Change logic to: if searching by `code` and there are exact SKU matches, return the first one (SKU is a unique identifier per supplier entry).
+Expected result
 
-### Files changed
-- `src/components/procurement/ProcurementInvoicesTab.tsx` — add `supplier_entry_id` to interface and data loading
-- `src/components/invoices/ProductAutocomplete.tsx` — add `justSelectedRef` guard and fix `resolveExactMatch` for code searches
-
-### Expected result
-- Selecting SKU `141189135M15` from dropdown → External Name becomes "Chilled Cube Roll A' Aust 3.1K/Up Teys Classic"
-- Selecting SKU `14189169148` from dropdown → External Name becomes "CHILLED CUBE ROLL / 7 RIB G/F AUST 36 SOUTH"
-- No more race between dropdown click and blur overwriting the correct selection
-
+- Entering or selecting `141189135M15` will always set External Name to `Chilled Cube Roll A' Aust 3.1K/Up Teys Classic`.
+- The wrong `MET-1010` sibling row will no longer overwrite it.
+- Suppliers with no External SKU will still be matched by exact name as fallback.
