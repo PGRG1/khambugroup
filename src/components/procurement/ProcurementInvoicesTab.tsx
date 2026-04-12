@@ -298,10 +298,17 @@ export default function ProcurementInvoicesTab() {
     const currentPrice = parseFloat(String(line.unit_price ?? 0)) || 0;
     const pmPrice = matchedProduct?.purchase_unit_cost;
 
+    // When matched by SKU, sync description from the matched product entry
+    const itemCode = (line.item_code || "").trim().toLowerCase();
+    const matchedBySku = matchedProduct && itemCode && (matchedProduct.external_sku || "").trim().toLowerCase() === itemCode;
+    const description = matchedBySku
+      ? (matchedProduct.supplier_product_name || matchedProduct.internal_product_name || line.description || "")
+      : (line.description || "");
+
     return {
       id: "id" in line ? line.id : undefined,
       item_code: line.item_code || "",
-      description: line.description || "",
+      description,
       pack_size: line.pack_size || "",
       quantity: String(line.quantity ?? "1"),
       unit: line.unit || "",
