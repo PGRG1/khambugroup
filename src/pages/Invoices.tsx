@@ -1061,7 +1061,7 @@ export default function Invoices() {
                           <Input value={line.matched_sku} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default font-mono h-8" placeholder="—" />
                         </td>
                         {/* Internal Product Name - read-only */}
-                        <td className="px-1 py-1 align-top">
+                        <td className="px-1 py-1 align-top whitespace-normal break-words">
                           <Input value={line.matched_internal_name} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8" placeholder="—" />
                         </td>
                         {/* External SKU - editable with autocomplete */}
