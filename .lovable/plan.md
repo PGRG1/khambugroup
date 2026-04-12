@@ -1,37 +1,34 @@
 
 
-## Fix: Invoice Line Total Calculation, Column Widths, and Dropdown Cropping
+## Fix: Remaining Calculation Issues, Column Widths, and Text Wrapping
 
-### Problem 1: Total calculated incorrectly
-Both `InvoiceScanner.tsx` (line 563) and `Invoices.tsx` (line 416) use `weight` in the total calculation: `w ? w * price : qty * price`. The user wants total to **always** be `qty * price - discount + tax`, ignoring weight.
+### Problem 1: Weight-based calculation still exists in 4 places
+The `updateLine` function was fixed, but these locations still use `w ? w * price : qty * price`:
 
-### Problem 2: Input columns too narrow
-Numeric inputs for UOM, Qty, Cost, etc. still appear cramped. All input columns (except Name columns) should be wider so values are fully visible.
+| File | Line | Context |
+|------|------|---------|
+| `Invoices.tsx` | 289 | Loading invoice into edit dialog |
+| `Invoices.tsx` | 325 | Saving edited invoice |
+| `Invoices.tsx` | 1255-1258 | Create invoice subtotal display |
+| `InvoiceScanner.tsx` | 661 | Saving scanned invoice |
 
-### Problem 3: Long product names get cut off
-Name columns (Internal Name, External Name) should wrap text instead of truncating.
-
-### Problem 4: Autocomplete dropdown cropped for bottom rows
-The `ProductAutocomplete` dropdown opens downward (`top-full`), so for the last row(s) in the table it gets clipped by the container's `overflow-x-auto`. Fix by detecting position and flipping the dropdown upward when near the bottom.
+### Problem 2: Text wrapping doesn't work
+`whitespace-normal break-words` is on the `<td>`, but the `<Input>` inside is a single-line element — it can never wrap. For read-only name fields (Internal Name), replace the `<Input>` with a plain `<div>` styled to look similar, allowing text to wrap naturally.
 
 ### Changes
 
-**`src/components/invoices/InvoiceScanner.tsx`**:
-- Line 563: Change `(w ? w * price : qty * price)` → `(qty * price)` so total always uses Purch. Qty × Purch. Cost
-- Widen the table `min-w` from `1350px` to `1500px`
-
 **`src/pages/Invoices.tsx`**:
-- Line 416: Same fix — change `(w ? w * price : qty * price)` → `(qty * price)`
-- Line 1146: Same fix in the subtotal calculation at the bottom
-- Widen the edit table `min-w` from `1200px` to `1500px`
+1. Line 288-289: Remove weight variable, change total to `(qty * price) - disc + tax`
+2. Line 324-325: Same fix in `handleEditSave`
+3. Lines 1254-1258: Remove weight from create invoice subtotal, use `qty * price`
+4. Lines 1064-1065 (edit table): Replace `<Input>` for Internal Name with a `<div>` that has `whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border` so long names wrap
+5. Same for External Name cell if it's read-only
 
-**Both files — column width tweaks**:
-- Increase width on UOM columns (`w-[75px]` → `w-[85px]`)
-- Ensure all numeric inputs have `min-w-[80px]`
-- Add `whitespace-normal break-words` to the Internal Name and External Name `<td>` cells so long names wrap
+**`src/components/invoices/InvoiceScanner.tsx`**:
+1. Line 660-661: Remove weight variable, change `lineTotal` to `(qty * price) - disc + tax`
+2. Lines 1101-1108 (scanner table): Replace `<Input>` for Internal Name with a wrapping `<div>` styled as above
 
-**`src/components/invoices/ProductAutocomplete.tsx`**:
-- Add logic to detect if the dropdown would overflow the viewport bottom
-- If so, render the dropdown **above** the input (`bottom-full mb-1`) instead of below (`top-full mt-1`)
-- Change the container overflow on parent tables from `overflow-x-auto` to also allow `overflow-y-visible` where needed, or use a portal/fixed position approach
+### Files Changed
+- `src/pages/Invoices.tsx` — 4 calculation fixes + 1 UI fix
+- `src/components/invoices/InvoiceScanner.tsx` — 1 calculation fix + 1 UI fix
 
