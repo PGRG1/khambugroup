@@ -432,7 +432,7 @@ export default function ProcurementInvoicesTab() {
         product.supplier.toLowerCase().includes(editSupplierName.toLowerCase());
       const nextLine: EditableInvoiceLine = {
         ...currentLine,
-        item_code: supplierMatch ? (product.external_sku || currentLine.item_code) : currentLine.item_code,
+        item_code: product.external_sku || currentLine.item_code,
         description: product.supplier_product_name || product.internal_product_name || currentLine.description,
         product_master_id: product.id,
         matched_sku: product.internal_sku,

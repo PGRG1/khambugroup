@@ -583,7 +583,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         normalizeSupplierName(product.supplier) === normalizeSupplierName(invoiceSupplier);
       const line = {
         ...lines[i],
-        item_code: productSupplierMatch ? (product.external_sku || lines[i].item_code) : lines[i].item_code,
+        item_code: product.external_sku || lines[i].item_code,
         description: product.supplier_product_name || product.internal_product_name,
         matched_sku: product.internal_sku,
         matched_internal_name: product.internal_product_name || "",
