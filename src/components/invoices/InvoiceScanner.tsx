@@ -440,10 +440,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const lineItems = flagLineItemIssues(
           (raw?.line_items || []).map((li: any) => {
             const matchedSku = li?.matched_sku || "";
-            const pmData = resolvePMData(matchedSku, productMaster, supplierName);
+            const itemCode = li?.item_code || "";
+            const pmData = resolvePMData(itemCode, matchedSku, productMaster, supplierName);
+            // If resolved by SKU, override description with the authoritative PM name
+            const resolvedDesc = pmData.entry
+              ? (pmData.entry.supplier_product_name || pmData.entry.internal_product_name || li?.description || "")
+              : (li?.description || "");
             return {
-              item_code: li?.item_code || "",
-              description: li?.description || "",
+              item_code: itemCode,
+              description: itemCode && pmData.entry ? resolvedDesc : (li?.description || ""),
               pack_size: li?.pack_size || "",
               quantity: String(li?.quantity ?? "1"),
               unit: li?.unit || "",
@@ -452,7 +457,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               discount: String(li?.discount ?? "0"),
               tax_amount: String(li?.tax_amount ?? "0"),
               total: String((((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0)).toFixed(2)),
-              matched_sku: matchedSku,
+              matched_sku: pmData.entry?.internal_sku || matchedSku,
               matched_internal_name: pmData.internal_name,
               matched_stock_uom: pmData.stock_uom,
               matched_purchase_uom: pmData.purchase_uom,
