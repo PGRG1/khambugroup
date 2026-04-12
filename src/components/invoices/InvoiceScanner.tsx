@@ -448,7 +448,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               unit_price: String(li?.unit_price ?? "0"),
               discount: String(li?.discount ?? "0"),
               tax_amount: String(li?.tax_amount ?? "0"),
-              total: String(li?.total ?? "0"),
+              total: String((((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0)).toFixed(2)),
               matched_sku: matchedSku,
               matched_internal_name: pmData.internal_name,
               matched_stock_uom: pmData.stock_uom,
