@@ -512,24 +512,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const lines = [...copy[currentIdx].line_items];
       let line = { ...lines[i], [field]: value };
 
-      // When item_code or description changes manually, do an exact Product Master lookup
+      // When item_code or description changes manually, use shared resolver
       if (field === "item_code" || field === "description") {
         const trimmed = value.trim();
         if (trimmed) {
-          const exactMatch = supplierFilteredPM.find((p) => {
+          const resolved = resolveProductMatch(
+            {
+              itemCode: field === "item_code" ? trimmed : line.item_code,
+              description: field === "description" ? trimmed : line.description,
+            },
+            supplierFilteredPM,
+            copy[currentIdx].supplier_name,
+          );
+          if (resolved) {
+            line.item_code = resolved.external_sku || line.item_code;
+            // If matched by SKU, always override description
             if (field === "item_code") {
-              return p.external_sku.trim().toLowerCase() === trimmed.toLowerCase();
+              line.description = resolved.supplier_product_name || resolved.internal_product_name || line.description;
             }
-            return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === trimmed.toLowerCase();
-          });
-          if (exactMatch) {
-            line.item_code = exactMatch.external_sku || line.item_code;
-            line.description = exactMatch.supplier_product_name || exactMatch.internal_product_name || line.description;
-            line.matched_sku = exactMatch.internal_sku;
-            line.matched_internal_name = exactMatch.internal_product_name || "";
-            line.matched_stock_uom = exactMatch.stock_uom || "";
-            line.matched_purchase_uom = exactMatch.purchase_unit || "";
-            line.matched_stock_qty_ratio = exactMatch.stock_qty ?? 1;
+            line.matched_sku = resolved.internal_sku;
+            line.matched_internal_name = resolved.internal_product_name || "";
+            line.matched_stock_uom = resolved.stock_uom || "";
+            line.matched_purchase_uom = resolved.purchase_unit || "";
+            line.matched_stock_qty_ratio = resolved.stock_qty ?? 1;
           }
         }
       }
