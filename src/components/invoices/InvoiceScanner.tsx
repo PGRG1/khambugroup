@@ -557,22 +557,24 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     setInvoices((prev) => {
       const copy = [...prev];
       const lines = [...copy[currentIdx].line_items];
-      // Only use the product's external SKU if it belongs to the same supplier
-      const invoiceSupplier = copy[currentIdx].supplier_name;
-      const productSupplierMatch = invoiceSupplier && product.supplier &&
-        normalizeSupplierName(product.supplier) === normalizeSupplierName(invoiceSupplier);
-      const line = {
-        ...lines[i],
-        item_code: product.external_sku || lines[i].item_code,
-        description: product.supplier_product_name || product.internal_product_name,
+      const currentLine = lines[i];
+      const scannedPrice = parseFloat(currentLine.unit_price) || 0;
+      const pmPrice = product.purchase_unit_cost ?? 0;
+      // Directly set all fields from the selected product — no re-resolution
+      lines[i] = {
+        ...currentLine,
+        item_code: product.external_sku || currentLine.item_code,
+        description: product.supplier_product_name || product.internal_product_name || currentLine.description,
         matched_sku: product.internal_sku,
         matched_internal_name: product.internal_product_name || "",
         matched_stock_uom: product.stock_uom || "",
         matched_purchase_uom: product.purchase_unit || "",
         matched_stock_qty_ratio: product.stock_qty ?? 1,
+        unmatched: false,
+        sku_mismatch: false,
+        price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
+        pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
       };
-      const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
-      lines[i] = flagged[0];
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
