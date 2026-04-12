@@ -47,6 +47,39 @@ const ProductAutocomplete = ({
 
   const query = value.trim().toLowerCase();
 
+  const isSupplierMatch = (supplier?: string, invoiceSupplier?: string) => {
+    if (!supplier || !invoiceSupplier) return false;
+    const normalizedSupplier = normalizeSupplierName(supplier);
+    const normalizedInvoiceSupplier = normalizeSupplierName(invoiceSupplier);
+    return (
+      normalizedSupplier === normalizedInvoiceSupplier ||
+      normalizedSupplier.includes(normalizedInvoiceSupplier) ||
+      normalizedInvoiceSupplier.includes(normalizedSupplier)
+    );
+  };
+
+  const resolveExactMatch = (rawValue: string) => {
+    const normalizedValue = rawValue.trim().toLowerCase();
+    if (!normalizedValue) return undefined;
+
+    const exactMatches = products.filter((p) => {
+      if (searchField === "code") {
+        return p.external_sku.trim().toLowerCase() === normalizedValue;
+      }
+      return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === normalizedValue;
+    });
+
+    if (exactMatches.length === 0) return undefined;
+
+    const supplierMatches = currentSupplier
+      ? exactMatches.filter((p) => isSupplierMatch(p.supplier, currentSupplier))
+      : [];
+
+    if (supplierMatches.length === 1) return supplierMatches[0];
+    if (exactMatches.length === 1) return exactMatches[0];
+    return undefined;
+  };
+
   const suggestions = useMemo(() => {
     if (!query || query.length < 1) return [];
     const results = products
@@ -58,8 +91,6 @@ const ProductAutocomplete = ({
         const name = (p.supplier_product_name || p.internal_product_name || "").toLowerCase();
         return name.includes(query);
       });
-    // Prioritize supplier matches (products array is already sorted supplier-first)
-    // Just slice to limit
     return results.slice(0, 8);
   }, [query, products, searchField]);
 
@@ -123,17 +154,9 @@ const ProductAutocomplete = ({
           }
         }}
         onBlur={(e) => {
-          const currentValue = e.currentTarget.value.trim().toLowerCase();
-          if (currentValue.length > 0) {
-            const exactMatch = products.find((p) => {
-              if (searchField === "code") {
-                return p.external_sku.trim().toLowerCase() === currentValue;
-              }
-              return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === currentValue;
-            });
-            if (exactMatch) {
-              onSelect(exactMatch);
-            }
+          const exactMatch = resolveExactMatch(e.currentTarget.value);
+          if (exactMatch) {
+            onSelect(exactMatch);
           }
         }}
         onKeyDown={handleKeyDown}
