@@ -407,49 +407,35 @@ export default function ProcurementInvoicesTab() {
       }
 
       if (field === "item_code" || field === "description") {
-        const trimmed = value.trim().toLowerCase();
+        const trimmed = value.trim();
         const invoiceSupplierName = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id || null) || selectedInvoice?.supplier_name || "";
 
         if (trimmed) {
-          const exactMatches = editFilteredPM.filter((p) => {
+          const resolved = resolveProductMatch(
+            {
+              itemCode: field === "item_code" ? trimmed : nextLine.item_code,
+              description: field === "description" ? trimmed : nextLine.description,
+            },
+            productMaster,
+            invoiceSupplierName,
+          );
+
+          if (resolved) {
+            nextLine.item_code = resolved.external_sku || nextLine.item_code;
+            // If matched by SKU (item_code field), always override description
             if (field === "item_code") {
-              return p.external_sku.trim().toLowerCase() === trimmed;
+              nextLine.description = resolved.supplier_product_name || resolved.internal_product_name || nextLine.description;
             }
-            return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === trimmed;
-          });
-
-          const supplierMatches = invoiceSupplierName
-            ? exactMatches.filter((p) => {
-                if (!p.supplier) return false;
-                const productSupplier = normalizeSupplierName(p.supplier);
-                const currentSupplier = normalizeSupplierName(invoiceSupplierName);
-                return productSupplier === currentSupplier || productSupplier.includes(currentSupplier) || currentSupplier.includes(productSupplier);
-              })
-            : [];
-
-          const exactMatch = supplierMatches.length === 1
-            ? supplierMatches[0]
-            : supplierMatches.length > 1 && field === "item_code"
-              ? supplierMatches[0]
-              : exactMatches.length === 1
-                ? exactMatches[0]
-                : field === "item_code" && exactMatches.length > 0
-                  ? exactMatches[0]
-                  : null;
-
-          if (exactMatch) {
-            nextLine.item_code = exactMatch.external_sku || nextLine.item_code;
-            nextLine.description = exactMatch.supplier_product_name || exactMatch.internal_product_name || nextLine.description;
-            nextLine.product_master_id = exactMatch.id;
-            nextLine.matched_sku = exactMatch.internal_sku;
-            nextLine.matched_internal_name = exactMatch.internal_product_name || "";
-            nextLine.matched_stock_uom = exactMatch.stock_uom || "";
-            nextLine.matched_purchase_uom = exactMatch.purchase_unit || "";
-            nextLine.matched_stock_qty_ratio = exactMatch.stock_qty ?? 1;
+            nextLine.product_master_id = resolved.id;
+            nextLine.matched_sku = resolved.internal_sku;
+            nextLine.matched_internal_name = resolved.internal_product_name || "";
+            nextLine.matched_stock_uom = resolved.stock_uom || "";
+            nextLine.matched_purchase_uom = resolved.purchase_unit || "";
+            nextLine.matched_stock_qty_ratio = resolved.stock_qty ?? 1;
             nextLine.unmatched = false;
-            nextLine.pm_unit_price = exactMatch.purchase_unit_cost;
-            nextLine.price_changed = typeof exactMatch.purchase_unit_cost === "number" && exactMatch.purchase_unit_cost > 0
-              ? Math.abs((parseFloat(nextLine.unit_price) || 0) - exactMatch.purchase_unit_cost) > 0.01
+            nextLine.pm_unit_price = resolved.purchase_unit_cost;
+            nextLine.price_changed = typeof resolved.purchase_unit_cost === "number" && resolved.purchase_unit_cost > 0
+              ? Math.abs((parseFloat(nextLine.unit_price) || 0) - resolved.purchase_unit_cost) > 0.01
               : false;
           } else {
             nextLine.product_master_id = null;
