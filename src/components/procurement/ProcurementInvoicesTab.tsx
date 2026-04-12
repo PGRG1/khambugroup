@@ -309,7 +309,6 @@ export default function ProcurementInvoicesTab() {
       total: "total" in line && typeof line.total === "string" ? line.total : calculateEditLineTotal({
         quantity: String(line.quantity ?? "1"),
         unit_price: String(line.unit_price ?? 0),
-        weight: line.weight ? String(line.weight) : "",
         discount: String(line.discount ?? 0),
         tax_amount: String(line.tax_amount ?? 0),
       }),
