@@ -1159,7 +1159,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           type="number"
                           value={line.quantity}
                           onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                          className="text-xs h-8 min-w-[75px]"
+                          className="text-xs h-8 min-w-[80px]"
                         />
                       </td>
                       {/* Stock UOM - read-only from PM */}
