@@ -1,51 +1,67 @@
 
-Goal: make the invoice matching use the Product Master exact row for External SKU `141189135M15`, so the External Name becomes `Chilled Cube Roll A' Aust 3.1K/Up Teys Classic` every time.
 
-What I found
-- I confirmed the Product Master has an exact row for `141189135M15` and its supplier product name is `Chilled Cube Roll A' Aust 3.1K/Up Teys Classic`.
-- The problem is not the data. It is the edit-flow logic.
-- In `src/components/procurement/ProcurementInvoicesTab.tsx`, typing into `item_code` only changes the raw field. It does not rematch the row immediately, so an old matched name/product can stay stuck.
-- That stale state is made worse because `product_master_id` is kept on the line, and the helper later prefers that old ID over the newly typed SKU.
-- In `src/components/invoices/ProductAutocomplete.tsx`, the blur auto-match uses the captured `query` prop instead of the current input value, so exact matches can be missed when the user types and tabs away quickly.
+## Fix: Product matching returns wrong supplier entry due to shared product_master_id
 
-Implementation plan
-1. Fix manual exact matching in the Procurement Edit page
-- Update `src/components/procurement/ProcurementInvoicesTab.tsx`
-- When `item_code` changes:
-  - clear stale matched state from the old product
-  - do an exact Product Master lookup by External SKU first
-  - if found, immediately overwrite both:
-    - External SKU
-    - External Name
-  - also update `product_master_id`, internal SKU, UOM fields, and price flags from that exact row
-- If no exact SKU match is found, keep the typed value but clear the old matched product info so the wrong name does not remain.
+### Root Cause
+Two supplier entries share the same `product_master_id` (`29e4136d-...`):
+- SKU `14189169148` → "CHILLED CUBE ROLL / 7 RIB G/F AUST 36 SOUTH"
+- SKU `141189135M15` → "Chilled Cube Roll A' Aust 3.1K/Up Teys Classic"
 
-2. Apply the same exact sync when typing External Name
-- In the same procurement edit file, when `description` changes:
-  - run an exact lookup on supplier product name/internal product name
-  - if found, backfill both External Name and External SKU from that exact Product Master row
-- This keeps manual typing behavior consistent with dropdown selection.
+Both are flattened into the `productMaster` array with `id: product_master_id`. When `findProductMatch` resolves by `product_master_id`, it uses `.find()` which returns the **first** entry — always the wrong one. Even though `selectEditProduct` correctly sets the description, the `hydrateEditLine` useEffect (line 352-356) immediately re-runs `findProductMatch`, finds the first entry by ID, and overwrites the description.
 
-3. Harden autocomplete blur matching
-- Update `src/components/invoices/ProductAutocomplete.tsx`
-- Change the blur logic to use `e.currentTarget.value` instead of the stale rendered `query`
-- Keep it exact-match only on blur
-- Prefer supplier-scoped exact match first, then fall back to a global exact match if needed
+### Fix Strategy: use a composite key that distinguishes supplier entries
 
-4. Stop stale product IDs from overriding new exact codes
-- In `ProcurementInvoicesTab.tsx`, ensure a changed SKU/name does not keep the old `product_master_id` unless the new exact match resolves to that same row
-- This prevents the old product name from “winning” after the user types a new exact code
+**Priority logic (as user requested):**
+1. Match by External SKU first — if found, fill External Name from that exact supplier entry
+2. If no External SKU match, fall back to matching by Name
 
-5. Mirror the same fix in the legacy edit page if needed
-- Apply the same exact-on-manual-entry logic to `src/pages/Invoices.tsx`
-- That page uses the same autocomplete pattern and can fail in the same way
+### Changes
 
-Technical details
-- Exact SKU match must take priority over any fuzzy/contains logic
-- Dropdown suggestions can remain fuzzy for search convenience, but actual auto-assignment on manual entry should be exact
-- No backend/schema changes are needed; this is frontend matching-state cleanup
+**1. `ProcurementInvoicesTab.tsx` — give each flattened entry a unique `supplier_entry_id`**
+- In the data-loading `useEffect` (line 129-172), add `supplier_entry_id: s.id` (the `product_suppliers` row id) to each flattened entry
+- Update `ProductMasterEntry` interface to include `supplier_entry_id?: string`
+- Store `supplier_entry_id` on each `EditableInvoiceLine`
 
-Expected result
-- Typing `141189135M15` and tabbing out will set the External Name to `Chilled Cube Roll A' Aust 3.1K/Up Teys Classic`
-- Picking a row from either External SKU or External Name dropdown will always synchronize both fields
-- Old wrong names will no longer stay stuck after a new exact SKU is entered
+**2. `ProcurementInvoicesTab.tsx` — fix `findProductMatch` to prefer SKU match over ID match**
+- When `line.product_master_id` is set AND `line.item_code` is set, first try exact SKU match. If found, return that specific entry instead of the first-by-ID entry.
+- This ensures SKU `141189135M15` always resolves to "Chilled Cube Roll A' Aust 3.1K/Up Teys Classic", not the first entry for that product.
+
+**3. `ProcurementInvoicesTab.tsx` — fix `hydrateEditLine` to preserve the correct supplier entry**
+- When a line already has both `product_master_id` and `item_code`, ensure `findProductMatch` uses the item_code to disambiguate between multiple supplier entries sharing the same product_master_id.
+
+**4. `ProductAutocomplete.tsx` — same interface update**
+- Add `supplier_entry_id` to the `ProductMasterEntry` interface
+
+**5. `InvoiceScanner.tsx` — apply same fix to scanner flow**
+- Ensure `findProductMatch` equivalent in scanner also prioritizes SKU match
+
+### Technical detail
+The key change in `findProductMatch`:
+```
+// Before: ID match first, returns wrong entry
+if (line.product_master_id) {
+  return scopedProducts.find(p => p.id === line.product_master_id);
+}
+
+// After: SKU match takes priority, then ID match
+const itemCode = (line.item_code || "").trim().toLowerCase();
+if (itemCode) {
+  const skuMatch = scopedProducts.find(p => p.external_sku.trim().toLowerCase() === itemCode);
+  if (skuMatch) return skuMatch;
+}
+if (line.product_master_id) {
+  // Only fall back to ID match if no SKU
+  return scopedProducts.find(p => p.id === line.product_master_id);
+}
+```
+
+### Files changed
+- `src/components/procurement/ProcurementInvoicesTab.tsx` — reorder match priority in `findProductMatch`, update data loading
+- `src/components/invoices/InvoiceScanner.tsx` — same match priority fix
+- `src/components/invoices/ProductAutocomplete.tsx` — interface update
+
+### Expected result
+- Typing or selecting SKU `141189135M15` → External Name becomes "Chilled Cube Roll A' Aust 3.1K/Up Teys Classic"
+- Typing or selecting SKU `14189169148` → External Name becomes "CHILLED CUBE ROLL / 7 RIB G/F AUST 36 SOUTH"
+- Each supplier entry resolves independently even when sharing the same internal product
+
