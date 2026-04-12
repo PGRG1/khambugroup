@@ -282,13 +282,12 @@ export default function ProcurementInvoicesTab() {
     return null;
   };
 
-  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "weight" | "discount" | "tax_amount">) => {
+  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
-    const weight = line.weight ? parseFloat(line.weight) || 0 : 0;
-    return ((weight > 0 ? weight * price : qty * price) - discount + tax).toFixed(2);
+    return ((qty * price) - discount + tax).toFixed(2);
   };
 
   const hydrateEditLine = (line: Partial<InvoiceLineItem> | EditableInvoiceLine, supplierId?: string | null): EditableInvoiceLine => {
@@ -407,7 +406,7 @@ export default function ProcurementInvoicesTab() {
       const updated = [...prev];
       const nextLine: EditableInvoiceLine = { ...updated[idx], [field]: value };
 
-      if (["quantity", "unit_price", "weight", "discount", "tax_amount"].includes(field)) {
+      if (["quantity", "unit_price", "discount", "tax_amount"].includes(field)) {
         nextLine.total = calculateEditLineTotal(nextLine);
       }
 
@@ -499,8 +498,7 @@ export default function ProcurementInvoicesTab() {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
-    const weight = line.weight ? parseFloat(line.weight) || 0 : 0;
-    return sum + ((weight > 0 ? weight * price : qty * price) - discount);
+    return sum + ((qty * price) - discount);
   }, 0);
   const editTotal = editLines.reduce((sum, line) => sum + (parseFloat(line.total) || 0), 0);
   const unmatchedCount = editLines.filter((line) => line.unmatched && line.description.trim()).length;
@@ -599,7 +597,7 @@ export default function ProcurementInvoicesTab() {
 
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full min-w-[1200px] border-collapse text-xs">
+            <table className="w-full min-w-[1350px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border">
                   <th className="w-7 px-1 py-1.5 text-left font-medium text-muted-foreground">#</th>
@@ -631,7 +629,7 @@ export default function ProcurementInvoicesTab() {
                         <Input value={line.matched_sku} readOnly tabIndex={-1} className="h-8 cursor-default bg-muted/50 font-mono text-xs" placeholder="—" />
                       </td>
                       <td className="px-1 py-1 align-top">
-                        <Input value={line.matched_internal_name} readOnly tabIndex={-1} className="h-8 cursor-default bg-muted/50 text-xs" placeholder="—" />
+                        <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input cursor-default">{line.matched_internal_name || <span className="text-muted-foreground">—</span>}</div>
                       </td>
                       <td className="px-1 py-1 align-top">
                         <ProductAutocomplete
@@ -666,7 +664,7 @@ export default function ProcurementInvoicesTab() {
                         <Input value={line.matched_purchase_uom} readOnly tabIndex={-1} className="h-8 cursor-default bg-muted/50 text-xs" placeholder="—" />
                       </td>
                       <td className="px-1 py-1 align-top">
-                        <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(index, "quantity", e.target.value)} className="h-8 text-xs min-w-[75px]" />
+                        <Input type="number" value={line.quantity} onChange={(e) => updateEditLine(index, "quantity", e.target.value)} className="h-8 text-xs min-w-[85px]" />
                       </td>
                       <td className="px-1 py-1 align-top">
                         <Input value={line.matched_stock_uom} readOnly tabIndex={-1} className="h-8 cursor-default bg-muted/50 text-xs" placeholder="—" />
@@ -686,7 +684,7 @@ export default function ProcurementInvoicesTab() {
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateEditLine(index, "unit_price", e.target.value)}
-                            className={`h-8 text-xs min-w-[75px] ${line.price_changed ? "border-primary" : ""}`}
+                            className={`h-8 text-xs min-w-[95px] ${line.price_changed ? "border-primary" : ""}`}
                           />
                           {line.price_changed && line.pm_unit_price !== undefined && (
                             <span className="mt-0.5 block whitespace-nowrap text-[9px] text-primary">PM: ${line.pm_unit_price.toFixed(2)}</span>
@@ -694,7 +692,7 @@ export default function ProcurementInvoicesTab() {
                         </div>
                       </td>
                       <td className="px-1 py-1 align-top">
-                        <Input type="number" value={line.total} onChange={(e) => updateEditLine(index, "total", e.target.value)} className="h-8 text-xs font-medium min-w-[75px]" />
+                        <Input value={line.total} readOnly tabIndex={-1} className="h-8 text-xs font-medium min-w-[90px] bg-muted/50 cursor-default font-mono" />
                       </td>
                       <td className="px-1 py-1 align-top">
                         {editLines.length > 1 && (
