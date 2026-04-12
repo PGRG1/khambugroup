@@ -115,11 +115,24 @@ const ProductAutocomplete = ({
           onChange(e.target.value);
           setOpen(true);
         }}
-       onFocus={() => {
+        onFocus={() => {
           if (query.length >= 1) setOpen(true);
           if (containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
             setDropUp(rect.bottom > window.innerHeight - 220);
+          }
+        }}
+        onBlur={() => {
+          if (query.length > 0) {
+            const exactMatch = products.find((p) => {
+              if (searchField === "code") {
+                return p.external_sku.trim().toLowerCase() === query;
+              }
+              return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === query;
+            });
+            if (exactMatch) {
+              onSelect(exactMatch);
+            }
           }
         }}
         onKeyDown={handleKeyDown}
