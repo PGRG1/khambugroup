@@ -285,8 +285,7 @@ export default function Invoices() {
       const price = Number(li.unit_price) || 0;
       const disc = Number(li.discount) || 0;
       const tax = Number(li.tax_amount) || 0;
-      const w = li.weight ? Number(li.weight) : null;
-      const total = ((w ? w * price : qty * price) - disc + tax);
+      const total = ((qty * price) - disc + tax);
       const priceChanged = pm_unit_price != null && pm_unit_price > 0 && Math.abs(price - pm_unit_price) > 0.01;
       return {
         item_code: li.item_code || "",
@@ -321,14 +320,13 @@ export default function Invoices() {
       const price = parseFloat(l.unit_price) || 0;
       const disc = parseFloat(l.discount) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
-      const w = l.weight ? parseFloat(l.weight) : null;
-      const lineTotal = parseFloat(((w ? w * price : qty * price) - disc + tax).toFixed(2));
+      const lineTotal = parseFloat(((qty * price) - disc + tax).toFixed(2));
       let pmId: string | null = l.product_master_id;
       if (!pmId && l.matched_sku && editPMData.length) {
         const pm = editPMData.find(p => p.internal_sku === l.matched_sku);
         if (pm) pmId = pm.id;
       }
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null, product_master_id: pmId };
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null, product_master_id: pmId };
     });
     const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
@@ -1061,8 +1059,10 @@ export default function Invoices() {
                           <Input value={line.matched_sku} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default font-mono h-8" placeholder="—" />
                         </td>
                         {/* Internal Product Name - read-only */}
-                        <td className="px-1 py-1 align-top whitespace-normal break-words">
-                          <Input value={line.matched_internal_name} readOnly tabIndex={-1} className="text-xs bg-muted/50 cursor-default h-8" placeholder="—" />
+                        <td className="px-1 py-1 align-top">
+                          <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground">
+                            {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
+                          </div>
                         </td>
                         {/* External SKU - editable with autocomplete */}
                         <td className="px-1 py-1 align-top">
@@ -1252,11 +1252,10 @@ export default function Invoices() {
               <span className="text-muted-foreground">Subtotal: </span>
               <span className="font-mono font-medium">
                 {newLines.reduce((s, l) => {
-                  const w = l.weight ? parseFloat(l.weight) : null;
-                  const price = parseFloat(l.unit_price) || 0;
-                  const qty = parseFloat(l.quantity) || 0;
-                  return s + (w ? w * price : qty * price);
-                }, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                   const price = parseFloat(l.unit_price) || 0;
+                   const qty = parseFloat(l.quantity) || 0;
+                   return s + (qty * price);
+                 }, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
