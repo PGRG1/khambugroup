@@ -657,8 +657,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const price = parseFloat(l.unit_price) || 0;
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
-        const w = l.weight ? parseFloat(l.weight) : null;
-        const lineTotal = parseFloat(((w ? w * price : qty * price) - disc + tax).toFixed(2));
+        const lineTotal = parseFloat(((qty * price) - disc + tax).toFixed(2));
         let pmId: string | null = null;
         if (l.matched_sku && productMaster) {
           const pm = productMaster.find(p => p.internal_sku === l.matched_sku);
@@ -1098,14 +1097,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Internal Product Name - read-only */}
-                      <td className="px-1 py-1 align-top whitespace-normal break-words">
-                        <Input
-                          value={line.matched_internal_name}
-                          readOnly
-                          tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8"
-                          placeholder="—"
-                        />
+                      <td className="px-1 py-1 align-top">
+                        <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground">
+                          {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
+                        </div>
                       </td>
                       {/* External SKU - editable with autocomplete */}
                       <td className="px-1 py-1 align-top">
