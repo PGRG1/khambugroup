@@ -240,20 +240,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     }
   }, []);
 
-  // Resolve PM data for a matched line
-  const resolvePMData = useCallback((matchedSku: string, pm: ProductMasterEntry[] | undefined, supplierName?: string) => {
-    if (!pm || !matchedSku) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1 };
-    if (supplierName) {
-      const normSupplier = normalizeSupplierName(supplierName);
-      const supplierMatch = pm.find(p => p.internal_sku === matchedSku && p.supplier && (
-        normalizeSupplierName(p.supplier) === normSupplier ||
-        normalizeSupplierName(p.supplier).includes(normSupplier) ||
-        normSupplier.includes(normalizeSupplierName(p.supplier))
-      ));
-      if (supplierMatch) return { internal_name: supplierMatch.internal_product_name, stock_uom: supplierMatch.stock_uom || "", purchase_uom: supplierMatch.purchase_unit || "", stock_qty_ratio: supplierMatch.stock_qty ?? 1 };
-    }
-    const entry = pm.find(p => p.internal_sku === matchedSku);
-    return { internal_name: entry?.internal_product_name || "", stock_uom: entry?.stock_uom || "", purchase_uom: entry?.purchase_unit || "", stock_qty_ratio: entry?.stock_qty ?? 1 };
+  // Resolve PM data for a matched line — uses shared resolver with SKU-first priority
+  const resolvePMData = useCallback((itemCode: string, matchedSku: string, pm: ProductMasterEntry[] | undefined, supplierName?: string) => {
+    if (!pm) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1, entry: null as ProductMasterEntry | null };
+    const entry = resolveProductMatch(
+      { itemCode, internalSku: matchedSku },
+      pm,
+      supplierName,
+    );
+    if (!entry) return { internal_name: "", stock_uom: "", purchase_uom: "", stock_qty_ratio: 1, entry: null };
+    return {
+      internal_name: entry.internal_product_name,
+      stock_uom: entry.stock_uom || "",
+      purchase_uom: entry.purchase_unit || "",
+      stock_qty_ratio: entry.stock_qty ?? 1,
+      entry,
+    };
   }, []);
 
   const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
