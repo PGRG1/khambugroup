@@ -405,8 +405,7 @@ export default function Invoices() {
   const updateEditLine = (i: number, field: string, value: string) => {
     const updated = [...editLines];
     const line = { ...updated[i], [field]: value };
-    if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
-      const w = line.weight ? parseFloat(line.weight) : null;
+    if (["quantity", "unit_price", "discount", "tax_amount"].includes(field)) {
       const price = parseFloat(line.unit_price) || 0;
       const qty = parseFloat(line.quantity) || 0;
       const disc = parseFloat(line.discount) || 0;
@@ -1123,7 +1122,7 @@ export default function Invoices() {
                         </td>
                         {/* Total */}
                         <td className="px-1 py-1 align-top">
-                          <Input type="number" value={line.total} onChange={(e) => updateEditLine(i, "total", e.target.value)} className="text-xs font-medium h-8 min-w-[80px]" />
+                          <Input value={line.total} readOnly tabIndex={-1} className="text-xs font-medium h-8 min-w-[80px] bg-muted/50 cursor-default font-mono" />
                         </td>
                         {/* Delete */}
                         <td className="px-1 py-1 align-top">
