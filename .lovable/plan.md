@@ -1,22 +1,41 @@
 
 
-## Plan: Enhance Duplicate SKU Warning with Product Name
+## Fix: False SKU Mismatch for Valid External SKUs
 
-### Changes
+### Problem
+When the scanner finds a match via `internal_sku`, it then checks if the scanned `item_code` matches the `external_sku` of the **single** PM entry it resolved. But a product can have multiple supplier entries (each with its own `external_sku`). If the scanned code matches a different supplier entry under the same internal SKU, a false "SKU mismatch" is triggered.
 
-**`src/components/procurement/ProductMasterTab.tsx`**:
+### Fix
 
-1. Change `duplicateSku` state from `boolean` to `string | null` to store the matched product's internal product name (or `null` if no match).
+**`src/components/invoices/InvoiceScanner.tsx`** — lines 337-343 in `flagLineItemIssues`:
 
-2. Update the `useEffect` (line 179-186): instead of `products.some(...)`, use `products.find(...)` and store `matchedProduct.internal_product_name` in state.
+Instead of comparing the scanned code only against `pmEntry.external_sku`, check against **all** PM entries that share the same `internal_sku`. If any of them have an `external_sku` that matches the scanned code (exact, partial, or pipe-segment), it's not a mismatch.
 
-3. Update the warning banner (line 506-508) to show both the SKU and the internal product name:
-   - `⚠ SKU "MET-122" already exists — "Chilled Rib Eye Roll Black Angus". Saving will add a new supplier entry (e.g. different weight/pack size) to this product.`
+Change the logic from:
+```
+const pmExtSku = pmEntry.external_sku...
+const skuMatches = ... scannedCode === pmExtSku ...
+```
 
-4. Update the confirmation dialog (line 597-600) to also display the product name and clarify the use case:
-   - `A product with SKU "MET-122" ("Chilled Rib Eye Roll Black Angus") already exists. This will add a new supplier entry to the existing product — useful when the same supplier sells different weights or pack sizes under the same internal SKU. Continue?`
+To:
+```
+// Collect all external SKUs for entries sharing this internal_sku
+const allExtSkus = pm
+  .filter(p => p.internal_sku === workingLine.matched_sku)
+  .map(p => (p.external_sku || "").trim().toLowerCase())
+  .filter(Boolean);
 
-5. Update all boolean checks (`if (duplicateSku)`, ternary uses) to check `duplicateSku !== null` instead.
+const skuMatches = !scannedCode || allExtSkus.length === 0
+  || allExtSkus.some(sku =>
+    scannedCode === sku
+    || sku.includes(scannedCode)
+    || scannedCode.includes(sku)
+    || sku.split("|").some(seg => seg.trim() === scannedCode)
+  );
+```
 
-### No other files affected.
+This ensures a scanned code like `144111171159` won't trigger a mismatch as long as any supplier entry under the matched internal SKU has that external SKU.
+
+### Files Changed
+- `src/components/invoices/InvoiceScanner.tsx` — one block (~5 lines)
 
