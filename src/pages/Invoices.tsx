@@ -326,7 +326,7 @@ export default function Invoices() {
         const pm = editPMData.find(p => p.internal_sku === l.matched_sku);
         if (pm) pmId = pm.id;
       }
-      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: w, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null, product_master_id: pmId };
+      return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null, product_master_id: pmId };
     });
     const subtotal = lines.reduce((s, l) => s + l.total - l.tax_amount, 0);
     const taxTotal = lines.reduce((s, l) => s + l.tax_amount, 0);
