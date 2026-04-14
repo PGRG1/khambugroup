@@ -168,6 +168,10 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Cumulative Sales — full width with period selector */}
           <CumulativeSalesChart data={data} />
+
+          {/* Scatter distribution charts */}
+          <ScatterAnalysisCharts data={data} />
+
           <ChartCard title="Daily Sales">
             <div className="flex items-center justify-between mb-2 px-1">
               <p className="text-xs text-muted-foreground">
