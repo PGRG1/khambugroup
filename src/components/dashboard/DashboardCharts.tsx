@@ -6,6 +6,7 @@ import ChartCard from "./ChartCard";
 import PaymentBreakdownChart from "./PaymentBreakdownChart";
 import VenuePerformanceChart from "./VenuePerformanceChart";
 import CumulativeSalesChart from "./CumulativeSalesChart";
+import ScatterAnalysisCharts from "./ScatterAnalysisCharts";
 
 const MONTH_COLORS = [
   "hsl(24, 80%, 50%)",
