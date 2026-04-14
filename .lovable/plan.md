@@ -1,19 +1,58 @@
 
 
-## Fix: Remove `$` sign from non-monetary fields in Sales Record modal
+## Plan: Add Three Scatterplot Charts with Statistical Reference Lines
 
-**Problem**: In the Sales Record detail modal, the `Row` component formats ALL numeric values with a `$` prefix (line 95 of `SalesDetailModal.tsx`). This incorrectly shows `$38` for Orders and `$89` for Guests, which are counts, not currency.
+### Overview
+Add three new scatterplot charts to the Revenue Overview dashboard: **Daily Revenue**, **No. of Guests**, and **Spend per Guest**. Each chart shows individual data points (one per trading day) color-coded by month, with statistical reference lines and interactive filters for day-of-week and month selection.
 
-**Solution**: Add a `isCurrency` flag to the `Row` component. Only prepend `$` and format as currency when the field is monetary.
+### New Component: `src/components/dashboard/ScatterAnalysisCharts.tsx`
 
-**File**: `src/components/dashboard/SalesDetailModal.tsx`
+A single component rendering three scatter charts in a 2-column grid (third chart on its own row or filling the grid). Each chart includes:
 
-1. Update the `Row` component to accept an optional `isCurrency` prop (default `true` for backward compatibility).
-2. When `isCurrency` is `false`, display the number without `$` and without currency formatting (just use `toLocaleString()` for clean number display).
-3. Update the `Row` calls for **Orders** and **Guests** to pass `isCurrency={false}`.
+**Filters (shared across all three charts):**
+- **Day-of-week pills** (Mon–Sun) — toggle which weekdays to include. All selected by default. Click to toggle on/off.
+- **Month legend** — clickable month chips (same pattern as CumulativeSalesChart). All shown by default; click to toggle visibility.
 
-**Fields affected**:
-- Orders → plain number
-- Guests → plain number
-- All other numeric fields (Subtotal, Service Charge, Discount, Total Sales, payment methods) → keep `$` formatting
+**Chart content (Recharts `ScatterChart`):**
+- X-axis: day of month (1–31)
+- Y-axis: the metric value
+- Each dot = one trading day, colored by its month
+- Tooltip shows: date, day, month, and value
+
+**Statistical reference lines (`ReferenceLine`):**
+- **Avg** — dashed line, labeled "Avg"
+- **Med** — solid line, labeled "Med" (median)
+- **P75** — dotted line, labeled "P75" (75th percentile)
+- **P25** — dotted line, labeled "P25" (25th percentile)
+- Calculated from visible (filtered) data points only
+- Subtle colors, small labels on the right Y-axis area
+
+**Data preparation:**
+- Aggregate sales records by date (same logic as existing `dailySales`)
+- Each point: `{ date, day, dayOfMonth, month, totalSales, guests, spendPerGuest }`
+- Filter by selected days and months before rendering
+- Recalculate stats on filtered subset
+
+### Integration into `DashboardCharts.tsx`
+
+- Import and render `ScatterAnalysisCharts` inside the `view === "daily"` block
+- Place it after the Cumulative Sales chart and before the existing Daily Sales line chart
+- Pass the raw `data: SalesRecord[]` prop
+- Add a section header: "Daily Distribution Analysis"
+
+### Technical Details
+
+- Uses Recharts `ScatterChart`, `Scatter`, `ZAxis`, `ReferenceLine`, `Cell`
+- Percentile calculation: sort values, interpolate at 25% and 75% positions
+- Reuses existing `MONTH_COLORS`, `tooltipStyle`, `axisStyle`, `gridColor` constants
+- Reuses `ChartCard` wrapper, `getMonthKey`, `getMonthLabel`, `formatCurrency` utilities
+- Day filter and month filter state managed locally within the component via `useState`
+
+### Chart Specifications
+
+| Chart | Y-axis format | Tooltip format |
+|-------|--------------|----------------|
+| Daily Revenue | `$12k` | `$12,345` |
+| No. of Guests | plain number | `89` |
+| Spend / Guest | `$123` | `$123` |
 
