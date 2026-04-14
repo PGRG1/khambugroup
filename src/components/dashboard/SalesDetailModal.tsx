@@ -125,8 +125,8 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
               <Row label="Day" value={active.day} fieldKey="day" />
               <Row label="Venue" value={active.venue} fieldKey="venue" />
               <Row label="Report #" value={active.reportNumber || "—"} fieldKey="reportNumber" />
-              <Row label="Orders" value={active.orders} fieldKey="orders" />
-              <Row label="Guests" value={active.guests} fieldKey="guests" />
+              <Row label="Orders" value={active.orders} fieldKey="orders" isCurrency={false} />
+              <Row label="Guests" value={active.guests} fieldKey="guests" isCurrency={false} />
             </Section>
 
             <Section title="Sales Breakdown">
