@@ -64,7 +64,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
     </div>
   );
 
-  const Row = ({ label, value, warn, fieldKey }: { label: string; value: string | number; warn?: boolean; fieldKey?: keyof SalesRecord }) => {
+  const Row = ({ label, value, warn, fieldKey, isCurrency = true }: { label: string; value: string | number; warn?: boolean; fieldKey?: keyof SalesRecord; isCurrency?: boolean }) => {
     if (editing && editData && fieldKey) {
       const isNumeric = typeof record[fieldKey] === "number";
       return (
@@ -92,7 +92,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
       <div className="flex items-center justify-between py-0.5">
         <span className="text-sm text-muted-foreground">{label}</span>
         <span className={`text-sm font-medium ${warn ? "text-destructive" : "text-foreground"}`}>
-          {typeof value === "number" ? `$${formatCurrency(value)}` : value}
+          {typeof value === "number" ? (isCurrency ? `$${formatCurrency(value)}` : value.toLocaleString()) : value}
         </span>
       </div>
     );
@@ -125,8 +125,8 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
               <Row label="Day" value={active.day} fieldKey="day" />
               <Row label="Venue" value={active.venue} fieldKey="venue" />
               <Row label="Report #" value={active.reportNumber || "—"} fieldKey="reportNumber" />
-              <Row label="Orders" value={active.orders} fieldKey="orders" />
-              <Row label="Guests" value={active.guests} fieldKey="guests" />
+              <Row label="Orders" value={active.orders} fieldKey="orders" isCurrency={false} />
+              <Row label="Guests" value={active.guests} fieldKey="guests" isCurrency={false} />
             </Section>
 
             <Section title="Sales Breakdown">
