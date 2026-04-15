@@ -1,58 +1,21 @@
 
 
-## Plan: Add Three Scatterplot Charts with Statistical Reference Lines
+## Plan: Enable duplicate SKU detection in Edit Product mode
 
-### Overview
-Add three new scatterplot charts to the Revenue Overview dashboard: **Daily Revenue**, **No. of Guests**, and **Spend per Guest**. Each chart shows individual data points (one per trading day) color-coded by month, with statistical reference lines and interactive filters for day-of-week and month selection.
+### Problem
+When editing a product, the duplicate Internal SKU detection is deliberately disabled. The user wants the same warning behavior as when creating a new product — if they change the Internal SKU to one that already exists, they should see the amber caution alert.
 
-### New Component: `src/components/dashboard/ScatterAnalysisCharts.tsx`
+### Changes
 
-A single component rendering three scatter charts in a 2-column grid (third chart on its own row or filling the grid). Each chart includes:
+**File: `src/components/procurement/ProductMasterTab.tsx`**
 
-**Filters (shared across all three charts):**
-- **Day-of-week pills** (Mon–Sun) — toggle which weekdays to include. All selected by default. Click to toggle on/off.
-- **Month legend** — clickable month chips (same pattern as CumulativeSalesChart). All shown by default; click to toggle visibility.
+1. **Update the duplicate SKU detection `useEffect` (line 179-186)**: Remove the early return for `editingProductId`. Instead, when editing, check for duplicates but exclude the current product's own SKU (using `originalSku` to compare). If the SKU matches a *different* product, show the warning.
 
-**Chart content (Recharts `ScatterChart`):**
-- X-axis: day of month (1–31)
-- Y-axis: the metric value
-- Each dot = one trading day, colored by its month
-- Tooltip shows: date, day, month, and value
+2. **Show the duplicate alert in edit mode (line 503)**: Remove the `!editingProductId` condition so the amber warning appears during both create and edit flows.
 
-**Statistical reference lines (`ReferenceLine`):**
-- **Avg** — dashed line, labeled "Avg"
-- **Med** — solid line, labeled "Med" (median)
-- **P75** — dotted line, labeled "P75" (75th percentile)
-- **P25** — dotted line, labeled "P25" (25th percentile)
-- Calculated from visible (filtered) data points only
-- Subtle colors, small labels on the right Y-axis area
+3. **Update `attemptSave` (line 242-248)**: Allow the duplicate confirmation dialog to trigger during edits as well (when the SKU was changed to match another product). The existing merge/reassign logic on lines 281-288 already handles this case correctly, so the confirmation dialog simply acts as an extra safety step.
 
-**Data preparation:**
-- Aggregate sales records by date (same logic as existing `dailySales`)
-- Each point: `{ date, day, dayOfMonth, month, totalSales, guests, spendPerGuest }`
-- Filter by selected days and months before rendering
-- Recalculate stats on filtered subset
-
-### Integration into `DashboardCharts.tsx`
-
-- Import and render `ScatterAnalysisCharts` inside the `view === "daily"` block
-- Place it after the Cumulative Sales chart and before the existing Daily Sales line chart
-- Pass the raw `data: SalesRecord[]` prop
-- Add a section header: "Daily Distribution Analysis"
-
-### Technical Details
-
-- Uses Recharts `ScatterChart`, `Scatter`, `ZAxis`, `ReferenceLine`, `Cell`
-- Percentile calculation: sort values, interpolate at 25% and 75% positions
-- Reuses existing `MONTH_COLORS`, `tooltipStyle`, `axisStyle`, `gridColor` constants
-- Reuses `ChartCard` wrapper, `getMonthKey`, `getMonthLabel`, `formatCurrency` utilities
-- Day filter and month filter state managed locally within the component via `useState`
-
-### Chart Specifications
-
-| Chart | Y-axis format | Tooltip format |
-|-------|--------------|----------------|
-| Daily Revenue | `$12k` | `$12,345` |
-| No. of Guests | plain number | `89` |
-| Spend / Guest | `$123` | `$123` |
+### Technical detail
+- The `originalSku` state (line 62) already tracks the SKU value when editing began, which we use to distinguish "same SKU as before" from "changed to a different existing SKU."
+- The existing merge-on-SKU-match logic (lines 281-288) will continue to handle the actual reassignment.
 
