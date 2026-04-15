@@ -28,6 +28,19 @@ const tooltipStyle = {
 const axisStyle = { fontSize: 11, fill: "hsl(25, 10%, 50%)" };
 const gridColor = "hsl(30, 15%, 85%)";
 
+const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
 interface Props {
   data: SalesRecord[];
 }
@@ -37,8 +50,6 @@ export default function CumulativeSalesChart({ data }: Props) {
     return [...new Set(data.map((r) => getMonthKey(r.date)))].sort();
   }, [data]);
 
-  // Same behavior as schedule chart:
-  // [] means "show all"; when user clicks, we track only selected months.
   const [activeMonths, setActiveMonths] = useState<string[]>([]);
 
   const toggleMonth = useCallback((mk: string) => {
@@ -59,6 +70,60 @@ export default function CumulativeSalesChart({ data }: Props) {
     return map;
   }, [allMonths]);
 
+  // Compute day-of-week medians for projection
+  const dayOfWeekMedians = useMemo(() => {
+    // Aggregate daily totals by date first, then group by day of week
+    const dailyMap = new Map<string, { guests: number; sales: number }>();
+    data.forEach((r) => {
+      const existing = dailyMap.get(r.date);
+      if (existing) {
+        existing.guests += r.guests;
+        existing.sales += r.totalSales;
+      } else {
+        dailyMap.set(r.date, { guests: r.guests, sales: r.totalSales });
+      }
+    });
+
+    const byDow: Record<number, { guests: number[]; spendPerGuest: number[] }> = {};
+    for (let i = 0; i < 7; i++) byDow[i] = { guests: [], spendPerGuest: [] };
+
+    dailyMap.forEach((val, dateStr) => {
+      const d = new Date(dateStr);
+      const dow = d.getDay(); // 0=Sun
+      byDow[dow].guests.push(val.guests);
+      if (val.guests > 0) {
+        // Spend per guest BEFORE service charge: totalSales includes 10% SC
+        // totalSales = gross + SC = gross * 1.1 => gross = totalSales / 1.1
+        // spendPerGuest (gross) = gross / guests
+        // But user formula: projected = medianGuests * medianSpendPerGuest * 1.1
+        // So we should store spend per guest as totalSales / guests / 1.1 (the gross spend)
+        // Actually simpler: store totalSales/guests as "revenue per guest" and then
+        // the projection = medianGuests * medianRevenuePerGuest (already includes SC)
+        // But user says formula = guests * spend_per_guest * 1.1 SC
+        // So spend_per_guest = subtotal / guests (without SC)
+        // We don't have subtotal directly broken out per-day aggregated... 
+        // Let's use: spend_per_guest_gross = totalSales / guests / 1.1
+        byDow[dow].spendPerGuest.push(val.sales / val.guests / 1.1);
+      }
+    });
+
+    const result: Record<number, { medianGuests: number; medianSpend: number }> = {};
+    for (let i = 0; i < 7; i++) {
+      result[i] = {
+        medianGuests: median(byDow[i].guests),
+        medianSpend: median(byDow[i].spendPerGuest),
+      };
+    }
+    return result;
+  }, [data]);
+
+  // Determine which month is the "current" month (matches today's calendar month and is in data)
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return allMonths.includes(mk) ? mk : null;
+  }, [allMonths]);
+
   const cumulativeData = useMemo(() => {
     const monthGroups = new Map<string, Map<number, number>>();
     data.forEach((r) => {
@@ -69,25 +134,66 @@ export default function CumulativeSalesChart({ data }: Props) {
       dayMap.set(dayOfMonth, (dayMap.get(dayOfMonth) || 0) + r.totalSales);
     });
 
-    if (monthGroups.size === 0) return { rows: [], months: [] };
+    if (monthGroups.size === 0) return { rows: [], months: [], hasProjection: false };
 
-    const maxDay = Math.max(...Array.from(monthGroups.values()).flatMap((m) => Array.from(m.keys())));
     const sortedMonths = [...monthGroups.keys()].sort();
-    const rows: Record<string, number | string>[] = [];
+
+    // Find the last actual day and total days for the current month
+    let projectionStartDay = 0;
+    let projectionMonthDays = 0;
+    let lastActualCum = 0;
+    const hasProjection = currentMonthKey !== null && monthGroups.has(currentMonthKey);
+
+    if (hasProjection && currentMonthKey) {
+      const [y, m] = currentMonthKey.split("-").map(Number);
+      projectionMonthDays = daysInMonth(y, m - 1);
+      const dayMap = monthGroups.get(currentMonthKey)!;
+      projectionStartDay = Math.max(...Array.from(dayMap.keys()));
+      // Compute cumulative up to last actual day
+      for (let i = 1; i <= projectionStartDay; i++) lastActualCum += dayMap.get(i) || 0;
+    }
+
+    // Max day across all months — extend to include projection days
+    let maxDay = Math.max(...Array.from(monthGroups.values()).flatMap((m) => Array.from(m.keys())));
+    if (hasProjection && projectionMonthDays > maxDay) maxDay = projectionMonthDays;
+
+    const rows: Record<string, number | string | undefined>[] = [];
 
     for (let d = 1; d <= maxDay; d++) {
-      const row: Record<string, number | string> = { day: d };
+      const row: Record<string, number | string | undefined> = { day: d };
       sortedMonths.forEach((mk) => {
         const dayMap = monthGroups.get(mk)!;
         let cumSum = 0;
         for (let i = 1; i <= d; i++) cumSum += dayMap.get(i) || 0;
         if (cumSum > 0) row[mk] = cumSum;
       });
+
+      // Add projection data for the current month
+      if (hasProjection && currentMonthKey) {
+        if (d === projectionStartDay) {
+          // Overlap point: projection starts at the last actual value
+          row[`${currentMonthKey}_proj`] = lastActualCum;
+        } else if (d > projectionStartDay && d <= projectionMonthDays) {
+          // Build cumulative projection
+          const [y, m] = currentMonthKey.split("-").map(Number);
+          let projCum = lastActualCum;
+          for (let pd = projectionStartDay + 1; pd <= d; pd++) {
+            const projDate = new Date(y, m - 1, pd);
+            const dow = projDate.getDay();
+            const med = dayOfWeekMedians[dow];
+            // projected daily sales = median guests × median spend per guest × 1.1 (SC)
+            const dailyProj = med.medianGuests * med.medianSpend * 1.1;
+            projCum += dailyProj;
+          }
+          row[`${currentMonthKey}_proj`] = Math.round(projCum);
+        }
+      }
+
       rows.push(row);
     }
 
-    return { rows, months: sortedMonths };
-  }, [data]);
+    return { rows, months: sortedMonths, hasProjection };
+  }, [data, currentMonthKey, dayOfWeekMedians]);
 
   if (allMonths.length === 0) return null;
 
@@ -106,7 +212,12 @@ export default function CumulativeSalesChart({ data }: Props) {
               <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 {...tooltipStyle}
-                formatter={(v: number, name: string) => [`$${formatCurrency(v)}`, getMonthLabel(name)]}
+                formatter={(v: number, name: string) => {
+                  const isProj = name.endsWith("_proj");
+                  const monthKey = isProj ? name.replace("_proj", "") : name;
+                  const label = getMonthLabel(monthKey);
+                  return [`$${formatCurrency(v)}`, isProj ? `${label} (Projected)` : label];
+                }}
                 labelFormatter={(l) => `Day ${l}`}
               />
               {cumulativeData.months.map((mk) => (
@@ -120,6 +231,20 @@ export default function CumulativeSalesChart({ data }: Props) {
                   hide={isMonthHidden(mk)}
                 />
               ))}
+              {/* Projection line for current month */}
+              {cumulativeData.hasProjection && currentMonthKey && (
+                <Line
+                  key={`${currentMonthKey}_proj`}
+                  dataKey={`${currentMonthKey}_proj`}
+                  type="monotone"
+                  stroke={colorMap.get(currentMonthKey)}
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  hide={isMonthHidden(currentMonthKey)}
+                  connectNulls={false}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
 
@@ -128,6 +253,7 @@ export default function CumulativeSalesChart({ data }: Props) {
             {allMonths.map((mk) => {
               const hidden = isMonthHidden(mk);
               const color = colorMap.get(mk)!;
+              const isCurrentMonth = mk === currentMonthKey && cumulativeData.hasProjection;
               return (
                 <button
                   key={mk}
@@ -135,10 +261,22 @@ export default function CumulativeSalesChart({ data }: Props) {
                   className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity"
                   style={{ opacity: hidden ? 0.35 : 1 }}
                 >
-                  {/* Line-dot-line marker */}
-                  <svg width="20" height="10" className="shrink-0">
-                    <line x1="0" y1="5" x2="20" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
-                    <circle cx="10" cy="5" r="3" fill="hsl(35, 25%, 95%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                  {/* Line-dot-line marker — dashed if current month has projection */}
+                  <svg width="28" height="10" className="shrink-0">
+                    {isCurrentMonth ? (
+                      <>
+                        {/* Solid portion */}
+                        <line x1="0" y1="5" x2="12" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                        {/* Dashed portion */}
+                        <line x1="14" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" strokeDasharray="3 2" opacity={hidden ? 0.4 : 1} />
+                        <circle cx="12" cy="5" r="3" fill="hsl(35, 25%, 95%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                      </>
+                    ) : (
+                      <>
+                        <line x1="0" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                        <circle cx="14" cy="5" r="3" fill="hsl(35, 25%, 95%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                      </>
+                    )}
                   </svg>
                   <span
                     style={{
@@ -147,6 +285,7 @@ export default function CumulativeSalesChart({ data }: Props) {
                     }}
                   >
                     {getMonthLabel(mk)}
+                    {isCurrentMonth && " + Proj."}
                   </span>
                 </button>
               );
