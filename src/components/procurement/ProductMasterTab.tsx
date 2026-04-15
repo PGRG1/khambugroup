@@ -599,7 +599,10 @@ export default function ProductMasterTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate SKU Detected</AlertDialogTitle>
             <AlertDialogDescription>
-              A product with SKU "{form.internal_sku}" ("{duplicateSku}") already exists. This will add a new supplier entry to the existing product — useful when the same supplier sells different weights or pack sizes under the same internal SKU. Continue?
+              A product with SKU "{form.internal_sku}" ("{duplicateSku}") already exists.{" "}
+              {editingProductId
+                ? "This will merge this supplier entry into the existing product. Continue?"
+                : "This will add a new supplier entry to the existing product — useful when the same supplier sells different weights or pack sizes under the same internal SKU. Continue?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
