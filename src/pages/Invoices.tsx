@@ -4,6 +4,7 @@ import { useStandardProducts, StandardProduct } from "@/hooks/useStandardProduct
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveProductMatch } from "@/utils/productMasterResolver";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -411,6 +412,59 @@ export default function Invoices() {
       const disc = parseFloat(line.discount) || 0;
       const tax = parseFloat(line.tax_amount) || 0;
       line.total = String(((qty * price) - disc + tax).toFixed(2));
+    }
+    if (field === "unit_price" && line.pm_unit_price) {
+      line.price_changed = Math.abs((parseFloat(value) || 0) - line.pm_unit_price) > 0.01;
+    }
+    if (field === "item_code" || field === "description") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        const resolved = resolveProductMatch(
+          {
+            itemCode: field === "item_code" ? trimmed : line.item_code,
+            description: field === "description" ? trimmed : line.description,
+          },
+          editFilteredPM as any,
+          editSupplierName,
+        );
+        if (resolved) {
+          line.item_code = resolved.external_sku || line.item_code;
+          if (field === "item_code") {
+            line.description = resolved.supplier_product_name || resolved.internal_product_name || line.description;
+          }
+          line.product_master_id = resolved.id;
+          line.matched_sku = resolved.internal_sku;
+          line.matched_internal_name = resolved.internal_product_name || "";
+          line.matched_stock_uom = resolved.stock_uom || "";
+          line.matched_purchase_uom = resolved.purchase_unit || "";
+          line.matched_stock_qty_ratio = resolved.stock_qty ?? 1;
+          line.unmatched = false;
+          line.pm_unit_price = resolved.purchase_unit_cost;
+          line.price_changed = typeof resolved.purchase_unit_cost === "number" && resolved.purchase_unit_cost > 0
+            ? Math.abs((parseFloat(line.unit_price) || 0) - resolved.purchase_unit_cost) > 0.01
+            : false;
+        } else {
+          line.product_master_id = null;
+          line.matched_sku = "";
+          line.matched_internal_name = "";
+          line.matched_stock_uom = "";
+          line.matched_purchase_uom = "";
+          line.matched_stock_qty_ratio = 1;
+          line.pm_unit_price = undefined;
+          line.price_changed = false;
+          line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
+        }
+      } else {
+        line.product_master_id = null;
+        line.matched_sku = "";
+        line.matched_internal_name = "";
+        line.matched_stock_uom = "";
+        line.matched_purchase_uom = "";
+        line.matched_stock_qty_ratio = 1;
+        line.pm_unit_price = undefined;
+        line.price_changed = false;
+        line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
+      }
     }
     updated[i] = line;
     setEditLines(updated);
@@ -1073,6 +1127,7 @@ export default function Invoices() {
                             searchField="code"
                             placeholder="Code"
                             className="text-xs h-8"
+                            currentSupplier={editSupplierName}
                           />
                         </td>
                         {/* External Name - editable with autocomplete */}
@@ -1086,6 +1141,7 @@ export default function Invoices() {
                               searchField="name"
                               placeholder="Item name"
                               className="text-xs h-8"
+                              currentSupplier={editSupplierName}
                             />
                             {line.unmatched && line.description.trim() && (
                               <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
