@@ -221,7 +221,7 @@ export default function CumulativeSalesChart({ data }: Props) {
                   const isProj = name.endsWith("_proj");
                   const monthKey = isProj ? name.replace("_proj", "") : name;
                   const label = getMonthLabel(monthKey);
-                  return [`$${formatCurrency(v)}`, isProj ? `${label} (Projected)` : label];
+                  return [`$${formatCurrency(v)}`, isProj ? `${label} + Proj.` : label];
                 }}
                 labelFormatter={(l) => `Day ${l}`}
               />
