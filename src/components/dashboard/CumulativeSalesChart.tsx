@@ -165,7 +165,12 @@ export default function CumulativeSalesChart({ data }: Props) {
         const dayMap = monthGroups.get(mk)!;
         let cumSum = 0;
         for (let i = 1; i <= d; i++) cumSum += dayMap.get(i) || 0;
-        if (cumSum > 0) row[mk] = cumSum;
+        // For current month, stop solid line at last actual day
+        if (mk === currentMonthKey && hasProjection && d > projectionStartDay) {
+          // Don't add — let projection handle it
+        } else if (cumSum > 0) {
+          row[mk] = cumSum;
+        }
       });
 
       // Add projection data for the current month
