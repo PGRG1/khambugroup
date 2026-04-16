@@ -1,30 +1,29 @@
 
 
-## Fix: Separate actual vs projected lines for current month
+## Plan: Align Invoices.tsx edit dialog with Procurement's product matching logic
 
 ### Problem
-The current month's solid line continues showing cumulative values on days where only projected data should appear. The tooltip shows both "Apr 2026: $351,808" and "Apr 2026 (Projected): $351,898" at the same point. The user wants:
-1. Solid line stops at the last actual data day
-2. Dotted projection line starts from there
-3. Tooltip shows only "Apr 2026" for actual days and only "Apr 2026 + Proj" for projected days
+The edit invoice dialog in `src/pages/Invoices.tsx` (accessible from `/invoices`) has `ProductAutocomplete` dropdowns on External SKU and External Name, but the `updateEditLine` function (line 405) does **not** call `resolveProductMatch` when the user types — it only updates the raw text. This means:
+- Typing an External SKU doesn't auto-fill External Name
+- Typing an External Name doesn't auto-fill External SKU
+- No automatic product resolution happens on manual text entry
 
-### Fix in `src/components/dashboard/CumulativeSalesChart.tsx`
+The Procurement version (`ProcurementInvoicesTab.tsx`) already has full resolution logic. This fix brings the old Invoices page in line.
 
-**In the `cumulativeData` memo (lines 162-193):**
-- After computing cumulative values for all months, for the **current month only**, set values to `undefined` for days **after** `projectionStartDay`. This stops the solid line at the last actual day.
+### Changes
 
-Specifically, change the logic around line 168:
-```typescript
-// For current month, don't set actual values beyond the last real data day
-if (mk === currentMonthKey && hasProjection && d > projectionStartDay) {
-  // Don't add — let projection handle it
-} else if (cumSum > 0) {
-  row[mk] = cumSum;
-}
-```
+**File: `src/pages/Invoices.tsx`**
 
-**Tooltip (line 219):**
-- Change projected label from `"${label} (Projected)"` to `"${label} + Proj."`
+1. **Add `resolveProductMatch` import** (around line 6): Import the shared resolver utility.
 
-No other changes needed. The projection line already starts at `projectionStartDay` with the overlap point, so it will seamlessly continue from where the solid line ends.
+2. **Update `updateEditLine` (lines 405-417)**: Add product resolution logic when `field === "item_code"` or `field === "description"`, mirroring the same pattern from `ProcurementInvoicesTab.tsx` lines 409-461. On match:
+   - Auto-fill `item_code` (External SKU) from resolved entry
+   - Auto-fill `description` (External Name) when SKU field triggers the match
+   - Set `matched_sku`, `matched_internal_name`, `matched_stock_uom`, `matched_purchase_uom`, `matched_stock_qty_ratio`, `product_master_id`
+   - Clear `unmatched` flag
+   - Detect price changes vs PM unit price
+
+3. **Pass `currentSupplier` to both `ProductAutocomplete` instances** (lines 1068 and 1081): Add the `currentSupplier` prop using the supplier name from `editSupplierName`, so autocomplete suggestions prioritize the invoice's supplier.
+
+### No database changes needed.
 
