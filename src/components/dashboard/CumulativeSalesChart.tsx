@@ -175,11 +175,8 @@ export default function CumulativeSalesChart({ data }: Props) {
 
       // Add projection data for the current month
       if (hasProjection && currentMonthKey) {
-        if (d === projectionStartDay) {
-          // Overlap point: projection starts at the last actual value
-          row[`${currentMonthKey}_proj`] = lastActualCum;
-        } else if (d > projectionStartDay && d <= projectionMonthDays) {
-          // Build cumulative projection
+        if (d > projectionStartDay && d <= projectionMonthDays) {
+          // Build cumulative projection starting after the last actual day
           const [y, m] = currentMonthKey.split("-").map(Number);
           let projCum = lastActualCum;
           for (let pd = projectionStartDay + 1; pd <= d; pd++) {
