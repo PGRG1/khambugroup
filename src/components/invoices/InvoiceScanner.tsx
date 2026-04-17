@@ -573,7 +573,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       // Directly set all fields from the selected product — no re-resolution
       lines[i] = {
         ...currentLine,
-        item_code: product.external_sku || currentLine.item_code,
+        item_code: product.external_sku || "",
         description: product.supplier_product_name || product.internal_product_name || currentLine.description,
         matched_sku: product.internal_sku,
         matched_internal_name: product.internal_product_name || "",
