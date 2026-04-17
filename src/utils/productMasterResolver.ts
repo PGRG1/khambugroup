@@ -149,3 +149,65 @@ export function resolveProductMatch(
 
   return null;
 }
+
+/**
+ * Exact-only match used at save time to re-link a manually typed line
+ * back to the Product Master without any fuzzy / contains behavior.
+ *
+ * Priority:
+ *  1. Exact External SKU match (supplier-scoped first, then global)
+ *  2. Exact Supplier Product Name match (supplier-scoped first, then global)
+ *  3. internal_sku hydration (supplier-scoped first)
+ *
+ * Returns null if no exact match — the line stays unlinked.
+ */
+export function resolveExactMatch(
+  {
+    itemCode,
+    description,
+    internalSku,
+  }: {
+    itemCode?: string;
+    description?: string;
+    internalSku?: string;
+  },
+  products: PMEntry[],
+  invoiceSupplier?: string,
+): PMEntry | null {
+  const code = (itemCode || "").trim().toLowerCase();
+  const desc = (description || "").trim().toLowerCase();
+
+  if (code) {
+    if (invoiceSupplier) {
+      const m = products.find(
+        p => (p.external_sku || "").trim().toLowerCase() === code && supplierMatch(p.supplier, invoiceSupplier)
+      );
+      if (m) return m;
+    }
+    const m = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
+    if (m) return m;
+  }
+
+  if (desc) {
+    if (invoiceSupplier) {
+      const m = products.find(p => {
+        const spn = (p.supplier_product_name || "").trim().toLowerCase();
+        return spn && spn === desc && supplierMatch(p.supplier, invoiceSupplier);
+      });
+      if (m) return m;
+    }
+    const m = products.find(p => (p.supplier_product_name || "").trim().toLowerCase() === desc);
+    if (m) return m;
+  }
+
+  if (internalSku) {
+    if (invoiceSupplier) {
+      const m = products.find(p => p.internal_sku === internalSku && supplierMatch(p.supplier, invoiceSupplier));
+      if (m) return m;
+    }
+    const m = products.find(p => p.internal_sku === internalSku);
+    if (m) return m;
+  }
+
+  return null;
+}

@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
-import { resolveProductMatch } from "@/utils/productMasterResolver";
+import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -522,31 +522,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const lines = [...copy[currentIdx].line_items];
       let line = { ...lines[i], [field]: value };
 
-      // When item_code or description changes manually, use shared resolver
+      // When item_code or description changes manually, treat as free text.
+      // Clear any prior PM linkage so edits stick. Re-linking happens at save time
+      // (or when the user explicitly picks an autocomplete suggestion).
       if (field === "item_code" || field === "description") {
-        const trimmed = value.trim();
-        if (trimmed) {
-          const resolved = resolveProductMatch(
-            {
-              itemCode: field === "item_code" ? trimmed : line.item_code,
-              description: field === "description" ? trimmed : line.description,
-            },
-            supplierFilteredPM,
-            copy[currentIdx].supplier_name,
-          );
-          if (resolved) {
-            line.item_code = resolved.external_sku || line.item_code;
-            // If matched by SKU, always override description
-            if (field === "item_code") {
-              line.description = resolved.supplier_product_name || resolved.internal_product_name || line.description;
-            }
-            line.matched_sku = resolved.internal_sku;
-            line.matched_internal_name = resolved.internal_product_name || "";
-            line.matched_stock_uom = resolved.stock_uom || "";
-            line.matched_purchase_uom = resolved.purchase_unit || "";
-            line.matched_stock_qty_ratio = resolved.stock_qty ?? 1;
-          }
-        }
+        line.matched_sku = "";
+        line.matched_internal_name = "";
+        line.matched_stock_uom = "";
+        line.matched_purchase_uom = "";
+        line.matched_stock_qty_ratio = 1;
+        line.sku_mismatch = false;
+        line.price_changed = false;
+        line.pm_unit_price = undefined;
+        line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
       }
 
       if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
@@ -560,7 +548,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const raw = (qty * price) - disc + tax;
         line.total = isBW ? String(Math.round(raw)) : String(raw.toFixed(2));
       }
-      if (["item_code", "unit_price", "matched_sku", "description"].includes(field)) {
+      if (["unit_price", "matched_sku"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
         lines[i] = flagged[0];
       } else {
@@ -660,11 +648,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
         const lineTotal = isBW ? Math.round((qty * price) - disc + tax) : parseFloat(((qty * price) - disc + tax).toFixed(2));
-        // Resolve product_master_id using external SKU first, then internal SKU
+        // Resolve product_master_id at save time using EXACT match only
         let pmId: string | null = null;
         if (productMaster) {
-          const resolved = resolveProductMatch(
-            { itemCode: l.item_code, internalSku: l.matched_sku || undefined },
+          const resolved = resolveExactMatch(
+            { itemCode: l.item_code, description: l.description, internalSku: l.matched_sku || undefined },
             productMaster,
             supplierName,
           );

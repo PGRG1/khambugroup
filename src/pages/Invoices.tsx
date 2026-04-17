@@ -4,7 +4,7 @@ import { useStandardProducts, StandardProduct } from "@/hooks/useStandardProduct
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveProductMatch } from "@/utils/productMasterResolver";
+import { resolveExactMatch } from "@/utils/productMasterResolver";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -328,9 +328,13 @@ export default function Invoices() {
       const rawTotal = (qty * price) - disc + tax;
       const lineTotal = isBW ? Math.round(rawTotal) : parseFloat(rawTotal.toFixed(2));
       let pmId: string | null = l.product_master_id;
-      if (!pmId && l.matched_sku && editPMData.length) {
-        const pm = editPMData.find(p => p.internal_sku === l.matched_sku);
-        if (pm) pmId = pm.id;
+      if (!pmId && editPMData.length) {
+        const exact = resolveExactMatch(
+          { itemCode: l.item_code, description: l.description, internalSku: l.matched_sku || undefined },
+          editPMData as any,
+          editSupplierName,
+        );
+        if (exact) pmId = exact.id;
       }
       return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null, product_master_id: pmId };
     });
@@ -424,54 +428,17 @@ export default function Invoices() {
       line.price_changed = Math.abs((parseFloat(value) || 0) - line.pm_unit_price) > 0.01;
     }
     if (field === "item_code" || field === "description") {
-      const trimmed = value.trim();
-      if (trimmed) {
-        const resolved = resolveProductMatch(
-          {
-            itemCode: field === "item_code" ? trimmed : line.item_code,
-            description: field === "description" ? trimmed : line.description,
-          },
-          editFilteredPM as any,
-          editSupplierName,
-        );
-        if (resolved) {
-          line.item_code = resolved.external_sku || line.item_code;
-          if (field === "item_code") {
-            line.description = resolved.supplier_product_name || resolved.internal_product_name || line.description;
-          }
-          line.product_master_id = resolved.id;
-          line.matched_sku = resolved.internal_sku;
-          line.matched_internal_name = resolved.internal_product_name || "";
-          line.matched_stock_uom = resolved.stock_uom || "";
-          line.matched_purchase_uom = resolved.purchase_unit || "";
-          line.matched_stock_qty_ratio = resolved.stock_qty ?? 1;
-          line.unmatched = false;
-          line.pm_unit_price = resolved.purchase_unit_cost;
-          line.price_changed = typeof resolved.purchase_unit_cost === "number" && resolved.purchase_unit_cost > 0
-            ? Math.abs((parseFloat(line.unit_price) || 0) - resolved.purchase_unit_cost) > 0.01
-            : false;
-        } else {
-          line.product_master_id = null;
-          line.matched_sku = "";
-          line.matched_internal_name = "";
-          line.matched_stock_uom = "";
-          line.matched_purchase_uom = "";
-          line.matched_stock_qty_ratio = 1;
-          line.pm_unit_price = undefined;
-          line.price_changed = false;
-          line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
-        }
-      } else {
-        line.product_master_id = null;
-        line.matched_sku = "";
-        line.matched_internal_name = "";
-        line.matched_stock_uom = "";
-        line.matched_purchase_uom = "";
-        line.matched_stock_qty_ratio = 1;
-        line.pm_unit_price = undefined;
-        line.price_changed = false;
-        line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
-      }
+      // Free-text edit: clear PM linkage so the edit sticks. Re-linking
+      // happens at save time (handleEditSave) or via explicit autocomplete pick.
+      line.product_master_id = null;
+      line.matched_sku = "";
+      line.matched_internal_name = "";
+      line.matched_stock_uom = "";
+      line.matched_purchase_uom = "";
+      line.matched_stock_qty_ratio = 1;
+      line.pm_unit_price = undefined;
+      line.price_changed = false;
+      line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
     }
     updated[i] = line;
     setEditLines(updated);
