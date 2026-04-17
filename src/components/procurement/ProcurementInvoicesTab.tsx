@@ -268,12 +268,14 @@ export default function ProcurementInvoicesTab() {
     );
   };
 
-  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">) => {
+  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">, supplierName?: string) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
-    return ((qty * price) - discount + tax).toFixed(2);
+    const raw = (qty * price) - discount + tax;
+    const isBW = (supplierName || "").toLowerCase().includes("beverage world");
+    return isBW ? String(Math.round(raw)) : raw.toFixed(2);
   };
 
   const hydrateEditLine = (line: Partial<InvoiceLineItem> | EditableInvoiceLine, supplierId?: string | null): EditableInvoiceLine => {
