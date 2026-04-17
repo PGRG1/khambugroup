@@ -1170,7 +1170,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8 font-mono min-w-[80px]"
+                          className="text-xs bg-muted/50 cursor-default h-8 font-mono w-full"
                           placeholder="—"
                         />
                       </td>
