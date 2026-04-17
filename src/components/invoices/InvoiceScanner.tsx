@@ -276,10 +276,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
       if (resolved) {
         workingLine.matched_sku = resolved.internal_sku;
-        // Only auto-fill external SKU if supplier matches
+        // Product Master is the source of truth for External SKU.
+        // When the matched supplier-scoped PM entry has empty external_sku,
+        // force the line's item_code to empty (e.g. Ming Kee has no SKUs).
         const matchSupplierOk = supplierName && resolved.supplier &&
           normalizeSupplierName(resolved.supplier) === normalizeSupplierName(supplierName);
-        if (matchSupplierOk && !workingLine.item_code) {
+        if (matchSupplierOk) {
+          workingLine.item_code = resolved.external_sku || "";
+        } else if (!workingLine.item_code) {
           workingLine.item_code = resolved.external_sku || "";
         }
       }
