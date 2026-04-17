@@ -1,56 +1,59 @@
 
-## Fix: Make External SKU / External Name truly free-editable
 
-### Root cause
-The blur snap-back in `ProductAutocomplete.tsx` has already been removed, but the fields are still being auto-resolved in the parent forms on every keystroke:
-- `src/components/invoices/InvoiceScanner.tsx`
-- `src/components/procurement/ProcurementInvoicesTab.tsx`
-- `src/pages/Invoices.tsx`
+## Root cause
+`BEV-5121` (and 37 other products) has **no `product_suppliers` row** — only the `product_master` row exists. In this case `editingSupplierEntryId` is `null` when the edit dialog opens.
 
-Those handlers still call `resolveProductMatch(...)` while the user types. That causes the old matched product to be re-applied immediately from the other field, so delete/backspace never sticks.
+In `ProductMasterTab.tsx` `handleSave` (lines 291-302), the `else` branch only updates `product_suppliers` **if** `editingSupplierEntryId` exists:
 
-### What to change
-1. **Stop live auto-matching while typing**
-   - In all 3 editors, let `item_code` and `description` behave as normal text inputs.
-   - Remove `resolveProductMatch(...)` from the `onChange` path for these two fields.
-   - When either field is manually edited, clear the linked PM metadata (`product_master_id`, `matched_sku`, internal name/UOM fields, price flags, unmatched state) unless the user explicitly chose a suggestion.
+```ts
+if (editingSupplierEntryId) {
+  await supabase.from("product_suppliers").update(supplierLevelFields)...
+}
+```
 
-2. **Keep matching explicit**
-   - Product hydration should only happen when the user:
-     - clicks a dropdown suggestion, or
-     - presses Enter on a highlighted suggestion.
-   - `selectProduct` / `selectEditProduct` remain the only edit-time hydration path.
+So when the user edits supplier-level fields (External SKU, Supplier Product Name, Purchase Unit/Cost, Stock UOM/Qty, Recipe UOM/Qty, Supplier) on an "orphan" product, those edits are **silently dropped**. Only internal fields (name, category, unit, notes, status) get saved — which is why the user sees "the same old values".
 
-3. **Add exact-match re-linking at save time**
-   - Since saves currently depend on live match state, add a small exact-only helper in `src/utils/productMasterResolver.ts`.
-   - Use it during save in:
-     - `InvoiceScanner.tsx`
-     - `ProcurementInvoicesTab.tsx`
-     - `Invoices.tsx`
-   - This allows exact typed SKU/name values to reconnect on save without forcing live snap-back while editing.
+The DB confirms it: `product_master.updated_at` is fresh (the PM row update worked), but no `product_suppliers` row was ever created.
 
-4. **Scanner-specific cleanup**
-   - In `InvoiceScanner.tsx`, stop using `flagLineItemIssues(...)` as a typing-time hydrator.
-   - Keep it for initial scan/import analysis only, not for manual edits after the row is on screen.
+## Fix
+In `handleSave`, when editing a product that has no `editingSupplierEntryId`, **create a new `product_suppliers` row** with the form's supplier-level fields (only if the user actually entered any supplier data — i.e., supplier name or external SKU or purchase cost is non-empty). This makes the edit complete and self-healing for the 38 orphan products.
 
-### Files to update
-- `src/components/invoices/InvoiceScanner.tsx`
-- `src/components/procurement/ProcurementInvoicesTab.tsx`
-- `src/pages/Invoices.tsx`
-- `src/utils/productMasterResolver.ts`
+### Change (single file: `src/components/procurement/ProductMasterTab.tsx`)
 
-### Expected result
-- External SKU can be fully cleared and retyped.
-- External Name can be fully cleared and retyped.
-- Backspace, delete, paste, and free-text edits all stick.
-- Selecting from autocomplete still fills both fields.
-- Exact typed values can still reconnect to Product Master when saved.
-- No database changes.
+Replace the `if (editingSupplierEntryId)` block at lines 296-299 with:
+
+```ts
+if (editingSupplierEntryId) {
+  // Existing path — update existing supplier entry
+  const { error: psErr } = await supabase
+    .from("product_suppliers")
+    .update(supplierLevelFields)
+    .eq("id", editingSupplierEntryId);
+  if (psErr) console.error("product_suppliers update error:", psErr);
+} else {
+  // No supplier entry yet — create one if any supplier-level data was entered
+  const hasSupplierData =
+    supplierLevelFields.supplier ||
+    supplierLevelFields.external_sku ||
+    supplierLevelFields.supplier_product_name ||
+    supplierLevelFields.purchase_unit_cost > 0;
+  if (hasSupplierData) {
+    const { error: psErr } = await supabase
+      .from("product_suppliers")
+      .insert({ ...supplierLevelFields, product_master_id: editingProductId });
+    if (psErr) console.error("product_suppliers insert error:", psErr);
+  }
+}
+```
+
+### Result
+- Editing BEV-5121 (or any of the 38 orphan products) now saves both PM and supplier fields.
+- Future edits hit the existing `update` path because the supplier row now exists.
+- No DB schema changes. No breaking change to any existing flow.
 
 ### Verification
-Test all 3 surfaces:
-1. clear External SKU only
-2. clear External Name only
-3. type a brand-new free-text value
-4. clear then pick a new suggestion
-5. save and reopen to confirm the edited values persist correctly
+1. Open Product Master, edit BEV-5121, change External SKU + Purchase Cost + Supplier, click Update.
+2. Reopen the row → all changes persist.
+3. Edit again → the same supplier entry updates in place (no duplicates created).
+4. Verify a normal product (with existing supplier entry) still updates correctly.
+
