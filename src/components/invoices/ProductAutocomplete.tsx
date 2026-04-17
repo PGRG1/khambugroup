@@ -28,6 +28,7 @@ interface ProductAutocompleteProps {
   placeholder?: string;
   className?: string;
   currentSupplier?: string;
+  multiline?: boolean;
 }
 
 const ProductAutocomplete = ({
@@ -39,12 +40,14 @@ const ProductAutocomplete = ({
   placeholder,
   className,
   currentSupplier,
+  multiline = false,
 }: ProductAutocompleteProps) => {
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [dropUp, setDropUp] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const justSelectedRef = useRef(false);
 
   const query = value.trim().toLowerCase();
