@@ -265,6 +265,7 @@ export default function Invoices() {
       let matched_purchase_uom = "";
       let matched_stock_qty_ratio = 1;
       let pm_unit_price: number | undefined;
+      let pm_external_sku: string | undefined;
       if (li.product_master_id && pmAll) {
         const pm = (pmAll as any[]).find(p => p.id === li.product_master_id);
         if (pm) {
@@ -280,6 +281,9 @@ export default function Invoices() {
           matched_purchase_uom = ps?.purchase_unit || pm.purchase_unit || "";
           matched_stock_qty_ratio = ps?.stock_qty ?? pm.stock_qty ?? 1;
           pm_unit_price = ps?.purchase_unit_cost ?? pm.purchase_unit_cost;
+          // PM SKU is authoritative when a supplier-scoped row exists.
+          // Empty supplier SKU stays empty — never fall back to legacy product_master.external_sku.
+          pm_external_sku = ps ? (ps.external_sku ?? "") : (pm.external_sku ?? "");
         }
       }
       const qty = Number(li.quantity) || 0;
@@ -292,7 +296,7 @@ export default function Invoices() {
       const total = isBW ? Math.round(rawTotal) : rawTotal;
       const priceChanged = pm_unit_price != null && pm_unit_price > 0 && Math.abs(price - pm_unit_price) > 0.01;
       return {
-        item_code: li.item_code || "",
+        item_code: pm_external_sku !== undefined ? pm_external_sku : (li.item_code || ""),
         description: li.description,
         pack_size: li.pack_size || "",
         quantity: String(li.quantity),
@@ -451,7 +455,8 @@ export default function Invoices() {
     const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
     updated[i] = {
       ...updated[i],
-      item_code: product.external_sku || "",
+      // PM SKU is authoritative — empty stays empty (no fallback to scanned code).
+      item_code: product.external_sku ?? "",
       description: product.supplier_product_name || product.internal_product_name || updated[i].description,
       matched_sku: product.internal_sku,
       matched_internal_name: product.internal_product_name || "",

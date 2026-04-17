@@ -298,9 +298,15 @@ export default function ProcurementInvoicesTab() {
     const taxStr = String(line.tax_amount ?? 0);
     const computedTotal = calculateEditLineTotal({ quantity: qtyStr, unit_price: priceStr, discount: discStr, tax_amount: taxStr }, supplierName);
 
+    // PM is the source of truth for External SKU when a supplier-scoped product is matched.
+    // Empty PM SKU must stay empty — never fall back to the scanned/typed code.
+    const resolvedItemCode = matchedProduct
+      ? (matchedProduct.external_sku ?? "")
+      : (line.item_code || "");
+
     return {
       id: "id" in line ? line.id : undefined,
-      item_code: line.item_code || "",
+      item_code: resolvedItemCode,
       description,
       pack_size: line.pack_size || "",
       quantity: qtyStr,
@@ -455,7 +461,8 @@ export default function ProcurementInvoicesTab() {
         product.supplier.toLowerCase().includes(editSupplierName.toLowerCase());
       const nextLine: EditableInvoiceLine = {
         ...currentLine,
-        item_code: product.external_sku || "",
+        // PM SKU is authoritative — empty stays empty (no fallback to scanned code).
+        item_code: product.external_sku ?? "",
         description: product.supplier_product_name || product.internal_product_name || currentLine.description,
         product_master_id: product.id,
         matched_sku: product.internal_sku,
