@@ -4,7 +4,7 @@ import { useStandardProducts, StandardProduct } from "@/hooks/useStandardProduct
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
+import { resolveExactMatch } from "@/utils/productMasterResolver";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
