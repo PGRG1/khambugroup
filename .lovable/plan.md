@@ -1,38 +1,32 @@
 
 
-## Fix: Apply Beverage World per-line rounding to all invoice edit dialogs
+## Fix: Apply Beverage World rounding to scanner-parsed line totals
 
-### Problem
-Per-line rounding for "Beverage World HK" was only added to `InvoiceScanner.tsx`. The screenshot shows `/procurement/invoices` (`ProcurementInvoicesTab.tsx`) where line totals still display `80.00`, `120.00`, `261.00`, etc. instead of whole dollars. The legacy `Invoices.tsx` edit dialog has the same gap.
+### Root cause
+In `src/components/invoices/InvoiceScanner.tsx`:
 
-### Files to edit
-1. `src/components/procurement/ProcurementInvoicesTab.tsx`
-2. `src/pages/Invoices.tsx`
+1. **Line 408** — when AI-parsed line items are loaded, `total` is computed with `toFixed(2)` regardless of supplier. Even if the supplier is Beverage World HK, parsed lines display as `440.02`, `350.02`, `229.99` etc.
+2. **Line 490 `handleSupplierChange`** — when the user changes the supplier to Beverage World HK after parsing, existing line totals are never re-rounded.
 
-### Changes
+The display column at line 1208 reads `line.total` directly from state, so unless `updateLine` is called for that specific line, the un-rounded parsed value stays visible. (The invoice-level `calcLineTotal` at line 604 does round correctly for the summary — that's why the *invoice total* is right but *line totals* aren't.)
 
-**1. `ProcurementInvoicesTab.tsx`**
+### Changes (single file: `src/components/invoices/InvoiceScanner.tsx`)
 
-- Update `calculateEditLineTotal` (line 271) to take supplier name and round to whole dollar when supplier matches "beverage world":
-  ```ts
-  const calculateEditLineTotal = (line, supplierName?) => {
-    const raw = (qty * price) - disc + tax;
-    const isBW = (supplierName || "").toLowerCase().includes("beverage world");
-    return isBW ? String(Math.round(raw)) : raw.toFixed(2);
-  };
-  ```
-- Update all callers (lines 302, 402) to pass the current supplier name (resolved via `getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id)`).
-- Update `hydrateEditLine` (line 302) so when re-hydrating an existing line for a BW supplier, the displayed `total` is also rounded (don't keep the raw 2-decimal string verbatim — re-compute when supplier is BW).
-- In `handleSaveEdit` (lines 357-385), round each line's persisted `total` for BW so the DB matches the display, then sum: `lineTotals = sum of rounded line totals`. `total_amount` becomes the sum of rounded line values.
-- The `editTotal` summary (line 546) automatically reflects the rounded values since it sums `line.total`.
+**A. Round at parse time (line 408)**
+Inside the `.map((li) => …)` at lines 390-415, compute the raw line total once and round it when `supplierName` matches Beverage World:
+```ts
+const isBW = supplierName.toLowerCase().includes("beverage world");
+const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0))
+                 - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
+const total = isBW ? String(Math.round(rawTotal)) : String(rawTotal.toFixed(2));
+```
+Use `total` in the returned object.
 
-**2. `Invoices.tsx`**
-Same pattern:
-- Lines 301, 324, 414: wrap line-total computation with a helper that rounds when the invoice's supplier name includes "beverage world". Use the existing `editSupplierName` variable that's already available.
-- Persisted `lineTotal` (line 324, 330) uses the rounded value for BW.
+**B. Re-round all existing line totals when supplier changes (line 496-504)**
+In `handleSupplierChange`, after setting the new supplier, recompute every `line.total` for the active invoice using the same BW helper. If the new supplier is Beverage World, round each line; if switching away from BW, recompute with `toFixed(2)`.
 
 ### Notes
+- No other files need editing — the edit dialogs in `ProcurementInvoicesTab.tsx` and `Invoices.tsx` already handle BW rounding correctly via `hydrateEditLine` / `calculateEditLineTotal`.
 - No DB schema changes.
-- Display in the read-only invoice detail view (lines 1012-1013 in `Invoices.tsx`, line 1013 in `ProcurementInvoicesTab.tsx`) already calls `Number(...).toFixed(2)` — for BW invoices the stored `total` will already be a whole number, so it'll render as e.g. `4.00`. Optional: use `fmtForSupplier` helper (already exists at line 33-35 of `ProcurementInvoicesTab.tsx`) in those readonly cells for cleaner display without the trailing `.00`.
-- Invoice-level totals (`total_amount`) follow naturally from summed rounded line totals.
+- After fix: the screenshot's lines like `440.02 → 440`, `350.02 → 350`, `229.99 → 230`, `324.96 → 325`, `185.04 → 185`, `429.98 → 430` will all display as whole-dollar values (shown as `440.00`, `230.00`, etc. since the input keeps `.00` formatting via `toFixed`-style storage — actually since we store `String(Math.round(raw))` it'll show as `"440"`; the existing display logic accepts that).
 
