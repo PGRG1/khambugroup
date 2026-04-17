@@ -296,6 +296,19 @@ export default function ProductMasterTab() {
         if (editingSupplierEntryId) {
           const { error: psErr } = await supabase.from("product_suppliers" as any).update(supplierLevelFields as any).eq("id", editingSupplierEntryId);
           if (psErr) { console.error("product_suppliers update error:", psErr); }
+        } else {
+          // Orphan product (no supplier row yet) — auto-create one if any supplier-level data was entered
+          const hasSupplierData =
+            !!supplierLevelFields.supplier ||
+            !!supplierLevelFields.external_sku ||
+            !!supplierLevelFields.supplier_product_name ||
+            (supplierLevelFields.purchase_unit_cost ?? 0) > 0;
+          if (hasSupplierData) {
+            const { error: psErr } = await supabase
+              .from("product_suppliers" as any)
+              .insert({ ...supplierLevelFields, product_master_id: editingProductId } as any);
+            if (psErr) { console.error("product_suppliers insert error:", psErr); }
+          }
         }
         // Single fetch after both updates are committed
         await fetchProducts();
