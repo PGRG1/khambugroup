@@ -1,29 +1,48 @@
 
 
-## Plan: Align Invoices.tsx edit dialog with Procurement's product matching logic
+## Plan: Improve Scan Invoice line-items table UX + Beverage World per-line rounding
 
-### Problem
-The edit invoice dialog in `src/pages/Invoices.tsx` (accessible from `/invoices`) has `ProductAutocomplete` dropdowns on External SKU and External Name, but the `updateEditLine` function (line 405) does **not** call `resolveProductMatch` when the user types — it only updates the raw text. This means:
-- Typing an External SKU doesn't auto-fill External Name
-- Typing an External Name doesn't auto-fill External SKU
-- No automatic product resolution happens on manual text entry
+### Files to edit
+- `src/components/invoices/InvoiceScanner.tsx` (table layout, totals, BW rounding)
+- `src/components/invoices/ProductAutocomplete.tsx` (wider/taller dropdown)
 
-The Procurement version (`ProcurementInvoicesTab.tsx`) already has full resolution logic. This fix brings the old Invoices page in line.
+### 1. Make External SKU & External Name fully editable + visible
+The fields are already wired to `onChange` (lines 1100-1127), so they ARE editable — but the column width `w-[90px]` clips the text so it looks/feels uneditable. Fixing column widths (item #2) resolves this. No logic change needed; just stop forcing tiny widths.
 
-### Changes
+### 2. Auto-size compact columns to content
+Change the table to use `table-auto` (instead of fixed widths) for these columns and remove their `w-[…]` / `min-w-[…]` constraints so they grow to fit content:
+- Internal SKU
+- External SKU
+- Purch. Qty
+- Purch. Cost
+- Discount
+- Total
 
-**File: `src/pages/Invoices.tsx`**
+Also drop `min-w-[1500px]` from the table (line 1050) and replace with `min-w-full` so the table sizes naturally; horizontal scroll only appears if truly needed.
 
-1. **Add `resolveProductMatch` import** (around line 6): Import the shared resolver utility.
+### 3. Wrap text in Internal Name & External Name (auto-grow height)
+- **Internal Name** (line 1093): already uses `whitespace-normal break-words` ✓ — just give it a sensible `min-w-[180px]` and remove any `h-8`-style fixed heights nearby.
+- **External Name** + **External SKU**: replace the `<Input>` inside `ProductAutocomplete` with a `<textarea>`-style element, OR keep `<input>` but switch to a wrapping contenteditable. **Simpler approach**: add a `multiline` prop to `ProductAutocomplete` — when true, render a `<textarea>` with `rows={1}` and `className` adding `whitespace-normal break-words resize-none overflow-hidden`, plus an auto-grow effect (`el.style.height = el.scrollHeight + 'px'` on input). Use `multiline` for External Name only (External SKU stays single-line since SKUs are short — its column will just widen).
 
-2. **Update `updateEditLine` (lines 405-417)**: Add product resolution logic when `field === "item_code"` or `field === "description"`, mirroring the same pattern from `ProcurementInvoicesTab.tsx` lines 409-461. On match:
-   - Auto-fill `item_code` (External SKU) from resolved entry
-   - Auto-fill `description` (External Name) when SKU field triggers the match
-   - Set `matched_sku`, `matched_internal_name`, `matched_stock_uom`, `matched_purchase_uom`, `matched_stock_qty_ratio`, `product_master_id`
-   - Clear `unmatched` flag
-   - Detect price changes vs PM unit price
+### 4. Wider & taller autocomplete dropdown
+In `ProductAutocomplete.tsx` (lines 177-184):
+- Replace `left-0 right-0` with `left-0 min-w-[360px] w-max max-w-[600px]` so the dropdown is wider than the input cell.
+- Change `max-h-48` (192px) to `max-h-96` (384px) so more rows are visible without scrolling.
+- Keep the dropUp logic; recompute threshold to use the new height (~400px instead of 220px).
 
-3. **Pass `currentSupplier` to both `ProductAutocomplete` instances** (lines 1068 and 1081): Add the `currentSupplier` prop using the supplier name from `editSupplierName`, so autocomplete suggestions prioritize the invoice's supplier.
+### 5. Beverage World per-line rounding
+Currently each line total = `qty × price − discount + tax` to 2 decimals (line 548, 601-607, 647). For Beverage World HK only, round each **line total** to the nearest whole dollar before summing.
 
-### No database changes needed.
+Implementation:
+- Add helper `const roundLineForSupplier = (v: number, supplierName?: string) => supplierName?.toLowerCase().includes("beverage world") ? Math.round(v) : parseFloat(v.toFixed(2));`
+- In `updateLine` (line 548): use the helper with `currentSupplierName`.
+- In `calcLineTotal` (lines 601-607): apply rounding using the current supplier name.
+- In the displayed line `total` `<Input>` (line 1202): show the rounded value for BW.
+- In `doSaveCurrent` (line 647): persist `lineTotal` rounded via the helper, so DB matches what's displayed.
+- The existing invoice-total rounding at line 617 stays as-is — but since each line is now already rounded for BW, the `calculatedTotal` will naturally be a whole-dollar sum (the example: 2 × 2.15 = 4.30 → rounds to **4** per line; multiple such lines sum to a whole number total).
+
+### Notes
+- No DB schema changes.
+- All changes are scoped to the Scan Invoice dialog. Manual edit dialogs in `ProcurementInvoicesTab.tsx` and `Invoices.tsx` already share the same `ProductAutocomplete`, so the wider dropdown (#4) benefits them too — that's a positive side effect.
+- Tooltip/legend behavior unchanged.
 
