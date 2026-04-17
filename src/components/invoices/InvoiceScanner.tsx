@@ -545,7 +545,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const qty = parseFloat(line.quantity) || 0;
         const disc = parseFloat(line.discount) || 0;
         const tax = parseFloat(line.tax_amount) || 0;
-        line.total = String(((qty * price) - disc + tax).toFixed(2));
+        const supplierName = copy[currentIdx].supplier_name || "";
+        const isBW = supplierName.toLowerCase().includes("beverage world");
+        const raw = (qty * price) - disc + tax;
+        line.total = isBW ? String(Math.round(raw)) : String(raw.toFixed(2));
       }
       if (["item_code", "unit_price", "matched_sku", "description"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
@@ -603,7 +606,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     const qty = parseFloat(l.quantity) || 0;
     const disc = parseFloat(l.discount) || 0;
     const tax = parseFloat(l.tax_amount) || 0;
-    return qty * price - disc + tax;
+    const raw = qty * price - disc + tax;
+    const supplierName = current?.supplier_name || "";
+    return supplierName.toLowerCase().includes("beverage world") ? Math.round(raw) : raw;
   };
 
   const lineItemsTotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
@@ -644,7 +649,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const price = parseFloat(l.unit_price) || 0;
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
-        const lineTotal = parseFloat(((qty * price) - disc + tax).toFixed(2));
+        const lineTotal = isBW ? Math.round((qty * price) - disc + tax) : parseFloat(((qty * price) - disc + tax).toFixed(2));
         // Resolve product_master_id using external SKU first, then internal SKU
         let pmId: string | null = null;
         if (productMaster) {
@@ -1047,21 +1052,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full text-xs border-collapse min-w-[1500px]">
+            <table className="w-full text-xs border-collapse min-w-full table-auto">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Internal SKU</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">External SKU</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[200px]">External Name</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Purch. Qty</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Stock UOM</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Stock Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[95px]">Purch. Cost</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Discount</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Total</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
@@ -1122,8 +1127,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             products={supplierFilteredPM}
                             searchField="name"
                             placeholder="Item name"
-                            className="text-xs h-8"
+                            className="text-xs"
                             currentSupplier={current?.supplier_name}
+                            multiline
                           />
                           {line.unmatched && (
                             <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
@@ -1146,7 +1152,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           type="number"
                           value={line.quantity}
                           onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                          className="text-xs h-8 min-w-[80px]"
+                          className="text-xs h-8 w-full"
                         />
                       </td>
                       {/* Stock UOM - read-only from PM */}
@@ -1165,7 +1171,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8 font-mono min-w-[80px]"
+                          className="text-xs bg-muted/50 cursor-default h-8 font-mono w-full"
                           placeholder="—"
                         />
                       </td>
@@ -1176,7 +1182,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                            className={`text-xs h-8 min-w-[80px] ${line.price_changed ? "border-blue-500" : ""}`}
+                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""}`}
                           />
                           {line.price_changed && line.pm_unit_price !== undefined && (
                             <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
@@ -1191,7 +1197,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           type="number"
                           value={line.discount}
                           onChange={(e) => updateLine(i, "discount", e.target.value)}
-                          className="text-xs h-8 min-w-[80px]"
+                          className="text-xs h-8 w-full"
                           placeholder="0"
                         />
                       </td>
@@ -1201,7 +1207,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           type="number"
                           value={line.total}
                           onChange={(e) => updateLine(i, "total", e.target.value)}
-                          className="text-xs font-medium h-8 min-w-[80px]"
+                          className="text-xs font-medium h-8 w-full"
                         />
                       </td>
                       {/* Delete */}
