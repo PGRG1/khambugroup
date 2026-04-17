@@ -147,41 +147,75 @@ const ProductAutocomplete = ({
     }
   };
 
+  // Auto-grow textarea height
+  useLayoutEffect(() => {
+    if (multiline && textareaRef.current) {
+      const el = textareaRef.current;
+      el.style.height = "auto";
+      el.style.height = `${Math.max(32, el.scrollHeight)}px`;
+    }
+  }, [value, multiline]);
+
+  const handleFocus = () => {
+    if (query.length >= 1) setOpen(true);
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setDropUp(rect.bottom > window.innerHeight - 400);
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
+    const exactMatch = resolveExactMatch(e.currentTarget.value);
+    if (exactMatch) {
+      onSelect(exactMatch);
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative">
-      <Input
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => {
-          if (query.length >= 1) setOpen(true);
-          if (containerRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            setDropUp(rect.bottom > window.innerHeight - 220);
-          }
-        }}
-        onBlur={(e) => {
-          if (justSelectedRef.current) {
-            justSelectedRef.current = false;
-            return;
-          }
-          const exactMatch = resolveExactMatch(e.currentTarget.value);
-          if (exactMatch) {
-            onSelect(exactMatch);
-          }
-        }}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        className={className}
-        autoComplete="off"
-      />
+      {multiline ? (
+        <textarea
+          ref={textareaRef}
+          value={value}
+          rows={1}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className={cn(
+            "flex w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 whitespace-normal break-words resize-none overflow-hidden",
+            className
+          )}
+          autoComplete="off"
+        />
+      ) : (
+        <Input
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className={className}
+          autoComplete="off"
+        />
+      )}
       {open && suggestions.length > 0 && (
         <div
           ref={listRef}
           className={cn(
-            "absolute z-50 left-0 right-0 max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-md",
+            "absolute z-50 left-0 min-w-[360px] w-max max-w-[600px] max-h-96 overflow-y-auto rounded-md border border-border bg-popover shadow-md",
             dropUp ? "bottom-full mb-1" : "top-full mt-1"
           )}
         >
@@ -193,7 +227,7 @@ const ProductAutocomplete = ({
               onClick={() => handleSelect(p)}
               onMouseEnter={() => setHighlightIdx(idx)}
               className={cn(
-                "w-full text-left px-2 py-1.5 text-xs cursor-pointer transition-colors",
+                "w-full text-left px-2 py-1.5 text-xs cursor-pointer transition-colors whitespace-normal break-words",
                 idx === highlightIdx
                   ? "bg-accent text-accent-foreground"
                   : "hover:bg-muted"
