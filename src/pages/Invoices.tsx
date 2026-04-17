@@ -416,7 +416,9 @@ export default function Invoices() {
       const qty = parseFloat(line.quantity) || 0;
       const disc = parseFloat(line.discount) || 0;
       const tax = parseFloat(line.tax_amount) || 0;
-      line.total = String(((qty * price) - disc + tax).toFixed(2));
+      const raw = (qty * price) - disc + tax;
+      const isBW = (editSupplierName || "").toLowerCase().includes("beverage world");
+      line.total = isBW ? String(Math.round(raw)) : String(raw.toFixed(2));
     }
     if (field === "unit_price" && line.pm_unit_price) {
       line.price_changed = Math.abs((parseFloat(value) || 0) - line.pm_unit_price) > 0.01;
