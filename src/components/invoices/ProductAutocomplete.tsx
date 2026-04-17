@@ -63,30 +63,6 @@ const ProductAutocomplete = ({
     );
   };
 
-  const resolveExactMatch = (rawValue: string) => {
-    const normalizedValue = rawValue.trim().toLowerCase();
-    if (!normalizedValue) return undefined;
-
-    const exactMatches = products.filter((p) => {
-      if (searchField === "code") {
-        return p.external_sku.trim().toLowerCase() === normalizedValue;
-      }
-      return (p.supplier_product_name || p.internal_product_name || "").trim().toLowerCase() === normalizedValue;
-    });
-
-    if (exactMatches.length === 0) return undefined;
-
-    const supplierMatches = currentSupplier
-      ? exactMatches.filter((p) => isSupplierMatch(p.supplier, currentSupplier))
-      : [];
-
-    if (supplierMatches.length === 1) return supplierMatches[0];
-    // For SKU searches, exact SKU match is unique per supplier entry — always resolve
-    if (searchField === "code" && supplierMatches.length > 0) return supplierMatches[0];
-    if (exactMatches.length === 1) return exactMatches[0];
-    if (searchField === "code" && exactMatches.length > 0) return exactMatches[0];
-    return undefined;
-  };
 
   const suggestions = useMemo(() => {
     if (!query || query.length < 1) return [];
@@ -164,15 +140,8 @@ const ProductAutocomplete = ({
     }
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (justSelectedRef.current) {
-      justSelectedRef.current = false;
-      return;
-    }
-    const exactMatch = resolveExactMatch(e.currentTarget.value);
-    if (exactMatch) {
-      onSelect(exactMatch);
-    }
+  const handleBlur = () => {
+    justSelectedRef.current = false;
   };
 
   return (
