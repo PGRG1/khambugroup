@@ -1,48 +1,38 @@
 
 
-## Plan: Improve Scan Invoice line-items table UX + Beverage World per-line rounding
+## Fix: Apply Beverage World per-line rounding to all invoice edit dialogs
+
+### Problem
+Per-line rounding for "Beverage World HK" was only added to `InvoiceScanner.tsx`. The screenshot shows `/procurement/invoices` (`ProcurementInvoicesTab.tsx`) where line totals still display `80.00`, `120.00`, `261.00`, etc. instead of whole dollars. The legacy `Invoices.tsx` edit dialog has the same gap.
 
 ### Files to edit
-- `src/components/invoices/InvoiceScanner.tsx` (table layout, totals, BW rounding)
-- `src/components/invoices/ProductAutocomplete.tsx` (wider/taller dropdown)
+1. `src/components/procurement/ProcurementInvoicesTab.tsx`
+2. `src/pages/Invoices.tsx`
 
-### 1. Make External SKU & External Name fully editable + visible
-The fields are already wired to `onChange` (lines 1100-1127), so they ARE editable — but the column width `w-[90px]` clips the text so it looks/feels uneditable. Fixing column widths (item #2) resolves this. No logic change needed; just stop forcing tiny widths.
+### Changes
 
-### 2. Auto-size compact columns to content
-Change the table to use `table-auto` (instead of fixed widths) for these columns and remove their `w-[…]` / `min-w-[…]` constraints so they grow to fit content:
-- Internal SKU
-- External SKU
-- Purch. Qty
-- Purch. Cost
-- Discount
-- Total
+**1. `ProcurementInvoicesTab.tsx`**
 
-Also drop `min-w-[1500px]` from the table (line 1050) and replace with `min-w-full` so the table sizes naturally; horizontal scroll only appears if truly needed.
+- Update `calculateEditLineTotal` (line 271) to take supplier name and round to whole dollar when supplier matches "beverage world":
+  ```ts
+  const calculateEditLineTotal = (line, supplierName?) => {
+    const raw = (qty * price) - disc + tax;
+    const isBW = (supplierName || "").toLowerCase().includes("beverage world");
+    return isBW ? String(Math.round(raw)) : raw.toFixed(2);
+  };
+  ```
+- Update all callers (lines 302, 402) to pass the current supplier name (resolved via `getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id)`).
+- Update `hydrateEditLine` (line 302) so when re-hydrating an existing line for a BW supplier, the displayed `total` is also rounded (don't keep the raw 2-decimal string verbatim — re-compute when supplier is BW).
+- In `handleSaveEdit` (lines 357-385), round each line's persisted `total` for BW so the DB matches the display, then sum: `lineTotals = sum of rounded line totals`. `total_amount` becomes the sum of rounded line values.
+- The `editTotal` summary (line 546) automatically reflects the rounded values since it sums `line.total`.
 
-### 3. Wrap text in Internal Name & External Name (auto-grow height)
-- **Internal Name** (line 1093): already uses `whitespace-normal break-words` ✓ — just give it a sensible `min-w-[180px]` and remove any `h-8`-style fixed heights nearby.
-- **External Name** + **External SKU**: replace the `<Input>` inside `ProductAutocomplete` with a `<textarea>`-style element, OR keep `<input>` but switch to a wrapping contenteditable. **Simpler approach**: add a `multiline` prop to `ProductAutocomplete` — when true, render a `<textarea>` with `rows={1}` and `className` adding `whitespace-normal break-words resize-none overflow-hidden`, plus an auto-grow effect (`el.style.height = el.scrollHeight + 'px'` on input). Use `multiline` for External Name only (External SKU stays single-line since SKUs are short — its column will just widen).
-
-### 4. Wider & taller autocomplete dropdown
-In `ProductAutocomplete.tsx` (lines 177-184):
-- Replace `left-0 right-0` with `left-0 min-w-[360px] w-max max-w-[600px]` so the dropdown is wider than the input cell.
-- Change `max-h-48` (192px) to `max-h-96` (384px) so more rows are visible without scrolling.
-- Keep the dropUp logic; recompute threshold to use the new height (~400px instead of 220px).
-
-### 5. Beverage World per-line rounding
-Currently each line total = `qty × price − discount + tax` to 2 decimals (line 548, 601-607, 647). For Beverage World HK only, round each **line total** to the nearest whole dollar before summing.
-
-Implementation:
-- Add helper `const roundLineForSupplier = (v: number, supplierName?: string) => supplierName?.toLowerCase().includes("beverage world") ? Math.round(v) : parseFloat(v.toFixed(2));`
-- In `updateLine` (line 548): use the helper with `currentSupplierName`.
-- In `calcLineTotal` (lines 601-607): apply rounding using the current supplier name.
-- In the displayed line `total` `<Input>` (line 1202): show the rounded value for BW.
-- In `doSaveCurrent` (line 647): persist `lineTotal` rounded via the helper, so DB matches what's displayed.
-- The existing invoice-total rounding at line 617 stays as-is — but since each line is now already rounded for BW, the `calculatedTotal` will naturally be a whole-dollar sum (the example: 2 × 2.15 = 4.30 → rounds to **4** per line; multiple such lines sum to a whole number total).
+**2. `Invoices.tsx`**
+Same pattern:
+- Lines 301, 324, 414: wrap line-total computation with a helper that rounds when the invoice's supplier name includes "beverage world". Use the existing `editSupplierName` variable that's already available.
+- Persisted `lineTotal` (line 324, 330) uses the rounded value for BW.
 
 ### Notes
 - No DB schema changes.
-- All changes are scoped to the Scan Invoice dialog. Manual edit dialogs in `ProcurementInvoicesTab.tsx` and `Invoices.tsx` already share the same `ProductAutocomplete`, so the wider dropdown (#4) benefits them too — that's a positive side effect.
-- Tooltip/legend behavior unchanged.
+- Display in the read-only invoice detail view (lines 1012-1013 in `Invoices.tsx`, line 1013 in `ProcurementInvoicesTab.tsx`) already calls `Number(...).toFixed(2)` — for BW invoices the stored `total` will already be a whole number, so it'll render as e.g. `4.00`. Optional: use `fmtForSupplier` helper (already exists at line 33-35 of `ProcurementInvoicesTab.tsx`) in those readonly cells for cleaner display without the trailing `.00`.
+- Invoice-level totals (`total_amount`) follow naturally from summed rounded line totals.
 
