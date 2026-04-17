@@ -451,7 +451,8 @@ export default function Invoices() {
     const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
     updated[i] = {
       ...updated[i],
-      item_code: product.external_sku || "",
+      // PM SKU is authoritative — empty stays empty (no fallback to scanned code).
+      item_code: product.external_sku ?? "",
       description: product.supplier_product_name || product.internal_product_name || updated[i].description,
       matched_sku: product.internal_sku,
       matched_internal_name: product.internal_product_name || "",
