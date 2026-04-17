@@ -649,7 +649,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const price = parseFloat(l.unit_price) || 0;
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
-        const lineTotal = parseFloat(((qty * price) - disc + tax).toFixed(2));
+        const lineTotal = isBW ? Math.round((qty * price) - disc + tax) : parseFloat(((qty * price) - disc + tax).toFixed(2));
         // Resolve product_master_id using external SKU first, then internal SKU
         let pmId: string | null = null;
         if (productMaster) {
