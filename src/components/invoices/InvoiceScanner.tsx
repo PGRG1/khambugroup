@@ -397,7 +397,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               : (li?.description || "");
             const isBW = supplierName.toLowerCase().includes("beverage world");
             const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
-            const totalStr = isBW ? String(Math.round(rawTotal)) : rawTotal.toFixed(2);
+            const totalStr = isBW ? String(Math.round(rawTotal)) : (Math.round((rawTotal + Number.EPSILON) * 100) / 100).toFixed(2);
             return {
               item_code: itemCode,
               description: itemCode && pmData.entry ? resolvedDesc : (li?.description || ""),
@@ -502,7 +502,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const isBW = (newSupplierName || "").toLowerCase().includes("beverage world");
       const recomputedLines = (copy[targetIdx].line_items || []).map((line) => {
         const raw = ((Number(line.quantity) || 0) * (Number(line.unit_price) || 0)) - (Number(line.discount) || 0) + (Number(line.tax_amount) || 0);
-        return { ...line, total: isBW ? String(Math.round(raw)) : raw.toFixed(2) };
+        return { ...line, total: isBW ? String(Math.round(raw)) : (Math.round((raw + Number.EPSILON) * 100) / 100).toFixed(2) };
       });
       copy[targetIdx] = {
         ...copy[targetIdx],
@@ -546,7 +546,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const supplierName = copy[currentIdx].supplier_name || "";
         const isBW = supplierName.toLowerCase().includes("beverage world");
         const raw = (qty * price) - disc + tax;
-        line.total = isBW ? String(Math.round(raw)) : String(raw.toFixed(2));
+        line.total = isBW ? String(Math.round(raw)) : (Math.round((raw + Number.EPSILON) * 100) / 100).toFixed(2);
       }
       if (["unit_price", "matched_sku"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
@@ -599,6 +599,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return copy;
   });
 
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
   const calcLineTotal = (l: ScannedLineItem) => {
     const price = parseFloat(l.unit_price) || 0;
     const qty = parseFloat(l.quantity) || 0;
@@ -606,18 +608,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     const tax = parseFloat(l.tax_amount) || 0;
     const raw = qty * price - disc + tax;
     const supplierName = current?.supplier_name || "";
-    return supplierName.toLowerCase().includes("beverage world") ? Math.round(raw) : raw;
+    return supplierName.toLowerCase().includes("beverage world") ? Math.round(raw) : round2(raw);
   };
 
   const lineItemsTotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
   const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
   const invoiceDiscount = parseFloat(current?.invoice_discount || "0") || 0;
-  const subtotal = lineItemsTotal;
+  const subtotal = round2(lineItemsTotal);
   const calculatedTotal = lineItemsTotal - invoiceDiscount;
 
   const currentSupplierName = current ? (suppliers.find(s => s.id === current.supplier_id)?.name || "") : "";
   const isBeverageWorld = currentSupplierName.toLowerCase().includes("beverage world");
-  const displayTotal = isBeverageWorld ? Math.round(calculatedTotal) : parseFloat(calculatedTotal.toFixed(2));
+  const displayTotal = isBeverageWorld ? Math.round(calculatedTotal) : round2(calculatedTotal);
 
   const aiTotal = current?.ai_total;
   const totalMismatch = aiTotal !== undefined && Math.abs(aiTotal - calculatedTotal) > 0.50;
