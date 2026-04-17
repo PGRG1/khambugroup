@@ -397,7 +397,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               : (li?.description || "");
             const isBW = supplierName.toLowerCase().includes("beverage world");
             const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
-            const totalStr = isBW ? String(Math.round(rawTotal)) : rawTotal.toFixed(2);
+            const totalStr = isBW ? String(Math.round(rawTotal)) : (Math.round((rawTotal + Number.EPSILON) * 100) / 100).toFixed(2);
             return {
               item_code: itemCode,
               description: itemCode && pmData.entry ? resolvedDesc : (li?.description || ""),
@@ -502,7 +502,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const isBW = (newSupplierName || "").toLowerCase().includes("beverage world");
       const recomputedLines = (copy[targetIdx].line_items || []).map((line) => {
         const raw = ((Number(line.quantity) || 0) * (Number(line.unit_price) || 0)) - (Number(line.discount) || 0) + (Number(line.tax_amount) || 0);
-        return { ...line, total: isBW ? String(Math.round(raw)) : raw.toFixed(2) };
+        return { ...line, total: isBW ? String(Math.round(raw)) : (Math.round((raw + Number.EPSILON) * 100) / 100).toFixed(2) };
       });
       copy[targetIdx] = {
         ...copy[targetIdx],
@@ -546,7 +546,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const supplierName = copy[currentIdx].supplier_name || "";
         const isBW = supplierName.toLowerCase().includes("beverage world");
         const raw = (qty * price) - disc + tax;
-        line.total = isBW ? String(Math.round(raw)) : String(raw.toFixed(2));
+        line.total = isBW ? String(Math.round(raw)) : (Math.round((raw + Number.EPSILON) * 100) / 100).toFixed(2);
       }
       if (["unit_price", "matched_sku"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
