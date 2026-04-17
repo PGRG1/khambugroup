@@ -1127,8 +1127,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             products={supplierFilteredPM}
                             searchField="name"
                             placeholder="Item name"
-                            className="text-xs h-8"
+                            className="text-xs"
                             currentSupplier={current?.supplier_name}
+                            multiline
                           />
                           {line.unmatched && (
                             <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
