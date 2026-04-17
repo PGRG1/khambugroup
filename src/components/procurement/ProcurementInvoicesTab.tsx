@@ -377,16 +377,28 @@ export default function ProcurementInvoicesTab() {
         product_master_id: line.product_master_id,
       }));
 
-    const lineTotals = mappedLines.reduce((sum, line) => sum + line.total, 0);
-    const lineTax = mappedLines.reduce((sum, line) => sum + line.tax_amount, 0);
+    // Subtotal/total are computed from raw line values to avoid 2dp drift
+    // (matches scanner behavior — see VegFresh 1,240.50 fix).
+    const supplierNameForSave = getSupplierNameById(editForm.supplier_id || selectedInvoice.supplier_id) || selectedInvoice.supplier_name || "";
+    const isBWSave = supplierNameForSave.toLowerCase().includes("beverage world");
+    const rawSum = editLines.reduce((sum, line) => {
+      const qty = parseFloat(line.quantity) || 0;
+      const price = parseFloat(line.unit_price) || 0;
+      const discount = parseFloat(line.discount) || 0;
+      const tax = parseFloat(line.tax_amount) || 0;
+      return sum + ((qty * price) - discount + tax);
+    }, 0);
+    const taxSum = editLines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0);
+    const totalAmount = isBWSave ? Math.round(rawSum) : Math.round((rawSum + Number.EPSILON) * 100) / 100;
+    const subtotalAmount = isBWSave ? Math.round(rawSum - taxSum) : Math.round(((rawSum - taxSum) + Number.EPSILON) * 100) / 100;
 
     const success = await updateInvoice(
       selectedInvoice.id,
       {
         ...editForm,
-        subtotal: lineTotals - lineTax,
-        tax_amount: lineTax,
-        total_amount: lineTotals,
+        subtotal: subtotalAmount,
+        tax_amount: taxSum,
+        total_amount: totalAmount,
       } as any,
       mappedLines
     );
@@ -504,13 +516,20 @@ export default function ProcurementInvoicesTab() {
 
   const editFilteredPM = useMemo(() => getScopedProductMaster(editForm.supplier_id), [productMaster, suppliers, editForm.supplier_id, selectedInvoice]);
 
-  const editSubtotal = editLines.reduce((sum, line) => {
+  // Sum from raw line values (qty × price − discount + tax) so subtotal/total
+  // match the scanner's rounding behavior (e.g. VegFresh 1,240.50 vs 1,240.49).
+  const editSupplierNameForTotal = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id) || selectedInvoice?.supplier_name || "";
+  const editIsBW = editSupplierNameForTotal.toLowerCase().includes("beverage world");
+  const editRawSum = editLines.reduce((sum, line) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
-    return sum + ((qty * price) - discount);
+    const tax = parseFloat(line.tax_amount) || 0;
+    return sum + ((qty * price) - discount + tax);
   }, 0);
-  const editTotal = editLines.reduce((sum, line) => sum + (parseFloat(line.total) || 0), 0);
+  const editTaxSum = editLines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0);
+  const editTotal = editIsBW ? Math.round(editRawSum) : Math.round((editRawSum + Number.EPSILON) * 100) / 100;
+  const editSubtotal = editIsBW ? Math.round(editRawSum - editTaxSum) : Math.round(((editRawSum - editTaxSum) + Number.EPSILON) * 100) / 100;
   const unmatchedCount = editLines.filter((line) => line.unmatched && line.description.trim()).length;
   const priceChangedCount = editLines.filter((line) => line.price_changed).length;
 
