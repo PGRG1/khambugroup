@@ -324,7 +324,9 @@ export default function Invoices() {
       const price = parseFloat(l.unit_price) || 0;
       const disc = parseFloat(l.discount) || 0;
       const tax = parseFloat(l.tax_amount) || 0;
-      const lineTotal = parseFloat(((qty * price) - disc + tax).toFixed(2));
+      const isBW = (editSupplierName || "").toLowerCase().includes("beverage world");
+      const rawTotal = (qty * price) - disc + tax;
+      const lineTotal = isBW ? Math.round(rawTotal) : parseFloat(rawTotal.toFixed(2));
       let pmId: string | null = l.product_master_id;
       if (!pmId && l.matched_sku && editPMData.length) {
         const pm = editPMData.find(p => p.internal_sku === l.matched_sku);
