@@ -606,7 +606,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     const qty = parseFloat(l.quantity) || 0;
     const disc = parseFloat(l.discount) || 0;
     const tax = parseFloat(l.tax_amount) || 0;
-    return qty * price - disc + tax;
+    const raw = qty * price - disc + tax;
+    const supplierName = current?.supplier_name || "";
+    return supplierName.toLowerCase().includes("beverage world") ? Math.round(raw) : raw;
   };
 
   const lineItemsTotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
