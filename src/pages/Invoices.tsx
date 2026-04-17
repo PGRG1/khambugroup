@@ -286,7 +286,10 @@ export default function Invoices() {
       const price = Number(li.unit_price) || 0;
       const disc = Number(li.discount) || 0;
       const tax = Number(li.tax_amount) || 0;
-      const total = ((qty * price) - disc + tax);
+      const rawTotal = ((qty * price) - disc + tax);
+      const invSupplierName = suppliers.find(s => s.id === inv.supplier_id)?.name || "";
+      const isBW = invSupplierName.toLowerCase().includes("beverage world");
+      const total = isBW ? Math.round(rawTotal) : rawTotal;
       const priceChanged = pm_unit_price != null && pm_unit_price > 0 && Math.abs(price - pm_unit_price) > 0.01;
       return {
         item_code: li.item_code || "",
@@ -298,7 +301,7 @@ export default function Invoices() {
         unit_price: String(li.unit_price),
         discount: String(li.discount || 0),
         tax_amount: String(li.tax_amount),
-        total: String(total.toFixed(2)),
+        total: isBW ? String(total) : String(total.toFixed(2)),
         matched_sku,
         matched_internal_name,
         matched_stock_uom,
