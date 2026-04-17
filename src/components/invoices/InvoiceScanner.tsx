@@ -1206,7 +1206,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           type="number"
                           value={line.total}
                           onChange={(e) => updateLine(i, "total", e.target.value)}
-                          className="text-xs font-medium h-8 min-w-[80px]"
+                          className="text-xs font-medium h-8 w-full"
                         />
                       </td>
                       {/* Delete */}
