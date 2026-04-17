@@ -268,18 +268,22 @@ export default function ProcurementInvoicesTab() {
     );
   };
 
-  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">) => {
+  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">, supplierName?: string) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
-    return ((qty * price) - discount + tax).toFixed(2);
+    const raw = (qty * price) - discount + tax;
+    const isBW = (supplierName || "").toLowerCase().includes("beverage world");
+    return isBW ? String(Math.round(raw)) : raw.toFixed(2);
   };
 
   const hydrateEditLine = (line: Partial<InvoiceLineItem> | EditableInvoiceLine, supplierId?: string | null): EditableInvoiceLine => {
     const matchedProduct = findProductMatch(line, supplierId);
     const currentPrice = parseFloat(String(line.unit_price ?? 0)) || 0;
     const pmPrice = matchedProduct?.purchase_unit_cost;
+    const supplierName = getSupplierNameById(supplierId || null) || "";
+    const isBW = supplierName.toLowerCase().includes("beverage world");
 
     // When matched by SKU, sync description from the matched product entry
     const itemCode = (line.item_code || "").trim().toLowerCase();
@@ -288,23 +292,26 @@ export default function ProcurementInvoicesTab() {
       ? (matchedProduct.supplier_product_name || matchedProduct.internal_product_name || line.description || "")
       : (line.description || "");
 
+    const qtyStr = String(line.quantity ?? "1");
+    const priceStr = String(line.unit_price ?? 0);
+    const discStr = String(line.discount ?? 0);
+    const taxStr = String(line.tax_amount ?? 0);
+    const computedTotal = calculateEditLineTotal({ quantity: qtyStr, unit_price: priceStr, discount: discStr, tax_amount: taxStr }, supplierName);
+
     return {
       id: "id" in line ? line.id : undefined,
       item_code: line.item_code || "",
       description,
       pack_size: line.pack_size || "",
-      quantity: String(line.quantity ?? "1"),
+      quantity: qtyStr,
       unit: line.unit || "",
       weight: line.weight ? String(line.weight) : "",
-      unit_price: String(line.unit_price ?? 0),
-      discount: String(line.discount ?? 0),
-      tax_amount: String(line.tax_amount ?? 0),
-      total: "total" in line && typeof line.total === "string" ? line.total : calculateEditLineTotal({
-        quantity: String(line.quantity ?? "1"),
-        unit_price: String(line.unit_price ?? 0),
-        discount: String(line.discount ?? 0),
-        tax_amount: String(line.tax_amount ?? 0),
-      }),
+      unit_price: priceStr,
+      discount: discStr,
+      tax_amount: taxStr,
+      total: isBW
+        ? computedTotal
+        : ("total" in line && typeof line.total === "string" ? line.total : computedTotal),
       product_master_id: matchedProduct?.id || line.product_master_id || null,
       matched_sku: matchedProduct?.internal_sku || "",
       matched_internal_name: matchedProduct?.internal_product_name || "",
@@ -399,7 +406,8 @@ export default function ProcurementInvoicesTab() {
       const nextLine: EditableInvoiceLine = { ...updated[idx], [field]: value };
 
       if (["quantity", "unit_price", "discount", "tax_amount"].includes(field)) {
-        nextLine.total = calculateEditLineTotal(nextLine);
+        const supplierName = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id || null) || selectedInvoice?.supplier_name || "";
+        nextLine.total = calculateEditLineTotal(nextLine, supplierName);
       }
 
       if (field === "unit_price" && nextLine.pm_unit_price) {
