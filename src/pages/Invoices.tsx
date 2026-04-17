@@ -70,7 +70,7 @@ export default function Invoices() {
           entries.push({
             id: pm.id,
             internal_sku: pm.internal_sku,
-            external_sku: ps.external_sku || pm.external_sku || "",
+            external_sku: ps.external_sku ?? "",
             internal_product_name: pm.internal_product_name,
             supplier_product_name: ps.supplier_product_name || pm.supplier_product_name || "",
             purchase_unit_cost: ps.purchase_unit_cost ?? pm.purchase_unit_cost,
@@ -451,7 +451,7 @@ export default function Invoices() {
     const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
     updated[i] = {
       ...updated[i],
-      item_code: product.external_sku || updated[i].item_code,
+      item_code: product.external_sku || "",
       description: product.supplier_product_name || product.internal_product_name || updated[i].description,
       matched_sku: product.internal_sku,
       matched_internal_name: product.internal_product_name || "",

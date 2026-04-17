@@ -145,7 +145,7 @@ export default function ProcurementInvoicesTab() {
               id: p.id,
               supplier_entry_id: s.id,
               internal_sku: p.internal_sku,
-              external_sku: s.external_sku || p.external_sku || "",
+              external_sku: s.external_sku ?? "",
               internal_product_name: p.internal_product_name,
               supplier_product_name: s.supplier_product_name || p.supplier_product_name || p.internal_product_name || "",
               purchase_unit_cost: s.purchase_unit_cost ?? p.purchase_unit_cost ?? 0,
@@ -443,7 +443,7 @@ export default function ProcurementInvoicesTab() {
         product.supplier.toLowerCase().includes(editSupplierName.toLowerCase());
       const nextLine: EditableInvoiceLine = {
         ...currentLine,
-        item_code: product.external_sku || currentLine.item_code,
+        item_code: product.external_sku || "",
         description: product.supplier_product_name || product.internal_product_name || currentLine.description,
         product_master_id: product.id,
         matched_sku: product.internal_sku,
