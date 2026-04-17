@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveProductMatch } from "@/utils/productMasterResolver";
+import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -415,58 +415,17 @@ export default function ProcurementInvoicesTab() {
       }
 
       if (field === "item_code" || field === "description") {
-        const trimmed = value.trim();
-        const invoiceSupplierName = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id || null) || selectedInvoice?.supplier_name || "";
-
-        if (trimmed) {
-          const resolved = resolveProductMatch(
-            {
-              itemCode: field === "item_code" ? trimmed : nextLine.item_code,
-              description: field === "description" ? trimmed : nextLine.description,
-            },
-            productMaster,
-            invoiceSupplierName,
-          );
-
-          if (resolved) {
-            nextLine.item_code = resolved.external_sku || nextLine.item_code;
-            // If matched by SKU (item_code field), always override description
-            if (field === "item_code") {
-              nextLine.description = resolved.supplier_product_name || resolved.internal_product_name || nextLine.description;
-            }
-            nextLine.product_master_id = resolved.id;
-            nextLine.matched_sku = resolved.internal_sku;
-            nextLine.matched_internal_name = resolved.internal_product_name || "";
-            nextLine.matched_stock_uom = resolved.stock_uom || "";
-            nextLine.matched_purchase_uom = resolved.purchase_unit || "";
-            nextLine.matched_stock_qty_ratio = resolved.stock_qty ?? 1;
-            nextLine.unmatched = false;
-            nextLine.pm_unit_price = resolved.purchase_unit_cost;
-            nextLine.price_changed = typeof resolved.purchase_unit_cost === "number" && resolved.purchase_unit_cost > 0
-              ? Math.abs((parseFloat(nextLine.unit_price) || 0) - resolved.purchase_unit_cost) > 0.01
-              : false;
-          } else {
-            nextLine.product_master_id = null;
-            nextLine.matched_sku = "";
-            nextLine.matched_internal_name = "";
-            nextLine.matched_stock_uom = "";
-            nextLine.matched_purchase_uom = "";
-            nextLine.matched_stock_qty_ratio = 1;
-            nextLine.pm_unit_price = undefined;
-            nextLine.price_changed = false;
-            nextLine.unmatched = Boolean((nextLine.item_code || "").trim() || (nextLine.description || "").trim());
-          }
-        } else {
-          nextLine.product_master_id = null;
-          nextLine.matched_sku = "";
-          nextLine.matched_internal_name = "";
-          nextLine.matched_stock_uom = "";
-          nextLine.matched_purchase_uom = "";
-          nextLine.matched_stock_qty_ratio = 1;
-          nextLine.pm_unit_price = undefined;
-          nextLine.price_changed = false;
-          nextLine.unmatched = Boolean((nextLine.item_code || "").trim() || (nextLine.description || "").trim());
-        }
+        // Free-text edit: clear PM linkage so the edit sticks. Re-linking
+        // happens at save time (handleEditSave) or via explicit autocomplete pick.
+        nextLine.product_master_id = null;
+        nextLine.matched_sku = "";
+        nextLine.matched_internal_name = "";
+        nextLine.matched_stock_uom = "";
+        nextLine.matched_purchase_uom = "";
+        nextLine.matched_stock_qty_ratio = 1;
+        nextLine.pm_unit_price = undefined;
+        nextLine.price_changed = false;
+        nextLine.unmatched = Boolean((nextLine.item_code || "").trim() || (nextLine.description || "").trim());
       }
 
       updated[idx] = nextLine;

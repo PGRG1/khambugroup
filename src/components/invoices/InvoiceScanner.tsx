@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
-import { resolveProductMatch } from "@/utils/productMasterResolver";
+import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -648,11 +648,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
         const lineTotal = isBW ? Math.round((qty * price) - disc + tax) : parseFloat(((qty * price) - disc + tax).toFixed(2));
-        // Resolve product_master_id using external SKU first, then internal SKU
+        // Resolve product_master_id at save time using EXACT match only
         let pmId: string | null = null;
         if (productMaster) {
-          const resolved = resolveProductMatch(
-            { itemCode: l.item_code, internalSku: l.matched_sku || undefined },
+          const resolved = resolveExactMatch(
+            { itemCode: l.item_code, description: l.description, internalSku: l.matched_sku || undefined },
             productMaster,
             supplierName,
           );
