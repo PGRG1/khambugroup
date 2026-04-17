@@ -1,23 +1,56 @@
 
-
-## Fix: Allow free editing of External SKU & External Name
+## Fix: Make External SKU / External Name truly free-editable
 
 ### Root cause
-In `src/components/invoices/ProductAutocomplete.tsx` (lines 167-176), `handleBlur` calls `resolveExactMatch` on whatever the user typed and silently fires `onSelect(...)` whenever the value happens to exactly equal an existing product. Because `onSelect` in the parent overwrites BOTH fields (SKU + Name) and triggers PM hydration, the user's edit gets reverted the moment focus leaves the cell. This is why backspacing and typing a new value "doesn't stick" — it gets snapped back on blur.
+The blur snap-back in `ProductAutocomplete.tsx` has already been removed, but the fields are still being auto-resolved in the parent forms on every keystroke:
+- `src/components/invoices/InvoiceScanner.tsx`
+- `src/components/procurement/ProcurementInvoicesTab.tsx`
+- `src/pages/Invoices.tsx`
 
-### Fix
-Remove the auto-`onSelect`-on-blur behavior. Selection should only happen via:
-- explicit click on a dropdown suggestion
-- pressing `Enter` on a highlighted suggestion
+Those handlers still call `resolveProductMatch(...)` while the user types. That causes the old matched product to be re-applied immediately from the other field, so delete/backspace never sticks.
 
-Free-text values the user types (whether they happen to match a product or not) must be preserved as-is. The parent component already handles auto-matching elsewhere (via `resolveProductMatch` in `productMasterResolver.ts` during scan/save), so no functionality is lost.
+### What to change
+1. **Stop live auto-matching while typing**
+   - In all 3 editors, let `item_code` and `description` behave as normal text inputs.
+   - Remove `resolveProductMatch(...)` from the `onChange` path for these two fields.
+   - When either field is manually edited, clear the linked PM metadata (`product_master_id`, `matched_sku`, internal name/UOM fields, price flags, unmatched state) unless the user explicitly chose a suggestion.
 
-### Change (single file: `src/components/invoices/ProductAutocomplete.tsx`)
+2. **Keep matching explicit**
+   - Product hydration should only happen when the user:
+     - clicks a dropdown suggestion, or
+     - presses Enter on a highlighted suggestion.
+   - `selectProduct` / `selectEditProduct` remain the only edit-time hydration path.
 
-Replace `handleBlur` (lines 167-176) with a no-op that only resets the `justSelectedRef` flag and closes the dropdown. Drop the `resolveExactMatch` call entirely from blur. Keep `resolveExactMatch` definition only if used elsewhere — it isn't — so remove it too for cleanliness.
+3. **Add exact-match re-linking at save time**
+   - Since saves currently depend on live match state, add a small exact-only helper in `src/utils/productMasterResolver.ts`.
+   - Use it during save in:
+     - `InvoiceScanner.tsx`
+     - `ProcurementInvoicesTab.tsx`
+     - `Invoices.tsx`
+   - This allows exact typed SKU/name values to reconnect on save without forcing live snap-back while editing.
 
-### Impact
-- External SKU and External Name become fully editable: backspace, retype, paste, clear all work as expected.
-- Dropdown still appears as you type; clicking a suggestion or pressing Enter still hydrates both fields via `onSelect`.
-- No DB or other-file changes; affects scanner edit, Procurement edit, and Invoices edit dialogs uniformly.
+4. **Scanner-specific cleanup**
+   - In `InvoiceScanner.tsx`, stop using `flagLineItemIssues(...)` as a typing-time hydrator.
+   - Keep it for initial scan/import analysis only, not for manual edits after the row is on screen.
 
+### Files to update
+- `src/components/invoices/InvoiceScanner.tsx`
+- `src/components/procurement/ProcurementInvoicesTab.tsx`
+- `src/pages/Invoices.tsx`
+- `src/utils/productMasterResolver.ts`
+
+### Expected result
+- External SKU can be fully cleared and retyped.
+- External Name can be fully cleared and retyped.
+- Backspace, delete, paste, and free-text edits all stick.
+- Selecting from autocomplete still fills both fields.
+- Exact typed values can still reconnect to Product Master when saved.
+- No database changes.
+
+### Verification
+Test all 3 surfaces:
+1. clear External SKU only
+2. clear External Name only
+3. type a brand-new free-text value
+4. clear then pick a new suggestion
+5. save and reopen to confirm the edited values persist correctly
