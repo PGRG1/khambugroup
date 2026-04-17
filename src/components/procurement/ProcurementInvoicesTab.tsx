@@ -406,7 +406,8 @@ export default function ProcurementInvoicesTab() {
       const nextLine: EditableInvoiceLine = { ...updated[idx], [field]: value };
 
       if (["quantity", "unit_price", "discount", "tax_amount"].includes(field)) {
-        nextLine.total = calculateEditLineTotal(nextLine);
+        const supplierName = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id || null) || selectedInvoice?.supplier_name || "";
+        nextLine.total = calculateEditLineTotal(nextLine, supplierName);
       }
 
       if (field === "unit_price" && nextLine.pm_unit_price) {
