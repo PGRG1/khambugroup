@@ -1052,21 +1052,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full text-xs border-collapse min-w-[1500px]">
+            <table className="w-full text-xs border-collapse min-w-full table-auto">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Internal SKU</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[140px]">Internal Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">External SKU</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[160px]">External Name</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">External SKU</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[200px]">External Name</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Purch. Qty</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Stock UOM</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Stock Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[95px]">Purch. Cost</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Discount</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Total</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
