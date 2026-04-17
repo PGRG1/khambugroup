@@ -498,10 +498,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     const selectedSupplier = suppliers.find((supplier) => supplier.id === value);
     setInvoices((prev) => {
       const copy = [...prev];
+      const newSupplierName = selectedSupplier?.name || copy[targetIdx].supplier_name;
+      const isBW = (newSupplierName || "").toLowerCase().includes("beverage world");
+      const recomputedLines = (copy[targetIdx].line_items || []).map((line) => {
+        const raw = ((Number(line.quantity) || 0) * (Number(line.unit_price) || 0)) - (Number(line.discount) || 0) + (Number(line.tax_amount) || 0);
+        return { ...line, total: isBW ? String(Math.round(raw)) : raw.toFixed(2) };
+      });
       copy[targetIdx] = {
         ...copy[targetIdx],
         supplier_id: value,
-        supplier_name: selectedSupplier?.name || copy[targetIdx].supplier_name,
+        supplier_name: newSupplierName,
+        line_items: recomputedLines,
       };
       return copy;
     });
