@@ -97,6 +97,7 @@ export default function ProcurementDashboardTab() {
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [pmCategories, setPmCategories] = useState<PMCategory[]>([]);
+  const [salesRecords, setSalesRecords] = useState<SalesRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(new Set());
@@ -108,16 +109,18 @@ export default function ProcurementDashboardTab() {
 
   useEffect(() => {
     (async () => {
-      const [invRes, liData, supRes, pmRes] = await Promise.all([
+      const [invRes, liData, supRes, pmRes, salesData] = await Promise.all([
         supabase.from("invoices").select("id, supplier_id, invoice_date, invoice_number, total_amount, payment_status, status, venue"),
         fetchAllRows("invoice_line_items", "id, invoice_id, description, quantity, unit_price, total, product_master_id"),
         supabase.from("suppliers").select("id, name"),
         supabase.from("product_master" as any).select("id, level1_category, level2_category, level3_category, internal_product_name"),
+        fetchAllRows("sales_records", "date, total_sales"),
       ]);
       if (invRes.data) setInvoices(invRes.data);
       setLineItems(liData);
       if (supRes.data) setSuppliers(supRes.data);
       if (pmRes.data) setPmCategories(pmRes.data as unknown as PMCategory[]);
+      setSalesRecords(salesData as unknown as SalesRow[]);
       setLoading(false);
     })();
   }, []);
