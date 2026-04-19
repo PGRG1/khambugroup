@@ -458,48 +458,54 @@ export default function ProcurementDashboardTab() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">
-            {showDailyView ? "Daily Spend & Cumulative" : "Monthly Spend Trend"}
+            {showDailyView ? "Daily Spend vs Revenue" : "Monthly Spend vs Revenue"}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px]">
+          <div className="h-[320px]">
             {showDailyView ? (
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={dailySpendData} margin={{ top: 5, right: 50, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
                   <YAxis yAxisId="left" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <YAxis yAxisId="right" orientation="right" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(v: number, name: string) => [fmt(v), name === "value" ? "Daily Spend" : "Cumulative"]}
+                    formatter={(v: any, name: string) => {
+                      if (v === null || v === undefined) return ["—", name];
+                      if (name === "Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
+                      return [fmt(Number(v)), name];
+                    }}
                     labelStyle={{ fontWeight: 600, fontSize: 12 }}
                   />
-                  <defs>
-                    <linearGradient id="dailyGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.4} />
-                    </linearGradient>
-                  </defs>
-                  <Bar yAxisId="left" dataKey="value" fill="url(#dailyGrad)" radius={[3, 3, 0, 0]} name="Daily Spend" />
-                  <Line yAxisId="right" type="monotone" dataKey="cumulative" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={false} name="Cumulative" />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="left" dataKey="value" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} name="Spend" />
+                  <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} name="Revenue" />
+                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cost of Revenue %" connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : monthlyTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyTrend} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <ComposedChart data={monthlyTrend} margin={{ top: 5, right: 50, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmt(v), "Spend"]} labelStyle={{ fontWeight: 600, fontSize: 12 }} />
-                  <defs>
-                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.4} />
-                    </linearGradient>
-                  </defs>
-                  <Bar dataKey="value" fill="url(#trendGrad)" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                  <YAxis yAxisId="left" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(v: any, name: string) => {
+                      if (v === null || v === undefined) return ["—", name];
+                      if (name === "Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
+                      return [fmt(Number(v)), name];
+                    }}
+                    labelStyle={{ fontWeight: 600, fontSize: 12 }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="left" dataKey="spend" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} name="Spend" />
+                  <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[4, 4, 0, 0]} name="Revenue" />
+                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cost of Revenue %" connectNulls={false} />
+                </ComposedChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data</div>
