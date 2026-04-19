@@ -40,6 +40,11 @@ interface SupplierRow {
   name: string;
 }
 
+interface SalesRow {
+  date: string;
+  total_sales: number;
+}
+
 interface PMCategory {
   id: string;
   level1_category: string;
