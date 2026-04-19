@@ -169,37 +169,76 @@ export default function ProcurementDashboardTab() {
 
   // ─── Monthly Spend Trend (all time) ───
   const monthlyTrend = useMemo(() => {
-    const map = new Map<string, number>();
+    const spendMap = new Map<string, number>();
     invoices.forEach(inv => {
       const d = new Date(inv.invoice_date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      map.set(key, (map.get(key) || 0) + Number(inv.total_amount));
+      spendMap.set(key, (spendMap.get(key) || 0) + Number(inv.total_amount));
     });
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => ({ month: formatMonthLabel(key), value }));
-  }, [invoices]);
+    const revMap = new Map<string, number>();
+    salesRecords.forEach(s => {
+      const d = new Date(s.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      revMap.set(key, (revMap.get(key) || 0) + Number(s.total_sales));
+    });
+    const allKeys = new Set<string>([...spendMap.keys(), ...revMap.keys()]);
+    return Array.from(allKeys)
+      .sort()
+      .map(key => {
+        const spend = spendMap.get(key) || 0;
+        const revenue = revMap.get(key) || 0;
+        const costPct = revenue > 0 ? (spend / revenue) * 100 : null;
+        return { month: formatMonthLabel(key), spend, revenue, costPct };
+      });
+  }, [invoices, salesRecords]);
 
   // ─── Daily Spend + Cumulative (single month / custom) ───
   const dailySpendData = useMemo(() => {
     if (!isSingleMonth && !isCustomPeriod) return [];
-    const map = new Map<string, number>();
+    const spendMap = new Map<string, number>();
     filteredInvoices.forEach(inv => {
-      const dateKey = inv.invoice_date;
-      map.set(dateKey, (map.get(dateKey) || 0) + Number(inv.total_amount));
+      spendMap.set(inv.invoice_date, (spendMap.get(inv.invoice_date) || 0) + Number(inv.total_amount));
     });
-    const sorted = Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    // Filter sales by same period
+    const filteredSales = salesRecords.filter(s => {
+      if (selectedMonth === "all") return true;
+      if (isCustomPeriod) {
+        if (!customFrom && !customTo) return true;
+        const d = new Date(s.date);
+        if (customFrom && d < customFrom) return false;
+        if (customTo) {
+          const endOfDay = new Date(customTo);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (d > endOfDay) return false;
+        }
+        return true;
+      }
+      const [y, m] = selectedMonth.split("-").map(Number);
+      const d = new Date(s.date);
+      return d.getFullYear() === y && d.getMonth() + 1 === m;
+    });
+    const revMap = new Map<string, number>();
+    filteredSales.forEach(s => {
+      revMap.set(s.date, (revMap.get(s.date) || 0) + Number(s.total_sales));
+    });
+    const allDates = new Set<string>([...spendMap.keys(), ...revMap.keys()]);
+    const sorted = Array.from(allDates).sort();
     let cumulative = 0;
-    return sorted.map(([date, value]) => {
-      cumulative += value;
+    return sorted.map(date => {
+      const spend = spendMap.get(date) || 0;
+      const revenue = revMap.get(date) || 0;
+      cumulative += spend;
+      const costPct = revenue > 0 ? (spend / revenue) * 100 : null;
       const d = new Date(date);
       return {
         day: format(d, "d MMM"),
-        value,
+        value: spend,
+        revenue,
+        costPct,
         cumulative,
       };
     });
-  }, [filteredInvoices, isSingleMonth, isCustomPeriod]);
+  }, [filteredInvoices, salesRecords, isSingleMonth, isCustomPeriod, selectedMonth, customFrom, customTo]);
 
   const showDailyView = (isSingleMonth || isCustomPeriod) && dailySpendData.length > 0;
 
