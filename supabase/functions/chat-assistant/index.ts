@@ -390,6 +390,7 @@ Deno.serve(async (req) => {
     }
 
     const conversation: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+    const chartSpecs: any[] = [];
 
     // Tool-calling loop (non-stream until tools done, then stream final reply)
     for (let iter = 0; iter < 5; iter++) {
