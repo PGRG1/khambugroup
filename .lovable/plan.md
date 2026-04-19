@@ -1,51 +1,42 @@
 
-The user approved the dashboard pagination fix and wants me to broaden the audit: confirm every other procurement page/component that fetches `invoices`, `invoice_line_items`, `product_master`, `product_suppliers`, `suppliers`, `sales_records`, etc. also uses `fetchAllRows` so no view is silently truncated at 1000 rows.
+User is asking if it's possible to add an AI assistant to their KHAMBU dashboard. Yes — Lovable AI is already configured (LOVABLE_API_KEY is in secrets), so this is straightforward. I should clarify what kind of assistant before planning.
 
-## Plan: Audit + fix all 1000-row truncation across the app
+Given the app context (revenue analytics, procurement, invoices, HR), an AI assistant could be:
+1. A general chat helper (floating widget anywhere)
+2. A data-aware analyst that can answer questions about their actual sales/invoices/procurement data
+3. A page-specific helper (e.g. only on dashboards)
 
-### Scope
-Sweep every hook/component that calls `supabase.from(...).select(...)` without `.range()` pagination and convert to `fetchAllRows` where the table can plausibly exceed 1000 rows.
+Option 2 is the most valuable but most complex. Need to ask before designing.
 
-### High-risk files to audit & fix
-Based on file structure + memory, these are the suspects:
+## Yes — adding an AI Assistant is fully supported
 
-**Procurement (highest priority — 1008+ invoices already)**
-- `src/components/procurement/ProcurementDashboardTab.tsx` — already in plan
-- `src/components/procurement/ProcurementInvoicesTab.tsx` — invoices table
-- `src/components/procurement/ProcurementLineItemsTab.tsx` — line items (multiplier of invoices)
-- `src/components/procurement/InventoryOnHandTab.tsx` — inventory + line items
-- `src/components/procurement/MenuCostingTab.tsx` — product master
-- `src/components/procurement/ProductMasterTab.tsx` — product master + suppliers
-- `src/components/procurement/SuppliersTab.tsx` — suppliers
-- `src/components/procurement/DocumentsTab.tsx` — invoice file list
+Lovable AI is already wired into the project (the `LOVABLE_API_KEY` secret is set and the receipt/invoice scanners already use it). Adding a conversational assistant is a clean addition — no new accounts, API keys, or external setup needed.
 
-**Hooks**
-- `src/hooks/useInvoiceData.ts` — invoices + line items + suppliers
-- `src/hooks/useSalesData.ts` — sales_records (will exceed 1000)
-- `src/hooks/useProductMaster.ts` — product master
-- `src/hooks/useStandardProducts.ts`
-- `src/hooks/useMenuCosting.ts`
-- `src/hooks/useHRData.ts` — attendance, shifts, payroll history
-- `src/hooks/usePLData.ts`
-- `src/hooks/useForecastData.ts`
+### What's possible
 
-**Other pages**
-- `src/pages/Invoices.tsx`, `src/pages/PLReport.tsx`, `src/pages/AuditLog.tsx`, `src/components/dashboard/*` (sales reads)
-- `src/components/invoices/InvoiceAnalytics.tsx`, `LineItemsTab.tsx`, `StandardProductsTab.tsx`, `SupplierItemMappingsTab.tsx`
+A floating chat widget (bottom-right bubble) available across the app, powered by `google/gemini-3-flash-preview` via a new edge function. Three flavors — pick one before I plan in detail:
 
-### Method
-1. `rg "supabase\.from\(" src --type ts -n` → enumerate every read.
-2. For each: check if it has `.range(` or already calls `fetchAllRows`. If neither, and the table can grow past 1000 rows, replace with `fetchAllRows("table", "cols", { col, asc })`.
-3. Skip:
-   - `.single()` / `.maybeSingle()` queries (capped to 1)
-   - small reference tables that won't grow past 1000 (e.g. `expense_categories`, `hr_leave_types`, `hr_departments`, `forecast_approvers`, `page_visibility`, `user_roles`)
-   - mutations (insert/update/delete)
-4. Preserve existing ordering, filters, and column selection exactly — only swap the fetch mechanism.
+| Option | What it does | Complexity |
+|---|---|---|
+| **A. General assistant** | Answers questions, explains features, helps with formulas/exports. No access to your data. | Low |
+| **B. Data-aware analyst** (recommended) | Can query your actual sales, invoices, suppliers, P&L — e.g. *"What was Caliente's revenue last month?"*, *"Top 5 suppliers by spend YTD"*, *"Which days had Cost of Revenue > 35%?"* | Medium |
+| **C. Page-aware copilot** | Sees what's on the current page (current filter, chart data) and answers contextual questions about it. | Medium |
 
-### Verification
-- Procurement Dashboard: Invoice Count = full DB total (1008+); Spend/Revenue charts include all months
-- Invoices tab: full list visible, sortable
-- Line Items tab: row count matches `select count(*)` from `invoice_line_items`
-- Sales/Revenue dashboard: KPI totals match prior period totals after fix
-- Product Master, Suppliers, Inventory tabs: full lists load
-- No regression in initial load time beyond ~1 extra round-trip per >1000-row table
+B and C can be combined later.
+
+### Standard pieces (apply to all options)
+- New edge function `supabase/functions/chat-assistant/index.ts` with streaming SSE responses
+- New floating widget `src/components/assistant/AssistantWidget.tsx` mounted in `App.tsx`
+- Chat history kept in component state (no DB persistence unless you want it)
+- Markdown rendering of replies, 429/402 error toasts, abort-on-close
+
+### For Option B specifically
+- The edge function exposes a small set of safe, read-only "tools" the model can call: `get_sales_summary`, `get_invoice_summary`, `get_top_suppliers`, `get_pl_period`, etc. Each tool runs a parameterized Supabase query server-side using the service role — the model never writes SQL directly.
+- All queries respect the same canonical sales math (Total Revenue = Subtotal + Service Charge, etc.) already in the codebase.
+- Admin-only by default; can be permissioned per user later via the existing UAC system.
+
+### Quick questions before I build
+
+1. Which flavor? (A / B / C / B+C)
+2. Who can use it? (Admins only / All authenticated users / Permissioned via User Access Control)
+3. Should chat history persist across sessions, or reset each visit?
