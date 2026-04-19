@@ -480,8 +480,8 @@ export default function ProcurementDashboardTab() {
                     labelStyle={{ fontWeight: 600, fontSize: 12 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="left" dataKey="value" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} name="Spend" />
                   <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} name="Revenue" />
+                  <Bar yAxisId="left" dataKey="value" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} name="Spend" />
                   <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cost of Revenue %" connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
