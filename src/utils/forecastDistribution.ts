@@ -90,10 +90,6 @@ export function computeDowMedians(
 export interface DistributedDay {
   date: string;
   day: string;
-  /** Pre-scaling baseline (median guests * median avg spend, gross) */
-  baselineGross: number;
-  /** Final daily target gross sales (after scaling to monthly target) */
-  targetGross: number;
   /** Suggested guests for this day (rounded) */
   guests: number;
   /** Suggested avg spend per guest (rounded) */
@@ -102,42 +98,90 @@ export interface DistributedDay {
   totalSales: number;
   /** True if median data was missing for this DOW (used even-distribution fallback) */
   fallback: boolean;
+  /** True if this date is in the past and the row reflects ACTUAL recorded sales (not a forecast) */
+  isActual: boolean;
+}
+
+export interface DistributionResult {
+  rows: DistributedDay[];
+  actualSoFar: number;        // sum of actual total sales already in the month for selected venues
+  remainingTarget: number;    // monthlyTarget - actualSoFar (total sales)
+  forecastTotal: number;      // sum of forecasted total sales for remaining days
+  combinedTotal: number;      // actualSoFar + forecastTotal
 }
 
 /**
- * Distribute a monthly gross-sales target across each day of the month
- * proportionally to the median DOW driver pattern (guests x avg spend).
+ * Distribute a monthly TOTAL-SALES target across each day of the month.
  *
- * `monthlyTarget` is interpreted as TOTAL SALES (incl. 10% service charge),
- * matching the user's "target 800K this month" intent. We back out the
- * gross figure (monthlyTarget / 1.1) for distribution, then re-apply SC per day.
+ * Past days where actuals already exist are kept as-is (not re-forecasted).
+ * The remaining target (= monthly target − actual so far) is distributed across
+ * the remaining future days using the DOW median driver pattern.
+ *
+ * `monthlyTarget` is total sales (incl. 10% service charge).
  */
 export function distributeMonthlyTarget(params: {
   year: number;
   month: number; // 1-12
-  monthlyTarget: number; // total sales target (incl SC)
+  monthlyTarget: number;
   medians: MedianByDOW;
-}): DistributedDay[] {
-  const { year, month, monthlyTarget, medians } = params;
+  /** Map of date (yyyy-mm-dd) → aggregated actuals across selected venues */
+  actuals?: Map<string, { guests: number; totalSales: number }>;
+}): DistributionResult {
+  const { year, month, monthlyTarget, medians, actuals } = params;
   const dates = getDatesInMonth(year, month);
 
-  // Baseline per day = median guests × median avg spend (gross)
-  const baselines = dates.map((d) => {
-    const dow = DAYS[d.getDay()];
+  // 1. Split into "actual" days vs "remaining" days
+  let actualSoFar = 0;
+  const splitDays = dates.map((d) => {
+    const iso = toIsoDate(d);
+    const a = actuals?.get(iso);
+    if (a && a.totalSales > 0) {
+      actualSoFar += a.totalSales;
+      return { date: d, iso, isActual: true, actual: a };
+    }
+    return { date: d, iso, isActual: false, actual: null as null | { guests: number; totalSales: number } };
+  });
+
+  const remainingDays = splitDays.filter((s) => !s.isActual);
+  const remainingTarget = Math.max(0, monthlyTarget - actualSoFar);
+  const remainingGrossTarget = remainingTarget / 1.1;
+
+  // 2. Compute baselines for remaining days only
+  const baselines = remainingDays.map((s) => {
+    const dow = DAYS[s.date.getDay()];
     const g = medians.guestsByDow[dow] || 0;
-    const s = medians.avgSpendByDow[dow] || 0;
-    const baseline = g * s;
-    return { date: d, dow, guests: g, avgSpend: s, baseline };
+    const sp = medians.avgSpendByDow[dow] || 0;
+    return { ...s, dow, mGuests: g, mSpend: sp, baseline: g * sp };
   });
 
   const totalBaseline = baselines.reduce((sum, b) => sum + b.baseline, 0);
-  const grossTarget = monthlyTarget / 1.1;
-
-  // Scale factor: maps baseline gross → target gross
   const useFallback = !medians.hasData || totalBaseline <= 0;
-  const evenShare = grossTarget / dates.length;
+  const evenShare = remainingDays.length > 0 ? remainingGrossTarget / remainingDays.length : 0;
+  const baselineToGross = totalBaseline > 0 ? remainingGrossTarget / totalBaseline : 0;
 
-  return baselines.map((b) => {
+  // Pre-compute fallback defaults
+  const allG = Object.values(medians.guestsByDow).filter((v) => v > 0);
+  const allS = Object.values(medians.avgSpendByDow).filter((v) => v > 0);
+  const avgFallbackSpend = allS.length ? allS.reduce((a, c) => a + c, 0) / allS.length : 0;
+  const avgFallbackGuests = allG.length ? allG.reduce((a, c) => a + c, 0) / allG.length : 0;
+
+  // 3. Build full row list preserving date order
+  const rows: DistributedDay[] = splitDays.map((s) => {
+    if (s.isActual && s.actual) {
+      const guests = s.actual.guests;
+      const avgSpend = guests > 0 ? Math.round(s.actual.totalSales / 1.1 / guests) : 0;
+      return {
+        date: s.iso,
+        day: DAYS[s.date.getDay()],
+        guests,
+        avgSpend,
+        totalSales: Math.round(s.actual.totalSales),
+        fallback: false,
+        isActual: true,
+      };
+    }
+
+    const b = baselines.find((x) => x.iso === s.iso)!;
     let targetGross: number;
     let guests: number;
     let avgSpend: number;
@@ -145,35 +189,56 @@ export function distributeMonthlyTarget(params: {
 
     if (useFallback || b.baseline <= 0) {
       targetGross = evenShare;
-      // Reasonable defaults: pick overall median guests & spend, else split evenly
-      const allG = Object.values(medians.guestsByDow).filter((v) => v > 0);
-      const allS = Object.values(medians.avgSpendByDow).filter((v) => v > 0);
-      const fallbackGuests = allG.length ? allG.reduce((a, c) => a + c, 0) / allG.length : 0;
-      const fallbackSpend = allS.length ? allS.reduce((a, c) => a + c, 0) / allS.length : 0;
-      avgSpend = fallbackSpend > 0 ? Math.round(fallbackSpend) : 0;
-      guests = avgSpend > 0 ? Math.round(targetGross / avgSpend) : Math.round(fallbackGuests);
+      avgSpend = avgFallbackSpend > 0 ? Math.round(avgFallbackSpend) : 0;
+      guests = avgSpend > 0 ? Math.round(targetGross / avgSpend) : Math.round(avgFallbackGuests);
       fallback = true;
     } else {
-      const scale = grossTarget / totalBaseline;
-      targetGross = b.baseline * scale;
-      // Keep avg spend equal to DOW median (realistic), scale guests to hit target
-      avgSpend = Math.round(b.avgSpend);
+      targetGross = b.baseline * baselineToGross;
+      avgSpend = Math.round(b.mSpend);
       guests = avgSpend > 0 ? Math.round(targetGross / avgSpend) : 0;
     }
 
     const grossSales = guests * avgSpend;
     const serviceCharge = Math.round(grossSales * 0.1);
-    const totalSales = grossSales + serviceCharge;
-
     return {
-      date: toIsoDate(b.date),
-      day: DAYS[b.date.getDay()],
-      baselineGross: b.baseline,
-      targetGross,
+      date: s.iso,
+      day: DAYS[s.date.getDay()],
       guests,
       avgSpend,
-      totalSales,
+      totalSales: grossSales + serviceCharge,
       fallback,
+      isActual: false,
     };
   });
+
+  const forecastTotal = rows.filter((r) => !r.isActual).reduce((s, r) => s + r.totalSales, 0);
+
+  return {
+    rows,
+    actualSoFar: Math.round(actualSoFar),
+    remainingTarget: Math.round(remainingTarget),
+    forecastTotal: Math.round(forecastTotal),
+    combinedTotal: Math.round(actualSoFar + forecastTotal),
+  };
 }
+
+/** Build a per-venue map of date → aggregated actuals from sales records */
+export function aggregateActualsByVenue(
+  salesData: { date: string; venue: string; guests: number; totalSales: number }[],
+  venue: string,
+  year: number,
+  month: number
+): Map<string, { guests: number; totalSales: number }> {
+  const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+  const map = new Map<string, { guests: number; totalSales: number }>();
+  for (const s of salesData) {
+    if (s.venue !== venue) continue;
+    if (!s.date.startsWith(monthStr)) continue;
+    const cur = map.get(s.date) ?? { guests: 0, totalSales: 0 };
+    cur.guests += s.guests;
+    cur.totalSales += s.totalSales;
+    map.set(s.date, cur);
+  }
+  return map;
+}
+
