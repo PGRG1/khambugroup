@@ -168,6 +168,26 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "get_invoice_line_items",
+      description:
+        "Drill into invoice line items to see specific products purchased, quantities, units, and product-level spend. Use for questions like 'what did we order from X', 'top products by spend', 'how many kg of beef', etc. Default groups by product (aggregated qty + spend per item description).",
+      parameters: {
+        type: "object",
+        properties: {
+          supplier_name: { type: "string", description: "Fuzzy match on supplier name" },
+          date_from: { type: "string", description: "YYYY-MM-DD inclusive" },
+          date_to: { type: "string", description: "YYYY-MM-DD inclusive" },
+          venue: { type: "string" },
+          product_search: { type: "string", description: "Substring match on item description" },
+          group_by: { type: "string", enum: ["none", "product", "supplier"], default: "product" },
+          limit: { type: "number", default: 50 },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_database_overview",
       description: "Quick counts: invoices, line items, sales records, suppliers, products, employees. Use when user asks 'how much data' or 'what's in the system'.",
       parameters: { type: "object", properties: {} },
@@ -312,6 +332,103 @@ async function runTool(name: string, args: any): Promise<any> {
       return rows;
     }
 
+    case "get_invoice_line_items": {
+      const [lineItems, invoices, suppliers] = await Promise.all([
+        fetchAll<any>("invoice_line_items", "invoice_id,description,quantity,unit,unit_price,total,item_code,pack_size"),
+        fetchAll<any>("invoices", "id,invoice_date,venue,supplier_id"),
+        fetchAll<any>("suppliers", "id,name"),
+      ]);
+      const supMap = new Map(suppliers.map((s) => [s.id, s.name]));
+      const invMap = new Map(invoices.map((i) => [i.id, i]));
+
+      const supplierNeedle = args.supplier_name?.toLowerCase();
+      const productNeedle = args.product_search?.toLowerCase();
+
+      const filtered = lineItems.filter((li) => {
+        const inv = invMap.get(li.invoice_id);
+        if (!inv) return false;
+        if (args.venue && inv.venue !== args.venue) return false;
+        if (!inDateRange(inv.invoice_date, args.date_from, args.date_to)) return false;
+        if (supplierNeedle) {
+          const supName = (supMap.get(inv.supplier_id) || "").toLowerCase();
+          if (!supName.includes(supplierNeedle)) return false;
+        }
+        if (productNeedle && !(li.description || "").toLowerCase().includes(productNeedle)) return false;
+        return true;
+      });
+
+      const groupBy = args.group_by || "product";
+      const limit = args.limit || 50;
+
+      if (groupBy === "none") {
+        return filtered.slice(0, limit).map((li) => {
+          const inv = invMap.get(li.invoice_id);
+          return {
+            date: inv?.invoice_date,
+            venue: inv?.venue,
+            supplier: supMap.get(inv?.supplier_id) || "Unknown",
+            description: li.description,
+            item_code: li.item_code,
+            quantity: Number(li.quantity || 0),
+            unit: li.unit,
+            unit_price: Number(li.unit_price || 0),
+            total: +Number(li.total || 0).toFixed(2),
+          };
+        });
+      }
+
+      if (groupBy === "supplier") {
+        const groups = new Map<string, { supplier: string; total_spend: number; line_count: number; invoice_ids: Set<string> }>();
+        for (const li of filtered) {
+          const inv = invMap.get(li.invoice_id);
+          const name = supMap.get(inv?.supplier_id) || "Unknown";
+          const cur = groups.get(name) || { supplier: name, total_spend: 0, line_count: 0, invoice_ids: new Set() };
+          cur.total_spend += Number(li.total || 0);
+          cur.line_count += 1;
+          cur.invoice_ids.add(li.invoice_id);
+          groups.set(name, cur);
+        }
+        return Array.from(groups.values())
+          .sort((a, b) => b.total_spend - a.total_spend)
+          .slice(0, limit)
+          .map((g) => ({
+            supplier: g.supplier,
+            total_spend: +g.total_spend.toFixed(2),
+            line_count: g.line_count,
+            invoice_count: g.invoice_ids.size,
+          }));
+      }
+
+      // group by product (description + item_code)
+      const groups = new Map<string, any>();
+      for (const li of filtered) {
+        const key = `${(li.item_code || "").trim()}||${(li.description || "").trim().toLowerCase()}`;
+        const cur = groups.get(key) || {
+          description: li.description,
+          item_code: li.item_code || "",
+          unit: li.unit || "",
+          total_qty: 0,
+          total_spend: 0,
+          invoice_ids: new Set<string>(),
+        };
+        cur.total_qty += Number(li.quantity || 0);
+        cur.total_spend += Number(li.total || 0);
+        cur.invoice_ids.add(li.invoice_id);
+        groups.set(key, cur);
+      }
+      return Array.from(groups.values())
+        .sort((a, b) => b.total_spend - a.total_spend)
+        .slice(0, limit)
+        .map((g) => ({
+          description: g.description,
+          item_code: g.item_code,
+          total_qty: +g.total_qty.toFixed(2),
+          unit: g.unit,
+          total_spend: +g.total_spend.toFixed(2),
+          invoice_count: g.invoice_ids.size,
+        }));
+    }
+
     case "get_database_overview": {
       const counts = async (t: string) => {
         const { count } = await admin.from(t).select("*", { count: "exact", head: true });
@@ -354,6 +471,8 @@ Key formulas (already enforced server-side):
 - Total Sales = Total Revenue - discount
 - Cost of Revenue % = invoice spend / total revenue * 100
 - Avg Spend per Guest = revenue / guests
+
+For questions about specific items, quantities purchased, or product-level spend (e.g. "what did we buy from supplier X", "top products by spend", "how many kg of beef"), use \`get_invoice_line_items\`.
 
 Today's date: ${new Date().toISOString().slice(0, 10)}.
 
