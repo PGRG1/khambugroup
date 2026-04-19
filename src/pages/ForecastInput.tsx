@@ -305,6 +305,9 @@ const ForecastInput = () => {
       {/* Period Filter */}
       {!hideDateRange && <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} />}
 
+      {/* Monthly Revenue Target */}
+      {canCreate && <RevenueTargetPanel salesData={salesData} allForecasts={forecasts} />}
+
       {/* Input Form */}
       {showEntry && canCreate && (
         <div className="card-glass rounded-xl p-6 animate-fade-in">
