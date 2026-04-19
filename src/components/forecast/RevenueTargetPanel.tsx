@@ -10,7 +10,13 @@ import { useForecastData } from "@/hooks/useForecastData";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
-import { computeDowMedians, distributeMonthlyTarget, DistributedDay } from "@/utils/forecastDistribution";
+import {
+  computeDowMedians,
+  distributeMonthlyTarget,
+  aggregateActualsByVenue,
+  DistributedDay,
+  DistributionResult,
+} from "@/utils/forecastDistribution";
 
 const ALL_VENUES = ["Assembly", "Caliente", "Hanabi", "Events"] as const;
 type Venue = (typeof ALL_VENUES)[number];
@@ -21,6 +27,12 @@ interface RevenueTargetPanelProps {
 }
 
 const monthName = (m: number) => new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
+
+interface VenueDistribution {
+  venue: Venue;
+  result: DistributionResult;
+  venueTarget: number;
+}
 
 const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps) => {
   const { user } = useAuth();
@@ -33,10 +45,9 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
   const [targetAmount, setTargetAmount] = useState<number>(0);
   const [selectedVenues, setSelectedVenues] = useState<Venue[]>(["Assembly", "Caliente"]);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [preview, setPreview] = useState<DistributedDay[]>([]);
+  const [perVenue, setPerVenue] = useState<VenueDistribution[]>([]);
   const [applying, setApplying] = useState(false);
 
-  // Sync with stored target when month/year changes
   useEffect(() => {
     const existing = getTarget(year, month);
     if (existing) {
@@ -52,16 +63,13 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
     const opts: { year: number; month: number; label: string }[] = [];
     const d = new Date(today.getFullYear(), today.getMonth() - 6, 1);
     for (let i = 0; i < 18; i++) {
-      const y = d.getFullYear();
-      const m = d.getMonth() + 1;
-      opts.push({ year: y, month: m, label: `${monthName(m)} ${y}` });
+      opts.push({ year: d.getFullYear(), month: d.getMonth() + 1, label: `${monthName(d.getMonth() + 1)} ${d.getFullYear()}` });
       d.setMonth(d.getMonth() + 1);
     }
     return opts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Currently forecasted total for selected month + venues
   const currentlyForecasted = useMemo(() => {
     const monthStr = `${year}-${String(month).padStart(2, "0")}`;
     return allForecasts
@@ -77,75 +85,66 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
   };
 
   const handleSaveTarget = async () => {
-    if (targetAmount <= 0) {
-      toast({ title: "Enter a target amount", variant: "destructive" });
-      return;
-    }
-    if (selectedVenues.length === 0) {
-      toast({ title: "Select at least one venue", variant: "destructive" });
-      return;
-    }
-    const ok = await upsertTarget({
-      year,
-      month,
-      targetAmount,
-      venues: selectedVenues,
-      userId: user?.id,
-    });
-    toast({
-      title: ok ? "Revenue target saved" : "Failed to save target",
-      variant: ok ? "default" : "destructive",
-    });
+    if (targetAmount <= 0) return toast({ title: "Enter a target amount", variant: "destructive" });
+    if (selectedVenues.length === 0) return toast({ title: "Select at least one venue", variant: "destructive" });
+    const ok = await upsertTarget({ year, month, targetAmount, venues: selectedVenues, userId: user?.id });
+    toast({ title: ok ? "Revenue target saved" : "Failed to save target", variant: ok ? "default" : "destructive" });
   };
 
   const handleGeneratePreview = () => {
-    if (targetAmount <= 0) {
-      toast({ title: "Enter a target amount", variant: "destructive" });
-      return;
-    }
-    if (selectedVenues.length === 0) {
-      toast({ title: "Select at least one venue", variant: "destructive" });
-      return;
-    }
-    const medians = computeDowMedians(salesData, selectedVenues, 3);
-    const distributed = distributeMonthlyTarget({ year, month, monthlyTarget: targetAmount, medians });
-    setPreview(distributed);
+    if (targetAmount <= 0) return toast({ title: "Enter a target amount", variant: "destructive" });
+    if (selectedVenues.length === 0) return toast({ title: "Select at least one venue", variant: "destructive" });
+
+    // Split target evenly across selected venues, then distribute each venue's
+    // share over the month using ITS OWN historical medians and ITS OWN actuals.
+    const venueTarget = targetAmount / selectedVenues.length;
+
+    const distributions: VenueDistribution[] = selectedVenues.map((venue) => {
+      const medians = computeDowMedians(salesData, [venue], 3);
+      const actuals = aggregateActualsByVenue(salesData, venue, year, month);
+      const result = distributeMonthlyTarget({
+        year,
+        month,
+        monthlyTarget: venueTarget,
+        medians,
+        actuals,
+      });
+      return { venue, result, venueTarget };
+    });
+
+    setPerVenue(distributions);
     setPreviewOpen(true);
   };
 
   const handleApply = async () => {
-    if (!user || preview.length === 0) return;
+    if (!user || perVenue.length === 0) return;
     setApplying(true);
-
-    // Split each day's target across selected venues by their historical share of the day.
-    // For simplicity: split evenly across venues per day.
-    const venueShare = 1 / selectedVenues.length;
 
     let written = 0;
     let failed = 0;
 
-    for (const day of preview) {
-      for (const venue of selectedVenues) {
-        if (venue === "Events") continue; // Events isn't a forecast venue
-        const v = venue as "Assembly" | "Caliente" | "Hanabi";
-        const guests = Math.round(day.guests * venueShare);
-        const avgSpend = day.avgSpend;
-        const grossSales = guests * avgSpend;
+    for (const { venue, result } of perVenue) {
+      if (venue === "Events") continue; // Events is not a forecast venue
+      const v = venue as "Assembly" | "Caliente" | "Hanabi";
+
+      for (const day of result.rows) {
+        if (day.isActual) continue; // Don't overwrite actual days
+
+        const grossSales = day.guests * day.avgSpend;
         const serviceCharge = Math.round(grossSales * 0.1);
         const totalSales = grossSales + serviceCharge;
 
         const existing = allForecasts.find((f) => f.date === day.date && f.venue === v);
         const payload = {
-          forecastedCustomers: guests,
-          forecastedAvgSpend: avgSpend,
+          forecastedCustomers: day.guests,
+          forecastedAvgSpend: day.avgSpend,
           forecastedGrossSales: grossSales,
           forecastedServiceCharge: serviceCharge,
           forecastedTotalSales: totalSales,
         };
 
         if (existing) {
-          const ok = await updateForecast(existing.id, payload);
-          ok ? written++ : failed++;
+          (await updateForecast(existing.id, payload)) ? written++ : failed++;
         } else {
           const ok = await addForecast({
             date: day.date,
@@ -164,69 +163,87 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
       }
     }
 
-    // Persist target as well
     await upsertTarget({ year, month, targetAmount, venues: selectedVenues, userId: user?.id });
-
     setApplying(false);
     setPreviewOpen(false);
     toast({
       title: `Applied to ${written} forecast entries`,
-      description: failed > 0 ? `${failed} entries failed (check permissions)` : undefined,
+      description: failed > 0 ? `${failed} failed (check permissions)` : undefined,
       variant: failed > 0 ? "destructive" : "default",
     });
   };
 
-  const previewTotal = preview.reduce((s, d) => s + d.totalSales, 0);
-  const previewGuests = preview.reduce((s, d) => s + d.guests, 0);
-  const anyFallback = preview.some((d) => d.fallback);
+  // Combined view: aggregate all per-venue results by date
+  const combined = useMemo(() => {
+    if (perVenue.length === 0) return null;
+    const byDate = new Map<string, DistributedDay & { venuesActual: number; venuesForecast: number }>();
+    for (const { result } of perVenue) {
+      for (const r of result.rows) {
+        const cur = byDate.get(r.date);
+        if (!cur) {
+          byDate.set(r.date, { ...r, venuesActual: r.isActual ? 1 : 0, venuesForecast: r.isActual ? 0 : 1 });
+        } else {
+          cur.guests += r.guests;
+          cur.totalSales += r.totalSales;
+          cur.venuesActual += r.isActual ? 1 : 0;
+          cur.venuesForecast += r.isActual ? 0 : 1;
+          // weighted avg spend
+          cur.avgSpend = cur.guests > 0 ? Math.round((cur.totalSales / 1.1) / cur.guests) : 0;
+          if (!r.isActual && cur.isActual) cur.isActual = false; // mixed → mark forecast
+        }
+      }
+    }
+    const rows = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+    const actualSoFar = perVenue.reduce((s, p) => s + p.result.actualSoFar, 0);
+    const forecastTotal = perVenue.reduce((s, p) => s + p.result.forecastTotal, 0);
+    return {
+      rows,
+      actualSoFar,
+      forecastTotal,
+      combinedTotal: actualSoFar + forecastTotal,
+      remainingTarget: targetAmount - actualSoFar,
+    };
+  }, [perVenue, targetAmount]);
 
   return (
     <>
+      {/* Settings card */}
       <div className="card-glass rounded-xl p-5 animate-fade-in">
         <div className="flex items-center gap-2 mb-4">
           <Target className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-display font-semibold">Monthly Revenue Target</h3>
           <span className="text-[10px] text-muted-foreground ml-auto">
-            Distribute target across days using day-of-week medians (guests × avg spend)
+            Subtracts actuals already recorded, distributes the gap across remaining days using DOW medians
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* Month */}
           <div className="md:col-span-3">
             <label className="text-xs text-muted-foreground block mb-1">Month</label>
             <select
               value={`${year}-${month}`}
               onChange={(e) => {
                 const [y, m] = e.target.value.split("-").map(Number);
-                setYear(y);
-                setMonth(m);
+                setYear(y); setMonth(m);
               }}
               className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               {monthOptions.map((o) => (
-                <option key={`${o.year}-${o.month}`} value={`${o.year}-${o.month}`}>
-                  {o.label}
-                </option>
+                <option key={`${o.year}-${o.month}`} value={`${o.year}-${o.month}`}>{o.label}</option>
               ))}
             </select>
           </div>
 
-          {/* Target */}
           <div className="md:col-span-3">
             <label className="text-xs text-muted-foreground block mb-1">Target (HK$)</label>
             <input
-              type="number"
-              min={0}
-              step={1000}
-              value={targetAmount || ""}
-              placeholder="e.g. 800000"
+              type="number" min={0} step={1000}
+              value={targetAmount || ""} placeholder="e.g. 800000"
               onChange={(e) => setTargetAmount(parseInt(e.target.value) || 0)}
               className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
 
-          {/* Venues */}
           <div className="md:col-span-4">
             <label className="text-xs text-muted-foreground block mb-1">Responsible Venues</label>
             <div className="flex flex-wrap gap-1.5">
@@ -234,45 +251,28 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
                 const active = selectedVenues.includes(v);
                 return (
                   <button
-                    key={v}
-                    type="button"
-                    onClick={() => toggleVenue(v)}
+                    key={v} type="button" onClick={() => toggleVenue(v)}
                     className={`flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border transition-colors ${
-                      active
-                        ? "border-primary bg-primary/15 text-primary font-medium"
-                        : "border-border bg-secondary text-muted-foreground hover:bg-muted"
+                      active ? "border-primary bg-primary/15 text-primary font-medium" : "border-border bg-secondary text-muted-foreground hover:bg-muted"
                     }`}
                   >
-                    {active && <Check className="h-3 w-3" />}
-                    {v}
+                    {active && <Check className="h-3 w-3" />}{v}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Actions */}
           <div className="md:col-span-2 flex items-end gap-2">
-            <button
-              onClick={handleSaveTarget}
-              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg border border-border bg-secondary hover:bg-muted transition-colors"
-              title="Save target"
-            >
-              <Save className="h-3.5 w-3.5" />
-              Save
+            <button onClick={handleSaveTarget} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg border border-border bg-secondary hover:bg-muted transition-colors">
+              <Save className="h-3.5 w-3.5" />Save
             </button>
-            <button
-              onClick={handleGeneratePreview}
-              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              title="Generate daily distribution"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Distribute
+            <button onClick={handleGeneratePreview} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              <Sparkles className="h-3.5 w-3.5" />Distribute
             </button>
           </div>
         </div>
 
-        {/* Progress */}
         {targetAmount > 0 && (
           <div className="mt-4 pt-4 border-t border-border">
             <div className="flex items-center justify-between mb-1.5 text-xs">
@@ -280,22 +280,13 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
                 Currently forecasted ({selectedVenues.join(", ") || "no venues"}):{" "}
                 <span className="font-semibold text-foreground">{formatCurrency(currentlyForecasted)}</span>
               </span>
-              <span
-                className={`font-semibold ${
-                  gap <= 0 ? "text-emerald-600" : progressPct >= 80 ? "text-amber-500" : "text-destructive"
-                }`}
-              >
+              <span className={`font-semibold ${gap <= 0 ? "text-emerald-600" : progressPct >= 80 ? "text-amber-500" : "text-destructive"}`}>
                 {progressPct}% of {formatCurrency(targetAmount)}
                 {gap > 0 ? ` · Gap ${formatCurrency(gap)}` : ` · ${formatCurrency(-gap)} above target`}
               </span>
             </div>
             <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full transition-all ${
-                  gap <= 0 ? "bg-emerald-500" : progressPct >= 80 ? "bg-amber-500" : "bg-primary"
-                }`}
-                style={{ width: `${progressPct}%` }}
-              />
+              <div className={`h-full transition-all ${gap <= 0 ? "bg-emerald-500" : progressPct >= 80 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${progressPct}%` }} />
             </div>
           </div>
         )}
@@ -303,80 +294,49 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
 
       {/* Preview Modal */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
-              Daily Distribution Preview — {monthName(month)} {year}
+              Daily Distribution — {monthName(month)} {year}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-wrap gap-3 text-xs px-1">
-            <Badge variant="outline">Target: {formatCurrency(targetAmount)}</Badge>
-            <Badge variant="outline">Distributed: {formatCurrency(previewTotal)}</Badge>
-            <Badge variant="outline">{previewGuests.toLocaleString()} total guests</Badge>
-            <Badge variant="outline">Venues: {selectedVenues.join(", ")}</Badge>
-            {anyFallback && (
-              <Badge variant="outline" className="text-amber-600 border-amber-600/40 bg-amber-500/10">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                Some days use fallback (no historical data)
+          {combined && (
+            <div className="flex flex-wrap gap-2 px-1">
+              <Badge variant="outline">Target: {formatCurrency(targetAmount)}</Badge>
+              <Badge variant="outline" className="text-emerald-700 border-emerald-600/40 bg-emerald-500/10">
+                Actuals so far: {formatCurrency(combined.actualSoFar)}
               </Badge>
+              <Badge variant="outline" className="text-primary border-primary/40 bg-primary/10">
+                Required from remaining days: {formatCurrency(Math.max(0, combined.remainingTarget))}
+              </Badge>
+              <Badge variant="outline">Projected total: {formatCurrency(combined.combinedTotal)}</Badge>
+            </div>
+          )}
+
+          <div className="overflow-auto space-y-6 mt-2 pr-1">
+            {/* Per-venue tables */}
+            {perVenue.map(({ venue, result, venueTarget }) => (
+              <VenueTable key={venue} title={venue} result={result} venueTarget={venueTarget} />
+            ))}
+
+            {/* Combined table — only show if more than one venue */}
+            {perVenue.length > 1 && combined && (
+              <CombinedTable
+                rows={combined.rows}
+                actualSoFar={combined.actualSoFar}
+                forecastTotal={combined.forecastTotal}
+                target={targetAmount}
+              />
             )}
           </div>
 
-          <div className="overflow-auto rounded-lg border border-border mt-2">
-            <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
-                <TableRow>
-                  <TableHead className="w-[110px]">Date</TableHead>
-                  <TableHead className="w-[60px]">Day</TableHead>
-                  <TableHead className="text-right">Guests</TableHead>
-                  <TableHead className="text-right">Avg Spend</TableHead>
-                  <TableHead className="text-right">Total Sales</TableHead>
-                  <TableHead className="text-right">% of Target</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {preview.map((d) => {
-                  const pct = targetAmount > 0 ? (d.totalSales / targetAmount) * 100 : 0;
-                  const isWeekend = d.day === "Fri" || d.day === "Sat" || d.day === "Sun";
-                  return (
-                    <TableRow key={d.date} className={isWeekend ? "bg-primary/5" : ""}>
-                      <TableCell className="font-mono text-xs">{d.date}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={`text-[10px] ${isWeekend ? "border-primary/40 text-primary" : ""}`}>
-                          {d.day}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{d.guests.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(d.avgSpend)}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(d.totalSales)}</TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">{pct.toFixed(1)}%</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-
-          <p className="text-[11px] text-muted-foreground px-1">
-            Each day's sales target = scaled (median guests × median avg spend) for that weekday so monthly total matches target.
-            Applying will create or overwrite <span className="font-medium">draft</span> forecasts for{" "}
-            {selectedVenues.filter((v) => v !== "Events").join(", ")} — Events excluded from forecast writes.
-          </p>
-
-          <DialogFooter>
-            <button
-              onClick={() => setPreviewOpen(false)}
-              className="px-4 py-2 text-sm rounded-lg border border-border bg-secondary hover:bg-muted transition-colors"
-            >
+          <DialogFooter className="border-t border-border pt-3 mt-2">
+            <button onClick={() => setPreviewOpen(false)} className="px-4 py-2 text-sm rounded-lg border border-border bg-secondary hover:bg-muted transition-colors">
               Cancel
             </button>
-            <button
-              onClick={handleApply}
-              disabled={applying}
-              className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
+            <button onClick={handleApply} disabled={applying} className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
               {applying ? "Applying..." : "Confirm & Save Forecasts"}
             </button>
           </DialogFooter>
@@ -385,5 +345,109 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
     </>
   );
 };
+
+// ---------- Sub-components ----------
+
+const VenueTable = ({ title, result, venueTarget }: { title: string; result: DistributionResult; venueTarget: number }) => {
+  const anyFallback = result.rows.some((r) => !r.isActual && r.fallback);
+  return (
+    <section className="rounded-lg border border-border overflow-hidden">
+      <header className="bg-muted/50 px-4 py-2.5 flex items-center justify-between border-b border-border">
+        <div className="flex items-center gap-2">
+          <h4 className="text-sm font-display font-semibold">{title}</h4>
+          <Badge variant="outline" className="text-[10px]">Target: {formatCurrency(Math.round(venueTarget))}</Badge>
+          {anyFallback && (
+            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40 bg-amber-500/10">
+              <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Fallback used
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="text-emerald-700">Actual: <span className="font-semibold">{formatCurrency(result.actualSoFar)}</span></span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-primary">Forecast: <span className="font-semibold">{formatCurrency(result.forecastTotal)}</span></span>
+          <span className="text-muted-foreground">·</span>
+          <span className="font-semibold">Total: {formatCurrency(result.combinedTotal)}</span>
+        </div>
+      </header>
+      <DistributionTable rows={result.rows} target={venueTarget} />
+    </section>
+  );
+};
+
+const CombinedTable = ({
+  rows,
+  actualSoFar,
+  forecastTotal,
+  target,
+}: {
+  rows: (DistributedDay & { venuesActual: number; venuesForecast: number })[];
+  actualSoFar: number;
+  forecastTotal: number;
+  target: number;
+}) => (
+  <section className="rounded-lg border-2 border-primary/30 overflow-hidden">
+    <header className="bg-primary/10 px-4 py-2.5 flex items-center justify-between border-b border-primary/30">
+      <div className="flex items-center gap-2">
+        <h4 className="text-sm font-display font-semibold text-primary">Combined (All Selected Venues)</h4>
+        <Badge variant="outline" className="text-[10px]">Target: {formatCurrency(target)}</Badge>
+      </div>
+      <div className="flex items-center gap-2 text-[11px]">
+        <span className="text-emerald-700">Actual: <span className="font-semibold">{formatCurrency(actualSoFar)}</span></span>
+        <span className="text-muted-foreground">·</span>
+        <span className="text-primary">Forecast: <span className="font-semibold">{formatCurrency(forecastTotal)}</span></span>
+        <span className="text-muted-foreground">·</span>
+        <span className="font-semibold">Total: {formatCurrency(actualSoFar + forecastTotal)}</span>
+      </div>
+    </header>
+    <DistributionTable rows={rows} target={target} />
+  </section>
+);
+
+const DistributionTable = ({ rows, target }: { rows: DistributedDay[]; target: number }) => (
+  <Table>
+    <TableHeader className="bg-background sticky top-0">
+      <TableRow>
+        <TableHead className="w-[110px]">Date</TableHead>
+        <TableHead className="w-[60px]">Day</TableHead>
+        <TableHead className="w-[90px]">Status</TableHead>
+        <TableHead className="text-right">Guests</TableHead>
+        <TableHead className="text-right">Avg Spend</TableHead>
+        <TableHead className="text-right">Total Sales</TableHead>
+        <TableHead className="text-right w-[90px]">% of Target</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {rows.map((d) => {
+        const pct = target > 0 ? (d.totalSales / target) * 100 : 0;
+        const isWeekend = d.day === "Fri" || d.day === "Sat" || d.day === "Sun";
+        return (
+          <TableRow
+            key={d.date}
+            className={d.isActual ? "bg-emerald-500/5" : isWeekend ? "bg-primary/5" : ""}
+          >
+            <TableCell className="font-mono text-xs">{d.date}</TableCell>
+            <TableCell>
+              <Badge variant="outline" className={`text-[10px] ${isWeekend ? "border-primary/40 text-primary" : ""}`}>
+                {d.day}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              {d.isActual ? (
+                <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-600/40 bg-emerald-500/10">Actual</Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">Forecast</Badge>
+              )}
+            </TableCell>
+            <TableCell className="text-right">{d.guests.toLocaleString()}</TableCell>
+            <TableCell className="text-right">{formatCurrency(d.avgSpend)}</TableCell>
+            <TableCell className="text-right font-medium">{formatCurrency(d.totalSales)}</TableCell>
+            <TableCell className="text-right text-xs text-muted-foreground">{pct.toFixed(1)}%</TableCell>
+          </TableRow>
+        );
+      })}
+    </TableBody>
+  </Table>
+);
 
 export default RevenueTargetPanel;
