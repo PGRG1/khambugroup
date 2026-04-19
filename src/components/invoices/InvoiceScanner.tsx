@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical } from "lucide-react";
 import InvoiceCamera from "./InvoiceCamera";
 import ProductAutocomplete from "./ProductAutocomplete";
 import { supabase } from "@/integrations/supabase/client";
@@ -130,6 +130,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
+  const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<"above" | "below" | null>(null);
 
   const current = invoices[currentIdx] || null;
 
@@ -602,6 +605,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     copy[currentIdx] = { ...copy[currentIdx], line_items: copy[currentIdx].line_items.filter((_, idx) => idx !== i) };
     return copy;
   });
+
+  const reorderLine = (from: number, to: number) => {
+    if (from === to) return;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const [moved] = lines.splice(from, 1);
+      const insertAt = from < to ? to - 1 : to;
+      lines.splice(insertAt, 0, moved);
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+  };
 
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -1084,9 +1100,58 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                     ? "bg-blue-500/10 border-l-2 border-l-blue-500"
                     : "";
                   return (
-                    <tr key={i} className={`border-b border-border/50 ${rowClass}`}>
-                      {/* # */}
-                      <td className="px-1 py-1 text-muted-foreground font-medium align-top pt-2.5">{i + 1}</td>
+                    <tr
+                      key={i}
+                      className={`border-b border-border/50 ${rowClass} ${dragSrcIdx === i ? "opacity-50" : ""} ${
+                        dragOverIdx === i && dragOverPos === "above" ? "border-t-2 border-t-primary" : ""
+                      } ${dragOverIdx === i && dragOverPos === "below" ? "border-b-2 border-b-primary" : ""}`}
+                      onDragOver={(e) => {
+                        if (dragSrcIdx === null) return;
+                        e.preventDefault();
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const pos = e.clientY < rect.top + rect.height / 2 ? "above" : "below";
+                        if (dragOverIdx !== i || dragOverPos !== pos) {
+                          setDragOverIdx(i);
+                          setDragOverPos(pos);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverIdx === i) {
+                          setDragOverIdx(null);
+                          setDragOverPos(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (dragSrcIdx === null) return;
+                        const targetIdx = dragOverPos === "below" ? i + 1 : i;
+                        reorderLine(dragSrcIdx, targetIdx);
+                        setDragSrcIdx(null);
+                        setDragOverIdx(null);
+                        setDragOverPos(null);
+                      }}
+                    >
+                      {/* # — drag handle */}
+                      <td
+                        draggable
+                        onDragStart={(e) => {
+                          setDragSrcIdx(i);
+                          e.dataTransfer.effectAllowed = "move";
+                          try { e.dataTransfer.setData("text/plain", String(i)); } catch {}
+                        }}
+                        onDragEnd={() => {
+                          setDragSrcIdx(null);
+                          setDragOverIdx(null);
+                          setDragOverPos(null);
+                        }}
+                        className="px-1 py-1 text-muted-foreground font-medium align-top pt-2.5 cursor-grab active:cursor-grabbing select-none group"
+                        title="Drag to reorder"
+                      >
+                        <span className="inline-flex items-center gap-0.5">
+                          <GripVertical className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+                          {i + 1}
+                        </span>
+                      </td>
                       {/* Internal SKU - read-only */}
                       <td className="px-1 py-1 align-top">
                         <Input
