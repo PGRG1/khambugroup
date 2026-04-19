@@ -8,8 +8,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { AssistantChart, type ChartSpec } from "./AssistantChart";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; charts?: ChartSpec[] };
 
 const SUGGESTIONS = [
   "What was total revenue last month?",
