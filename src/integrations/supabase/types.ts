@@ -1564,6 +1564,42 @@ export type Database = {
         }
         Relationships: []
       }
+      revenue_targets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          month: number
+          notes: string | null
+          target_amount: number
+          updated_at: string
+          venues: string[]
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          month: number
+          notes?: string | null
+          target_amount?: number
+          updated_at?: string
+          venues?: string[]
+          year: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          month?: number
+          notes?: string | null
+          target_amount?: number
+          updated_at?: string
+          venues?: string[]
+          year?: number
+        }
+        Relationships: []
+      }
       sales_records: {
         Row: {
           alipay: number
