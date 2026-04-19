@@ -1041,67 +1041,6 @@ Deno.serve(async (req) => {
         await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
       }
 
-// ---------- main handler ----------
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  // Auth check
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const token = authHeader.replace("Bearer ", "");
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
-  if (userErr || !userData.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  try {
-    const { messages } = await req.json();
-    if (!Array.isArray(messages)) {
-      return new Response(JSON.stringify({ error: "messages must be an array" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const conversation: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
-    const chartSpecs: any[] = [];
-
-    // Tool-calling loop (non-stream until tools done, then stream final reply)
-    for (let iter = 0; iter < 5; iter++) {
-      // Retry transient gateway failures (502/503/504) up to 3 times with backoff
-      let resp: Response | null = null;
-      let lastStatus = 0;
-      let lastText = "";
-      for (let attempt = 0; attempt < 3; attempt++) {
-        resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: conversation,
-            tools,
-            tool_choice: "auto",
-          }),
-        });
-        if (resp.ok) break;
-        lastStatus = resp.status;
-        lastText = await resp.text();
-        if (lastStatus !== 502 && lastStatus !== 503 && lastStatus !== 504) break;
-        console.warn(`Gateway ${lastStatus}, retry ${attempt + 1}/3`);
-        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
-      }
-
       if (!resp || !resp.ok) {
         const status = lastStatus || 500;
         console.error("Gateway error", status, lastText);
@@ -1125,17 +1064,14 @@ Deno.serve(async (req) => {
 
       const toolCalls = choice.tool_calls;
       if (!toolCalls || toolCalls.length === 0) {
-        // No more tools — stream this final reply back as SSE for consistency
         const content = choice.content || "";
         const stream = new ReadableStream({
           start(controller) {
             const encoder = new TextEncoder();
-            // Emit captured charts first as custom events
             for (const spec of chartSpecs) {
               const evt = JSON.stringify({ chart: spec });
               controller.enqueue(encoder.encode(`data: ${evt}\n\n`));
             }
-            // Chunk by ~12 chars for nice streaming feel
             const chunkSize = 12;
             let i = 0;
             const tick = () => {
@@ -1170,7 +1106,6 @@ Deno.serve(async (req) => {
         })();
         let result: any;
         if (tc.function.name === "render_chart") {
-          // Capture spec for client; ack to model
           chartSpecs.push(args);
           result = { ok: true, rendered: args.title || "chart" };
         } else {
