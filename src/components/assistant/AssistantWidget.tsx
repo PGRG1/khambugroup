@@ -108,8 +108,12 @@ export function AssistantWidget() {
           }
           try {
             const parsed = JSON.parse(json);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) upsert(delta);
+            if (parsed.chart) {
+              upsert("", parsed.chart as ChartSpec);
+            } else {
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) upsert(delta);
+            }
           } catch {
             buffer = line + "\n" + buffer;
             break;
