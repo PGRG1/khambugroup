@@ -1,50 +1,50 @@
 
-The user is asking whether the AI assistant (which I just built) can: (1) create charts, (2) analyze data, and (3) make suggestions/recommendations.
+The user wants the AI assistant to be able to drill into invoice line items — not just invoice headers. Currently the assistant has `get_invoice_summary` which only returns counts/totals, but no tool exposes the `invoice_line_items` table.
 
-Current state: the assistant has read-only data tools (get_sales_summary, get_invoice_summary, get_top_suppliers, get_cost_of_revenue, get_venue_performance, get_pl_period). It already returns text analysis and can make recommendations from the numbers it queries — but it does NOT currently render charts.
+I need to add a tool that lets the model query line items, filtered by supplier, date range, venue, and product. The `invoice_line_items` table has: description, quantity, unit, unit_price, total, item_code, pack_size, etc., joined to `invoices` for date/venue/supplier.
 
-So the honest answer is: **analysis + recommendations = already works.** **Charts = needs a small addition.** Let me plan that addition.
+## Plan: Add line-item drill-down tool to AI Analyst
 
-## Plan: Add chart rendering + explicit analyst behavior
+### One change: `supabase/functions/chat-assistant/index.ts`
 
-### What already works (no changes needed)
-The assistant can already pull live data and produce written analysis + recommendations like:
-- *"Caliente's cost-of-revenue jumped from 28% in Sept to 36% in Oct — driven mostly by Angliss spend doubling. Consider reviewing portion sizes or renegotiating."*
-- *"Top 3 suppliers are 62% of spend YTD. Concentration risk — consider a backup for Beverage World."*
+Add a new tool `get_invoice_line_items` the model can call when asked about specific items, quantities, or product-level spend.
 
-This works today because Gemini reasons over the JSON tool results and is prompted to be an analyst.
+**Parameters:**
+- `supplier_name` (optional, fuzzy match)
+- `date_from`, `date_to` (optional)
+- `venue` (optional)
+- `product_search` (optional — fuzzy match on item description)
+- `group_by`: `none` | `product` | `supplier` (default `product` — aggregates qty + spend per item)
+- `limit` (default 50)
 
-### What's missing: visual charts
+**Returns** (when `group_by=product`):
+| description | item_code | total_qty | unit | total_spend | invoice_count |
 
-Add a `render_chart` tool the model can call when a chart would help. The chart spec returns to the widget which renders it inline using the existing Recharts library (already used across the dashboard).
+**Implementation:**
+- Fetch `invoice_line_items` (description, quantity, unit, unit_price, total, item_code, invoice_id) using existing `fetchAll` paginator
+- Fetch matching `invoices` (id, invoice_date, venue, supplier_id) and `suppliers` (id, name) once
+- Filter line items by joining on invoice_id → apply venue/date/supplier filters
+- Apply `product_search` substring match on description
+- Aggregate per `group_by` and sort by `total_spend` desc
 
-### Changes
+Also update the system prompt to mention this new capability: *"For questions about specific items, quantities purchased, or product-level spend (e.g. 'how many cases of X did we buy'), use `get_invoice_line_items`."*
 
-1. **Edge function** `supabase/functions/chat-assistant/index.ts`
-   - Add new tool `render_chart` with parameters: `type` (line/bar/pie), `title`, `data` (array of `{name, value}` or `{name, [series]: value}`), `series` (optional list of series keys for multi-series).
-   - The function doesn't execute the chart — it just emits the spec back as an SSE event so the model can call it after analyzing data.
-   - Strengthen system prompt: *"You are a senior F&B analyst for KHAMBU. Always: (1) query real data with tools, (2) interpret what the numbers mean, (3) call out anomalies, (4) end with 1-3 actionable recommendations. Use `render_chart` whenever a trend, breakdown, or comparison would clarify your point."*
-
-2. **Frontend widget** `src/components/assistant/AssistantWidget.tsx`
-   - Detect `render_chart` tool calls in the SSE stream and render an inline chart card inside the assistant's message.
-   - New tiny component `AssistantChart.tsx` — wraps Recharts (LineChart / BarChart / PieChart) using the existing terracotta/gold palette from the dashboard.
-   - Charts appear inline alongside the markdown text, so a single answer can be: text → chart → recommendations.
-
-### Example interaction after the change
-> **You:** "How's Caliente trending this quarter?"
+### Example after the change
+> **You:** "What did we order from Ming Kee in April?"
 >
-> **Assistant:**
-> Caliente's revenue is up 12% Q-on-Q, but cost-of-revenue climbed from 29% to 34%.
+> **Assistant:** *(calls `get_invoice_line_items` with supplier_name="Ming Kee", date_from="2026-04-01", date_to="2026-04-30", group_by="product")*
 >
-> *[inline line chart: monthly revenue vs cost%]*
+> | Item | Qty | Unit | Spend |
+> |---|---:|---|---:|
+> | Whole Chicken | 48 | each | HK$ 8,400 |
+> | Chicken Wings 2kg | 22 | bag | HK$ 6,200 |
+> | … | | | |
 >
-> **Recommendations:**
-> 1. Audit Angliss invoices — spend up 40% with flat covers
-> 2. Review menu mix — top 5 dishes haven't changed but margin shrank
-> 3. Set a 32% cost-of-revenue ceiling alert
+> **Key insights:** Whole chickens = 31% of spend; wing volume up vs March.
+> **Recommendations:** 1. Negotiate volume discount on whole chicken …
 
 ### Verification
-1. Ask *"Show me revenue by venue this year"* → assistant returns text + bar chart of 4 venues
-2. Ask *"How is cost of revenue trending?"* → text + line chart + recommendations
-3. Ask a non-chart question → no chart rendered, just analysis (model decides)
-4. Confirm charts use the warm terracotta palette and match dashboard styling
+1. Ask *"What items did we buy from Ming Kee in April?"* → returns grouped line items table
+2. Ask *"Top 10 products by spend YTD"* → product-level aggregation across all suppliers
+3. Ask *"How many kg of beef did we order last quarter?"* → product_search filter works
+4. Existing assistant questions (sales, KPIs, top suppliers) still work unchanged
