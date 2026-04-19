@@ -16,6 +16,7 @@ import { useForecastPermissions } from "@/hooks/useForecastPermissions";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
+import RevenueTargetPanel from "@/components/forecast/RevenueTargetPanel";
 import DateFilter from "@/components/dashboard/DateFilter";
 import { SalesRecord } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
