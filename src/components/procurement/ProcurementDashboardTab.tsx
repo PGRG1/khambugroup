@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, DollarSign, FileText, Users, BarChart3, CalendarIcon } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, ComposedChart, Line,
+  PieChart, Pie, Cell, ComposedChart, Line, Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
 
