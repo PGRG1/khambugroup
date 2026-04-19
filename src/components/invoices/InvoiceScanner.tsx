@@ -606,6 +606,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return copy;
   });
 
+  const reorderLine = (from: number, to: number) => {
+    if (from === to) return;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const [moved] = lines.splice(from, 1);
+      const insertAt = from < to ? to - 1 : to;
+      lines.splice(insertAt, 0, moved);
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+  };
+
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
   const calcLineTotal = (l: ScannedLineItem) => {
