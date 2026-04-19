@@ -12,10 +12,10 @@ import { AssistantChart, type ChartSpec } from "@/components/assistant/Assistant
 type Msg = { role: "user" | "assistant"; content: string; charts?: ChartSpec[] };
 
 const SUGGESTIONS = [
-  "What was total revenue last month?",
-  "Top 5 suppliers by spend YTD",
-  "Cost of revenue % for Caliente this month",
-  "Compare venue performance this quarter",
+  "Where am I losing margin this month?",
+  "Which suppliers raised prices in the last 90 days?",
+  "Compare labor cost vs revenue across venues YTD",
+  "What should I focus on this week?",
 ];
 
 export default function Assistant() {
