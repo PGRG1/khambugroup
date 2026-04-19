@@ -394,30 +394,43 @@ Deno.serve(async (req) => {
 
     // Tool-calling loop (non-stream until tools done, then stream final reply)
     for (let iter = 0; iter < 5; iter++) {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: conversation,
-          tools,
-          tool_choice: "auto",
-        }),
-      });
+      // Retry transient gateway failures (502/503/504) up to 3 times with backoff
+      let resp: Response | null = null;
+      let lastStatus = 0;
+      let lastText = "";
+      for (let attempt = 0; attempt < 3; attempt++) {
+        resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: conversation,
+            tools,
+            tool_choice: "auto",
+          }),
+        });
+        if (resp.ok) break;
+        lastStatus = resp.status;
+        lastText = await resp.text();
+        if (lastStatus !== 502 && lastStatus !== 503 && lastStatus !== 504) break;
+        console.warn(`Gateway ${lastStatus}, retry ${attempt + 1}/3`);
+        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+      }
 
-      if (!resp.ok) {
-        const status = resp.status;
-        const text = await resp.text();
-        console.error("Gateway error", status, text);
+      if (!resp || !resp.ok) {
+        const status = lastStatus || 500;
+        console.error("Gateway error", status, lastText);
         const msg =
           status === 429
             ? "Rate limit hit — please wait a moment and try again."
             : status === 402
               ? "AI credits exhausted. Please add funds in Settings → Workspace → Usage."
-              : "AI gateway error.";
+              : status >= 502 && status <= 504
+                ? "AI service is temporarily unavailable. Please try again in a moment."
+                : "AI gateway error.";
         return new Response(JSON.stringify({ error: msg }), {
           status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
