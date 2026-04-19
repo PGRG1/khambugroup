@@ -1,50 +1,42 @@
 
-The user wants the AI assistant to be able to drill into invoice line items — not just invoice headers. Currently the assistant has `get_invoice_summary` which only returns counts/totals, but no tool exposes the `invoice_line_items` table.
+The user is reporting that the AI assistant gives wrong unit prices when drilling into line items (e.g., for "ASAHI SUPER DRY KEG 1X20L"). The model claims certain prices and dismisses the user's correct figure of HK$ 1,150.
 
-I need to add a tool that lets the model query line items, filtered by supplier, date range, venue, and product. The `invoice_line_items` table has: description, quantity, unit, unit_price, total, item_code, pack_size, etc., joined to `invoices` for date/venue/supplier.
+Let me check the actual data to understand what's wrong, then plan a fix.
 
-## Plan: Add line-item drill-down tool to AI Analyst
+**Likely causes:**
+1. `product_search` is fuzzy substring on `description` only — misses items where the supplier wrote the description differently (e.g., "Asahi Super Dry 20L" vs "ASAHI SUPER DRY KEG 1X20L"). The model then gets a partial set of line items and reports averaged/aggregated prices.
+2. When `group_by="product"` is used, the tool aggregates by description string — so two near-identical descriptions become two rows, and the model may quote one while missing the other.
+3. The aggregation likely returns `total_spend / total_qty` as an "average unit price", but the model presents it as THE unit price — masking actual variation.
+4. No way for the model to see individual invoice rows with date + invoice number for verification.
 
-### One change: `supabase/functions/chat-assistant/index.ts`
+**Fix plan (single file: `supabase/functions/chat-assistant/index.ts`):**
 
-Add a new tool `get_invoice_line_items` the model can call when asked about specific items, quantities, or product-level spend.
+### 1. Broaden `product_search` matching
+Search across `description`, `item_code`, AND the joined product_master `internal_product_name` + `internal_sku` + `external_sku`. Tokenize the search query (split on spaces) and match if ANY token appears — so "asahi 20L" finds both "ASAHI SUPER DRY KEG 1X20L" and "Asahi Super Dry 20L".
 
-**Parameters:**
-- `supplier_name` (optional, fuzzy match)
-- `date_from`, `date_to` (optional)
-- `venue` (optional)
-- `product_search` (optional — fuzzy match on item description)
-- `group_by`: `none` | `product` | `supplier` (default `product` — aggregates qty + spend per item)
-- `limit` (default 50)
+### 2. Return BOTH aggregated and detailed views
+When `group_by="product"`, also include:
+- `min_unit_price`, `max_unit_price`, `avg_unit_price` (weighted by qty)
+- `unit_price_variants`: list of distinct unit prices seen with their counts
+- `last_invoice_date`, `last_unit_price` (most recent price)
 
-**Returns** (when `group_by=product`):
-| description | item_code | total_qty | unit | total_spend | invoice_count |
+### 3. Add `group_by="none"` raw mode that returns per-line detail
+Each row: `invoice_date`, `invoice_number`, `supplier`, `description`, `qty`, `unit`, `unit_price`, `total`. Increase `limit` cap to 200 for this mode so the model can see every transaction.
 
-**Implementation:**
-- Fetch `invoice_line_items` (description, quantity, unit, unit_price, total, item_code, invoice_id) using existing `fetchAll` paginator
-- Fetch matching `invoices` (id, invoice_date, venue, supplier_id) and `suppliers` (id, name) once
-- Filter line items by joining on invoice_id → apply venue/date/supplier filters
-- Apply `product_search` substring match on description
-- Aggregate per `group_by` and sort by `total_spend` desc
-
-Also update the system prompt to mention this new capability: *"For questions about specific items, quantities purchased, or product-level spend (e.g. 'how many cases of X did we buy'), use `get_invoice_line_items`."*
-
-### Example after the change
-> **You:** "What did we order from Ming Kee in April?"
->
-> **Assistant:** *(calls `get_invoice_line_items` with supplier_name="Ming Kee", date_from="2026-04-01", date_to="2026-04-30", group_by="product")*
->
-> | Item | Qty | Unit | Spend |
-> |---|---:|---|---:|
-> | Whole Chicken | 48 | each | HK$ 8,400 |
-> | Chicken Wings 2kg | 22 | bag | HK$ 6,200 |
-> | … | | | |
->
-> **Key insights:** Whole chickens = 31% of spend; wing volume up vs March.
-> **Recommendations:** 1. Negotiate volume discount on whole chicken …
+### 4. Update system prompt with strict price-reporting rules
+Add to the prompt:
+> When reporting unit prices for a specific item:
+> - ALWAYS call `get_invoice_line_items` with `group_by="none"` to see every individual line, not just aggregates.
+> - Report the FULL range (min–max) and list each distinct price with its invoice date.
+> - NEVER claim a price is "not in the data" without first searching with broader terms (try the brand name alone, then the SKU/item code).
+> - If the user says they saw a different price, RE-QUERY with looser filters before disagreeing — the user is usually right.
+> - Show prices in a table with columns: Date | Invoice # | Supplier | Description | Qty | Unit Price | Total.
 
 ### Verification
-1. Ask *"What items did we buy from Ming Kee in April?"* → returns grouped line items table
-2. Ask *"Top 10 products by spend YTD"* → product-level aggregation across all suppliers
-3. Ask *"How many kg of beef did we order last quarter?"* → product_search filter works
-4. Existing assistant questions (sales, KPIs, top suppliers) still work unchanged
+1. Ask *"What's the unit price history for Asahi Super Dry 20L keg?"* → returns table of every line with date, invoice #, and price; range shown clearly.
+2. Provide a price the assistant previously dismissed → it should re-query and find it (or honestly explain which invoices it searched).
+3. Existing aggregated questions ("top products by spend") still work — `group_by="product"` default unchanged.
+
+### Out of scope
+- Not changing the database or any UI.
+- Not changing other tools (`get_sales_summary`, etc.).
