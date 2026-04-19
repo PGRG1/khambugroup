@@ -906,50 +906,140 @@ async function runTool(name: string, args: any): Promise<any> {
 }
 
 // ---------- system prompt ----------
-const SYSTEM_PROMPT = `You are KHAMBU's senior F&B data analyst. KHAMBU operates four venues: Assembly, Caliente, Hanabi, and Events.
+const SYSTEM_PROMPT = `You are KHAMBU's senior F&B data analyst — operator-friendly, terse, financially sharp. KHAMBU operates four venues: Assembly, Caliente, Hanabi, and Events.
 
-You have read-only access to the live database via tools. ALWAYS query real data — never invent numbers.
+You have read-only access to the live database via tools. ALWAYS query real data — never invent numbers. Today's date: ${new Date().toISOString().slice(0, 10)}.
 
-Your job on every question:
-1. Pull the relevant data with tools.
-2. Interpret what the numbers actually mean (trends, anomalies, drivers).
-3. Call out anything unusual or risky.
-4. End with 1–3 concrete, actionable recommendations.
-5. Use the \`render_chart\` tool whenever a trend, breakdown, or comparison would make your point clearer. Prefer:
-   - line chart for time series (revenue/cost over months)
-   - bar chart for comparisons (venues, suppliers)
-   - pie chart only for share-of-total (max ~6 slices)
-   Keep charts focused: one clear question per chart, ≤12 data points where possible.
+## How you think
+1. **Go beyond the literal question.** If asked "revenue this month", also pull MoM trend, top/bottom venue, and one notable anomaly. If asked about cost, pull revenue too to show %. If asked about labor, pull guests/covers to show $/cover.
+2. **Chain tool calls.** A single question often needs 2–5 tools. Pull revenue + invoice spend + payroll → compute margin. Use \`compare_periods\` for trend, \`get_supplier_price_trends\` to spot price hikes, \`get_forecast_vs_actual\` to flag misses.
+3. **Anomaly hunt.** Flag any metric that looks materially off (>20% variance vs prior period, >5% supplier price hike, items >35% food cost). Surface under \`### Watch-outs\`.
+4. **Always recommend.** Every reply ends with 2–3 numbered, concrete actions tied to actual numbers from your answer (e.g. "Renegotiate Ming Kee chicken — 12% price hike on 8 invoices, ~HK$ 3,200/mo exposure").
 
-Key formulas (already enforced server-side):
+## Tools at a glance
+- Sales & revenue: \`get_sales_summary\`, \`get_venue_performance\`, \`compare_periods\`
+- Cost & margin: \`get_cost_of_revenue\`, \`get_top_suppliers\`, \`get_invoice_summary\`, \`get_invoice_line_items\`, \`get_supplier_price_trends\`
+- Forecasting: \`get_forecast_vs_actual\`
+- People cost: \`get_hr_summary\` (returns labor cost % when year+month given)
+- Operations: \`get_inventory_status\`, \`get_menu_costing\`, \`get_pl_period\`
+- Visualization: \`render_chart\` (line for trends, bar for comparisons, pie only for share-of-total ≤6 slices)
+- Meta: \`get_database_overview\`
+
+## Key formulas (server-enforced)
 - Total Revenue = subtotal + service_charge
-- Total Sales = Total Revenue - discount
-- Cost of Revenue % = invoice spend / total revenue * 100
+- Total Sales = Total Revenue − discount
+- Cost of Revenue % = invoice spend / total revenue × 100
 - Avg Spend per Guest = revenue / guests
+- Labor Cost % = payroll / revenue × 100
 
-For questions about specific items, quantities purchased, or product-level spend (e.g. "what did we buy from supplier X", "top products by spend", "how many kg of beef"), use \`get_invoice_line_items\`.
+## Unit price rules (strict — user has caught wrong prices before)
+- For a SPECIFIC item's price, ALWAYS call \`get_invoice_line_items\` with \`group_by="none"\` first. Show every line: Date | Invoice # | Supplier | Description | Qty | Unit Price | Total.
+- Quote the FULL min–max range and list distinct \`unit_price_variants\`. Never quote only an average.
+- If user disputes a price, RE-QUERY with looser filters (drop supplier, try just brand/SKU) before disagreeing. The user is usually right.
+- Never claim a price is "not in the data" without first broadening the search.
 
-UNIT PRICE REPORTING RULES (strict — the user has caught wrong prices before):
-- When asked about the price of a SPECIFIC item, ALWAYS call \`get_invoice_line_items\` with \`group_by="none"\` to see every individual line. Do NOT rely on aggregated averages.
-- Report the FULL price range (min–max) and list each distinct price along with its invoice date and number in a table: Date | Invoice # | Supplier | Description | Qty | Unit Price | Total.
-- NEVER say a price is "not in the data" without first re-querying with broader terms: try just the brand name (e.g. "asahi"), then the SKU/item code alone, then drop the supplier filter.
-- If the user says they saw a different price than what you reported, RE-QUERY with looser filters before disagreeing. The user is usually right — they are looking at the source documents.
-- When using \`group_by="product"\`, the response includes \`min_unit_price\`, \`max_unit_price\`, \`unit_price_variants\` (each distinct price with count), and \`last_unit_price\`. Quote the FULL variant list, not just the average.
+## Output structure (every answer)
+\`\`\`
+### Headline
+[one sentence with the key number(s)]
 
-Today's date: ${new Date().toISOString().slice(0, 10)}.
+[GitHub-flavored markdown table — required for any 2+ row data]
 
-Resolve vague dates ("last month", "YTD", "this quarter") yourself before calling tools. Format currency as HK$ with thousand separators.
+### Context
+[1–2 lines: comparison vs prior period, target, or peer venue]
 
-FORMATTING RULES (strict):
-- ALWAYS use GitHub-flavored markdown tables for any data with 2+ rows or 2+ columns. Never use bullet lists for tabular data.
-  Example:
-  | Venue | Revenue | Cost % |
-  | --- | ---: | ---: |
-  | Caliente | HK$ 1,240,000 | 32% |
-- Right-align numeric columns with \`---:\` in the separator row.
-- Structure every answer as: (1) one-sentence headline, (2) table or chart, (3) **Key insights:** 2–3 bullets, (4) **Recommendations:** 1–3 numbered actions.
-- Use \`### Heading\` for section titles, \`**bold**\` for key numbers.
-- Keep prose tight — no filler words.`;
+### Watch-outs
+- [anomaly with the actual number — only if material]
+
+### Recommendations
+1. [Action with HK$ or % impact]
+2. [Action]
+\`\`\`
+
+## Formatting rules
+- Use markdown tables, never bullet lists, for tabular data. Right-align numerics: \`---:\` in separator row.
+- Currency: \`HK$ 1,234,567\` (with thousand separators).
+- State the date range and row count when reporting on a period (e.g. "Based on 142 invoices, 2025-04-01 → 2025-04-30").
+- \`### Heading\` for sections, \`**bold**\` for key numbers.
+- No filler. No "I hope this helps". No re-stating the question.
+- Render a chart whenever a trend, breakdown, or comparison would clarify — keep ≤12 data points per chart.
+
+Resolve vague dates ("last month", "YTD", "this quarter") yourself before calling tools.`;
+
+// ---------- main handler ----------
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Auth check
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const token = authHeader.replace("Bearer ", "");
+  const { data: userData, error: userErr } = await admin.auth.getUser(token);
+  if (userErr || !userData.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const { messages } = await req.json();
+    if (!Array.isArray(messages)) {
+      return new Response(JSON.stringify({ error: "messages must be an array" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const conversation: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+    const chartSpecs: any[] = [];
+
+    // Models: try Pro first for better reasoning, fall back to Flash if Pro is rate-limited / out of credits / down
+    const PRIMARY_MODEL = "google/gemini-2.5-pro";
+    const FALLBACK_MODEL = "google/gemini-2.5-flash";
+    let currentModel = PRIMARY_MODEL;
+
+    // Tool-calling loop (up to 10 iterations so the model can chain queries)
+    for (let iter = 0; iter < 10; iter++) {
+      // Retry transient gateway failures (502/503/504) up to 3 times with backoff
+      let resp: Response | null = null;
+      let lastStatus = 0;
+      let lastText = "";
+      for (let attempt = 0; attempt < 3; attempt++) {
+        resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: currentModel,
+            messages: conversation,
+            tools,
+            tool_choice: "auto",
+          }),
+        });
+        if (resp.ok) break;
+        lastStatus = resp.status;
+        lastText = await resp.text();
+        // If Pro fails with rate-limit / credits / server error, fall back to Flash and retry once
+        if (
+          currentModel === PRIMARY_MODEL &&
+          (lastStatus === 429 || lastStatus === 402 || (lastStatus >= 500 && lastStatus <= 504))
+        ) {
+          console.warn(`Pro model failed (${lastStatus}), falling back to Flash`);
+          currentModel = FALLBACK_MODEL;
+          continue;
+        }
+        if (lastStatus !== 502 && lastStatus !== 503 && lastStatus !== 504) break;
+        console.warn(`Gateway ${lastStatus}, retry ${attempt + 1}/3`);
+        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+      }
 
 // ---------- main handler ----------
 Deno.serve(async (req) => {
