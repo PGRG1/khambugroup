@@ -193,6 +193,101 @@ const tools = [
       parameters: { type: "object", properties: {} },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_hr_summary",
+      description: "Headcount and payroll cost summary. Returns active headcount by venue, total payroll (forecast + actual) by month, and labor cost % of revenue when sales data is available.",
+      parameters: {
+        type: "object",
+        properties: {
+          year: { type: "number" },
+          month: { type: "number", description: "1-12, optional" },
+          venue: { type: "string" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_inventory_status",
+      description: "Current inventory: items with current qty, par level, items below reorder, and most recent inventory count variances (usage vs purchases).",
+      parameters: {
+        type: "object",
+        properties: {
+          venue: { type: "string" },
+          below_par_only: { type: "boolean", default: false },
+          limit: { type: "number", default: 50 },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_menu_costing",
+      description: "Menu items with theoretical food cost %, gross profit, and selling price. Flags items above target cost % (default 35%).",
+      parameters: {
+        type: "object",
+        properties: {
+          target_cost_pct: { type: "number", default: 35 },
+          flagged_only: { type: "boolean", default: false },
+          limit: { type: "number", default: 50 },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_forecast_vs_actual",
+      description: "Compares forecasted vs actual revenue, customers, and avg spend per venue per date. Returns variance and variance %.",
+      parameters: {
+        type: "object",
+        properties: {
+          date_from: { type: "string" },
+          date_to: { type: "string" },
+          venue: { type: "string" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_supplier_price_trends",
+      description: "Detects items where unit price changed materially across invoices. Returns items sorted by % price change with first/last price and dates. Use to spot supplier price hikes.",
+      parameters: {
+        type: "object",
+        properties: {
+          supplier_name: { type: "string" },
+          date_from: { type: "string" },
+          date_to: { type: "string" },
+          min_change_pct: { type: "number", default: 5, description: "Minimum % change to include" },
+          limit: { type: "number", default: 30 },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "compare_periods",
+      description: "Period-over-period comparator. Computes revenue, total sales, invoice spend, cost-of-revenue %, guests, avg spend per guest for two date ranges and the deltas.",
+      parameters: {
+        type: "object",
+        properties: {
+          period_a_from: { type: "string" },
+          period_a_to: { type: "string" },
+          period_b_from: { type: "string" },
+          period_b_to: { type: "string" },
+          venue: { type: "string" },
+        },
+        required: ["period_a_from", "period_a_to", "period_b_from", "period_b_to"],
+      },
+    },
+  },
 ];
 
 // ---------- tool handlers ----------
