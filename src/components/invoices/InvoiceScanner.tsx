@@ -130,6 +130,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
+  const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<"above" | "below" | null>(null);
 
   const current = invoices[currentIdx] || null;
 
