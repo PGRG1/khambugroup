@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, DollarSign, FileText, Users, BarChart3, CalendarIcon } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, ComposedChart, Line,
+  PieChart, Pie, Cell, ComposedChart, Line, Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +38,11 @@ interface LineItemRow {
 interface SupplierRow {
   id: string;
   name: string;
+}
+
+interface SalesRow {
+  date: string;
+  total_sales: number;
 }
 
 interface PMCategory {
@@ -92,6 +97,7 @@ export default function ProcurementDashboardTab() {
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [pmCategories, setPmCategories] = useState<PMCategory[]>([]);
+  const [salesRecords, setSalesRecords] = useState<SalesRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(new Set());
@@ -103,16 +109,18 @@ export default function ProcurementDashboardTab() {
 
   useEffect(() => {
     (async () => {
-      const [invRes, liData, supRes, pmRes] = await Promise.all([
+      const [invRes, liData, supRes, pmRes, salesData] = await Promise.all([
         supabase.from("invoices").select("id, supplier_id, invoice_date, invoice_number, total_amount, payment_status, status, venue"),
         fetchAllRows("invoice_line_items", "id, invoice_id, description, quantity, unit_price, total, product_master_id"),
         supabase.from("suppliers").select("id, name"),
         supabase.from("product_master" as any).select("id, level1_category, level2_category, level3_category, internal_product_name"),
+        fetchAllRows("sales_records", "date, total_sales"),
       ]);
       if (invRes.data) setInvoices(invRes.data);
       setLineItems(liData);
       if (supRes.data) setSuppliers(supRes.data);
       if (pmRes.data) setPmCategories(pmRes.data as unknown as PMCategory[]);
+      setSalesRecords(salesData as unknown as SalesRow[]);
       setLoading(false);
     })();
   }, []);
@@ -161,37 +169,76 @@ export default function ProcurementDashboardTab() {
 
   // ─── Monthly Spend Trend (all time) ───
   const monthlyTrend = useMemo(() => {
-    const map = new Map<string, number>();
+    const spendMap = new Map<string, number>();
     invoices.forEach(inv => {
       const d = new Date(inv.invoice_date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      map.set(key, (map.get(key) || 0) + Number(inv.total_amount));
+      spendMap.set(key, (spendMap.get(key) || 0) + Number(inv.total_amount));
     });
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => ({ month: formatMonthLabel(key), value }));
-  }, [invoices]);
+    const revMap = new Map<string, number>();
+    salesRecords.forEach(s => {
+      const d = new Date(s.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      revMap.set(key, (revMap.get(key) || 0) + Number(s.total_sales));
+    });
+    const allKeys = new Set<string>([...spendMap.keys(), ...revMap.keys()]);
+    return Array.from(allKeys)
+      .sort()
+      .map(key => {
+        const spend = spendMap.get(key) || 0;
+        const revenue = revMap.get(key) || 0;
+        const costPct = revenue > 0 ? (spend / revenue) * 100 : null;
+        return { month: formatMonthLabel(key), spend, revenue, costPct };
+      });
+  }, [invoices, salesRecords]);
 
   // ─── Daily Spend + Cumulative (single month / custom) ───
   const dailySpendData = useMemo(() => {
     if (!isSingleMonth && !isCustomPeriod) return [];
-    const map = new Map<string, number>();
+    const spendMap = new Map<string, number>();
     filteredInvoices.forEach(inv => {
-      const dateKey = inv.invoice_date;
-      map.set(dateKey, (map.get(dateKey) || 0) + Number(inv.total_amount));
+      spendMap.set(inv.invoice_date, (spendMap.get(inv.invoice_date) || 0) + Number(inv.total_amount));
     });
-    const sorted = Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    // Filter sales by same period
+    const filteredSales = salesRecords.filter(s => {
+      if (selectedMonth === "all") return true;
+      if (isCustomPeriod) {
+        if (!customFrom && !customTo) return true;
+        const d = new Date(s.date);
+        if (customFrom && d < customFrom) return false;
+        if (customTo) {
+          const endOfDay = new Date(customTo);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (d > endOfDay) return false;
+        }
+        return true;
+      }
+      const [y, m] = selectedMonth.split("-").map(Number);
+      const d = new Date(s.date);
+      return d.getFullYear() === y && d.getMonth() + 1 === m;
+    });
+    const revMap = new Map<string, number>();
+    filteredSales.forEach(s => {
+      revMap.set(s.date, (revMap.get(s.date) || 0) + Number(s.total_sales));
+    });
+    const allDates = new Set<string>([...spendMap.keys(), ...revMap.keys()]);
+    const sorted = Array.from(allDates).sort();
     let cumulative = 0;
-    return sorted.map(([date, value]) => {
-      cumulative += value;
+    return sorted.map(date => {
+      const spend = spendMap.get(date) || 0;
+      const revenue = revMap.get(date) || 0;
+      cumulative += spend;
+      const costPct = revenue > 0 ? (spend / revenue) * 100 : null;
       const d = new Date(date);
       return {
         day: format(d, "d MMM"),
-        value,
+        value: spend,
+        revenue,
+        costPct,
         cumulative,
       };
     });
-  }, [filteredInvoices, isSingleMonth, isCustomPeriod]);
+  }, [filteredInvoices, salesRecords, isSingleMonth, isCustomPeriod, selectedMonth, customFrom, customTo]);
 
   const showDailyView = (isSingleMonth || isCustomPeriod) && dailySpendData.length > 0;
 
@@ -411,48 +458,54 @@ export default function ProcurementDashboardTab() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">
-            {showDailyView ? "Daily Spend & Cumulative" : "Monthly Spend Trend"}
+            {showDailyView ? "Daily Spend vs Revenue" : "Monthly Spend vs Revenue"}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px]">
+          <div className="h-[320px]">
             {showDailyView ? (
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={dailySpendData} margin={{ top: 5, right: 50, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
                   <YAxis yAxisId="left" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <YAxis yAxisId="right" orientation="right" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(v: number, name: string) => [fmt(v), name === "value" ? "Daily Spend" : "Cumulative"]}
+                    formatter={(v: any, name: string) => {
+                      if (v === null || v === undefined) return ["—", name];
+                      if (name === "Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
+                      return [fmt(Number(v)), name];
+                    }}
                     labelStyle={{ fontWeight: 600, fontSize: 12 }}
                   />
-                  <defs>
-                    <linearGradient id="dailyGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.4} />
-                    </linearGradient>
-                  </defs>
-                  <Bar yAxisId="left" dataKey="value" fill="url(#dailyGrad)" radius={[3, 3, 0, 0]} name="Daily Spend" />
-                  <Line yAxisId="right" type="monotone" dataKey="cumulative" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={false} name="Cumulative" />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="left" dataKey="value" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} name="Spend" />
+                  <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} name="Revenue" />
+                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cost of Revenue %" connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : monthlyTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyTrend} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <ComposedChart data={monthlyTrend} margin={{ top: 5, right: 50, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmt(v), "Spend"]} labelStyle={{ fontWeight: 600, fontSize: 12 }} />
-                  <defs>
-                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.4} />
-                    </linearGradient>
-                  </defs>
-                  <Bar dataKey="value" fill="url(#trendGrad)" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                  <YAxis yAxisId="left" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(v: any, name: string) => {
+                      if (v === null || v === undefined) return ["—", name];
+                      if (name === "Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
+                      return [fmt(Number(v)), name];
+                    }}
+                    labelStyle={{ fontWeight: 600, fontSize: 12 }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="left" dataKey="spend" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} name="Spend" />
+                  <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[4, 4, 0, 0]} name="Revenue" />
+                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cost of Revenue %" connectNulls={false} />
+                </ComposedChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data</div>
