@@ -357,7 +357,18 @@ Key formulas (already enforced server-side):
 
 Today's date: ${new Date().toISOString().slice(0, 10)}.
 
-Resolve vague dates ("last month", "YTD", "this quarter") yourself before calling tools. Format currency as HK$ with thousand separators. Use markdown tables for multi-row comparisons. Keep prose tight.`;
+Resolve vague dates ("last month", "YTD", "this quarter") yourself before calling tools. Format currency as HK$ with thousand separators.
+
+FORMATTING RULES (strict):
+- ALWAYS use GitHub-flavored markdown tables for any data with 2+ rows or 2+ columns. Never use bullet lists for tabular data.
+  Example:
+  | Venue | Revenue | Cost % |
+  | --- | ---: | ---: |
+  | Caliente | HK$ 1,240,000 | 32% |
+- Right-align numeric columns with \`---:\` in the separator row.
+- Structure every answer as: (1) one-sentence headline, (2) table or chart, (3) **Key insights:** 2–3 bullets, (4) **Recommendations:** 1–3 numbered actions.
+- Use \`### Heading\` for section titles, \`**bold**\` for key numbers.
+- Keep prose tight — no filler words.`;
 
 // ---------- main handler ----------
 Deno.serve(async (req) => {

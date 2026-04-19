@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
+  { title: "AI Analyst", url: "/assistant", icon: Sparkles, pageKey: "assistant" },
   { title: "Revenue", url: "/", icon: BarChart3, pageKey: "revenue" },
   { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
