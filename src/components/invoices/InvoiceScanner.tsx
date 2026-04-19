@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical } from "lucide-react";
 import InvoiceCamera from "./InvoiceCamera";
 import ProductAutocomplete from "./ProductAutocomplete";
 import { supabase } from "@/integrations/supabase/client";
