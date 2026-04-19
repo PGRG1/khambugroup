@@ -1,42 +1,74 @@
 
-The user is reporting that the AI assistant gives wrong unit prices when drilling into line items (e.g., for "ASAHI SUPER DRY KEG 1X20L"). The model claims certain prices and dismisses the user's correct figure of HK$ 1,150.
+The user wants the AI Analyst to be substantially more capable — deeper data access, smarter analysis, better recommendations. Currently it has 7 tools (sales summary, invoice summary, top suppliers, cost of revenue, venue performance, P&L period, line items). It's missing major data domains: HR/payroll, inventory, menu costing, forecasts vs actuals, supplier price trends, and cross-domain analysis (e.g. labor cost % of revenue).
 
-Let me check the actual data to understand what's wrong, then plan a fix.
+It also doesn't proactively reason — it just answers what's asked. To make it "intelligent", I need to: (1) give it more data tools, (2) upgrade the model to a stronger reasoner, (3) restructure the system prompt to push proactive analysis, (4) let it chain multiple tool calls per turn.
 
-**Likely causes:**
-1. `product_search` is fuzzy substring on `description` only — misses items where the supplier wrote the description differently (e.g., "Asahi Super Dry 20L" vs "ASAHI SUPER DRY KEG 1X20L"). The model then gets a partial set of line items and reports averaged/aggregated prices.
-2. When `group_by="product"` is used, the tool aggregates by description string — so two near-identical descriptions become two rows, and the model may quote one while missing the other.
-3. The aggregation likely returns `total_spend / total_qty` as an "average unit price", but the model presents it as THE unit price — masking actual variation.
-4. No way for the model to see individual invoice rows with date + invoice number for verification.
+## Plan: Make AI Analyst comprehensive & intelligent
 
-**Fix plan (single file: `supabase/functions/chat-assistant/index.ts`):**
+### One file: `supabase/functions/chat-assistant/index.ts`
 
-### 1. Broaden `product_search` matching
-Search across `description`, `item_code`, AND the joined product_master `internal_product_name` + `internal_sku` + `external_sku`. Tokenize the search query (split on spaces) and match if ANY token appears — so "asahi 20L" finds both "ASAHI SUPER DRY KEG 1X20L" and "Asahi Super Dry 20L".
+### 1. Add 6 new tools for full data coverage
 
-### 2. Return BOTH aggregated and detailed views
-When `group_by="product"`, also include:
-- `min_unit_price`, `max_unit_price`, `avg_unit_price` (weighted by qty)
-- `unit_price_variants`: list of distinct unit prices seen with their counts
-- `last_invoice_date`, `last_unit_price` (most recent price)
+| Tool | Purpose |
+|---|---|
+| `get_hr_summary` | Headcount, payroll cost by venue/month, labor cost % of revenue |
+| `get_inventory_status` | Current stock, par levels, items below reorder, last count variances |
+| `get_menu_costing` | Menu items with theoretical food cost %, GP, flag items above target % |
+| `get_forecast_vs_actual` | Forecasted vs actual revenue/covers/spend per venue per period, variance |
+| `get_supplier_price_trends` | Per-supplier price changes over time — flag items with >X% increase |
+| `compare_periods` | Generic period-over-period comparator (revenue, spend, labor, GP) with deltas |
 
-### 3. Add `group_by="none"` raw mode that returns per-line detail
-Each row: `invoice_date`, `invoice_number`, `supplier`, `description`, `qty`, `unit`, `unit_price`, `total`. Increase `limit` cap to 200 for this mode so the model can see every transaction.
+Each tool aggregates server-side and returns compact JSON (≤8KB) so the model can reason without context bloat.
 
-### 4. Update system prompt with strict price-reporting rules
-Add to the prompt:
-> When reporting unit prices for a specific item:
-> - ALWAYS call `get_invoice_line_items` with `group_by="none"` to see every individual line, not just aggregates.
-> - Report the FULL range (min–max) and list each distinct price with its invoice date.
-> - NEVER claim a price is "not in the data" without first searching with broader terms (try the brand name alone, then the SKU/item code).
-> - If the user says they saw a different price, RE-QUERY with looser filters before disagreeing — the user is usually right.
-> - Show prices in a table with columns: Date | Invoice # | Supplier | Description | Qty | Unit Price | Total.
+### 2. Upgrade model & enable multi-step reasoning
+
+- Switch from `google/gemini-2.5-flash` → `google/gemini-2.5-pro` for stronger reasoning.
+- Increase tool-call loop from 5 → 10 iterations so the model can chain queries (e.g. fetch revenue → fetch labor → fetch COGS → compute margin → recommend).
+- Keep `google/gemini-2.5-flash` as automatic fallback if Pro returns 429/402/5xx.
+
+### 3. Rewrite system prompt for proactive intelligence
+
+New prompt rules:
+- **Always go beyond the literal question.** If asked "what's revenue this month", also surface MoM trend, top/bottom venue, and one anomaly worth attention.
+- **Always end with Recommendations** — minimum 2 concrete, numbered actions tied to actual numbers in the answer.
+- **Cross-domain by default.** When asked about cost, also pull revenue to show %. When asked about labor, also pull covers to show $/cover.
+- **Anomaly hunting.** Flag any metric >20% off its 3-month average; call it out under a `### Watch-outs` section.
+- **Confidence & data scope.** State the date range and row count used. Never invent numbers.
+- **Tone.** Operator-friendly, terse, financial. No filler.
+
+Output structure becomes:
+```
+### Headline answer
+[Table with the asked numbers]
+
+### Context
+[1-2 lines: how this compares to prior period / target]
+
+### Watch-outs (if any)
+- Anomaly 1 (with number)
+
+### Recommendations
+1. Action with $ or % impact
+2. Action…
+```
+
+### 4. Light UI touch (Assistant.tsx)
+
+Add 4 smarter starter prompts to replace the current generic ones:
+- "Where am I losing margin this month?"
+- "Which suppliers raised prices in the last 90 days?"
+- "Compare labor cost vs revenue across venues YTD"
+- "What should I focus on this week?"
 
 ### Verification
-1. Ask *"What's the unit price history for Asahi Super Dry 20L keg?"* → returns table of every line with date, invoice #, and price; range shown clearly.
-2. Provide a price the assistant previously dismissed → it should re-query and find it (or honestly explain which invoices it searched).
-3. Existing aggregated questions ("top products by spend") still work — `group_by="product"` default unchanged.
+
+1. Ask *"Where am I losing margin this month?"* → assistant should pull revenue, COGS, labor, compute GP%, identify worst venue, recommend 2-3 actions.
+2. Ask *"Which suppliers raised prices recently?"* → uses `get_supplier_price_trends`, returns sorted table + flagged items.
+3. Ask *"Give me a weekly executive summary"* → chains 4-5 tool calls, returns structured digest.
+4. Existing simple questions ("revenue last month") still work and now include extra context + recs.
 
 ### Out of scope
-- Not changing the database or any UI.
-- Not changing other tools (`get_sales_summary`, etc.).
+
+- No DB schema changes.
+- No new pages or auth changes.
+- Tools are read-only aggregations over existing tables.
