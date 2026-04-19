@@ -1,27 +1,34 @@
 
-The user wants the edit invoice flows (in `Invoices.tsx` and `ProcurementInvoicesTab.tsx`) to mirror the scanner's PM-authoritative SKU behavior: when a user picks a product whose Product Master entry has an empty `external_sku`, the line's External SKU must become empty (not retain the previously scanned code).
-
-Earlier flattening was already fixed (`s.external_sku ?? ""`). Need to verify both edit `selectEditProduct` handlers force `item_code = product.external_sku || ""` with no fallback to current scanned value.
-
-## Plan: Mirror scanner's PM-authoritative SKU logic in edit invoice flows
+## Add Revenue + Cost-of-Revenue % to Monthly Spend Trend
 
 ### Goal
-When editing an invoice line and selecting a product (by name) from autocomplete:
-- The line's External SKU must be overwritten with the Product Master's `external_sku` for that supplier
-- If the PM entry has an empty SKU, the line's SKU becomes empty — no fallback to scanned/typed code
+On the Procurement Dashboard's Monthly Spend Trend chart, overlay monthly revenue and a cost-of-revenue ratio (Procurement Spend ÷ Revenue %) so the user can see procurement cost in context.
 
-### Files to update
-1. **`src/pages/Invoices.tsx`** — `selectEditProduct` (and any related "apply product to line" handler)
-2. **`src/components/procurement/ProcurementInvoicesTab.tsx`** — `selectEditProduct` (and any related handler)
+### Data
+- Already loaded: `invoices` (has `invoice_date`, `total_amount`) → monthly spend
+- New fetch: `sales_records` (`date`, `total_sales`) → aggregate to monthly revenue
+- Compute per month:
+  - `spend` = sum of invoice totals
+  - `revenue` = sum of `total_sales`
+  - `costPct` = `spend / revenue * 100` (null/hidden if revenue = 0)
 
-### Changes
-- Force `item_code: product.external_sku ?? ""` (drop any `|| line.item_code` fallback)
-- Also overwrite related supplier-scoped fields from PM (description / supplier name / unit / unit_price defaults) to match scanner behavior — only the SKU empty-respect is the bug, but verify these don't fall back to scanned values either
-- Keep BW invoice logic untouched
+### UI changes (only `ProcurementDashboardTab.tsx`)
+1. Fetch `sales_records` alongside the existing parallel queries.
+2. Build `monthlyTrend` items as `{ month, spend, revenue, costPct }` (rename `value` → `spend`).
+3. Convert the all-time chart from `BarChart` to `ComposedChart` with **dual Y-axes**:
+   - Left axis ($): grouped Bars — Spend (terracotta) + Revenue (teal `hsl(175,55%,42%)`)
+   - Right axis (%): Line for Cost % (accent `hsl(14,70%,52%)`) with dots
+   - Tooltip shows all three: Spend, Revenue, Cost of Revenue %
+   - Legend at top
+4. Apply the same enhancement to the Daily view (single month / custom range): add daily revenue bar + daily cost % line on the existing ComposedChart.
+5. Update card title to **"Monthly Spend vs Revenue"** (and **"Daily Spend vs Revenue"** for daily view).
+
+### Notes
+- If a month has no sales records, the revenue bar is 0 and the cost % line skips that point (set to `null`).
+- No schema changes. No other charts/KPIs touched.
 
 ### Verification
-1. Open edit dialog on a Ming Kee invoice line that has a scanned `item_code`
-2. In the product name autocomplete, select `Rose Extra Sp. Wheat Flour 50lb`
-3. External SKU field clears to empty
-4. Save and reopen → still empty
-5. On a supplier with real SKUs (e.g., Beverage World), selecting a product still fills the correct SKU
+- All Time view shows 3 series (Spend bars, Revenue bars, Cost % line) with two Y-axes.
+- Tooltip shows `$Spend`, `$Revenue`, `XX.X% Cost of Revenue`.
+- Single-month view shows daily spend, daily revenue, and daily cost %.
+- Months without sales display revenue=0 and no Cost % point.
