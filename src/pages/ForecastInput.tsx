@@ -45,11 +45,8 @@ const ForecastInput = () => {
 
   // Load actuals from database
   useEffect(() => {
-    supabase
-      .from("sales_records")
-      .select("*")
-      .order("date", { ascending: true })
-      .then(({ data }) => {
+    import("@/utils/fetchAllRows").then(({ fetchAllRows }) => {
+      fetchAllRows("sales_records", "*", { col: "date", asc: true }).then((data) => {
         if (data) {
           setSalesData(
             data.map((r: any) => ({

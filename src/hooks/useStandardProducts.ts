@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useToast } from "@/hooks/use-toast";
 
 export interface StandardProduct {
@@ -169,8 +170,9 @@ export function useStandardProducts() {
     const { data: maps } = await supabase.from("supplier_item_mappings").select("id, supplier_id").eq("standard_product_id", standardProductId);
     if (!maps || maps.length === 0) return [];
 
-    // Get line items linked to this standard product
-    const { data: lineItems } = await supabase.from("invoice_line_items").select("*, invoice_id").eq("standard_product_id", standardProductId);
+    // Get line items linked to this standard product (paginated to bypass 1000-row limit)
+    const liAll = await fetchAllRows("invoice_line_items", "*, invoice_id");
+    const lineItems = (liAll as any[]).filter((li) => li.standard_product_id === standardProductId);
     if (!lineItems || lineItems.length === 0) return [];
 
     const invoiceIds = [...new Set((lineItems as any[]).map((li) => li.invoice_id))];

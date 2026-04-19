@@ -4,6 +4,7 @@ import { useStandardProducts, StandardProduct } from "@/hooks/useStandardProduct
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { resolveExactMatch } from "@/utils/productMasterResolver";
 import JSZip from "jszip";
 import { Button } from "@/components/ui/button";
@@ -59,8 +60,8 @@ export default function Invoices() {
   const [editPMData, setEditPMData] = useState<EditPMEntry[]>([]);
 
   const loadProductMaster = useCallback(async () => {
-    const { data: pmData } = await supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost, supplier, purchase_unit, stock_uom, stock_qty");
-    const { data: psData } = await supabase.from("product_suppliers").select("*");
+    const pmData = await fetchAllRows("product_master", "id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost, supplier, purchase_unit, stock_uom, stock_qty");
+    const psData = await fetchAllRows("product_suppliers", "*");
     if (!pmData) { setEditPMData([]); return; }
     const entries: EditPMEntry[] = [];
     for (const pm of pmData as any[]) {
@@ -256,8 +257,8 @@ export default function Invoices() {
     await loadProductMaster();
     const items = await fetchLineItems(inv.id);
     // Resolve PM fields for each line
-    const { data: pmAll } = await supabase.from("product_master" as any).select("id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost, supplier, purchase_unit, stock_uom, stock_qty");
-    const { data: psAll } = await supabase.from("product_suppliers").select("*");
+    const pmAll = await fetchAllRows("product_master", "id, internal_sku, external_sku, internal_product_name, supplier_product_name, purchase_unit_cost, supplier, purchase_unit, stock_uom, stock_qty");
+    const psAll = await fetchAllRows("product_suppliers", "*");
     setEditLines(items.map((li) => {
       let matched_sku = "";
       let matched_internal_name = "";
