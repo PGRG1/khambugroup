@@ -48,14 +48,17 @@ export function AssistantWidget() {
     abortRef.current = controller;
 
     let assistantSoFar = "";
-    const upsert = (chunk: string) => {
-      assistantSoFar += chunk;
+    const collectedCharts: ChartSpec[] = [];
+    const upsert = (chunk: string, chart?: ChartSpec) => {
+      if (chunk) assistantSoFar += chunk;
+      if (chart) collectedCharts.push(chart);
       setMessages((prev) => {
         const last = prev[prev.length - 1];
+        const payload = { role: "assistant" as const, content: assistantSoFar, charts: [...collectedCharts] };
         if (last?.role === "assistant") {
-          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+          return prev.map((m, i) => (i === prev.length - 1 ? payload : m));
         }
-        return [...prev, { role: "assistant", content: assistantSoFar }];
+        return [...prev, payload];
       });
     };
 
