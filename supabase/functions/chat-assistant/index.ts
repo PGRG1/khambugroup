@@ -589,6 +589,317 @@ async function runTool(name: string, args: any): Promise<any> {
       return { invoices: inv, invoice_line_items: lines, sales_records: sales, suppliers: sup, products: prod, employees: emp };
     }
 
+    case "get_hr_summary": {
+      const [employees, payroll, sales] = await Promise.all([
+        fetchAll<any>("hr_employees", "id,first_name,last_name,venue,status,employment_type"),
+        fetchAll<any>("hr_payroll", "employee_id,year,month,forecast_total,actual_total,gross_salary,net_salary"),
+        fetchAll<any>("sales_records", "date,venue,subtotal,service_charge"),
+      ]);
+      const empMap = new Map(employees.map((e) => [e.id, e]));
+      const active = employees.filter((e) => e.status === "active");
+      const byVenue: Record<string, number> = {};
+      for (const e of active) {
+        if (args.venue && e.venue !== args.venue) continue;
+        byVenue[e.venue || "Unassigned"] = (byVenue[e.venue || "Unassigned"] || 0) + 1;
+      }
+      const filterPay = payroll.filter((p) => {
+        if (args.year && p.year !== args.year) return false;
+        if (args.month && p.month !== args.month) return false;
+        if (args.venue) {
+          const e = empMap.get(p.employee_id);
+          if (!e || e.venue !== args.venue) return false;
+        }
+        return true;
+      });
+      const totalForecast = filterPay.reduce((a, p) => a + Number(p.forecast_total || 0), 0);
+      const totalActual = filterPay.reduce((a, p) => a + Number(p.actual_total || 0), 0);
+
+      let laborCostPct: number | null = null;
+      let revenue = 0;
+      if (args.year && args.month) {
+        const ym = `${args.year}-${String(args.month).padStart(2, "0")}`;
+        const filtSales = sales.filter(
+          (s) => s.date.startsWith(ym) && (!args.venue || s.venue === args.venue),
+        );
+        revenue = filtSales.reduce((a, r) => a + Number(r.subtotal || 0) + Number(r.service_charge || 0), 0);
+        if (revenue > 0) laborCostPct = +(((totalActual || totalForecast) / revenue) * 100).toFixed(2);
+      }
+      return {
+        active_headcount: active.length,
+        headcount_by_venue: byVenue,
+        payroll_forecast_total: +totalForecast.toFixed(2),
+        payroll_actual_total: +totalActual.toFixed(2),
+        revenue: revenue ? +revenue.toFixed(2) : null,
+        labor_cost_pct: laborCostPct,
+        period: args.year ? { year: args.year, month: args.month || null } : null,
+      };
+    }
+
+    case "get_inventory_status": {
+      const [items, counts, periods] = await Promise.all([
+        fetchAll<any>("inventory_items", "id,name,unit_of_measure,par_level,current_qty,is_active,unit_size"),
+        fetchAll<any>("inventory_counts", "item_id,period_id,venue,beginning_qty,ending_qty,purchases_qty,usage_qty,total_usage_cost"),
+        fetchAll<any>("inventory_periods", "id,venue,period_label,period_start,period_end,status"),
+      ]);
+      const latestPeriodByVenue = new Map<string, any>();
+      for (const p of periods) {
+        const cur = latestPeriodByVenue.get(p.venue);
+        if (!cur || p.period_end > cur.period_end) latestPeriodByVenue.set(p.venue, p);
+      }
+      const active = items.filter((i) => i.is_active);
+      let rows = active.map((i) => {
+        const par = Number(i.par_level || 0);
+        const cur = Number(i.current_qty || 0);
+        const belowPar = par > 0 && cur < par;
+        return {
+          name: i.name,
+          unit: i.unit_of_measure,
+          unit_size: i.unit_size,
+          current_qty: cur,
+          par_level: par || null,
+          below_par: belowPar,
+          shortfall: belowPar ? +(par - cur).toFixed(2) : 0,
+        };
+      });
+      if (args.below_par_only) rows = rows.filter((r) => r.below_par);
+      rows.sort((a, b) => (b.shortfall || 0) - (a.shortfall || 0));
+
+      const varianceByVenue: any[] = [];
+      for (const [venue, p] of latestPeriodByVenue) {
+        if (args.venue && venue !== args.venue) continue;
+        const periodCounts = counts.filter((c) => c.period_id === p.id);
+        const totalUsage = periodCounts.reduce((a, c) => a + Number(c.usage_qty || 0), 0);
+        const totalUsageCost = periodCounts.reduce((a, c) => a + Number(c.total_usage_cost || 0), 0);
+        varianceByVenue.push({
+          venue,
+          period: p.period_label,
+          period_end: p.period_end,
+          item_count: periodCounts.length,
+          total_usage_qty: +totalUsage.toFixed(2),
+          total_usage_cost: +totalUsageCost.toFixed(2),
+        });
+      }
+      return {
+        total_active_items: active.length,
+        items_below_par: active.filter((i) => Number(i.par_level || 0) > 0 && Number(i.current_qty || 0) < Number(i.par_level || 0)).length,
+        items: rows.slice(0, args.limit || 50),
+        latest_period_usage: varianceByVenue,
+      };
+    }
+
+    case "get_menu_costing": {
+      const target = args.target_cost_pct ?? 35;
+      const [items, pricing] = await Promise.all([
+        fetchAll<any>("menu_items", "id,name,category,status,theoretical_cost"),
+        fetchAll<any>("menu_item_pricing", "menu_item_id,price_type,selling_price,food_cost_pct,gross_profit"),
+      ]);
+      const priceMap = new Map<string, any[]>();
+      for (const p of pricing) {
+        if (!priceMap.has(p.menu_item_id)) priceMap.set(p.menu_item_id, []);
+        priceMap.get(p.menu_item_id)!.push(p);
+      }
+      const rows = items
+        .filter((i) => i.status === "Active")
+        .map((i) => {
+          const prices = priceMap.get(i.id) || [];
+          const def = prices[0] || {};
+          const cost = Number(i.theoretical_cost || 0);
+          const sell = Number(def.selling_price || 0);
+          const fcPct = sell > 0 ? +((cost / sell) * 100).toFixed(2) : null;
+          const gp = sell - cost;
+          return {
+            name: i.name,
+            category: i.category,
+            theoretical_cost: +cost.toFixed(2),
+            selling_price: +sell.toFixed(2),
+            food_cost_pct: fcPct,
+            gross_profit: +gp.toFixed(2),
+            flagged: fcPct !== null && fcPct > target,
+          };
+        });
+      const filtered = args.flagged_only ? rows.filter((r) => r.flagged) : rows;
+      filtered.sort((a, b) => (b.food_cost_pct || 0) - (a.food_cost_pct || 0));
+      return {
+        target_cost_pct: target,
+        flagged_count: rows.filter((r) => r.flagged).length,
+        items: filtered.slice(0, args.limit || 50),
+      };
+    }
+
+    case "get_forecast_vs_actual": {
+      const [forecasts, sales] = await Promise.all([
+        fetchAll<any>("forecasts", "date,venue,forecasted_customers,forecasted_avg_spend,forecasted_total_sales,status"),
+        fetchAll<any>("sales_records", "date,venue,subtotal,service_charge,discount,guests"),
+      ]);
+      const fc = forecasts.filter(
+        (f) =>
+          (!args.venue || f.venue === args.venue) &&
+          inDateRange(f.date, args.date_from, args.date_to),
+      );
+      const salesByKey = new Map<string, { revenue: number; guests: number }>();
+      for (const s of sales) {
+        if (args.venue && s.venue !== args.venue) continue;
+        if (!inDateRange(s.date, args.date_from, args.date_to)) continue;
+        const key = `${s.date}|${s.venue}`;
+        const cur = salesByKey.get(key) || { revenue: 0, guests: 0 };
+        cur.revenue += Number(s.subtotal || 0) + Number(s.service_charge || 0) - Number(s.discount || 0);
+        cur.guests += Number(s.guests || 0);
+        salesByKey.set(key, cur);
+      }
+      const rows = fc.map((f) => {
+        const a = salesByKey.get(`${f.date}|${f.venue}`);
+        const actualRev = a?.revenue ?? null;
+        const actualGuests = a?.guests ?? null;
+        const actualAvg = actualGuests && actualGuests > 0 ? +(actualRev! / actualGuests).toFixed(2) : null;
+        const revVar = actualRev !== null ? +(actualRev - Number(f.forecasted_total_sales || 0)).toFixed(2) : null;
+        const revVarPct =
+          actualRev !== null && Number(f.forecasted_total_sales) > 0
+            ? +((revVar! / Number(f.forecasted_total_sales)) * 100).toFixed(2)
+            : null;
+        return {
+          date: f.date,
+          venue: f.venue,
+          forecast_revenue: +Number(f.forecasted_total_sales || 0).toFixed(2),
+          actual_revenue: actualRev,
+          revenue_variance: revVar,
+          revenue_variance_pct: revVarPct,
+          forecast_customers: Number(f.forecasted_customers || 0),
+          actual_customers: actualGuests,
+          forecast_avg_spend: +Number(f.forecasted_avg_spend || 0).toFixed(2),
+          actual_avg_spend: actualAvg,
+        };
+      });
+      rows.sort((a, b) => (a.date < b.date ? -1 : 1));
+      const sumF = rows.reduce((a, r) => a + r.forecast_revenue, 0);
+      const sumA = rows.reduce((a, r) => a + (r.actual_revenue || 0), 0);
+      return {
+        row_count: rows.length,
+        summary: {
+          total_forecast: +sumF.toFixed(2),
+          total_actual: +sumA.toFixed(2),
+          variance: +(sumA - sumF).toFixed(2),
+          variance_pct: sumF > 0 ? +(((sumA - sumF) / sumF) * 100).toFixed(2) : null,
+        },
+        rows: rows.slice(0, 100),
+      };
+    }
+
+    case "get_supplier_price_trends": {
+      const minPct = args.min_change_pct ?? 5;
+      const [lineItems, invoices, suppliers] = await Promise.all([
+        fetchAll<any>("invoice_line_items", "invoice_id,description,item_code,quantity,unit_price"),
+        fetchAll<any>("invoices", "id,invoice_date,supplier_id"),
+        fetchAll<any>("suppliers", "id,name"),
+      ]);
+      const supMap = new Map(suppliers.map((s) => [s.id, s.name]));
+      const invMap = new Map(invoices.map((i) => [i.id, i]));
+      const supplierNeedle = args.supplier_name?.toLowerCase();
+
+      const filtered = lineItems.filter((li) => {
+        const inv = invMap.get(li.invoice_id);
+        if (!inv) return false;
+        if (!inDateRange(inv.invoice_date, args.date_from, args.date_to)) return false;
+        if (supplierNeedle) {
+          const sn = (supMap.get(inv.supplier_id) || "").toLowerCase();
+          if (!sn.includes(supplierNeedle)) return false;
+        }
+        return Number(li.unit_price || 0) > 0;
+      });
+      const groups = new Map<string, any[]>();
+      for (const li of filtered) {
+        const inv = invMap.get(li.invoice_id);
+        const sup = supMap.get(inv?.supplier_id) || "Unknown";
+        const key = `${sup}||${(li.item_code || "").trim()}||${(li.description || "").trim().toLowerCase()}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push({
+          date: inv?.invoice_date,
+          price: Number(li.unit_price),
+          supplier: sup,
+          description: li.description,
+          item_code: li.item_code || "",
+        });
+      }
+      const trends: any[] = [];
+      for (const arr of groups.values()) {
+        if (arr.length < 2) continue;
+        arr.sort((a, b) => a.date.localeCompare(b.date));
+        const first = arr[0];
+        const last = arr[arr.length - 1];
+        if (first.price === 0) continue;
+        const changePct = +(((last.price - first.price) / first.price) * 100).toFixed(2);
+        if (Math.abs(changePct) < minPct) continue;
+        trends.push({
+          supplier: first.supplier,
+          description: first.description,
+          item_code: first.item_code,
+          first_date: first.date,
+          first_price: +first.price.toFixed(4),
+          last_date: last.date,
+          last_price: +last.price.toFixed(4),
+          change_pct: changePct,
+          observation_count: arr.length,
+        });
+      }
+      trends.sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct));
+      return {
+        threshold_pct: minPct,
+        items_changed: trends.length,
+        items: trends.slice(0, args.limit || 30),
+      };
+    }
+
+    case "compare_periods": {
+      const [sales, invoices] = await Promise.all([
+        fetchAll<any>("sales_records", "date,venue,subtotal,service_charge,discount,guests,orders"),
+        fetchAll<any>("invoices", "invoice_date,venue,total_amount"),
+      ]);
+      const calc = (from: string, to: string) => {
+        const fs = sales.filter(
+          (s) => (!args.venue || s.venue === args.venue) && inDateRange(s.date, from, to),
+        );
+        const fi = invoices.filter(
+          (i) => (!args.venue || i.venue === args.venue) && inDateRange(i.invoice_date, from, to),
+        );
+        const revenue = fs.reduce((a, r) => a + Number(r.subtotal || 0) + Number(r.service_charge || 0), 0);
+        const discount = fs.reduce((a, r) => a + Number(r.discount || 0), 0);
+        const guests = fs.reduce((a, r) => a + Number(r.guests || 0), 0);
+        const orders = fs.reduce((a, r) => a + Number(r.orders || 0), 0);
+        const spend = fi.reduce((a, r) => a + Number(r.total_amount || 0), 0);
+        return {
+          revenue: +revenue.toFixed(2),
+          total_sales: +(revenue - discount).toFixed(2),
+          invoice_spend: +spend.toFixed(2),
+          cost_of_revenue_pct: revenue > 0 ? +((spend / revenue) * 100).toFixed(2) : null,
+          guests,
+          orders,
+          avg_spend_per_guest: guests > 0 ? +(revenue / guests).toFixed(2) : null,
+        };
+      };
+      const a = calc(args.period_a_from, args.period_a_to);
+      const b = calc(args.period_b_from, args.period_b_to);
+      const delta = (k: keyof typeof a) => {
+        const av = a[k] as number | null;
+        const bv = b[k] as number | null;
+        if (av === null || bv === null) return null;
+        return {
+          abs: +(bv - av).toFixed(2),
+          pct: av !== 0 ? +(((bv - av) / Math.abs(av)) * 100).toFixed(2) : null,
+        };
+      };
+      return {
+        period_a: { from: args.period_a_from, to: args.period_a_to, ...a },
+        period_b: { from: args.period_b_from, to: args.period_b_to, ...b },
+        deltas: {
+          revenue: delta("revenue"),
+          total_sales: delta("total_sales"),
+          invoice_spend: delta("invoice_spend"),
+          cost_of_revenue_pct: delta("cost_of_revenue_pct"),
+          guests: delta("guests"),
+          avg_spend_per_guest: delta("avg_spend_per_guest"),
+        },
+      };
+    }
+
     default:
       return { error: `Unknown tool: ${name}` };
   }
