@@ -435,6 +435,11 @@ Deno.serve(async (req) => {
         const stream = new ReadableStream({
           start(controller) {
             const encoder = new TextEncoder();
+            // Emit captured charts first as custom events
+            for (const spec of chartSpecs) {
+              const evt = JSON.stringify({ chart: spec });
+              controller.enqueue(encoder.encode(`data: ${evt}\n\n`));
+            }
             // Chunk by ~12 chars for nice streaming feel
             const chunkSize = 12;
             let i = 0;
