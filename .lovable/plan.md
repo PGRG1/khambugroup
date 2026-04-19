@@ -1,74 +1,81 @@
 
-The user wants the AI Analyst to be substantially more capable — deeper data access, smarter analysis, better recommendations. Currently it has 7 tools (sales summary, invoice summary, top suppliers, cost of revenue, venue performance, P&L period, line items). It's missing major data domains: HR/payroll, inventory, menu costing, forecasts vs actuals, supplier price trends, and cross-domain analysis (e.g. labor cost % of revenue).
+The user wants to add a **Revenue Target** feature to the Forecast Input page. They want to enter a monthly target (e.g. HK$ 800,000) and have the system distribute that target across each day of the month proportionally — using the **median** day-of-week pattern (so weekends get more, weekdays less, matching historical behavior).
 
-It also doesn't proactively reason — it just answers what's asked. To make it "intelligent", I need to: (1) give it more data tools, (2) upgrade the model to a stronger reasoner, (3) restructure the system prompt to push proactive analysis, (4) let it chain multiple tool calls per turn.
+Let me check the current forecast page structure to plan precisely.
 
-## Plan: Make AI Analyst comprehensive & intelligent
+Key questions I need to resolve in the plan:
+- Where does the target input live? → Top of `ForecastInput.tsx`, next to the period selector.
+- How to distribute? → Use historical sales weighted by day-of-week median share, then scale so days sum to target.
+- Per venue or total? → User said "the revenue" (singular) for the month. I'll plan per-venue target with a total-target option, but default to per-venue since forecasts are per-venue.
+- Persisted? → Store monthly targets in a new `revenue_targets` table.
 
-### One file: `supabase/functions/chat-assistant/index.ts`
+## Plan: Monthly Revenue Target with smart daily distribution
 
-### 1. Add 6 new tools for full data coverage
-
-| Tool | Purpose |
+### 1. New table `revenue_targets`
+| column | type |
 |---|---|
-| `get_hr_summary` | Headcount, payroll cost by venue/month, labor cost % of revenue |
-| `get_inventory_status` | Current stock, par levels, items below reorder, last count variances |
-| `get_menu_costing` | Menu items with theoretical food cost %, GP, flag items above target % |
-| `get_forecast_vs_actual` | Forecasted vs actual revenue/covers/spend per venue per period, variance |
-| `get_supplier_price_trends` | Per-supplier price changes over time — flag items with >X% increase |
-| `compare_periods` | Generic period-over-period comparator (revenue, spend, labor, GP) with deltas |
+| id | uuid |
+| year | int |
+| month | int (1-12) |
+| venue | text (Assembly/Caliente/Hanabi/Events, or 'TOTAL') |
+| target_amount | numeric |
+| created_by | uuid |
+| created_at, updated_at | timestamptz |
 
-Each tool aggregates server-side and returns compact JSON (≤8KB) so the model can reason without context bloat.
+Unique on `(year, month, venue)`. RLS: read all authenticated, write admin/manager.
 
-### 2. Upgrade model & enable multi-step reasoning
+### 2. UI: Target panel on Forecast Input page
 
-- Switch from `google/gemini-2.5-flash` → `google/gemini-2.5-pro` for stronger reasoning.
-- Increase tool-call loop from 5 → 10 iterations so the model can chain queries (e.g. fetch revenue → fetch labor → fetch COGS → compute margin → recommend).
-- Keep `google/gemini-2.5-flash` as automatic fallback if Pro returns 429/402/5xx.
+Add a `RevenueTargetPanel` component at the top of `src/pages/ForecastInput.tsx`:
 
-### 3. Rewrite system prompt for proactive intelligence
-
-New prompt rules:
-- **Always go beyond the literal question.** If asked "what's revenue this month", also surface MoM trend, top/bottom venue, and one anomaly worth attention.
-- **Always end with Recommendations** — minimum 2 concrete, numbered actions tied to actual numbers in the answer.
-- **Cross-domain by default.** When asked about cost, also pull revenue to show %. When asked about labor, also pull covers to show $/cover.
-- **Anomaly hunting.** Flag any metric >20% off its 3-month average; call it out under a `### Watch-outs` section.
-- **Confidence & data scope.** State the date range and row count used. Never invent numbers.
-- **Tone.** Operator-friendly, terse, financial. No filler.
-
-Output structure becomes:
 ```
-### Headline answer
-[Table with the asked numbers]
-
-### Context
-[1-2 lines: how this compares to prior period / target]
-
-### Watch-outs (if any)
-- Anomaly 1 (with number)
-
-### Recommendations
-1. Action with $ or % impact
-2. Action…
+┌─ Monthly Revenue Target ──────────────────────────────┐
+│  Month: [April 2026 ▾]   Venue: [All Venues ▾]        │
+│  Target: HK$ [  800,000  ]   [Save]  [Apply to Days]  │
+│                                                        │
+│  Currently forecasted total:  HK$ 612,400  (76.5%)    │
+│  Gap to target:               HK$ 187,600              │
+└────────────────────────────────────────────────────────┘
 ```
 
-### 4. Light UI touch (Assistant.tsx)
+### 3. Distribution algorithm ("Apply to Days")
 
-Add 4 smarter starter prompts to replace the current generic ones:
-- "Where am I losing margin this month?"
-- "Which suppliers raised prices in the last 90 days?"
-- "Compare labor cost vs revenue across venues YTD"
-- "What should I focus on this week?"
+When user clicks **Apply to Days**:
+
+1. Pull last 3 months of `sales_records` for the selected venue(s).
+2. Group by day-of-week (Mon–Sun) and compute the **median revenue share** per weekday (e.g. Sat = 22%, Sun = 18%, Mon = 9%…).
+3. For each date in the selected month, look up its weekday share and compute:
+   `daily_target = (weekday_share / sum_of_shares_for_month) × monthly_target`
+4. For each day, back-calculate `forecasted_customers` and `forecasted_avg_spend`:
+   - Use the same weekday's median **avg spend per guest** from history → keeps spend realistic.
+   - `customers = daily_target / avg_spend`, rounded.
+   - Recompute gross / service / total via existing `calculateForecast`.
+5. Upsert into `forecasts` table for each day (status: `draft`, submittedBy: current user). Existing forecasts for that date+venue get overwritten with confirmation.
+6. Show a **preview modal** before writing: table of `Date | Day | Target | Customers | Avg Spend | Total`, with [Confirm & Save] / [Cancel].
+
+### 4. Visual indicator on existing forecast list
+Each day row shows a small badge:
+- Green if forecast ≥ daily target
+- Amber if 80–100% of target
+- Red if < 80%
+
+A small progress bar at the top of the month view: `Forecasted: HK$ X / Target: HK$ Y (Z%)`.
+
+### 5. Files to change
+- **New migration**: create `revenue_targets` table + RLS.
+- **New** `src/hooks/useRevenueTargets.ts` — CRUD for targets.
+- **New** `src/utils/forecastDistribution.ts` — median weekday share + distribution math.
+- **New** `src/components/forecast/RevenueTargetPanel.tsx` — input UI + apply button + preview modal.
+- **Edit** `src/pages/ForecastInput.tsx` — mount the panel; pass current forecasts so it can compute "currently forecasted vs target".
+- **Edit** `src/components/forecast/ForecastKPICards.tsx` (optional) — add "vs Target" KPI tile.
 
 ### Verification
-
-1. Ask *"Where am I losing margin this month?"* → assistant should pull revenue, COGS, labor, compute GP%, identify worst venue, recommend 2-3 actions.
-2. Ask *"Which suppliers raised prices recently?"* → uses `get_supplier_price_trends`, returns sorted table + flagged items.
-3. Ask *"Give me a weekly executive summary"* → chains 4-5 tool calls, returns structured digest.
-4. Existing simple questions ("revenue last month") still work and now include extra context + recs.
+1. Set target HK$ 800,000 for Assembly April → click Apply → preview shows 30 daily rows summing to 800,000, with Sat/Sun heavier than Mon/Tue.
+2. Confirm → forecasts table populated for all April Assembly dates as drafts.
+3. Edit one day manually → progress bar at top updates instantly.
+4. Try with no historical data for a venue → falls back to even distribution and shows a warning.
 
 ### Out of scope
-
-- No DB schema changes.
-- No new pages or auth changes.
-- Tools are read-only aggregations over existing tables.
+- Year-level targets (only monthly).
+- Auto-approval (drafts still need approval workflow).
+- Cross-year months.
