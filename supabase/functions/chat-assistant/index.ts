@@ -141,6 +141,33 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "render_chart",
+      description:
+        "Render a chart inline in the chat to visualize data you've already analyzed. Call this AFTER fetching data with other tools, whenever a trend, breakdown, or comparison would clarify your point. The chart appears inline in your reply.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: ["line", "bar", "pie"], description: "Chart type" },
+          title: { type: "string", description: "Short chart title" },
+          x_key: { type: "string", default: "name", description: "Key for x-axis / category labels (default 'name')" },
+          series: {
+            type: "array",
+            items: { type: "string" },
+            description: "Numeric data keys to plot. For single-series use ['value']. For multi-series e.g. ['revenue','spend'].",
+          },
+          data: {
+            type: "array",
+            description: "Array of objects. Each object must have the x_key (e.g. 'name') plus all series keys. Example: [{name:'Jan',revenue:1000,spend:300}]",
+            items: { type: "object" },
+          },
+        },
+        required: ["type", "title", "series", "data"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_database_overview",
       description: "Quick counts: invoices, line items, sales records, suppliers, products, employees. Use when user asks 'how much data' or 'what's in the system'.",
       parameters: { type: "object", properties: {} },
