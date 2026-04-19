@@ -74,6 +74,7 @@ const ForecastInput = () => {
           );
         }
       });
+    });
   }, []);
 
   const venueForecasts = useMemo(
