@@ -469,10 +469,16 @@ Deno.serve(async (req) => {
           }
         })();
         let result: any;
-        try {
-          result = await runTool(tc.function.name, args);
-        } catch (e) {
-          result = { error: e instanceof Error ? e.message : String(e) };
+        if (tc.function.name === "render_chart") {
+          // Capture spec for client; ack to model
+          chartSpecs.push(args);
+          result = { ok: true, rendered: args.title || "chart" };
+        } else {
+          try {
+            result = await runTool(tc.function.name, args);
+          } catch (e) {
+            result = { error: e instanceof Error ? e.message : String(e) };
+          }
         }
         conversation.push({
           role: "tool",
