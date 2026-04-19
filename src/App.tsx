@@ -9,7 +9,7 @@ import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { AppLayout } from "@/components/AppLayout";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
-import { AssistantWidget } from "@/components/assistant/AssistantWidget";
+import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
 
 import ForecastInput from "./pages/ForecastInput";
@@ -39,6 +39,7 @@ const pageKeyMap: Record<string, string> = {
   "/invoices": "invoices",
   "/procurement": "invoices",
   "/inventory": "inventory",
+  "/assistant": "assistant",
 };
 
 const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; pageKey?: string }) => {
@@ -104,9 +105,9 @@ function App() {
                 <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
                 <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
+                <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              <AssistantWidget />
             </BrowserRouter>
           </PreviewModeProvider>
         </AuthProvider>
