@@ -9,6 +9,7 @@ import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { AppLayout } from "@/components/AppLayout";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
+import { AssistantWidget } from "@/components/assistant/AssistantWidget";
 import Index from "./pages/Index";
 
 import ForecastInput from "./pages/ForecastInput";
@@ -105,6 +106,7 @@ function App() {
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <AssistantWidget />
             </BrowserRouter>
           </PreviewModeProvider>
         </AuthProvider>
