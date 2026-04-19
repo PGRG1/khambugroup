@@ -57,7 +57,6 @@ export function useProductMaster() {
         fetchAllRows("product_master", "*", { col: "internal_sku", asc: true }),
         fetchAllRows("product_suppliers", "*"),
       ]);
-      const pmResult = { data: pmData, error: null as any };
       const suppliers = psData as unknown as ProductSupplierEntry[];
       const supplierMap = new Map<string, ProductSupplierEntry[]>();
       for (const s of suppliers) {
@@ -65,11 +64,13 @@ export function useProductMaster() {
         arr.push(s);
         supplierMap.set(s.product_master_id, arr);
       }
-      const items = ((pmResult.data || []) as unknown as ProductMasterItem[]).map(p => ({
+      const items = (pmData as unknown as ProductMasterItem[]).map(p => ({
         ...p,
         suppliers: supplierMap.get(p.id) || [],
       }));
       setProducts(items);
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Failed to load products", variant: "destructive" });
     }
     setLoading(false);
   }, [toast]);
