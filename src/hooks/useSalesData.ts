@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { SalesRecord } from "@/types/sales";
 import { logAuditEvent } from "@/utils/auditLog";
 
@@ -63,14 +64,8 @@ export function useSalesData() {
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    const { data: rows, error } = await supabase
-      .from("sales_records")
-      .select("*")
-      .order("date", { ascending: true });
-
-    if (!error && rows) {
-      setData(rows.map(fromDbRecord));
-    }
+    const rows = await fetchAllRows("sales_records", "*", { col: "date", asc: true });
+    setData(rows.map(fromDbRecord));
     setLoading(false);
   }, []);
 
