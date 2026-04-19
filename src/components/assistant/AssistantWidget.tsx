@@ -8,8 +8,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { AssistantChart, type ChartSpec } from "./AssistantChart";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; charts?: ChartSpec[] };
 
 const SUGGESTIONS = [
   "What was total revenue last month?",
@@ -47,14 +48,17 @@ export function AssistantWidget() {
     abortRef.current = controller;
 
     let assistantSoFar = "";
-    const upsert = (chunk: string) => {
-      assistantSoFar += chunk;
+    const collectedCharts: ChartSpec[] = [];
+    const upsert = (chunk: string, chart?: ChartSpec) => {
+      if (chunk) assistantSoFar += chunk;
+      if (chart) collectedCharts.push(chart);
       setMessages((prev) => {
         const last = prev[prev.length - 1];
+        const payload = { role: "assistant" as const, content: assistantSoFar, charts: [...collectedCharts] };
         if (last?.role === "assistant") {
-          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+          return prev.map((m, i) => (i === prev.length - 1 ? payload : m));
         }
-        return [...prev, { role: "assistant", content: assistantSoFar }];
+        return [...prev, payload];
       });
     };
 
@@ -67,7 +71,7 @@ export function AssistantWidget() {
           Authorization: `Bearer ${session.access_token}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next.map(({ role, content }) => ({ role, content })) }),
         signal: controller.signal,
       });
 
@@ -104,8 +108,12 @@ export function AssistantWidget() {
           }
           try {
             const parsed = JSON.parse(json);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) upsert(delta);
+            if (parsed.chart) {
+              upsert("", parsed.chart as ChartSpec);
+            } else {
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) upsert(delta);
+            }
           } catch {
             buffer = line + "\n" + buffer;
             break;
@@ -180,16 +188,21 @@ export function AssistantWidget() {
                 <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
                   <div
                     className={cn(
-                      "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm",
+                      "rounded-2xl px-3.5 py-2.5 text-sm",
                       m.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-sm"
-                        : "bg-muted text-foreground rounded-bl-sm",
+                        ? "max-w-[85%] bg-primary text-primary-foreground rounded-br-sm"
+                        : "max-w-[95%] w-full bg-muted text-foreground rounded-bl-sm",
                     )}
                   >
                     {m.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-table:my-2 prose-th:px-2 prose-td:px-2 prose-headings:my-2">
-                        <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
-                      </div>
+                      <>
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-table:my-2 prose-th:px-2 prose-td:px-2 prose-headings:my-2">
+                          <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
+                        </div>
+                        {m.charts?.map((c, ci) => (
+                          <AssistantChart key={ci} spec={c} />
+                        ))}
+                      </>
                     ) : (
                       <p className="whitespace-pre-wrap">{m.content}</p>
                     )}

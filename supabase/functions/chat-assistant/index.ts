@@ -141,6 +141,33 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "render_chart",
+      description:
+        "Render a chart inline in the chat to visualize data you've already analyzed. Call this AFTER fetching data with other tools, whenever a trend, breakdown, or comparison would clarify your point. The chart appears inline in your reply.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: ["line", "bar", "pie"], description: "Chart type" },
+          title: { type: "string", description: "Short chart title" },
+          x_key: { type: "string", default: "name", description: "Key for x-axis / category labels (default 'name')" },
+          series: {
+            type: "array",
+            items: { type: "string" },
+            description: "Numeric data keys to plot. For single-series use ['value']. For multi-series e.g. ['revenue','spend'].",
+          },
+          data: {
+            type: "array",
+            description: "Array of objects. Each object must have the x_key (e.g. 'name') plus all series keys. Example: [{name:'Jan',revenue:1000,spend:300}]",
+            items: { type: "object" },
+          },
+        },
+        required: ["type", "title", "series", "data"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_database_overview",
       description: "Quick counts: invoices, line items, sales records, suppliers, products, employees. Use when user asks 'how much data' or 'what's in the system'.",
       parameters: { type: "object", properties: {} },
@@ -307,9 +334,20 @@ async function runTool(name: string, args: any): Promise<any> {
 }
 
 // ---------- system prompt ----------
-const SYSTEM_PROMPT = `You are KHAMBU's data analyst assistant. KHAMBU operates F&B venues: Assembly, Caliente, Hanabi, and Events.
+const SYSTEM_PROMPT = `You are KHAMBU's senior F&B data analyst. KHAMBU operates four venues: Assembly, Caliente, Hanabi, and Events.
 
-You have read-only access to the live database via tools. When a user asks about sales, revenue, suppliers, invoices, P&L, or venue performance, ALWAYS call the appropriate tool — never invent numbers.
+You have read-only access to the live database via tools. ALWAYS query real data — never invent numbers.
+
+Your job on every question:
+1. Pull the relevant data with tools.
+2. Interpret what the numbers actually mean (trends, anomalies, drivers).
+3. Call out anything unusual or risky.
+4. End with 1–3 concrete, actionable recommendations.
+5. Use the \`render_chart\` tool whenever a trend, breakdown, or comparison would make your point clearer. Prefer:
+   - line chart for time series (revenue/cost over months)
+   - bar chart for comparisons (venues, suppliers)
+   - pie chart only for share-of-total (max ~6 slices)
+   Keep charts focused: one clear question per chart, ≤12 data points where possible.
 
 Key formulas (already enforced server-side):
 - Total Revenue = subtotal + service_charge
@@ -319,7 +357,7 @@ Key formulas (already enforced server-side):
 
 Today's date: ${new Date().toISOString().slice(0, 10)}.
 
-When dates are vague ("last month", "YTD", "this quarter"), resolve them yourself before calling tools. Format currency as HK$ with thousand separators. Be concise and use markdown tables for comparisons.`;
+Resolve vague dates ("last month", "YTD", "this quarter") yourself before calling tools. Format currency as HK$ with thousand separators. Use markdown tables for multi-row comparisons. Keep prose tight.`;
 
 // ---------- main handler ----------
 Deno.serve(async (req) => {
@@ -352,6 +390,7 @@ Deno.serve(async (req) => {
     }
 
     const conversation: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+    const chartSpecs: any[] = [];
 
     // Tool-calling loop (non-stream until tools done, then stream final reply)
     for (let iter = 0; iter < 5; iter++) {
@@ -396,6 +435,11 @@ Deno.serve(async (req) => {
         const stream = new ReadableStream({
           start(controller) {
             const encoder = new TextEncoder();
+            // Emit captured charts first as custom events
+            for (const spec of chartSpecs) {
+              const evt = JSON.stringify({ chart: spec });
+              controller.enqueue(encoder.encode(`data: ${evt}\n\n`));
+            }
             // Chunk by ~12 chars for nice streaming feel
             const chunkSize = 12;
             let i = 0;
@@ -430,10 +474,16 @@ Deno.serve(async (req) => {
           }
         })();
         let result: any;
-        try {
-          result = await runTool(tc.function.name, args);
-        } catch (e) {
-          result = { error: e instanceof Error ? e.message : String(e) };
+        if (tc.function.name === "render_chart") {
+          // Capture spec for client; ack to model
+          chartSpecs.push(args);
+          result = { ok: true, rendered: args.title || "chart" };
+        } else {
+          try {
+            result = await runTool(tc.function.name, args);
+          } catch (e) {
+            result = { error: e instanceof Error ? e.message : String(e) };
+          }
         }
         conversation.push({
           role: "tool",
