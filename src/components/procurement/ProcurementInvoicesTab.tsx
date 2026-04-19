@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,11 +131,9 @@ export default function ProcurementInvoicesTab() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from("product_master" as any).select("id, internal_sku, internal_product_name, external_sku, supplier_product_name, supplier, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
-      supabase.from("product_suppliers" as any).select("id, product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
-    ]).then(([pmRes, psRes]) => {
-      const pm = (pmRes.data || []) as any[];
-      const ps = (psRes.data || []) as any[];
+      fetchAllRows("product_master", "id, internal_sku, internal_product_name, external_sku, supplier_product_name, supplier, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
+      fetchAllRows("product_suppliers", "id, product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
+    ]).then(([pm, ps]) => {
       const entries: ProductMasterEntry[] = [];
 
       for (const p of pm) {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useToast } from "@/hooks/use-toast";
 
 export interface ProductSupplierEntry {
@@ -51,25 +52,25 @@ export function useProductMaster() {
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
-    const [pmResult, psResult] = await Promise.all([
-      supabase.from("product_master" as any).select("*").order("internal_sku"),
-      supabase.from("product_suppliers" as any).select("*"),
-    ]);
-    if (pmResult.error) {
-      toast({ title: "Error", description: pmResult.error.message, variant: "destructive" });
-    } else {
-      const suppliers = (psResult.data || []) as unknown as ProductSupplierEntry[];
+    try {
+      const [pmData, psData] = await Promise.all([
+        fetchAllRows("product_master", "*", { col: "internal_sku", asc: true }),
+        fetchAllRows("product_suppliers", "*"),
+      ]);
+      const suppliers = psData as unknown as ProductSupplierEntry[];
       const supplierMap = new Map<string, ProductSupplierEntry[]>();
       for (const s of suppliers) {
         const arr = supplierMap.get(s.product_master_id) || [];
         arr.push(s);
         supplierMap.set(s.product_master_id, arr);
       }
-      const items = ((pmResult.data || []) as unknown as ProductMasterItem[]).map(p => ({
+      const items = (pmData as unknown as ProductMasterItem[]).map(p => ({
         ...p,
         suppliers: supplierMap.get(p.id) || [],
       }));
       setProducts(items);
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Failed to load products", variant: "destructive" });
     }
     setLoading(false);
   }, [toast]);

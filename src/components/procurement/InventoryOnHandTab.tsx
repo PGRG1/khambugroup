@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,26 +44,25 @@ export default function InventoryOnHandTab() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [prodRes, lineRes] = await Promise.all([
-      supabase.from("product_master").select("id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status").eq("status", "Active").order("internal_sku"),
+    const [prodData, lineRes] = await Promise.all([
+      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status", { col: "internal_sku", asc: true }),
       supabase.rpc("get_inventory_aggregates" as any),
     ]);
 
-    if (prodRes.data) setProducts(prodRes.data as unknown as ProductRow[]);
+    setProducts((prodData as any[]).filter((p) => p.status === "Active") as ProductRow[]);
 
     // If RPC doesn't exist yet, fall back to client-side aggregation
     if (lineRes.error || !lineRes.data) {
-      const fallback = await supabase.from("invoice_line_items").select("product_master_id, quantity, total").not("product_master_id", "is", null);
-      if (fallback.data) {
-        const map = new Map<string, { qty: number; spend: number }>();
-        for (const row of fallback.data as any[]) {
-          const existing = map.get(row.product_master_id) || { qty: 0, spend: 0 };
-          existing.qty += Number(row.quantity) || 0;
-          existing.spend += Number(row.total) || 0;
-          map.set(row.product_master_id, existing);
-        }
-        setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
+      const fallback = await fetchAllRows("invoice_line_items", "product_master_id, quantity, total");
+      const map = new Map<string, { qty: number; spend: number }>();
+      for (const row of fallback as any[]) {
+        if (!row.product_master_id) continue;
+        const existing = map.get(row.product_master_id) || { qty: 0, spend: 0 };
+        existing.qty += Number(row.quantity) || 0;
+        existing.spend += Number(row.total) || 0;
+        map.set(row.product_master_id, existing);
       }
+      setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
     } else {
       setLineAgg((lineRes.data as any[]).map((r: any) => ({ product_master_id: r.product_master_id, total_qty: Number(r.total_qty), total_spend: Number(r.total_spend) })));
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useToast } from "@/hooks/use-toast";
 
 export interface Supplier {
@@ -80,24 +81,22 @@ export function useInvoiceData() {
 
   const fetchAll = useCallback(async () => {
     if (!initialLoadDone.current) setLoading(true);
-    const [invRes, supRes, catRes] = await Promise.all([
-      supabase.from("invoices").select("*").order("invoice_date", { ascending: false }),
-      supabase.from("suppliers").select("*").order("name"),
+    const [invData, supData, catRes] = await Promise.all([
+      fetchAllRows("invoices", "*", { col: "invoice_date", asc: false }),
+      fetchAllRows("suppliers", "*", { col: "name", asc: true }),
       supabase.from("expense_categories").select("*").order("name"),
     ]);
 
-    if (supRes.data) setSuppliers(supRes.data as Supplier[]);
+    setSuppliers(supData as Supplier[]);
     if (catRes.data) setCategories(catRes.data as ExpenseCategory[]);
 
-    if (invRes.data) {
-      const supplierMap = new Map((supRes.data || []).map((s: any) => [s.id, s.name]));
-      setInvoices(
-        (invRes.data as any[]).map((inv) => ({
-          ...inv,
-          supplier_name: supplierMap.get(inv.supplier_id) || "Unknown",
-        }))
-      );
-    }
+    const supplierMap = new Map(supData.map((s: any) => [s.id, s.name]));
+    setInvoices(
+      invData.map((inv: any) => ({
+        ...inv,
+        supplier_name: supplierMap.get(inv.supplier_id) || "Unknown",
+      }))
+    );
     setLoading(false);
     initialLoadDone.current = true;
   }, []);
@@ -121,8 +120,8 @@ export function useInvoiceData() {
 
   const syncLineItemsToInventory = useCallback(async (lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]) => {
     // Fetch current inventory items
-    const { data: invItems } = await supabase.from("inventory_items").select("id, name, current_qty");
-    const itemMap = new Map((invItems || []).map((i: any) => [i.name.trim().toLowerCase(), i]));
+    const invItems = await fetchAllRows("inventory_items", "id, name, current_qty");
+    const itemMap = new Map(invItems.map((i: any) => [i.name.trim().toLowerCase(), i]));
 
     for (const li of lineItems) {
       const desc = (li.description || "").trim();
@@ -155,12 +154,10 @@ export function useInvoiceData() {
 
   const matchLineItemsToProductMaster = useCallback(async (lineItems: any[]) => {
     // Fetch all product master and supplier entries
-    const [pmRes, psRes] = await Promise.all([
-      supabase.from("product_master" as any).select("id, supplier_product_name, internal_product_name, external_sku, internal_sku"),
-      supabase.from("product_suppliers" as any).select("id, product_master_id, supplier, external_sku, supplier_product_name"),
+    const [pmData, psData] = await Promise.all([
+      fetchAllRows("product_master", "id, supplier_product_name, internal_product_name, external_sku, internal_sku"),
+      fetchAllRows("product_suppliers", "id, product_master_id, supplier, external_sku, supplier_product_name"),
     ]);
-    const pmData = pmRes.data as any[] || [];
-    const psData = psRes.data as any[] || [];
     if (pmData.length === 0 && psData.length === 0) return lineItems;
 
     // Build flattened entries similar to the UI
