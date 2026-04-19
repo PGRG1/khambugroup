@@ -170,7 +170,7 @@ const tools = [
     function: {
       name: "get_invoice_line_items",
       description:
-        "Drill into invoice line items to see specific products purchased, quantities, units, and product-level spend. Use for questions like 'what did we order from X', 'top products by spend', 'how many kg of beef', etc. Default groups by product (aggregated qty + spend per item description).",
+        "Drill into invoice line items. Use group_by='none' to see EVERY individual line (with date, invoice #, supplier, qty, unit_price, total) — REQUIRED when reporting unit price history or verifying a specific price. Use group_by='product' for aggregated spend per item (returns min/max/avg/last unit prices and distinct price variants). product_search is tokenized: any token matching description, item_code, or product master name/SKU is included.",
       parameters: {
         type: "object",
         properties: {
@@ -178,9 +178,9 @@ const tools = [
           date_from: { type: "string", description: "YYYY-MM-DD inclusive" },
           date_to: { type: "string", description: "YYYY-MM-DD inclusive" },
           venue: { type: "string" },
-          product_search: { type: "string", description: "Substring match on item description" },
+          product_search: { type: "string", description: "Tokenized search across description, item_code, product master name & SKUs. Try short brand/SKU terms first (e.g. 'asahi', 'ASA20')." },
           group_by: { type: "string", enum: ["none", "product", "supplier"], default: "product" },
-          limit: { type: "number", default: 50 },
+          limit: { type: "number", default: 50, description: "Max rows. Up to 200 for group_by='none'." },
         },
       },
     },
@@ -333,16 +333,20 @@ async function runTool(name: string, args: any): Promise<any> {
     }
 
     case "get_invoice_line_items": {
-      const [lineItems, invoices, suppliers] = await Promise.all([
-        fetchAll<any>("invoice_line_items", "invoice_id,description,quantity,unit,unit_price,total,item_code,pack_size"),
-        fetchAll<any>("invoices", "id,invoice_date,venue,supplier_id"),
+      const [lineItems, invoices, suppliers, products] = await Promise.all([
+        fetchAll<any>("invoice_line_items", "invoice_id,description,quantity,unit,unit_price,total,item_code,pack_size,product_master_id"),
+        fetchAll<any>("invoices", "id,invoice_date,invoice_number,venue,supplier_id"),
         fetchAll<any>("suppliers", "id,name"),
+        fetchAll<any>("product_master", "id,internal_product_name,internal_sku,external_sku"),
       ]);
       const supMap = new Map(suppliers.map((s) => [s.id, s.name]));
       const invMap = new Map(invoices.map((i) => [i.id, i]));
+      const pmMap = new Map(products.map((p) => [p.id, p]));
 
       const supplierNeedle = args.supplier_name?.toLowerCase();
-      const productNeedle = args.product_search?.toLowerCase();
+      const rawSearch = (args.product_search || "").toLowerCase().trim();
+      // Tokenize: split on whitespace, drop tokens shorter than 2 chars
+      const tokens = rawSearch ? rawSearch.split(/\s+/).filter((t: string) => t.length >= 2) : [];
 
       const filtered = lineItems.filter((li) => {
         const inv = invMap.get(li.invoice_id);
@@ -353,28 +357,51 @@ async function runTool(name: string, args: any): Promise<any> {
           const supName = (supMap.get(inv.supplier_id) || "").toLowerCase();
           if (!supName.includes(supplierNeedle)) return false;
         }
-        if (productNeedle && !(li.description || "").toLowerCase().includes(productNeedle)) return false;
+        if (tokens.length) {
+          const pm = li.product_master_id ? pmMap.get(li.product_master_id) : null;
+          const haystack = [
+            li.description || "",
+            li.item_code || "",
+            pm?.internal_product_name || "",
+            pm?.internal_sku || "",
+            pm?.external_sku || "",
+          ].join(" ").toLowerCase();
+          // ANY token match (broader recall)
+          if (!tokens.some((t: string) => haystack.includes(t))) return false;
+        }
         return true;
       });
 
       const groupBy = args.group_by || "product";
-      const limit = args.limit || 50;
+      const limit = Math.min(args.limit || 50, groupBy === "none" ? 200 : 100);
 
       if (groupBy === "none") {
-        return filtered.slice(0, limit).map((li) => {
-          const inv = invMap.get(li.invoice_id);
-          return {
-            date: inv?.invoice_date,
-            venue: inv?.venue,
-            supplier: supMap.get(inv?.supplier_id) || "Unknown",
-            description: li.description,
-            item_code: li.item_code,
-            quantity: Number(li.quantity || 0),
-            unit: li.unit,
-            unit_price: Number(li.unit_price || 0),
-            total: +Number(li.total || 0).toFixed(2),
-          };
+        // Sort newest first so the model sees most recent prices
+        const sorted = [...filtered].sort((a, b) => {
+          const da = invMap.get(a.invoice_id)?.invoice_date || "";
+          const db = invMap.get(b.invoice_id)?.invoice_date || "";
+          return db.localeCompare(da);
         });
+        return {
+          mode: "detail",
+          row_count: sorted.length,
+          returned: Math.min(sorted.length, limit),
+          rows: sorted.slice(0, limit).map((li) => {
+            const inv = invMap.get(li.invoice_id);
+            return {
+              date: inv?.invoice_date,
+              invoice_number: inv?.invoice_number,
+              venue: inv?.venue,
+              supplier: supMap.get(inv?.supplier_id) || "Unknown",
+              description: li.description,
+              item_code: li.item_code || "",
+              quantity: Number(li.quantity || 0),
+              unit: li.unit || "",
+              unit_price: +Number(li.unit_price || 0).toFixed(4),
+              total: +Number(li.total || 0).toFixed(2),
+            };
+          }),
+        };
       }
 
       if (groupBy === "supplier") {
@@ -399,7 +426,7 @@ async function runTool(name: string, args: any): Promise<any> {
           }));
       }
 
-      // group by product (description + item_code)
+      // group by product (description + item_code) with price stats
       const groups = new Map<string, any>();
       for (const li of filtered) {
         const key = `${(li.item_code || "").trim()}||${(li.description || "").trim().toLowerCase()}`;
@@ -410,23 +437,45 @@ async function runTool(name: string, args: any): Promise<any> {
           total_qty: 0,
           total_spend: 0,
           invoice_ids: new Set<string>(),
+          prices: [] as { price: number; date: string; qty: number }[],
         };
-        cur.total_qty += Number(li.quantity || 0);
+        const inv = invMap.get(li.invoice_id);
+        const qty = Number(li.quantity || 0);
+        const up = Number(li.unit_price || 0);
+        cur.total_qty += qty;
         cur.total_spend += Number(li.total || 0);
         cur.invoice_ids.add(li.invoice_id);
+        cur.prices.push({ price: up, date: inv?.invoice_date || "", qty });
         groups.set(key, cur);
       }
       return Array.from(groups.values())
         .sort((a, b) => b.total_spend - a.total_spend)
         .slice(0, limit)
-        .map((g) => ({
-          description: g.description,
-          item_code: g.item_code,
-          total_qty: +g.total_qty.toFixed(2),
-          unit: g.unit,
-          total_spend: +g.total_spend.toFixed(2),
-          invoice_count: g.invoice_ids.size,
-        }));
+        .map((g) => {
+          const prices = g.prices as { price: number; date: string; qty: number }[];
+          const sortedByDate = [...prices].sort((a, b) => b.date.localeCompare(a.date));
+          const variantMap = new Map<number, number>();
+          for (const p of prices) variantMap.set(p.price, (variantMap.get(p.price) || 0) + 1);
+          const variants = Array.from(variantMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([price, count]) => ({ price: +price.toFixed(4), count }));
+          const totalQty = g.total_qty || 0;
+          const weightedAvg = totalQty > 0 ? g.total_spend / totalQty : 0;
+          return {
+            description: g.description,
+            item_code: g.item_code,
+            total_qty: +g.total_qty.toFixed(2),
+            unit: g.unit,
+            total_spend: +g.total_spend.toFixed(2),
+            invoice_count: g.invoice_ids.size,
+            min_unit_price: +Math.min(...prices.map((p) => p.price)).toFixed(4),
+            max_unit_price: +Math.max(...prices.map((p) => p.price)).toFixed(4),
+            avg_unit_price: +weightedAvg.toFixed(4),
+            last_invoice_date: sortedByDate[0]?.date || null,
+            last_unit_price: sortedByDate[0] ? +sortedByDate[0].price.toFixed(4) : null,
+            unit_price_variants: variants,
+          };
+        });
     }
 
     case "get_database_overview": {
@@ -473,6 +522,13 @@ Key formulas (already enforced server-side):
 - Avg Spend per Guest = revenue / guests
 
 For questions about specific items, quantities purchased, or product-level spend (e.g. "what did we buy from supplier X", "top products by spend", "how many kg of beef"), use \`get_invoice_line_items\`.
+
+UNIT PRICE REPORTING RULES (strict — the user has caught wrong prices before):
+- When asked about the price of a SPECIFIC item, ALWAYS call \`get_invoice_line_items\` with \`group_by="none"\` to see every individual line. Do NOT rely on aggregated averages.
+- Report the FULL price range (min–max) and list each distinct price along with its invoice date and number in a table: Date | Invoice # | Supplier | Description | Qty | Unit Price | Total.
+- NEVER say a price is "not in the data" without first re-querying with broader terms: try just the brand name (e.g. "asahi"), then the SKU/item code alone, then drop the supplier filter.
+- If the user says they saw a different price than what you reported, RE-QUERY with looser filters before disagreeing. The user is usually right — they are looking at the source documents.
+- When using \`group_by="product"\`, the response includes \`min_unit_price\`, \`max_unit_price\`, \`unit_price_variants\` (each distinct price with count), and \`last_unit_price\`. Quote the FULL variant list, not just the average.
 
 Today's date: ${new Date().toISOString().slice(0, 10)}.
 
