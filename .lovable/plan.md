@@ -1,36 +1,51 @@
 
-User wants drag-and-drop row reordering in the invoice scanner table — grab the row number cell (left column) and drag the row up/down to reposition it within the line items list.
+The user approved the dashboard pagination fix and wants me to broaden the audit: confirm every other procurement page/component that fetches `invoices`, `invoice_line_items`, `product_master`, `product_suppliers`, `suppliers`, `sales_records`, etc. also uses `fetchAllRows` so no view is silently truncated at 1000 rows.
 
-## Plan: Drag-to-reorder rows in Invoice Scanner
-
-### Goal
-Let users grab any row by its row-number cell (leftmost column with `1, 2, 3...`) and drag it vertically to a new position in the line items list. Row numbers re-sequence automatically after the drop.
+## Plan: Audit + fix all 1000-row truncation across the app
 
 ### Scope
-- File: `src/components/invoices/InvoiceScanner.tsx` (scanner line items table only)
-- Not in scope: edit-invoice dialogs, other procurement tables (can be added later if requested)
+Sweep every hook/component that calls `supabase.from(...).select(...)` without `.range()` pagination and convert to `fetchAllRows` where the table can plausibly exceed 1000 rows.
 
-### Approach
-Use HTML5 native drag-and-drop (no new dependency needed):
-1. Make the row-number `<td>` the drag handle: add `draggable`, `cursor: grab`, hover styling, and a small grip icon (`GripVertical` from lucide).
-2. On the `<tr>`:
-   - `onDragStart` → store source index, set drag image
-   - `onDragOver` → `preventDefault`, compute drop position (above/below based on mouse Y vs row midpoint), show visual indicator (top/bottom border highlight)
-   - `onDragLeave` → clear indicator
-   - `onDrop` → splice the line item from source index to target index, update state, clear indicator
-   - `onDragEnd` → cleanup
-3. Reorder mutates the existing `lineItems` state array (immutable update). Row numbers come from index, so they re-sequence automatically.
-4. Preserve all per-row state (matched product, edits, errors).
+### High-risk files to audit & fix
+Based on file structure + memory, these are the suspects:
 
-### Visual cues
-- Row-number cell shows grip icon on hover, `cursor: grab` (→ `grabbing` while dragging)
-- Dragging row: `opacity-50`
-- Drop target row: 2px terracotta border on top or bottom edge depending on drop position
+**Procurement (highest priority — 1008+ invoices already)**
+- `src/components/procurement/ProcurementDashboardTab.tsx` — already in plan
+- `src/components/procurement/ProcurementInvoicesTab.tsx` — invoices table
+- `src/components/procurement/ProcurementLineItemsTab.tsx` — line items (multiplier of invoices)
+- `src/components/procurement/InventoryOnHandTab.tsx` — inventory + line items
+- `src/components/procurement/MenuCostingTab.tsx` — product master
+- `src/components/procurement/ProductMasterTab.tsx` — product master + suppliers
+- `src/components/procurement/SuppliersTab.tsx` — suppliers
+- `src/components/procurement/DocumentsTab.tsx` — invoice file list
+
+**Hooks**
+- `src/hooks/useInvoiceData.ts` — invoices + line items + suppliers
+- `src/hooks/useSalesData.ts` — sales_records (will exceed 1000)
+- `src/hooks/useProductMaster.ts` — product master
+- `src/hooks/useStandardProducts.ts`
+- `src/hooks/useMenuCosting.ts`
+- `src/hooks/useHRData.ts` — attendance, shifts, payroll history
+- `src/hooks/usePLData.ts`
+- `src/hooks/useForecastData.ts`
+
+**Other pages**
+- `src/pages/Invoices.tsx`, `src/pages/PLReport.tsx`, `src/pages/AuditLog.tsx`, `src/components/dashboard/*` (sales reads)
+- `src/components/invoices/InvoiceAnalytics.tsx`, `LineItemsTab.tsx`, `StandardProductsTab.tsx`, `SupplierItemMappingsTab.tsx`
+
+### Method
+1. `rg "supabase\.from\(" src --type ts -n` → enumerate every read.
+2. For each: check if it has `.range(` or already calls `fetchAllRows`. If neither, and the table can grow past 1000 rows, replace with `fetchAllRows("table", "cols", { col, asc })`.
+3. Skip:
+   - `.single()` / `.maybeSingle()` queries (capped to 1)
+   - small reference tables that won't grow past 1000 (e.g. `expense_categories`, `hr_leave_types`, `hr_departments`, `forecast_approvers`, `page_visibility`, `user_roles`)
+   - mutations (insert/update/delete)
+4. Preserve existing ordering, filters, and column selection exactly — only swap the fetch mechanism.
 
 ### Verification
-1. Open Invoice Scanner with multiple parsed lines
-2. Hover row #5's number cell → grip icon + grab cursor
-3. Drag row #5 above row #2 → row lands at position 2, row numbers re-sequence 1..N
-4. Drag to bottom → lands last
-5. Confirm matched product / qty / price / errors stay attached to the moved row
-6. Confirm save still writes lines in the new visual order
+- Procurement Dashboard: Invoice Count = full DB total (1008+); Spend/Revenue charts include all months
+- Invoices tab: full list visible, sortable
+- Line Items tab: row count matches `select count(*)` from `invoice_line_items`
+- Sales/Revenue dashboard: KPI totals match prior period totals after fix
+- Product Master, Suppliers, Inventory tabs: full lists load
+- No regression in initial load time beyond ~1 extra round-trip per >1000-row table
