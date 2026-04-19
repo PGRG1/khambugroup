@@ -188,16 +188,21 @@ export function AssistantWidget() {
                 <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
                   <div
                     className={cn(
-                      "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm",
+                      "rounded-2xl px-3.5 py-2.5 text-sm",
                       m.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-sm"
-                        : "bg-muted text-foreground rounded-bl-sm",
+                        ? "max-w-[85%] bg-primary text-primary-foreground rounded-br-sm"
+                        : "max-w-[95%] w-full bg-muted text-foreground rounded-bl-sm",
                     )}
                   >
                     {m.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-table:my-2 prose-th:px-2 prose-td:px-2 prose-headings:my-2">
-                        <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
-                      </div>
+                      <>
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-table:my-2 prose-th:px-2 prose-td:px-2 prose-headings:my-2">
+                          <ReactMarkdown>{m.content || "…"}</ReactMarkdown>
+                        </div>
+                        {m.charts?.map((c, ci) => (
+                          <AssistantChart key={ci} spec={c} />
+                        ))}
+                      </>
                     ) : (
                       <p className="whitespace-pre-wrap">{m.content}</p>
                     )}
