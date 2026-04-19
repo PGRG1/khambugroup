@@ -224,11 +224,13 @@ export default function ProcurementDashboardTab() {
     const allDates = new Set<string>([...spendMap.keys(), ...revMap.keys()]);
     const sorted = Array.from(allDates).sort();
     let cumulative = 0;
+    let cumulativeRevenue = 0;
     return sorted.map(date => {
       const spend = spendMap.get(date) || 0;
       const revenue = revMap.get(date) || 0;
       cumulative += spend;
-      const costPct = revenue > 0 ? (spend / revenue) * 100 : null;
+      cumulativeRevenue += revenue;
+      const costPct = cumulativeRevenue > 0 ? (cumulative / cumulativeRevenue) * 100 : null;
       const d = new Date(date);
       return {
         day: format(d, "d MMM"),
@@ -474,7 +476,7 @@ export default function ProcurementDashboardTab() {
                     contentStyle={tooltipStyle}
                     formatter={(v: any, name: string) => {
                       if (v === null || v === undefined) return ["—", name];
-                      if (name === "Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
+                      if (name === "Cumulative Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
                       return [fmt(Number(v)), name];
                     }}
                     labelStyle={{ fontWeight: 600, fontSize: 12 }}
@@ -482,7 +484,7 @@ export default function ProcurementDashboardTab() {
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} name="Revenue" />
                   <Bar yAxisId="left" dataKey="value" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} name="Spend" />
-                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cost of Revenue %" connectNulls={false} />
+                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cumulative Cost of Revenue %" connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : monthlyTrend.length > 0 ? (
