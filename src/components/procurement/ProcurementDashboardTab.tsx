@@ -224,11 +224,13 @@ export default function ProcurementDashboardTab() {
     const allDates = new Set<string>([...spendMap.keys(), ...revMap.keys()]);
     const sorted = Array.from(allDates).sort();
     let cumulative = 0;
+    let cumulativeRevenue = 0;
     return sorted.map(date => {
       const spend = spendMap.get(date) || 0;
       const revenue = revMap.get(date) || 0;
       cumulative += spend;
-      const costPct = revenue > 0 ? (spend / revenue) * 100 : null;
+      cumulativeRevenue += revenue;
+      const costPct = cumulativeRevenue > 0 ? (cumulative / cumulativeRevenue) * 100 : null;
       const d = new Date(date);
       return {
         day: format(d, "d MMM"),
