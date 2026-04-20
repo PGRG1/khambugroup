@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useForecastData } from "@/hooks/useForecastData";
 import { useForecastPermissions } from "@/hooks/useForecastPermissions";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
 import ForecastTableView from "@/components/forecast/ForecastTableView";
@@ -544,7 +545,7 @@ const ForecastInput = () => {
       {vizMode === "charts" ? (
         <ForecastCharts data={filteredData} />
       ) : (
-        <ForecastTableView data={filteredData} venueName={venueName} />
+        <ForecastTableViewWrapper salesData={salesData} defaultVenue={venueName as any} />
       )}
 
       <DeleteConfirmDialog
