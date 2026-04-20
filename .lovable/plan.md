@@ -1,58 +1,48 @@
 
-User wants 4 changes to ForecastTableView:
+User wants the table figures to mirror the modal in image-165 (Daily Distribution) which uses per-DOW median guests × per-DOW median avg spend. But they want one tweak:
 
-1. **Remove "Combined"** chip — it duplicates "All Venues". Keep only: `All Venues | Assembly | Caliente | Hanabi | Events`. "All Venues" = aggregated combined view (one table).
+- **Guests per day** = per-DOW median (as in modal) — the SHAPE driver.
+- **Avg Spend per guest** = a SINGLE flat number = the **average of the 7 DOW median spends** (not per-DOW, not since-October global). Display this same flat number on every row as "Avg Target".
+- Then **adjust guest counts** so that when multiplied by the flat avg spend, the daily revenue still allocates the monthly target correctly (i.e., guests scaled per day so sum-of-revenue hits remaining target, with daily shape driven by DOW median guests × flat spend baseline).
 
-2. **Multi-select venue chips** — clicking Assembly then Caliente selects both, showing one combined table for just those two venues. "All Venues" remains a one-click shortcut that selects all four.
+So essentially: revenue weights per day come from the modal's `(median guests × median spend)` baseline (same as Daily Distribution), but the displayed avg-spend is replaced by the mean-of-7-DOW-medians, and guests are back-solved per day = daily revenue / flat spend.
 
-3. **Rename "Target Spend" column → "Avg Target"**.
-
-4. **Change spend baseline logic**: instead of per-DOW median, use a **single global median avg-spend** computed across ALL historical sales since **October (of the earliest available year)** for the selected venues. Apply this same spend uniformly to every day. Then **redistribute guests** so daily revenue still hits the venue's daily target — but with a flat spend per guest, guests vary purely by daily revenue allocation.
+This keeps the table numerically consistent with the modal at the **monthly total** and **daily revenue distribution** level, while flattening the displayed spend into one number.
 
 ## Implementation
 
-### A. `src/utils/forecastDistribution.ts` — new helper
-Add `computeGlobalMedianSpend(salesData, venues, sinceIso)` that returns median of (totalSales/1.1)/guests across all qualifying days since Oct 1 of the earliest data year (or a fixed `2024-10-01` if simpler — confirm via question if needed; default: October of (currentYear-1) if currentMonth>=10 else (currentYear-2), i.e. the most recent past October).
+### A. `src/utils/forecastDistribution.ts`
+Add helper:
+```ts
+export function meanOfDowMedianSpend(medians: MedianByDOW): number
+```
+Returns the simple average of the 7 `avgSpendByDow[day]` values (only counting days that have data; if none, 0).
 
-Add `distributeMonthlyTargetFlatSpend({year, month, monthlyTarget, flatSpend, dowGuestsForShape, actuals})` — same as `distributeMonthlyTarget` but:
-- avgSpend = `flatSpend` for every forecast day
-- per-day revenue still allocated using DOW guest medians as the *shape* (so busy days get more revenue), but guests = revenue / flatSpend
-- actuals untouched
+Add new distribution function `distributeMonthlyTargetUniformSpendDowShape`:
+- Inputs: `year, month, monthlyTarget, flatSpend, medians (full DOW), actuals`
+- Per-day baseline weight = `medians.guestsByDow[dow] * medians.avgSpendByDow[dow]` (matches modal's revenue allocation EXACTLY).
+- Daily gross target = `weight / totalWeight × remainingGrossTarget`.
+- Guests per day = `round(dailyGross / flatSpend)`.
+- avgSpend column for forecast rows = `flatSpend` (uniform).
+- Actuals untouched (use real guests + real avg spend).
+- Fallback: even split if no medians.
 
-### B. `src/utils/forecastTableData.ts` — wire new logic
-- Accept selected venues array (≥1).
-- Compute one combined `flatSpend` from the union of selected venues' history since Oct.
-- Compute combined DOW guest medians (across selected venues) for the shape.
-- Compute combined actuals (sum across selected venues).
-- Run `distributeMonthlyTargetFlatSpend` once → returns the single combined table.
-- Drop per-venue split tables entirely (since UI shows one combined table for the selection).
-- Each row's `targetSpend` = `flatSpend` (same number every row).
+### B. `src/utils/forecastTableData.ts`
+Replace current call to `distributeMonthlyTargetFlatSpend` with `distributeMonthlyTargetUniformSpendDowShape`. Replace `computeGlobalMedianSpend` usage with `meanOfDowMedianSpend(dowMedians)` to derive `flatSpend`. Remove the since-October global-median path.
+
+`flatSpend` (= mean of DOW medians) becomes the value shown in `targetSpend` on every row.
 
 ### C. `src/components/forecast/ForecastTableView.tsx`
-- Replace single-select chip row with multi-select toggleable chips. State: `selectedVenues: ForecastVenue[]`.
-  - "All Venues" chip = shortcut: sets selection to all four; highlighted when all four selected.
-  - Clicking a venue chip toggles it in/out of `selectedVenues` (min 1 — can't deselect last).
-  - Remove "Combined" chip.
-- Header label:
-  - 4 selected → "All Venues"
-  - 1 selected → that venue name
-  - 2-3 selected → "Assembly + Caliente" style
-- Rename column header `TARGET SPEND` → `AVG TARGET`.
-- Render only ONE table (the combined-for-selection table). Remove the stacked per-venue tables path.
-- Keep date filter, presets, Copy/Download PNG.
-
-### D. `src/pages/ForecastInput.tsx`
-No prop changes needed; the wrapper already passes salesData/year/month/target. Default `selectedVenues` initializes to the page's venue (e.g. /forecast/assembly → ['Assembly']).
-
-### Files
-- Edit `src/utils/forecastDistribution.ts` (add 2 helpers)
-- Edit `src/utils/forecastTableData.ts` (simpler — single combined output)
-- Edit `src/components/forecast/ForecastTableView.tsx` (multi-select chips, rename column, single table)
+No structural change — column "AVG TARGET" continues to show the uniform `flatSpend`. Just relies on the new builder. Keep multi-venue selection chips, date filters, PNG/Copy.
 
 ### Verification
-1. /forecast/assembly → only Assembly chip active, single table shows Assembly.
-2. Click Caliente → both highlighted, header "Assembly + Caliente", numbers = combined for those 2 only.
-3. Click All Venues → all 4 highlighted, full combined table.
-4. Avg Target column shows the same value on every row (the global median since Oct).
-5. Sum of Fcst Sales for forecast days ≈ remaining target.
-6. No "Combined" chip visible.
+1. Open Daily Distribution modal for Caliente → note its daily Total Sales values.
+2. Open Table view, select only Caliente, full month range → daily Fcst Sales values match the modal's per-day Total Sales.
+3. AVG TARGET column shows the same number on every row = arithmetic mean of the 7 DOW median spends (not per-DOW spend).
+4. Daily Fcst Guests = round(Fcst Sales / 1.1 / AVG TARGET) — varies per day.
+5. Sum of forecast-day Fcst Sales ≈ remaining monthly target (target − actuals so far).
+
+### Files
+- Edit `src/utils/forecastDistribution.ts` (add 2 helpers; keep existing for backward compat)
+- Edit `src/utils/forecastTableData.ts` (swap to new builder)
+- No edit needed to `ForecastTableView.tsx`
