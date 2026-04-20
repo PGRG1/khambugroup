@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { Target, Save, Sparkles, AlertTriangle, Check } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Target, Save, Sparkles, AlertTriangle, Check, Camera, Download } from "lucide-react";
+import { toPng } from "html-to-image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,8 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
   const [previewOpen, setPreviewOpen] = useState(false);
   const [perVenue, setPerVenue] = useState<VenueDistribution[]>([]);
   const [applying, setApplying] = useState(false);
+  const [filterFrom, setFilterFrom] = useState<string>("");
+  const [filterTo, setFilterTo] = useState<string>("");
 
   useEffect(() => {
     const existing = getTarget(year, month);
