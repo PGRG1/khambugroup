@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
+import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -55,7 +56,7 @@ export default function ProductMasterTab() {
   const [subCatFilter, setSubCatFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
+  const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "internal_sku", dir: "asc" }]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
@@ -123,13 +124,8 @@ export default function ProductMasterTab() {
     return rows;
   }, [products]);
 
-  const toggleSort = (key: string) => {
-    setSortColumns(prev => {
-      const idx = prev.findIndex(s => s.key === key);
-      if (idx === -1) return [...prev, { key, dir: "asc" as const }];
-      if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" as const } : s);
-      return prev.filter((_, i) => i !== idx);
-    });
+  const toggleSort = (key: string, additive: boolean) => {
+    setSortColumns(prev => toggleSortColumns(prev, key, additive));
   };
 
   const SortIcon = ({ col }: { col: string }) => {
@@ -159,17 +155,7 @@ export default function ProductMasterTab() {
       }
       return true;
     });
-    if (sortColumns.length > 0) {
-      result.sort((a, b) => {
-        for (const { key, dir } of sortColumns) {
-          const av = (a as any)[key], bv = (b as any)[key];
-          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
-        }
-        return 0;
-      });
-    }
-    return result;
+    return sortRows(result, sortColumns);
   }, [flatRows, search, catFilter, subCatFilter, supplierFilter, statusFilter, sortColumns]);
 
   const hasFilters = catFilter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || search;
@@ -444,7 +430,7 @@ export default function ProductMasterTab() {
             <thead>
               <tr className="bg-primary text-primary-foreground">
                 {columns.map(col => (
-                  <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w}`} onClick={() => toggleSort(col.key)}>
+                  <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w}`} onClick={(e) => toggleSort(col.key, e.shiftKey)} title="Click to sort. Shift+click to add another column.">
                     <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
                   </th>
                 ))}

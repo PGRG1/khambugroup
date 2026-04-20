@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle, Download, Eye } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
+import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
 interface LineItemRow {
@@ -42,7 +43,7 @@ export default function ProcurementLineItemsTab() {
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
-  const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([{ key: "invoice_date", dir: "desc" }]);
+  const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerFileUrl, setViewerFileUrl] = useState("");
   const [viewerTitle, setViewerTitle] = useState("");
@@ -117,13 +118,8 @@ export default function ProcurementLineItemsTab() {
     return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
   };
 
-  const toggleSort = (key: string) => {
-    setSortColumns(prev => {
-      const idx = prev.findIndex(s => s.key === key);
-      if (idx === -1) return [...prev, { key, dir: "asc" as const }];
-      if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" as const } : s);
-      return prev.filter((_, i) => i !== idx);
-    });
+  const toggleSort = (key: string, additive: boolean) => {
+    setSortColumns(prev => toggleSortColumns(prev, key, additive));
   };
 
   const SortIcon = ({ col }: { col: string }) => {
@@ -152,17 +148,7 @@ export default function ProcurementLineItemsTab() {
       }
       return true;
     });
-    if (sortColumns.length > 0) {
-      result = [...result].sort((a, b) => {
-        for (const { key, dir } of sortColumns) {
-          const av = (a as any)[key], bv = (b as any)[key];
-          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
-        }
-        return 0;
-      });
-    }
-    return result;
+    return sortRows(result, sortColumns);
   }, [rows, search, supplierFilter, monthFilter, sortColumns]);
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
@@ -241,7 +227,7 @@ export default function ProcurementLineItemsTab() {
               <tr className="bg-primary text-primary-foreground">
                 <th className="px-2 py-2.5 w-8"></th>
                 {columns.map(col => (
-                  <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w} ${col.align === "right" ? "text-right" : ""}`} onClick={() => toggleSort(col.key)}>
+                  <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w} ${col.align === "right" ? "text-right" : ""}`} onClick={(e) => toggleSort(col.key, e.shiftKey)} title="Click to sort. Shift+click to add another column.">
                     <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
                   </th>
                 ))}
