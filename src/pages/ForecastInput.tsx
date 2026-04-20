@@ -559,4 +559,22 @@ const ForecastInput = () => {
   );
 };
 
+// Resolves the current month's saved revenue target and passes it to the table view.
+const ForecastTableViewWrapper = ({ salesData, defaultVenue }: { salesData: SalesRecord[]; defaultVenue?: "Assembly" | "Caliente" | "Hanabi" | "Events" }) => {
+  const { getTarget } = useRevenueTargets();
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const target = getTarget(year, month);
+  return (
+    <ForecastTableView
+      salesData={salesData}
+      monthlyTarget={target?.targetAmount ?? 0}
+      defaultVenue={defaultVenue}
+      initialYear={year}
+      initialMonth={month}
+    />
+  );
+};
+
 export default ForecastInput;
