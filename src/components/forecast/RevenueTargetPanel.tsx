@@ -327,9 +327,21 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
           )}
 
           <div className="overflow-auto space-y-6 mt-2 pr-1">
+            {perVenue.length > 1 && (
+              <p className="text-[11px] text-muted-foreground px-1">
+                Targets allocated by each venue's last 3-month revenue share. Within each venue, days are weighted by day-of-week median guests × avg spend.
+              </p>
+            )}
             {/* Per-venue tables */}
-            {perVenue.map(({ venue, result, venueTarget }) => (
-              <VenueTable key={venue} title={venue} result={result} venueTarget={venueTarget} />
+            {perVenue.map((vd) => (
+              <VenueTable
+                key={vd.venue}
+                title={vd.venue}
+                result={vd.result}
+                venueTarget={vd.venueTarget}
+                weightPct={vd.weightPct}
+                noHistory={vd.noHistory}
+              />
             ))}
 
             {/* Combined table — only show if more than one venue */}
