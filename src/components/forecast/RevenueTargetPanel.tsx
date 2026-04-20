@@ -33,6 +33,8 @@ interface VenueDistribution {
   venue: Venue;
   result: DistributionResult;
   venueTarget: number;
+  weightPct: number;
+  noHistory: boolean;
 }
 
 const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps) => {
@@ -96,11 +98,13 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
     if (targetAmount <= 0) return toast({ title: "Enter a target amount", variant: "destructive" });
     if (selectedVenues.length === 0) return toast({ title: "Select at least one venue", variant: "destructive" });
 
-    // Split target evenly across selected venues, then distribute each venue's
-    // share over the month using ITS OWN historical medians and ITS OWN actuals.
-    const venueTarget = targetAmount / selectedVenues.length;
+    // Allocate target across venues based on each venue's last-3-month revenue share.
+    // Venues with zero history get 0 share unless ALL venues lack history (then equal split).
+    const { weights, venuesWithoutHistory, allMissing } = computeVenueWeights(salesData, selectedVenues, 3);
 
     const distributions: VenueDistribution[] = selectedVenues.map((venue) => {
+      const weight = weights[venue] ?? 0;
+      const venueTarget = targetAmount * weight;
       const medians = computeDowMedians(salesData, [venue], 3);
       const actuals = aggregateActualsByVenue(salesData, venue, year, month);
       const result = distributeMonthlyTarget({
@@ -110,7 +114,13 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
         medians,
         actuals,
       });
-      return { venue, result, venueTarget };
+      return {
+        venue,
+        result,
+        venueTarget,
+        weightPct: Math.round(weight * 1000) / 10,
+        noHistory: !allMissing && venuesWithoutHistory.includes(venue),
+      };
     });
 
     setPerVenue(distributions);
@@ -317,9 +327,21 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
           )}
 
           <div className="overflow-auto space-y-6 mt-2 pr-1">
+            {perVenue.length > 1 && (
+              <p className="text-[11px] text-muted-foreground px-1">
+                Targets allocated by each venue's last 3-month revenue share. Within each venue, days are weighted by day-of-week median guests × avg spend.
+              </p>
+            )}
             {/* Per-venue tables */}
-            {perVenue.map(({ venue, result, venueTarget }) => (
-              <VenueTable key={venue} title={venue} result={result} venueTarget={venueTarget} />
+            {perVenue.map((vd) => (
+              <VenueTable
+                key={vd.venue}
+                title={vd.venue}
+                result={vd.result}
+                venueTarget={vd.venueTarget}
+                weightPct={vd.weightPct}
+                noHistory={vd.noHistory}
+              />
             ))}
 
             {/* Combined table — only show if more than one venue */}
@@ -349,14 +371,34 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
 
 // ---------- Sub-components ----------
 
-const VenueTable = ({ title, result, venueTarget }: { title: string; result: DistributionResult; venueTarget: number }) => {
+const VenueTable = ({
+  title,
+  result,
+  venueTarget,
+  weightPct,
+  noHistory,
+}: {
+  title: string;
+  result: DistributionResult;
+  venueTarget: number;
+  weightPct?: number;
+  noHistory?: boolean;
+}) => {
   const anyFallback = result.rows.some((r) => !r.isActual && r.fallback);
   return (
     <section className="rounded-lg border border-border overflow-hidden">
       <header className="bg-muted/50 px-4 py-2.5 flex items-center justify-between border-b border-border">
         <div className="flex items-center gap-2">
           <h4 className="text-sm font-display font-semibold">{title}</h4>
+          {weightPct !== undefined && (
+            <Badge variant="outline" className="text-[10px]">{weightPct}% share</Badge>
+          )}
           <Badge variant="outline" className="text-[10px]">Target: {formatCurrency(Math.round(venueTarget))}</Badge>
+          {noHistory && (
+            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40 bg-amber-500/10">
+              <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />No history — 0 share
+            </Badge>
+          )}
           {anyFallback && (
             <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40 bg-amber-500/10">
               <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Fallback used
