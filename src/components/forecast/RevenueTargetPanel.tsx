@@ -98,11 +98,13 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
     if (targetAmount <= 0) return toast({ title: "Enter a target amount", variant: "destructive" });
     if (selectedVenues.length === 0) return toast({ title: "Select at least one venue", variant: "destructive" });
 
-    // Split target evenly across selected venues, then distribute each venue's
-    // share over the month using ITS OWN historical medians and ITS OWN actuals.
-    const venueTarget = targetAmount / selectedVenues.length;
+    // Allocate target across venues based on each venue's last-3-month revenue share.
+    // Venues with zero history get 0 share unless ALL venues lack history (then equal split).
+    const { weights, venuesWithoutHistory, allMissing } = computeVenueWeights(salesData, selectedVenues, 3);
 
     const distributions: VenueDistribution[] = selectedVenues.map((venue) => {
+      const weight = weights[venue] ?? 0;
+      const venueTarget = targetAmount * weight;
       const medians = computeDowMedians(salesData, [venue], 3);
       const actuals = aggregateActualsByVenue(salesData, venue, year, month);
       const result = distributeMonthlyTarget({
@@ -112,7 +114,13 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
         medians,
         actuals,
       });
-      return { venue, result, venueTarget };
+      return {
+        venue,
+        result,
+        venueTarget,
+        weightPct: Math.round(weight * 1000) / 10,
+        noHistory: !allMissing && venuesWithoutHistory.includes(venue),
+      };
     });
 
     setPerVenue(distributions);
