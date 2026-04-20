@@ -548,6 +548,7 @@ const ForecastInput = () => {
         <ForecastTableViewWrapper salesData={salesData} defaultVenue={venueName as any} />
       )}
 
+
       <DeleteConfirmDialog
         open={deleteTargetId !== null}
         onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}
@@ -570,6 +571,7 @@ const ForecastTableViewWrapper = ({ salesData, defaultVenue }: { salesData: Sale
     <ForecastTableView
       salesData={salesData}
       monthlyTarget={target?.targetAmount ?? 0}
+      targetVenues={(target?.venues ?? []) as ("Assembly" | "Caliente" | "Hanabi" | "Events")[]}
       defaultVenue={defaultVenue}
       initialYear={year}
       initialMonth={month}
