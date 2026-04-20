@@ -1,43 +1,43 @@
 
-The user wants the monthly revenue target to be split across selected venues based on each venue's **historical performance share**, not equally. Then within each venue, distribute across days using DOW medians (existing logic).
+The user wants:
+1. Tables (currently only inside the Revenue Target preview modal) to be visible directly on the Forecast page where the charts are — not hidden behind a modal.
+2. A date range filter on those tables to narrow down which days are shown.
+3. A "Download Image" / screenshot button readily available, capturing just the filtered range so they can share with the team (e.g., "April 20 only" to focus the team on specific days).
 
-Looking at current code: `RevenueTargetPanel` likely loops each venue and calls `distributeMonthlyTarget(monthlyTarget / venues.length, ...)` — equal split. Need to change to weighted split.
+Let me check the current Forecast page structure to know exactly where charts live and how to insert the new table view.
 
-## Plan: Venue-weighted target distribution
+### Current state
+- `RevenueTargetPanel.tsx` already has per-venue tables + screenshot logic, but only inside the preview modal (after clicking "Generate").
+- The Forecast page (`ForecastInput.tsx`) shows `ForecastCharts` for visualization.
+- User wants the table version of the same data alongside / in place of those charts.
 
-### Logic change in `src/utils/forecastDistribution.ts`
-Add helper `computeVenueWeights(salesData, venues, lookbackMonths=3)`:
-- Sum total sales per venue over last 3 months.
-- Return `{ venue: shareFraction }` where shares sum to 1.
-- Fallback: equal split if no historical data, or for any venue with zero history.
+## Plan: Inline forecast tables with date filter + screenshot
 
-### Logic change in `RevenueTargetPanel.tsx`
-Replace equal-split loop with:
-1. Compute venue weights from historical sales.
-2. Compute each venue's actuals-so-far for the current month.
-3. **Per-venue target** = `overallTarget × venueWeight`.
-4. Pass venue-specific target into existing `distributeMonthlyTarget` (which already handles "remaining = target − actuals" and DOW median distribution).
-5. Combined table = sum of per-venue results (unchanged).
+### New component: `src/components/forecast/ForecastTableView.tsx`
+A clean, screenshot-friendly table view of forecast vs actuals per venue:
 
-### UI additions
-- In each venue's table header, show its weight: e.g. *"Assembly — 62% of total target (HK$ 496,000)"*.
-- Small note above tables: *"Targets allocated by each venue's last-3-month revenue share."*
-- If a venue has no history → show a warning chip "Equal share fallback".
+- **Date range filter** at the top: two date inputs ("From" / "To") with quick presets (Today, This Week, This Month, All).
+- **One table per venue** (based on currently selected venue/page), columns:
+  - Date | Day | Forecast Sales | Actual Sales | Variance | Forecast Guests | Actual Guests | Notes
+- **Footer row**: totals for the filtered range (Forecast total, Actual total, Variance, Gap to target if a target exists).
+- **"Download PNG" button** (Camera icon) in the header — uses `html-to-image` to export only the filtered table (referenced via `useRef`).
+- **"Copy to Clipboard"** secondary button (image to clipboard) — handy for pasting into Slack/WhatsApp.
+- Card-glass styling, terracotta/gold accent, mono numbers — matches existing aesthetic.
 
-### Edge cases
-- Single venue selected → 100% weight, behavior unchanged.
-- Venue with zero history but others have data → assign 0 (or small floor like 5%); plan: assign 0 and show warning. User can override by deselecting.
-- All venues have zero history → fall back to equal split everywhere.
+### Integration in `src/pages/ForecastInput.tsx`
+- Add a small **view toggle** above the charts area: `[ Charts | Table ]`.
+- Default = Charts (current behavior). Switching to Table renders `ForecastTableView` in the same slot.
+- Toggle persists in localStorage so the user's preference sticks.
 
-### Files
-- Edit `src/utils/forecastDistribution.ts` — add `computeVenueWeights`.
-- Edit `src/components/forecast/RevenueTargetPanel.tsx` — use weights when generating per-venue distributions; show weight in headers.
-
-### Verification
-1. Select Assembly + Caliente, target HK$ 800K. If history shows Assembly 60% / Caliente 40%, preview shows Assembly target ≈ 480K, Caliente ≈ 320K (minus their respective actuals).
-2. Add Hanabi with no history → warning shown, Hanabi gets 0 share, others split 100%.
-3. Single venue → gets full target as before.
+### Dependency
+- `html-to-image` (already added per earlier work). If missing, install it.
 
 ### Out of scope
-- Manual weight overrides per venue (could be a follow-up).
-- Configurable lookback window (stays at 3 months).
+- Editing forecasts inline from this table (read-only view).
+- Multi-venue combined screenshot (one venue per page, matching the page context).
+
+### Verification
+1. Go to `/forecast/assembly` → click `Table` toggle → see all dates.
+2. Set From=Apr 20, To=Apr 20 → only that row shows, totals update.
+3. Click `Download PNG` → file downloads showing just Apr 20 row + header + totals, cleanly cropped.
+4. Switch back to `Charts` → original view restored.
