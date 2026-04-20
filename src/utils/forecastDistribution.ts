@@ -222,6 +222,52 @@ export function distributeMonthlyTarget(params: {
   };
 }
 
+export interface VenueWeights {
+  /** venue → share fraction (sums to 1 across venues with history) */
+  weights: Record<string, number>;
+  /** venues that had zero historical revenue in the lookback window */
+  venuesWithoutHistory: string[];
+  /** True if NO selected venue had any history (caller should fall back to equal split) */
+  allMissing: boolean;
+}
+
+/**
+ * Compute each venue's share of total revenue across the selected venues,
+ * based on the last `lookbackMonths` of sales. Venues with zero history get 0.
+ * If all venues lack history, returns equal weights and `allMissing = true`.
+ */
+export function computeVenueWeights(
+  salesData: { date: string; venue: string; totalSales: number }[],
+  venues: string[],
+  lookbackMonths = 3,
+): VenueWeights {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - lookbackMonths);
+  const cutoffIso = toIsoDate(cutoff);
+
+  const totals: Record<string, number> = {};
+  for (const v of venues) totals[v] = 0;
+  for (const s of salesData) {
+    if (!venues.includes(s.venue)) continue;
+    if (s.date < cutoffIso) continue;
+    totals[s.venue] += s.totalSales;
+  }
+
+  const grand = Object.values(totals).reduce((a, b) => a + b, 0);
+  const venuesWithoutHistory = venues.filter((v) => totals[v] <= 0);
+
+  if (grand <= 0) {
+    const equal = venues.length > 0 ? 1 / venues.length : 0;
+    const weights: Record<string, number> = {};
+    for (const v of venues) weights[v] = equal;
+    return { weights, venuesWithoutHistory: venues.slice(), allMissing: true };
+  }
+
+  const weights: Record<string, number> = {};
+  for (const v of venues) weights[v] = totals[v] / grand;
+  return { weights, venuesWithoutHistory, allMissing: false };
+}
+
 /** Build a per-venue map of date → aggregated actuals from sales records */
 export function aggregateActualsByVenue(
   salesData: { date: string; venue: string; guests: number; totalSales: number }[],

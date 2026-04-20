@@ -12,6 +12,7 @@ import { ForecastRecord } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
 import {
   computeDowMedians,
+  computeVenueWeights,
   distributeMonthlyTarget,
   aggregateActualsByVenue,
   DistributedDay,
