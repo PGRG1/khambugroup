@@ -9,12 +9,9 @@ import {
   buildForecastTableData,
   ForecastTableRow,
   ForecastVenue,
-  VenueTableData,
 } from "@/utils/forecastTableData";
 
 const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"];
-type Scope = "All Venues" | "Combined" | ForecastVenue;
-const SCOPES: Scope[] = ["All Venues", "Combined", ...ALL_VENUES];
 
 interface ForecastTableViewProps {
   salesData: SalesRecord[];
@@ -32,6 +29,9 @@ const fmtDateLabel = (iso: string) => {
 
 const monthName = (m: number) => new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
 
+const sameSet = (a: ForecastVenue[], b: ForecastVenue[]) =>
+  a.length === b.length && a.every((v) => b.includes(v));
+
 const ForecastTableView = ({
   salesData,
   monthlyTarget,
@@ -42,11 +42,12 @@ const ForecastTableView = ({
   const today = new Date();
   const [year, setYear] = useState(initialYear ?? today.getFullYear());
   const [month, setMonth] = useState(initialMonth ?? today.getMonth() + 1);
-  const [scope, setScope] = useState<Scope>(defaultVenue ?? "All Venues");
+  const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>(
+    defaultVenue ? [defaultVenue] : ALL_VENUES,
+  );
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
 
-  // Generate month options ±6 months
   const monthOptions = useMemo(() => {
     const opts: { y: number; m: number; label: string }[] = [];
     const d = new Date(today.getFullYear(), today.getMonth() - 6, 1);
@@ -58,30 +59,38 @@ const ForecastTableView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Order venues canonically (so labels are stable)
+  const orderedSelection = useMemo(
+    () => ALL_VENUES.filter((v) => selectedVenues.includes(v)),
+    [selectedVenues],
+  );
+
   const data = useMemo(
     () =>
       buildForecastTableData({
         year,
         month,
-        venues: ALL_VENUES,
+        venues: orderedSelection,
         salesData,
         monthlyTarget,
       }),
-    [year, month, salesData, monthlyTarget]
+    [year, month, salesData, monthlyTarget, orderedSelection],
   );
 
-  // Reset date filter when month changes
   useEffect(() => {
     setFrom("");
     setTo("");
   }, [year, month]);
 
-  const filterRows = (rows: ForecastTableRow[]) =>
-    rows.filter((r) => {
-      if (from && r.date < from) return false;
-      if (to && r.date > to) return false;
-      return true;
-    });
+  const filteredRows = useMemo(
+    () =>
+      data.rows.filter((r) => {
+        if (from && r.date < from) return false;
+        if (to && r.date > to) return false;
+        return true;
+      }),
+    [data.rows, from, to],
+  );
 
   const setQuickRange = (preset: "today" | "week" | "month" | "all") => {
     if (preset === "all") {
@@ -106,42 +115,25 @@ const ForecastTableView = ({
     }
   };
 
-  const venuesToRender: { title: string; venueData: VenueTableData | null; rows: ForecastTableRow[]; venueTarget?: number; weightPct?: number; noHistory?: boolean }[] =
-    useMemo(() => {
-      if (scope === "All Venues") {
-        return data.perVenue.map((v) => ({
-          title: v.venue,
-          venueData: v,
-          rows: filterRows(v.rows),
-          venueTarget: v.venueTarget,
-          weightPct: v.weightPct,
-          noHistory: v.noHistory,
-        }));
+  const toggleVenue = (v: ForecastVenue) => {
+    setSelectedVenues((prev) => {
+      if (prev.includes(v)) {
+        // don't allow deselecting the last one
+        if (prev.length === 1) return prev;
+        return prev.filter((x) => x !== v);
       }
-      if (scope === "Combined") {
-        return [{
-          title: "Combined (All Venues)",
-          venueData: null,
-          rows: filterRows(data.combined.rows),
-          venueTarget: monthlyTarget,
-        }];
-      }
-      const v = data.perVenue.find((x) => x.venue === scope);
-      if (!v) return [];
-      return [{
-        title: v.venue,
-        venueData: v,
-        rows: filterRows(v.rows),
-        venueTarget: v.venueTarget,
-        weightPct: v.weightPct,
-        noHistory: v.noHistory,
-      }];
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scope, data, from, to, monthlyTarget]);
+      return [...prev, v];
+    });
+  };
+
+  const isAllSelected = sameSet(orderedSelection, ALL_VENUES);
+
+  const titleLabel = isAllSelected
+    ? "All Venues"
+    : orderedSelection.join(" + ");
 
   return (
     <div className="card-glass rounded-xl p-5 space-y-4">
-      {/* Top controls: month + venue scope + date filter */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -191,21 +183,40 @@ const ForecastTableView = ({
           </div>
         </div>
 
-        {/* Venue scope chips */}
-        <div className="flex flex-wrap gap-1.5">
-          {SCOPES.map((s) => (
-            <button
-              key={s}
-              onClick={() => setScope(s)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                scope === s
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border bg-secondary text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+        {/* Venue multi-select chips */}
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <button
+            onClick={() => setSelectedVenues(ALL_VENUES)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+              isAllSelected
+                ? "border-primary bg-primary/15 text-primary"
+                : "border-border bg-secondary text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            All Venues
+          </button>
+          <span className="mx-1 text-muted-foreground/50 text-xs">|</span>
+          {ALL_VENUES.map((v) => {
+            const active = selectedVenues.includes(v);
+            return (
+              <button
+                key={v}
+                onClick={() => toggleVenue(v)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                  active && !isAllSelected
+                    ? "border-primary bg-primary/15 text-primary"
+                    : active && isAllSelected
+                    ? "border-border bg-secondary text-foreground hover:bg-muted"
+                    : "border-border bg-secondary text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {v}
+              </button>
+            );
+          })}
+          <span className="ml-2 text-[11px] text-muted-foreground">
+            Tip: click multiple venues to combine them
+          </span>
         </div>
       </div>
 
@@ -216,23 +227,17 @@ const ForecastTableView = ({
         </div>
       )}
 
-      {/* Tables */}
-      <div className="space-y-5">
-        {venuesToRender.map((v) => (
-          <ScreenshotTable
-            key={v.title}
-            title={v.title}
-            rows={v.rows}
-            venueTarget={v.venueTarget ?? 0}
-            weightPct={v.weightPct}
-            noHistory={v.noHistory}
-            month={month}
-            year={year}
-            from={from}
-            to={to}
-          />
-        ))}
-      </div>
+      <ScreenshotTable
+        title={titleLabel}
+        rows={filteredRows}
+        venueTarget={monthlyTarget}
+        flatSpend={data.flatSpend}
+        noHistory={!data.hasHistory && monthlyTarget > 0}
+        month={month}
+        year={year}
+        from={from}
+        to={to}
+      />
     </div>
   );
 };
@@ -243,7 +248,7 @@ interface ScreenshotTableProps {
   title: string;
   rows: ForecastTableRow[];
   venueTarget: number;
-  weightPct?: number;
+  flatSpend: number;
   noHistory?: boolean;
   month: number;
   year: number;
@@ -251,7 +256,7 @@ interface ScreenshotTableProps {
   to: string;
 }
 
-const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month, year, from, to }: ScreenshotTableProps) => {
+const ScreenshotTable = ({ title, rows, venueTarget, flatSpend, noHistory, month, year, from, to }: ScreenshotTableProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
@@ -265,16 +270,12 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
           acc.fcstGuests += r.guests;
           acc.fcstSales += r.totalSales;
         }
-        acc.totalGuests += r.guests;
-        acc.totalSales += r.totalSales;
-        acc.targetSpendSum += r.targetSpend * r.guests;
         return acc;
       },
-      { fcstGuests: 0, fcstSales: 0, actualGuests: 0, actualSales: 0, totalGuests: 0, totalSales: 0, targetSpendSum: 0 }
+      { fcstGuests: 0, fcstSales: 0, actualGuests: 0, actualSales: 0 },
     );
   }, [rows]);
 
-  const wAvgTargetSpend = totals.totalGuests > 0 ? Math.round(totals.targetSpendSum / totals.totalGuests) : 0;
   const variance = totals.actualSales - totals.fcstSales;
 
   const exportPng = async () => {
@@ -283,7 +284,7 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
       const dataUrl = await toPng(ref.current, { backgroundColor: "#ffffff", pixelRatio: 2, cacheBust: true });
       const link = document.createElement("a");
       const range = from && to ? `_${from}_to_${to}` : "";
-      link.download = `${title}_forecast_${year}-${String(month).padStart(2, "0")}${range}.png`;
+      link.download = `${title.replace(/\s+/g, "_")}_forecast_${year}-${String(month).padStart(2, "0")}${range}.png`;
       link.href = dataUrl;
       link.click();
       toast({ title: "Image downloaded" });
@@ -321,7 +322,6 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
       </div>
 
       <div ref={ref} className="bg-card rounded-lg border border-border/60 overflow-hidden">
-        {/* Header */}
         <div className="px-5 py-3 border-b border-border/60 bg-gradient-to-r from-primary/10 to-transparent">
           <div className="flex items-baseline justify-between gap-4 flex-wrap">
             <div>
@@ -331,8 +331,8 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
               </h3>
             </div>
             <div className="flex flex-wrap gap-1.5 items-center">
-              {weightPct !== undefined && (
-                <Badge variant="outline" className="text-[10px]">{weightPct}% share</Badge>
+              {flatSpend > 0 && (
+                <Badge variant="outline" className="text-[10px]">Avg Target: {formatCurrency(flatSpend)}/guest</Badge>
               )}
               {venueTarget > 0 && (
                 <Badge variant="outline" className="text-[10px]">Target: {formatCurrency(Math.round(venueTarget))}</Badge>
@@ -351,7 +351,6 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -360,7 +359,7 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
                 <th className="text-left px-2 py-2.5 font-medium">Day</th>
                 <th className="text-left px-2 py-2.5 font-medium">Status</th>
                 <th className="text-right px-2 py-2.5 font-medium border-l border-border/40">Fcst Guests</th>
-                <th className="text-right px-2 py-2.5 font-medium">Target Spend</th>
+                <th className="text-right px-2 py-2.5 font-medium">Avg Target</th>
                 <th className="text-right px-2 py-2.5 font-medium">Fcst Sales</th>
                 <th className="text-right px-2 py-2.5 font-medium border-l border-border/40">Act Guests</th>
                 <th className="text-right px-2 py-2.5 font-medium">Act Spend</th>
@@ -409,7 +408,6 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
                       <td className="px-2 py-2 text-right font-mono tabular-nums font-medium">
                         {r.isActual ? formatCurrency(r.totalSales) : <span className="text-muted-foreground">—</span>}
                       </td>
-                      {/* Variance vs target */}
                       <td className={`px-2 py-2 text-right font-mono tabular-nums border-l border-border/40 ${
                         variance === null ? "text-muted-foreground" : variance >= 0 ? "text-emerald-600 font-medium" : "text-red-500 font-medium"
                       }`}>
@@ -427,7 +425,7 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
                     Total ({rows.length} day{rows.length !== 1 ? "s" : ""})
                   </td>
                   <td className="px-2 py-2.5 text-right font-mono tabular-nums border-l border-border/40">{totals.fcstGuests || "—"}</td>
-                  <td className="px-2 py-2.5 text-right font-mono tabular-nums">{wAvgTargetSpend > 0 ? formatCurrency(wAvgTargetSpend) : "—"}</td>
+                  <td className="px-2 py-2.5 text-right font-mono tabular-nums">{flatSpend > 0 ? formatCurrency(flatSpend) : "—"}</td>
                   <td className="px-2 py-2.5 text-right font-mono tabular-nums">{formatCurrency(totals.fcstSales)}</td>
                   <td className="px-2 py-2.5 text-right font-mono tabular-nums border-l border-border/40">{totals.actualGuests || "—"}</td>
                   <td className="px-2 py-2.5 text-right font-mono tabular-nums">
@@ -447,7 +445,6 @@ const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month
           </table>
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-2 border-t border-border/60 bg-muted/20 flex items-center justify-between text-[10px] text-muted-foreground">
           <span>KHAMBU · {title} Forecast</span>
           <span>Generated {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>

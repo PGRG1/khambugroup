@@ -1,44 +1,36 @@
 import { SalesRecord } from "@/types/sales";
 import {
   computeDowMedians,
-  computeVenueWeights,
-  distributeMonthlyTarget,
-  aggregateActualsByVenue,
+  distributeMonthlyTargetFlatSpend,
+  computeGlobalMedianSpend,
+  getDefaultSinceOctober,
   DistributedDay,
 } from "./forecastDistribution";
 
 export type ForecastVenue = "Assembly" | "Caliente" | "Hanabi" | "Events";
 
 export interface ForecastTableRow extends DistributedDay {
-  /** Target avg-spend-per-guest from DOW median (the spend baseline used for forecast) */
+  /** Uniform avg-target-spend per guest (same for every row) */
   targetSpend: number;
 }
 
-export interface VenueTableData {
-  venue: ForecastVenue;
+export interface ForecastTableData {
   rows: ForecastTableRow[];
-  venueTarget: number;
-  weightPct: number;
-  noHistory: boolean;
+  flatSpend: number;
+  selectedVenues: ForecastVenue[];
+  monthlyTarget: number;
   actualSoFar: number;
   forecastTotal: number;
   combinedTotal: number;
-}
-
-export interface ForecastTableData {
-  perVenue: VenueTableData[];
-  combined: {
-    rows: ForecastTableRow[];
-    actualSoFar: number;
-    forecastTotal: number;
-    combinedTotal: number;
-  };
+  hasHistory: boolean;
 }
 
 /**
- * Build forecast table rows mirroring the "Daily Distribution" logic exactly.
- * Distributes a monthly revenue target across venues (by historical share) and
- * across days (by DOW median guests × avg spend), preserving any actuals.
+ * Build a single combined forecast table for the selected venues.
+ *
+ * Spend baseline is a UNIFORM global median avg-spend (since most recent past
+ * October), applied to every forecast day. Daily revenue is shaped by combined
+ * DOW guest medians. Actuals are preserved as-is.
  */
 export function buildForecastTableData(params: {
   year: number;
@@ -49,78 +41,45 @@ export function buildForecastTableData(params: {
 }): ForecastTableData {
   const { year, month, venues, salesData, monthlyTarget } = params;
 
-  const { weights, venuesWithoutHistory, allMissing } = computeVenueWeights(
-    salesData,
-    venues,
-    3
-  );
+  const since = getDefaultSinceOctober();
+  const flatSpend = computeGlobalMedianSpend(salesData, venues, since);
+  const dowMedians = computeDowMedians(salesData, venues, 12);
 
-  const perVenue: VenueTableData[] = venues.map((venue) => {
-    const weight = weights[venue] ?? 0;
-    const venueTarget = monthlyTarget * weight;
-    const medians = computeDowMedians(salesData, [venue], 3);
-    const actuals = aggregateActualsByVenue(salesData, venue, year, month);
-    const result = distributeMonthlyTarget({
-      year,
-      month,
-      monthlyTarget: venueTarget,
-      medians,
-      actuals,
-    });
+  // Aggregate actuals across the selected venues for the target month
+  const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+  const actuals = new Map<string, { guests: number; totalSales: number }>();
+  for (const s of salesData) {
+    if (!venues.includes(s.venue)) continue;
+    if (!s.date.startsWith(monthStr)) continue;
+    const cur = actuals.get(s.date) ?? { guests: 0, totalSales: 0 };
+    cur.guests += s.guests;
+    cur.totalSales += s.totalSales;
+    actuals.set(s.date, cur);
+  }
 
-    // Enrich each row with target avg spend (the DOW median spend used as baseline)
-    const rows: ForecastTableRow[] = result.rows.map((r) => {
-      const dowName = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", {
-        weekday: "short",
-      });
-      const targetSpend = Math.round(medians.avgSpendByDow[dowName] || r.avgSpend || 0);
-      return { ...r, targetSpend };
-    });
-
-    return {
-      venue,
-      rows,
-      venueTarget,
-      weightPct: Math.round(weight * 1000) / 10,
-      noHistory: !allMissing && venuesWithoutHistory.includes(venue),
-      actualSoFar: result.actualSoFar,
-      forecastTotal: result.forecastTotal,
-      combinedTotal: result.combinedTotal,
-    };
+  const result = distributeMonthlyTargetFlatSpend({
+    year,
+    month,
+    monthlyTarget,
+    flatSpend,
+    dowGuestsForShape: dowMedians.guestsByDow,
+    actuals,
   });
 
-  // Combined: aggregate by date across all venues
-  const byDate = new Map<string, ForecastTableRow>();
-  for (const v of perVenue) {
-    for (const r of v.rows) {
-      const cur = byDate.get(r.date);
-      if (!cur) {
-        byDate.set(r.date, { ...r });
-      } else {
-        cur.guests += r.guests;
-        cur.totalSales += r.totalSales;
-        // weighted avg spend (gross)
-        cur.avgSpend = cur.guests > 0 ? Math.round(cur.totalSales / 1.1 / cur.guests) : 0;
-        cur.targetSpend = cur.guests > 0
-          ? Math.round(((cur.targetSpend * (cur.guests - r.guests)) + (r.targetSpend * r.guests)) / cur.guests)
-          : r.targetSpend;
-        if (!r.isActual && cur.isActual) cur.isActual = false;
-      }
-    }
-  }
-  const combinedRows = Array.from(byDate.values()).sort((a, b) =>
-    a.date.localeCompare(b.date)
-  );
-  const combinedActual = perVenue.reduce((s, v) => s + v.actualSoFar, 0);
-  const combinedForecast = perVenue.reduce((s, v) => s + v.forecastTotal, 0);
+  const targetSpendRounded = flatSpend > 0 ? Math.round(flatSpend) : 0;
+  const rows: ForecastTableRow[] = result.rows.map((r) => ({
+    ...r,
+    targetSpend: targetSpendRounded,
+  }));
 
   return {
-    perVenue,
-    combined: {
-      rows: combinedRows,
-      actualSoFar: combinedActual,
-      forecastTotal: combinedForecast,
-      combinedTotal: combinedActual + combinedForecast,
-    },
+    rows,
+    flatSpend: targetSpendRounded,
+    selectedVenues: venues,
+    monthlyTarget,
+    actualSoFar: result.actualSoFar,
+    forecastTotal: result.forecastTotal,
+    combinedTotal: result.combinedTotal,
+    hasHistory: dowMedians.hasData && flatSpend > 0,
   };
 }
