@@ -1,21 +1,28 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { toPng } from "html-to-image";
-import { Camera, Copy, Check } from "lucide-react";
-import { ForecastWithActuals } from "@/types/forecast";
+import { Camera, Copy, Check, AlertTriangle } from "lucide-react";
+import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
 import { toast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import {
+  buildForecastTableData,
+  ForecastTableRow,
+  ForecastVenue,
+  VenueTableData,
+} from "@/utils/forecastTableData";
+
+const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"];
+type Scope = "All Venues" | "Combined" | ForecastVenue;
+const SCOPES: Scope[] = ["All Venues", "Combined", ...ALL_VENUES];
 
 interface ForecastTableViewProps {
-  data: ForecastWithActuals[];
-  venueName: string;
+  salesData: SalesRecord[];
+  monthlyTarget: number;
+  defaultVenue?: ForecastVenue;
+  initialYear?: number;
+  initialMonth?: number;
 }
-
-const toISO = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
 
 const fmtDateLabel = (iso: string) => {
   const [y, m, d] = iso.split("-");
@@ -23,114 +30,136 @@ const fmtDateLabel = (iso: string) => {
   return `${MONTHS[parseInt(m) - 1]} ${parseInt(d)}, ${y}`;
 };
 
-const ForecastTableView = ({ data, venueName }: ForecastTableViewProps) => {
-  const tableRef = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState(false);
+const monthName = (m: number) => new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
 
-  // Default range = full data range
-  const allDates = useMemo(() => data.map((d) => d.date).sort(), [data]);
-  const defaultFrom = allDates[0] ?? "";
-  const defaultTo = allDates[allDates.length - 1] ?? "";
+const ForecastTableView = ({
+  salesData,
+  monthlyTarget,
+  defaultVenue,
+  initialYear,
+  initialMonth,
+}: ForecastTableViewProps) => {
+  const today = new Date();
+  const [year, setYear] = useState(initialYear ?? today.getFullYear());
+  const [month, setMonth] = useState(initialMonth ?? today.getMonth() + 1);
+  const [scope, setScope] = useState<Scope>(defaultVenue ?? "All Venues");
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
 
-  const [from, setFrom] = useState<string>(defaultFrom);
-  const [to, setTo] = useState<string>(defaultTo);
-
-  // Keep range synced if data range changes (when parent filter changes)
-  useMemo(() => {
-    if (defaultFrom && (from < defaultFrom || from > defaultTo)) setFrom(defaultFrom);
-    if (defaultTo && (to > defaultTo || to < defaultFrom)) setTo(defaultTo);
+  // Generate month options ±6 months
+  const monthOptions = useMemo(() => {
+    const opts: { y: number; m: number; label: string }[] = [];
+    const d = new Date(today.getFullYear(), today.getMonth() - 6, 1);
+    for (let i = 0; i < 18; i++) {
+      opts.push({ y: d.getFullYear(), m: d.getMonth() + 1, label: `${monthName(d.getMonth() + 1)} ${d.getFullYear()}` });
+      d.setMonth(d.getMonth() + 1);
+    }
+    return opts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultFrom, defaultTo]);
+  }, []);
 
-  const filtered = useMemo(() => {
-    return data
-      .filter((d) => {
-        if (from && d.date < from) return false;
-        if (to && d.date > to) return false;
-        return true;
-      })
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [data, from, to]);
+  const data = useMemo(
+    () =>
+      buildForecastTableData({
+        year,
+        month,
+        venues: ALL_VENUES,
+        salesData,
+        monthlyTarget,
+      }),
+    [year, month, salesData, monthlyTarget]
+  );
 
-  const totals = useMemo(() => {
-    return filtered.reduce(
-      (acc, r) => {
-        acc.fcstSales += r.forecastedTotalSales || 0;
-        acc.actSales += r.actualTotalSales || 0;
-        acc.fcstCust += r.forecastedCustomers || 0;
-        acc.actCust += r.actualCustomers || 0;
-        if (r.actualTotalSales !== null) acc.actDays += 1;
-        return acc;
-      },
-      { fcstSales: 0, actSales: 0, fcstCust: 0, actCust: 0, actDays: 0 }
-    );
-  }, [filtered]);
+  // Reset date filter when month changes
+  useEffect(() => {
+    setFrom("");
+    setTo("");
+  }, [year, month]);
 
-  const variance = totals.actSales - totals.fcstSales;
+  const filterRows = (rows: ForecastTableRow[]) =>
+    rows.filter((r) => {
+      if (from && r.date < from) return false;
+      if (to && r.date > to) return false;
+      return true;
+    });
 
   const setQuickRange = (preset: "today" | "week" | "month" | "all") => {
-    const now = new Date();
+    if (preset === "all") {
+      setFrom(""); setTo(""); return;
+    }
+    const t = new Date();
+    const iso = (d: Date) => {
+      const y = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${y}-${mm}-${dd}`;
+    };
     if (preset === "today") {
-      const t = toISO(now);
-      setFrom(t);
-      setTo(t);
+      const v = iso(t); setFrom(v); setTo(v);
     } else if (preset === "week") {
-      const start = new Date(now);
-      start.setDate(now.getDate() - now.getDay());
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      setFrom(toISO(start));
-      setTo(toISO(end));
-    } else if (preset === "month") {
-      setFrom(toISO(new Date(now.getFullYear(), now.getMonth(), 1)));
-      setTo(toISO(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
+      const start = new Date(t); start.setDate(t.getDate() - t.getDay());
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      setFrom(iso(start)); setTo(iso(end));
     } else {
-      setFrom(defaultFrom);
-      setTo(defaultTo);
+      setFrom(iso(new Date(year, month - 1, 1)));
+      setTo(iso(new Date(year, month, 0)));
     }
   };
 
-  const exportPng = async () => {
-    if (!tableRef.current) return;
-    try {
-      const dataUrl = await toPng(tableRef.current, {
-        backgroundColor: "#ffffff",
-        pixelRatio: 2,
-        cacheBust: true,
-      });
-      const link = document.createElement("a");
-      link.download = `${venueName}_forecast_${from}_to_${to}.png`;
-      link.href = dataUrl;
-      link.click();
-      toast({ title: "Image downloaded" });
-    } catch (e) {
-      toast({ title: "Export failed", variant: "destructive" });
-    }
-  };
-
-  const copyPng = async () => {
-    if (!tableRef.current) return;
-    try {
-      const dataUrl = await toPng(tableRef.current, {
-        backgroundColor: "#ffffff",
-        pixelRatio: 2,
-        cacheBust: true,
-      });
-      const blob = await (await fetch(dataUrl)).blob();
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-      toast({ title: "Image copied to clipboard" });
-    } catch (e) {
-      toast({ title: "Copy failed — try Download instead", variant: "destructive" });
-    }
-  };
+  const venuesToRender: { title: string; venueData: VenueTableData | null; rows: ForecastTableRow[]; venueTarget?: number; weightPct?: number; noHistory?: boolean }[] =
+    useMemo(() => {
+      if (scope === "All Venues") {
+        return data.perVenue.map((v) => ({
+          title: v.venue,
+          venueData: v,
+          rows: filterRows(v.rows),
+          venueTarget: v.venueTarget,
+          weightPct: v.weightPct,
+          noHistory: v.noHistory,
+        }));
+      }
+      if (scope === "Combined") {
+        return [{
+          title: "Combined (All Venues)",
+          venueData: null,
+          rows: filterRows(data.combined.rows),
+          venueTarget: monthlyTarget,
+        }];
+      }
+      const v = data.perVenue.find((x) => x.venue === scope);
+      if (!v) return [];
+      return [{
+        title: v.venue,
+        venueData: v,
+        rows: filterRows(v.rows),
+        venueTarget: v.venueTarget,
+        weightPct: v.weightPct,
+        noHistory: v.noHistory,
+      }];
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [scope, data, from, to, monthlyTarget]);
 
   return (
     <div className="card-glass rounded-xl p-5 space-y-4">
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+      {/* Top controls: month + venue scope + date filter */}
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">Month</label>
+            <select
+              value={`${year}-${month}`}
+              onChange={(e) => {
+                const [y, m] = e.target.value.split("-").map(Number);
+                setYear(y); setMonth(m);
+              }}
+              className="px-3 py-1.5 text-sm rounded-lg border border-border bg-secondary focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              {monthOptions.map((o) => (
+                <option key={`${o.y}-${o.m}`} value={`${o.y}-${o.m}`}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground block mb-1">From</label>
             <input
@@ -161,42 +190,163 @@ const ForecastTableView = ({ data, venueName }: ForecastTableViewProps) => {
             ))}
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={copyPng}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary hover:bg-muted transition-colors"
-            title="Copy table as image to clipboard"
-          >
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Copied" : "Copy"}
-          </button>
-          <button
-            onClick={exportPng}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            title="Download table as PNG"
-          >
-            <Camera className="h-3.5 w-3.5" />
-            Download PNG
-          </button>
+
+        {/* Venue scope chips */}
+        <div className="flex flex-wrap gap-1.5">
+          {SCOPES.map((s) => (
+            <button
+              key={s}
+              onClick={() => setScope(s)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                scope === s
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-border bg-secondary text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Captured area */}
-      <div ref={tableRef} className="bg-card rounded-lg border border-border/60 overflow-hidden">
-        {/* Branded header (visible in screenshot) */}
+      {monthlyTarget <= 0 && (
+        <div className="flex items-center gap-2 text-[11px] text-amber-600 bg-amber-500/10 border border-amber-600/30 rounded-md px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          No revenue target set for {monthName(month)} {year}. Set a target in the Monthly Revenue Target panel above to see distributed forecasts.
+        </div>
+      )}
+
+      {/* Tables */}
+      <div className="space-y-5">
+        {venuesToRender.map((v) => (
+          <ScreenshotTable
+            key={v.title}
+            title={v.title}
+            rows={v.rows}
+            venueTarget={v.venueTarget ?? 0}
+            weightPct={v.weightPct}
+            noHistory={v.noHistory}
+            month={month}
+            year={year}
+            from={from}
+            to={to}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ---------- Screenshot-friendly table ----------
+
+interface ScreenshotTableProps {
+  title: string;
+  rows: ForecastTableRow[];
+  venueTarget: number;
+  weightPct?: number;
+  noHistory?: boolean;
+  month: number;
+  year: number;
+  from: string;
+  to: string;
+}
+
+const ScreenshotTable = ({ title, rows, venueTarget, weightPct, noHistory, month, year, from, to }: ScreenshotTableProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  const totals = useMemo(() => {
+    return rows.reduce(
+      (acc, r) => {
+        if (r.isActual) {
+          acc.actualGuests += r.guests;
+          acc.actualSales += r.totalSales;
+        } else {
+          acc.fcstGuests += r.guests;
+          acc.fcstSales += r.totalSales;
+        }
+        acc.totalGuests += r.guests;
+        acc.totalSales += r.totalSales;
+        acc.targetSpendSum += r.targetSpend * r.guests;
+        return acc;
+      },
+      { fcstGuests: 0, fcstSales: 0, actualGuests: 0, actualSales: 0, totalGuests: 0, totalSales: 0, targetSpendSum: 0 }
+    );
+  }, [rows]);
+
+  const wAvgTargetSpend = totals.totalGuests > 0 ? Math.round(totals.targetSpendSum / totals.totalGuests) : 0;
+  const variance = totals.actualSales - totals.fcstSales;
+
+  const exportPng = async () => {
+    if (!ref.current) return;
+    try {
+      const dataUrl = await toPng(ref.current, { backgroundColor: "#ffffff", pixelRatio: 2, cacheBust: true });
+      const link = document.createElement("a");
+      const range = from && to ? `_${from}_to_${to}` : "";
+      link.download = `${title}_forecast_${year}-${String(month).padStart(2, "0")}${range}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast({ title: "Image downloaded" });
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    }
+  };
+
+  const copyPng = async () => {
+    if (!ref.current) return;
+    try {
+      const dataUrl = await toPng(ref.current, { backgroundColor: "#ffffff", pixelRatio: 2, cacheBust: true });
+      const blob = await (await fetch(dataUrl)).blob();
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+      toast({ title: "Image copied to clipboard" });
+    } catch {
+      toast({ title: "Copy failed — try Download instead", variant: "destructive" });
+    }
+  };
+
+  const monthLabel = `${new Date(year, month - 1, 1).toLocaleString("en-US", { month: "long" })} ${year}`;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-end gap-2">
+        <button onClick={copyPng} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary hover:bg-muted transition-colors">
+          {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button onClick={exportPng} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+          <Camera className="h-3.5 w-3.5" /> Download PNG
+        </button>
+      </div>
+
+      <div ref={ref} className="bg-card rounded-lg border border-border/60 overflow-hidden">
+        {/* Header */}
         <div className="px-5 py-3 border-b border-border/60 bg-gradient-to-r from-primary/10 to-transparent">
-          <div className="flex items-baseline justify-between gap-4">
+          <div className="flex items-baseline justify-between gap-4 flex-wrap">
             <div>
               <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Forecast Plan</div>
               <h3 className="text-lg font-display font-semibold text-foreground">
-                {venueName} <span className="text-muted-foreground font-normal">— Targets vs Actuals</span>
+                {title} <span className="text-muted-foreground font-normal">— {monthLabel}</span>
               </h3>
             </div>
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Period</div>
-              <div className="text-sm font-medium text-foreground">
-                {from ? fmtDateLabel(from) : "—"} → {to ? fmtDateLabel(to) : "—"}
-              </div>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {weightPct !== undefined && (
+                <Badge variant="outline" className="text-[10px]">{weightPct}% share</Badge>
+              )}
+              {venueTarget > 0 && (
+                <Badge variant="outline" className="text-[10px]">Target: {formatCurrency(Math.round(venueTarget))}</Badge>
+              )}
+              {noHistory && (
+                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40 bg-amber-500/10">
+                  <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />No history
+                </Badge>
+              )}
+              {from && to && (
+                <Badge variant="outline" className="text-[10px]">
+                  {fmtDateLabel(from)} → {fmtDateLabel(to)}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -208,77 +358,98 @@ const ForecastTableView = ({ data, venueName }: ForecastTableViewProps) => {
               <tr className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="text-left px-4 py-2.5 font-medium">Date</th>
                 <th className="text-left px-2 py-2.5 font-medium">Day</th>
+                <th className="text-left px-2 py-2.5 font-medium">Status</th>
+                <th className="text-right px-2 py-2.5 font-medium border-l border-border/40">Fcst Guests</th>
+                <th className="text-right px-2 py-2.5 font-medium">Target Spend</th>
                 <th className="text-right px-2 py-2.5 font-medium">Fcst Sales</th>
-                <th className="text-right px-2 py-2.5 font-medium">Actual Sales</th>
-                <th className="text-right px-2 py-2.5 font-medium">Variance</th>
-                <th className="text-right px-2 py-2.5 font-medium">Fcst Guests</th>
-                <th className="text-right px-2 py-2.5 font-medium">Actual Guests</th>
-                <th className="text-left px-4 py-2.5 font-medium">Notes</th>
+                <th className="text-right px-2 py-2.5 font-medium border-l border-border/40">Act Guests</th>
+                <th className="text-right px-2 py-2.5 font-medium">Act Spend</th>
+                <th className="text-right px-2 py-2.5 font-medium">Act Sales</th>
+                <th className="text-right px-2 py-2.5 font-medium border-l border-border/40">Variance</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-10 text-muted-foreground text-sm">
-                    No forecast rows in this date range.
+                  <td colSpan={10} className="text-center py-10 text-muted-foreground text-sm">
+                    No rows in this date range.
                   </td>
                 </tr>
               ) : (
-                filtered.map((r, idx) => {
-                  const v = r.totalSalesVariance;
+                rows.map((r, idx) => {
+                  const variance = r.isActual ? r.totalSales - (r.targetSpend * r.guests * 1.1) : null;
                   return (
-                    <tr
-                      key={r.id}
-                      className={`border-t border-border/40 ${idx % 2 === 1 ? "bg-muted/20" : ""}`}
-                    >
+                    <tr key={r.date} className={`border-t border-border/40 ${idx % 2 === 1 ? "bg-muted/20" : ""}`}>
                       <td className="px-4 py-2 font-medium text-foreground whitespace-nowrap">{fmtDateLabel(r.date)}</td>
                       <td className="px-2 py-2 text-muted-foreground">{r.day}</td>
-                      <td className="px-2 py-2 text-right font-mono tabular-nums">{formatCurrency(r.forecastedTotalSales)}</td>
+                      <td className="px-2 py-2">
+                        {r.isActual ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-emerald-700 bg-emerald-500/10 border border-emerald-600/30">Actual</span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-primary bg-primary/10 border border-primary/30">Forecast</span>
+                        )}
+                      </td>
+                      {/* Forecast group */}
+                      <td className="px-2 py-2 text-right font-mono tabular-nums border-l border-border/40">
+                        {r.isActual ? <span className="text-muted-foreground">—</span> : r.guests}
+                      </td>
                       <td className="px-2 py-2 text-right font-mono tabular-nums">
-                        {r.actualTotalSales !== null ? formatCurrency(r.actualTotalSales) : <span className="text-muted-foreground">—</span>}
+                        {r.targetSpend > 0 ? formatCurrency(r.targetSpend) : <span className="text-muted-foreground">—</span>}
                       </td>
-                      <td className={`px-2 py-2 text-right font-mono tabular-nums font-medium ${v === null ? "text-muted-foreground" : v >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                        {v === null ? "—" : `${v >= 0 ? "+" : ""}${formatCurrency(v)}`}
+                      <td className="px-2 py-2 text-right font-mono tabular-nums font-medium">
+                        {r.isActual ? <span className="text-muted-foreground">—</span> : formatCurrency(r.totalSales)}
                       </td>
-                      <td className="px-2 py-2 text-right font-mono tabular-nums">{r.forecastedCustomers}</td>
+                      {/* Actual group */}
+                      <td className="px-2 py-2 text-right font-mono tabular-nums border-l border-border/40">
+                        {r.isActual ? r.guests : <span className="text-muted-foreground">—</span>}
+                      </td>
                       <td className="px-2 py-2 text-right font-mono tabular-nums">
-                        {r.actualCustomers !== null ? r.actualCustomers : <span className="text-muted-foreground">—</span>}
+                        {r.isActual && r.avgSpend > 0 ? formatCurrency(r.avgSpend) : <span className="text-muted-foreground">—</span>}
                       </td>
-                      <td className="px-4 py-2 text-xs text-muted-foreground max-w-[260px] truncate" title={r.forecastNotes || r.postEventNotes || ""}>
-                        {r.forecastNotes || r.postEventNotes || "—"}
+                      <td className="px-2 py-2 text-right font-mono tabular-nums font-medium">
+                        {r.isActual ? formatCurrency(r.totalSales) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      {/* Variance vs target */}
+                      <td className={`px-2 py-2 text-right font-mono tabular-nums border-l border-border/40 ${
+                        variance === null ? "text-muted-foreground" : variance >= 0 ? "text-emerald-600 font-medium" : "text-red-500 font-medium"
+                      }`}>
+                        {variance === null ? "—" : `${variance >= 0 ? "+" : ""}${formatCurrency(Math.round(variance))}`}
                       </td>
                     </tr>
                   );
                 })
               )}
             </tbody>
-            {filtered.length > 0 && (
+            {rows.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-border bg-primary/5 font-semibold">
-                  <td className="px-4 py-2.5 text-foreground" colSpan={2}>
-                    Total ({filtered.length} day{filtered.length !== 1 ? "s" : ""})
+                  <td className="px-4 py-2.5 text-foreground" colSpan={3}>
+                    Total ({rows.length} day{rows.length !== 1 ? "s" : ""})
                   </td>
+                  <td className="px-2 py-2.5 text-right font-mono tabular-nums border-l border-border/40">{totals.fcstGuests || "—"}</td>
+                  <td className="px-2 py-2.5 text-right font-mono tabular-nums">{wAvgTargetSpend > 0 ? formatCurrency(wAvgTargetSpend) : "—"}</td>
                   <td className="px-2 py-2.5 text-right font-mono tabular-nums">{formatCurrency(totals.fcstSales)}</td>
+                  <td className="px-2 py-2.5 text-right font-mono tabular-nums border-l border-border/40">{totals.actualGuests || "—"}</td>
                   <td className="px-2 py-2.5 text-right font-mono tabular-nums">
-                    {totals.actDays > 0 ? formatCurrency(totals.actSales) : <span className="text-muted-foreground font-normal">—</span>}
+                    {totals.actualGuests > 0 ? formatCurrency(Math.round(totals.actualSales / 1.1 / totals.actualGuests)) : "—"}
                   </td>
-                  <td className={`px-2 py-2.5 text-right font-mono tabular-nums ${totals.actDays === 0 ? "text-muted-foreground" : variance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {totals.actDays === 0 ? "—" : `${variance >= 0 ? "+" : ""}${formatCurrency(variance)}`}
-                  </td>
-                  <td className="px-2 py-2.5 text-right font-mono tabular-nums">{totals.fcstCust}</td>
                   <td className="px-2 py-2.5 text-right font-mono tabular-nums">
-                    {totals.actDays > 0 ? totals.actCust : <span className="text-muted-foreground font-normal">—</span>}
+                    {totals.actualSales > 0 ? formatCurrency(totals.actualSales) : "—"}
                   </td>
-                  <td className="px-4 py-2.5"></td>
+                  <td className={`px-2 py-2.5 text-right font-mono tabular-nums border-l border-border/40 ${
+                    totals.actualSales === 0 ? "text-muted-foreground" : variance >= 0 ? "text-emerald-600" : "text-red-500"
+                  }`}>
+                    {totals.actualSales === 0 ? "—" : `${variance >= 0 ? "+" : ""}${formatCurrency(variance)}`}
+                  </td>
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
 
-        {/* Footer caption (visible in screenshot) */}
+        {/* Footer */}
         <div className="px-5 py-2 border-t border-border/60 bg-muted/20 flex items-center justify-between text-[10px] text-muted-foreground">
-          <span>KHAMBU · {venueName} Forecast</span>
+          <span>KHAMBU · {title} Forecast</span>
           <span>Generated {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
         </div>
       </div>
