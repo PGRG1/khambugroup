@@ -235,10 +235,17 @@ const ForecastTableView = ({
         </div>
       )}
 
+      {monthlyTarget > 0 && data.unallocatedVenues.length > 0 && (
+        <div className="flex items-center gap-2 text-[11px] text-amber-600 bg-amber-500/10 border border-amber-600/30 rounded-md px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          Target set for {effectiveTargetVenues.join(" + ")} — {data.unallocatedVenues.join(", ")} {data.unallocatedVenues.length === 1 ? "has" : "have"} no allocated target.
+        </div>
+      )}
+
       <ScreenshotTable
         title={titleLabel}
         rows={filteredRows}
-        venueTarget={monthlyTarget}
+        venueTarget={data.scopedTarget}
         flatSpend={data.flatSpend}
         noHistory={!data.hasHistory && monthlyTarget > 0}
         month={month}
@@ -246,6 +253,7 @@ const ForecastTableView = ({
         from={from}
         to={to}
       />
+
     </div>
   );
 };
