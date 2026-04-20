@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, forwardRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList, ShieldCheck, ShieldX, Clock, Lock } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList, ShieldCheck, ShieldX, Clock, Lock, BarChart3, Table as TableIcon } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { ForecastRecord } from "@/types/forecast";
 import {
@@ -16,6 +16,7 @@ import { useForecastPermissions } from "@/hooks/useForecastPermissions";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
+import ForecastTableView from "@/components/forecast/ForecastTableView";
 import RevenueTargetPanel from "@/components/forecast/RevenueTargetPanel";
 import DateFilter from "@/components/dashboard/DateFilter";
 import { SalesRecord } from "@/types/sales";
@@ -34,6 +35,13 @@ const ForecastInput = () => {
   const [salesData, setSalesData] = useState<SalesRecord[]>([]);
   const [showEntry, setShowEntry] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [vizMode, setVizMode] = useState<"charts" | "table">(() => {
+    if (typeof window === "undefined") return "charts";
+    return (localStorage.getItem("forecast.vizMode") as "charts" | "table") || "charts";
+  });
+  useEffect(() => {
+    localStorage.setItem("forecast.vizMode", vizMode);
+  }, [vizMode]);
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
 
@@ -514,8 +522,30 @@ const ForecastInput = () => {
       {/* KPI Summary */}
       <ForecastKPICards data={filteredData} />
 
-      {/* Charts */}
-      <ForecastCharts data={filteredData} />
+      {/* View toggle: Charts ↔ Table */}
+      <div className="flex justify-end">
+        <div className="inline-flex rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setVizMode("charts")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${vizMode === "charts" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Charts
+          </button>
+          <button
+            onClick={() => setVizMode("table")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${vizMode === "table" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
+          >
+            <TableIcon className="h-3.5 w-3.5" /> Table
+          </button>
+        </div>
+      </div>
+
+      {/* Charts or Table */}
+      {vizMode === "charts" ? (
+        <ForecastCharts data={filteredData} />
+      ) : (
+        <ForecastTableView data={filteredData} venueName={venueName} />
+      )}
 
       <DeleteConfirmDialog
         open={deleteTargetId !== null}
