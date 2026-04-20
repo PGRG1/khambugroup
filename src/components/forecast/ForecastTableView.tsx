@@ -348,7 +348,7 @@ const ScreenshotTable = ({ title, rows, venueTarget, flatSpend, noHistory, month
             </div>
             <div className="flex flex-wrap gap-1.5 items-center">
               {flatSpend > 0 && (
-                <Badge variant="outline" className="text-[10px]">Avg Target: {formatCurrency(flatSpend)}/guest</Badge>
+                <Badge variant="outline" className="text-[10px]">Avg Spend Target: {formatCurrency(flatSpend)}/guest</Badge>
               )}
               {venueTarget > 0 && (
                 <Badge variant="outline" className="text-[10px]">Target: {formatCurrency(Math.round(venueTarget))}</Badge>
@@ -375,7 +375,7 @@ const ScreenshotTable = ({ title, rows, venueTarget, flatSpend, noHistory, month
                 <th className="text-left px-2 py-2.5 font-medium">Day</th>
                 <th className="text-left px-2 py-2.5 font-medium">Status</th>
                 <th className="text-right px-2 py-2.5 font-medium border-l border-border/40">Fcst Guests</th>
-                <th className="text-right px-2 py-2.5 font-medium">Avg Target</th>
+                <th className="text-right px-2 py-2.5 font-medium">Avg Spend per Guest Target</th>
                 <th className="text-right px-2 py-2.5 font-medium">Fcst Sales</th>
                 <th className="text-right px-2 py-2.5 font-medium border-l border-border/40">Act Guests</th>
                 <th className="text-right px-2 py-2.5 font-medium">Act Spend</th>
