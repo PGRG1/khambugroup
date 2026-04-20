@@ -385,6 +385,109 @@ export function distributeMonthlyTargetFlatSpend(params: {
   };
 }
 
+/**
+ * Mean of the 7 DOW median avg-spend values. Only days with data (>0) are
+ * averaged; returns 0 when no data is available.
+ */
+export function meanOfDowMedianSpend(medians: MedianByDOW): number {
+  const vals = Object.values(medians.avgSpendByDow).filter((v) => v > 0);
+  if (vals.length === 0) return 0;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+/**
+ * Distribute a monthly TOTAL-SALES target using the SAME revenue shape as
+ * `distributeMonthlyTarget` (per-DOW median guests × per-DOW median spend),
+ * but display a UNIFORM avg-spend on every forecast day. Guest counts are
+ * back-solved per day = dailyGross / flatSpend so daily revenue still matches
+ * the DOW-driven distribution.
+ *
+ * Past days with actuals are kept untouched.
+ */
+export function distributeMonthlyTargetUniformSpendDowShape(params: {
+  year: number;
+  month: number;
+  monthlyTarget: number;
+  flatSpend: number;
+  medians: MedianByDOW;
+  actuals?: Map<string, { guests: number; totalSales: number }>;
+}): DistributionResult {
+  const { year, month, monthlyTarget, flatSpend, medians, actuals } = params;
+  const dates = getDatesInMonth(year, month);
+
+  let actualSoFar = 0;
+  const splitDays = dates.map((d) => {
+    const iso = toIsoDate(d);
+    const a = actuals?.get(iso);
+    if (a && a.totalSales > 0) {
+      actualSoFar += a.totalSales;
+      return { date: d, iso, isActual: true, actual: a };
+    }
+    return { date: d, iso, isActual: false, actual: null as null | { guests: number; totalSales: number } };
+  });
+
+  const remainingDays = splitDays.filter((s) => !s.isActual);
+  const remainingTarget = Math.max(0, monthlyTarget - actualSoFar);
+  const remainingGrossTarget = remainingTarget / 1.1;
+
+  // Revenue weight per day = DOW median guests × DOW median spend (matches modal)
+  const weights = remainingDays.map((s) => {
+    const dow = DAYS[s.date.getDay()];
+    const g = medians.guestsByDow[dow] || 0;
+    const sp = medians.avgSpendByDow[dow] || 0;
+    return Math.max(0, g * sp);
+  });
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  const useEven = totalWeight <= 0 || !medians.hasData;
+  const evenShare = remainingDays.length > 0 ? remainingGrossTarget / remainingDays.length : 0;
+
+  const safeFlatSpend = flatSpend > 0 ? Math.round(flatSpend) : 0;
+
+  const rows: DistributedDay[] = splitDays.map((s) => {
+    if (s.isActual && s.actual) {
+      const guests = s.actual.guests;
+      const avgSpend = guests > 0 ? Math.round(s.actual.totalSales / 1.1 / guests) : 0;
+      return {
+        date: s.iso,
+        day: DAYS[s.date.getDay()],
+        guests,
+        avgSpend,
+        totalSales: Math.round(s.actual.totalSales),
+        fallback: false,
+        isActual: true,
+      };
+    }
+
+    const idx = remainingDays.findIndex((x) => x.iso === s.iso);
+    const targetGross = useEven
+      ? evenShare
+      : (weights[idx] / totalWeight) * remainingGrossTarget;
+
+    const guests = safeFlatSpend > 0 ? Math.round(targetGross / safeFlatSpend) : 0;
+    const grossSales = guests * safeFlatSpend;
+    const serviceCharge = Math.round(grossSales * 0.1);
+    return {
+      date: s.iso,
+      day: DAYS[s.date.getDay()],
+      guests,
+      avgSpend: safeFlatSpend,
+      totalSales: grossSales + serviceCharge,
+      fallback: useEven || safeFlatSpend === 0,
+      isActual: false,
+    };
+  });
+
+  const forecastTotal = rows.filter((r) => !r.isActual).reduce((s, r) => s + r.totalSales, 0);
+
+  return {
+    rows,
+    actualSoFar: Math.round(actualSoFar),
+    remainingTarget: Math.round(remainingTarget),
+    forecastTotal: Math.round(forecastTotal),
+    combinedTotal: Math.round(actualSoFar + forecastTotal),
+  };
+}
+
 /** Build a per-venue map of date → aggregated actuals from sales records */
 export function aggregateActualsByVenue(
   salesData: { date: string; venue: string; guests: number; totalSales: number }[],
