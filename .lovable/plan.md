@@ -1,48 +1,40 @@
 
-User wants the table figures to mirror the modal in image-165 (Daily Distribution) which uses per-DOW median guests × per-DOW median avg spend. But they want one tweak:
+## Issue
+The table passes the **full monthly target (800k)** to whatever venues the user has chip-selected. The saved target row covers `{Assembly, Caliente}` jointly = 800k, but selecting just "Assembly" makes the engine try to hit 800k from Assembly alone → guests inflate massively (e.g. 406 on a Friday). The Daily Distribution modal already solves this via `computeVenueWeights` to allocate the target proportionally — the table needs the same treatment.
 
-- **Guests per day** = per-DOW median (as in modal) — the SHAPE driver.
-- **Avg Spend per guest** = a SINGLE flat number = the **average of the 7 DOW median spends** (not per-DOW, not since-October global). Display this same flat number on every row as "Avg Target".
-- Then **adjust guest counts** so that when multiplied by the flat avg spend, the daily revenue still allocates the monthly target correctly (i.e., guests scaled per day so sum-of-revenue hits remaining target, with daily shape driven by DOW median guests × flat spend baseline).
+## Fix
 
-So essentially: revenue weights per day come from the modal's `(median guests × median spend)` baseline (same as Daily Distribution), but the displayed avg-spend is replaced by the mean-of-7-DOW-medians, and guests are back-solved per day = daily revenue / flat spend.
+### 1. `src/utils/forecastTableData.ts`
+Apply the venue-share weighting before distributing:
+- Take the saved target's **owning venues** (from `revenue_targets.venues`, e.g. `[Assembly, Caliente]`) and the saved `targetAmount`.
+- New params: `targetVenues: ForecastVenue[]` (the venues the target was set for), keep existing `monthlyTarget`.
+- Call `computeVenueWeights(salesData, targetVenues, 3)` → per-venue share of the 800k.
+- The **scoped target** for the user-selected `venues` chip subset = `monthlyTarget × Σ(weights[v] for v in selectedVenues ∩ targetVenues)`.
+  - If selection is `[Assembly]` and weights are `{Assembly: 0.55, Caliente: 0.45}` → scoped target = 440k.
+  - If selection is `[Assembly, Caliente]` (matches target venues) → 800k.
+  - If selection includes a venue NOT in `targetVenues` (e.g. Hanabi) → that venue contributes 0 (no target allocated). Surface a warning.
+- Pass `scopedTarget` (instead of raw `monthlyTarget`) to `distributeMonthlyTargetUniformSpendDowShape`.
 
-This keeps the table numerically consistent with the modal at the **monthly total** and **daily revenue distribution** level, while flattening the displayed spend into one number.
+### 2. `src/pages/ForecastInput.tsx` (`ForecastTableViewWrapper`)
+Pass `targetVenues={target?.venues ?? []}` alongside `monthlyTarget`.
 
-## Implementation
+### 3. `src/components/forecast/ForecastTableView.tsx`
+- Accept new prop `targetVenues: string[]`.
+- Forward to `buildForecastTableData`.
+- Header `Target: …` badge already shows the scoped amount (now correct).
+- Add a small note when `selectedVenues` ⊄ `targetVenues`: e.g. `"Target set for Assembly + Caliente — Hanabi has no allocated target"`.
 
-### A. `src/utils/forecastDistribution.ts`
-Add helper:
-```ts
-export function meanOfDowMedianSpend(medians: MedianByDOW): number
-```
-Returns the simple average of the 7 `avgSpendByDow[day]` values (only counting days that have data; if none, 0).
+### 4. Column rename
+- Header `Avg Target` → **`Avg Spend per Guest Target`**.
+- Top badge `Avg Target: …/guest` → `Avg Spend Target: …/guest`.
 
-Add new distribution function `distributeMonthlyTargetUniformSpendDowShape`:
-- Inputs: `year, month, monthlyTarget, flatSpend, medians (full DOW), actuals`
-- Per-day baseline weight = `medians.guestsByDow[dow] * medians.avgSpendByDow[dow]` (matches modal's revenue allocation EXACTLY).
-- Daily gross target = `weight / totalWeight × remainingGrossTarget`.
-- Guests per day = `round(dailyGross / flatSpend)`.
-- avgSpend column for forecast rows = `flatSpend` (uniform).
-- Actuals untouched (use real guests + real avg spend).
-- Fallback: even split if no medians.
-
-### B. `src/utils/forecastTableData.ts`
-Replace current call to `distributeMonthlyTargetFlatSpend` with `distributeMonthlyTargetUniformSpendDowShape`. Replace `computeGlobalMedianSpend` usage with `meanOfDowMedianSpend(dowMedians)` to derive `flatSpend`. Remove the since-October global-median path.
-
-`flatSpend` (= mean of DOW medians) becomes the value shown in `targetSpend` on every row.
-
-### C. `src/components/forecast/ForecastTableView.tsx`
-No structural change — column "AVG TARGET" continues to show the uniform `flatSpend`. Just relies on the new builder. Keep multi-venue selection chips, date filters, PNG/Copy.
+### 5. Files
+- Edit `src/utils/forecastTableData.ts` (add targetVenues weighting)
+- Edit `src/components/forecast/ForecastTableView.tsx` (rename column, accept targetVenues, warning note)
+- Edit `src/pages/ForecastInput.tsx` (pass targetVenues to wrapper)
 
 ### Verification
-1. Open Daily Distribution modal for Caliente → note its daily Total Sales values.
-2. Open Table view, select only Caliente, full month range → daily Fcst Sales values match the modal's per-day Total Sales.
-3. AVG TARGET column shows the same number on every row = arithmetic mean of the 7 DOW median spends (not per-DOW spend).
-4. Daily Fcst Guests = round(Fcst Sales / 1.1 / AVG TARGET) — varies per day.
-5. Sum of forecast-day Fcst Sales ≈ remaining monthly target (target − actuals so far).
-
-### Files
-- Edit `src/utils/forecastDistribution.ts` (add 2 helpers; keep existing for backward compat)
-- Edit `src/utils/forecastTableData.ts` (swap to new builder)
-- No edit needed to `ForecastTableView.tsx`
+1. /forecast/assembly, April 2026, target=800k for {Assembly, Caliente}. Select only Assembly → header shows scoped target ≈ 800k × Assembly's historical share (e.g. ~440k), Fcst Sales total over remaining days ≈ scoped target − Assembly actuals so far. Guest counts return to realistic levels (~100-200/day, not 400+).
+2. Select Assembly + Caliente → header shows full 800k, totals match the Daily Distribution modal exactly.
+3. Select Hanabi (not in target venues) → warning chip "No target allocated", numbers go to 0/—.
+4. Column header reads `AVG SPEND PER GUEST TARGET`.
