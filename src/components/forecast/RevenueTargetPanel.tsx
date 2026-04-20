@@ -51,6 +51,8 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
   const [previewOpen, setPreviewOpen] = useState(false);
   const [perVenue, setPerVenue] = useState<VenueDistribution[]>([]);
   const [applying, setApplying] = useState(false);
+  const [filterFrom, setFilterFrom] = useState<string>("");
+  const [filterTo, setFilterTo] = useState<string>("");
 
   useEffect(() => {
     const existing = getTarget(year, month);
