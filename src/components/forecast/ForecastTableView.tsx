@@ -16,6 +16,7 @@ const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"]
 interface ForecastTableViewProps {
   salesData: SalesRecord[];
   monthlyTarget: number;
+  targetVenues?: ForecastVenue[];
   defaultVenue?: ForecastVenue;
   initialYear?: number;
   initialMonth?: number;
@@ -35,6 +36,7 @@ const sameSet = (a: ForecastVenue[], b: ForecastVenue[]) =>
 const ForecastTableView = ({
   salesData,
   monthlyTarget,
+  targetVenues,
   defaultVenue,
   initialYear,
   initialMonth,
@@ -65,6 +67,11 @@ const ForecastTableView = ({
     [selectedVenues],
   );
 
+  const effectiveTargetVenues = useMemo<ForecastVenue[]>(
+    () => (targetVenues && targetVenues.length > 0 ? targetVenues : ALL_VENUES),
+    [targetVenues],
+  );
+
   const data = useMemo(
     () =>
       buildForecastTableData({
@@ -73,8 +80,9 @@ const ForecastTableView = ({
         venues: orderedSelection,
         salesData,
         monthlyTarget,
+        targetVenues: effectiveTargetVenues,
       }),
-    [year, month, salesData, monthlyTarget, orderedSelection],
+    [year, month, salesData, monthlyTarget, orderedSelection, effectiveTargetVenues],
   );
 
   useEffect(() => {
