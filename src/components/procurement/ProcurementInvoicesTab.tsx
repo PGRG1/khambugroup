@@ -862,7 +862,8 @@ export default function ProcurementInvoicesTab() {
                   <th
                     key={column.key}
                     className={`cursor-pointer select-none px-3 py-2.5 text-left font-semibold ${column.w} ${column.align === "right" ? "text-right" : ""}`}
-                    onClick={() => toggleSort(column.key)}
+                    onClick={(e) => toggleSort(column.key, e.shiftKey)}
+                    title="Click to sort. Shift+click to add another column."
                   >
                     <span className="flex items-center gap-1">{column.label}<SortIcon col={column.key} /></span>
                   </th>
