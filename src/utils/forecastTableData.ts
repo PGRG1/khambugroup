@@ -1,9 +1,8 @@
 import { SalesRecord } from "@/types/sales";
 import {
   computeDowMedians,
-  distributeMonthlyTargetFlatSpend,
-  computeGlobalMedianSpend,
-  getDefaultSinceOctober,
+  distributeMonthlyTargetUniformSpendDowShape,
+  meanOfDowMedianSpend,
   DistributedDay,
 } from "./forecastDistribution";
 
@@ -28,9 +27,11 @@ export interface ForecastTableData {
 /**
  * Build a single combined forecast table for the selected venues.
  *
- * Spend baseline is a UNIFORM global median avg-spend (since most recent past
- * October), applied to every forecast day. Daily revenue is shaped by combined
- * DOW guest medians. Actuals are preserved as-is.
+ * Daily revenue is shaped by the SAME driver as the Daily Distribution modal:
+ * per-DOW median guests × per-DOW median spend. The displayed Avg Target
+ * is the arithmetic mean of the 7 DOW median spends, applied uniformly to
+ * every forecast row, with guests back-solved as dailyGross / flatSpend.
+ * Actuals are preserved as-is.
  */
 export function buildForecastTableData(params: {
   year: number;
@@ -41,9 +42,8 @@ export function buildForecastTableData(params: {
 }): ForecastTableData {
   const { year, month, venues, salesData, monthlyTarget } = params;
 
-  const since = getDefaultSinceOctober();
-  const flatSpend = computeGlobalMedianSpend(salesData, venues, since);
   const dowMedians = computeDowMedians(salesData, venues, 12);
+  const flatSpend = meanOfDowMedianSpend(dowMedians);
 
   // Aggregate actuals across the selected venues for the target month
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
@@ -57,12 +57,12 @@ export function buildForecastTableData(params: {
     actuals.set(s.date, cur);
   }
 
-  const result = distributeMonthlyTargetFlatSpend({
+  const result = distributeMonthlyTargetUniformSpendDowShape({
     year,
     month,
     monthlyTarget,
     flatSpend,
-    dowGuestsForShape: dowMedians.guestsByDow,
+    medians: dowMedians,
     actuals,
   });
 
