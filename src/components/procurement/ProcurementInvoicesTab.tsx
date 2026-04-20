@@ -17,6 +17,7 @@ import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
+import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -109,7 +110,7 @@ export default function ProcurementInvoicesTab() {
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortColumns, setSortColumns] = useState<Array<{key: string, dir: "asc"|"desc"}>>([{ key: "invoice_date", dir: "desc" }]);
+  const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -180,13 +181,8 @@ export default function ProcurementInvoicesTab() {
     setViewerOpen(true);
   };
 
-  const toggleSort = (key: string) => {
-    setSortColumns(prev => {
-      const idx = prev.findIndex(s => s.key === key);
-      if (idx === -1) return [...prev, { key, dir: "asc" as const }];
-      if (prev[idx].dir === "asc") return prev.map((s, i) => i === idx ? { ...s, dir: "desc" as const } : s);
-      return prev.filter((_, i) => i !== idx);
-    });
+  const toggleSort = (key: string, additive: boolean) => {
+    setSortColumns(prev => toggleSortColumns(prev, key, additive));
   };
 
   const SortIcon = ({ col }: { col: string }) => {
@@ -210,18 +206,7 @@ export default function ProcurementInvoicesTab() {
       return inv.invoice_number.toLowerCase().includes(q) || (inv.supplier_name || "").toLowerCase().includes(q);
     });
 
-    if (sortColumns.length > 0) {
-      result.sort((a, b) => {
-        for (const { key, dir } of sortColumns) {
-          const av = (a as any)[key], bv = (b as any)[key];
-          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av ?? "").localeCompare(String(bv ?? ""));
-          if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
-        }
-        return 0;
-      });
-    }
-
-    return result;
+    return sortRows(result, sortColumns);
   }, [invoices, venueFilter, statusFilter, search, sortColumns]);
 
   const columns = [
