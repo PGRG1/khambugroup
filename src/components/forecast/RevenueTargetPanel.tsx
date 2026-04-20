@@ -371,14 +371,34 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
 
 // ---------- Sub-components ----------
 
-const VenueTable = ({ title, result, venueTarget }: { title: string; result: DistributionResult; venueTarget: number }) => {
+const VenueTable = ({
+  title,
+  result,
+  venueTarget,
+  weightPct,
+  noHistory,
+}: {
+  title: string;
+  result: DistributionResult;
+  venueTarget: number;
+  weightPct?: number;
+  noHistory?: boolean;
+}) => {
   const anyFallback = result.rows.some((r) => !r.isActual && r.fallback);
   return (
     <section className="rounded-lg border border-border overflow-hidden">
       <header className="bg-muted/50 px-4 py-2.5 flex items-center justify-between border-b border-border">
         <div className="flex items-center gap-2">
           <h4 className="text-sm font-display font-semibold">{title}</h4>
+          {weightPct !== undefined && (
+            <Badge variant="outline" className="text-[10px]">{weightPct}% share</Badge>
+          )}
           <Badge variant="outline" className="text-[10px]">Target: {formatCurrency(Math.round(venueTarget))}</Badge>
+          {noHistory && (
+            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40 bg-amber-500/10">
+              <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />No history — 0 share
+            </Badge>
+          )}
           {anyFallback && (
             <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40 bg-amber-500/10">
               <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Fallback used
