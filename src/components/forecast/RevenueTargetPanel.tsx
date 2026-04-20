@@ -33,6 +33,8 @@ interface VenueDistribution {
   venue: Venue;
   result: DistributionResult;
   venueTarget: number;
+  weightPct: number;
+  noHistory: boolean;
 }
 
 const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps) => {
