@@ -18,6 +18,10 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
+import { useVirtualizer } from "@tanstack/react-virtual";
+
+// Grid template for virtualized invoice rows (must match header)
+const INV_GRID_COLS = "100px 120px minmax(160px,1fr) 90px 100px 110px 90px 90px";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -110,6 +114,7 @@ export default function ProcurementInvoicesTab() {
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState<string>("__latest__");
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -196,10 +201,32 @@ export default function ProcurementInvoicesTab() {
     );
   };
 
+  const months = useMemo(() => {
+    const set = new Set<string>();
+    for (const inv of invoices) {
+      if (inv.invoice_date) set.add(inv.invoice_date.substring(0, 7));
+    }
+    return [...set].sort().reverse();
+  }, [invoices]);
+
+  // Default month filter to most recent month once invoices load
+  useEffect(() => {
+    if (monthFilter === "__latest__" && months.length > 0) {
+      setMonthFilter(months[0]);
+    }
+  }, [months, monthFilter]);
+
+  const fmtMonth = (ym: string) => {
+    const [y, m] = ym.split("-");
+    const date = new Date(Number(y), Number(m) - 1);
+    return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  };
+
   const filtered = useMemo(() => {
     const result = invoices.filter((inv) => {
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+      if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
       const q = search.toLowerCase();
@@ -207,7 +234,7 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, venueFilter, statusFilter, search, sortColumns]);
+  }, [invoices, venueFilter, statusFilter, monthFilter, search, sortColumns]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },
@@ -824,6 +851,13 @@ export default function ProcurementInvoicesTab() {
             <SelectItem value="overdue">Overdue</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={monthFilter === "__latest__" ? "all" : monthFilter} onValueChange={setMonthFilter}>
+          <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="Month" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Months</SelectItem>
+            {months.map(m => <SelectItem key={m} value={m}>{fmtMonth(m)}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)} className="h-9">
           <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
         </Button>
@@ -855,61 +889,47 @@ export default function ProcurementInvoicesTab() {
 
       <div className="card-glass overflow-hidden rounded-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px] leading-tight">
-            <thead>
-              <tr className="bg-primary text-primary-foreground">
-                {columns.map((column) => (
-                  <th
-                    key={column.key}
-                    className={`cursor-pointer select-none px-3 py-2.5 text-left font-semibold ${column.w} ${column.align === "right" ? "text-right" : ""}`}
-                    onClick={(e) => toggleSort(column.key, e.shiftKey)}
-                    title="Click to sort. Shift+click to add another column."
-                  >
-                    <span className="flex items-center gap-1">{column.label}<SortIcon col={column.key} /></span>
-                  </th>
-                ))}
-                <th className="w-[90px] px-3 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={columns.length + 1} className="py-12 text-center text-muted-foreground">No invoices found. Upload your first invoice above.</td></tr>
-              ) : filtered.map((inv, idx) => (
-                <tr key={inv.id} className={`cursor-pointer border-b border-border/40 transition-colors hover:bg-accent/30 ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`} onClick={() => openDetail(inv)}>
-                  <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{fmtDate(inv.invoice_date)}</td>
-                  <td className="px-3 py-2 font-mono font-medium text-primary">{inv.invoice_number}</td>
-                  <td className="px-3 py-2 font-medium text-foreground">{inv.supplier_name}</td>
-                  <td className="px-3 py-2">{inv.venue}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{fmtDate(inv.due_date || "")}</td>
-                  <td className="px-3 py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</td>
-                  <td className="px-3 py-2">
-                    <Badge className={`px-1.5 py-0 text-[10px] ${STATUS_COLORS[inv.status] || ""}`}>{inv.status}</Badge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1">
-                      {inv.file_url && (
-                        <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <button onClick={(e) => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+          <div style={{ minWidth: 880 }}>
+            {/* Header */}
+            <div
+              className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
+              style={{ gridTemplateColumns: INV_GRID_COLS }}
+            >
+              {columns.map((column) => (
+                <div
+                  key={column.key}
+                  className={`cursor-pointer select-none px-3 py-2.5 font-semibold flex items-center ${column.align === "right" ? "justify-end" : ""}`}
+                  onClick={(e) => toggleSort(column.key, e.shiftKey)}
+                  title="Click to sort. Shift+click to add another column."
+                >
+                  <span className="flex items-center gap-1">{column.label}<SortIcon col={column.key} /></span>
+                </div>
               ))}
-            </tbody>
+              <div className="px-3 py-2.5"></div>
+            </div>
+
+            {/* Virtualized body */}
+            <InvoiceVirtualBody
+              filtered={filtered}
+              openDetail={openDetail}
+              openAttachmentViewer={openAttachmentViewer}
+              setDeletingId={setDeletingId}
+              setDeleteOpen={setDeleteOpen}
+            />
+
+            {/* Footer */}
             {filtered.length > 0 && (
-              <tfoot>
-                <tr className="bg-muted/40 text-[12px] font-semibold">
-                  <td colSpan={5} className="px-3 py-2 text-right">Total</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(totalAmount)}</td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
+              <div
+                className="grid bg-muted/40 text-[12px] font-semibold border-t border-border"
+                style={{ gridTemplateColumns: INV_GRID_COLS }}
+              >
+                <div className="px-3 py-2 text-right" style={{ gridColumn: "span 5" }}>Total</div>
+                <div className="px-3 py-2 text-right tabular-nums">{fmt(totalAmount)}</div>
+                <div></div>
+                <div></div>
+              </div>
             )}
-          </table>
+          </div>
         </div>
       </div>
 
@@ -1000,6 +1020,79 @@ export default function ProcurementInvoicesTab() {
 
       <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Invoice" description="This will permanently delete this invoice and all its line items." />
       <AttachmentViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} fileUrl={viewerFileUrl} title={viewerTitle} />
+    </div>
+  );
+}
+
+// ----- Virtualized invoice rows ----------------------------------
+interface InvoiceVirtualBodyProps {
+  filtered: Invoice[];
+  openDetail: (inv: Invoice) => void;
+  openAttachmentViewer: (fileUrl: string, invoiceNumber: string) => void;
+  setDeletingId: (id: string) => void;
+  setDeleteOpen: (open: boolean) => void;
+}
+
+function InvoiceVirtualBody({ filtered, openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen }: InvoiceVirtualBodyProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 36,
+    overscan: 100,
+  });
+  const items = rowVirtualizer.getVirtualItems();
+
+  return (
+    <div ref={scrollRef} className="overflow-auto" style={{ height: "calc(100vh - 360px)", minHeight: 420 }}>
+      {filtered.length === 0 ? (
+        <div className="py-12 text-center text-muted-foreground">No invoices found. Upload your first invoice above.</div>
+      ) : (
+        <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+          {items.map((vRow) => {
+            const inv = filtered[vRow.index];
+            const idx = vRow.index;
+            return (
+              <div
+                key={inv.id}
+                className={`grid items-center cursor-pointer border-b border-border/40 transition-colors hover:bg-accent/30 text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
+                style={{
+                  gridTemplateColumns: INV_GRID_COLS,
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: vRow.size,
+                  transform: `translateY(${vRow.start}px)`,
+                }}
+                onClick={() => openDetail(inv)}
+              >
+                <div className="whitespace-nowrap px-3 text-muted-foreground">{fmtDate(inv.invoice_date)}</div>
+                <div className="px-3 font-mono font-medium text-primary truncate">{inv.invoice_number}</div>
+                <div className="px-3 font-medium text-foreground truncate">{inv.supplier_name}</div>
+                <div className="px-3 truncate">{inv.venue}</div>
+                <div className="whitespace-nowrap px-3 text-muted-foreground">{fmtDate(inv.due_date || "")}</div>
+                <div className="px-3 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</div>
+                <div className="px-3">
+                  <Badge className={`px-1.5 py-0 text-[10px] ${STATUS_COLORS[inv.status] || ""}`}>{inv.status}</Badge>
+                </div>
+                <div className="px-3">
+                  <div className="flex gap-1">
+                    {inv.file_url && (
+                      <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
