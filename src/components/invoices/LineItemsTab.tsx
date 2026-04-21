@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Eye } from "lucide-react";
 import { Supplier } from "@/hooks/useInvoiceData";
 import AttachmentViewerDialog from "./AttachmentViewerDialog";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface LineItemRow {
   id: string;
@@ -20,11 +20,16 @@ interface LineItemRow {
   unit_price: number;
   net_amount: number;
   file_url: string;
+  // pre-lowered for fast search
+  _s: string;
 }
 
 interface Props {
   suppliers: Supplier[];
 }
+
+// Column template — keep header & rows in lockstep
+const GRID_COLS = "32px 110px minmax(140px,1fr) 120px 110px minmax(160px,1.2fr) minmax(220px,1.6fr) 70px 80px 100px 110px";
 
 export default function LineItemsTab({ suppliers }: Props) {
   const [rows, setRows] = useState<LineItemRow[]>([]);
@@ -54,19 +59,25 @@ export default function LineItemsTab({ suppliers }: Props) {
 
       const mapped: LineItemRow[] = items.map((li: any) => {
         const inv = invMap.get(li.invoice_id);
+        const supplier_name = inv ? (supMap.get(inv.supplier_id) || "Unknown") : "Unknown";
+        const invoice_number = inv?.invoice_number || "";
+        const item_code = li.item_code || "";
+        const master_name = li.standard_product_id ? (prodMap.get(li.standard_product_id) || "") : "";
+        const description = `${li.description || ""}${li.pack_size ? ` [${li.pack_size}]` : ""}`;
         return {
           id: li.id,
           invoice_date: inv?.invoice_date || "",
-          supplier_name: inv ? (supMap.get(inv.supplier_id) || "Unknown") : "Unknown",
-          invoice_number: inv?.invoice_number || "",
-          item_code: li.item_code || "",
-          master_name: li.standard_product_id ? (prodMap.get(li.standard_product_id) || "") : "",
-          description: `${li.description || ""}${li.pack_size ? ` [${li.pack_size}]` : ""}`,
+          supplier_name,
+          invoice_number,
+          item_code,
+          master_name,
+          description,
           quantity: li.quantity || 0,
           unit: li.unit || "unit",
           unit_price: li.unit_price || 0,
           net_amount: li.total || 0,
           file_url: inv?.file_url || "",
+          _s: `${supplier_name} ${invoice_number} ${item_code} ${master_name} ${description}`.toLowerCase(),
         };
       });
 
@@ -82,13 +93,7 @@ export default function LineItemsTab({ suppliers }: Props) {
     }
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(r =>
-        r.description.toLowerCase().includes(q) ||
-        r.item_code.toLowerCase().includes(q) ||
-        r.master_name.toLowerCase().includes(q) ||
-        r.invoice_number.toLowerCase().includes(q) ||
-        r.supplier_name.toLowerCase().includes(q)
-      );
+      result = result.filter(r => r._s.includes(q));
     }
     return [...result].sort((a, b) => {
       const av = (a as any)[sortKey];
@@ -117,8 +122,17 @@ export default function LineItemsTab({ suppliers }: Props) {
     return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  const uniqueSuppliers = [...new Set(rows.map(r => r.supplier_name))].sort();
-  const totalNet = filtered.reduce((s, r) => s + r.net_amount, 0);
+  const uniqueSuppliers = useMemo(() => [...new Set(rows.map(r => r.supplier_name))].sort(), [rows]);
+  const totalNet = useMemo(() => filtered.reduce((s, r) => s + r.net_amount, 0), [filtered]);
+
+  // Virtualization
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 36,
+    overscan: 100,
+  });
 
   if (loading) return <p className="text-muted-foreground p-4 text-sm">Loading line items...</p>;
 
@@ -134,6 +148,8 @@ export default function LineItemsTab({ suppliers }: Props) {
     { key: "unit_price", label: "Unit Price", align: "right" },
     { key: "net_amount", label: "Net Amount", align: "right" },
   ];
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
 
   return (
     <div className="space-y-3">
@@ -155,68 +171,94 @@ export default function LineItemsTab({ suppliers }: Props) {
         </span>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border border-border overflow-auto bg-card">
-        <table className="w-full text-[12px] leading-tight">
-          <thead>
-            <tr className="bg-primary text-primary-foreground">
-              <th className="px-2 py-2.5 w-8"></th>
-              {columns.map(col => (
-                <th
-                  key={col.key}
-                  className={`px-3 py-2.5 font-semibold whitespace-nowrap cursor-pointer select-none transition-colors hover:bg-primary/80 ${col.align === "right" ? "text-right" : "text-left"}`}
-                  onClick={() => toggleSort(col.key)}
-                >
-                  <span className="inline-flex items-center gap-0.5">
-                    {col.label}
-                    <SortIcon col={col.key} />
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={11} className="text-center text-muted-foreground py-10 text-sm">No line items found</td>
-              </tr>
-            ) : (
-              filtered.map((row, idx) => (
-                <tr key={row.id} className={`border-b border-border/40 transition-colors hover:bg-accent/30 ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
-                  <td className="px-2 py-2 text-center">
-                    {row.file_url ? (
-                      <button
-                        onClick={() => { setViewerFileUrl(row.file_url); setViewerTitle(`Invoice ${row.invoice_number}`); setViewerOpen(true); }}
-                        className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                        title="View attachment"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{formatDate(row.invoice_date)}</td>
-                  <td className="px-3 py-2 font-medium text-foreground">{row.supplier_name}</td>
-                  <td className="px-3 py-2 tabular-nums">{row.invoice_number}</td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">{row.item_code}</td>
-                  <td className="px-3 py-2 text-foreground">{row.master_name}</td>
-                  <td className="px-3 py-2 max-w-[280px] truncate text-muted-foreground">{row.description}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-foreground">{row.quantity}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{row.unit}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-foreground">{formatCurrency(row.unit_price)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{formatCurrency(row.net_amount)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-          {filtered.length > 0 && (
-            <tfoot>
-              <tr className="bg-primary/10 border-t-2 border-primary/30">
-                <td colSpan={10} className="px-3 py-2.5 text-right font-semibold text-foreground text-[12px]">Total</td>
-                <td className="px-3 py-2.5 text-right font-bold tabular-nums text-foreground text-[13px]">{formatCurrency(totalNet)}</td>
-              </tr>
-            </tfoot>
+      {/* Virtualized "Table" (div-grid based for absolute-positioning support) */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {/* Header */}
+        <div
+          className="grid bg-primary text-primary-foreground text-[12px] font-semibold"
+          style={{ gridTemplateColumns: GRID_COLS }}
+        >
+          <div></div>
+          {columns.map(col => (
+            <div
+              key={col.key}
+              className={`px-3 py-2.5 cursor-pointer select-none transition-colors hover:bg-primary/80 whitespace-nowrap ${col.align === "right" ? "text-right justify-end" : "text-left"} flex items-center`}
+              onClick={() => toggleSort(col.key)}
+            >
+              <span className="inline-flex items-center gap-0.5">
+                {col.label}
+                <SortIcon col={col.key} />
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Scrollable virtualized body */}
+        <div
+          ref={scrollRef}
+          className="overflow-auto"
+          style={{ height: "calc(100vh - 320px)", minHeight: 400 }}
+        >
+          {filtered.length === 0 ? (
+            <div className="text-center text-muted-foreground py-10 text-sm">No line items found</div>
+          ) : (
+            <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+              {virtualItems.map(vRow => {
+                const row = filtered[vRow.index];
+                const idx = vRow.index;
+                return (
+                  <div
+                    key={row.id}
+                    className={`grid items-center border-b border-border/40 transition-colors hover:bg-accent/30 text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
+                    style={{
+                      gridTemplateColumns: GRID_COLS,
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: vRow.size,
+                      transform: `translateY(${vRow.start}px)`,
+                    }}
+                  >
+                    <div className="px-2 text-center">
+                      {row.file_url ? (
+                        <button
+                          onClick={() => { setViewerFileUrl(row.file_url); setViewerTitle(`Invoice ${row.invoice_number}`); setViewerOpen(true); }}
+                          className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                          title="View attachment"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="px-3 whitespace-nowrap text-muted-foreground">{formatDate(row.invoice_date)}</div>
+                    <div className="px-3 font-medium text-foreground truncate">{row.supplier_name}</div>
+                    <div className="px-3 tabular-nums truncate">{row.invoice_number}</div>
+                    <div className="px-3 font-mono text-[11px] text-muted-foreground truncate">{row.item_code}</div>
+                    <div className="px-3 text-foreground truncate">{row.master_name}</div>
+                    <div className="px-3 truncate text-muted-foreground">{row.description}</div>
+                    <div className="px-3 text-right tabular-nums text-foreground">{row.quantity}</div>
+                    <div className="px-3 text-muted-foreground">{row.unit}</div>
+                    <div className="px-3 text-right tabular-nums text-foreground">{formatCurrency(row.unit_price)}</div>
+                    <div className="px-3 text-right tabular-nums font-semibold text-foreground">{formatCurrency(row.net_amount)}</div>
+                  </div>
+                );
+              })}
+            </div>
           )}
-        </table>
+        </div>
+
+        {/* Footer */}
+        {filtered.length > 0 && (
+          <div
+            className="grid bg-primary/10 border-t-2 border-primary/30 font-semibold text-foreground text-[12px]"
+            style={{ gridTemplateColumns: GRID_COLS }}
+          >
+            <div></div>
+            <div className="col-span-9 px-3 py-2.5 text-right" style={{ gridColumn: "span 9" }}>Total</div>
+            <div className="px-3 py-2.5 text-right tabular-nums font-bold text-[13px]">{formatCurrency(totalNet)}</div>
+          </div>
+        )}
       </div>
 
       <AttachmentViewerDialog
