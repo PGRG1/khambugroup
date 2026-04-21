@@ -851,6 +851,13 @@ export default function ProcurementInvoicesTab() {
             <SelectItem value="overdue">Overdue</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={monthFilter === "__latest__" ? "all" : monthFilter} onValueChange={setMonthFilter}>
+          <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="Month" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Months</SelectItem>
+            {months.map(m => <SelectItem key={m} value={m}>{fmtMonth(m)}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)} className="h-9">
           <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
         </Button>
@@ -882,61 +889,47 @@ export default function ProcurementInvoicesTab() {
 
       <div className="card-glass overflow-hidden rounded-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px] leading-tight">
-            <thead>
-              <tr className="bg-primary text-primary-foreground">
-                {columns.map((column) => (
-                  <th
-                    key={column.key}
-                    className={`cursor-pointer select-none px-3 py-2.5 text-left font-semibold ${column.w} ${column.align === "right" ? "text-right" : ""}`}
-                    onClick={(e) => toggleSort(column.key, e.shiftKey)}
-                    title="Click to sort. Shift+click to add another column."
-                  >
-                    <span className="flex items-center gap-1">{column.label}<SortIcon col={column.key} /></span>
-                  </th>
-                ))}
-                <th className="w-[90px] px-3 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={columns.length + 1} className="py-12 text-center text-muted-foreground">No invoices found. Upload your first invoice above.</td></tr>
-              ) : filtered.map((inv, idx) => (
-                <tr key={inv.id} className={`cursor-pointer border-b border-border/40 transition-colors hover:bg-accent/30 ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`} onClick={() => openDetail(inv)}>
-                  <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{fmtDate(inv.invoice_date)}</td>
-                  <td className="px-3 py-2 font-mono font-medium text-primary">{inv.invoice_number}</td>
-                  <td className="px-3 py-2 font-medium text-foreground">{inv.supplier_name}</td>
-                  <td className="px-3 py-2">{inv.venue}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{fmtDate(inv.due_date || "")}</td>
-                  <td className="px-3 py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</td>
-                  <td className="px-3 py-2">
-                    <Badge className={`px-1.5 py-0 text-[10px] ${STATUS_COLORS[inv.status] || ""}`}>{inv.status}</Badge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1">
-                      {inv.file_url && (
-                        <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
-                          <Eye className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <button onClick={(e) => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+          <div style={{ minWidth: 880 }}>
+            {/* Header */}
+            <div
+              className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
+              style={{ gridTemplateColumns: INV_GRID_COLS }}
+            >
+              {columns.map((column) => (
+                <div
+                  key={column.key}
+                  className={`cursor-pointer select-none px-3 py-2.5 font-semibold flex items-center ${column.align === "right" ? "justify-end" : ""}`}
+                  onClick={(e) => toggleSort(column.key, e.shiftKey)}
+                  title="Click to sort. Shift+click to add another column."
+                >
+                  <span className="flex items-center gap-1">{column.label}<SortIcon col={column.key} /></span>
+                </div>
               ))}
-            </tbody>
+              <div className="px-3 py-2.5"></div>
+            </div>
+
+            {/* Virtualized body */}
+            <InvoiceVirtualBody
+              filtered={filtered}
+              openDetail={openDetail}
+              openAttachmentViewer={openAttachmentViewer}
+              setDeletingId={setDeletingId}
+              setDeleteOpen={setDeleteOpen}
+            />
+
+            {/* Footer */}
             {filtered.length > 0 && (
-              <tfoot>
-                <tr className="bg-muted/40 text-[12px] font-semibold">
-                  <td colSpan={5} className="px-3 py-2 text-right">Total</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(totalAmount)}</td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
+              <div
+                className="grid bg-muted/40 text-[12px] font-semibold border-t border-border"
+                style={{ gridTemplateColumns: INV_GRID_COLS }}
+              >
+                <div className="px-3 py-2 text-right" style={{ gridColumn: "span 5" }}>Total</div>
+                <div className="px-3 py-2 text-right tabular-nums">{fmt(totalAmount)}</div>
+                <div></div>
+                <div></div>
+              </div>
             )}
-          </table>
+          </div>
         </div>
       </div>
 
