@@ -201,10 +201,32 @@ export default function ProcurementInvoicesTab() {
     );
   };
 
+  const months = useMemo(() => {
+    const set = new Set<string>();
+    for (const inv of invoices) {
+      if (inv.invoice_date) set.add(inv.invoice_date.substring(0, 7));
+    }
+    return [...set].sort().reverse();
+  }, [invoices]);
+
+  // Default month filter to most recent month once invoices load
+  useEffect(() => {
+    if (monthFilter === "__latest__" && months.length > 0) {
+      setMonthFilter(months[0]);
+    }
+  }, [months, monthFilter]);
+
+  const fmtMonth = (ym: string) => {
+    const [y, m] = ym.split("-");
+    const date = new Date(Number(y), Number(m) - 1);
+    return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  };
+
   const filtered = useMemo(() => {
     const result = invoices.filter((inv) => {
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+      if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
       const q = search.toLowerCase();
@@ -212,7 +234,7 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, venueFilter, statusFilter, search, sortColumns]);
+  }, [invoices, venueFilter, statusFilter, monthFilter, search, sortColumns]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },
