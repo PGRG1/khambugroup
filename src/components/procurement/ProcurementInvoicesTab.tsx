@@ -1023,3 +1023,76 @@ export default function ProcurementInvoicesTab() {
     </div>
   );
 }
+
+// ----- Virtualized invoice rows ----------------------------------
+interface InvoiceVirtualBodyProps {
+  filtered: Invoice[];
+  openDetail: (inv: Invoice) => void;
+  openAttachmentViewer: (fileUrl: string, invoiceNumber: string) => void;
+  setDeletingId: (id: string) => void;
+  setDeleteOpen: (open: boolean) => void;
+}
+
+function InvoiceVirtualBody({ filtered, openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen }: InvoiceVirtualBodyProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 36,
+    overscan: 100,
+  });
+  const items = rowVirtualizer.getVirtualItems();
+
+  return (
+    <div ref={scrollRef} className="overflow-auto" style={{ height: "calc(100vh - 360px)", minHeight: 420 }}>
+      {filtered.length === 0 ? (
+        <div className="py-12 text-center text-muted-foreground">No invoices found. Upload your first invoice above.</div>
+      ) : (
+        <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+          {items.map((vRow) => {
+            const inv = filtered[vRow.index];
+            const idx = vRow.index;
+            return (
+              <div
+                key={inv.id}
+                className={`grid items-center cursor-pointer border-b border-border/40 transition-colors hover:bg-accent/30 text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
+                style={{
+                  gridTemplateColumns: INV_GRID_COLS,
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: vRow.size,
+                  transform: `translateY(${vRow.start}px)`,
+                }}
+                onClick={() => openDetail(inv)}
+              >
+                <div className="whitespace-nowrap px-3 text-muted-foreground">{fmtDate(inv.invoice_date)}</div>
+                <div className="px-3 font-mono font-medium text-primary truncate">{inv.invoice_number}</div>
+                <div className="px-3 font-medium text-foreground truncate">{inv.supplier_name}</div>
+                <div className="px-3 truncate">{inv.venue}</div>
+                <div className="whitespace-nowrap px-3 text-muted-foreground">{fmtDate(inv.due_date || "")}</div>
+                <div className="px-3 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</div>
+                <div className="px-3">
+                  <Badge className={`px-1.5 py-0 text-[10px] ${STATUS_COLORS[inv.status] || ""}`}>{inv.status}</Badge>
+                </div>
+                <div className="px-3">
+                  <div className="flex gap-1">
+                    {inv.file_url && (
+                      <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
