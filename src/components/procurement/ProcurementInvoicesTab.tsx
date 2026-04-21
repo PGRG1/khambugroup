@@ -18,6 +18,10 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
+import { useVirtualizer } from "@tanstack/react-virtual";
+
+// Grid template for virtualized invoice rows (must match header)
+const INV_GRID_COLS = "100px 120px minmax(160px,1fr) 90px 100px 110px 90px 90px";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
