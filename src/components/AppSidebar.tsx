@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -27,6 +27,7 @@ const procurementItems = [
   { title: "Dashboard", url: "/procurement/dashboard", icon: LayoutDashboard },
   { title: "Suppliers", url: "/procurement/suppliers", icon: Building2 },
   { title: "Products", url: "/procurement/products", icon: Package },
+  { title: "Categories", url: "/procurement/categories", icon: Tags },
   { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
   { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
   { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },

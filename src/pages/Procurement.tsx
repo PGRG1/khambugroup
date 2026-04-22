@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import ProductMasterTab from "@/components/procurement/ProductMasterTab";
+import CategoriesTab from "@/components/procurement/CategoriesTab";
 import SuppliersTab from "@/components/procurement/SuppliersTab";
 import ProcurementInvoicesTab from "@/components/procurement/ProcurementInvoicesTab";
 import ProcurementLineItemsTab from "@/components/procurement/ProcurementLineItemsTab";
@@ -13,6 +14,7 @@ const tabTitles: Record<string, string> = {
   dashboard: "Dashboard",
   suppliers: "Suppliers",
   "product-master": "Product Master",
+  categories: "Categories",
   invoices: "Invoices",
   "line-items": "Invoice Line Items",
   inventory: "Inventory",
@@ -41,6 +43,7 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
         <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
         <TabsContent value="suppliers"><SuppliersTab /></TabsContent>
         <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
+        <TabsContent value="categories"><CategoriesTab /></TabsContent>
         <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
         <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
