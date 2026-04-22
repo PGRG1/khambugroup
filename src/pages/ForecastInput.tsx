@@ -410,6 +410,20 @@ const ForecastInput = () => {
             <Plus className="h-4 w-4 text-primary" />New Forecast Entry
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isMulti && (
+              <div className="flex flex-wrap items-center gap-2 -mt-2">
+                <label className="text-xs text-muted-foreground">Venue for this entry:</label>
+                <select
+                  value={entryVenue}
+                  onChange={(e) => setEntryVenue(e.target.value as ForecastVenue)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {orderedSelection.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">Date</label>
