@@ -94,7 +94,7 @@ export function mergeWithActuals(
       id: `actual-${first.date}-${first.venue}`,
       date: first.date,
       day: first.day,
-      venue: first.venue as "Assembly" | "Caliente" | "Hanabi",
+      venue: first.venue as "Assembly" | "Caliente" | "Hanabi" | "Events",
       forecastedCustomers: 0,
       forecastedAvgSpend: 0,
       forecastedGrossSales: 0,
