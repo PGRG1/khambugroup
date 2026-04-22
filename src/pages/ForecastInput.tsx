@@ -206,7 +206,7 @@ const ForecastInput = () => {
     const success = await addForecast({
       date,
       day: getDayFromDate(date),
-      venue: venueName as "Assembly" | "Caliente" | "Hanabi",
+      venue: entryVenue,
       forecastedCustomers: customers,
       forecastedAvgSpend: avgSpend,
       forecastedGrossSales: calc.grossSales,
@@ -352,7 +352,7 @@ const ForecastInput = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display tracking-tight">
-            <span className="text-gradient-gold">{venueName}</span>
+            <span className="text-gradient-gold">{venueLabel}</span>
             <span className="text-muted-foreground ml-2 text-base font-normal">Forecast</span>
           </h1>
           {isApprover && (
@@ -362,9 +362,27 @@ const ForecastInput = () => {
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            <Link to="/forecast/assembly" className={`px-4 py-2 text-sm font-medium transition-colors ${venueName === "Assembly" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>Assembly</Link>
-            <Link to="/forecast/caliente" className={`px-4 py-2 text-sm font-medium transition-colors ${venueName === "Caliente" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>Caliente</Link>
+          <div className="flex flex-wrap rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSelectedVenues(ALL_VENUES)}
+              className={`px-3 py-2 text-sm font-medium transition-colors border-r border-border ${isAllVenues ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
+            >
+              All
+            </button>
+            {ALL_VENUES.map((v) => {
+              const active = selectedVenues.includes(v) && !isAllVenues;
+              return (
+                <button
+                  type="button"
+                  key={v}
+                  onClick={() => toggleVenue(v)}
+                  className={`px-3 py-2 text-sm font-medium transition-colors border-r border-border last:border-r-0 ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
+                >
+                  {v}
+                </button>
+              );
+            })}
           </div>
           {canCreate && !hideNewEntry && (
             <button onClick={() => setShowEntry(!showEntry)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${showEntry ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"}`}>
@@ -440,10 +458,10 @@ const ForecastInput = () => {
       {showTable && (
         <div className="card-glass rounded-xl p-6 animate-fade-in">
           <h3 className="text-sm font-display font-semibold text-foreground mb-4">
-            Forecast vs Actuals — {venueName} ({filteredData.length} records)
+            Forecast vs Actuals — {venueLabel} ({filteredData.length} records)
           </h3>
           {filteredData.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-8">No forecasts yet for {venueName}.</p>
+            <p className="text-muted-foreground text-sm text-center py-8">No forecasts yet for {venueLabel}.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -613,7 +631,7 @@ const ForecastInput = () => {
       {vizMode === "charts" ? (
         <ForecastCharts data={filteredData} />
       ) : (
-        <ForecastTableViewWrapper salesData={salesData} defaultVenue={venueName as any} />
+        <ForecastTableViewWrapper salesData={salesData} defaultVenues={orderedSelection} />
       )}
 
 
@@ -629,7 +647,7 @@ const ForecastInput = () => {
 };
 
 // Resolves the current month's saved revenue target and passes it to the table view.
-const ForecastTableViewWrapper = ({ salesData, defaultVenue }: { salesData: SalesRecord[]; defaultVenue?: "Assembly" | "Caliente" | "Hanabi" | "Events" }) => {
+const ForecastTableViewWrapper = ({ salesData, defaultVenues }: { salesData: SalesRecord[]; defaultVenues?: ("Assembly" | "Caliente" | "Hanabi" | "Events")[] }) => {
   const { getTarget } = useRevenueTargets();
   const today = new Date();
   const year = today.getFullYear();
@@ -640,7 +658,7 @@ const ForecastTableViewWrapper = ({ salesData, defaultVenue }: { salesData: Sale
       salesData={salesData}
       monthlyTarget={target?.targetAmount ?? 0}
       targetVenues={(target?.venues ?? []) as ("Assembly" | "Caliente" | "Hanabi" | "Events")[]}
-      defaultVenue={defaultVenue}
+      defaultVenues={defaultVenues}
       initialYear={year}
       initialMonth={month}
     />
