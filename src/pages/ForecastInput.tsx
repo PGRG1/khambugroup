@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, forwardRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList, ShieldCheck, ShieldX, Clock, Lock, BarChart3, Table as TableIcon } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { ForecastRecord } from "@/types/forecast";
