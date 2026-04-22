@@ -10,6 +10,7 @@ import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { toast } from "sonner";
 
 interface LineItemRow {
   id: string;
@@ -77,6 +78,49 @@ function buildRow(li: any, invMap: Map<string, InvoiceMeta>, supMap: Map<string,
   };
 }
 
+// Inline-editable cell. Commits on blur or Enter; discards on Escape.
+function EditableCell({
+  value, onSave, type = "text", align = "left", className = "",
+}: {
+  value: string | number;
+  onSave: (v: string) => void;
+  type?: "text" | "number";
+  align?: "left" | "right" | "center";
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value ?? ""));
+  useEffect(() => { if (!editing) setDraft(String(value ?? "")); }, [value, editing]);
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type={type}
+        step={type === "number" ? "any" : undefined}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { setEditing(false); onSave(draft); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.currentTarget.blur(); }
+          if (e.key === "Escape") { setDraft(String(value ?? "")); setEditing(false); }
+        }}
+        className={`w-full h-6 px-1 text-[12px] bg-background border border-primary rounded outline-none tabular-nums ${align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"}`}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={`w-full text-${align} px-1 py-0.5 rounded hover:bg-accent/60 cursor-text truncate ${className}`}
+      title="Click to edit"
+    >
+      {value === "" || value === null || value === undefined ? <span className="text-muted-foreground/60">—</span> : value}
+    </button>
+  );
+}
+
 export default function ProcurementLineItemsTab() {
   const [rows, setRows] = useState<LineItemRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +172,26 @@ export default function ProcurementLineItemsTab() {
       .subscribe();
     return () => { if (timer) clearTimeout(timer); supabase.removeChannel(channel); };
   }, [refetchLineItems]);
+
+  // Inline edit save: updates one field; recalculates total when qty/unit_price change
+  const saveEdit = useCallback(async (row: LineItemRow, field: "description" | "quantity" | "unit" | "unit_price" | "total", rawValue: string) => {
+    let value: any = rawValue;
+    if (field === "quantity" || field === "unit_price" || field === "total") {
+      const n = parseFloat(rawValue);
+      if (isNaN(n)) { toast.error("Invalid number"); return; }
+      value = n;
+    } else {
+      value = rawValue.trim();
+    }
+    if ((row as any)[field] === value) return;
+    const update: Record<string, any> = { [field]: value };
+    if (field === "quantity") update.total = value * row.unit_price;
+    if (field === "unit_price") update.total = row.quantity * value;
+    const { error } = await supabase.from("invoice_line_items").update(update).eq("id", row.id);
+    if (error) { toast.error("Save failed: " + error.message); return; }
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...update } : r));
+    toast.success("Saved");
+  }, []);
 
   const suppliers = useMemo(() => [...new Set(rows.map(r => r.supplier_name))].sort(), [rows]);
 
@@ -335,13 +399,21 @@ export default function ProcurementLineItemsTab() {
                           )}
                         </div>
                         <div className="px-3 text-foreground truncate">
-                          {r.description}
+                          <EditableCell value={r.description} onSave={(v) => saveEdit(r, "description", v)} />
                           {r.pack_size && <span className="text-muted-foreground ml-1">[{r.pack_size}]</span>}
                         </div>
-                        <div className="px-3 text-right tabular-nums">{r.quantity}</div>
-                        <div className="px-3 text-center text-muted-foreground">{r.unit}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.unit_price)}</div>
-                        <div className="px-3 text-right tabular-nums font-semibold">{fmt(r.total)}</div>
+                        <div className="px-3 text-right tabular-nums">
+                          <EditableCell value={r.quantity} type="number" align="right" onSave={(v) => saveEdit(r, "quantity", v)} />
+                        </div>
+                        <div className="px-3 text-center text-muted-foreground">
+                          <EditableCell value={r.unit} align="center" onSave={(v) => saveEdit(r, "unit", v)} />
+                        </div>
+                        <div className="px-3 text-right tabular-nums">
+                          <EditableCell value={r.unit_price.toFixed(2)} type="number" align="right" onSave={(v) => saveEdit(r, "unit_price", v)} />
+                        </div>
+                        <div className="px-3 text-right tabular-nums font-semibold">
+                          <EditableCell value={r.total.toFixed(2)} type="number" align="right" onSave={(v) => saveEdit(r, "total", v)} />
+                        </div>
                       </div>
                     );
                   })}
