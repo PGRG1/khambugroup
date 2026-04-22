@@ -78,6 +78,49 @@ function buildRow(li: any, invMap: Map<string, InvoiceMeta>, supMap: Map<string,
   };
 }
 
+// Inline-editable cell. Commits on blur or Enter; discards on Escape.
+function EditableCell({
+  value, onSave, type = "text", align = "left", className = "",
+}: {
+  value: string | number;
+  onSave: (v: string) => void;
+  type?: "text" | "number";
+  align?: "left" | "right" | "center";
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value ?? ""));
+  useEffect(() => { if (!editing) setDraft(String(value ?? "")); }, [value, editing]);
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type={type}
+        step={type === "number" ? "any" : undefined}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { setEditing(false); onSave(draft); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.currentTarget.blur(); }
+          if (e.key === "Escape") { setDraft(String(value ?? "")); setEditing(false); }
+        }}
+        className={`w-full h-6 px-1 text-[12px] bg-background border border-primary rounded outline-none tabular-nums ${align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"}`}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className={`w-full text-${align} px-1 py-0.5 rounded hover:bg-accent/60 cursor-text truncate ${className}`}
+      title="Click to edit"
+    >
+      {value === "" || value === null || value === undefined ? <span className="text-muted-foreground/60">—</span> : value}
+    </button>
+  );
+}
+
 export default function ProcurementLineItemsTab() {
   const [rows, setRows] = useState<LineItemRow[]>([]);
   const [loading, setLoading] = useState(true);
