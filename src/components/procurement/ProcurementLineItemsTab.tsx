@@ -399,13 +399,21 @@ export default function ProcurementLineItemsTab() {
                           )}
                         </div>
                         <div className="px-3 text-foreground truncate">
-                          {r.description}
+                          <EditableCell value={r.description} onSave={(v) => saveEdit(r, "description", v)} />
                           {r.pack_size && <span className="text-muted-foreground ml-1">[{r.pack_size}]</span>}
                         </div>
-                        <div className="px-3 text-right tabular-nums">{r.quantity}</div>
-                        <div className="px-3 text-center text-muted-foreground">{r.unit}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.unit_price)}</div>
-                        <div className="px-3 text-right tabular-nums font-semibold">{fmt(r.total)}</div>
+                        <div className="px-3 text-right tabular-nums">
+                          <EditableCell value={r.quantity} type="number" align="right" onSave={(v) => saveEdit(r, "quantity", v)} />
+                        </div>
+                        <div className="px-3 text-center text-muted-foreground">
+                          <EditableCell value={r.unit} align="center" onSave={(v) => saveEdit(r, "unit", v)} />
+                        </div>
+                        <div className="px-3 text-right tabular-nums">
+                          <EditableCell value={r.unit_price.toFixed(2)} type="number" align="right" onSave={(v) => saveEdit(r, "unit_price", v)} />
+                        </div>
+                        <div className="px-3 text-right tabular-nums font-semibold">
+                          <EditableCell value={r.total.toFixed(2)} type="number" align="right" onSave={(v) => saveEdit(r, "total", v)} />
+                        </div>
                       </div>
                     );
                   })}
