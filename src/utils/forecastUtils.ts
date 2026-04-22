@@ -94,7 +94,7 @@ export function mergeWithActuals(
       id: `actual-${first.date}-${first.venue}`,
       date: first.date,
       day: first.day,
-      venue: first.venue as "Assembly" | "Caliente" | "Hanabi",
+      venue: first.venue as "Assembly" | "Caliente" | "Hanabi" | "Events",
       forecastedCustomers: 0,
       forecastedAvgSpend: 0,
       forecastedGrossSales: 0,
@@ -119,4 +119,73 @@ export function mergeWithActuals(
   }
 
   return merged;
+}
+
+/**
+ * Collapse multi-venue rows by date so each calendar day appears once with
+ * summed forecast/actual figures. Notes are concatenated with venue tags.
+ */
+export function aggregateMergedByDate(rows: ForecastWithActuals[]): ForecastWithActuals[] {
+  const byDate = new Map<string, ForecastWithActuals[]>();
+  for (const r of rows) {
+    if (!byDate.has(r.date)) byDate.set(r.date, []);
+    byDate.get(r.date)!.push(r);
+  }
+
+  const out: ForecastWithActuals[] = [];
+  for (const [date, group] of byDate) {
+    if (group.length === 1) { out.push(group[0]); continue; }
+
+    const fCust = group.reduce((s, r) => s + (r.forecastedCustomers || 0), 0);
+    const fGross = group.reduce((s, r) => s + (r.forecastedGrossSales || 0), 0);
+    const fSc = group.reduce((s, r) => s + (r.forecastedServiceCharge || 0), 0);
+    const fTotal = group.reduce((s, r) => s + (r.forecastedTotalSales || 0), 0);
+    const fAvg = fCust > 0 ? Math.round(fGross / fCust) : 0;
+
+    const hasActuals = group.some((r) => r.actualTotalSales !== null);
+    const aCust = hasActuals ? group.reduce((s, r) => s + (r.actualCustomers ?? 0), 0) : null;
+    const aTotal = hasActuals ? group.reduce((s, r) => s + (r.actualTotalSales ?? 0), 0) : null;
+    const aAvg = hasActuals && aCust && aCust > 0 ? Math.round((aTotal ?? 0) / aCust) : (hasActuals ? 0 : null);
+
+    const tag = (r: ForecastWithActuals, txt: string) => txt ? `[${r.venue}] ${txt}` : "";
+    const joinNotes = (key: "comment" | "forecastNotes" | "postEventNotes") =>
+      group.map((r) => tag(r, (r as any)[key])).filter(Boolean).join(" | ");
+
+    // Status: if any pending → pending, else if all approved → approved, else draft
+    const statuses = new Set(group.filter((r) => !r.id.startsWith("actual-")).map((r) => r.status));
+    const status: ForecastWithActuals["status"] = statuses.has("pending_approval")
+      ? "pending_approval"
+      : statuses.size === 1 && statuses.has("approved")
+      ? "approved"
+      : "draft";
+
+    out.push({
+      id: `agg-${date}`,
+      date,
+      day: group[0].day,
+      venue: group[0].venue, // representative; not really used in aggregated view
+      forecastedCustomers: fCust,
+      forecastedAvgSpend: fAvg,
+      forecastedGrossSales: fGross,
+      forecastedServiceCharge: fSc,
+      forecastedTotalSales: fTotal,
+      comment: joinNotes("comment"),
+      forecastNotes: joinNotes("forecastNotes"),
+      postEventNotes: joinNotes("postEventNotes"),
+      pendingPostEventNotes: null,
+      status,
+      submittedBy: null,
+      approvedBy: null,
+      approvedAt: null,
+      createdAt: group[0].createdAt,
+      actualCustomers: aCust,
+      actualAvgSpend: aAvg,
+      actualTotalSales: aTotal,
+      customerVariance: aCust !== null ? aCust - fCust : null,
+      avgSpendVariance: aAvg !== null ? aAvg - fAvg : null,
+      totalSalesVariance: aTotal !== null ? aTotal - fTotal : null,
+    });
+  }
+
+  return out;
 }

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, forwardRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList, ShieldCheck, ShieldX, Clock, Lock, BarChart3, Table as TableIcon } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { ForecastRecord } from "@/types/forecast";
@@ -7,6 +7,7 @@ import {
   getDayFromDate,
   calculateForecast,
   mergeWithActuals,
+  aggregateMergedByDate,
 } from "@/utils/forecastUtils";
 import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,14 +25,67 @@ import { SalesRecord } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 
+type ForecastVenue = "Assembly" | "Caliente" | "Hanabi" | "Events";
+const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"];
+
+const VENUES_STORAGE_KEY = "forecast.selectedVenues";
+
+const parseVenueParam = (v: string | undefined): ForecastVenue => {
+  const map: Record<string, ForecastVenue> = {
+    assembly: "Assembly",
+    caliente: "Caliente",
+    hanabi: "Hanabi",
+    events: "Events",
+  };
+  return (v && map[v.toLowerCase()]) || "Assembly";
+};
+
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
-  const venueName = venue === "caliente" ? "Caliente" : "Assembly";
+  const initialVenue = parseVenueParam(venue);
   const { user } = useAuth();
 
   const { forecasts, loading: forecastsLoading, addForecast, updateForecast, deleteForecast, approveForecast, rejectForecast, approvePostEventNotes, rejectPostEventNotes } = useForecastData();
   const { canCreate, canApprove, canEditFigures, isApprover, loading: permLoading } = useForecastPermissions();
   const { isActionHidden } = usePagePermissions();
+
+  // Multi-venue selection — persisted across reloads
+  const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(VENUES_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as ForecastVenue[];
+          const filtered = parsed.filter((v) => ALL_VENUES.includes(v));
+          if (filtered.length > 0) return filtered;
+        }
+      } catch {}
+    }
+    return [initialVenue];
+  });
+  useEffect(() => {
+    localStorage.setItem(VENUES_STORAGE_KEY, JSON.stringify(selectedVenues));
+  }, [selectedVenues]);
+
+  const orderedSelection = useMemo(
+    () => ALL_VENUES.filter((v) => selectedVenues.includes(v)),
+    [selectedVenues],
+  );
+  const isAllVenues = orderedSelection.length === ALL_VENUES.length;
+  const isMulti = orderedSelection.length > 1;
+  const venueLabel = isAllVenues ? "All Venues" : orderedSelection.join(" + ");
+  // Single venue used as default for legacy single-venue contexts (KPI seats etc.)
+  const primaryVenue = orderedSelection[0];
+
+  const toggleVenue = (v: ForecastVenue) => {
+    setSelectedVenues((prev) => {
+      if (prev.includes(v)) {
+        if (prev.length === 1) return prev; // keep at least one
+        return prev.filter((x) => x !== v);
+      }
+      return [...prev, v];
+    });
+  };
 
   const [salesData, setSalesData] = useState<SalesRecord[]>([]);
   const [showEntry, setShowEntry] = useState(false);
@@ -47,6 +101,11 @@ const ForecastInput = () => {
   const [to, setTo] = useState<Date | undefined>();
 
   const [date, setDate] = useState("");
+  const [entryVenue, setEntryVenue] = useState<ForecastVenue>(primaryVenue);
+  // keep entry venue in sync when selection changes (if current entry venue no longer selected)
+  useEffect(() => {
+    if (!orderedSelection.includes(entryVenue)) setEntryVenue(orderedSelection[0]);
+  }, [orderedSelection, entryVenue]);
   const [customers, setCustomers] = useState<number>(0);
   const [avgSpend, setAvgSpend] = useState<number>(0);
   const [comment, setComment] = useState("");
@@ -88,18 +147,27 @@ const ForecastInput = () => {
   }, []);
 
   const venueForecasts = useMemo(
-    () => forecasts.filter((f) => f.venue === venueName).sort((a, b) => b.date.localeCompare(a.date)),
-    [forecasts, venueName]
+    () => forecasts.filter((f) => orderedSelection.includes(f.venue as ForecastVenue)).sort((a, b) => b.date.localeCompare(a.date)),
+    [forecasts, orderedSelection]
   );
 
   const venueSalesData = useMemo(
-    () => salesData.filter((s) => s.venue === venueName),
-    [salesData, venueName]
+    () => salesData.filter((s) => orderedSelection.includes(s.venue as ForecastVenue)),
+    [salesData, orderedSelection]
   );
 
-  const forecastsWithActuals = useMemo(
+  // Per-venue rows (preserved for the table view when user wants venue breakdown)
+  const forecastsWithActualsByVenue = useMemo(
     () => mergeWithActuals(venueForecasts, venueSalesData).sort((a, b) => b.date.localeCompare(a.date)),
     [venueForecasts, venueSalesData]
+  );
+
+  // Aggregated by date — used for KPIs/charts/aggregated table when multi-venue
+  const forecastsWithActuals = useMemo(
+    () => isMulti
+      ? aggregateMergedByDate(forecastsWithActualsByVenue).sort((a, b) => b.date.localeCompare(a.date))
+      : forecastsWithActualsByVenue,
+    [forecastsWithActualsByVenue, isMulti]
   );
 
   // Period filter
@@ -138,7 +206,7 @@ const ForecastInput = () => {
     const success = await addForecast({
       date,
       day: getDayFromDate(date),
-      venue: venueName as "Assembly" | "Caliente" | "Hanabi",
+      venue: entryVenue,
       forecastedCustomers: customers,
       forecastedAvgSpend: avgSpend,
       forecastedGrossSales: calc.grossSales,
@@ -284,7 +352,7 @@ const ForecastInput = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display tracking-tight">
-            <span className="text-gradient-gold">{venueName}</span>
+            <span className="text-gradient-gold">{venueLabel}</span>
             <span className="text-muted-foreground ml-2 text-base font-normal">Forecast</span>
           </h1>
           {isApprover && (
@@ -294,9 +362,27 @@ const ForecastInput = () => {
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            <Link to="/forecast/assembly" className={`px-4 py-2 text-sm font-medium transition-colors ${venueName === "Assembly" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>Assembly</Link>
-            <Link to="/forecast/caliente" className={`px-4 py-2 text-sm font-medium transition-colors ${venueName === "Caliente" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}>Caliente</Link>
+          <div className="flex flex-wrap rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSelectedVenues(ALL_VENUES)}
+              className={`px-3 py-2 text-sm font-medium transition-colors border-r border-border ${isAllVenues ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
+            >
+              All
+            </button>
+            {ALL_VENUES.map((v) => {
+              const active = selectedVenues.includes(v) && !isAllVenues;
+              return (
+                <button
+                  type="button"
+                  key={v}
+                  onClick={() => toggleVenue(v)}
+                  className={`px-3 py-2 text-sm font-medium transition-colors border-r border-border last:border-r-0 ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
+                >
+                  {v}
+                </button>
+              );
+            })}
           </div>
           {canCreate && !hideNewEntry && (
             <button onClick={() => setShowEntry(!showEntry)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${showEntry ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"}`}>
@@ -324,6 +410,20 @@ const ForecastInput = () => {
             <Plus className="h-4 w-4 text-primary" />New Forecast Entry
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isMulti && (
+              <div className="flex flex-wrap items-center gap-2 -mt-2">
+                <label className="text-xs text-muted-foreground">Venue for this entry:</label>
+                <select
+                  value={entryVenue}
+                  onChange={(e) => setEntryVenue(e.target.value as ForecastVenue)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {orderedSelection.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">Date</label>
@@ -372,10 +472,10 @@ const ForecastInput = () => {
       {showTable && (
         <div className="card-glass rounded-xl p-6 animate-fade-in">
           <h3 className="text-sm font-display font-semibold text-foreground mb-4">
-            Forecast vs Actuals — {venueName} ({filteredData.length} records)
+            Forecast vs Actuals — {venueLabel} ({filteredData.length} records)
           </h3>
           {filteredData.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-8">No forecasts yet for {venueName}.</p>
+            <p className="text-muted-foreground text-sm text-center py-8">No forecasts yet for {venueLabel}.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -545,7 +645,7 @@ const ForecastInput = () => {
       {vizMode === "charts" ? (
         <ForecastCharts data={filteredData} />
       ) : (
-        <ForecastTableViewWrapper salesData={salesData} defaultVenue={venueName as any} />
+        <ForecastTableViewWrapper salesData={salesData} defaultVenues={orderedSelection} />
       )}
 
 
@@ -561,7 +661,7 @@ const ForecastInput = () => {
 };
 
 // Resolves the current month's saved revenue target and passes it to the table view.
-const ForecastTableViewWrapper = ({ salesData, defaultVenue }: { salesData: SalesRecord[]; defaultVenue?: "Assembly" | "Caliente" | "Hanabi" | "Events" }) => {
+const ForecastTableViewWrapper = ({ salesData, defaultVenues }: { salesData: SalesRecord[]; defaultVenues?: ("Assembly" | "Caliente" | "Hanabi" | "Events")[] }) => {
   const { getTarget } = useRevenueTargets();
   const today = new Date();
   const year = today.getFullYear();
@@ -572,7 +672,7 @@ const ForecastTableViewWrapper = ({ salesData, defaultVenue }: { salesData: Sale
       salesData={salesData}
       monthlyTarget={target?.targetAmount ?? 0}
       targetVenues={(target?.venues ?? []) as ("Assembly" | "Caliente" | "Hanabi" | "Events")[]}
-      defaultVenue={defaultVenue}
+      defaultVenues={defaultVenues}
       initialYear={year}
       initialMonth={month}
     />

@@ -18,6 +18,7 @@ interface ForecastTableViewProps {
   monthlyTarget: number;
   targetVenues?: ForecastVenue[];
   defaultVenue?: ForecastVenue;
+  defaultVenues?: ForecastVenue[];
   initialYear?: number;
   initialMonth?: number;
 }
@@ -38,6 +39,7 @@ const ForecastTableView = ({
   monthlyTarget,
   targetVenues,
   defaultVenue,
+  defaultVenues,
   initialYear,
   initialMonth,
 }: ForecastTableViewProps) => {
@@ -45,7 +47,11 @@ const ForecastTableView = ({
   const [year, setYear] = useState(initialYear ?? today.getFullYear());
   const [month, setMonth] = useState(initialMonth ?? today.getMonth() + 1);
   const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>(
-    defaultVenue ? [defaultVenue] : ALL_VENUES,
+    defaultVenues && defaultVenues.length > 0
+      ? defaultVenues
+      : defaultVenue
+      ? [defaultVenue]
+      : ALL_VENUES,
   );
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
