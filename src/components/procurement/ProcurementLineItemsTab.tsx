@@ -130,6 +130,26 @@ export default function ProcurementLineItemsTab() {
     return () => { if (timer) clearTimeout(timer); supabase.removeChannel(channel); };
   }, [refetchLineItems]);
 
+  // Inline edit save: updates one field; recalculates total when qty/unit_price change
+  const saveEdit = useCallback(async (row: LineItemRow, field: "description" | "quantity" | "unit" | "unit_price" | "total", rawValue: string) => {
+    let value: any = rawValue;
+    if (field === "quantity" || field === "unit_price" || field === "total") {
+      const n = parseFloat(rawValue);
+      if (isNaN(n)) { toast.error("Invalid number"); return; }
+      value = n;
+    } else {
+      value = rawValue.trim();
+    }
+    if ((row as any)[field] === value) return;
+    const update: Record<string, any> = { [field]: value };
+    if (field === "quantity") update.total = value * row.unit_price;
+    if (field === "unit_price") update.total = row.quantity * value;
+    const { error } = await supabase.from("invoice_line_items").update(update).eq("id", row.id);
+    if (error) { toast.error("Save failed: " + error.message); return; }
+    setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...update } : r));
+    toast.success("Saved");
+  }, []);
+
   const suppliers = useMemo(() => [...new Set(rows.map(r => r.supplier_name))].sort(), [rows]);
 
   const months = useMemo(() => {
