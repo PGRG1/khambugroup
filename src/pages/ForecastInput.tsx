@@ -147,18 +147,27 @@ const ForecastInput = () => {
   }, []);
 
   const venueForecasts = useMemo(
-    () => forecasts.filter((f) => f.venue === venueName).sort((a, b) => b.date.localeCompare(a.date)),
-    [forecasts, venueName]
+    () => forecasts.filter((f) => orderedSelection.includes(f.venue as ForecastVenue)).sort((a, b) => b.date.localeCompare(a.date)),
+    [forecasts, orderedSelection]
   );
 
   const venueSalesData = useMemo(
-    () => salesData.filter((s) => s.venue === venueName),
-    [salesData, venueName]
+    () => salesData.filter((s) => orderedSelection.includes(s.venue as ForecastVenue)),
+    [salesData, orderedSelection]
   );
 
-  const forecastsWithActuals = useMemo(
+  // Per-venue rows (preserved for the table view when user wants venue breakdown)
+  const forecastsWithActualsByVenue = useMemo(
     () => mergeWithActuals(venueForecasts, venueSalesData).sort((a, b) => b.date.localeCompare(a.date)),
     [venueForecasts, venueSalesData]
+  );
+
+  // Aggregated by date — used for KPIs/charts/aggregated table when multi-venue
+  const forecastsWithActuals = useMemo(
+    () => isMulti
+      ? aggregateMergedByDate(forecastsWithActualsByVenue).sort((a, b) => b.date.localeCompare(a.date))
+      : forecastsWithActualsByVenue,
+    [forecastsWithActualsByVenue, isMulti]
   );
 
   // Period filter
