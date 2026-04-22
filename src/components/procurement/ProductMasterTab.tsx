@@ -13,6 +13,7 @@ import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelect";
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
@@ -513,9 +514,15 @@ export default function ProductMasterTab() {
                 )}
                 <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
                 <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
-                <div><Label className="text-xs">L1 Category</Label><Input value={form.level1_category} onChange={e => setForm({ ...form, level1_category: e.target.value })} className="h-9 text-sm" /></div>
-                <div><Label className="text-xs">L2 Category</Label><Input value={form.level2_category} onChange={e => setForm({ ...form, level2_category: e.target.value })} className="h-9 text-sm" /></div>
-                <div><Label className="text-xs">L3 Category</Label><Input value={form.level3_category} onChange={e => setForm({ ...form, level3_category: e.target.value })} className="h-9 text-sm" /></div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Categories (L1 → L2 → L3)</Label>
+                  <CategoryCascadeSelect
+                    level1={form.level1_category}
+                    level2={form.level2_category}
+                    level3={form.level3_category}
+                    onChange={(v) => setForm({ ...form, level1_category: v.level1, level2_category: v.level2, level3_category: v.level3 })}
+                  />
+                </div>
                 <div>
                   <Label className="text-xs">Supplier</Label>
                   <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
