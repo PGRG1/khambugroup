@@ -25,14 +25,67 @@ import { SalesRecord } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 
+type ForecastVenue = "Assembly" | "Caliente" | "Hanabi" | "Events";
+const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"];
+
+const VENUES_STORAGE_KEY = "forecast.selectedVenues";
+
+const parseVenueParam = (v: string | undefined): ForecastVenue => {
+  const map: Record<string, ForecastVenue> = {
+    assembly: "Assembly",
+    caliente: "Caliente",
+    hanabi: "Hanabi",
+    events: "Events",
+  };
+  return (v && map[v.toLowerCase()]) || "Assembly";
+};
+
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
-  const venueName = venue === "caliente" ? "Caliente" : "Assembly";
+  const initialVenue = parseVenueParam(venue);
   const { user } = useAuth();
 
   const { forecasts, loading: forecastsLoading, addForecast, updateForecast, deleteForecast, approveForecast, rejectForecast, approvePostEventNotes, rejectPostEventNotes } = useForecastData();
   const { canCreate, canApprove, canEditFigures, isApprover, loading: permLoading } = useForecastPermissions();
   const { isActionHidden } = usePagePermissions();
+
+  // Multi-venue selection — persisted across reloads
+  const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(VENUES_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as ForecastVenue[];
+          const filtered = parsed.filter((v) => ALL_VENUES.includes(v));
+          if (filtered.length > 0) return filtered;
+        }
+      } catch {}
+    }
+    return [initialVenue];
+  });
+  useEffect(() => {
+    localStorage.setItem(VENUES_STORAGE_KEY, JSON.stringify(selectedVenues));
+  }, [selectedVenues]);
+
+  const orderedSelection = useMemo(
+    () => ALL_VENUES.filter((v) => selectedVenues.includes(v)),
+    [selectedVenues],
+  );
+  const isAllVenues = orderedSelection.length === ALL_VENUES.length;
+  const isMulti = orderedSelection.length > 1;
+  const venueLabel = isAllVenues ? "All Venues" : orderedSelection.join(" + ");
+  // Single venue used as default for legacy single-venue contexts (KPI seats etc.)
+  const primaryVenue = orderedSelection[0];
+
+  const toggleVenue = (v: ForecastVenue) => {
+    setSelectedVenues((prev) => {
+      if (prev.includes(v)) {
+        if (prev.length === 1) return prev; // keep at least one
+        return prev.filter((x) => x !== v);
+      }
+      return [...prev, v];
+    });
+  };
 
   const [salesData, setSalesData] = useState<SalesRecord[]>([]);
   const [showEntry, setShowEntry] = useState(false);
@@ -48,6 +101,11 @@ const ForecastInput = () => {
   const [to, setTo] = useState<Date | undefined>();
 
   const [date, setDate] = useState("");
+  const [entryVenue, setEntryVenue] = useState<ForecastVenue>(primaryVenue);
+  // keep entry venue in sync when selection changes (if current entry venue no longer selected)
+  useEffect(() => {
+    if (!orderedSelection.includes(entryVenue)) setEntryVenue(orderedSelection[0]);
+  }, [orderedSelection, entryVenue]);
   const [customers, setCustomers] = useState<number>(0);
   const [avgSpend, setAvgSpend] = useState<number>(0);
   const [comment, setComment] = useState("");
