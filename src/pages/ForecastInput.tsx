@@ -7,6 +7,7 @@ import {
   getDayFromDate,
   calculateForecast,
   mergeWithActuals,
+  aggregateMergedByDate,
 } from "@/utils/forecastUtils";
 import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { supabase } from "@/integrations/supabase/client";
