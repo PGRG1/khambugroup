@@ -10,6 +10,7 @@ import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { toast } from "sonner";
 
 interface LineItemRow {
   id: string;
