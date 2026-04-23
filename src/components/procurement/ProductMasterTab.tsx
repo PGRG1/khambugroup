@@ -473,7 +473,7 @@ export default function ProductMasterTab() {
               {columns.map(col => (
                 <div
                   key={col.key}
-                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap flex items-center ${col.align === "right" ? "justify-end" : ""}`}
+                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap overflow-hidden flex items-center ${col.align === "right" ? "justify-end" : ""}`}
                   onClick={(e) => toggleSort(col.key, e.shiftKey)}
                   title="Click to sort. Shift+click to add another column."
                 >
