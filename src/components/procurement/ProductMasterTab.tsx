@@ -459,8 +459,12 @@ export default function ProductMasterTab() {
 
       {/* Virtualized table */}
       <div className="card-glass rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <div style={{ minWidth: 1800 }}>
+        <div
+          ref={scrollRef}
+          className="overflow-auto"
+          style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
+        >
+          <div style={{ minWidth: "min(1800px, 100%)", width: "100%" }}>
             {/* Header */}
             <div
               className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
@@ -480,15 +484,10 @@ export default function ProductMasterTab() {
             </div>
 
             {/* Body */}
-            <div
-              ref={scrollRef}
-              className="overflow-y-auto overflow-x-hidden"
-              style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
-            >
-              {filtered.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">No products found</div>
-              ) : (
-                <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+            {filtered.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">No products found</div>
+            ) : (
+              <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
                   {virtualItems.map(vRow => {
                     const r = filtered[vRow.index];
                     const idx = vRow.index;
