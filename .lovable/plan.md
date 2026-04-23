@@ -1,20 +1,31 @@
 
 
-## Fix: Remove orange bleed from table body
+## Fix: Orange header band cut off mid-row
 
 ### Problem
-The scroll container has `bg-primary` (orange), which I added so the scrollbar gutter matched the header. But it bleeds through everywhere the body doesn't paint: the area past the last row, the scrollbar gutter, and any sub-pixel gaps between rows. Result: the body looks orange-tinted instead of the original cream/white.
+The header `bg-primary` ends mid-row around "Recipe Qty", with the rightmost cells (Cost/Recipe, Supplier, Status) showing the cream `bg-card` underneath. The header `<div>` is sized to its grid track total, which on this layout doesn't fully extend to the scroll container's right edge — so the orange band stops short and the cream background shows through.
 
-### Fix (one line in `src/components/procurement/ProductMasterTab.tsx`)
+### Fix (`src/components/procurement/ProductMasterTab.tsx`)
 
-**Line 464**: Remove `bg-primary` from the scroll container.
-- From: `className="overflow-auto bg-primary"`
-- To: `className="overflow-auto bg-card"`
+**Line 467** — move the orange background up to the inner wrapper so it always paints the full header band width, regardless of how grid tracks resolve:
 
-The header (line 470) keeps its own `bg-primary` — so only the sticky header row stays orange. The body returns to the original cream background with `bg-card` / `bg-muted/20` zebra striping, exactly as before.
+- From: `<div style={{ minWidth: "min(1800px, 100%)", width: "100%" }}>`
+- To: add a wrapping element OR simpler — give the wrapper a top-aligned orange band via a sticky pseudo-bg.
+
+Cleanest concrete change:
+1. **Line 464**: keep scroll container `bg-card` (unchanged).
+2. **Line 467**: wrap the header in its own full-width sticky band that paints `bg-primary` edge-to-edge:
+   ```tsx
+   <div style={{ minWidth: 1800, width: "max-content" }}>
+   ```
+   Changing `min(1800px, 100%)` → `1800` and `width: "100%"` → `width: "max-content"` forces the inner content (including the grid header) to size to its actual columns. Combined with the grid using `fr` units, the header div will then expand to match the wrapper, so `bg-primary` paints across the entire header row.
+3. **Line 470 header div**: add `w-full` to be explicit:
+   ```tsx
+   className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10 w-full"
+   ```
 
 ### Result
-- Header row: fully orange (sticky, spans full width).
-- Body rows: original alternating cream/white.
-- Empty space below rows + scrollbar gutter: cream (matches `card-glass`), not orange.
+- Entire header row is solid orange across all 17 columns + actions, edge to edge.
+- Body rows unchanged (cream / `bg-muted/20` zebra).
+- Horizontal scroll only triggers if viewport < 1800px.
 
