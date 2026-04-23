@@ -494,7 +494,7 @@ export default function ProductMasterTab() {
                     return (
                       <div
                         key={r.rowKey}
-                        className={`grid items-center border-b border-border/40 hover:bg-accent/30 transition-colors text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted"}`}
+                        className={`grid items-center border-b border-border/40 hover:bg-accent/30 transition-colors text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
                         style={{
                           gridTemplateColumns: GRID_COLS,
                           position: "absolute",
