@@ -461,7 +461,7 @@ export default function ProductMasterTab() {
       <div className="card-glass rounded-xl overflow-hidden">
         <div
           ref={scrollRef}
-          className="overflow-auto bg-primary"
+          className="overflow-auto bg-card"
           style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
         >
           <div style={{ minWidth: "min(1800px, 100%)", width: "100%" }}>
