@@ -375,7 +375,7 @@ export default function ProductMasterTab() {
   ];
 
   // Grid template: must match across header / rows / footer. Last col = actions (70px).
-  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 90px 90px 90px 80px 90px 90px 90px 90px 130px 80px 70px";
+  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 100px 100px 100px 90px 100px 100px 100px 110px 130px 90px 70px";
 
   // Virtualization
   if (loading) {
