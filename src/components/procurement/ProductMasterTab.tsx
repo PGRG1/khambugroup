@@ -375,7 +375,7 @@ export default function ProductMasterTab() {
   ];
 
   // Grid template: must match across header / rows / footer. Last col = actions (70px).
-  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 90px 90px 90px 80px 90px 90px 90px 90px 130px 80px 70px";
+  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 100px 100px 100px 90px 100px 100px 100px 110px 130px 90px 70px";
 
   // Virtualization
   if (loading) {
@@ -473,7 +473,7 @@ export default function ProductMasterTab() {
               {columns.map(col => (
                 <div
                   key={col.key}
-                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap flex items-center ${col.align === "right" ? "justify-end" : ""}`}
+                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap overflow-hidden flex items-center ${col.align === "right" ? "justify-end" : ""}`}
                   onClick={(e) => toggleSort(col.key, e.shiftKey)}
                   title="Click to sort. Shift+click to add another column."
                 >
