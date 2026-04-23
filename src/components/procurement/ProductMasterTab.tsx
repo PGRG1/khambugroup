@@ -482,7 +482,7 @@ export default function ProductMasterTab() {
             {/* Body */}
             <div
               ref={scrollRef}
-              className="overflow-auto"
+              className="overflow-y-auto overflow-x-hidden"
               style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
             >
               {filtered.length === 0 ? (
