@@ -464,10 +464,10 @@ export default function ProductMasterTab() {
           className="overflow-auto bg-card"
           style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
         >
-          <div style={{ minWidth: "min(1800px, 100%)", width: "100%" }}>
+          <div style={{ minWidth: 1800, width: "max-content" }}>
             {/* Header */}
             <div
-              className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
+              className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10 w-full"
               style={{ gridTemplateColumns: GRID_COLS }}
             >
               {columns.map(col => (
