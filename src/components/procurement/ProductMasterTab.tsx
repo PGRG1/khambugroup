@@ -461,7 +461,7 @@ export default function ProductMasterTab() {
       <div className="card-glass rounded-xl overflow-hidden">
         <div
           ref={scrollRef}
-          className="overflow-auto"
+          className="overflow-auto bg-primary"
           style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
         >
           <div style={{ minWidth: "min(1800px, 100%)", width: "100%" }}>
@@ -494,7 +494,7 @@ export default function ProductMasterTab() {
                     return (
                       <div
                         key={r.rowKey}
-                        className={`grid items-center border-b border-border/40 hover:bg-accent/30 transition-colors text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
+                        className={`grid items-center border-b border-border/40 hover:bg-accent/30 transition-colors text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted"}`}
                         style={{
                           gridTemplateColumns: GRID_COLS,
                           position: "absolute",
