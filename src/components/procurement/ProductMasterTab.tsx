@@ -55,6 +55,7 @@ export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
+  const [l2Filter, setL2Filter] = useState("all");
   const [subCatFilter, setSubCatFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
