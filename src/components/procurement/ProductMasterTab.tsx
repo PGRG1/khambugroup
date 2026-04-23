@@ -80,11 +80,17 @@ export default function ProductMasterTab() {
     });
   }, []);
 
-  const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].sort(), [products]);
-  const subCategories = useMemo(() => {
+  const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].filter(Boolean).sort(), [products]);
+  const l2Categories = useMemo(() => {
     const filtered = catFilter !== "all" ? products.filter(p => p.level1_category === catFilter) : products;
-    return [...new Set(filtered.map(p => p.level3_category).filter(Boolean))].sort();
+    return [...new Set(filtered.map(p => p.level2_category).filter(Boolean))].sort();
   }, [products, catFilter]);
+  const subCategories = useMemo(() => {
+    let filtered = products;
+    if (catFilter !== "all") filtered = filtered.filter(p => p.level1_category === catFilter);
+    if (l2Filter !== "all") filtered = filtered.filter(p => p.level2_category === l2Filter);
+    return [...new Set(filtered.map(p => p.level3_category).filter(Boolean))].sort();
+  }, [products, catFilter, l2Filter]);
   const allSuppliers = useMemo(() => {
     const s = new Set<string>();
     products.forEach(p => {
