@@ -14,6 +14,7 @@ import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelect";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
@@ -54,6 +55,7 @@ export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
+  const [l2Filter, setL2Filter] = useState("all");
   const [subCatFilter, setSubCatFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -78,11 +80,17 @@ export default function ProductMasterTab() {
     });
   }, []);
 
-  const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].sort(), [products]);
-  const subCategories = useMemo(() => {
+  const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].filter(Boolean).sort(), [products]);
+  const l2Categories = useMemo(() => {
     const filtered = catFilter !== "all" ? products.filter(p => p.level1_category === catFilter) : products;
-    return [...new Set(filtered.map(p => p.level3_category).filter(Boolean))].sort();
+    return [...new Set(filtered.map(p => p.level2_category).filter(Boolean))].sort();
   }, [products, catFilter]);
+  const subCategories = useMemo(() => {
+    let filtered = products;
+    if (catFilter !== "all") filtered = filtered.filter(p => p.level1_category === catFilter);
+    if (l2Filter !== "all") filtered = filtered.filter(p => p.level2_category === l2Filter);
+    return [...new Set(filtered.map(p => p.level3_category).filter(Boolean))].sort();
+  }, [products, catFilter, l2Filter]);
   const allSuppliers = useMemo(() => {
     const s = new Set<string>();
     products.forEach(p => {
@@ -143,6 +151,7 @@ export default function ProductMasterTab() {
   const filtered = useMemo(() => {
     let result = flatRows.filter(r => {
       if (catFilter !== "all" && r.level1_category !== catFilter) return false;
+      if (l2Filter !== "all" && r.level2_category !== l2Filter) return false;
       if (subCatFilter !== "all" && r.level3_category !== subCatFilter) return false;
       if (supplierFilter !== "all" && r.supplier !== supplierFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
@@ -157,10 +166,10 @@ export default function ProductMasterTab() {
       return true;
     });
     return sortRows(result, sortColumns);
-  }, [flatRows, search, catFilter, subCatFilter, supplierFilter, statusFilter, sortColumns]);
+  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, sortColumns]);
 
-  const hasFilters = catFilter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || search;
-  const clearFilters = () => { setCatFilter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setSearch(""); };
+  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || search;
+  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setSearch(""); };
 
   // Duplicate SKU detection for create mode
   useEffect(() => {
@@ -345,27 +354,44 @@ export default function ProductMasterTab() {
     return rq > 0 ? puc / rq : 0;
   })();
 
+  const columns = [
+    { key: "internal_sku", label: "Internal SKU" },
+    { key: "external_sku", label: "External SKU" },
+    { key: "internal_product_name", label: "Internal Product Name" },
+    { key: "supplier_product_name", label: "Supplier Product Name" },
+    { key: "level1_category", label: "L1 Category" },
+    { key: "level2_category", label: "L2 Category" },
+    { key: "level3_category", label: "L3 Category" },
+    { key: "purchase_unit", label: "Purch. UOM" },
+    { key: "purchase_unit_cost", label: "Purch. Cost", align: "right" as const },
+    { key: "stock_uom", label: "Stock UOM" },
+    { key: "stock_qty", label: "Stock Qty", align: "right" as const },
+    { key: "cost_per_stock_unit", label: "Cost/Stock", align: "right" as const },
+    { key: "base_unit_type", label: "Recipe UOM" },
+    { key: "base_unit_qty", label: "Recipe Qty", align: "right" as const },
+    { key: "cost_per_base_unit", label: "Cost/Recipe", align: "right" as const },
+    { key: "supplier", label: "Supplier" },
+    { key: "status", label: "Status" },
+  ];
+
+  // Grid template: must match across header / rows / footer. Last col = actions (70px).
+  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 90px 90px 90px 80px 90px 90px 90px 90px 130px 80px 70px";
+
+  // Virtualization
+  if (loading) {
+    // hooks must be unconditional — moved virtualizer below
+  }
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 36,
+    overscan: 100,
+  });
+
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading products...</div>;
 
-  const columns = [
-    { key: "internal_sku", label: "Internal SKU", w: "w-[100px]" },
-    { key: "external_sku", label: "External SKU", w: "w-[100px] hidden xl:table-cell" },
-    { key: "internal_product_name", label: "Internal Product Name", w: "min-w-[180px]" },
-    { key: "supplier_product_name", label: "Supplier Product Name", w: "min-w-[180px] hidden xl:table-cell" },
-    { key: "level1_category", label: "L1 Category", w: "w-[100px] hidden lg:table-cell" },
-    { key: "level2_category", label: "L2 Category", w: "w-[100px] hidden lg:table-cell" },
-    { key: "level3_category", label: "L3 Category", w: "w-[110px] hidden md:table-cell" },
-    { key: "purchase_unit", label: "Purch. UOM", w: "w-[80px] hidden lg:table-cell" },
-    { key: "purchase_unit_cost", label: "Purch. Cost", w: "w-[80px]" },
-    { key: "stock_uom", label: "Stock UOM", w: "w-[80px] hidden lg:table-cell" },
-    { key: "stock_qty", label: "Stock Qty", w: "w-[70px] hidden lg:table-cell" },
-    { key: "cost_per_stock_unit", label: "Cost/Stock", w: "w-[80px] hidden lg:table-cell" },
-    { key: "base_unit_type", label: "Recipe UOM", w: "w-[80px] hidden md:table-cell" },
-    { key: "base_unit_qty", label: "Recipe Qty", w: "w-[80px] hidden md:table-cell" },
-    { key: "cost_per_base_unit", label: "Cost/Recipe", w: "w-[80px]" },
-    { key: "supplier", label: "Supplier", w: "w-[120px] hidden md:table-cell" },
-    { key: "status", label: "Status", w: "w-[70px]" },
-  ];
+  const virtualItems = rowVirtualizer.getVirtualItems();
 
   return (
     <div className="space-y-4">
@@ -375,11 +401,18 @@ export default function ProductMasterTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search SKU, product name, supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
-        <Select value={catFilter} onValueChange={setCatFilter}>
+        <Select value={catFilter} onValueChange={(v) => { setCatFilter(v); setL2Filter("all"); setSubCatFilter("all"); }}>
           <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="L1 Category" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All L1</SelectItem>
             {categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={l2Filter} onValueChange={(v) => { setL2Filter(v); setSubCatFilter("all"); }}>
+          <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="L2 Category" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All L2</SelectItem>
+            {l2Categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={subCatFilter} onValueChange={setSubCatFilter}>
@@ -424,56 +457,87 @@ export default function ProductMasterTab() {
 
       <p className="text-xs text-muted-foreground">Showing {filtered.length} rows ({products.length} unique products)</p>
 
-      {/* Table */}
+      {/* Virtualized table */}
       <div className="card-glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px] leading-tight">
-            <thead>
-              <tr className="bg-primary text-primary-foreground">
-                {columns.map(col => (
-                  <th key={col.key} className={`text-left px-3 py-2.5 font-semibold cursor-pointer select-none ${col.w}`} onClick={(e) => toggleSort(col.key, e.shiftKey)} title="Click to sort. Shift+click to add another column.">
-                    <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
-                  </th>
-                ))}
-                <th className="px-3 py-2.5 w-[70px]"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={columns.length + 1} className="text-center py-12 text-muted-foreground">No products found</td></tr>
-              ) : filtered.map((r, idx) => (
-                <tr key={r.rowKey} className={`border-b border-border/40 hover:bg-accent/30 transition-colors ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}>
-                  <td className="px-3 py-2 font-mono font-medium text-primary">{r.internal_sku}</td>
-                  <td className="px-3 py-2 font-mono text-muted-foreground hidden xl:table-cell">{r.external_sku}</td>
-                  <td className="px-3 py-2 font-medium text-foreground">{r.internal_product_name}</td>
-                  <td className="px-3 py-2 text-muted-foreground hidden xl:table-cell">{r.supplier_product_name}</td>
-                  <td className="px-3 py-2 hidden lg:table-cell">{r.level1_category}</td>
-                  <td className="px-3 py-2 hidden lg:table-cell">{r.level2_category}</td>
-                  <td className="px-3 py-2 hidden md:table-cell">{r.level3_category}</td>
-                  <td className="px-3 py-2 hidden lg:table-cell">{r.purchase_unit}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</td>
-                  <td className="px-3 py-2 hidden lg:table-cell">{r.stock_uom}</td>
-                  <td className="px-3 py-2 text-right tabular-nums hidden lg:table-cell">{fmt(r.stock_qty)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums hidden lg:table-cell">{fmt(r.cost_per_stock_unit)}</td>
-                  <td className="px-3 py-2 hidden md:table-cell">{r.base_unit_type}</td>
-                  <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{fmt(r.base_unit_qty)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt4(r.cost_per_base_unit)}</td>
-                  <td className="px-3 py-2 hidden md:table-cell">{r.supplier}</td>
-                  <td className="px-3 py-2">
-                    <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                      {r.status}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1">
-                      <button onClick={() => openEdit(r)} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
-                      <button onClick={() => { setDeletingRow(r); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
-                    </div>
-                  </td>
-                </tr>
+          <div style={{ minWidth: 1700 }}>
+            {/* Header */}
+            <div
+              className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
+              style={{ gridTemplateColumns: GRID_COLS }}
+            >
+              {columns.map(col => (
+                <div
+                  key={col.key}
+                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap flex items-center ${col.align === "right" ? "justify-end" : ""}`}
+                  onClick={(e) => toggleSort(col.key, e.shiftKey)}
+                  title="Click to sort. Shift+click to add another column."
+                >
+                  <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
+                </div>
               ))}
-            </tbody>
-          </table>
+              <div></div>
+            </div>
+
+            {/* Body */}
+            <div
+              ref={scrollRef}
+              className="overflow-auto"
+              style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
+            >
+              {filtered.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground text-sm">No products found</div>
+              ) : (
+                <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+                  {virtualItems.map(vRow => {
+                    const r = filtered[vRow.index];
+                    const idx = vRow.index;
+                    return (
+                      <div
+                        key={r.rowKey}
+                        className={`grid items-center border-b border-border/40 hover:bg-accent/30 transition-colors text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
+                        style={{
+                          gridTemplateColumns: GRID_COLS,
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: vRow.size,
+                          transform: `translateY(${vRow.start}px)`,
+                        }}
+                      >
+                        <div className="px-3 font-mono font-medium text-primary truncate">{r.internal_sku}</div>
+                        <div className="px-3 font-mono text-muted-foreground truncate">{r.external_sku}</div>
+                        <div className="px-3 font-medium text-foreground truncate">{r.internal_product_name}</div>
+                        <div className="px-3 text-muted-foreground truncate">{r.supplier_product_name}</div>
+                        <div className="px-3 truncate">{r.level1_category}</div>
+                        <div className="px-3 truncate">{r.level2_category}</div>
+                        <div className="px-3 truncate">{r.level3_category}</div>
+                        <div className="px-3 truncate">{r.purchase_unit}</div>
+                        <div className="px-3 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</div>
+                        <div className="px-3 truncate">{r.stock_uom}</div>
+                        <div className="px-3 text-right tabular-nums">{fmt(r.stock_qty)}</div>
+                        <div className="px-3 text-right tabular-nums">{fmt(r.cost_per_stock_unit)}</div>
+                        <div className="px-3 truncate">{r.base_unit_type}</div>
+                        <div className="px-3 text-right tabular-nums">{fmt(r.base_unit_qty)}</div>
+                        <div className="px-3 text-right tabular-nums font-medium">{fmt4(r.cost_per_base_unit)}</div>
+                        <div className="px-3 truncate">{r.supplier}</div>
+                        <div className="px-3">
+                          <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                            {r.status}
+                          </Badge>
+                        </div>
+                        <div className="px-2 flex gap-1">
+                          <button onClick={() => openEdit(r)} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => { setDeletingRow(r); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
