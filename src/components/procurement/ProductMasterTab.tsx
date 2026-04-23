@@ -460,7 +460,7 @@ export default function ProductMasterTab() {
       {/* Virtualized table */}
       <div className="card-glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <div style={{ minWidth: 1700 }}>
+          <div style={{ minWidth: 1800 }}>
             {/* Header */}
             <div
               className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
