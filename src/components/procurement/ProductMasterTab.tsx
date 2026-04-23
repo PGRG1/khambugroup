@@ -534,8 +534,7 @@ export default function ProductMasterTab() {
                     );
                   })}
                 </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
