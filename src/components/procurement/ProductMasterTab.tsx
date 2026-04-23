@@ -14,6 +14,7 @@ import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelect";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
