@@ -1,5 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useMemo, useCallback } from "react";
 import { VenueFilter } from "@/types/sales";
 import { filterData, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { useSalesData } from "@/hooks/useSalesData";
@@ -27,22 +26,8 @@ const Index = () => {
   const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch } = useSalesData();
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") === "data" ? "data" : "overview");
-
-  useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    const next = tabParam === "data" ? "data" : "overview";
-    if (next !== activeTab) setActiveTab(next);
-  }, [searchParams]);
-
-  const handleTabChange = (val: string) => {
-    setActiveTab(val);
-    const params = new URLSearchParams(searchParams);
-    if (val === "data") params.set("tab", "data"); else params.delete("tab");
-    setSearchParams(params, { replace: true });
-  };
+  const [activeTab, setActiveTab] = useState("overview");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
   const [view, setView] = useState<"daily" | "monthly">("daily");
@@ -196,7 +181,7 @@ const Index = () => {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="data">Sales Data</TabsTrigger>
