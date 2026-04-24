@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -17,10 +17,20 @@ import {
 
 const navItems = [
   { title: "AI Analyst", url: "/assistant", icon: Sparkles, pageKey: "assistant" },
-  { title: "Revenue", url: "/", icon: BarChart3, pageKey: "revenue" },
-  { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
+];
+
+const revenueItems = [
+  { title: "Dashboard", url: "/", icon: BarChart3, pageKey: "revenue", end: true },
+  { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
+];
+
+const financeItems = [
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
+  { title: "Cashflow", url: "/finance/cashflow", icon: TrendingUp },
+  { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
+  { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
+  { title: "Journal", url: "/finance/journal", icon: NotebookPen },
 ];
 
 const procurementItems = [
@@ -48,6 +58,12 @@ export function AppSidebar() {
     return showInSidebar(item.pageKey);
   });
 
+  const visibleRevenueItems = revenueItems.filter(item => {
+    if (isAdmin && !isPreviewActive) return true;
+    return showInSidebar(item.pageKey);
+  });
+
+  const showFinance = isAdmin && !isPreviewActive;
   const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
 
   return (
