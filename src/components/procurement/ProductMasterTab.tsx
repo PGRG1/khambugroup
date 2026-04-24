@@ -373,6 +373,7 @@ export default function ProductMasterTab() {
     { key: "level1_category", label: "L1 Category" },
     { key: "level2_category", label: "L2 Category" },
     { key: "level3_category", label: "L3 Category" },
+    { key: "accounting_category", label: "Accounting" },
     { key: "purchase_unit", label: "Purch. UOM" },
     { key: "purchase_unit_cost", label: "Purch. Cost", align: "right" as const },
     { key: "stock_uom", label: "Stock UOM" },
@@ -386,7 +387,7 @@ export default function ProductMasterTab() {
   ];
 
   // Grid template: must match across header / rows / footer. Last col = actions (70px).
-  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 100px 100px 100px 90px 100px 100px 100px 110px 130px 90px 70px";
+  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 140px 100px 100px 100px 90px 100px 100px 100px 110px 130px 90px 70px";
 
   // Virtualization
   if (loading) {
