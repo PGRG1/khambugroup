@@ -264,6 +264,7 @@ export default function ProductMasterTab() {
       const pmUpdates = {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
+        accounting_category: form.accounting_category,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         notes: form.notes,
       };
@@ -271,6 +272,7 @@ export default function ProductMasterTab() {
       const supplierLevelFields = {
         supplier: form.supplier, external_sku: form.external_sku,
         supplier_product_name: form.supplier_product_name,
+        accounting_category: form.accounting_category,
         purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
         stock_uom: form.stock_uom, stock_qty: stockQty,
         base_unit_type: form.base_unit_type, base_unit_qty: recipeQty,
