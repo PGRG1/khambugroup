@@ -11,6 +11,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
+import DataPage from "./pages/DataPage";
 
 import ForecastInput from "./pages/ForecastInput";
 import AuditLog from "./pages/AuditLog";
@@ -87,6 +88,7 @@ function App() {
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
+                <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
                 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
