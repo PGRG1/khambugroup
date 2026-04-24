@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -17,10 +17,20 @@ import {
 
 const navItems = [
   { title: "AI Analyst", url: "/assistant", icon: Sparkles, pageKey: "assistant" },
-  { title: "Revenue", url: "/", icon: BarChart3, pageKey: "revenue" },
-  { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
+];
+
+const revenueItems = [
+  { title: "Dashboard", url: "/", icon: BarChart3, pageKey: "revenue", end: true },
+  { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
+];
+
+const financeItems = [
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
+  { title: "Cashflow", url: "/finance/cashflow", icon: TrendingUp },
+  { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
+  { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
+  { title: "Journal", url: "/finance/journal", icon: NotebookPen },
 ];
 
 const procurementItems = [
@@ -48,6 +58,12 @@ export function AppSidebar() {
     return showInSidebar(item.pageKey);
   });
 
+  const visibleRevenueItems = revenueItems.filter(item => {
+    if (isAdmin && !isPreviewActive) return true;
+    return showInSidebar(item.pageKey);
+  });
+
+  const showFinance = isAdmin && !isPreviewActive;
   const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
 
   return (
@@ -83,6 +99,54 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {visibleRevenueItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Revenue</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleRevenueItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        end={item.end}
+                        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {showFinance && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Finance</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {financeItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         {showProcurement && (
           <SidebarGroup>
             <SidebarGroupLabel>Procurement</SidebarGroupLabel>
