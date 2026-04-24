@@ -15,10 +15,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelect";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useAccountingCategories } from "@/hooks/useAccountingCategories";
+import { useUomOptions, mergeWithLegacy } from "@/hooks/useUomOptions";
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
   level1_category: "", level2_category: "", level3_category: "",
+  accounting_category: "",
   unit: "", unit_cost: "", supplier: "", status: "Active",
   purchase_unit: "", purchase_unit_cost: "",
   stock_uom: "", stock_qty: "1", cost_per_stock_unit: "0",
