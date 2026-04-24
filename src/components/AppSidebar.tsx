@@ -147,7 +147,7 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-
+        {showProcurement && (
           <SidebarGroup>
             <SidebarGroupLabel>Procurement</SidebarGroupLabel>
             <SidebarGroupContent>
