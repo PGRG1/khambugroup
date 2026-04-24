@@ -455,6 +455,15 @@ export default function ProductMasterTab() {
             <SelectItem value="Inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={accountingFilter} onValueChange={setAccountingFilter}>
+          <SelectTrigger className="w-[160px] h-9 text-xs"><SelectValue placeholder="Accounting" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Accounting</SelectItem>
+            {accountingCats.filter(a => a.is_active && a.name.trim() !== "").map(a => (
+              <SelectItem key={a.id} value={a.name}>{a.name} <span className="text-muted-foreground">· {a.statement}</span></SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {hasFilters && (
           <button onClick={clearFilters} className="text-xs text-primary hover:underline flex items-center gap-1">
             <X className="h-3 w-3" /> Clear
