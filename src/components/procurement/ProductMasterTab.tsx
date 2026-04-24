@@ -39,6 +39,7 @@ interface FlatRow {
   level1_category: string;
   level2_category: string;
   level3_category: string;
+  accounting_category: string;
   purchase_unit: string;
   purchase_unit_cost: number;
   stock_uom: string;
@@ -56,6 +57,8 @@ interface FlatRow {
 
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
+  const { items: accountingCats } = useAccountingCategories();
+  const { items: uomItems } = useUomOptions();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [l2Filter, setL2Filter] = useState("all");
