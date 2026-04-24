@@ -109,13 +109,23 @@ export default function Cashflow() {
 
   const handleExportCSV = () => {
     const rows = buckets.map((b) => ({
-      Period: b.label,
-      Inflows: b.inflows.toFixed(2),
-      Outflows: b.outflows.toFixed(2),
-      Net: b.net.toFixed(2),
-      "Running Balance": b.runningBalance.toFixed(2),
+      period: b.label,
+      inflows: b.inflows.toFixed(2),
+      outflows: b.outflows.toFixed(2),
+      net: b.net.toFixed(2),
+      running_balance: b.runningBalance.toFixed(2),
     }));
-    downloadCSV(rows, `cashflow_${granularity}_${new Date().toISOString().slice(0, 10)}.csv`);
+    downloadCSV(
+      rows,
+      [
+        { key: "period", label: "Period" },
+        { key: "inflows", label: "Inflows" },
+        { key: "outflows", label: "Outflows" },
+        { key: "net", label: "Net" },
+        { key: "running_balance", label: "Running Balance" },
+      ],
+      `cashflow_${granularity}`,
+    );
   };
 
   return (
