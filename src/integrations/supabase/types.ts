@@ -47,6 +47,33 @@ export type Database = {
         }
         Relationships: []
       }
+      cashflow_settings: {
+        Row: {
+          id: string
+          notes: string | null
+          opening_balance: number
+          opening_date: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          opening_balance?: number
+          opening_date?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          opening_balance?: number
+          opening_date?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       expense_categories: {
         Row: {
           created_at: string
