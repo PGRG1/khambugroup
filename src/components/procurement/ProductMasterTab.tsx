@@ -524,6 +524,7 @@ export default function ProductMasterTab() {
                         <div className="px-3 truncate">{r.level1_category}</div>
                         <div className="px-3 truncate">{r.level2_category}</div>
                         <div className="px-3 truncate">{r.level3_category}</div>
+                        <div className="px-3 truncate text-xs text-muted-foreground">{r.accounting_category}</div>
                         <div className="px-3 truncate">{r.purchase_unit}</div>
                         <div className="px-3 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</div>
                         <div className="px-3 truncate">{r.stock_uom}</div>
