@@ -22,6 +22,10 @@ import UserAccessControl from "./pages/UserAccessControl";
 import AccessDenied from "./pages/AccessDenied";
 import Invoices from "./pages/Invoices";
 import Procurement from "./pages/Procurement";
+import Cashflow from "./pages/finance/Cashflow";
+import BalanceSheet from "./pages/finance/BalanceSheet";
+import Ledger from "./pages/finance/Ledger";
+import Journal from "./pages/finance/Journal";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HRSchedule from "./pages/hr/HRSchedule";
@@ -87,6 +91,10 @@ function App() {
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
+                <Route path="/finance/cashflow" element={<AdminRoute><Cashflow /></AdminRoute>} />
+                <Route path="/finance/balance-sheet" element={<AdminRoute><BalanceSheet /></AdminRoute>} />
+                <Route path="/finance/ledger" element={<AdminRoute><Ledger /></AdminRoute>} />
+                <Route path="/finance/journal" element={<AdminRoute><Journal /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
