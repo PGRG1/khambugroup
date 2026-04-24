@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelect";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAccountingCategories } from "@/hooks/useAccountingCategories";
-import { useUomOptions, mergeWithLegacy } from "@/hooks/useUomOptions";
+import UomSelect from "@/components/procurement/UomSelect";
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
