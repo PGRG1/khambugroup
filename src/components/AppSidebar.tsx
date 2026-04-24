@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -22,6 +22,7 @@ const navItems = [
 
 const revenueItems = [
   { title: "Dashboard", url: "/", icon: BarChart3, pageKey: "revenue", end: true },
+  { title: "Sales Data", url: "/?tab=data", icon: Database, pageKey: "revenue" },
   { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
 ];
 
