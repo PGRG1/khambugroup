@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_categories: {
+        Row: {
+          category_group: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          statement: string
+          updated_at: string
+        }
+        Insert: {
+          category_group?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          statement?: string
+          updated_at?: string
+        }
+        Update: {
+          category_group?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          statement?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -1432,6 +1465,7 @@ export type Database = {
       }
       product_master: {
         Row: {
+          accounting_category: string
           base_unit_qty: number
           base_unit_type: string
           cost_per_base_unit: number
@@ -1457,6 +1491,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accounting_category?: string
           base_unit_qty?: number
           base_unit_type?: string
           cost_per_base_unit?: number
@@ -1482,6 +1517,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accounting_category?: string
           base_unit_qty?: number
           base_unit_type?: string
           cost_per_base_unit?: number
@@ -1545,6 +1581,7 @@ export type Database = {
       }
       product_suppliers: {
         Row: {
+          accounting_category: string
           base_unit_qty: number
           base_unit_type: string
           created_at: string
@@ -1561,6 +1598,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accounting_category?: string
           base_unit_qty?: number
           base_unit_type?: string
           created_at?: string
@@ -1577,6 +1615,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accounting_category?: string
           base_unit_qty?: number
           base_unit_type?: string
           created_at?: string
@@ -1871,6 +1910,39 @@ export type Database = {
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      uom_options: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          uom_type: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          uom_type?: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          uom_type?: string
           updated_at?: string
         }
         Relationships: []

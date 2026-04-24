@@ -15,10 +15,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelect";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useAccountingCategories } from "@/hooks/useAccountingCategories";
+import { useUomOptions, mergeWithLegacy } from "@/hooks/useUomOptions";
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
   level1_category: "", level2_category: "", level3_category: "",
+  accounting_category: "",
   unit: "", unit_cost: "", supplier: "", status: "Active",
   purchase_unit: "", purchase_unit_cost: "",
   stock_uom: "", stock_qty: "1", cost_per_stock_unit: "0",
@@ -36,6 +39,7 @@ interface FlatRow {
   level1_category: string;
   level2_category: string;
   level3_category: string;
+  accounting_category: string;
   purchase_unit: string;
   purchase_unit_cost: number;
   stock_uom: string;
@@ -53,6 +57,8 @@ interface FlatRow {
 
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
+  const { items: accountingCats } = useAccountingCategories();
+  const { items: uomItems } = useUomOptions();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [l2Filter, setL2Filter] = useState("all");
@@ -111,6 +117,7 @@ export default function ProductMasterTab() {
             internal_sku: p.internal_sku, external_sku: s.external_sku,
             internal_product_name: p.internal_product_name, supplier_product_name: s.supplier_product_name,
             level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
+            accounting_category: ((s as any).accounting_category as string) || ((p as any).accounting_category as string) || "",
             purchase_unit: s.purchase_unit, purchase_unit_cost: s.purchase_unit_cost,
             stock_uom: s.stock_uom ?? p.stock_uom, stock_qty: s.stock_qty ?? p.stock_qty, cost_per_stock_unit: s.purchase_unit_cost / ((s.stock_qty ?? p.stock_qty) || 1),
             base_unit_type: s.base_unit_type ?? p.base_unit_type, base_unit_qty: s.base_unit_qty ?? p.base_unit_qty, cost_per_base_unit: s.purchase_unit_cost / ((s.base_unit_qty ?? p.base_unit_qty) || 1),
@@ -123,6 +130,7 @@ export default function ProductMasterTab() {
           internal_sku: p.internal_sku, external_sku: p.external_sku,
           internal_product_name: p.internal_product_name, supplier_product_name: p.supplier_product_name,
           level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
+          accounting_category: ((p as any).accounting_category as string) || "",
           purchase_unit: p.purchase_unit, purchase_unit_cost: p.purchase_unit_cost,
           stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: p.cost_per_stock_unit,
           base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
@@ -198,6 +206,7 @@ export default function ProductMasterTab() {
       internal_sku: row.internal_sku, external_sku: row.external_sku,
       internal_product_name: row.internal_product_name, supplier_product_name: row.supplier_product_name,
       level1_category: row.level1_category, level2_category: row.level2_category, level3_category: row.level3_category,
+      accounting_category: row.accounting_category,
       unit: row.product.unit, unit_cost: String(row.unit_cost), supplier: row.supplier, status: row.status,
       purchase_unit: row.purchase_unit, purchase_unit_cost: String(row.purchase_unit_cost),
       stock_uom: row.stock_uom, stock_qty: String(row.stock_qty), cost_per_stock_unit: String(row.cost_per_stock_unit),
@@ -255,6 +264,7 @@ export default function ProductMasterTab() {
       const pmUpdates = {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
+        accounting_category: form.accounting_category,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         notes: form.notes,
       };
@@ -262,6 +272,7 @@ export default function ProductMasterTab() {
       const supplierLevelFields = {
         supplier: form.supplier, external_sku: form.external_sku,
         supplier_product_name: form.supplier_product_name,
+        accounting_category: form.accounting_category,
         purchase_unit: form.purchase_unit, purchase_unit_cost: purchaseUnitCost,
         stock_uom: form.stock_uom, stock_qty: stockQty,
         base_unit_type: form.base_unit_type, base_unit_qty: recipeQty,
@@ -362,6 +373,7 @@ export default function ProductMasterTab() {
     { key: "level1_category", label: "L1 Category" },
     { key: "level2_category", label: "L2 Category" },
     { key: "level3_category", label: "L3 Category" },
+    { key: "accounting_category", label: "Accounting" },
     { key: "purchase_unit", label: "Purch. UOM" },
     { key: "purchase_unit_cost", label: "Purch. Cost", align: "right" as const },
     { key: "stock_uom", label: "Stock UOM" },
@@ -375,7 +387,7 @@ export default function ProductMasterTab() {
   ];
 
   // Grid template: must match across header / rows / footer. Last col = actions (70px).
-  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 100px 100px 100px 90px 100px 100px 100px 110px 130px 90px 70px";
+  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 140px 100px 100px 100px 90px 100px 100px 100px 110px 130px 90px 70px";
 
   // Virtualization
   if (loading) {
@@ -512,6 +524,7 @@ export default function ProductMasterTab() {
                         <div className="px-3 truncate">{r.level1_category}</div>
                         <div className="px-3 truncate">{r.level2_category}</div>
                         <div className="px-3 truncate">{r.level3_category}</div>
+                        <div className="px-3 truncate text-xs text-muted-foreground">{r.accounting_category}</div>
                         <div className="px-3 truncate">{r.purchase_unit}</div>
                         <div className="px-3 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</div>
                         <div className="px-3 truncate">{r.stock_uom}</div>
