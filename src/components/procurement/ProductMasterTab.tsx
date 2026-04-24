@@ -163,6 +163,7 @@ export default function ProductMasterTab() {
       if (subCatFilter !== "all" && r.level3_category !== subCatFilter) return false;
       if (supplierFilter !== "all" && r.supplier !== supplierFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (accountingFilter !== "all" && r.accounting_category !== accountingFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         return r.internal_sku.toLowerCase().includes(q) ||
@@ -174,10 +175,15 @@ export default function ProductMasterTab() {
       return true;
     });
     return sortRows(result, sortColumns);
-  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, sortColumns]);
+  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, accountingFilter, sortColumns]);
 
-  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || search;
-  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setSearch(""); };
+  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || accountingFilter !== "all" || search;
+  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setAccountingFilter("all"); setSearch(""); };
+
+  // Collect legacy free-text UOMs from existing products so dropdowns still display them.
+  const legacyPurchaseUoms = useMemo(() => flatRows.map(r => r.purchase_unit), [flatRows]);
+  const legacyStockUoms = useMemo(() => flatRows.map(r => r.stock_uom), [flatRows]);
+  const legacyBaseUoms = useMemo(() => flatRows.map(r => r.base_unit_type), [flatRows]);
 
   // Duplicate SKU detection for create mode
   useEffect(() => {
