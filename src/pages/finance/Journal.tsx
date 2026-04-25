@@ -92,8 +92,8 @@ export default function Journal() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Loading…</TableCell></TableRow>}
-            {!loading && entries.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">No journal entries.</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Loading…</TableCell></TableRow>}
+            {!loading && entries.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">No journal entries.</TableCell></TableRow>}
             {entries.map((e) => {
               const els = linesByEntry.get(e.id) || [];
               const totalDr = els.reduce((s, l) => s + Number(l.debit), 0);
