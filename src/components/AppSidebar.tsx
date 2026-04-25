@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -28,10 +28,12 @@ const revenueItems = [
 
 const financeItems = [
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
-  { title: "Cashflow", url: "/finance/cashflow", icon: TrendingUp },
   { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
-  { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
+  { title: "Cashflow", url: "/finance/cashflow", icon: TrendingUp },
+  { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
   { title: "Journal", url: "/finance/journal", icon: NotebookPen },
+  { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
+  { title: "Chart of Accounts", url: "/finance/chart-of-accounts", icon: ListTree },
 ];
 
 const procurementItems = [
