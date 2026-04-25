@@ -106,7 +106,6 @@ export default function Journal() {
                     <TableCell className="font-mono text-xs">{e.entry_date}</TableCell>
                     <TableCell><span className="text-xs px-1.5 py-0.5 rounded bg-muted">{SOURCE_LABELS[e.source_type] || e.source_type}</span></TableCell>
                     <TableCell className="text-sm">{e.memo}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{e.venue || "—"}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{fmt(totalDr)}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{fmt(totalCr)}</TableCell>
                     <TableCell><span className={cn("text-[10px] uppercase px-1.5 py-0.5 rounded", e.status === "posted" ? "bg-emerald-500/10 text-emerald-700" : e.status === "void" ? "bg-rose-500/10 text-rose-700" : "bg-amber-500/10 text-amber-700")}>{e.status}</span></TableCell>
