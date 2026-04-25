@@ -85,7 +85,6 @@ export default function Journal() {
               <TableHead>Date</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Memo</TableHead>
-              <TableHead>Venue</TableHead>
               <TableHead className="text-right">Debit</TableHead>
               <TableHead className="text-right">Credit</TableHead>
               <TableHead>Status</TableHead>
@@ -93,8 +92,8 @@ export default function Journal() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Loading…</TableCell></TableRow>}
-            {!loading && entries.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">No journal entries.</TableCell></TableRow>}
+            {loading && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Loading…</TableCell></TableRow>}
+            {!loading && entries.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">No journal entries.</TableCell></TableRow>}
             {entries.map((e) => {
               const els = linesByEntry.get(e.id) || [];
               const totalDr = els.reduce((s, l) => s + Number(l.debit), 0);
@@ -107,7 +106,6 @@ export default function Journal() {
                     <TableCell className="font-mono text-xs">{e.entry_date}</TableCell>
                     <TableCell><span className="text-xs px-1.5 py-0.5 rounded bg-muted">{SOURCE_LABELS[e.source_type] || e.source_type}</span></TableCell>
                     <TableCell className="text-sm">{e.memo}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{e.venue || "—"}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{fmt(totalDr)}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{fmt(totalCr)}</TableCell>
                     <TableCell><span className={cn("text-[10px] uppercase px-1.5 py-0.5 rounded", e.status === "posted" ? "bg-emerald-500/10 text-emerald-700" : e.status === "void" ? "bg-rose-500/10 text-rose-700" : "bg-amber-500/10 text-amber-700")}>{e.status}</span></TableCell>
@@ -120,7 +118,7 @@ export default function Journal() {
                   {isOpen && els.map((l) => (
                     <TableRow key={l.id} className="bg-muted/20">
                       <TableCell></TableCell>
-                      <TableCell colSpan={3} className="pl-12 text-sm">{accName(l.account_id)}</TableCell>
+                      <TableCell colSpan={2} className="pl-12 text-sm">{accName(l.account_id)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{l.memo}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{Number(l.debit) ? fmt(Number(l.debit)) : ""}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{Number(l.credit) ? fmt(Number(l.credit)) : ""}</TableCell>
