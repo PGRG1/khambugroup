@@ -85,7 +85,6 @@ export default function Journal() {
               <TableHead>Date</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Memo</TableHead>
-              <TableHead>Venue</TableHead>
               <TableHead className="text-right">Debit</TableHead>
               <TableHead className="text-right">Credit</TableHead>
               <TableHead>Status</TableHead>
