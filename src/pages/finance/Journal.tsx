@@ -118,7 +118,7 @@ export default function Journal() {
                   {isOpen && els.map((l) => (
                     <TableRow key={l.id} className="bg-muted/20">
                       <TableCell></TableCell>
-                      <TableCell colSpan={3} className="pl-12 text-sm">{accName(l.account_id)}</TableCell>
+                      <TableCell colSpan={2} className="pl-12 text-sm">{accName(l.account_id)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{l.memo}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{Number(l.debit) ? fmt(Number(l.debit)) : ""}</TableCell>
                       <TableCell className="text-right font-mono text-sm">{Number(l.credit) ? fmt(Number(l.credit)) : ""}</TableCell>
