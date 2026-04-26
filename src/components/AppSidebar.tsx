@@ -28,6 +28,7 @@ const revenueItems = [
 
 const financeItems = [
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
+  { title: "P&L (Ledger)", url: "/finance/pl-ledger", icon: Receipt },
   { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
   { title: "Cashflow", url: "/finance/cashflow", icon: TrendingUp },
   { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },

@@ -29,6 +29,7 @@ import Ledger from "./pages/finance/Ledger";
 import Journal from "./pages/finance/Journal";
 import ChartOfAccounts from "./pages/finance/ChartOfAccounts";
 import TrialBalance from "./pages/finance/TrialBalance";
+import LedgerPL from "./pages/finance/LedgerPL";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HRSchedule from "./pages/hr/HRSchedule";
@@ -101,6 +102,7 @@ function App() {
                 <Route path="/finance/journal" element={<AdminRoute><Journal /></AdminRoute>} />
                 <Route path="/finance/chart-of-accounts" element={<AdminRoute><ChartOfAccounts /></AdminRoute>} />
                 <Route path="/finance/trial-balance" element={<AdminRoute><TrialBalance /></AdminRoute>} />
+                <Route path="/finance/pl-ledger" element={<AdminRoute><LedgerPL /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
