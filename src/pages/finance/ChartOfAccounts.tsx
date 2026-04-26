@@ -166,7 +166,26 @@ function AccountMappingPanel({ accounts }: { accounts: ChartAccount[] }) {
         </div>
         <div>
           <label className="text-[11px] text-muted-foreground">Match key {ruleDef?.needsKey ? "(required)" : "(optional)"}</label>
-          <Input value={draft.match_key} onChange={(e) => setDraft({ ...draft, match_key: e.target.value })} className="h-9" placeholder={ruleDef?.needsKey ? "e.g. Assembly / cash / COGS - Wine" : ""} />
+          {draft.rule_type === "sales_payment_method" ? (
+            <Select value={draft.match_key} onValueChange={(v) => setDraft({ ...draft, match_key: v })}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select method…" /></SelectTrigger>
+              <SelectContent>
+                {[
+                  { v: "visa", l: "Visa" },
+                  { v: "mastercard", l: "Mastercard" },
+                  { v: "amex", l: "Amex" },
+                  { v: "union_pay", l: "UnionPay" },
+                  { v: "jcb", l: "JCB" },
+                  { v: "alipay", l: "Alipay" },
+                  { v: "wechat", l: "WeChat" },
+                  { v: "payme", l: "PayMe" },
+                  { v: "cash", l: "Cash" },
+                ].map((m) => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input value={draft.match_key} onChange={(e) => setDraft({ ...draft, match_key: e.target.value })} className="h-9" placeholder={ruleDef?.needsKey ? "e.g. Assembly / cash / COGS - Wine" : ""} />
+          )}
         </div>
         <div className="md:col-span-2">
           <label className="text-[11px] text-muted-foreground">Account</label>
