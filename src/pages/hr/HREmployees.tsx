@@ -13,7 +13,7 @@ export default function HREmployees() {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="w-full mx-auto space-y-6">
       <EmployeeDirectoryTab
         employees={hr.employees}
         departments={hr.departments}

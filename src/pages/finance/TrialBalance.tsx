@@ -54,7 +54,7 @@ export default function TrialBalance() {
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Trial Balance</h1>
