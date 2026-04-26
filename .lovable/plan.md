@@ -1,45 +1,33 @@
-# Make the portal use the full screen width
+# Tighten the layout so it doesn't feel over-stretched
 
-Currently the app is locked to a centered column. Two things constrain it:
+After removing the width caps, content now spans the full 3490px screen which makes charts feel sparse, line lengths too long, and tables too airy. The fix is to give the **main content area** a comfortable maximum that scales nicely on ultra-wide monitors while still using a normal laptop fully.
 
-1. **`src/App.css`** — sets `#root { max-width: 1280px; margin: 0 auto; padding: 2rem; text-align: center; }`. This caps the entire app at 1280px regardless of screen size and adds extra padding/centered text alignment that conflicts with the sidebar layout.
-2. **Per-page wrappers** — every main page wraps content in `<div className="max-w-[1400px] mx-auto ...">`, capping content at 1400px even on 4K monitors.
+## Approach
 
-On the user's 3490px-wide screen, this is why everything bunches in the middle.
+Cap the inner content area in `AppLayout` (not the sidebar). The sidebar stays flush left; the main panel grows up to a comfortable max and centers itself within remaining space.
 
-## Changes
+### `src/components/AppLayout.tsx`
+Change the inner content wrapper:
+```tsx
+// before
+<div className="flex-1 p-3 sm:p-6 lg:p-8">
 
-### 1. Remove global `#root` cap (`src/App.css`)
-Strip the `#root` rule so it stops fighting the sidebar layout. Replace with:
-```css
-#root { width: 100%; min-height: 100vh; }
+// after
+<div className="flex-1 w-full max-w-[1800px] mx-auto p-3 sm:p-6 lg:p-8 2xl:px-12">
 ```
-(Keep the rest of the file — logo/card styles — untouched in case anything still references them.)
 
-### 2. Switch page wrappers from fixed cap to fluid with sane max
-Replace `max-w-[1400px] mx-auto` with `w-full mx-auto` on these pages so they expand to fill the area provided by `AppLayout`'s main panel (which already has `p-3 sm:p-6 lg:p-8`):
+Why 1800px: comfortably wider than the old 1400px cap (so dashboards breathe), but stops short of feeling sparse on 3K/4K. Extra horizontal padding at `2xl` keeps a little air on either side.
 
-- `src/pages/Index.tsx`
-- `src/pages/DataPage.tsx`
-- `src/pages/PLReport.tsx`
-- `src/pages/AuditLog.tsx`
-- `src/pages/ForecastInput.tsx`
-- `src/pages/UserAccessControl.tsx`
-- `src/pages/hr/HREmployees.tsx`
-- `src/pages/finance/TrialBalance.tsx`
-- `src/pages/finance/Ledger.tsx`
-- `src/pages/finance/Journal.tsx`
-- `src/pages/finance/ChartOfAccounts.tsx`
-- `src/pages/finance/Cashflow.tsx`
-- `src/pages/finance/BalanceSheet.tsx`
+### Per-page wrappers — leave as-is
+Already updated last turn:
+- Dashboard pages use `w-full mx-auto` → fill the new 1800px container
+- Finance pages use `max-w-[1920px] mx-auto` → effectively capped by the parent now, which is fine
 
-For ultra-wide readability on text-heavy pages (P&L, Trial Balance, Balance Sheet, Cashflow), I'll bump the cap to a much larger value like `max-w-[1920px]` instead of removing it entirely, so financial tables don't stretch to absurd widths on 4K. Dashboards (Revenue, Forecast, HR, Procurement-style) get true full-width (`w-full`).
-
-### 3. No change to `AppLayout`
-The sidebar + main flex layout is already correct — `<main className="flex-1 ...">` already grows. Removing the `#root` and per-page caps is enough.
+No further per-page changes needed.
 
 ## Result
 
-- Laptops (1366–1920px): looks the same or slightly wider, no regression.
-- Large monitors (2560px+): dashboards, charts, and tables expand to use the available space.
-- Mobile: untouched — existing responsive padding and grids still apply.
+- Laptops (1366–1800px): identical — uses the full screen.
+- Standard monitors (1920–2560px): main panel sits at 1800px wide with even side margins. Looks intentional and balanced.
+- Ultra-wide (3000px+): sidebar on the left, content centered in a comfortable column instead of stretching across the whole display.
+- Mobile/tablet: unchanged.
