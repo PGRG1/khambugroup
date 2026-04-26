@@ -42,9 +42,10 @@ export function useLedgerPL(periods: LedgerPLPeriod[]) {
     const all = periods.flatMap(p => p.months.map(m => ({ y: p.year, m })));
     all.sort((a, b) => a.y * 100 + a.m - (b.y * 100 + b.m));
     const f = all[0], l = all[all.length - 1];
+    const lastDay = new Date(l.y, l.m, 0).getDate();
     return {
       from: `${f.y}-${String(f.m).padStart(2, "0")}-01`,
-      to: `${l.y}-${String(l.m).padStart(2, "0")}-31`,
+      to: `${l.y}-${String(l.m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
     };
   }, [periods]);
 
