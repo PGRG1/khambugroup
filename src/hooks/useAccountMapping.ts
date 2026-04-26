@@ -12,10 +12,10 @@ export interface AccountMappingRule {
 
 export const RULE_TYPES: { value: string; label: string; needsKey: boolean }[] = [
   { value: "sales_revenue", label: "Sales Revenue (per venue)", needsKey: true },
-  { value: "service_charge", label: "Service Charge", needsKey: false },
+  { value: "service_charge", label: "Service Charge (per venue)", needsKey: true },
   { value: "sales_cash", label: "Sales — Cash account", needsKey: false },
   { value: "sales_payment_method", label: "Sales Payment Method (per method)", needsKey: true },
-  { value: "sales_discount", label: "Sales Discount", needsKey: false },
+  { value: "sales_discount", label: "Sales Discount (per venue)", needsKey: true },
   { value: "payment_method_cash", label: "Invoice/Payroll Payment Method → Cash account", needsKey: true },
   { value: "invoice_expense", label: "Invoice Expense (by accounting category)", needsKey: true },
   { value: "accounts_payable", label: "Accounts Payable", needsKey: false },
