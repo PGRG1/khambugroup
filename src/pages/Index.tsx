@@ -94,7 +94,7 @@ const Index = () => {
   const hideViewToggle = isActionHidden("revenue.view_toggle");
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6">
+    <div className="w-full mx-auto space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-2 sm:gap-3">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-base sm:text-2xl font-bold font-display tracking-tight shrink-0">
