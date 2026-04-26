@@ -1,61 +1,58 @@
 ## Goal
 
-Let you manually map **each** payment method (Visa, Mastercard, Amex, JCB, UnionPay, Alipay, WeChat, PayMe, Cash) to its own Chart of Accounts entry from the **Chart of Accounts → Account Mapping** tab, and have the journal rebuild respect those individual mappings (so you can route everything to "Merchant Receivable - KPAY" today, then split JCB or Amex to a different account later without touching code).
+Let you manually map **Service Charge** and **Sales Discount** to a different Chart of Accounts entry **per venue** (Assembly, Caliente, Hanabi, Events) — same pattern you already use for Sales Revenue. Today both are posted to a single lump-sum account regardless of venue.
 
-## What's already in place
+## What's in place today
 
-- A rule type `sales_payment_method` exists in the database with per-method keys (`visa`, `mastercard`, `amex`, `jcb`, `union_pay`, `alipay`, `wechat`, `payme`, `cash`) — all currently pointing at the same KPAY account.
-- The mapping table UI (`AccountMappingPanel`) is generic and can already render any rule type.
-
-## What's missing / broken
-
-1. The dropdown of rule types in the mapping UI (`RULE_TYPES` in `src/hooks/useAccountMapping.ts`) does **not** include `sales_payment_method`, so there is no way to add or edit these rules from the UI today.
-2. The `rebuild_journal_from_operations` SQL function ignores the per-method rules. It picks one arbitrary card account (`LIMIT 1`) and dumps the combined Visa+MC+Amex+JCB+UnionPay+Alipay+WeChat+PayMe total into it as one "KPAY" line. So even if you change one method's mapping, the rebuild won't honor it.
+- `account_mapping_rules` has one row for `service_charge` (empty match_key) and one row for `sales_discount` (empty match_key) — both global.
+- The Account Mapping UI lists them as "Service Charge" and "Sales Discount" with `needsKey: false`, so you can't add a per-venue row.
+- `rebuild_journal_from_operations` looks up each via `match_key=''` and posts the venue's full service charge / discount to that single account.
 
 ## Proposed changes
 
-### 1. UI — make the per-method mapping editable
+### 1. UI — make both rules per-venue
 
-**`src/hooks/useAccountMapping.ts`** — add to `RULE_TYPES`:
+In `src/hooks/useAccountMapping.ts`, change the two rule definitions to need a key and rename labels for clarity:
 
 ```ts
-{ value: "sales_payment_method", label: "Sales Payment Method (per method)", needsKey: true },
+{ value: "service_charge", label: "Service Charge (per venue)", needsKey: true },
+{ value: "sales_discount", label: "Sales Discount (per venue)", needsKey: true },
 ```
 
-That alone makes the existing Account Mapping panel show a "Sales Payment Method (per method)" group with one editable row per method. The match key field accepts: `visa`, `mastercard`, `amex`, `jcb`, `union_pay`, `alipay`, `wechat`, `payme`, `cash`.
+In `src/pages/finance/ChartOfAccounts.tsx` `AccountMappingPanel`, when the selected rule is `service_charge` or `sales_discount`, replace the free-text "Match key" input with a `Select` containing the four venues (Assembly, Caliente, Hanabi, Events) — same pattern already used for `sales_payment_method`.
 
-**Optional polish** (`src/pages/finance/ChartOfAccounts.tsx` → `AccountMappingPanel`): when the selected rule is `sales_payment_method`, replace the free-text "Match key" input with a `Select` listing the nine known methods so you don't have to remember the exact spelling (`union_pay` vs `unionpay`, etc.).
+### 2. Database — make the rebuild honor per-venue mappings, with safe fallback
 
-### 2. Database — make the journal rebuild honor each mapping
+Update `public.rebuild_journal_from_operations` so the sales loop, for each (date, venue) row:
 
-Update `public.rebuild_journal_from_operations` so the sales posting loop produces one journal line per non-cash payment method that has a non-zero amount, each debited to the account configured for that method's rule (falling back to the current single KPAY account if a specific mapping is missing). Cash continues to use its existing `sales_cash` / `payment_method_cash=cash` mapping.
+- Looks up `service_charge` by `match_key = r.venue` first; falls back to the existing global `match_key=''` rule if no per-venue row exists.
+- Same for `sales_discount`.
 
-Sketch of the new behavior inside the per-day/per-venue loop:
+This means: if no per-venue rules exist yet, behavior is identical to today. As soon as you add a venue-specific rule, the next Rebuild Ledger picks it up.
+
+Sketch:
 
 ```text
-for method in (visa, mastercard, amex, union_pay, jcb, alipay, wechat, payme):
-    amt = r.m_<method>
-    if amt > 0:
-        acct = lookup(rule_type='sales_payment_method', match_key=method)
-              ?? fallback KPAY account
-        insert journal_line(debit=amt, account=acct, memo='<Method> <amt>')
+acc_svc_v   = lookup(service_charge, venue) ?? acc_service        -- existing global
+acc_disc_v  = lookup(sales_discount, venue) ?? acc_discount        -- existing global
+
+credit acc_svc_v  for v_svc
+debit  acc_disc_v for v_discount_abs
 ```
 
-Cash row and the credit side (revenue + service charge + discount) stay exactly as today. Net effect: today, with all eight methods mapped to "Merchant Receivable - KPAY", the journal looks identical to what you have now. Tomorrow, if you re-map JCB to a different account, the next Rebuild Ledger picks it up automatically.
+### 3. No data migration required
 
-### 3. No data migration needed
-
-The nine `sales_payment_method` rows already exist in `account_mapping_rules` and are all pointed at the KPAY account. You can edit any of them from the UI immediately after the changes above ship.
+The current global rows stay as-is and act as the fallback. You add per-venue overrides from the UI as needed.
 
 ## How you'll use it
 
 1. Open **Chart of Accounts → Account Mapping**.
-2. Find the new **Sales Payment Method (per method)** section — it lists Visa, Mastercard, Amex, JCB, UnionPay, Alipay, WeChat, PayMe, Cash.
-3. For each row, pick the Chart of Accounts entry it should post to (e.g. all eight cards → "Merchant Receivable - KPAY", Cash → "Cash on Hand").
-4. Click **Rebuild Ledger** at the top of the page. The journal, ledger, trial balance, and balance sheet will reflect the new mapping.
+2. Use the top form: pick **Service Charge (per venue)** → pick venue (e.g. Hanabi) → pick the account → Save Rule. Repeat for each venue you want to split out.
+3. Same flow for **Sales Discount (per venue)**.
+4. Click **Rebuild Ledger** at the top. Journal, Ledger, Trial Balance, and Balance Sheet update.
 
 ## Files touched
 
-- `src/hooks/useAccountMapping.ts` — add the rule type to the dropdown.
-- `src/pages/finance/ChartOfAccounts.tsx` — (optional) method-aware match-key picker.
-- New SQL migration — replace `rebuild_journal_from_operations` so card lines are split per method using the per-method rules.
+- `src/hooks/useAccountMapping.ts` — flip `needsKey` to `true` and rename labels for `service_charge` and `sales_discount`.
+- `src/pages/finance/ChartOfAccounts.tsx` — extend the venue-aware match-key picker to cover these two rule types.
+- New SQL migration — replace `rebuild_journal_from_operations` so service charge and discount lookups try `match_key=venue` first, then fall back to `match_key=''`.
