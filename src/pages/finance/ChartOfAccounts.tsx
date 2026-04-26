@@ -183,6 +183,13 @@ function AccountMappingPanel({ accounts }: { accounts: ChartAccount[] }) {
                 ].map((m) => <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>)}
               </SelectContent>
             </Select>
+          ) : (draft.rule_type === "sales_revenue" || draft.rule_type === "service_charge" || draft.rule_type === "sales_discount") ? (
+            <Select value={draft.match_key} onValueChange={(v) => setDraft({ ...draft, match_key: v })}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select venue…" /></SelectTrigger>
+              <SelectContent>
+                {["Assembly", "Caliente", "Hanabi", "Events"].map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
           ) : (
             <Input value={draft.match_key} onChange={(e) => setDraft({ ...draft, match_key: e.target.value })} className="h-9" placeholder={ruleDef?.needsKey ? "e.g. Assembly / cash / COGS - Wine" : ""} />
           )}
