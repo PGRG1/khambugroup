@@ -1,58 +1,45 @@
-## Where discounts go today
+# Make the portal use the full screen width
 
-**Short answer: nowhere explicit.** Discounts are silently absorbed into the revenue credit.
+Currently the app is locked to a centered column. Two things constrain it:
 
-Looking at `sales_records`, every sale has: `subtotal`, `service_charge`, `discount`, `total_sales`. The current `rebuild_journal_from_operations()` function does this:
+1. **`src/App.css`** — sets `#root { max-width: 1280px; margin: 0 auto; padding: 2rem; text-align: center; }`. This caps the entire app at 1280px regardless of screen size and adds extra padding/centered text alignment that conflicts with the sidebar layout.
+2. **Per-page wrappers** — every main page wraps content in `<div className="max-w-[1400px] mx-auto ...">`, capping content at 1400px even on 4K monitors.
 
+On the user's 3490px-wide screen, this is why everything bunches in the middle.
+
+## Changes
+
+### 1. Remove global `#root` cap (`src/App.css`)
+Strip the `#root` rule so it stops fighting the sidebar layout. Replace with:
+```css
+#root { width: 100%; min-height: 100vh; }
 ```
-v_total := total_sales              -- already net of discount
-v_svc   := service_charge
-v_rev   := v_total - v_svc          -- subtotal MINUS discount, lumped together
-```
+(Keep the rest of the file — logo/card styles — untouched in case anything still references them.)
 
-So the credit posted to **Sales Revenue** = `subtotal − discount`. The discount disappears into a smaller revenue number with no visibility on the P&L or trial balance.
+### 2. Switch page wrappers from fixed cap to fluid with sane max
+Replace `max-w-[1400px] mx-auto` with `w-full mx-auto` on these pages so they expand to fill the area provided by `AppLayout`'s main panel (which already has `p-3 sm:p-6 lg:p-8`):
 
-**Data check (all venues, all-time):**
-- Subtotal: 5,127,122
-- Service charge: 510,706
-- Discount: −134,922 (stored as negative, so a real reduction)
-- Total sales: 5,494,606 ✓ ties to subtotal + svc + discount
+- `src/pages/Index.tsx`
+- `src/pages/DataPage.tsx`
+- `src/pages/PLReport.tsx`
+- `src/pages/AuditLog.tsx`
+- `src/pages/ForecastInput.tsx`
+- `src/pages/UserAccessControl.tsx`
+- `src/pages/hr/HREmployees.tsx`
+- `src/pages/finance/TrialBalance.tsx`
+- `src/pages/finance/Ledger.tsx`
+- `src/pages/finance/Journal.tsx`
+- `src/pages/finance/ChartOfAccounts.tsx`
+- `src/pages/finance/Cashflow.tsx`
+- `src/pages/finance/BalanceSheet.tsx`
 
-The 134,922 of discounts is currently buried inside the revenue credit instead of being shown as a contra-revenue line.
+For ultra-wide readability on text-heavy pages (P&L, Trial Balance, Balance Sheet, Cashflow), I'll bump the cap to a much larger value like `max-w-[1920px]` instead of removing it entirely, so financial tables don't stretch to absurd widths on 4K. Dashboards (Revenue, Forecast, HR, Procurement-style) get true full-width (`w-full`).
 
-## Proposed fix
+### 3. No change to `AppLayout`
+The sidebar + main flex layout is already correct — `<main className="flex-1 ...">` already grows. Removing the `#root` and per-page caps is enough.
 
-Treat discounts as a **contra-revenue** account (industry standard — shows gross sales, then discounts, then net revenue on the P&L).
+## Result
 
-### 1. Chart of accounts
-Add one new account:
-- **`4150 — Sales Discounts`** (account_type: `revenue`, normal_side: `debit` — i.e. contra-revenue)
-
-### 2. Account mapping rule
-Add a new rule_type `sales_discount` (match_key `''`) pointing to account 4150.
-
-### 3. Update `rebuild_journal_from_operations()`
-For each sales entry, change the revenue posting from one line to two:
-
-```text
-Before:
-  Cr  Sales Revenue        subtotal − discount
-  Cr  Service Charge       svc
-
-After:
-  Cr  Sales Revenue        subtotal              (gross)
-  Dr  Sales Discounts      |discount|            (contra-revenue)
-  Cr  Service Charge       svc
-```
-
-Net effect on debits/credits is unchanged → trial balance stays balanced. Cash + KPAY debits are also unchanged because they already equal `total_sales`.
-
-### 4. P&L report
-`Sales Discounts` will automatically appear under Revenue (as a negative) since it's a revenue-type account on the debit side. Net Revenue = Sales Revenue − Sales Discounts + Service Charge.
-
-### 5. Rerun the rebuild
-After the migration, re-execute `rebuild_journal_from_operations()` so all historical journal entries reflect the new structure. Verify trial balance still balances at 8,252,545.70.
-
-## Files / objects touched
-- New migration: insert COA row 4150, insert mapping rule `sales_discount`, replace `rebuild_journal_from_operations()` function, run rebuild.
-- No frontend changes required — Journal, Trial Balance, and P&L pages will pick it up automatically (P&L may need a quick check that the new account renders in the right group).
+- Laptops (1366–1920px): looks the same or slightly wider, no regression.
+- Large monitors (2560px+): dashboards, charts, and tables expand to use the available space.
+- Mobile: untouched — existing responsive padding and grids still apply.
