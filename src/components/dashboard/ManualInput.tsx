@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Paperclip } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { getPaymentTotal } from "@/utils/salesUtils";
 
 interface ManualInputProps {
-  onAdd: (record: SalesRecord) => void;
+  onAdd: (record: SalesRecord, file?: File | null) => void;
   onClose: () => void;
 }
 
