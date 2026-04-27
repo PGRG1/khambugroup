@@ -98,7 +98,7 @@ const DataPage = () => {
         <DataUpload onUpload={async (records) => { await uploadRecords(records); }} onClose={() => setShowUpload(false)} />
       )}
       {isAdmin && !hideScanReceipt && showScanner && (
-        <ReceiptScanner onSave={async (record) => { await addRecord(record); }} onClose={() => setShowScanner(false)} />
+        <ReceiptScanner onSave={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowScanner(false)} />
       )}
       {isAdmin && !hideManualEntry && showManual && (
         <ManualInput onAdd={async (record) => { await addRecord(record); }} onClose={() => setShowManual(false)} />
