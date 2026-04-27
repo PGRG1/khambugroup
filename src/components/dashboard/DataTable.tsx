@@ -297,8 +297,5 @@ const DataTable = ({ data, onUpdate, onDelete, onAttachReceipt }: DataTableProps
     </div>
   );
 };
-    </div>
-  );
-};
 
 export default DataTable;
