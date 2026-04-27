@@ -18,6 +18,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<SalesRecord | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   if (!record) return null;
 
