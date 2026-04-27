@@ -9,6 +9,7 @@ interface AttachmentViewerDialogProps {
   onOpenChange: (open: boolean) => void;
   fileUrl: string;
   title?: string;
+  bucket?: string;
 }
 
 interface SignedFile {
