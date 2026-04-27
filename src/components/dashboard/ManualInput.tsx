@@ -19,6 +19,7 @@ const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const [form, setForm] = useState<SalesRecord>(emptyRecord);
+  const [file, setFile] = useState<File | null>(null);
 
   const set = (key: keyof SalesRecord, value: string | number) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -43,8 +44,9 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
     e.preventDefault();
     if (!form.date || !form.venue) return;
     // Normalize discount to negative before saving
-    onAdd({ ...form, discount: normalizedDiscount });
+    onAdd({ ...form, discount: normalizedDiscount }, file);
     setForm(emptyRecord);
+    setFile(null);
   };
 
   const numField = (label: string, key: keyof SalesRecord) => (
