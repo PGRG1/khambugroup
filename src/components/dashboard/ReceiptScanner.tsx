@@ -56,6 +56,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
   const [extractedData, setExtractedData] = useState<SalesRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
