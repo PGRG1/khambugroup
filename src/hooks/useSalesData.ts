@@ -26,6 +26,8 @@ function toDbRecord(r: SalesRecord) {
     payme: r.payme,
     cash: r.cash,
     card_tips: r.cardTips,
+    receipt_file_url: r.receiptFileUrl ?? null,
+    receipt_file_name: r.receiptFileName ?? null,
   };
 }
 
