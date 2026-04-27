@@ -145,6 +145,26 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             </span>
           </div>
         )}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2 border-t border-border">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+            <Paperclip className="h-4 w-4" />
+            <span>{file ? "Change receipt" : "Attach receipt (optional)"}</span>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="hidden"
+            />
+          </label>
+          {file && (
+            <div className="flex items-center gap-2 text-xs text-foreground">
+              <span className="truncate max-w-[200px]">{file.name}</span>
+              <button type="button" onClick={() => setFile(null)} className="text-muted-foreground hover:text-destructive">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
         <button
           type="submit"
           className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
