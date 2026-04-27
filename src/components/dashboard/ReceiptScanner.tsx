@@ -209,10 +209,11 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     }
     setSaving(true);
     try {
-      await onSave(extractedData);
-      toast({ title: "Record saved successfully!" });
+      await onSave(extractedData, originalFile);
+      toast({ title: "Record saved successfully!", description: originalFile ? "Receipt file attached." : undefined });
       setExtractedData(null);
       setPreviewUrl(null);
+      setOriginalFile(null);
       setTimeout(onClose, 800);
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
