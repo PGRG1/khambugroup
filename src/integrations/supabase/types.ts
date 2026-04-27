@@ -1984,6 +1984,8 @@ export type Database = {
           mastercard: number
           orders: number
           payme: number
+          receipt_file_name: string | null
+          receipt_file_url: string | null
           report_number: string
           service_charge: number
           subtotal: number
@@ -2008,6 +2010,8 @@ export type Database = {
           mastercard?: number
           orders?: number
           payme?: number
+          receipt_file_name?: string | null
+          receipt_file_url?: string | null
           report_number: string
           service_charge?: number
           subtotal?: number
@@ -2032,6 +2036,8 @@ export type Database = {
           mastercard?: number
           orders?: number
           payme?: number
+          receipt_file_name?: string | null
+          receipt_file_url?: string | null
           report_number?: string
           service_charge?: number
           subtotal?: number
