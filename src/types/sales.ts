@@ -19,6 +19,8 @@ export interface SalesRecord {
   payme: number;
   cash: number;
   cardTips: number;
+  receiptFileUrl?: string | null;
+  receiptFileName?: string | null;
 }
 
 export type VenueFilter = "All Venues" | "Assembly" | "Caliente" | "Hanabi" | "Events";

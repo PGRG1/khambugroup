@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getPaymentTotal } from "@/utils/salesUtils";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Eye } from "lucide-react";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
 interface Props {
   record: SalesRecord | null;
@@ -17,6 +18,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<SalesRecord | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   if (!record) return null;
 
@@ -106,6 +108,11 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
             <div className="flex items-center justify-between">
               <DialogTitle>Sales Record — {record.date}</DialogTitle>
               <div className="flex items-center gap-1">
+                {record.receiptFileUrl && !editing && (
+                  <button onClick={() => setShowReceipt(true)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors" title="View scanned receipt">
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
                 {onEdit && !editing && (
                   <button onClick={startEdit} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit">
                     <Pencil className="h-4 w-4" />
@@ -192,6 +199,16 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
         title="Delete Sales Record"
         description="Are you sure you want to delete this sales record? This action cannot be undone."
       />
+
+      {record.receiptFileUrl && (
+        <AttachmentViewerDialog
+          open={showReceipt}
+          onOpenChange={setShowReceipt}
+          fileUrl={record.receiptFileUrl}
+          title={`Receipt — ${record.venue} ${record.date}`}
+          bucket="sales-receipts"
+        />
+      )}
     </>
   );
 }

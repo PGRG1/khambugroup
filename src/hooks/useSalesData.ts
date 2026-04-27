@@ -26,6 +26,8 @@ function toDbRecord(r: SalesRecord) {
     payme: r.payme,
     cash: r.cash,
     card_tips: r.cardTips,
+    receipt_file_url: r.receiptFileUrl ?? null,
+    receipt_file_name: r.receiptFileName ?? null,
   };
 }
 
@@ -56,6 +58,8 @@ function fromDbRecord(r: any): SalesRecord {
     payme: Number(r.payme),
     cash: Number(r.cash),
     cardTips: Number(r.card_tips),
+    receiptFileUrl: r.receipt_file_url ?? null,
+    receiptFileName: r.receipt_file_name ?? null,
   };
 }
 
@@ -90,10 +94,24 @@ export function useSalesData() {
     return !error;
   }, [fetchData]);
 
-  const addRecord = useCallback(async (record: SalesRecord) => {
+  const addRecord = useCallback(async (record: SalesRecord, file?: File | null) => {
+    let finalRecord = record;
+
+    if (file) {
+      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+      const safeReport = (record.reportNumber || "norpt").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const path = `${record.date || "undated"}_${record.venue}_${safeReport}_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("sales-receipts")
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (!upErr) {
+        finalRecord = { ...record, receiptFileUrl: path, receiptFileName: file.name };
+      }
+    }
+
     const { error } = await supabase
       .from("sales_records")
-      .insert(toDbRecord(record));
+      .insert(toDbRecord(finalRecord));
 
     if (!error) {
       await logAuditEvent({

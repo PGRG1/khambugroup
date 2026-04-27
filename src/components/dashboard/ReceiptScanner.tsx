@@ -11,7 +11,7 @@ import { getPaymentTotal } from "@/utils/salesUtils";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface ReceiptScannerProps {
-  onSave: (record: SalesRecord) => Promise<void>;
+  onSave: (record: SalesRecord, file?: File | null) => Promise<void>;
   onClose: () => void;
 }
 
@@ -56,6 +56,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
   const [extractedData, setExtractedData] = useState<SalesRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
 
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -89,6 +90,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
 
     setScanning(true);
     setExtractedData(null);
+    setOriginalFile(file);
 
     try {
       const base64 = await fileToBase64(file);
@@ -207,10 +209,11 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     }
     setSaving(true);
     try {
-      await onSave(extractedData);
-      toast({ title: "Record saved successfully!" });
+      await onSave(extractedData, originalFile);
+      toast({ title: "Record saved successfully!", description: originalFile ? "Receipt file attached." : undefined });
       setExtractedData(null);
       setPreviewUrl(null);
+      setOriginalFile(null);
       setTimeout(onClose, 800);
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
@@ -399,7 +402,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
               {saving ? "Saving..." : "Save Record"}
             </button>
             <button
-              onClick={() => { setExtractedData(null); setPreviewUrl(null); }}
+              onClick={() => { setExtractedData(null); setPreviewUrl(null); setOriginalFile(null); }}
               className="px-4 py-2 text-sm rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
             >
               Scan Another

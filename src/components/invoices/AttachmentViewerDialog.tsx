@@ -9,6 +9,7 @@ interface AttachmentViewerDialogProps {
   onOpenChange: (open: boolean) => void;
   fileUrl: string;
   title?: string;
+  bucket?: string;
 }
 
 interface SignedFile {
@@ -17,7 +18,7 @@ interface SignedFile {
   index: number;
 }
 
-export default function AttachmentViewerDialog({ open, onOpenChange, fileUrl, title }: AttachmentViewerDialogProps) {
+export default function AttachmentViewerDialog({ open, onOpenChange, fileUrl, title, bucket = "invoice-files" }: AttachmentViewerDialogProps) {
   const [files, setFiles] = useState<SignedFile[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +34,7 @@ export default function AttachmentViewerDialog({ open, onOpenChange, fileUrl, ti
     setLoading(true);
     Promise.all(
       paths.map(async (path, index) => {
-        const { data } = await supabase.storage.from("invoice-files").createSignedUrl(path, 3600);
+        const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
         const ext = path.split(".").pop()?.toLowerCase() || "";
         return {
           url: data?.signedUrl || "",
@@ -45,7 +46,7 @@ export default function AttachmentViewerDialog({ open, onOpenChange, fileUrl, ti
       setFiles(results.filter(f => f.url));
       setLoading(false);
     });
-  }, [open, fileUrl]);
+  }, [open, fileUrl, bucket]);
 
   const totalPages = files.length;
 
