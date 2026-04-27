@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type AuditAction = "insert" | "update" | "delete" | "bulk_upload" | "bulk_delete";
+export type AuditAction = "insert" | "update" | "delete" | "bulk_upload" | "bulk_delete" | "attach_receipt";
 export type AuditEntityType = "sales_record" | "forecast";
 
 interface AuditLogEntry {
