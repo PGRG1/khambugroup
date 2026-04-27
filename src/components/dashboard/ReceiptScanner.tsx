@@ -90,6 +90,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
 
     setScanning(true);
     setExtractedData(null);
+    setOriginalFile(file);
 
     try {
       const base64 = await fileToBase64(file);
