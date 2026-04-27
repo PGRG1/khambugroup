@@ -19,7 +19,8 @@ type SortKey = keyof SalesRecord;
 type SortDir = "asc" | "desc";
 const PAGE_SIZE = 15;
 
-const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
+const DataTable = ({ data, onUpdate, onDelete, onAttachReceipt }: DataTableProps) => {
+  const [viewingReceipt, setViewingReceipt] = useState<SalesRecord | null>(null);
   const [page, setPage] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
