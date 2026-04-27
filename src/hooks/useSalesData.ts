@@ -163,5 +163,37 @@ export function useSalesData() {
     return !error;
   }, [fetchData]);
 
-  return { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch: fetchData };
+  const attachReceipt = useCallback(async (record: SalesRecord, file: File) => {
+    // Delete old file if exists
+    if (record.receiptFileUrl) {
+      await supabase.storage.from("sales-receipts").remove([record.receiptFileUrl]);
+    }
+    const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+    const safeReport = (record.reportNumber || "norpt").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const path = `${record.date || "undated"}_${record.venue}_${safeReport}_${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from("sales-receipts")
+      .upload(path, file, { contentType: file.type, upsert: true });
+    if (upErr) return false;
+
+    const { error } = await supabase
+      .from("sales_records")
+      .update({ receipt_file_url: path, receipt_file_name: file.name })
+      .eq("date", record.date)
+      .eq("venue", record.venue)
+      .eq("report_number", record.reportNumber);
+
+    if (!error) {
+      await logAuditEvent({
+        action: "attach_receipt",
+        entityType: "sales_record",
+        entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
+        details: { fileName: file.name },
+      });
+      await fetchData();
+    }
+    return !error;
+  }, [fetchData]);
+
+  return { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, attachReceipt, refetch: fetchData };
 }
