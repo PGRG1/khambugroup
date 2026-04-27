@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getPaymentTotal } from "@/utils/salesUtils";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Eye } from "lucide-react";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
 interface Props {
   record: SalesRecord | null;
