@@ -217,6 +217,7 @@ const DataTable = ({ data, onUpdate, onDelete, onAttachReceipt }: DataTableProps
                   </TableHead>
                 );
               })}
+              <TableHead className="w-8 px-1.5 sm:px-2"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -231,6 +232,17 @@ const DataTable = ({ data, onUpdate, onDelete, onAttachReceipt }: DataTableProps
                 <TableCell className="px-1.5 sm:px-4">{numCell("serviceCharge", row)}</TableCell>
                 <TableCell className="px-1.5 sm:px-4">{numCell("discount", row)}</TableCell>
                 <TableCell className="px-1.5 sm:px-4">{numCell("totalSales", row)}</TableCell>
+                <TableCell className="px-1.5 sm:px-2">
+                  {row.receiptFileUrl ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setViewingReceipt(row); }}
+                      className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+                      title="View receipt"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
