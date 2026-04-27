@@ -10,7 +10,7 @@ import ResetDataButton from "@/components/dashboard/ResetDataButton";
 import { Upload, PenLine, ScanLine } from "lucide-react";
 
 const DataPage = () => {
-  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch } = useSalesData();
+  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, attachReceipt, refetch } = useSalesData();
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
   const [showUpload, setShowUpload] = useState(false);
@@ -101,10 +101,15 @@ const DataPage = () => {
         <ReceiptScanner onSave={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowScanner(false)} />
       )}
       {isAdmin && !hideManualEntry && showManual && (
-        <ManualInput onAdd={async (record) => { await addRecord(record); }} onClose={() => setShowManual(false)} />
+        <ManualInput onAdd={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowManual(false)} />
       )}
 
-      <DataTable data={data} onUpdate={canEdit ? handleUpdateRecord : undefined} onDelete={canDelete ? handleDeleteRecord : undefined} />
+      <DataTable
+        data={data}
+        onUpdate={canEdit ? handleUpdateRecord : undefined}
+        onDelete={canDelete ? handleDeleteRecord : undefined}
+        onAttachReceipt={canEdit ? attachReceipt : undefined}
+      />
     </div>
   );
 };

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getPaymentTotal } from "@/utils/salesUtils";
-import { Pencil, Trash2, Eye } from "lucide-react";
+import { Pencil, Trash2, Eye, Paperclip } from "lucide-react";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
@@ -12,9 +12,11 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onEdit?: (record: SalesRecord) => void;
   onDelete?: (record: SalesRecord) => void;
+  onAttachReceipt?: (record: SalesRecord, file: File) => void | Promise<void>;
 }
 
-export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete }: Props) {
+export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete, onAttachReceipt }: Props) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<SalesRecord | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -112,6 +114,28 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
                   <button onClick={() => setShowReceipt(true)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors" title="View scanned receipt">
                     <Eye className="h-4 w-4" />
                   </button>
+                )}
+                {onAttachReceipt && !editing && (
+                  <>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+                      title={record.receiptFileUrl ? "Replace receipt" : "Attach receipt"}
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) onAttachReceipt(record, f);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                    />
+                  </>
                 )}
                 {onEdit && !editing && (
                   <button onClick={startEdit} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit">

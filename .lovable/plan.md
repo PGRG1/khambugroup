@@ -1,35 +1,35 @@
 ## Goal
 
-When a user scans a sales receipt, save the original file (image/PDF) to storage and link it to the resulting sales record so it can be viewed later — similar to how invoice attachments work.
+Allow attaching a receipt file to sales records (both at creation and retroactively), and surface a quick "view receipt" icon directly in the Sales Data table row.
 
 ## Changes
 
-### 1. Storage bucket
-Create a new private storage bucket `sales-receipts` with RLS policies:
-- Authenticated users can read
-- Admins/managers can insert/update/delete
+### 1. Manual Input form (`src/components/dashboard/ManualInput.tsx`)
+- Add an optional file input ("Attach receipt — image or PDF") below the form fields.
+- Pass the selected `File` to `onAdd` alongside the record.
+- Update `DataPage` so the manual-input `onAdd` callback forwards the file to `addRecord(record, file)` (already supports the `file` parameter).
 
-### 2. Database — `sales_records` table
-Add two nullable columns:
-- `receipt_file_url` (text) — storage path
-- `receipt_file_name` (text) — original filename
+### 2. Sales Detail modal (`src/components/dashboard/SalesDetailModal.tsx`)
+- When a record has **no** `receiptFileUrl`: show an "Attach receipt" button (paperclip icon) that opens a hidden file picker.
+- When a record **has** a receipt: keep the existing eye icon, plus add a "Replace" option in edit mode.
+- On upload: call a new `onAttachReceipt(record, file)` prop wired through `DataPage` → `useSalesData`.
 
-### 3. Receipt scanning flow (`ReceiptScanner.tsx`)
-- Keep the original `File` object in state after scanning
-- On Save: upload the file to `sales-receipts/{date}_{venue}_{reportNumber}.{ext}` before/after saving the record
-- Pass the file URL + name through to the save handler
+### 3. New hook method (`src/hooks/useSalesData.ts`)
+- Add `attachReceipt(record, file)`:
+  - Upload to `sales-receipts` bucket using the same path convention as `addRecord`.
+  - If the record already had a receipt, delete the old file from storage first.
+  - Update the row's `receipt_file_url` / `receipt_file_name` columns matched by `(date, venue, report_number)`.
+  - Log audit event `attach_receipt`.
+  - Refetch.
 
-### 4. Wire-through
-- `useSalesData.addRecord` accepts an optional `file` parameter; uploads to bucket, then includes `receipt_file_url` / `receipt_file_name` in the insert
-- `DataPage` passes file from scanner to `addRecord`
-- `SalesRecord` type gets optional `receiptFileUrl` / `receiptFileName`
+### 4. Eye icon in Sales Data table (`src/components/dashboard/DataTable.tsx`)
+- Add a leading narrow column (no header label) showing an `Eye` icon for rows where `receiptFileUrl` is set.
+- Clicking the icon opens `AttachmentViewerDialog` directly (bucket=`sales-receipts`) without opening the row's detail modal — `stopPropagation` on the click.
+- Rows without a receipt show empty space in that column.
 
-### 5. View attachment
-- In the Sales Data table (`DataTable` / `SalesDetailModal`), show a small "View receipt" eye icon when a record has a `receipt_file_url`, opening it via a signed URL (reuse `AttachmentViewerDialog` pattern from invoices)
-
-### 6. Manual entry
-Manual entries won't have a file — the columns remain nullable, no UI change needed there.
+### 5. No DB migration needed
+The `sales_records.receipt_file_url` / `receipt_file_name` columns and the `sales-receipts` bucket already exist from the previous change.
 
 ## Out of scope
-- Bulk Excel uploads (no per-row receipt)
-- Backfilling old records
+- Bulk Excel upload attachments
+- Multi-file attachments per record (single file only, replace on re-upload)

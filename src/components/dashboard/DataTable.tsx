@@ -2,22 +2,25 @@ import { useState, useMemo, useCallback } from "react";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SalesDetailModal } from "./SalesDetailModal";
 import ExcelFilterPopover from "./ExcelFilterPopover";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
 interface DataTableProps {
   data: SalesRecord[];
   onUpdate?: (index: number, record: SalesRecord) => void;
   onDelete?: (index: number) => void;
+  onAttachReceipt?: (record: SalesRecord, file: File) => Promise<boolean>;
 }
 
 type SortKey = keyof SalesRecord;
 type SortDir = "asc" | "desc";
 const PAGE_SIZE = 15;
 
-const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
+const DataTable = ({ data, onUpdate, onDelete, onAttachReceipt }: DataTableProps) => {
+  const [viewingReceipt, setViewingReceipt] = useState<SalesRecord | null>(null);
   const [page, setPage] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -214,6 +217,7 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                   </TableHead>
                 );
               })}
+              <TableHead className="w-8 px-1.5 sm:px-2"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -228,6 +232,17 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
                 <TableCell className="px-1.5 sm:px-4">{numCell("serviceCharge", row)}</TableCell>
                 <TableCell className="px-1.5 sm:px-4">{numCell("discount", row)}</TableCell>
                 <TableCell className="px-1.5 sm:px-4">{numCell("totalSales", row)}</TableCell>
+                <TableCell className="px-1.5 sm:px-2">
+                  {row.receiptFileUrl ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setViewingReceipt(row); }}
+                      className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+                      title="View receipt"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -260,7 +275,25 @@ const DataTable = ({ data, onUpdate, onDelete }: DataTableProps) => {
           if (idx >= 0) onDelete(idx);
           setDetailRecord(null);
         } : undefined}
+        onAttachReceipt={onAttachReceipt ? async (record, file) => {
+          const ok = await onAttachReceipt(record, file);
+          if (ok) {
+            // refresh modal record so eye icon appears
+            const updated = data.find(r => r.date === record.date && r.venue === record.venue && r.reportNumber === record.reportNumber);
+            if (updated) setDetailRecord(updated);
+          }
+        } : undefined}
       />
+
+      {viewingReceipt?.receiptFileUrl && (
+        <AttachmentViewerDialog
+          open={!!viewingReceipt}
+          onOpenChange={(o) => { if (!o) setViewingReceipt(null); }}
+          fileUrl={viewingReceipt.receiptFileUrl}
+          title={`Receipt — ${viewingReceipt.venue} ${viewingReceipt.date}`}
+          bucket="sales-receipts"
+        />
+      )}
     </div>
   );
 };

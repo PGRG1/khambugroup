@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Paperclip } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { getPaymentTotal } from "@/utils/salesUtils";
 
 interface ManualInputProps {
-  onAdd: (record: SalesRecord) => void;
+  onAdd: (record: SalesRecord, file?: File | null) => void;
   onClose: () => void;
 }
 
@@ -19,6 +19,7 @@ const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const [form, setForm] = useState<SalesRecord>(emptyRecord);
+  const [file, setFile] = useState<File | null>(null);
 
   const set = (key: keyof SalesRecord, value: string | number) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -43,8 +44,9 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
     e.preventDefault();
     if (!form.date || !form.venue) return;
     // Normalize discount to negative before saving
-    onAdd({ ...form, discount: normalizedDiscount });
+    onAdd({ ...form, discount: normalizedDiscount }, file);
     setForm(emptyRecord);
+    setFile(null);
   };
 
   const numField = (label: string, key: keyof SalesRecord) => (
@@ -143,6 +145,26 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             </span>
           </div>
         )}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2 border-t border-border">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+            <Paperclip className="h-4 w-4" />
+            <span>{file ? "Change receipt" : "Attach receipt (optional)"}</span>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="hidden"
+            />
+          </label>
+          {file && (
+            <div className="flex items-center gap-2 text-xs text-foreground">
+              <span className="truncate max-w-[200px]">{file.name}</span>
+              <button type="button" onClick={() => setFile(null)} className="text-muted-foreground hover:text-destructive">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
         <button
           type="submit"
           className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
