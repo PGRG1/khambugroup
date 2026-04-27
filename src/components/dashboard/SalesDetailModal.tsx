@@ -199,6 +199,16 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete 
         title="Delete Sales Record"
         description="Are you sure you want to delete this sales record? This action cannot be undone."
       />
+
+      {record.receiptFileUrl && (
+        <AttachmentViewerDialog
+          open={showReceipt}
+          onOpenChange={setShowReceipt}
+          fileUrl={record.receiptFileUrl}
+          title={`Receipt — ${record.venue} ${record.date}`}
+          bucket="sales-receipts"
+        />
+      )}
     </>
   );
 }
