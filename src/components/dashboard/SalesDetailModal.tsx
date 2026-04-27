@@ -115,6 +115,28 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete,
                     <Eye className="h-4 w-4" />
                   </button>
                 )}
+                {onAttachReceipt && !editing && (
+                  <>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+                      title={record.receiptFileUrl ? "Replace receipt" : "Attach receipt"}
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) onAttachReceipt(record, f);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                    />
+                  </>
+                )}
                 {onEdit && !editing && (
                   <button onClick={startEdit} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit">
                     <Pencil className="h-4 w-4" />
