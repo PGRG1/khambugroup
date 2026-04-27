@@ -11,7 +11,7 @@ import { getPaymentTotal } from "@/utils/salesUtils";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface ReceiptScannerProps {
-  onSave: (record: SalesRecord) => Promise<void>;
+  onSave: (record: SalesRecord, file?: File | null) => Promise<void>;
   onClose: () => void;
 }
 
