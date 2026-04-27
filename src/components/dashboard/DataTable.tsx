@@ -275,7 +275,28 @@ const DataTable = ({ data, onUpdate, onDelete, onAttachReceipt }: DataTableProps
           if (idx >= 0) onDelete(idx);
           setDetailRecord(null);
         } : undefined}
+        onAttachReceipt={onAttachReceipt ? async (record, file) => {
+          const ok = await onAttachReceipt(record, file);
+          if (ok) {
+            // refresh modal record so eye icon appears
+            const updated = data.find(r => r.date === record.date && r.venue === record.venue && r.reportNumber === record.reportNumber);
+            if (updated) setDetailRecord(updated);
+          }
+        } : undefined}
       />
+
+      {viewingReceipt?.receiptFileUrl && (
+        <AttachmentViewerDialog
+          open={!!viewingReceipt}
+          onOpenChange={(o) => { if (!o) setViewingReceipt(null); }}
+          fileUrl={viewingReceipt.receiptFileUrl}
+          title={`Receipt — ${viewingReceipt.venue} ${viewingReceipt.date}`}
+          bucket="sales-receipts"
+        />
+      )}
+    </div>
+  );
+};
     </div>
   );
 };
