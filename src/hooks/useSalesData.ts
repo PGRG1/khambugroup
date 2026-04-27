@@ -58,6 +58,8 @@ function fromDbRecord(r: any): SalesRecord {
     payme: Number(r.payme),
     cash: Number(r.cash),
     cardTips: Number(r.card_tips),
+    receiptFileUrl: r.receipt_file_url ?? null,
+    receiptFileName: r.receipt_file_name ?? null,
   };
 }
 
