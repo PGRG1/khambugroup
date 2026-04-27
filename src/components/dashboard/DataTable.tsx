@@ -2,15 +2,17 @@ import { useState, useMemo, useCallback } from "react";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency } from "@/utils/salesUtils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SalesDetailModal } from "./SalesDetailModal";
 import ExcelFilterPopover from "./ExcelFilterPopover";
+import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
 interface DataTableProps {
   data: SalesRecord[];
   onUpdate?: (index: number, record: SalesRecord) => void;
   onDelete?: (index: number) => void;
+  onAttachReceipt?: (record: SalesRecord, file: File) => Promise<boolean>;
 }
 
 type SortKey = keyof SalesRecord;
