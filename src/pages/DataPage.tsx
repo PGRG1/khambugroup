@@ -10,7 +10,7 @@ import ResetDataButton from "@/components/dashboard/ResetDataButton";
 import { Upload, PenLine, ScanLine } from "lucide-react";
 
 const DataPage = () => {
-  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, refetch } = useSalesData();
+  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, attachReceipt, refetch } = useSalesData();
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
   const [showUpload, setShowUpload] = useState(false);
