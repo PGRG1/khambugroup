@@ -469,6 +469,15 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                   />
                 </div>
               ))}
+              <div>
+                <label className="text-xs text-destructive block mb-1">Card Tips</label>
+                <input
+                  type="number"
+                  value={extractedData.cardTips || ""}
+                  onChange={(e) => handleFieldChange("cardTips", String(Math.abs(Number(e.target.value) || 0)))}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                />
+              </div>
             </div>
           </div>
 
