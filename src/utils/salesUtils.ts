@@ -47,8 +47,14 @@ export function formatCurrency(value: number): string {
   return value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-export function getPaymentTotal(record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "payme" | "cash">): number {
-  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.payme + record.cash;
+export function getPaymentTotal(
+  record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "payme" | "cash"> & Partial<Pick<SalesRecord, "cardTips">>,
+): number {
+  // Card tips are already INCLUDED in one of the card payment columns on the receipt,
+  // but the printed Total Sales does NOT include the tip. So for reconciliation:
+  //   sum(payments) − cardTips = totalSales
+  const tips = (record as any).cardTips ?? 0;
+  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.payme + record.cash - tips;
 }
 
 export function getMonthKey(date: string): string {
