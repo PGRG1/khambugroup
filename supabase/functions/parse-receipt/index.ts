@@ -59,6 +59,7 @@ Rules:
 - For the date field: look for "From" date on the receipt and use that date in YYYY-MM-DD format. If there is a date range (From/To), always use the "From" date.
 - Do NOT include a "day" field - it will be auto-generated from the date
 - Venue should be exactly "Assembly", "Caliente", or "Hanabi" - infer from any branding/headers
+- IMPORTANT: "discount" and "cardTips" must BOTH be returned as NEGATIVE numbers (they are deductions). For example, if the receipt shows a discount of 50, return -50. If card tips are 120, return -120.
 - Translate any Chinese or non-English text to English
 - Return ONLY the JSON object, no markdown, no explanation`;
 

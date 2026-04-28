@@ -33,18 +33,19 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
 
   // Auto-calculate expected total
   const normalizedDiscount = -Math.abs(form.discount);
+  const normalizedCardTips = -Math.abs(form.cardTips);
   const expectedTotal = form.subtotal + form.serviceCharge + normalizedDiscount;
   const totalMismatch = form.totalSales !== 0 && Math.abs(form.totalSales - expectedTotal) > 0.01;
 
-  // Payment method validation
-  const paymentTotal = getPaymentTotal(form);
+  // Payment method validation (uses normalized negative cardTips)
+  const paymentTotal = getPaymentTotal({ ...form, cardTips: normalizedCardTips });
   const paymentMismatch = form.totalSales !== 0 && paymentTotal !== 0 && Math.abs(paymentTotal - form.totalSales) > 0.01;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.date || !form.venue) return;
-    // Normalize discount to negative before saving
-    onAdd({ ...form, discount: normalizedDiscount }, file);
+    // Normalize discount and card tips to negative before saving
+    onAdd({ ...form, discount: normalizedDiscount, cardTips: normalizedCardTips }, file);
     setForm(emptyRecord);
     setFile(null);
   };
@@ -134,7 +135,7 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
           {numField("WeChat", "wechat")}
           {numField("PayMe", "payme")}
           {numField("Cash", "cash")}
-          {numField("Card Tips", "cardTips")}
+          {numField("Card Tips (enter as positive)", "cardTips")}
         </div>
         {paymentMismatch && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm">
