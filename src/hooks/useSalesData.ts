@@ -129,9 +129,10 @@ export function useSalesData() {
         entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
       });
       await fetchData();
+      rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData]);
+  }, [fetchData, rebuildJournalSilently]);
 
   const updateRecord = useCallback(async (oldRecord: SalesRecord, newRecord: SalesRecord) => {
     const { error } = await supabase
@@ -149,9 +150,10 @@ export function useSalesData() {
         details: { old: oldRecord, new: newRecord },
       });
       await fetchData();
+      rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData]);
+  }, [fetchData, rebuildJournalSilently]);
 
   const deleteRecord = useCallback(async (record: SalesRecord) => {
     const { error } = await supabase
@@ -168,9 +170,10 @@ export function useSalesData() {
         entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
       });
       await fetchData();
+      rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData]);
+  }, [fetchData, rebuildJournalSilently]);
 
   const attachReceipt = useCallback(async (record: SalesRecord, file: File) => {
     // Delete old file if exists
