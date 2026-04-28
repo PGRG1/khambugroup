@@ -457,7 +457,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-display font-semibold text-foreground uppercase tracking-wide">Payments</h4>
               <span className="text-xs text-muted-foreground">
-                Sum − Tips: <strong className="text-foreground">{calcPaymentTotal.toFixed(2)}</strong>
+                Total Payment: <strong className="text-foreground">{calcPaymentTotal.toFixed(2)}</strong>
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
