@@ -51,7 +51,7 @@ export default function ChartOfAccountsPage() {
       <Tabs defaultValue="accounts">
         <TabsList>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="mapping">Account Mapping</TabsTrigger>
+          <TabsTrigger value="mapping">Revenue Mapping</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-4 mt-4">
