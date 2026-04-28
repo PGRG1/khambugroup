@@ -1,56 +1,75 @@
-# Treat Card Tips as Sales-Reducer, Not a Payment
+# Make Card Tips negative everywhere (mirror Discount)
 
-## Problem
+## The break in logic
 
-Currently the system treats `cardTips` as an **extra amount** added on top of payments, which contradicts how your receipts actually work. On your receipts the tip is **already inside** one of the card payment columns (e.g. the AMEX line includes the tip), and the printed Total Sales does NOT include it. So:
+Today, `discount` and `cardTips` are treated inconsistently:
 
-- Reconciliation rule (correct): `sum(payments) − cardTips = totalSales`
-- Today the validator checks: `sum(payments) = totalSales` → mismatch, like in your screenshot (5924 − 3 = 5921 ✓)
-- Today the journal posts tips as an **extra debit** on top of card receivables → would inflate receivables when tips appear
+| Field      | AI scan output | Scanner UI shown as | Stored in DB | Journal logic                              |
+|------------|----------------|---------------------|--------------|--------------------------------------------|
+| Discount   | positive       | positive (auto‑flipped on save) | **negative** | `ABS(discount)` debited to discount account |
+| Card Tips  | positive       | positive            | **positive** | positive credited to `tips_payable`         |
 
-## What Will Change
+This asymmetry is exactly the "creak" you're seeing. As soon as anyone manually enters tips as a negative number (matching the discount convention), every downstream calculation breaks:
 
-### 1. Reconciliation rule (UI validators)
+- `getPaymentTotal` does `sum(payments) − tips` → if tips is negative, it ADDS the tip back instead of subtracting, throwing off the payment‑vs‑sales reconciliation.
+- The SQL `rebuild_journal_from_operations` does `IF r.tips > 0 THEN credit tips_payable` → a negative tip silently produces zero credit, so debits and credits no longer balance and the suspense account absorbs the gap. Trial balance rows get distorted.
 
-Update `getPaymentTotal` and the three places that use it to subtract tips:
+## The fix — treat tips exactly like discount
 
-- `src/utils/salesUtils.ts` — extend `getPaymentTotal` to accept optional `cardTips` and return `payments − cardTips`
-- `src/components/dashboard/ReceiptScanner.tsx` — pass `cardTips` so the warning in your screenshot disappears (5924 − 3 = 5921 = Total Sales ✓)
-- `src/components/dashboard/ManualInput.tsx` — same
-- `src/components/dashboard/SalesDetailModal.tsx` — same
+**One rule:** card tips are a deduction from gross card receipts (the cash owed to staff), so store them as a **negative** number, just like discount.
 
-### 2. Journal posting logic (`rebuild_journal_from_operations`)
+### Frontend changes
 
-Migration to update the SQL function so card tips are handled correctly:
+1. **`src/components/dashboard/ReceiptScanner.tsx`**
+   - On AI extraction (line ~145): `cardTips: -Math.abs(Number(raw.cardTips) || 0)` (mirror what we already do for discount on line 134).
+   - In `handleFieldChange`: when user edits `cardTips`, force the stored value negative (same pattern as discount). UI input shows the absolute value; internal state holds the negative.
+   - Display the Card Tips input with a destructive‑colored label and `−` prefix in the summary line, matching Discount.
+   - Update `getPaymentTotal` callers / mismatch warning text from "− card tips" to "+ card tips" since tips are now already negative.
 
-- Each card receivable is debited at its **face value** (the amount keyed in already includes the tip — do NOT add tip on top)
-- The tip portion of card revenue does NOT go to Sales — it goes to **Tips Payable** (liability owed to staff)
-- Net effect per entry with tips:
+2. **`src/components/dashboard/ManualInput.tsx`**
+   - Change the "Card Tips" field label to "Card Tips (enter as positive)" mirroring Discount.
+   - In `handleSubmit`, normalize: `cardTips: -Math.abs(form.cardTips)` before calling `onAdd`.
+   - Display tips as `−|cardTips|` in any summary text.
 
-```text
-DR  Card Receivable – Brand   (amount keyed, includes tip)
-DR  Sales Discount – venue    (|discount|)
-CR  Sales – venue             (subtotal)
-CR  Service Charge – venue    (service_charge)
-CR  Tips Payable – venue      (card_tips)
-```
+3. **`src/utils/salesUtils.ts`**
+   - `getPaymentTotal`: change from `… + cash − tips` to `… + cash + tips` (because tips are now stored negative, adding them performs the deduction).
+   - `SalesRecordSchema`: change `cardTips` validation from `min(0)` to `min(-100000000).max(0)` (or `.max(100000000)` if we want to allow either sign during transition, but strict ≤0 is cleaner).
+   - `parseExcelRow`: replace `parsePositive(row[19])` with `-Math.abs(parseNum(row[19]))` so spreadsheet imports follow the same convention.
 
-Math check: Debits = card + cash + |discount| ; Credits = subtotal + service + tips.  
-Since `cards + cash − tips = total_sales = subtotal + service − |discount|`, the entry balances exactly with no suspense line needed.
+4. **`src/hooks/useSalesData.ts`**
+   - In `toDbRecord`: enforce `card_tips: -Math.abs(r.cardTips)` (mirrors the existing discount line).
+   - In `fromDbRecord` + a new `normalizeCardTips` helper (parallel to `normalizeDiscount`): coerce DB value to negative on read, so any legacy positive rows display correctly without requiring a data backfill.
 
-### 3. Existing data
+### Edge function
 
-No backfill needed — current DB has zero records with `card_tips > 0`, and the rebuild function reposts everything fresh on the next sales mutation (or can be triggered via the **Rebuild Ledger** button).
+5. **`supabase/functions/parse-receipt/index.ts`**
+   - Add a system‑prompt rule: "`cardTips` and `discount` must both be returned as **negative** numbers (they reduce total sales / are owed to staff)." This makes the AI output match the new convention from the source. The frontend `-Math.abs(...)` is still kept as a safety net.
 
-## Files Changed
+### Database / journal logic
 
-- `src/utils/salesUtils.ts` — `getPaymentTotal` accepts optional tips
+6. **`rebuild_journal_from_operations` SQL function** (migration)
+   - Replace `IF r.tips > 0 THEN ... credit acc_tips ... r.tips` with `IF ABS(r.tips) > 0 THEN ... credit acc_tips, ABS(r.tips)`. Same pattern already used for discount (`ABS(r.discount)`).
+   - This makes the journal entry produce the correct credit regardless of whether the stored tip is positive (legacy rows) or negative (new convention), restoring the trial balance.
+
+### Optional one‑time data normalization
+
+7. A small UPDATE migration to flip any existing positive `card_tips` rows to negative:
+   ```sql
+   UPDATE public.sales_records SET card_tips = -ABS(card_tips) WHERE card_tips > 0;
+   ```
+   Then re‑run `rebuild_journal_from_operations()` so the journal/trial balance reflects the cleaned data.
+
+## Result
+
+- Card Tips and Discount behave identically end‑to‑end: shown as negative in the data table and PDF reports, entered as a positive convenience value in input forms, stored negative, scanned negative.
+- `getPaymentTotal` and the SQL journal rebuild both use `ABS(...)` semantics, so the trial balance always balances regardless of sign drift.
+- Existing positive tip rows are migrated and the journal is rebuilt, so the trial balance imbalance you've been seeing is resolved.
+
+## Files touched
+
 - `src/components/dashboard/ReceiptScanner.tsx`
 - `src/components/dashboard/ManualInput.tsx`
-- `src/components/dashboard/SalesDetailModal.tsx`
-- New migration: update `rebuild_journal_from_operations` SQL function
-
-## Out of Scope
-
-- Cash tips (you only track `card_tips` today — confirmed in earlier round)
-- COA changes — Tips Payable accounts already exist per venue
+- `src/utils/salesUtils.ts`
+- `src/hooks/useSalesData.ts`
+- `supabase/functions/parse-receipt/index.ts`
+- New migration: update `rebuild_journal_from_operations` + normalize existing `card_tips` data

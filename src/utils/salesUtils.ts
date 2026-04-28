@@ -21,7 +21,7 @@ const SalesRecordSchema = z.object({
   wechat: z.number().min(0).max(100000000),
   payme: z.number().min(0).max(100000000),
   cash: z.number().min(0).max(100000000),
-  cardTips: z.number().min(0).max(100000000),
+  cardTips: z.number().min(-100000000).max(100000000),
 });
 
 export function filterData(
@@ -51,10 +51,11 @@ export function getPaymentTotal(
   record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "payme" | "cash"> & Partial<Pick<SalesRecord, "cardTips">>,
 ): number {
   // Card tips are already INCLUDED in one of the card payment columns on the receipt,
-  // but the printed Total Sales does NOT include the tip. So for reconciliation:
-  //   sum(payments) − cardTips = totalSales
+  // but the printed Total Sales does NOT include the tip. cardTips is stored as a NEGATIVE
+  // value (mirroring discount), so adding it here performs the deduction:
+  //   sum(payments) + cardTips (negative) = totalSales
   const tips = (record as any).cardTips ?? 0;
-  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.payme + record.cash - tips;
+  return record.visa + record.mastercard + record.amex + record.unionPay + record.jcb + record.alipay + record.wechat + record.payme + record.cash + tips;
 }
 
 export function getMonthKey(date: string): string {
@@ -193,7 +194,7 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
       wechat: parsePositive(row[16]),
       payme: parsePositive(row[17]),
       cash: parsePositive(row[18]),
-      cardTips: parsePositive(row[19]),
+      cardTips: -Math.abs(parseNum(row[19])),
     };
 
     const result = SalesRecordSchema.safeParse(record);

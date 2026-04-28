@@ -142,7 +142,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
         wechat: Number(raw.wechat) || 0,
         payme: Number(raw.payme) || 0,
         cash: Number(raw.cash) || 0,
-        cardTips: Number(raw.cardTips) || 0,
+        cardTips: -(Math.abs(Number(raw.cardTips) || 0)),
       };
 
       setExtractedData(record);
@@ -170,7 +170,12 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     setExtractedData((prev) => {
       if (!prev) return prev;
       if (numberFields.includes(field as any)) {
-        let next = { ...prev, [field]: Number(value) || 0 };
+        let parsed = Number(value) || 0;
+        // Discount and card tips are always stored as negative (deductions)
+        if (field === "discount" || field === "cardTips") {
+          parsed = -Math.abs(parsed);
+        }
+        let next = { ...prev, [field]: parsed };
         // Auto-recompute totalSales when any of its inputs change
         if (["subtotal", "serviceCharge", "discount"].includes(field)) {
           const discountAbs = Math.abs(next.discount || 0);
@@ -393,7 +398,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                   <div>
                     <span className="font-medium text-destructive">Payment total mismatch:</span>{" "}
                     <span className="text-foreground">
-                      Sum of payments − card tips = <strong>{calcPaymentTotal.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
+                      Sum of payments + card tips ({Math.abs(extractedData!.cardTips).toFixed(2)} deducted) = <strong>{calcPaymentTotal.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
                     </span>
                   </div>
                 </div>
@@ -473,8 +478,8 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                 <label className="text-xs text-destructive block mb-1">Card Tips</label>
                 <input
                   type="number"
-                  value={extractedData.cardTips || ""}
-                  onChange={(e) => handleFieldChange("cardTips", String(Math.abs(Number(e.target.value) || 0)))}
+                  value={extractedData.cardTips ? Math.abs(extractedData.cardTips) : ""}
+                  onChange={(e) => handleFieldChange("cardTips", e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30"
                 />
               </div>
