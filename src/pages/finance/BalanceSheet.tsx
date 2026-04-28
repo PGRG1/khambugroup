@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,15 +20,20 @@ export default function BalanceSheet() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    Promise.all([
-      supabase.from("v_balance_sheet" as any).select("*").lte("entry_date", asOf).limit(10000),
-      supabase.from("v_pl" as any).select("account_type,amount").lte("entry_date", asOf).limit(10000),
-    ]).then(([a, b]) => {
-      setBsRows(((a.data as unknown) as BSRow[]) ?? []);
-      setPlRows(((b.data as unknown) as PLRow[]) ?? []);
+    (async () => {
+      // Fetch ALL rows (bypass 1000-row PostgREST cap), then filter by asOf client-side
+      const [bsAll, plAll] = await Promise.all([
+        fetchAllRows("v_balance_sheet", "account_id,code,name,account_type,entry_date,amount"),
+        fetchAllRows("v_pl", "account_type,entry_date,amount"),
+      ]);
+      if (cancelled) return;
+      setBsRows(((bsAll as unknown) as BSRow[]).filter((r) => r.entry_date <= asOf));
+      setPlRows(((plAll as unknown) as (PLRow & { entry_date: string })[]).filter((r) => r.entry_date <= asOf));
       setLoading(false);
-    });
+    })();
+    return () => { cancelled = true; };
   }, [asOf]);
 
   const grouped = useMemo(() => {

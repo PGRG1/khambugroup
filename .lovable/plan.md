@@ -1,75 +1,62 @@
-# Make Card Tips negative everywhere (mirror Discount)
+## Diagnosis
 
-## The break in logic
+I checked the database directly. There are **two independent issues**, and only one is a UI bug — the other is a real accounting error.
 
-Today, `discount` and `cardTips` are treated inconsistently:
+### Issue 1 — Trial Balance UI is truncating data (looks "1 venue only")
 
-| Field      | AI scan output | Scanner UI shown as | Stored in DB | Journal logic                              |
-|------------|----------------|---------------------|--------------|--------------------------------------------|
-| Discount   | positive       | positive (auto‑flipped on save) | **negative** | `ABS(discount)` debited to discount account |
-| Card Tips  | positive       | positive            | **positive** | positive credited to `tips_payable`         |
+The DB ledger contains data for **both Assembly and Caliente** (the only two venues with sales so far — Hanabi and Events have zero records, which is correct):
 
-This asymmetry is exactly the "creak" you're seeing. As soon as anyone manually enters tips as a negative number (matching the discount convention), every downstream calculation breaks:
+| Venue    | Lines | Debits     | Credits    |
+|----------|------:|-----------:|-----------:|
+| Assembly | 1,779 | 3,720,264  | 3,720,264  |
+| Caliente | 1,234 | 2,004,238  | 2,004,238  |
+| **Total**| **3,013** | **5,724,502** | **5,724,502** |
 
-- `getPaymentTotal` does `sum(payments) − tips` → if tips is negative, it ADDS the tip back instead of subtracting, throwing off the payment‑vs‑sales reconciliation.
-- The SQL `rebuild_journal_from_operations` does `IF r.tips > 0 THEN credit tips_payable` → a negative tip silently produces zero credit, so debits and credits no longer balance and the suspense account absorbs the gap. Trial balance rows get distorted.
+But `src/hooks/useTrialBalance.ts` queries `journal_lines` with `.limit(10000)` *and* an inner join to `journal_entries`. PostgREST still applies its default 1,000-row cap on the underlying request in many cases, and the embedded join also counts against the limit. So the UI is silently dropping rows — that's why it looks like only one venue is showing and the numbers feel "very off".
 
-## The fix — treat tips exactly like discount
+**Fix**: rewrite `useTrialBalance` to fetch via `fetchAllRows` (the project's standard `.range()` paginator) for both `journal_entries` and `journal_lines`, then join in JS. This is the same fix already applied elsewhere in the codebase.
 
-**One rule:** card tips are a deduction from gross card receipts (the cash owed to staff), so store them as a **negative** number, just like discount.
+### Issue 2 — Balance Sheet is genuinely out of balance by ~135,126
 
-### Frontend changes
+Looking at the trial balance from the database directly:
 
-1. **`src/components/dashboard/ReceiptScanner.tsx`**
-   - On AI extraction (line ~145): `cardTips: -Math.abs(Number(raw.cardTips) || 0)` (mirror what we already do for discount on line 134).
-   - In `handleFieldChange`: when user edits `cardTips`, force the stored value negative (same pattern as discount). UI input shows the absolute value; internal state holds the negative.
-   - Display the Card Tips input with a destructive‑colored label and `−` prefix in the summary line, matching Discount.
-   - Update `getPaymentTotal` callers / mismatch warning text from "− card tips" to "+ card tips" since tips are now already negative.
+- **Sales – Assembly**: 3,383,309 (credit) ✓ matches `sales_records.subtotal`
+- **Sales discount accounts (5xxx)**: total ~135,126 (credit)
 
-2. **`src/components/dashboard/ManualInput.tsx`**
-   - Change the "Card Tips" field label to "Card Tips (enter as positive)" mirroring Discount.
-   - In `handleSubmit`, normalize: `cardTips: -Math.abs(form.cardTips)` before calling `onAdd`.
-   - Display tips as `−|cardTips|` in any summary text.
+But discounts are a **contra-revenue** account — they should reduce revenue, i.e. they belong on the **debit** side (normal_side = debit), not credit. In `rebuild_journal_from_operations` the discount line is correctly written as a DEBIT:
 
-3. **`src/utils/salesUtils.ts`**
-   - `getPaymentTotal`: change from `… + cash − tips` to `… + cash + tips` (because tips are now stored negative, adding them performs the deduction).
-   - `SalesRecordSchema`: change `cardTips` validation from `min(0)` to `min(-100000000).max(0)` (or `.max(100000000)` if we want to allow either sign during transition, but strict ≤0 is cleaner).
-   - `parseExcelRow`: replace `parsePositive(row[19])` with `-Math.abs(parseNum(row[19]))` so spreadsheet imports follow the same convention.
+```sql
+INSERT INTO journal_lines (... debit, credit ...) VALUES (... ABS(r.discount), 0 ...)
+```
 
-4. **`src/hooks/useSalesData.ts`**
-   - In `toDbRecord`: enforce `card_tips: -Math.abs(r.cardTips)` (mirrors the existing discount line).
-   - In `fromDbRecord` + a new `normalizeCardTips` helper (parallel to `normalizeDiscount`): coerce DB value to negative on read, so any legacy positive rows display correctly without requiring a data backfill.
+…but the **chart_of_accounts** row for the discount accounts has `normal_side = 'credit'` (treated as revenue). That flips the sign in `v_balance_sheet` / `v_pl` and leaves Equity short by exactly the discount amount → ~135,126 imbalance, which is roughly what you saw on the Balance Sheet (-1,919,191 also includes the truncation effect).
 
-### Edge function
+**Fix**: ensure the four `Sales Discount – {Venue}` accounts are typed as `account_type = 'revenue'` with `normal_side = 'debit'` (contra-revenue convention). Then rebuild the journal so views recompute cleanly.
 
-5. **`supabase/functions/parse-receipt/index.ts`**
-   - Add a system‑prompt rule: "`cardTips` and `discount` must both be returned as **negative** numbers (they reduce total sales / are owed to staff)." This makes the AI output match the new convention from the source. The frontend `-Math.abs(...)` is still kept as a safety net.
+---
 
-### Database / journal logic
+## Plan
 
-6. **`rebuild_journal_from_operations` SQL function** (migration)
-   - Replace `IF r.tips > 0 THEN ... credit acc_tips ... r.tips` with `IF ABS(r.tips) > 0 THEN ... credit acc_tips, ABS(r.tips)`. Same pattern already used for discount (`ABS(r.discount)`).
-   - This makes the journal entry produce the correct credit regardless of whether the stored tip is positive (legacy rows) or negative (new convention), restoring the trial balance.
+### 1. Fix Trial Balance row truncation (UI)
+Rewrite `src/hooks/useTrialBalance.ts`:
+- Use `fetchAllRows("journal_entries", "id, entry_date, status")` and `fetchAllRows("journal_lines", "account_id, entry_id, debit, credit")`.
+- Join in JS, filter by `status='posted'` and the date range.
+- Remove the `.limit(10000)` and the embedded `!inner` select.
 
-### Optional one‑time data normalization
+### 2. Fix Sales Discount account configuration (DB migration)
+Create a migration that:
+- Updates `chart_of_accounts` rows for codes `5010`, `5020`, `5030`, `5040` (Sales Discount accounts — confirm via SELECT in migration) to `normal_side = 'debit'`, keeping `account_type = 'revenue'` so they net inside the Revenue section as contra-revenue.
+- Calls `rebuild_journal_from_operations()` so all derived views refresh.
 
-7. A small UPDATE migration to flip any existing positive `card_tips` rows to negative:
-   ```sql
-   UPDATE public.sales_records SET card_tips = -ABS(card_tips) WHERE card_tips > 0;
-   ```
-   Then re‑run `rebuild_journal_from_operations()` so the journal/trial balance reflects the cleaned data.
+### 3. Audit Balance Sheet hook for the same truncation bug
+Quickly check `src/pages/finance/BalanceSheet.tsx` and its hook — if it reads from `v_balance_sheet`, no change needed. If it reads from `journal_lines` with a `.limit`, apply the same `fetchAllRows` fix.
 
-## Result
+### 4. Verification
+After applying:
+- Trial Balance totals should match: Debits = Credits = 5,724,502 (or current value after rebuild).
+- Both Assembly and Caliente sections should be visible.
+- Balance Sheet should show "Balanced ✓".
 
-- Card Tips and Discount behave identically end‑to‑end: shown as negative in the data table and PDF reports, entered as a positive convenience value in input forms, stored negative, scanned negative.
-- `getPaymentTotal` and the SQL journal rebuild both use `ABS(...)` semantics, so the trial balance always balances regardless of sign drift.
-- Existing positive tip rows are migrated and the journal is rebuilt, so the trial balance imbalance you've been seeing is resolved.
-
-## Files touched
-
-- `src/components/dashboard/ReceiptScanner.tsx`
-- `src/components/dashboard/ManualInput.tsx`
-- `src/utils/salesUtils.ts`
-- `src/hooks/useSalesData.ts`
-- `supabase/functions/parse-receipt/index.ts`
-- New migration: update `rebuild_journal_from_operations` + normalize existing `card_tips` data
+### Notes
+- Hanabi and Events legitimately show zero — there are no sales records for them yet, so this is not a bug.
+- KPAY merchant receivable balance of 5,010,704 is the unsettled card payment pool — that's expected (no settlement journal entries posted yet).

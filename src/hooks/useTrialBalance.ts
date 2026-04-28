@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 
 export interface TrialBalanceRow {
   account_id: string;
@@ -20,19 +21,23 @@ export function useTrialBalance(opts?: { fromDate?: string; toDate?: string }) {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // If date filters provided, compute from journal_lines + entries client-side
+      // If date filters provided, compute from journal_lines + entries client-side.
+      // Use fetchAllRows to bypass the 1000-row PostgREST cap.
       if (opts?.fromDate || opts?.toDate) {
-        let q: any = supabase.from("journal_lines" as any).select("account_id,debit,credit,journal_entries!inner(entry_date,status)");
-        const { data, error } = await q.limit(10000);
-        if (error || !data) { setRows([]); setLoading(false); return; }
-        const accRes = await supabase.from("chart_of_accounts" as any).select("*").order("code");
+        const [entries, lines, accRes] = await Promise.all([
+          fetchAllRows("journal_entries", "id,entry_date,status"),
+          fetchAllRows("journal_lines", "account_id,entry_id,debit,credit"),
+          supabase.from("chart_of_accounts" as any).select("*").order("code"),
+        ]);
+        const entryMap = new Map<string, { date: string; status: string }>();
+        (entries as any[]).forEach((e) => entryMap.set(e.id, { date: e.entry_date, status: e.status }));
         const accs = (accRes.data as any[]) ?? [];
         const map = new Map<string, { d: number; c: number }>();
-        (data as any[]).forEach((l) => {
-          const e = l.journal_entries;
+        (lines as any[]).forEach((l) => {
+          const e = entryMap.get(l.entry_id);
           if (!e || e.status !== "posted") return;
-          if (opts.fromDate && e.entry_date < opts.fromDate) return;
-          if (opts.toDate && e.entry_date > opts.toDate) return;
+          if (opts.fromDate && e.date < opts.fromDate) return;
+          if (opts.toDate && e.date > opts.toDate) return;
           const cur = map.get(l.account_id) || { d: 0, c: 0 };
           cur.d += Number(l.debit) || 0;
           cur.c += Number(l.credit) || 0;
@@ -48,6 +53,7 @@ export function useTrialBalance(opts?: { fromDate?: string; toDate?: string }) {
         });
         if (!cancelled) setRows(out);
       } else {
+        // v_trial_balance is pre-aggregated (one row per account) — safe under 1000-row cap
         const { data, error } = await supabase.from("v_trial_balance" as any).select("*");
         if (!error && !cancelled) setRows(((data as unknown) as TrialBalanceRow[]) ?? []);
       }
