@@ -51,20 +51,17 @@ export function useLedgerPL(periods: LedgerPLPeriod[]) {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [entRes, accRes] = await Promise.all([
-      supabase
-        .from("journal_entries" as any)
-        .select("id,entry_date,status")
-        .eq("status", "posted")
-        .gte("entry_date", range.from)
-        .lte("entry_date", range.to)
-        .limit(10000),
+    // Use fetchAllRows for entries to bypass 1000-row PostgREST cap, then filter in JS
+    const [allEntries, accRes] = await Promise.all([
+      fetchAllRows("journal_entries", "id,entry_date,status"),
       supabase
         .from("chart_of_accounts" as any)
         .select("*")
         .order("code", { ascending: true }),
     ]);
-    const ents = ((entRes.data as unknown) as JEntry[]) ?? [];
+    const ents = ((allEntries as unknown) as JEntry[]).filter(
+      (e) => e.status === "posted" && e.entry_date >= range.from && e.entry_date <= range.to,
+    );
     setEntries(ents);
     setAccounts(((accRes.data as unknown) as ChartAccount[]) ?? []);
     if (ents.length === 0) {
