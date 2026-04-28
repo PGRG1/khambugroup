@@ -306,8 +306,8 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
             <p className="text-sm text-muted-foreground">Review and correct the extracted data, then click Save.</p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {/* Date */}
+          {/* Header fields */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Date</label>
               <input
@@ -317,7 +317,6 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                 className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
-            {/* Day */}
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Day</label>
               <input
@@ -327,7 +326,6 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                 className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
-            {/* Venue */}
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Venue</label>
               <select
@@ -339,7 +337,6 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                 <option value="Caliente">Caliente</option>
               </select>
             </div>
-            {/* Report # */}
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Report #</label>
               <input
@@ -348,6 +345,25 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                 onChange={(e) => handleFieldChange("reportNumber", e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Orders</label>
+              <input
+                type="number"
+                value={extractedData.orders || ""}
+                onChange={(e) => handleFieldChange("orders", e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Guests</label>
+              <input
+                type="number"
+                value={extractedData.guests || ""}
+                onChange={(e) => handleFieldChange("guests", e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
           </div>
 
           {/* Validation warnings */}
@@ -359,7 +375,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                   <div>
                     <span className="font-medium text-destructive">Total Sales mismatch:</span>{" "}
                     <span className="text-foreground">
-                      Subtotal ({extractedData!.subtotal.toFixed(2)}) + Service Charge ({extractedData!.serviceCharge.toFixed(2)}) − Discount ({extractedData!.discount.toFixed(2)}) ={" "}
+                      Subtotal ({extractedData!.subtotal.toFixed(2)}) + Service Charge ({extractedData!.serviceCharge.toFixed(2)}) + Discount ({extractedData!.discount.toFixed(2)}) ={" "}
                       <strong>{calcTotalSales.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
                     </span>
                   </div>
@@ -378,18 +394,85 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
               )}
             </div>
           )}
-            {/* Number fields */}
-            {numberFields.map((field) => (
-              <div key={field}>
-                <label className="text-xs text-muted-foreground block mb-1">{fieldLabels[field]}</label>
+
+          {/* Revenue section */}
+          <div className="rounded-lg border border-border bg-background/40 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-display font-semibold text-foreground uppercase tracking-wide">Revenue</h4>
+              <span className="text-xs text-muted-foreground">
+                Total Sales: <strong className="text-foreground">{extractedData.totalSales.toFixed(2)}</strong>
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Subtotal</label>
                 <input
                   type="number"
-                  value={extractedData[field] || ""}
-                  onChange={(e) => handleFieldChange(field, e.target.value)}
+                  value={extractedData.subtotal || ""}
+                  onChange={(e) => handleFieldChange("subtotal", e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
-            ))}
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Service Charge</label>
+                <input
+                  type="number"
+                  value={extractedData.serviceCharge || ""}
+                  onChange={(e) => handleFieldChange("serviceCharge", e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-destructive block mb-1">Discount (negative)</label>
+                <input
+                  type="number"
+                  value={extractedData.discount || ""}
+                  onChange={(e) => handleFieldChange("discount", e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Card Tips</label>
+                <input
+                  type="number"
+                  value={extractedData.cardTips || ""}
+                  onChange={(e) => handleFieldChange("cardTips", e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Total Sales</label>
+                <input
+                  type="number"
+                  value={extractedData.totalSales || ""}
+                  onChange={(e) => handleFieldChange("totalSales", e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Payments section */}
+          <div className="rounded-lg border border-border bg-background/40 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-display font-semibold text-foreground uppercase tracking-wide">Payments</h4>
+              <span className="text-xs text-muted-foreground">
+                Sum − Tips: <strong className="text-foreground">{calcPaymentTotal.toFixed(2)}</strong>
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {(["visa","mastercard","amex","unionPay","jcb","alipay","wechat","payme","cash"] as const).map((field) => (
+                <div key={field}>
+                  <label className="text-xs text-muted-foreground block mb-1">{fieldLabels[field]}</label>
+                  <input
+                    type="number"
+                    value={extractedData[field] || ""}
+                    onChange={(e) => handleFieldChange(field, e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-3 pt-2">
