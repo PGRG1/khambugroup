@@ -1,62 +1,62 @@
-## Diagnosis
+## Goal
 
-I checked the database directly. There are **two independent issues**, and only one is a UI bug — the other is a real accounting error.
+Add a **second Cashflow view** that reads strictly from the **journal/ledger** (posted entries hitting accounts flagged `is_cash = true` in the Chart of Accounts). The current `/finance/cashflow` page derives numbers from operational tables (sales_records, invoice_payments, hr_payroll, pl_manual_lines), which can drift from the books. The new page is the **accountant's view** — it always agrees with the Trial Balance and Balance Sheet.
 
-### Issue 1 — Trial Balance UI is truncating data (looks "1 venue only")
+## Why this matters
 
-The DB ledger contains data for **both Assembly and Caliente** (the only two venues with sales so far — Hanabi and Events have zero records, which is correct):
+- The existing Cashflow can disagree with the General Ledger if a manual journal entry is posted, or if a sales/invoice record is created without flowing into the ledger.
+- The new view answers: *"According to the books, how much cash actually moved?"* — the same number the Balance Sheet shows for cash.
+- Useful as a reconciliation tool against the operations-based Cashflow.
 
-| Venue    | Lines | Debits     | Credits    |
-|----------|------:|-----------:|-----------:|
-| Assembly | 1,779 | 3,720,264  | 3,720,264  |
-| Caliente | 1,234 | 2,004,238  | 2,004,238  |
-| **Total**| **3,013** | **5,724,502** | **5,724,502** |
+## What to build
 
-But `src/hooks/useTrialBalance.ts` queries `journal_lines` with `.limit(10000)` *and* an inner join to `journal_entries`. PostgREST still applies its default 1,000-row cap on the underlying request in many cases, and the embedded join also counts against the limit. So the UI is silently dropping rows — that's why it looks like only one venue is showing and the numbers feel "very off".
+### 1. New page: `/finance/cashflow-ledger`
 
-**Fix**: rewrite `useTrialBalance` to fetch via `fetchAllRows` (the project's standard `.range()` paginator) for both `journal_entries` and `journal_lines`, then join in JS. This is the same fix already applied elsewhere in the codebase.
+Route alongside the existing `/finance/cashflow`. Sidebar entry under Finance: **"Cashflow (Ledger)"**. Existing page renamed in the sidebar to **"Cashflow (Operations)"** to make the distinction clear (route unchanged).
 
-### Issue 2 — Balance Sheet is genuinely out of balance by ~135,126
+### 2. Data source
 
-Looking at the trial balance from the database directly:
+A single view already exists and is perfect: **`v_cash_movements`**. It returns every journal line that touches a cash account (`is_cash = true`), with: `entry_date`, `source_type`, `memo`, `venue`, `account_code`, `account_name`, `cash_in` (debit), `cash_out` (credit), `net_cash`.
 
-- **Sales – Assembly**: 3,383,309 (credit) ✓ matches `sales_records.subtotal`
-- **Sales discount accounts (5xxx)**: total ~135,126 (credit)
+Currently only `1020 — Cash on Hand` is flagged `is_cash`. The page will also show a small note explaining that merchant receivables (Visa, Mastercard, etc.) are **not** cash until settlement, so they don't appear here.
 
-But discounts are a **contra-revenue** account — they should reduce revenue, i.e. they belong on the **debit** side (normal_side = debit), not credit. In `rebuild_journal_from_operations` the discount line is correctly written as a DEBIT:
+### 3. New hook: `src/hooks/useLedgerCashflow.ts`
 
-```sql
-INSERT INTO journal_lines (... debit, credit ...) VALUES (... ABS(r.discount), 0 ...)
-```
+- Uses `fetchAllRows("v_cash_movements", "*")` to bypass the 1000-row cap (per `mem://logic/finance-views-pagination`).
+- Filters by date range and venue in JavaScript.
+- Buckets movements by month/quarter/year via the existing `cashflowCalculations.ts` helpers.
+- Computes opening balance from `v_balance_sheet` for cash accounts as of the day before `fromDate` (or uses the manual `cashflow_settings.opening_balance` if user prefers).
+- Returns `{ buckets, totals, byAccount, byCategory, recentTxns, loading }`.
 
-…but the **chart_of_accounts** row for the discount accounts has `normal_side = 'credit'` (treated as revenue). That flips the sign in `v_balance_sheet` / `v_pl` and leaves Equity short by exactly the discount amount → ~135,126 imbalance, which is roughly what you saw on the Balance Sheet (-1,919,191 also includes the truncation effect).
+### 4. Page layout (mirrors existing Cashflow for familiarity)
 
-**Fix**: ensure the four `Sales Discount – {Venue}` accounts are typed as `account_type = 'revenue'` with `normal_side = 'debit'` (contra-revenue convention). Then rebuild the journal so views recompute cleanly.
+- Header: "Cashflow (Ledger)" + tagline "Derived from posted journal entries — always matches Trial Balance."
+- Filters: granularity (Month/Qtr/Year), venue, date range, **cash account filter** (defaults to "All cash accounts").
+- KPI cards: Total Cash In, Total Cash Out, Net Movement, Closing Cash Balance.
+- Composed chart: bars for in/out, line for net, dashed line for running cash balance.
+- Period breakdown table.
+- **By cash account** breakdown (e.g. 1020 Cash on Hand) — useful when more cash accounts get added.
+- **By source type** breakdown (sales, manual, invoice, payroll, etc. — based on `je.source_type`).
+- Recent cash events (last 20 journal lines with link to view in General Ledger by entry_id).
+- CSV export.
 
----
+### 5. Reconciliation banner (optional but recommended)
 
-## Plan
+A small card at the top: *"Operations-based Cashflow shows X. Ledger Cashflow shows Y. Difference: Z."* with a link to a quick diff. If they disagree, click → opens the operations Cashflow side-by-side.
 
-### 1. Fix Trial Balance row truncation (UI)
-Rewrite `src/hooks/useTrialBalance.ts`:
-- Use `fetchAllRows("journal_entries", "id, entry_date, status")` and `fetchAllRows("journal_lines", "account_id, entry_id, debit, credit")`.
-- Join in JS, filter by `status='posted'` and the date range.
-- Remove the `.limit(10000)` and the embedded `!inner` select.
+## Files to create / modify
 
-### 2. Fix Sales Discount account configuration (DB migration)
-Create a migration that:
-- Updates `chart_of_accounts` rows for codes `5010`, `5020`, `5030`, `5040` (Sales Discount accounts — confirm via SELECT in migration) to `normal_side = 'debit'`, keeping `account_type = 'revenue'` so they net inside the Revenue section as contra-revenue.
-- Calls `rebuild_journal_from_operations()` so all derived views refresh.
+| File | Change |
+|---|---|
+| `src/pages/finance/CashflowLedger.tsx` | NEW — the page |
+| `src/hooks/useLedgerCashflow.ts` | NEW — data hook |
+| `src/App.tsx` | Add route `/finance/cashflow-ledger` |
+| `src/components/AppSidebar.tsx` | Add nav entry; rename existing to "Cashflow (Operations)" |
 
-### 3. Audit Balance Sheet hook for the same truncation bug
-Quickly check `src/pages/finance/BalanceSheet.tsx` and its hook — if it reads from `v_balance_sheet`, no change needed. If it reads from `journal_lines` with a `.limit`, apply the same `fetchAllRows` fix.
+No DB migrations required — `v_cash_movements` already exists.
 
-### 4. Verification
-After applying:
-- Trial Balance totals should match: Debits = Credits = 5,724,502 (or current value after rebuild).
-- Both Assembly and Caliente sections should be visible.
-- Balance Sheet should show "Balanced ✓".
+## Verification
 
-### Notes
-- Hanabi and Events legitimately show zero — there are no sales records for them yet, so this is not a bug.
-- KPAY merchant receivable balance of 5,010,704 is the unsettled card payment pool — that's expected (no settlement journal entries posted yet).
+- Numbers in "Closing Cash Balance" must equal the Cash on Hand line on the Balance Sheet for the same date range.
+- Sum of `cash_in - cash_out` across all venues/periods must equal the change in Cash on Hand on the Trial Balance.
+- Toggling venue filter narrows movements; "All Venues" matches the Balance Sheet exactly.
