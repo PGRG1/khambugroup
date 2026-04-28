@@ -172,10 +172,9 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       if (numberFields.includes(field as any)) {
         let next = { ...prev, [field]: Number(value) || 0 };
         // Auto-recompute totalSales when any of its inputs change
-        if (["subtotal", "serviceCharge", "discount", "cardTips"].includes(field)) {
+        if (["subtotal", "serviceCharge", "discount"].includes(field)) {
           const discountAbs = Math.abs(next.discount || 0);
-          const tips = next.cardTips || 0;
-          next = { ...next, totalSales: next.subtotal + next.serviceCharge - discountAbs - tips };
+          next = { ...next, totalSales: next.subtotal + next.serviceCharge - discountAbs };
         }
         return next;
       }
@@ -193,9 +192,9 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     });
   };
 
-  // Auto-calculated validation: Total Sales = Subtotal + Service Charge − |Discount| − Card Tips
+  // Auto-calculated validation: Total Sales = Subtotal + Service Charge − |Discount|
   const calcTotalSales = extractedData
-    ? extractedData.subtotal + extractedData.serviceCharge - Math.abs(extractedData.discount) - extractedData.cardTips
+    ? extractedData.subtotal + extractedData.serviceCharge - Math.abs(extractedData.discount)
     : 0;
   const calcPaymentTotal = extractedData
     ? getPaymentTotal(extractedData)
@@ -382,7 +381,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                   <div>
                     <span className="font-medium text-destructive">Total Sales mismatch:</span>{" "}
                     <span className="text-foreground">
-                      Subtotal ({extractedData!.subtotal.toFixed(2)}) + Service Charge ({extractedData!.serviceCharge.toFixed(2)}) − Discount ({Math.abs(extractedData!.discount).toFixed(2)}) − Card Tips ({extractedData!.cardTips.toFixed(2)}) ={" "}
+                      Subtotal ({extractedData!.subtotal.toFixed(2)}) + Service Charge ({extractedData!.serviceCharge.toFixed(2)}) − Discount ({Math.abs(extractedData!.discount).toFixed(2)}) ={" "}
                       <strong>{calcTotalSales.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
                     </span>
                   </div>
@@ -410,7 +409,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                 Total Sales: <strong className="text-foreground">{extractedData.totalSales.toFixed(2)}</strong>
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">Subtotal</label>
                 <input
@@ -435,15 +434,6 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                   type="number"
                   value={extractedData.discount ? Math.abs(extractedData.discount) : ""}
                   onChange={(e) => handleFieldChange("discount", String(-Math.abs(Number(e.target.value) || 0)))}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-destructive block mb-1">Card Tips</label>
-                <input
-                  type="number"
-                  value={extractedData.cardTips || ""}
-                  onChange={(e) => handleFieldChange("cardTips", String(Math.abs(Number(e.target.value) || 0)))}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30"
                 />
               </div>
