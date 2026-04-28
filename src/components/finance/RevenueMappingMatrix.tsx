@@ -181,23 +181,23 @@ export function RevenueMappingMatrix({ accounts }: { accounts: ChartAccount[] })
         <p className="text-xs text-muted-foreground mb-3">
           Example: Caliente daily sales of <span className="font-mono">$1,000</span> subtotal,
           <span className="font-mono"> $100</span> service, <span className="font-mono">−$50</span> discount,
-          <span className="font-mono"> $30</span> card tips, paid <span className="font-mono">$400</span> cash + <span className="font-mono">$680</span> Visa.
+          <span className="font-mono"> $30</span> card tips, paid <span className="font-mono">$400</span> cash + <span className="font-mono">$650</span> Visa.
         </p>
         <div className="font-mono text-xs bg-muted/40 rounded p-3 leading-relaxed">
           <div className="grid grid-cols-[1fr_90px_90px] gap-2 text-muted-foreground border-b border-border/40 pb-1 mb-1">
             <span>Account</span><span className="text-right">Debit</span><span className="text-right">Credit</span>
           </div>
           <div className="grid grid-cols-[1fr_90px_90px] gap-2"><span>Cash on Hand</span><span className="text-right">400.00</span><span></span></div>
-          <div className="grid grid-cols-[1fr_90px_90px] gap-2"><span>Merchant Receivable – Visa (incl. tips)</span><span className="text-right">710.00</span><span></span></div>
+          <div className="grid grid-cols-[1fr_90px_90px] gap-2"><span>Merchant Receivable – Visa (incl. $30 tips)</span><span className="text-right">680.00</span><span></span></div>
           <div className="grid grid-cols-[1fr_90px_90px] gap-2"><span>Sales Discounts – Caliente</span><span className="text-right">50.00</span><span></span></div>
           <div className="grid grid-cols-[1fr_90px_90px] gap-2"><span>Sales – Caliente</span><span></span><span className="text-right">1,000.00</span></div>
           <div className="grid grid-cols-[1fr_90px_90px] gap-2"><span>Service Charge – Caliente</span><span></span><span className="text-right">100.00</span></div>
           <div className="grid grid-cols-[1fr_90px_90px] gap-2"><span>Tips Payable – Caliente</span><span></span><span className="text-right">30.00</span></div>
           <div className="grid grid-cols-[1fr_90px_90px] gap-2 border-t border-border/40 mt-1 pt-1 font-semibold">
-            <span>Total</span><span className="text-right">1,160.00</span><span className="text-right">1,130.00</span>
+            <span>Total</span><span className="text-right">1,130.00</span><span className="text-right">1,130.00</span>
           </div>
           <div className="text-[10px] text-muted-foreground mt-1">
-            Note: Tips ($30) ride on the card receivable, then are credited to Tips Payable on the balance sheet.
+            Note: $30 tips ride on the Visa receivable, then credit Tips Payable (a balance-sheet liability).
           </div>
         </div>
       </Card>
