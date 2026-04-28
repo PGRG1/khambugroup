@@ -170,7 +170,14 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     setExtractedData((prev) => {
       if (!prev) return prev;
       if (numberFields.includes(field as any)) {
-        return { ...prev, [field]: Number(value) || 0 };
+        let next = { ...prev, [field]: Number(value) || 0 };
+        // Auto-recompute totalSales when any of its inputs change
+        if (["subtotal", "serviceCharge", "discount", "cardTips"].includes(field)) {
+          const discountAbs = Math.abs(next.discount || 0);
+          const tips = next.cardTips || 0;
+          next = { ...next, totalSales: next.subtotal + next.serviceCharge - discountAbs - tips };
+        }
+        return next;
       }
       if (field === "venue") {
         return { ...prev, venue: value === "Caliente" ? "Caliente" : "Assembly" };
@@ -186,9 +193,9 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     });
   };
 
-  // Auto-calculated validation
+  // Auto-calculated validation: Total Sales = Subtotal + Service Charge − |Discount| − Card Tips
   const calcTotalSales = extractedData
-    ? extractedData.subtotal + extractedData.serviceCharge + extractedData.discount // discount is already negative
+    ? extractedData.subtotal + extractedData.serviceCharge - Math.abs(extractedData.discount) - extractedData.cardTips
     : 0;
   const calcPaymentTotal = extractedData
     ? getPaymentTotal(extractedData)
