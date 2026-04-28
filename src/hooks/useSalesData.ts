@@ -25,7 +25,7 @@ function toDbRecord(r: SalesRecord) {
     wechat: r.wechat,
     payme: r.payme,
     cash: r.cash,
-    card_tips: r.cardTips,
+    card_tips: -Math.abs(r.cardTips), // always store as negative (mirrors discount)
     receipt_file_url: r.receiptFileUrl ?? null,
     receipt_file_name: r.receiptFileName ?? null,
   };
@@ -33,6 +33,11 @@ function toDbRecord(r: SalesRecord) {
 
 function normalizeDiscount(val: number): number {
   // Discount always stored/displayed as negative (it reduces sales)
+  return val > 0 ? -val : val;
+}
+
+function normalizeCardTips(val: number): number {
+  // Card tips always stored/displayed as negative (mirrors discount: deducted from card receipts)
   return val > 0 ? -val : val;
 }
 
@@ -57,7 +62,7 @@ function fromDbRecord(r: any): SalesRecord {
     wechat: Number(r.wechat),
     payme: Number(r.payme),
     cash: Number(r.cash),
-    cardTips: Number(r.card_tips),
+    cardTips: normalizeCardTips(Number(r.card_tips)),
     receiptFileUrl: r.receipt_file_url ?? null,
     receiptFileName: r.receipt_file_name ?? null,
   };
