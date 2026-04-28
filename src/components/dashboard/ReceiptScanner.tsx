@@ -430,30 +430,30 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                 />
               </div>
               <div>
-                <label className="text-xs text-destructive block mb-1">Discount (negative)</label>
+                <label className="text-xs text-destructive block mb-1">Discount</label>
                 <input
                   type="number"
-                  value={extractedData.discount || ""}
-                  onChange={(e) => handleFieldChange("discount", e.target.value)}
+                  value={extractedData.discount ? Math.abs(extractedData.discount) : ""}
+                  onChange={(e) => handleFieldChange("discount", String(-Math.abs(Number(e.target.value) || 0)))}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30"
                 />
               </div>
               <div>
-                <label className="text-xs text-destructive block mb-1">Card Tips (negative)</label>
+                <label className="text-xs text-destructive block mb-1">Card Tips</label>
                 <input
                   type="number"
-                  value={extractedData.cardTips ? -extractedData.cardTips : ""}
+                  value={extractedData.cardTips || ""}
                   onChange={(e) => handleFieldChange("cardTips", String(Math.abs(Number(e.target.value) || 0)))}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-destructive/40 bg-destructive/5 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive/30"
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground block mb-1">Total Sales</label>
+                <label className="text-xs text-muted-foreground block mb-1">Total Sales (auto)</label>
                 <input
                   type="number"
-                  value={extractedData.totalSales || ""}
-                  onChange={(e) => handleFieldChange("totalSales", e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  value={extractedData.totalSales ? extractedData.totalSales.toFixed(2) : ""}
+                  readOnly
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-muted/40 text-foreground font-semibold cursor-not-allowed"
                 />
               </div>
             </div>
