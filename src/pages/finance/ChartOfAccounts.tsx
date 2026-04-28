@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useChartOfAccounts, ChartAccount, AccountType, ACCOUNT_TYPE_LABEL, ACCOUNT_TYPE_GROUP, defaultNormalSide } from "@/hooks/useChartOfAccounts";
-import { useAccountMapping, RULE_TYPES } from "@/hooks/useAccountMapping";
 import { useJournal } from "@/hooks/useJournal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Check, X, RefreshCw } from "lucide-react";
+import { RevenueMappingMatrix } from "@/components/finance/RevenueMappingMatrix";
 
 const TYPE_ORDER: AccountType[] = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
 
