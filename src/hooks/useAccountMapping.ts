@@ -16,6 +16,7 @@ export const RULE_TYPES: { value: string; label: string; needsKey: boolean }[] =
   { value: "sales_cash", label: "Sales — Cash account", needsKey: false },
   { value: "sales_payment_method", label: "Sales Payment Method (per method)", needsKey: true },
   { value: "sales_discount", label: "Sales Discount (per venue)", needsKey: true },
+  { value: "tips_payable", label: "Tips Payable (per venue)", needsKey: true },
   { value: "payment_method_cash", label: "Invoice/Payroll Payment Method → Cash account", needsKey: true },
   { value: "invoice_expense", label: "Invoice Expense (by accounting category)", needsKey: true },
   { value: "accounts_payable", label: "Accounts Payable", needsKey: false },
