@@ -141,7 +141,7 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             <span className="text-destructive font-semibold shrink-0">⚠</span>
             <span className="text-foreground">
               <span className="font-medium text-destructive">Payment mismatch:</span>{" "}
-              Payment methods total (<strong>{paymentTotal.toLocaleString()}</strong>) does not match Total Sales (<strong>{form.totalSales.toLocaleString()}</strong>). Difference: <strong>{Math.abs(paymentTotal - form.totalSales).toLocaleString()}</strong>
+              Payment methods total − card tips (<strong>{paymentTotal.toLocaleString()}</strong>) does not match Total Sales (<strong>{form.totalSales.toLocaleString()}</strong>). Difference: <strong>{Math.abs(paymentTotal - form.totalSales).toLocaleString()}</strong>
             </span>
           </div>
         )}

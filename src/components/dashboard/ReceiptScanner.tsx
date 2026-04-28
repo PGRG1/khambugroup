@@ -371,7 +371,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
                   <div>
                     <span className="font-medium text-destructive">Payment total mismatch:</span>{" "}
                     <span className="text-foreground">
-                      Sum of payments = <strong>{calcPaymentTotal.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
+                      Sum of payments − card tips = <strong>{calcPaymentTotal.toFixed(2)}</strong>, but Total Sales is <strong>{extractedData!.totalSales.toFixed(2)}</strong>
                     </span>
                   </div>
                 </div>
