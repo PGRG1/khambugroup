@@ -7,6 +7,7 @@ import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DataTable from "@/components/dashboard/DataTable";
 import ResetDataButton from "@/components/dashboard/ResetDataButton";
+import AccountingMappingSummary from "@/components/dashboard/AccountingMappingSummary";
 import { Upload, PenLine, ScanLine } from "lucide-react";
 
 const DataPage = () => {
@@ -103,6 +104,8 @@ const DataPage = () => {
       {isAdmin && !hideManualEntry && showManual && (
         <ManualInput onAdd={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowManual(false)} />
       )}
+
+      {isAdmin && <AccountingMappingSummary />}
 
       <DataTable
         data={data}
