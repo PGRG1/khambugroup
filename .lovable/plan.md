@@ -1,35 +1,62 @@
-## Goal
+## What's already in place (good news)
 
-Allow attaching a receipt file to sales records (both at creation and retroactively), and surface a quick "view receipt" icon directly in the Sales Data table row.
+You already have the full plumbing for what you're describing. Today:
 
-## Changes
+- **Chart of Accounts** has dedicated revenue accounts per venue (`Sales – Assembly/Caliente/Hanabi/Events`), `Service Charge`, `Sales Discounts`, `Cash – Bank`, `Cash on Hand`, and `Merchant Receivable - KPAY`.
+- **Account Mapping Rules** already map:
+  - Each venue → its Sales Revenue account
+  - Each venue → Service Charge & Sales Discount accounts
+  - Each payment method (visa, mastercard, amex, unionpay, jcb, alipay, wechat, payme, cash) → an account. Right now **all card methods point to the same Merchant Receivable - KPAY account**, and cash points to Cash – Bank.
+- A SQL function `rebuild_journal_from_operations()` already iterates over every `sales_records` row, groups by date+venue, and posts a balanced journal entry: debit each payment method's account, credit the venue's Sales Revenue, Service Charge, and Sales Discount accounts.
+- The output flows automatically into Journal, Ledger, Trial Balance, and P&L.
 
-### 1. Manual Input form (`src/components/dashboard/ManualInput.tsx`)
-- Add an optional file input ("Attach receipt — image or PDF") below the form fields.
-- Pass the selected `File` to `onAdd` alongside the record.
-- Update `DataPage` so the manual-input `onAdd` callback forwards the file to `addRecord(record, file)` (already supports the `file` parameter).
+So sales **already** become journal entries that map exactly the way you described. The gap is only that:
 
-### 2. Sales Detail modal (`src/components/dashboard/SalesDetailModal.tsx`)
-- When a record has **no** `receiptFileUrl`: show an "Attach receipt" button (paperclip icon) that opens a hidden file picker.
-- When a record **has** a receipt: keep the existing eye icon, plus add a "Replace" option in edit mode.
-- On upload: call a new `onAttachReceipt(record, file)` prop wired through `DataPage` → `useSalesData`.
+1. The mapping is hidden inside Finance → Chart of Accounts → "Account Mapping" tab — invisible to whoever enters sales.
+2. The journal only refreshes when someone clicks "Rebuild Ledger".
+3. There's no per-card-brand receivable account (e.g. separate Amex receivable vs Visa receivable) — you may or may not want that.
 
-### 3. New hook method (`src/hooks/useSalesData.ts`)
-- Add `attachReceipt(record, file)`:
-  - Upload to `sales-receipts` bucket using the same path convention as `addRecord`.
-  - If the record already had a receipt, delete the old file from storage first.
-  - Update the row's `receipt_file_url` / `receipt_file_name` columns matched by `(date, venue, report_number)`.
-  - Log audit event `attach_receipt`.
-  - Refetch.
+## Plan
 
-### 4. Eye icon in Sales Data table (`src/components/dashboard/DataTable.tsx`)
-- Add a leading narrow column (no header label) showing an `Eye` icon for rows where `receiptFileUrl` is set.
-- Clicking the icon opens `AttachmentViewerDialog` directly (bucket=`sales-receipts`) without opening the row's detail modal — `stopPropagation` on the click.
-- Rows without a receipt show empty space in that column.
+### 1. Make the mapping visible in the Revenue section
+In **Revenue → Sales Data tab**, add a small collapsible panel "Accounting mapping" showing, for each venue and each payment method, which GL account currently receives it. Read-only summary plus a "Manage mappings" link that jumps to Finance → Chart of Accounts → Account Mapping. This way whoever scans receipts can see exactly where Caliente sales / Amex / etc. land.
 
-### 5. No DB migration needed
-The `sales_records.receipt_file_url` / `receipt_file_name` columns and the `sales-receipts` bucket already exist from the previous change.
+### 2. Auto-post sales to the journal
+Currently sales only flow to the journal when an admin clicks "Rebuild Ledger". Change `useSalesData.ts` so that after `addRecord`, `updateRecord`, `deleteRecord`, `uploadRecords`, and `attachReceipt` (no — attach doesn't change amounts, skip), the hook calls `rebuild_journal_from_operations` in the background. Show a subtle "Posted to ledger" toast.
+
+Optimization: rebuild is already idempotent (it deletes and re-creates non-manual entries), so calling it after each sales mutation is safe. For bulk Excel uploads, debounce to one call at the end.
+
+### 3. (Optional but recommended) Per-card-brand Merchant Receivable accounts
+Right now Visa, Mastercard, Amex, UnionPay, JCB, Alipay, WeChat, PayMe all post to the same `Merchant Receivable - KPAY` account. If you want to track each processor separately (so you can reconcile each settlement), add new accounts:
+
+```
+1211 Merchant Receivable - Visa/Mastercard
+1212 Merchant Receivable - Amex
+1213 Merchant Receivable - UnionPay/JCB
+1214 Merchant Receivable - Alipay
+1215 Merchant Receivable - WeChat
+1216 Merchant Receivable - PayMe
+```
+
+Then update each `sales_payment_method` mapping rule to point to the corresponding new account. (You can do this from the existing UI at Finance → Chart of Accounts → Account Mapping after I add the accounts — no code change required after that.)
+
+### 4. Small UX additions on the Account Mapping tab
+- Group rules by category (Sales / Payments / Invoices / Payroll) instead of one long list.
+- Show the venue/method label nicely (e.g. "Amex" instead of `amex`).
+- Add a "Test mapping" button that runs `rebuild_journal_from_operations` and shows the count of entries created — handy after editing rules.
+
+## Technical changes
+
+- `src/components/dashboard/AccountingMappingSummary.tsx` — new read-only panel.
+- `src/pages/DataPage.tsx` — embed the panel in the Sales Data tab.
+- `src/hooks/useSalesData.ts` — call `supabase.rpc("rebuild_journal_from_operations")` after successful mutations; debounce for bulk upload.
+- New migration: insert 6 new `chart_of_accounts` rows for per-brand merchant receivables (only if you confirm step 3).
+- `src/pages/finance/ChartOfAccounts.tsx` — group the mapping list and prettify labels; add "Test mapping" button.
 
 ## Out of scope
-- Bulk Excel upload attachments
-- Multi-file attachments per record (single file only, replace on re-upload)
+- Processor fees / settlement reconciliation (matching merchant deposits to receivable balances) — flag for a follow-up.
+- Splitting revenue between food and beverage per venue — would need item-level data we don't capture from the receipt yet.
+
+## Question before I start
+
+Do you want step 3 (per-card-brand receivables: separate Amex / Visa-MC / Alipay etc.), or keep all card payments lumped under the single "Merchant Receivable - KPAY" account you already have?

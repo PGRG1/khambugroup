@@ -77,6 +77,14 @@ export function useSalesData() {
     fetchData();
   }, [fetchData]);
 
+  const rebuildJournalSilently = useCallback(async () => {
+    try {
+      await (supabase as any).rpc("rebuild_journal_from_operations");
+    } catch (e) {
+      console.warn("Journal rebuild failed", e);
+    }
+  }, []);
+
   const uploadRecords = useCallback(async (records: SalesRecord[]) => {
     const dbRecords = records.map(toDbRecord);
     const { error } = await supabase
@@ -90,9 +98,10 @@ export function useSalesData() {
         details: { count: records.length },
       });
       await fetchData();
+      rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData]);
+  }, [fetchData, rebuildJournalSilently]);
 
   const addRecord = useCallback(async (record: SalesRecord, file?: File | null) => {
     let finalRecord = record;
@@ -120,9 +129,10 @@ export function useSalesData() {
         entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
       });
       await fetchData();
+      rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData]);
+  }, [fetchData, rebuildJournalSilently]);
 
   const updateRecord = useCallback(async (oldRecord: SalesRecord, newRecord: SalesRecord) => {
     const { error } = await supabase
@@ -140,9 +150,10 @@ export function useSalesData() {
         details: { old: oldRecord, new: newRecord },
       });
       await fetchData();
+      rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData]);
+  }, [fetchData, rebuildJournalSilently]);
 
   const deleteRecord = useCallback(async (record: SalesRecord) => {
     const { error } = await supabase
@@ -159,9 +170,10 @@ export function useSalesData() {
         entityId: `${record.date}-${record.venue}-${record.reportNumber}`,
       });
       await fetchData();
+      rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData]);
+  }, [fetchData, rebuildJournalSilently]);
 
   const attachReceipt = useCallback(async (record: SalesRecord, file: File) => {
     // Delete old file if exists
