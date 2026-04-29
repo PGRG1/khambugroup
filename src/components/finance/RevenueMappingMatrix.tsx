@@ -35,7 +35,7 @@ const PAYMENT_ROWS: Array<{
   { match_key: "payme",      label: "PayMe",       description: "PayMe receivable" },
 ];
 
-export function RevenueMappingMatrix({ accounts }: { accounts: ChartAccount[] }) {
+export function RevenueMappingMatrix({ accounts, section = "all" }: { accounts: ChartAccount[]; section?: "sales" | "payments" | "all" }) {
   const { items, upsert } = useAccountMapping();
 
   const lookup = useMemo(() => {
