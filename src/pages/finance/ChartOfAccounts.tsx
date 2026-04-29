@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Check, X, RefreshCw } from "lucide-react";
 import { RevenueMappingMatrix } from "@/components/finance/RevenueMappingMatrix";
+import { ProcurementMappingMatrix } from "@/components/finance/ProcurementMappingMatrix";
 
 const TYPE_ORDER: AccountType[] = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
 
