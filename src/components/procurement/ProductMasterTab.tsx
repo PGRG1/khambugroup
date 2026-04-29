@@ -252,6 +252,8 @@ export default function ProductMasterTab() {
       internal_product_name: row.internal_product_name, supplier_product_name: row.supplier_product_name,
       level1_category: row.level1_category, level2_category: row.level2_category, level3_category: row.level3_category,
       accounting_category: row.accounting_category,
+      financial_treatment: row.financial_treatment || "",
+      default_coa_account_id: row.default_coa_account_id || "",
       unit: row.product.unit, unit_cost: String(row.unit_cost), supplier: row.supplier, status: row.status,
       purchase_unit: row.purchase_unit, purchase_unit_cost: String(row.purchase_unit_cost),
       stock_uom: row.stock_uom, stock_qty: String(row.stock_qty), cost_per_stock_unit: String(row.cost_per_stock_unit),
