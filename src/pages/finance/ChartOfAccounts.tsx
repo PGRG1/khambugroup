@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Check, X, RefreshCw } from "lucide-react";
 import { RevenueMappingMatrix } from "@/components/finance/RevenueMappingMatrix";
 import { ProcurementMappingMatrix } from "@/components/finance/ProcurementMappingMatrix";
+import { PayrollMappingMatrix } from "@/components/finance/PayrollMappingMatrix";
 
 const TYPE_ORDER: AccountType[] = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
 
@@ -134,6 +135,7 @@ export default function ChartOfAccountsPage() {
               <TabsTrigger value="sales-revenue">Sales Revenue</TabsTrigger>
               <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
               <TabsTrigger value="procurement">Procurement Categories</TabsTrigger>
+              <TabsTrigger value="payroll">Payroll</TabsTrigger>
             </TabsList>
             <TabsContent value="sales-revenue" className="mt-4">
               <RevenueMappingMatrix accounts={items} section="sales" />
@@ -143,6 +145,9 @@ export default function ChartOfAccountsPage() {
             </TabsContent>
             <TabsContent value="procurement" className="mt-4">
               <ProcurementMappingMatrix accounts={items} />
+            </TabsContent>
+            <TabsContent value="payroll" className="mt-4">
+              <PayrollMappingMatrix accounts={items} />
             </TabsContent>
           </Tabs>
         </TabsContent>

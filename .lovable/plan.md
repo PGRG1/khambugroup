@@ -1,67 +1,96 @@
 ## Goal
 
-Add dedicated **Accounts Receivable (AR)** and **Accounts Payable (AP)** sections under Finance so you can track who owes you money (merchant settlements, KPAY, etc.) and who you owe (suppliers) — with aging, per-counterparty drill-down, and quick "settle/pay" actions.
+Make `hr_payroll` records flow into the general ledger automatically — same pattern as Sales and Invoices — so payroll appears in **P&L** (Salaries Expense, MPF Expense), **Balance Sheet** (Salary Payable, MPF Payable, Cash), **Cashflow** (when paid), and the new **AP page** (Salary Payable + MPF Payable as payables).
 
 ## What you'll see in the app
 
-Two new pages under the **Finance** sidebar group:
+### 1. Payroll auto-posts when a row is "approved"
+Payroll rows have two payment milestones already on the table:
+- `net_salary_payment_date` + `payment_method` — when staff get paid
+- `mpf_payment_date` — when MPF is remitted
 
-### 1. Accounts Receivable (`/finance/receivables`)
-KPI strip + tabs:
-- **Outstanding Total** | **Overdue (>30d)** | **Settled This Month** | **Avg Days to Settle**
-- Tab A — **By Account**: list of all AR accounts (Merchant Receivable Visa/Mastercard/Amex/KPAY/etc.) with current outstanding balance, last activity date, and a sparkline of the last 30 days.
-- Tab B — **Open Items**: every unsettled debit line (date, venue, account, amount, age bucket: 0–7 / 8–30 / 31–60 / 60+). Row action: **Mark Settled** (creates a balancing journal entry crediting the AR account and debiting the chosen Cash account on a chosen date).
-- Tab C — **Aging Summary**: matrix of AR account × age bucket (Current / 1–30 / 31–60 / 61–90 / 90+).
+The ledger rebuild will generate **up to 3 entries per employee per month**:
 
-### 2. Accounts Payable (`/finance/payables`)
-KPI strip + tabs:
-- **Total Owed** | **Overdue** | **Paid This Month** | **Avg Days to Pay**
-- Tab A — **By Supplier**: each supplier with outstanding balance, last invoice date, oldest unpaid invoice age. Click → drill down to that supplier's invoices.
-- Tab B — **Open Invoices**: every `unpaid` invoice (date, supplier, invoice #, venue, amount, age bucket, due date if set). Row actions: **Mark Paid** (opens the existing payment dialog) and **Open Invoice**.
-- Tab C — **Aging Summary**: supplier × age bucket matrix, with totals row.
+```text
+Entry A (always, on the last day of the payroll month):
+  Dr  6010 Salaries Expense        gross_salary
+  Dr  6020 MPF Expense             mpf_employer
+      Cr  2040 Salary Payable          net_salary
+      Cr  2030 MPF Payable             mpf_employee + mpf_employer
+      Cr  <other deduction accounts>   other_deductions  (if mapped)
 
-Both pages get a **CSV export** that respects current filters (UTF-8 BOM as per project standard).
+Entry B (only if net_salary_payment_date is set):
+  Dr  2040 Salary Payable          net_salary
+      Cr  <Cash account for payment_method>   net_salary
 
-## Data sources (no schema changes needed)
+Entry C (only if mpf_payment_date is set):
+  Dr  2030 MPF Payable             mpf_employee + mpf_employer
+      Cr  <Cash account for MPF>            total
+```
 
-Everything is derived from existing tables:
+Result:
+- **P&L**: `6010` and `6020` light up as monthly OpEx, broken down by venue (`hr_employees.venue`).
+- **Balance Sheet**: `2040 Salary Payable` and `2030 MPF Payable` show what's still owed at month-end.
+- **AP page**: salary + MPF payables appear as outstanding obligations until paid.
+- **Cashflow**: cash outflows appear on the actual payment dates, not the accrual date.
 
-- **AR balances** = `journal_lines` filtered to accounts where `account_type='asset'` AND `name ILIKE 'Merchant Receivable%'` (plus a configurable AR account list). Balance = Σ debit − Σ credit per account.
-- **AR open items** = ungrouped journal lines on AR accounts; "settled" detection uses FIFO matching of credits against debits per account (oldest debit first). Lines whose cumulative debit total still exceeds cumulative credit total are "open"; the residual age = age of the oldest unmatched debit slice.
-- **AP balances** by supplier = sum of `invoices.total_amount` where `status='unpaid'` per `supplier_id`. (No FIFO needed — invoices already have a paid/unpaid flag and a payment ledger.)
-- **AP open invoices** = `invoices` join `suppliers` join `invoice_payments` where `status='unpaid'`.
+### 2. Payroll mapping matrix (new tab in Finance → Mapping)
+A small matrix lets you confirm/override:
+- Salary Expense account (default `6010`, can split per venue)
+- MPF Expense account (default `6020`)
+- Salary Payable account (default `2040`)
+- MPF Payable account (default `2030`)
+- Per `payment_method` → cash account (bank_transfer, cash, cheque) — reuses the existing `payment_method_cash` rule type already used by AP payments.
+- Optional: deduction accounts (e.g. "other deductions" → a specific liability or expense reduction).
 
-## Cleanup item (small data hygiene)
+### 3. Trigger
+The existing **Rebuild Journal from Operations** button on the Journal page will also pick up payroll. No new button needed; payroll is just another section of the rebuild function.
 
-There are **two AP accounts** in the Chart of Accounts: `2010 Accounts Payable` (0 lines) and `2100 Accounts Payable` (1,026 lines, used by ledger rebuild). The plan will:
-- Detect this on first AP page load and show a one-time banner offering to **archive `2010`** (mark `is_active=false`) so reports only show the active one. No data loss; nothing to migrate.
+## Data sources (no schema changes)
+
+Everything derives from existing tables:
+- `hr_payroll` — accruals, deductions, payment dates
+- `hr_employees.venue` — for per-venue P&L attribution
+- `chart_of_accounts` — already has `6010`, `6020`, `2030`, `2040`
+- `account_mapping_rules` — new `rule_type` values (`payroll_salary_expense`, `payroll_mpf_expense`, `payroll_salary_payable`, `payroll_mpf_payable`); reuses existing `payment_method_cash` for the cash side.
+
+## Edge cases handled
+
+- **Forecast vs actual**: only post `actual_*` if present; otherwise skip (don't accrue forecasts into the GL).
+- **Unpaid net salary**: posts the accrual but no cash entry — payable stays open in AP.
+- **Partial month / mid-month hire**: uses `gross_salary` / `net_salary` as-is (already calculated in the row).
+- **MPF paid before net salary** (or vice versa): two independent entries on their own dates.
+- **Voiding/republishing**: rebuild deletes all non-manual entries first (existing behavior), so re-running is idempotent.
+- **Missing mapping**: row is skipped and a count is returned, mirroring how unmapped invoice lines are skipped today.
 
 ## Technical details
 
-**New files:**
-- `src/pages/finance/Receivables.tsx`
-- `src/pages/finance/Payables.tsx`
-- `src/components/finance/AgingMatrix.tsx` (shared age-bucket table)
-- `src/components/finance/SettleReceivableDialog.tsx` (creates a manual journal entry: Dr Cash / Cr AR account)
-- `src/hooks/useReceivables.ts` (FIFO open-line computation, aging buckets)
-- `src/hooks/usePayables.ts` (supplier rollups, aging from `invoice_date`)
-
 **Modified files:**
-- `src/App.tsx` — add `/finance/receivables` and `/finance/payables` routes (AdminRoute).
-- `src/components/AppSidebar.tsx` — add the two items to `financeItems` with `Wallet` and `CreditCard` (lucide) icons.
+- `supabase/migrations/<new>.sql` — extend `rebuild_journal_from_operations()` to add a payroll section after the invoice/payment section. Also seed default `account_mapping_rules` for the four payroll types if not present.
+- `src/components/finance/PayrollMappingMatrix.tsx` (new) — small matrix UI (one column, four rows + payment-method rows).
+- `src/pages/finance/AccountMapping.tsx` (or wherever the existing mapping tabs live) — register the new tab.
+- `src/hooks/usePayables.ts` — extend to also surface `2030` and `2040` balances as "Payroll-related payables" alongside supplier invoices, so the AP page is complete.
 
-**Conventions followed:**
-- All Supabase reads via `fetchAllRows` (>1000 row tables: `journal_lines`, `invoices`).
-- `card-glass` containers, terracotta/gold accents, font-mono for numbers.
-- 3-state column sorting on tables.
-- CSV export with UTF-8 BOM.
-- Settling a receivable inserts into `journal_entries` + `journal_lines` (status `posted`, source_type `manual`, balanced).
-- "Mark Paid" on AP reuses the existing `invoice_payments` insert flow from `ProcurementInvoicesTab` (no duplicate payment logic).
+**No changes to:**
+- `hr_payroll` schema.
+- `journal_entries` / `journal_lines` schema.
+- The Journal UI (rebuild button already exists).
 
-**Aging bucket definition** (shared constant): `Current (≤0d past invoice/entry date)`, `1–30`, `31–60`, `61–90`, `90+`.
+**Mapping rule keys:**
+- `payroll_salary_expense` — match_key = `''` (global) or venue name (override).
+- `payroll_mpf_expense` — same pattern.
+- `payroll_salary_payable` — global.
+- `payroll_mpf_payable` — global.
+- `payment_method_cash` — already exists; reused for net_salary / MPF cash side.
+
+**Source IDs** for traceability:
+- Accrual entry: `source_type='payroll_accrual'`, `source_id=hr_payroll.id`.
+- Net salary payment: `source_type='payroll_net_payment'`, `source_id=hr_payroll.id`.
+- MPF payment: `source_type='payroll_mpf_payment'`, `source_id=hr_payroll.id`.
 
 ## Out of scope (flag for later)
 
-- Customer/debtor master table for non-merchant AR (e.g., catering invoices issued to corporate clients). Today AR = card processor settlements only. If you want to issue invoices *to* customers, that's a separate module.
-- Auto-import of bank/merchant settlement files to auto-clear AR lines.
-- Email reminders for overdue AP.
+- Per-employee sub-ledger (current plan rolls up by venue; if you want per-person P&L, that's a separate report).
+- Auto-reversing accruals across fiscal year boundaries.
+- Loan/advance accounts for staff (would need a new AR-style table).
+- Statutory reports (IR56, MPF schedules) — the GL data will be there, but formatted government reports are a separate module.
