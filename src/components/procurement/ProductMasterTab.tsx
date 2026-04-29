@@ -583,28 +583,58 @@ export default function ProductMasterTab() {
                           transform: `translateY(${vRow.start}px)`,
                         }}
                       >
-                        <div className="px-3 font-mono font-medium text-primary truncate">{r.internal_sku}</div>
-                        <div className="px-3 font-mono text-muted-foreground truncate">{r.external_sku}</div>
-                        <div className="px-3 font-medium text-foreground truncate">{r.internal_product_name}</div>
-                        <div className="px-3 text-muted-foreground truncate">{r.supplier_product_name}</div>
+                        <div className="px-3 font-medium text-foreground truncate" title={r.internal_product_name}>{r.internal_product_name}</div>
+                        <div className="px-3 truncate" title={r.supplier}>{r.supplier}</div>
                         <div className="px-3 truncate">{r.level1_category}</div>
                         <div className="px-3 truncate">{r.level2_category}</div>
                         <div className="px-3 truncate">{r.level3_category}</div>
-                        <div className="px-3 truncate text-xs text-muted-foreground">{r.accounting_category}</div>
-                        <div className="px-3 truncate">{r.purchase_unit}</div>
-                        <div className="px-3 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</div>
-                        <div className="px-3 truncate">{r.stock_uom}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.stock_qty)}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.cost_per_stock_unit)}</div>
-                        <div className="px-3 truncate">{r.base_unit_type}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.base_unit_qty)}</div>
-                        <div className="px-3 text-right tabular-nums font-medium">{fmt4(r.cost_per_base_unit)}</div>
-                        <div className="px-3 truncate">{r.supplier}</div>
+                        <div className="px-3">
+                          {r.financial_treatment ? (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 ${
+                                r.financial_treatment === "COGS" || r.financial_treatment === "OpEx"
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+                                  : "border-sky-500/40 bg-sky-500/10 text-sky-700"
+                              }`}
+                            >
+                              {r.financial_treatment}
+                            </Badge>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground italic">—</span>
+                          )}
+                        </div>
+                        <div className="px-3 truncate text-xs" title={r.default_coa_label}>
+                          {r.default_coa_label || <span className="text-muted-foreground italic">—</span>}
+                        </div>
+                        <div className="px-3 truncate text-xs text-muted-foreground">{r.pl_section}</div>
+                        <div className="px-3">
+                          {r.mapping_status === "Mapped" ? (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-700">
+                              <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Mapped
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-destructive/40 bg-destructive/10 text-destructive">
+                              <AlertTriangle className="h-2.5 w-2.5 mr-0.5" /> Unmapped
+                            </Badge>
+                          )}
+                        </div>
                         <div className="px-3">
                           <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
                             {r.status}
                           </Badge>
                         </div>
+                        {showLegacyCols && (
+                          <>
+                            <div className="px-3 font-mono font-medium text-primary truncate">{r.internal_sku}</div>
+                            <div className="px-3 font-mono text-muted-foreground truncate">{r.external_sku}</div>
+                            <div className="px-3 text-muted-foreground truncate">{r.supplier_product_name}</div>
+                            <div className="px-3 truncate">{r.purchase_unit}</div>
+                            <div className="px-3 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</div>
+                            <div className="px-3 truncate">{r.stock_uom}</div>
+                            <div className="px-3 text-right tabular-nums">{fmt(r.stock_qty)}</div>
+                          </>
+                        )}
                         <div className="px-2 flex gap-1">
                           <button onClick={() => openEdit(r)} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
                           <button onClick={() => { setDeletingRow(r); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
