@@ -139,8 +139,10 @@ export function RevenueMappingMatrix({ accounts, section = "all" }: { accounts: 
           </table>
         </div>
       </Card>
+      )}
 
       {/* PAYMENT SIDE — venue matrix */}
+      {showPayments && (
       <Card className="card-glass overflow-hidden">
         <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
           <h3 className="text-sm font-semibold">Payment side</h3>
