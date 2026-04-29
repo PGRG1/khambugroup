@@ -66,6 +66,7 @@ interface FlatRow {
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const { items: accountingCats } = useAccountingCategories();
+  const { items: coaAccounts } = useChartOfAccounts();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [l2Filter, setL2Filter] = useState("all");
@@ -73,7 +74,13 @@ export default function ProductMasterTab() {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [accountingFilter, setAccountingFilter] = useState("all");
-  const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "internal_sku", dir: "asc" }]);
+  const [treatmentFilter, setTreatmentFilter] = useState("all");
+  const [mappingFilter, setMappingFilter] = useState("all");
+  const [showLegacyCols, setShowLegacyCols] = useState(false);
+  const [sortColumns, setSortColumns] = useState<SortColumn[]>([
+    { key: "mapping_status", dir: "asc" }, // Unmapped first (alphabetical: Mapped > Unmapped — but we want Unmapped first)
+    { key: "internal_product_name", dir: "asc" },
+  ]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
@@ -93,6 +100,18 @@ export default function ProductMasterTab() {
       setDbSuppliers((data || []) as { id: string; name: string }[]);
     });
   }, []);
+
+  const coaById = useMemo(() => {
+    const m = new Map<string, { code: string; name: string; account_type: string }>();
+    coaAccounts.forEach(a => m.set(a.id, { code: a.code, name: a.name, account_type: a.account_type }));
+    return m;
+  }, [coaAccounts]);
+
+  const coaLabel = (id: string | null | undefined) => {
+    if (!id) return "";
+    const a = coaById.get(id);
+    return a ? `${a.code} – ${a.name}` : "";
+  };
 
   const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].filter(Boolean).sort(), [products]);
   const l2Categories = useMemo(() => {
@@ -117,6 +136,16 @@ export default function ProductMasterTab() {
   const flatRows = useMemo((): FlatRow[] => {
     const rows: FlatRow[] = [];
     for (const p of products) {
+      const treatment = p.financial_treatment || "";
+      const coaId = p.default_coa_account_id || null;
+      const mapping_status: "Mapped" | "Unmapped" = (treatment && coaId) ? "Mapped" : "Unmapped";
+      const baseFinancial = {
+        financial_treatment: treatment,
+        default_coa_account_id: coaId,
+        default_coa_label: coaLabel(coaId),
+        pl_section: plSectionFor(treatment),
+        mapping_status,
+      };
       const sups = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
       if (sups) {
         for (const s of sups) {
@@ -126,6 +155,7 @@ export default function ProductMasterTab() {
             internal_product_name: p.internal_product_name, supplier_product_name: s.supplier_product_name,
             level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
             accounting_category: ((s as any).accounting_category as string) || ((p as any).accounting_category as string) || "",
+            ...baseFinancial,
             purchase_unit: s.purchase_unit, purchase_unit_cost: s.purchase_unit_cost,
             stock_uom: s.stock_uom ?? p.stock_uom, stock_qty: s.stock_qty ?? p.stock_qty, cost_per_stock_unit: s.purchase_unit_cost / ((s.stock_qty ?? p.stock_qty) || 1),
             base_unit_type: s.base_unit_type ?? p.base_unit_type, base_unit_qty: s.base_unit_qty ?? p.base_unit_qty, cost_per_base_unit: s.purchase_unit_cost / ((s.base_unit_qty ?? p.base_unit_qty) || 1),
@@ -139,6 +169,7 @@ export default function ProductMasterTab() {
           internal_product_name: p.internal_product_name, supplier_product_name: p.supplier_product_name,
           level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
           accounting_category: ((p as any).accounting_category as string) || "",
+          ...baseFinancial,
           purchase_unit: p.purchase_unit, purchase_unit_cost: p.purchase_unit_cost,
           stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: p.cost_per_stock_unit,
           base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
@@ -147,7 +178,7 @@ export default function ProductMasterTab() {
       }
     }
     return rows;
-  }, [products]);
+  }, [products, coaById]);
 
   const toggleSort = (key: string, additive: boolean) => {
     setSortColumns(prev => toggleSortColumns(prev, key, additive));
