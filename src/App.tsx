@@ -107,6 +107,8 @@ function App() {
                 <Route path="/finance/chart-of-accounts" element={<AdminRoute><ChartOfAccounts /></AdminRoute>} />
                 <Route path="/finance/trial-balance" element={<AdminRoute><TrialBalance /></AdminRoute>} />
                 <Route path="/finance/pl-ledger" element={<AdminRoute><LedgerPL /></AdminRoute>} />
+                <Route path="/finance/receivables" element={<AdminRoute><Receivables /></AdminRoute>} />
+                <Route path="/finance/payables" element={<AdminRoute><Payables /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
