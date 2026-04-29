@@ -203,6 +203,12 @@ export default function ProductMasterTab() {
       if (supplierFilter !== "all" && r.supplier !== supplierFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (accountingFilter !== "all" && r.accounting_category !== accountingFilter) return false;
+      if (treatmentFilter !== "all") {
+        if (treatmentFilter === "__unmapped__") {
+          if (r.financial_treatment) return false;
+        } else if (r.financial_treatment !== treatmentFilter) return false;
+      }
+      if (mappingFilter !== "all" && r.mapping_status !== mappingFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         return r.internal_sku.toLowerCase().includes(q) ||
@@ -214,10 +220,10 @@ export default function ProductMasterTab() {
       return true;
     });
     return sortRows(result, sortColumns);
-  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, accountingFilter, sortColumns]);
+  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, accountingFilter, treatmentFilter, mappingFilter, sortColumns]);
 
-  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || accountingFilter !== "all" || search;
-  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setAccountingFilter("all"); setSearch(""); };
+  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || accountingFilter !== "all" || treatmentFilter !== "all" || mappingFilter !== "all" || search;
+  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setAccountingFilter("all"); setTreatmentFilter("all"); setMappingFilter("all"); setSearch(""); };
 
   // Collect legacy free-text UOMs from existing products so dropdowns still display them.
   const legacyPurchaseUoms = useMemo(() => flatRows.map(r => r.purchase_unit), [flatRows]);
