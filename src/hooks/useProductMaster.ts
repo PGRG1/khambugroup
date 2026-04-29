@@ -18,6 +18,31 @@ export interface ProductSupplierEntry {
   base_unit_qty: number;
 }
 
+export type FinancialTreatment =
+  | ""
+  | "COGS"
+  | "OpEx"
+  | "Asset - Supplier Deposit"
+  | "Asset - Fixed Asset"
+  | "Asset - Prepayment"
+  | "Asset - Other";
+
+export const FINANCIAL_TREATMENTS: { value: FinancialTreatment; label: string; group: "P&L" | "Asset" }[] = [
+  { value: "COGS", label: "COGS", group: "P&L" },
+  { value: "OpEx", label: "OpEx", group: "P&L" },
+  { value: "Asset - Supplier Deposit", label: "Asset – Supplier Deposit", group: "Asset" },
+  { value: "Asset - Fixed Asset", label: "Asset – Fixed Asset", group: "Asset" },
+  { value: "Asset - Prepayment", label: "Asset – Prepayment", group: "Asset" },
+  { value: "Asset - Other", label: "Asset – Other", group: "Asset" },
+];
+
+export function plSectionFor(t: string): string {
+  if (t === "COGS") return "COGS";
+  if (t === "OpEx") return "Operating Expenses";
+  if (t.startsWith("Asset")) return "Not P&L / Balance Sheet Asset";
+  return "—";
+}
+
 export interface ProductMasterItem {
   id: string;
   internal_sku: string;
@@ -40,6 +65,9 @@ export interface ProductMasterItem {
   base_unit_qty: number;
   cost_per_base_unit: number;
   notes: string;
+  financial_treatment: FinancialTreatment | string;
+  default_coa_account_id: string | null;
+  accounting_category?: string;
   created_at: string;
   updated_at: string;
   suppliers?: ProductSupplierEntry[];

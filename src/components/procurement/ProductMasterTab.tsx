@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useProductMaster, ProductMasterItem, ProductSupplierEntry } from "@/hooks/useProductMaster";
+import { useProductMaster, ProductMasterItem, ProductSupplierEntry, FINANCIAL_TREATMENTS, plSectionFor } from "@/hooks/useProductMaster";
+import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal, AlertTriangle, CheckCircle2 } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
@@ -22,6 +23,8 @@ const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
   level1_category: "", level2_category: "", level3_category: "",
   accounting_category: "",
+  financial_treatment: "" as string,
+  default_coa_account_id: "" as string,
   unit: "", unit_cost: "", supplier: "", status: "Active",
   purchase_unit: "", purchase_unit_cost: "",
   stock_uom: "", stock_qty: "1", cost_per_stock_unit: "0",
@@ -40,6 +43,11 @@ interface FlatRow {
   level2_category: string;
   level3_category: string;
   accounting_category: string;
+  financial_treatment: string;
+  default_coa_account_id: string | null;
+  default_coa_label: string;
+  pl_section: string;
+  mapping_status: "Mapped" | "Unmapped";
   purchase_unit: string;
   purchase_unit_cost: number;
   stock_uom: string;
@@ -58,6 +66,7 @@ interface FlatRow {
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
   const { items: accountingCats } = useAccountingCategories();
+  const { items: coaAccounts } = useChartOfAccounts();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [l2Filter, setL2Filter] = useState("all");
@@ -65,7 +74,13 @@ export default function ProductMasterTab() {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [accountingFilter, setAccountingFilter] = useState("all");
-  const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "internal_sku", dir: "asc" }]);
+  const [treatmentFilter, setTreatmentFilter] = useState("all");
+  const [mappingFilter, setMappingFilter] = useState("all");
+  const [showLegacyCols, setShowLegacyCols] = useState(false);
+  const [sortColumns, setSortColumns] = useState<SortColumn[]>([
+    { key: "mapping_status", dir: "asc" }, // Unmapped first (alphabetical: Mapped > Unmapped — but we want Unmapped first)
+    { key: "internal_product_name", dir: "asc" },
+  ]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
@@ -85,6 +100,18 @@ export default function ProductMasterTab() {
       setDbSuppliers((data || []) as { id: string; name: string }[]);
     });
   }, []);
+
+  const coaById = useMemo(() => {
+    const m = new Map<string, { code: string; name: string; account_type: string }>();
+    coaAccounts.forEach(a => m.set(a.id, { code: a.code, name: a.name, account_type: a.account_type }));
+    return m;
+  }, [coaAccounts]);
+
+  const coaLabel = (id: string | null | undefined) => {
+    if (!id) return "";
+    const a = coaById.get(id);
+    return a ? `${a.code} – ${a.name}` : "";
+  };
 
   const categories = useMemo(() => [...new Set(products.map(p => p.level1_category))].filter(Boolean).sort(), [products]);
   const l2Categories = useMemo(() => {
@@ -109,6 +136,16 @@ export default function ProductMasterTab() {
   const flatRows = useMemo((): FlatRow[] => {
     const rows: FlatRow[] = [];
     for (const p of products) {
+      const treatment = p.financial_treatment || "";
+      const coaId = p.default_coa_account_id || null;
+      const mapping_status: "Mapped" | "Unmapped" = (treatment && coaId) ? "Mapped" : "Unmapped";
+      const baseFinancial = {
+        financial_treatment: treatment,
+        default_coa_account_id: coaId,
+        default_coa_label: coaLabel(coaId),
+        pl_section: plSectionFor(treatment),
+        mapping_status,
+      };
       const sups = p.suppliers && p.suppliers.length > 0 ? p.suppliers : null;
       if (sups) {
         for (const s of sups) {
@@ -118,6 +155,7 @@ export default function ProductMasterTab() {
             internal_product_name: p.internal_product_name, supplier_product_name: s.supplier_product_name,
             level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
             accounting_category: ((s as any).accounting_category as string) || ((p as any).accounting_category as string) || "",
+            ...baseFinancial,
             purchase_unit: s.purchase_unit, purchase_unit_cost: s.purchase_unit_cost,
             stock_uom: s.stock_uom ?? p.stock_uom, stock_qty: s.stock_qty ?? p.stock_qty, cost_per_stock_unit: s.purchase_unit_cost / ((s.stock_qty ?? p.stock_qty) || 1),
             base_unit_type: s.base_unit_type ?? p.base_unit_type, base_unit_qty: s.base_unit_qty ?? p.base_unit_qty, cost_per_base_unit: s.purchase_unit_cost / ((s.base_unit_qty ?? p.base_unit_qty) || 1),
@@ -131,6 +169,7 @@ export default function ProductMasterTab() {
           internal_product_name: p.internal_product_name, supplier_product_name: p.supplier_product_name,
           level1_category: p.level1_category, level2_category: p.level2_category, level3_category: p.level3_category,
           accounting_category: ((p as any).accounting_category as string) || "",
+          ...baseFinancial,
           purchase_unit: p.purchase_unit, purchase_unit_cost: p.purchase_unit_cost,
           stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: p.cost_per_stock_unit,
           base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
@@ -139,7 +178,7 @@ export default function ProductMasterTab() {
       }
     }
     return rows;
-  }, [products]);
+  }, [products, coaById]);
 
   const toggleSort = (key: string, additive: boolean) => {
     setSortColumns(prev => toggleSortColumns(prev, key, additive));
@@ -164,6 +203,12 @@ export default function ProductMasterTab() {
       if (supplierFilter !== "all" && r.supplier !== supplierFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (accountingFilter !== "all" && r.accounting_category !== accountingFilter) return false;
+      if (treatmentFilter !== "all") {
+        if (treatmentFilter === "__unmapped__") {
+          if (r.financial_treatment) return false;
+        } else if (r.financial_treatment !== treatmentFilter) return false;
+      }
+      if (mappingFilter !== "all" && r.mapping_status !== mappingFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         return r.internal_sku.toLowerCase().includes(q) ||
@@ -175,10 +220,10 @@ export default function ProductMasterTab() {
       return true;
     });
     return sortRows(result, sortColumns);
-  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, accountingFilter, sortColumns]);
+  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, accountingFilter, treatmentFilter, mappingFilter, sortColumns]);
 
-  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || accountingFilter !== "all" || search;
-  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setAccountingFilter("all"); setSearch(""); };
+  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || accountingFilter !== "all" || treatmentFilter !== "all" || mappingFilter !== "all" || search;
+  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setAccountingFilter("all"); setTreatmentFilter("all"); setMappingFilter("all"); setSearch(""); };
 
   // Collect legacy free-text UOMs from existing products so dropdowns still display them.
   const legacyPurchaseUoms = useMemo(() => flatRows.map(r => r.purchase_unit), [flatRows]);
@@ -213,6 +258,8 @@ export default function ProductMasterTab() {
       internal_product_name: row.internal_product_name, supplier_product_name: row.supplier_product_name,
       level1_category: row.level1_category, level2_category: row.level2_category, level3_category: row.level3_category,
       accounting_category: row.accounting_category,
+      financial_treatment: row.financial_treatment || "",
+      default_coa_account_id: row.default_coa_account_id || "",
       unit: row.product.unit, unit_cost: String(row.unit_cost), supplier: row.supplier, status: row.status,
       purchase_unit: row.purchase_unit, purchase_unit_cost: String(row.purchase_unit_cost),
       stock_uom: row.stock_uom, stock_qty: String(row.stock_qty), cost_per_stock_unit: String(row.cost_per_stock_unit),
@@ -271,6 +318,8 @@ export default function ProductMasterTab() {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
         accounting_category: form.accounting_category,
+        financial_treatment: form.financial_treatment,
+        default_coa_account_id: form.default_coa_account_id || null,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         notes: form.notes,
       };
@@ -371,29 +420,31 @@ export default function ProductMasterTab() {
     return rq > 0 ? puc / rq : 0;
   })();
 
-  const columns = [
+  const baseColumns = [
+    { key: "internal_product_name", label: "Product Name" },
+    { key: "supplier", label: "Supplier" },
+    { key: "level1_category", label: "L1" },
+    { key: "level2_category", label: "L2" },
+    { key: "level3_category", label: "L3" },
+    { key: "financial_treatment", label: "Financial Treatment" },
+    { key: "default_coa_label", label: "Default COA Account" },
+    { key: "pl_section", label: "P&L Section" },
+    { key: "mapping_status", label: "Mapping" },
+    { key: "status", label: "Active" },
+  ];
+  const legacyColumns = [
     { key: "internal_sku", label: "Internal SKU" },
     { key: "external_sku", label: "External SKU" },
-    { key: "internal_product_name", label: "Internal Product Name" },
     { key: "supplier_product_name", label: "Supplier Product Name" },
-    { key: "level1_category", label: "L1 Category" },
-    { key: "level2_category", label: "L2 Category" },
-    { key: "level3_category", label: "L3 Category" },
-    { key: "accounting_category", label: "Accounting" },
     { key: "purchase_unit", label: "Purch. UOM" },
     { key: "purchase_unit_cost", label: "Purch. Cost", align: "right" as const },
     { key: "stock_uom", label: "Stock UOM" },
     { key: "stock_qty", label: "Stock Qty", align: "right" as const },
-    { key: "cost_per_stock_unit", label: "Cost/Stock", align: "right" as const },
-    { key: "base_unit_type", label: "Recipe UOM" },
-    { key: "base_unit_qty", label: "Recipe Qty", align: "right" as const },
-    { key: "cost_per_base_unit", label: "Cost/Recipe", align: "right" as const },
-    { key: "supplier", label: "Supplier" },
-    { key: "status", label: "Status" },
   ];
-
-  // Grid template: must match across header / rows / footer. Last col = actions (70px).
-  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 140px 100px 100px 100px 90px 100px 100px 100px 110px 130px 90px 70px";
+  const columns = showLegacyCols ? [...baseColumns, ...legacyColumns] : baseColumns;
+  const GRID_COLS = showLegacyCols
+    ? "minmax(200px,1.5fr) 130px 100px 100px 100px 170px 200px 170px 100px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 70px"
+    : "minmax(220px,1.6fr) 140px 110px 110px 110px 190px 220px 200px 110px 90px 70px";
 
   // Virtualization
   if (loading) {
@@ -464,6 +515,25 @@ export default function ProductMasterTab() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={treatmentFilter} onValueChange={setTreatmentFilter}>
+          <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="Treatment" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Treatments</SelectItem>
+            <SelectItem value="__unmapped__">— Unmapped —</SelectItem>
+            {FINANCIAL_TREATMENTS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={mappingFilter} onValueChange={setMappingFilter}>
+          <SelectTrigger className="w-[120px] h-9 text-xs"><SelectValue placeholder="Mapping" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Mapping</SelectItem>
+            <SelectItem value="Mapped">Mapped</SelectItem>
+            <SelectItem value="Unmapped">Unmapped</SelectItem>
+          </SelectContent>
+        </Select>
+        <button onClick={() => setShowLegacyCols(v => !v)} className="text-xs text-muted-foreground hover:text-foreground underline">
+          {showLegacyCols ? "Hide" : "Show"} more columns
+        </button>
         {hasFilters && (
           <button onClick={clearFilters} className="text-xs text-primary hover:underline flex items-center gap-1">
             <X className="h-3 w-3" /> Clear
@@ -500,7 +570,7 @@ export default function ProductMasterTab() {
               {columns.map(col => (
                 <div
                   key={col.key}
-                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap overflow-hidden flex items-center ${col.align === "right" ? "justify-end" : ""}`}
+                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap overflow-hidden flex items-center ${(col as any).align === "right" ? "justify-end" : ""}`}
                   onClick={(e) => toggleSort(col.key, e.shiftKey)}
                   title="Click to sort. Shift+click to add another column."
                 >
@@ -532,28 +602,58 @@ export default function ProductMasterTab() {
                           transform: `translateY(${vRow.start}px)`,
                         }}
                       >
-                        <div className="px-3 font-mono font-medium text-primary truncate">{r.internal_sku}</div>
-                        <div className="px-3 font-mono text-muted-foreground truncate">{r.external_sku}</div>
-                        <div className="px-3 font-medium text-foreground truncate">{r.internal_product_name}</div>
-                        <div className="px-3 text-muted-foreground truncate">{r.supplier_product_name}</div>
+                        <div className="px-3 font-medium text-foreground truncate" title={r.internal_product_name}>{r.internal_product_name}</div>
+                        <div className="px-3 truncate" title={r.supplier}>{r.supplier}</div>
                         <div className="px-3 truncate">{r.level1_category}</div>
                         <div className="px-3 truncate">{r.level2_category}</div>
                         <div className="px-3 truncate">{r.level3_category}</div>
-                        <div className="px-3 truncate text-xs text-muted-foreground">{r.accounting_category}</div>
-                        <div className="px-3 truncate">{r.purchase_unit}</div>
-                        <div className="px-3 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</div>
-                        <div className="px-3 truncate">{r.stock_uom}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.stock_qty)}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.cost_per_stock_unit)}</div>
-                        <div className="px-3 truncate">{r.base_unit_type}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.base_unit_qty)}</div>
-                        <div className="px-3 text-right tabular-nums font-medium">{fmt4(r.cost_per_base_unit)}</div>
-                        <div className="px-3 truncate">{r.supplier}</div>
+                        <div className="px-3">
+                          {r.financial_treatment ? (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 ${
+                                r.financial_treatment === "COGS" || r.financial_treatment === "OpEx"
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+                                  : "border-sky-500/40 bg-sky-500/10 text-sky-700"
+                              }`}
+                            >
+                              {r.financial_treatment}
+                            </Badge>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground italic">—</span>
+                          )}
+                        </div>
+                        <div className="px-3 truncate text-xs" title={r.default_coa_label}>
+                          {r.default_coa_label || <span className="text-muted-foreground italic">—</span>}
+                        </div>
+                        <div className="px-3 truncate text-xs text-muted-foreground">{r.pl_section}</div>
+                        <div className="px-3">
+                          {r.mapping_status === "Mapped" ? (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-700">
+                              <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Mapped
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-destructive/40 bg-destructive/10 text-destructive">
+                              <AlertTriangle className="h-2.5 w-2.5 mr-0.5" /> Unmapped
+                            </Badge>
+                          )}
+                        </div>
                         <div className="px-3">
                           <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
                             {r.status}
                           </Badge>
                         </div>
+                        {showLegacyCols && (
+                          <>
+                            <div className="px-3 font-mono font-medium text-primary truncate">{r.internal_sku}</div>
+                            <div className="px-3 font-mono text-muted-foreground truncate">{r.external_sku}</div>
+                            <div className="px-3 text-muted-foreground truncate">{r.supplier_product_name}</div>
+                            <div className="px-3 truncate">{r.purchase_unit}</div>
+                            <div className="px-3 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</div>
+                            <div className="px-3 truncate">{r.stock_uom}</div>
+                            <div className="px-3 text-right tabular-nums">{fmt(r.stock_qty)}</div>
+                          </>
+                        )}
                         <div className="px-2 flex gap-1">
                           <button onClick={() => openEdit(r)} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
                           <button onClick={() => { setDeletingRow(r); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>

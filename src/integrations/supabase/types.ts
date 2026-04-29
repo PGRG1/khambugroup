@@ -1225,10 +1225,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "invoice_line_items_product_master_id_fkey"
             columns: ["product_master_id"]
             isOneToOne: false
             referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
             referencedColumns: ["id"]
           },
           {
@@ -1275,6 +1289,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -1421,6 +1442,7 @@ export type Database = {
       journal_lines: {
         Row: {
           account_id: string
+          category_l1: string | null
           created_at: string
           credit: number
           debit: number
@@ -1432,6 +1454,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          category_l1?: string | null
           created_at?: string
           credit?: number
           debit?: number
@@ -1443,6 +1466,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          category_l1?: string | null
           created_at?: string
           credit?: number
           debit?: number
@@ -1554,6 +1578,13 @@ export type Database = {
             columns: ["product_master_id"]
             isOneToOne: false
             referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_item_ingredients_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
             referencedColumns: ["id"]
           },
         ]
@@ -1732,7 +1763,9 @@ export type Database = {
           cost_per_base_unit: number
           cost_per_stock_unit: number
           created_at: string
+          default_coa_account_id: string | null
           external_sku: string
+          financial_treatment: string
           id: string
           internal_product_name: string
           internal_sku: string
@@ -1758,7 +1791,9 @@ export type Database = {
           cost_per_base_unit?: number
           cost_per_stock_unit?: number
           created_at?: string
+          default_coa_account_id?: string | null
           external_sku?: string
+          financial_treatment?: string
           id?: string
           internal_product_name: string
           internal_sku: string
@@ -1784,7 +1819,9 @@ export type Database = {
           cost_per_base_unit?: number
           cost_per_stock_unit?: number
           created_at?: string
+          default_coa_account_id?: string | null
           external_sku?: string
+          financial_treatment?: string
           id?: string
           internal_product_name?: string
           internal_sku?: string
@@ -1803,7 +1840,36 @@ export type Database = {
           unit_cost?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_master_default_coa_account_id_fkey"
+            columns: ["default_coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_master_default_coa_account_id_fkey"
+            columns: ["default_coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "product_master_default_coa_account_id_fkey"
+            columns: ["default_coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "product_master_default_coa_account_id_fkey"
+            columns: ["default_coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+        ]
       }
       product_pack_conversions: {
         Row: {
@@ -1898,6 +1964,13 @@ export type Database = {
             columns: ["product_master_id"]
             isOneToOne: false
             referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_suppliers_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
             referencedColumns: ["id"]
           },
         ]
@@ -2374,6 +2447,27 @@ export type Database = {
           },
         ]
       }
+      v_invoices_postable: {
+        Row: {
+          invoice_date: string | null
+          invoice_id: string | null
+          invoice_number: string | null
+          is_postable: boolean | null
+          status: string | null
+          supplier_id: string | null
+          unmapped_line_count: number | null
+          venue: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_pl: {
         Row: {
           account_id: string | null
@@ -2386,6 +2480,65 @@ export type Database = {
           year: number | null
         }
         Relationships: []
+      }
+      v_product_mapping_status: {
+        Row: {
+          default_coa_account_id: string | null
+          financial_treatment: string | null
+          id: string | null
+          internal_product_name: string | null
+          internal_sku: string | null
+          mapping_status: string | null
+          pl_section: string | null
+        }
+        Insert: {
+          default_coa_account_id?: string | null
+          financial_treatment?: string | null
+          id?: string | null
+          internal_product_name?: string | null
+          internal_sku?: string | null
+          mapping_status?: never
+          pl_section?: never
+        }
+        Update: {
+          default_coa_account_id?: string | null
+          financial_treatment?: string | null
+          id?: string | null
+          internal_product_name?: string | null
+          internal_sku?: string | null
+          mapping_status?: never
+          pl_section?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_master_default_coa_account_id_fkey"
+            columns: ["default_coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_master_default_coa_account_id_fkey"
+            columns: ["default_coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "product_master_default_coa_account_id_fkey"
+            columns: ["default_coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "product_master_default_coa_account_id_fkey"
+            columns: ["default_coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+        ]
       }
       v_trial_balance: {
         Row: {

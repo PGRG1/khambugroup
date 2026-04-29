@@ -1,62 +1,157 @@
 ## Goal
 
-Add a **second Cashflow view** that reads strictly from the **journal/ledger** (posted entries hitting accounts flagged `is_cash = true` in the Chart of Accounts). The current `/finance/cashflow` page derives numbers from operational tables (sales_records, invoice_payments, hr_payroll, pl_manual_lines), which can drift from the books. The new page is the **accountant's view** — it always agrees with the Trial Balance and Balance Sheet.
+Make every product carry an explicit **Financial Treatment** (COGS / OpEx / Asset variants) plus a **Default COA Account**, surface it directly on the Product Master grid, and rewire invoice journal posting to use those two fields. Unmapped products block invoice posting. Deposits flow naturally through Asset – Supplier Deposit (positive = increase, negative = refund).
 
-## Why this matters
+---
 
-- The existing Cashflow can disagree with the General Ledger if a manual journal entry is posted, or if a sales/invoice record is created without flowing into the ledger.
-- The new view answers: *"According to the books, how much cash actually moved?"* — the same number the Balance Sheet shows for cash.
-- Useful as a reconciliation tool against the operations-based Cashflow.
+## 1. Database changes (one migration)
 
-## What to build
+### 1a. `product_master` — add 2 columns
 
-### 1. New page: `/finance/cashflow-ledger`
+```sql
+ALTER TABLE public.product_master
+  ADD COLUMN financial_treatment text NOT NULL DEFAULT '',
+  ADD COLUMN default_coa_account_id uuid NULL REFERENCES public.chart_of_accounts(id);
+```
 
-Route alongside the existing `/finance/cashflow`. Sidebar entry under Finance: **"Cashflow (Ledger)"**. Existing page renamed in the sidebar to **"Cashflow (Operations)"** to make the distinction clear (route unchanged).
+`financial_treatment` allowed values (validated via trigger, not CHECK, per memory rule):
+`COGS`, `OpEx`, `Asset - Supplier Deposit`, `Asset - Fixed Asset`, `Asset - Prepayment`, `Asset - Other`, or empty (= unmapped).
 
-### 2. Data source
+A computed view `v_product_mapping_status` returns `Mapped` when both fields are populated, else `Unmapped`.
 
-A single view already exists and is perfect: **`v_cash_movements`**. It returns every journal line that touches a cash account (`is_cash = true`), with: `entry_date`, `source_type`, `memo`, `venue`, `account_code`, `account_name`, `cash_in` (debit), `cash_out` (credit), `net_cash`.
+### 1b. Seed Chart of Accounts (idempotent INSERT … ON CONFLICT DO NOTHING)
 
-Currently only `1020 — Cash on Hand` is flagged `is_cash`. The page will also show a small note explaining that merchant receivables (Visa, Mastercard, etc.) are **not** cash until settlement, so they don't appear here.
+If missing, create:
+- `1200 Accounts Receivable` (already exists in many setups)
+- `1310 Supplier Deposits` (asset)
+- `1320 Prepayments` (asset)
+- `1500 Fixed Assets` (asset)
+- `2100 Accounts Payable` (liability)
+- `5100 Beverage COGS`, `5110 Food COGS`, `5120 Packaging COGS`, `5130 Supplies COGS` (cogs)
+- `6100 Cleaning & Hygiene Expense`, `6110 Operating Supplies Expense`, `6120 Repairs & Maintenance`, `6130 Marketing`, `6140 Software & Subscriptions` (opex)
 
-### 3. New hook: `src/hooks/useLedgerCashflow.ts`
+Existing accounts are not duplicated — codes are unique.
 
-- Uses `fetchAllRows("v_cash_movements", "*")` to bypass the 1000-row cap (per `mem://logic/finance-views-pagination`).
-- Filters by date range and venue in JavaScript.
-- Buckets movements by month/quarter/year via the existing `cashflowCalculations.ts` helpers.
-- Computes opening balance from `v_balance_sheet` for cash accounts as of the day before `fromDate` (or uses the manual `cashflow_settings.opening_balance` if user prefers).
-- Returns `{ buckets, totals, byAccount, byCategory, recentTxns, loading }`.
+### 1c. Migrate existing data
 
-### 4. Page layout (mirrors existing Cashflow for familiarity)
+Best-effort backfill from current `accounting_category` text:
+- Names containing `COGS` → `financial_treatment = 'COGS'`
+- Names containing `OpEx` or `Expense` → `'OpEx'`
+- Names containing `Deposit` → `'Asset - Supplier Deposit'`
+- Names containing `Prepayment` → `'Asset - Prepayment'`
+- Names containing `Fixed` → `'Asset - Fixed Asset'`
 
-- Header: "Cashflow (Ledger)" + tagline "Derived from posted journal entries — always matches Trial Balance."
-- Filters: granularity (Month/Qtr/Year), venue, date range, **cash account filter** (defaults to "All cash accounts").
-- KPI cards: Total Cash In, Total Cash Out, Net Movement, Closing Cash Balance.
-- Composed chart: bars for in/out, line for net, dashed line for running cash balance.
-- Period breakdown table.
-- **By cash account** breakdown (e.g. 1020 Cash on Hand) — useful when more cash accounts get added.
-- **By source type** breakdown (sales, manual, invoice, payroll, etc. — based on `je.source_type`).
-- Recent cash events (last 20 journal lines with link to view in General Ledger by entry_id).
-- CSV export.
+For each, attempt to match `default_coa_account_id` to an account whose `name` matches the legacy category text. Anything else stays unmapped — surfaced in the UI for manual cleanup.
 
-### 5. Reconciliation banner (optional but recommended)
+### 1d. Rewrite `rebuild_journal_from_operations` — invoice block
 
-A small card at the top: *"Operations-based Cashflow shows X. Ledger Cashflow shows Y. Difference: Z."* with a link to a quick diff. If they disagree, click → opens the operations Cashflow side-by-side.
+Re-enable invoice posting (it was paused on Apr 28). For each invoice with status `approved`:
 
-## Files to create / modify
+For each invoice line, group by `default_coa_account_id` from the linked `product_master`:
+- Debit that account for `SUM(line.total)`.
+- If a line has no mapped product OR the product is unmapped, skip the entire invoice and leave `journal_entries` row absent — the invoice surfaces in a new "Invoices blocked from posting" view.
+- Credit `Accounts Payable (2100)` for the invoice net total, with `memo = supplier name` so AP is tracked per vendor.
 
-| File | Change |
-|---|---|
-| `src/pages/finance/CashflowLedger.tsx` | NEW — the page |
-| `src/hooks/useLedgerCashflow.ts` | NEW — data hook |
-| `src/App.tsx` | Add route `/finance/cashflow-ledger` |
-| `src/components/AppSidebar.tsx` | Add nav entry; rename existing to "Cashflow (Operations)" |
+For each `invoice_payments` row:
+- Debit Accounts Payable, Credit the cash account mapped via `payment_method_cash` rule (existing logic).
 
-No DB migrations required — `v_cash_movements` already exists.
+Negative line totals (deposit refunds) naturally produce a credit to Supplier Deposits and a debit to AP — no special case needed.
 
-## Verification
+### 1e. New view `v_invoices_postable`
 
-- Numbers in "Closing Cash Balance" must equal the Cash on Hand line on the Balance Sheet for the same date range.
-- Sum of `cash_in - cash_out` across all venues/periods must equal the change in Cash on Hand on the Trial Balance.
-- Toggling venue filter narrows movements; "All Venues" matches the Balance Sheet exactly.
+Returns each invoice with `is_postable boolean` and `unmapped_line_count int` so the UI can flag and block.
+
+---
+
+## 2. Product Master UI (`ProductMasterTab.tsx`)
+
+### 2a. Replace the visible columns with the requested set
+
+```text
+Product Name | Supplier | L1 | L2 | L3 | Financial Treatment | Default COA Account | P&L Section | Mapping Status | Active
+```
+
+- **Financial Treatment** — coloured pill: green for COGS/OpEx, blue for Asset variants, grey for unmapped.
+- **Default COA Account** — shows `code – name`, click to open inline COA picker.
+- **P&L Section** — derived, not stored:
+  - `COGS` → "COGS"
+  - `OpEx` → "Operating Expenses"
+  - any `Asset - …` → "Not P&L / Balance Sheet Asset"
+  - empty → "—"
+- **Mapping Status** — `Mapped` (green) or `Unmapped` (red badge with warning icon). Default sort puts Unmapped first.
+- **Active** — existing status pill.
+
+Hide existing columns (Internal SKU, External SKU, UOM/cost columns) behind a "More columns" toggle so the view stays focused on the financial picture. They remain editable in the modal.
+
+### 2b. Edit modal
+
+- Replace the free-text "Accounting Mapping" select with two new inputs:
+  1. **Financial Treatment** — Select with the six fixed options.
+  2. **Default COA Account** — searchable Combobox over `chart_of_accounts`, filtered by treatment:
+     - `COGS` → only `account_type = 'cogs'`
+     - `OpEx` → only `account_type = 'opex'`
+     - `Asset - *` → only `account_type = 'asset'`
+- Show derived **P&L Section** read-only beneath.
+- Save is disabled if treatment chosen but COA account empty (or vice-versa) — prevents partial mapping.
+
+### 2c. New filters in the toolbar
+
+- Financial Treatment filter (All / each option / Unmapped)
+- Mapping Status filter (All / Mapped / Unmapped)
+
+---
+
+## 3. Invoice posting UI
+
+### 3a. `ProcurementInvoicesTab.tsx`
+
+- New column **Postable** showing a green check or a red "Blocked – N unmapped lines" badge sourced from `v_invoices_postable`.
+- The "Approve" / "Post" button is disabled when blocked, with a tooltip listing the unmapped product names.
+- Existing "Approval Status" (Pending Review / Approved / Disputed) and "Payment Status" (Unpaid / Partial / Paid) remain as separate columns — already present in the schema.
+
+### 3b. Invoice detail / line items
+
+Each line shows the inherited `Financial Treatment`, `L1 Category`, `P&L Section`, and `Default COA Account` read-only beside the product name so the user can see exactly how it will post.
+
+---
+
+## 4. Reporting impact (`useLedgerPL`, P&L pages)
+
+The ledger-based P&L already aggregates from `journal_lines` by account. After the rewrite:
+- COGS section pulls accounts where `account_type = 'cogs'`, grouped by `L1` of the source product (we add `level1_category` to `journal_lines.memo` or a new optional column `category_l1` for grouping — see 4a).
+- OpEx section pulls `account_type = 'opex'`, grouped by `L1`.
+- Asset accounts never reach P&L, only Balance Sheet — already the case in `useTrialBalance` / `BalanceSheet`.
+
+### 4a. Optional `journal_lines.category_l1`
+
+Add nullable text column populated at posting time from the product's L1, so the P&L can group COGS/OpEx by `Food`, `Beverages`, `Cleaning & Hygiene`, etc. without re-joining product_master at report time. Update `useLedgerPL` to bucket by it.
+
+---
+
+## 5. Files touched
+
+**Created**
+- `supabase/migrations/<ts>_product_financial_treatment.sql`
+
+**Edited**
+- `src/hooks/useProductMaster.ts` — add `financial_treatment`, `default_coa_account_id`, derived `pl_section` & `mapping_status` to the type and select.
+- `src/components/procurement/ProductMasterTab.tsx` — new columns, filters, modal fields.
+- `src/components/procurement/ProcurementInvoicesTab.tsx` — postable column + block button.
+- `src/components/invoices/LineItemsTab.tsx` — show treatment / COA per line.
+- `src/hooks/useLedgerPL.ts` — group COGS/OpEx by `category_l1`.
+- `src/hooks/useAccountMapping.ts` — drop the now-unused `invoice_expense` rule entry from the picker (legacy rules left in place for safety; new posting ignores them).
+
+---
+
+## 6. What stays the same
+
+- Sales journal posting, per-venue payment mapping, cashflow ledger — untouched.
+- Approval / Payment status fields on `invoices` already exist; no schema change there.
+- Existing `accounting_category` text column stays for one release as a fallback display, but is no longer used for posting.
+
+---
+
+## 7. Out of scope (call-outs)
+
+- Supplier-level AP sub-ledger UI (a "by-vendor AP aging" report). The data is in place via AP credits memo'd with supplier name; a dedicated report can come next.
+- Auto-creating a unique AP sub-account per supplier. We use a single `2100 Accounts Payable` and rely on the supplier dimension on journal lines for vendor tracking.
