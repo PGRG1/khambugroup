@@ -202,8 +202,10 @@ export function RevenueMappingMatrix({ accounts, section = "all" }: { accounts: 
           </table>
         </div>
       </Card>
+      )}
 
       {/* Posting preview */}
+      {showPreview && (
       <Card className="card-glass p-4">
         <h3 className="text-sm font-semibold mb-2">How a sales receipt posts</h3>
         <p className="text-xs text-muted-foreground mb-3">
