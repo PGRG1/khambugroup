@@ -427,8 +427,6 @@ export default function ProductMasterTab() {
     { key: "level2_category", label: "L2" },
     { key: "level3_category", label: "L3" },
     { key: "financial_treatment", label: "Financial Treatment" },
-    { key: "default_coa_label", label: "Default COA Account" },
-    { key: "pl_section", label: "P&L Section" },
     { key: "mapping_status", label: "Mapping" },
     { key: "status", label: "Active" },
   ];
@@ -443,8 +441,8 @@ export default function ProductMasterTab() {
   ];
   const columns = showLegacyCols ? [...baseColumns, ...legacyColumns] : baseColumns;
   const GRID_COLS = showLegacyCols
-    ? "minmax(200px,1.5fr) 130px 100px 100px 100px 170px 200px 170px 100px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 70px"
-    : "minmax(220px,1.6fr) 140px 110px 110px 110px 190px 220px 200px 110px 90px 70px";
+    ? "minmax(200px,1.5fr) 130px 100px 100px 100px 180px 110px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 70px"
+    : "minmax(220px,1.6fr) 140px 110px 110px 110px 200px 110px 90px 70px";
 
   // Virtualization
   if (loading) {
@@ -623,10 +621,6 @@ export default function ProductMasterTab() {
                             <span className="text-[10px] text-muted-foreground italic">—</span>
                           )}
                         </div>
-                        <div className="px-3 truncate text-xs" title={r.default_coa_label}>
-                          {r.default_coa_label || <span className="text-muted-foreground italic">—</span>}
-                        </div>
-                        <div className="px-3 truncate text-xs text-muted-foreground">{r.pl_section}</div>
                         <div className="px-3">
                           {r.mapping_status === "Mapped" ? (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-700">
