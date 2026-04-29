@@ -133,45 +133,64 @@ export function RevenueMappingMatrix({ accounts }: { accounts: ChartAccount[] })
         </div>
       </Card>
 
-      {/* PAYMENT SIDE — single column */}
+      {/* PAYMENT SIDE — venue matrix */}
       <Card className="card-glass overflow-hidden">
         <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
           <h3 className="text-sm font-semibold">Payment side</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Where each payment method settles to. Cash hits Cash on Hand; cards become Merchant Receivables.
+            Per venue — where each payment method settles to. Cash hits Cash on Hand; cards become Merchant Receivables.
           </p>
         </div>
-        <div className="divide-y divide-border/30">
-          {PAYMENT_ROWS.map((row) => {
-            const current = lookup.get(`sales_payment_method|${row.match_key}`) ?? "";
-            const isMapped = !!current;
-            return (
-              <div key={row.match_key} className="px-4 py-2.5 grid grid-cols-[260px_1fr_auto] items-center gap-3 hover:bg-muted/20 transition-colors">
-                <div>
-                  <div className="text-sm font-medium">{row.label}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">{row.description}</div>
-                </div>
-                <Select value={current || undefined} onValueChange={(v) => handleChange("sales_payment_method", row.match_key, v)}>
-                  <SelectTrigger className="h-9 text-xs max-w-md">
-                    <SelectValue placeholder="Select account…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentAccounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id} className="text-xs">
-                        <span className="font-mono text-muted-foreground mr-2">{a.code}</span>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isMapped ? (
-                  <Check className="h-4 w-4 text-emerald-600" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
-                )}
-              </div>
-            );
-          })}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px]">
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground border-b border-border/30">
+                <th className="px-4 py-2.5 font-medium w-[260px]">Payment method</th>
+                {VENUES.map((v) => (
+                  <th key={v} className="px-3 py-2.5 font-medium">{v}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/30">
+              {PAYMENT_ROWS.map((row) => (
+                <tr key={row.match_key} className="hover:bg-muted/20 transition-colors">
+                  <td className="px-4 py-3 align-top">
+                    <div className="text-sm font-medium">{row.label}</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">{row.description}</div>
+                  </td>
+                  {VENUES.map((venue) => {
+                    const key = `${row.match_key}__${venue}`;
+                    const current = lookup.get(`sales_payment_method|${key}`) ?? "";
+                    const isMapped = !!current;
+                    return (
+                      <td key={venue} className="px-3 py-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <Select value={current || undefined} onValueChange={(v) => handleChange("sales_payment_method", key, v)}>
+                            <SelectTrigger className="h-9 text-xs">
+                              <SelectValue placeholder="Select account…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {paymentAccounts.map((a) => (
+                                <SelectItem key={a.id} value={a.id} className="text-xs">
+                                  <span className="font-mono text-muted-foreground mr-2">{a.code}</span>
+                                  {a.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {isMapped ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
 
