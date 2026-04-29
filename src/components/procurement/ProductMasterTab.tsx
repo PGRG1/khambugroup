@@ -312,6 +312,8 @@ export default function ProductMasterTab() {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
         accounting_category: form.accounting_category,
+        financial_treatment: form.financial_treatment,
+        default_coa_account_id: form.default_coa_account_id || null,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         notes: form.notes,
       };
