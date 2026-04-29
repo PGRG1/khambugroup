@@ -420,29 +420,31 @@ export default function ProductMasterTab() {
     return rq > 0 ? puc / rq : 0;
   })();
 
-  const columns = [
+  const baseColumns = [
+    { key: "internal_product_name", label: "Product Name" },
+    { key: "supplier", label: "Supplier" },
+    { key: "level1_category", label: "L1" },
+    { key: "level2_category", label: "L2" },
+    { key: "level3_category", label: "L3" },
+    { key: "financial_treatment", label: "Financial Treatment" },
+    { key: "default_coa_label", label: "Default COA Account" },
+    { key: "pl_section", label: "P&L Section" },
+    { key: "mapping_status", label: "Mapping" },
+    { key: "status", label: "Active" },
+  ];
+  const legacyColumns = [
     { key: "internal_sku", label: "Internal SKU" },
     { key: "external_sku", label: "External SKU" },
-    { key: "internal_product_name", label: "Internal Product Name" },
     { key: "supplier_product_name", label: "Supplier Product Name" },
-    { key: "level1_category", label: "L1 Category" },
-    { key: "level2_category", label: "L2 Category" },
-    { key: "level3_category", label: "L3 Category" },
-    { key: "accounting_category", label: "Accounting" },
     { key: "purchase_unit", label: "Purch. UOM" },
     { key: "purchase_unit_cost", label: "Purch. Cost", align: "right" as const },
     { key: "stock_uom", label: "Stock UOM" },
     { key: "stock_qty", label: "Stock Qty", align: "right" as const },
-    { key: "cost_per_stock_unit", label: "Cost/Stock", align: "right" as const },
-    { key: "base_unit_type", label: "Recipe UOM" },
-    { key: "base_unit_qty", label: "Recipe Qty", align: "right" as const },
-    { key: "cost_per_base_unit", label: "Cost/Recipe", align: "right" as const },
-    { key: "supplier", label: "Supplier" },
-    { key: "status", label: "Status" },
   ];
-
-  // Grid template: must match across header / rows / footer. Last col = actions (70px).
-  const GRID_COLS = "100px 110px minmax(180px,1.4fr) minmax(180px,1.4fr) 110px 110px 110px 140px 100px 100px 100px 90px 100px 100px 100px 110px 130px 90px 70px";
+  const columns = showLegacyCols ? [...baseColumns, ...legacyColumns] : baseColumns;
+  const GRID_COLS = showLegacyCols
+    ? "minmax(200px,1.5fr) 130px 100px 100px 100px 170px 200px 170px 100px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 70px"
+    : "minmax(220px,1.6fr) 140px 110px 110px 110px 190px 220px 200px 110px 90px 70px";
 
   // Virtualization
   if (loading) {
