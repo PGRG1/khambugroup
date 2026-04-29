@@ -23,11 +23,17 @@ export type APSupplierSummary = {
   oldest_age: number;
   last_invoice_date: string | null;
 };
+export type APPayrollPayable = {
+  account_code: string;
+  account_name: string;
+  outstanding: number;
+};
 
 export function usePayables() {
   const [openInvoices, setOpenInvoices] = useState<APOpenInvoice[]>([]);
   const [supplierSummary, setSupplierSummary] = useState<APSupplierSummary[]>([]);
   const [paidThisMonth, setPaidThisMonth] = useState(0);
+  const [payrollPayables, setPayrollPayables] = useState<APPayrollPayable[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
