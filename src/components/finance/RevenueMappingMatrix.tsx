@@ -35,7 +35,7 @@ const PAYMENT_ROWS: Array<{
   { match_key: "payme",      label: "PayMe",       description: "PayMe receivable" },
 ];
 
-export function RevenueMappingMatrix({ accounts }: { accounts: ChartAccount[] }) {
+export function RevenueMappingMatrix({ accounts, section = "all" }: { accounts: ChartAccount[]; section?: "sales" | "payments" | "all" }) {
   const { items, upsert } = useAccountMapping();
 
   const lookup = useMemo(() => {
@@ -63,14 +63,21 @@ export function RevenueMappingMatrix({ accounts }: { accounts: ChartAccount[] })
     upsert({ rule_type, match_key, account_id });
   };
 
+  const showSales = section === "all" || section === "sales";
+  const showPayments = section === "all" || section === "payments";
+  const showPreview = section === "all";
+
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground max-w-3xl">
-        These rules tell the system how each line on a sales receipt flows into the books.
-        Pick a Chart of Accounts entry for every venue and payment method below — changes save automatically.
-      </p>
+      {section === "all" && (
+        <p className="text-sm text-muted-foreground max-w-3xl">
+          These rules tell the system how each line on a sales receipt flows into the books.
+          Pick a Chart of Accounts entry for every venue and payment method below — changes save automatically.
+        </p>
+      )}
 
       {/* SALES SIDE — venue matrix */}
+      {showSales && (
       <Card className="card-glass overflow-hidden">
         <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
           <h3 className="text-sm font-semibold">Sales side</h3>
@@ -132,8 +139,10 @@ export function RevenueMappingMatrix({ accounts }: { accounts: ChartAccount[] })
           </table>
         </div>
       </Card>
+      )}
 
       {/* PAYMENT SIDE — venue matrix */}
+      {showPayments && (
       <Card className="card-glass overflow-hidden">
         <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
           <h3 className="text-sm font-semibold">Payment side</h3>
@@ -193,8 +202,10 @@ export function RevenueMappingMatrix({ accounts }: { accounts: ChartAccount[] })
           </table>
         </div>
       </Card>
+      )}
 
       {/* Posting preview */}
+      {showPreview && (
       <Card className="card-glass p-4">
         <h3 className="text-sm font-semibold mb-2">How a sales receipt posts</h3>
         <p className="text-xs text-muted-foreground mb-3">
@@ -220,6 +231,7 @@ export function RevenueMappingMatrix({ accounts }: { accounts: ChartAccount[] })
           </div>
         </div>
       </Card>
+      )}
     </div>
   );
 }

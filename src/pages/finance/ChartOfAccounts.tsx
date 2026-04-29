@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Check, X, RefreshCw } from "lucide-react";
 import { RevenueMappingMatrix } from "@/components/finance/RevenueMappingMatrix";
+import { ProcurementMappingMatrix } from "@/components/finance/ProcurementMappingMatrix";
 
 const TYPE_ORDER: AccountType[] = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
 
@@ -51,7 +52,7 @@ export default function ChartOfAccountsPage() {
       <Tabs defaultValue="accounts">
         <TabsList>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="mapping">Revenue Mapping</TabsTrigger>
+          <TabsTrigger value="mapping">Account Mappings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-4 mt-4">
@@ -128,7 +129,22 @@ export default function ChartOfAccountsPage() {
         </TabsContent>
 
         <TabsContent value="mapping" className="mt-4">
-          <RevenueMappingMatrix accounts={items} />
+          <Tabs defaultValue="sales-revenue">
+            <TabsList>
+              <TabsTrigger value="sales-revenue">Sales Revenue</TabsTrigger>
+              <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
+              <TabsTrigger value="procurement">Procurement Categories</TabsTrigger>
+            </TabsList>
+            <TabsContent value="sales-revenue" className="mt-4">
+              <RevenueMappingMatrix accounts={items} section="sales" />
+            </TabsContent>
+            <TabsContent value="payment-methods" className="mt-4">
+              <RevenueMappingMatrix accounts={items} section="payments" />
+            </TabsContent>
+            <TabsContent value="procurement" className="mt-4">
+              <ProcurementMappingMatrix accounts={items} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>
