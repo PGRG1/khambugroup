@@ -202,7 +202,7 @@ export default function ProductMasterTab() {
       if (subCatFilter !== "all" && r.level3_category !== subCatFilter) return false;
       if (supplierFilter !== "all" && r.supplier !== supplierFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
-      if (accountingFilter !== "all" && r.accounting_category !== accountingFilter) return false;
+      
       if (treatmentFilter !== "all") {
         if (treatmentFilter === "__unmapped__") {
           if (r.financial_treatment) return false;
@@ -220,10 +220,10 @@ export default function ProductMasterTab() {
       return true;
     });
     return sortRows(result, sortColumns);
-  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, accountingFilter, treatmentFilter, mappingFilter, sortColumns]);
+  }, [flatRows, search, catFilter, l2Filter, subCatFilter, supplierFilter, statusFilter, treatmentFilter, mappingFilter, sortColumns]);
 
-  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || accountingFilter !== "all" || treatmentFilter !== "all" || mappingFilter !== "all" || search;
-  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setAccountingFilter("all"); setTreatmentFilter("all"); setMappingFilter("all"); setSearch(""); };
+  const hasFilters = catFilter !== "all" || l2Filter !== "all" || subCatFilter !== "all" || supplierFilter !== "all" || statusFilter !== "all" || treatmentFilter !== "all" || mappingFilter !== "all" || search;
+  const clearFilters = () => { setCatFilter("all"); setL2Filter("all"); setSubCatFilter("all"); setSupplierFilter("all"); setStatusFilter("all"); setTreatmentFilter("all"); setMappingFilter("all"); setSearch(""); };
 
   // Collect legacy free-text UOMs from existing products so dropdowns still display them.
   const legacyPurchaseUoms = useMemo(() => flatRows.map(r => r.purchase_unit), [flatRows]);
