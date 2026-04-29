@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -30,6 +30,8 @@ const financeItems = [
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
   { title: "P&L (Ledger)", url: "/finance/pl-ledger", icon: Receipt },
   { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
+  { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
+  { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Cashflow (Operations)", url: "/finance/cashflow", icon: TrendingUp },
   { title: "Cashflow (Ledger)", url: "/finance/cashflow-ledger", icon: TrendingUp },
   { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
