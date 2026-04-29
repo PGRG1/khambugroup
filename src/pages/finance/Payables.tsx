@@ -15,7 +15,7 @@ import { toast } from "sonner";
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function Payables() {
-  const { openInvoices, supplierSummary, paidThisMonth, loading, refresh } = usePayables();
+  const { openInvoices, supplierSummary, paidThisMonth, payrollPayables, loading, refresh } = usePayables();
   const { updateInvoiceStatus } = useInvoiceData();
   const [search, setSearch] = useState("");
 
@@ -93,6 +93,28 @@ export default function Payables() {
         <KPI label="Paid This Month" value={fmt(paidThisMonth)} accent="text-emerald-700" />
         <KPI label="Oldest Unpaid" value={`${oldestAge}d`} />
       </div>
+
+      {payrollPayables && payrollPayables.length > 0 && (
+        <Card className="card-glass p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-sm font-semibold">Payroll Liabilities</h3>
+              <p className="text-xs text-muted-foreground">Outstanding amounts owed to staff and the MPF trustee (from the General Ledger).</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {payrollPayables.map((p) => (
+              <div key={p.account_code} className="flex items-center justify-between border border-border/40 rounded-lg px-3 py-2 bg-muted/20">
+                <div>
+                  <div className="text-sm font-medium">{p.account_name}</div>
+                  <div className="text-[11px] text-muted-foreground font-mono">{p.account_code}</div>
+                </div>
+                <div className="font-mono tabular-nums text-base font-semibold">{fmt(p.outstanding)}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Tabs defaultValue="by-supplier">
         <TabsList>
