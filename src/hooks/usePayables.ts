@@ -119,9 +119,37 @@ export function usePayables() {
         (pays || []).reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
       );
 
+      // Payroll-related payables (Salary Payable + MPF Payable) — net balance from journal
+      const { data: payrollAccts } = await supabase
+        .from("chart_of_accounts")
+        .select("id, code, name")
+        .in("code", ["2030", "2040"]);
+      if (payrollAccts && payrollAccts.length > 0) {
+        const acctIds = payrollAccts.map((a: any) => a.id);
+        const allLines = await fetchAllRows("journal_lines", "account_id, debit, credit");
+        const balByAcct = new Map<string, number>();
+        for (const l of allLines as any[]) {
+          if (!acctIds.includes(l.account_id)) continue;
+          const cur = balByAcct.get(l.account_id) ?? 0;
+          // liability normal-side: credit - debit
+          balByAcct.set(l.account_id, cur + (Number(l.credit) || 0) - (Number(l.debit) || 0));
+        }
+        setPayrollPayables(
+          payrollAccts
+            .map((a: any) => ({
+              account_code: a.code,
+              account_name: a.name,
+              outstanding: Math.round((balByAcct.get(a.id) ?? 0) * 100) / 100,
+            }))
+            .filter((p) => Math.abs(p.outstanding) > 0.01)
+        );
+      } else {
+        setPayrollPayables([]);
+      }
+
       setLoading(false);
     })();
   }, [refreshKey]);
 
-  return { openInvoices, supplierSummary, paidThisMonth, loading, refresh };
+  return { openInvoices, supplierSummary, paidThisMonth, payrollPayables, loading, refresh };
 }
