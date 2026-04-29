@@ -1,59 +1,67 @@
 ## Goal
 
-Collapse the multi-step invoice workflow (`pending → verified → approved → paid`, plus `under_review`, `overdue`, `cancelled`) down to a single binary: **Paid** vs unpaid (default, no badge). When an invoice is recorded it just exists; clicking "Mark Paid" flips it.
+Add dedicated **Accounts Receivable (AR)** and **Accounts Payable (AP)** sections under Finance so you can track who owes you money (merchant settlements, KPAY, etc.) and who you owe (suppliers) — with aging, per-counterparty drill-down, and quick "settle/pay" actions.
 
-## Status model
+## What you'll see in the app
 
-- DB column `invoices.status` keeps two values only: `unpaid` (default) and `paid`.
-- All other legacy values (`pending`, `verified`, `approved`, `outstanding`, `overdue`, `under_review`, `cancelled`) are migrated to `unpaid` — except invoices whose `payment_status='paid'` or `status='paid'`, which become `paid`.
-- The redundant `payment_status`, `verified_by`, `verified_at`, `approved_by`, `approved_at` fields stay in the DB (no destructive drop) but the UI stops reading/writing them.
+Two new pages under the **Finance** sidebar group:
 
-## Journal posting (the bug you saw earlier)
+### 1. Accounts Receivable (`/finance/receivables`)
+KPI strip + tabs:
+- **Outstanding Total** | **Overdue (>30d)** | **Settled This Month** | **Avg Days to Settle**
+- Tab A — **By Account**: list of all AR accounts (Merchant Receivable Visa/Mastercard/Amex/KPAY/etc.) with current outstanding balance, last activity date, and a sparkline of the last 30 days.
+- Tab B — **Open Items**: every unsettled debit line (date, venue, account, amount, age bucket: 0–7 / 8–30 / 31–60 / 60+). Row action: **Mark Settled** (creates a balancing journal entry crediting the AR account and debiting the chosen Cash account on a chosen date).
+- Tab C — **Aging Summary**: matrix of AR account × age bucket (Current / 1–30 / 31–60 / 61–90 / 90+).
 
-`rebuild_journal_from_operations` currently gates on `status='approved'`, which is why nothing posted. After this change, the gate becomes `status IN ('paid','unpaid')` — i.e. every recorded invoice posts to the ledger as soon as it exists. Payment of an invoice continues to generate the AP→Cash entry from `invoice_payments`.
+### 2. Accounts Payable (`/finance/payables`)
+KPI strip + tabs:
+- **Total Owed** | **Overdue** | **Paid This Month** | **Avg Days to Pay**
+- Tab A — **By Supplier**: each supplier with outstanding balance, last invoice date, oldest unpaid invoice age. Click → drill down to that supplier's invoices.
+- Tab B — **Open Invoices**: every `unpaid` invoice (date, supplier, invoice #, venue, amount, age bucket, due date if set). Row actions: **Mark Paid** (opens the existing payment dialog) and **Open Invoice**.
+- Tab C — **Aging Summary**: supplier × age bucket matrix, with totals row.
 
-## UI changes
+Both pages get a **CSV export** that respects current filters (UTF-8 BOM as per project standard).
 
-**ProcurementInvoicesTab.tsx**
-- Remove the Status filter dropdown entirely.
-- Status badge: render nothing for `unpaid`; render a single subtle green "Paid" chip for `paid`.
-- Remove the Status field from the edit form.
-- Replace the action button cluster (Verify / Approve / Mark Paid / Mark Overdue / Cancel / Revert) with one button:
-  - if `unpaid` → **"Mark Paid"**
-  - if `paid` → **"Mark Unpaid"** (ghost style, for corrections)
-- Default new invoices (manual + scanner) to `status='unpaid'`.
+## Data sources (no schema changes needed)
 
-**Other touchpoints** — same simplification, no behavior beyond paid/unpaid:
-- `ProcurementDashboardTab.tsx` — KPIs like "pending approval" become "unpaid".
-- `InvoiceAnalytics.tsx` / `Invoices.tsx` — same.
-- `DocumentsTab.tsx`, `InvoiceScanner.tsx`, `useInvoiceData.ts`, `useStandardProducts.ts`, `chat-assistant` edge function — strip references to old statuses; treat anything not `paid` as unpaid.
-- `permissions.ts` — drop verify/approve action permissions if present.
+Everything is derived from existing tables:
 
-## Migration
+- **AR balances** = `journal_lines` filtered to accounts where `account_type='asset'` AND `name ILIKE 'Merchant Receivable%'` (plus a configurable AR account list). Balance = Σ debit − Σ credit per account.
+- **AR open items** = ungrouped journal lines on AR accounts; "settled" detection uses FIFO matching of credits against debits per account (oldest debit first). Lines whose cumulative debit total still exceeds cumulative credit total are "open"; the residual age = age of the oldest unmatched debit slice.
+- **AP balances** by supplier = sum of `invoices.total_amount` where `status='unpaid'` per `supplier_id`. (No FIFO needed — invoices already have a paid/unpaid flag and a payment ledger.)
+- **AP open invoices** = `invoices` join `suppliers` join `invoice_payments` where `status='unpaid'`.
 
-```sql
--- Normalize existing data
-UPDATE invoices SET status='paid'
-  WHERE status='paid' OR payment_status='paid';
-UPDATE invoices SET status='unpaid'
-  WHERE status NOT IN ('paid','unpaid');
+## Cleanup item (small data hygiene)
 
-ALTER TABLE invoices ALTER COLUMN status SET DEFAULT 'unpaid';
+There are **two AP accounts** in the Chart of Accounts: `2010 Accounts Payable` (0 lines) and `2100 Accounts Payable` (1,026 lines, used by ledger rebuild). The plan will:
+- Detect this on first AP page load and show a one-time banner offering to **archive `2010`** (mark `is_active=false`) so reports only show the active one. No data loss; nothing to migrate.
 
--- Update the journal builder gate
-CREATE OR REPLACE FUNCTION rebuild_journal_from_operations() ...
-  -- change WHERE i.status = 'approved'
-  --     to WHERE i.status IN ('paid','unpaid')
-```
+## Technical details
 
-After migration runs, hit **Rebuild Ledger** once and your ~1,022 invoices will populate Trial Balance, P&L and Balance Sheet using the COGS / OpEx / Asset mappings you set up.
+**New files:**
+- `src/pages/finance/Receivables.tsx`
+- `src/pages/finance/Payables.tsx`
+- `src/components/finance/AgingMatrix.tsx` (shared age-bucket table)
+- `src/components/finance/SettleReceivableDialog.tsx` (creates a manual journal entry: Dr Cash / Cr AR account)
+- `src/hooks/useReceivables.ts` (FIFO open-line computation, aging buckets)
+- `src/hooks/usePayables.ts` (supplier rollups, aging from `invoice_date`)
 
-## What stays
+**Modified files:**
+- `src/App.tsx` — add `/finance/receivables` and `/finance/payables` routes (AdminRoute).
+- `src/components/AppSidebar.tsx` — add the two items to `financeItems` with `Wallet` and `CreditCard` (lucide) icons.
 
-- `invoice_payments` table (records each payment) — unchanged.
-- Per-product COA override and Treatment+L1 mapping — unchanged.
-- Delete invoice action — unchanged.
+**Conventions followed:**
+- All Supabase reads via `fetchAllRows` (>1000 row tables: `journal_lines`, `invoices`).
+- `card-glass` containers, terracotta/gold accents, font-mono for numbers.
+- 3-state column sorting on tables.
+- CSV export with UTF-8 BOM.
+- Settling a receivable inserts into `journal_entries` + `journal_lines` (status `posted`, source_type `manual`, balanced).
+- "Mark Paid" on AP reuses the existing `invoice_payments` insert flow from `ProcurementInvoicesTab` (no duplicate payment logic).
 
-## Out of scope
+**Aging bucket definition** (shared constant): `Current (≤0d past invoice/entry date)`, `1–30`, `31–60`, `61–90`, `90+`.
 
-- Dropping `payment_status` / `verified_*` / `approved_*` columns. Leaving them dormant avoids breaking any historical reference and can be cleaned up later.
+## Out of scope (flag for later)
+
+- Customer/debtor master table for non-merchant AR (e.g., catering invoices issued to corporate clients). Today AR = card processor settlements only. If you want to issue invoices *to* customers, that's a separate module.
+- Auto-import of bank/merchant settlement files to auto-clear AR lines.
+- Email reminders for overdue AP.
