@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useProductMaster, ProductMasterItem, ProductSupplierEntry } from "@/hooks/useProductMaster";
+import { useProductMaster, ProductMasterItem, ProductSupplierEntry, FINANCIAL_TREATMENTS, plSectionFor } from "@/hooks/useProductMaster";
+import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal, AlertTriangle, CheckCircle2 } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
@@ -22,6 +23,8 @@ const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
   level1_category: "", level2_category: "", level3_category: "",
   accounting_category: "",
+  financial_treatment: "" as string,
+  default_coa_account_id: "" as string,
   unit: "", unit_cost: "", supplier: "", status: "Active",
   purchase_unit: "", purchase_unit_cost: "",
   stock_uom: "", stock_qty: "1", cost_per_stock_unit: "0",
