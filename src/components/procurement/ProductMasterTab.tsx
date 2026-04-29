@@ -515,6 +515,25 @@ export default function ProductMasterTab() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={treatmentFilter} onValueChange={setTreatmentFilter}>
+          <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="Treatment" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Treatments</SelectItem>
+            <SelectItem value="__unmapped__">— Unmapped —</SelectItem>
+            {FINANCIAL_TREATMENTS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={mappingFilter} onValueChange={setMappingFilter}>
+          <SelectTrigger className="w-[120px] h-9 text-xs"><SelectValue placeholder="Mapping" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Mapping</SelectItem>
+            <SelectItem value="Mapped">Mapped</SelectItem>
+            <SelectItem value="Unmapped">Unmapped</SelectItem>
+          </SelectContent>
+        </Select>
+        <button onClick={() => setShowLegacyCols(v => !v)} className="text-xs text-muted-foreground hover:text-foreground underline">
+          {showLegacyCols ? "Hide" : "Show"} more columns
+        </button>
         {hasFilters && (
           <button onClick={clearFilters} className="text-xs text-primary hover:underline flex items-center gap-1">
             <X className="h-3 w-3" /> Clear
