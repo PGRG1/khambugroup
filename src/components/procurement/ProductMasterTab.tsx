@@ -16,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import CategoryCascadeSelect from "@/components/procurement/CategoryCascadeSelect";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useAccountingCategories } from "@/hooks/useAccountingCategories";
+
 import UomSelect from "@/components/procurement/UomSelect";
 
 const EMPTY_FORM = {
@@ -504,15 +504,6 @@ export default function ProductMasterTab() {
             <SelectItem value="Inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={accountingFilter} onValueChange={setAccountingFilter}>
-          <SelectTrigger className="w-[160px] h-9 text-xs"><SelectValue placeholder="Accounting" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Accounting</SelectItem>
-            {accountingCats.filter(a => a.is_active && a.name.trim() !== "").map(a => (
-              <SelectItem key={a.id} value={a.name}>{a.name} <span className="text-muted-foreground">· {a.statement}</span></SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select value={treatmentFilter} onValueChange={setTreatmentFilter}>
           <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="Treatment" /></SelectTrigger>
           <SelectContent>
@@ -717,29 +708,6 @@ export default function ProductMasterTab() {
                   </Select>
                 </div>
 
-                {/* Accounting mapping */}
-                <div className="col-span-2">
-                  <Label className="text-xs">Accounting Mapping</Label>
-                  <Select
-                    value={form.accounting_category && form.accounting_category.trim() !== "" ? form.accounting_category : "__none__"}
-                    onValueChange={v => setForm({ ...form, accounting_category: v === "__none__" ? "" : v })}
-                  >
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder="Where does this product post? (P&L COGS, OpEx, Balance Sheet…)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Unmapped —</SelectItem>
-                      {accountingCats.filter(a => a.is_active && a.name.trim() !== "").map(a => (
-                        <SelectItem key={a.id} value={a.name}>
-                          {a.name} <span className="text-muted-foreground">· {a.statement} / {a.category_group}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {accountingCats.length === 0 && (
-                    <p className="text-[10px] text-muted-foreground mt-1">No accounting categories yet — add some under Categories → Accounting Mappings.</p>
-                  )}
-                </div>
 
                 {/* Purchase & Stock */}
                 <div className="col-span-2 border-t pt-3 mt-1">
