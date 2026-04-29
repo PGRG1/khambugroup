@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ChartAccount, AccountType } from "@/hooks/useChartOfAccounts";
+import { ChartAccount } from "@/hooks/useChartOfAccounts";
 import { useAccountMapping } from "@/hooks/useAccountMapping";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,10 +12,9 @@ const EXPENSE_ROWS: Array<{
   rule_type: string;
   label: string;
   description: string;
-  allowedTypes: AccountType[];
 }> = [
-  { rule_type: "payroll_salary_expense", label: "Salaries Expense", description: "Gross salary cost (P&L OpEx)", allowedTypes: ["opex", "expense" as AccountType] },
-  { rule_type: "payroll_mpf_expense", label: "MPF Expense", description: "Employer MPF contribution (P&L OpEx)", allowedTypes: ["opex", "expense" as AccountType] },
+  { rule_type: "payroll_salary_expense", label: "Salaries Expense", description: "Gross salary cost (P&L OpEx)" },
+  { rule_type: "payroll_mpf_expense", label: "MPF Expense", description: "Employer MPF contribution (P&L OpEx)" },
 ];
 
 const PAYABLE_ROWS: Array<{
@@ -47,7 +46,8 @@ export function PayrollMappingMatrix({ accounts }: { accounts: ChartAccount[] })
 
   const expenseAccounts = [
     ...(accountsByType.get("opex") ?? []),
-    ...(accountsByType.get("expense") ?? []),
+    ...(accountsByType.get("cogs") ?? []),
+    ...(accountsByType.get("other_expense") ?? []),
   ];
   const liabilityAccounts = accountsByType.get("liability") ?? [];
   const cashAccounts = (accountsByType.get("asset") ?? []).filter((a) => a.is_cash);
