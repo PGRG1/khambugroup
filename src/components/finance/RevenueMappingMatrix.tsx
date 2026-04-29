@@ -231,6 +231,7 @@ export function RevenueMappingMatrix({ accounts, section = "all" }: { accounts: 
           </div>
         </div>
       </Card>
+      )}
     </div>
   );
 }
