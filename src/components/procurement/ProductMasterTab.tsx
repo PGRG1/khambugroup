@@ -43,6 +43,11 @@ interface FlatRow {
   level2_category: string;
   level3_category: string;
   accounting_category: string;
+  financial_treatment: string;
+  default_coa_account_id: string | null;
+  default_coa_label: string;
+  pl_section: string;
+  mapping_status: "Mapped" | "Unmapped";
   purchase_unit: string;
   purchase_unit_cost: number;
   stock_uom: string;
