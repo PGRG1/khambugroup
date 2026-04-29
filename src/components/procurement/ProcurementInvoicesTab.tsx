@@ -24,14 +24,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 const INV_GRID_COLS = "100px 120px minmax(160px,1fr) 90px 100px 110px 90px 90px";
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  verified: "bg-indigo-100 text-indigo-800 border-indigo-300",
-  approved: "bg-emerald-100 text-emerald-800 border-emerald-300",
   paid: "bg-green-100 text-green-800 border-green-300",
-  overdue: "bg-red-100 text-red-800 border-red-300",
-  partial: "bg-blue-100 text-blue-800 border-blue-300",
-  cancelled: "bg-muted text-muted-foreground",
-  under_review: "bg-orange-100 text-orange-800 border-orange-300",
 };
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -607,21 +600,6 @@ export default function ProcurementInvoicesTab() {
               <Label className="text-xs">Due Date</Label>
               <Input type="date" value={editForm.due_date || ""} onChange={(e) => setEditForm((form) => ({ ...form, due_date: e.target.value }))} />
             </div>
-            <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={editForm.status || "pending"} onValueChange={(value) => setEditForm((form) => ({ ...form, status: value }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="verified">Verified</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="md:col-span-2 xl:col-span-2">
               <Label className="text-xs">Notes</Label>
               <Textarea value={editForm.notes || ""} onChange={(e) => setEditForm((form) => ({ ...form, notes: e.target.value }))} className="min-h-[42px]" rows={1} />
@@ -806,7 +784,7 @@ export default function ProcurementInvoicesTab() {
               {
                 ...inv,
                 discount: inv.discount ?? 0,
-                status: inv.status || "pending",
+                status: inv.status === "paid" ? "paid" : "unpaid",
                 subtotal: lines.reduce((sum, line) => sum + line.total - line.tax_amount, 0),
                 tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
                 total_amount: lines.reduce((sum, line) => sum + line.total, 0),
@@ -843,12 +821,8 @@ export default function ProcurementInvoicesTab() {
           <SelectTrigger className="h-9 w-[110px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="under_review">Under Review</SelectItem>
-            <SelectItem value="verified">Verified</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="unpaid">Unpaid</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
           </SelectContent>
         </Select>
         <Select value={monthFilter === "__latest__" ? "all" : monthFilter} onValueChange={setMonthFilter}>
@@ -940,7 +914,9 @@ export default function ProcurementInvoicesTab() {
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   Invoice {selectedInvoice.invoice_number}
-                  <Badge className={`text-[10px] ${STATUS_COLORS[selectedInvoice.status] || ""}`}>{selectedInvoice.status}</Badge>
+                  {selectedInvoice.status === "paid" && (
+                    <Badge className={`text-[10px] ${STATUS_COLORS.paid}`}>paid</Badge>
+                  )}
                 </SheetTitle>
               </SheetHeader>
               <div className="mt-4 space-y-4">
@@ -964,23 +940,10 @@ export default function ProcurementInvoicesTab() {
                 )}
 
                 <div className="flex gap-2 flex-wrap">
-                  {selectedInvoice.status === "pending" && (
-                    <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "verified", { verified_by: user?.id, verified_at: new Date().toISOString() }); setDrawerOpen(false); }}>✓ Verify</Button>
-                  )}
-                  {selectedInvoice.status === "verified" && (
-                    <>
-                      <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "approved", { approved_by: user?.id, approved_at: new Date().toISOString() }); setDrawerOpen(false); }}>✓ Approve</Button>
-                      <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "pending", { verified_by: null, verified_at: null } as any); setDrawerOpen(false); }}>Revert to Pending</Button>
-                    </>
-                  )}
-                  {selectedInvoice.status === "approved" && (
+                  {selectedInvoice.status !== "paid" ? (
                     <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "paid"); setDrawerOpen(false); }}>Mark Paid</Button>
-                  )}
-                  {!["overdue", "cancelled"].includes(selectedInvoice.status) && (
-                    <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "overdue"); setDrawerOpen(false); }}>Mark Overdue</Button>
-                  )}
-                  {selectedInvoice.status !== "cancelled" && (
-                    <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "cancelled"); setDrawerOpen(false); }}>Cancel</Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "unpaid"); setDrawerOpen(false); }}>Mark Unpaid</Button>
                   )}
                   <Button size="sm" variant="destructive" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
                     <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
@@ -1074,7 +1037,11 @@ function InvoiceVirtualBody({ filtered, openDetail, openAttachmentViewer, setDel
                 <div className="whitespace-nowrap px-3 text-muted-foreground">{fmtDate(inv.due_date || "")}</div>
                 <div className="px-3 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</div>
                 <div className="px-3">
-                  <Badge className={`px-1.5 py-0 text-[10px] ${STATUS_COLORS[inv.status] || ""}`}>{inv.status}</Badge>
+                  {inv.status === "paid" ? (
+                    <Badge className={`px-1.5 py-0 text-[10px] ${STATUS_COLORS.paid}`}>paid</Badge>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">—</span>
+                  )}
                 </div>
                 <div className="px-3">
                   <div className="flex gap-1">
