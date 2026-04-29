@@ -65,7 +65,7 @@ interface FlatRow {
 
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
-  const { items: accountingCats } = useAccountingCategories();
+  
   const { items: coaAccounts } = useChartOfAccounts();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
@@ -73,7 +73,7 @@ export default function ProductMasterTab() {
   const [subCatFilter, setSubCatFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [accountingFilter, setAccountingFilter] = useState("all");
+  
   const [treatmentFilter, setTreatmentFilter] = useState("all");
   const [mappingFilter, setMappingFilter] = useState("all");
   const [showLegacyCols, setShowLegacyCols] = useState(false);
