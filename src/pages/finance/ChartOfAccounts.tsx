@@ -129,7 +129,22 @@ export default function ChartOfAccountsPage() {
         </TabsContent>
 
         <TabsContent value="mapping" className="mt-4">
-          <RevenueMappingMatrix accounts={items} />
+          <Tabs defaultValue="sales-revenue">
+            <TabsList>
+              <TabsTrigger value="sales-revenue">Sales Revenue</TabsTrigger>
+              <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
+              <TabsTrigger value="procurement">Procurement Categories</TabsTrigger>
+            </TabsList>
+            <TabsContent value="sales-revenue" className="mt-4">
+              <RevenueMappingMatrix accounts={items} section="sales" />
+            </TabsContent>
+            <TabsContent value="payment-methods" className="mt-4">
+              <RevenueMappingMatrix accounts={items} section="payments" />
+            </TabsContent>
+            <TabsContent value="procurement" className="mt-4">
+              <ProcurementMappingMatrix accounts={items} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>
