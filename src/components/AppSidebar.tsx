@@ -38,6 +38,7 @@ const financeItems = [
   { title: "Journal", url: "/finance/journal", icon: NotebookPen },
   { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
   { title: "Chart of Accounts", url: "/finance/chart-of-accounts", icon: ListTree },
+  { title: "Ledger Audit Log", url: "/finance/ledger-audit", icon: History },
 ];
 
 const procurementItems = [
