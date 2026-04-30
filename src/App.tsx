@@ -33,6 +33,7 @@ import TrialBalance from "./pages/finance/TrialBalance";
 import LedgerPL from "./pages/finance/LedgerPL";
 import Receivables from "./pages/finance/Receivables";
 import Payables from "./pages/finance/Payables";
+import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HRSchedule from "./pages/hr/HRSchedule";
