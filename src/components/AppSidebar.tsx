@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, Shield, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, Sparkles, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -38,6 +38,7 @@ const financeItems = [
   { title: "Journal", url: "/finance/journal", icon: NotebookPen },
   { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
   { title: "Chart of Accounts", url: "/finance/chart-of-accounts", icon: ListTree },
+  { title: "Ledger Audit Log", url: "/finance/ledger-audit", icon: History },
 ];
 
 const procurementItems = [

@@ -33,6 +33,7 @@ import TrialBalance from "./pages/finance/TrialBalance";
 import LedgerPL from "./pages/finance/LedgerPL";
 import Receivables from "./pages/finance/Receivables";
 import Payables from "./pages/finance/Payables";
+import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HRSchedule from "./pages/hr/HRSchedule";
@@ -109,6 +110,7 @@ function App() {
                 <Route path="/finance/pl-ledger" element={<AdminRoute><LedgerPL /></AdminRoute>} />
                 <Route path="/finance/receivables" element={<AdminRoute><Receivables /></AdminRoute>} />
                 <Route path="/finance/payables" element={<AdminRoute><Payables /></AdminRoute>} />
+                <Route path="/finance/ledger-audit" element={<AdminRoute><LedgerAuditLog /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
