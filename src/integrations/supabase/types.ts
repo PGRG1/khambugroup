@@ -1528,6 +1528,54 @@ export type Database = {
           },
         ]
       }
+      ledger_audit_log: {
+        Row: {
+          amount: number | null
+          created_at: string
+          employee_name: string | null
+          event_type: string
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          payroll_id: string | null
+          period: string | null
+          status: string
+          user_display_name: string | null
+          user_id: string | null
+          venue: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          employee_name?: string | null
+          event_type: string
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          payroll_id?: string | null
+          period?: string | null
+          status?: string
+          user_display_name?: string | null
+          user_id?: string | null
+          venue?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          employee_name?: string | null
+          event_type?: string
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          payroll_id?: string | null
+          period?: string | null
+          status?: string
+          user_display_name?: string | null
+          user_id?: string | null
+          venue?: string | null
+        }
+        Relationships: []
+      }
       menu_item_ingredients: {
         Row: {
           created_at: string
