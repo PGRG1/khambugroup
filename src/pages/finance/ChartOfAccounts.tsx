@@ -99,14 +99,31 @@ export default function ChartOfAccountsPage() {
                         return (
                           <li key={a.id} className="px-4 py-2 flex items-center gap-3">
                             {isEdit ? (
-                              <>
+                              <div className="flex flex-wrap items-center gap-2 w-full">
                                 <Input value={editDraft.code ?? a.code} onChange={(e) => setEditDraft({ ...editDraft, code: e.target.value })} className="h-8 w-24 font-mono text-sm" />
-                                <Input value={editDraft.name ?? a.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} className="h-8 flex-1 text-sm" />
+                                <Input value={editDraft.name ?? a.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} className="h-8 flex-1 min-w-[180px] text-sm" />
+                                <Select
+                                  value={editDraft.account_type ?? a.account_type}
+                                  onValueChange={(v) => setEditDraft({ ...editDraft, account_type: v as AccountType, normal_side: defaultNormalSide(v as AccountType) })}
+                                >
+                                  <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>{TYPE_ORDER.map((t) => <SelectItem key={t} value={t}>{ACCOUNT_TYPE_LABEL[t]}</SelectItem>)}</SelectContent>
+                                </Select>
+                                <Select
+                                  value={editDraft.normal_side ?? a.normal_side}
+                                  onValueChange={(v) => setEditDraft({ ...editDraft, normal_side: v as "debit" | "credit" })}
+                                >
+                                  <SelectTrigger className="h-8 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="debit">Debit</SelectItem>
+                                    <SelectItem value="credit">Credit</SelectItem>
+                                  </SelectContent>
+                                </Select>
                                 <div className="flex items-center gap-1 text-xs"><Switch checked={editDraft.is_cash ?? a.is_cash} onCheckedChange={(v) => setEditDraft({ ...editDraft, is_cash: v })} /> Cash</div>
                                 <div className="flex items-center gap-1 text-xs"><Switch checked={editDraft.is_active ?? a.is_active} onCheckedChange={(v) => setEditDraft({ ...editDraft, is_active: v })} /> Active</div>
                                 <button className="p-1 text-primary" onClick={async () => { await updateAccount(a.id, editDraft); setEditingId(null); setEditDraft({}); }}><Check className="h-4 w-4" /></button>
                                 <button className="p-1" onClick={() => { setEditingId(null); setEditDraft({}); }}><X className="h-4 w-4" /></button>
-                              </>
+                              </div>
                             ) : (
                               <>
                                 <span className="font-mono text-xs w-16 text-muted-foreground">{a.code}</span>
