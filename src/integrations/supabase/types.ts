@@ -1403,6 +1403,7 @@ export type Database = {
           created_by: string | null
           entry_date: string
           id: string
+          manually_adjusted: boolean
           memo: string
           posted_at: string | null
           source_id: string | null
@@ -1416,6 +1417,7 @@ export type Database = {
           created_by?: string | null
           entry_date: string
           id?: string
+          manually_adjusted?: boolean
           memo?: string
           posted_at?: string | null
           source_id?: string | null
@@ -1429,6 +1431,7 @@ export type Database = {
           created_by?: string | null
           entry_date?: string
           id?: string
+          manually_adjusted?: boolean
           memo?: string
           posted_at?: string | null
           source_id?: string | null
