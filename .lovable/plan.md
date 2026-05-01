@@ -1,96 +1,61 @@
 ## Goal
 
-Make `hr_payroll` records flow into the general ledger automatically — same pattern as Sales and Invoices — so payroll appears in **P&L** (Salaries Expense, MPF Expense), **Balance Sheet** (Salary Payable, MPF Payable, Cash), **Cashflow** (when paid), and the new **AP page** (Salary Payable + MPF Payable as payables).
+Make recorded Journal entries editable from the Journal page (`/finance/journal`). Currently only manual entries can be voided, and nothing can be edited after posting — including manual entries. Auto-generated entries (from sales/invoices/payroll) get wiped and re-created on every "Rebuild", so they need a different treatment than manual ones.
 
-## What you'll see in the app
+## Approach
 
-### 1. Payroll auto-posts when a row is "approved"
-Payroll rows have two payment milestones already on the table:
-- `net_salary_payment_date` + `payment_method` — when staff get paid
-- `mpf_payment_date` — when MPF is remitted
+Two distinct edit behaviors based on the entry's `source_type`:
 
-The ledger rebuild will generate **up to 3 entries per employee per month**:
+**1. Manual entries** — fully editable
+- Edit date, memo, and all lines (account, debit, credit, memo, venue)
+- Add or remove lines
+- Must remain balanced (debits = credits, ≥ 2 lines) — enforced by existing `check_journal_balance` trigger
+- Save updates the entry in place (no void + recreate)
 
-```text
-Entry A (always, on the last day of the payroll month):
-  Dr  6010 Salaries Expense        gross_salary
-  Dr  6020 MPF Expense             mpf_employer
-      Cr  2040 Salary Payable          net_salary
-      Cr  2030 MPF Payable             mpf_employee + mpf_employer
-      Cr  <other deduction accounts>   other_deductions  (if mapped)
+**2. Auto-generated entries** (sales, invoice, invoice_payment, payroll_accrual, payroll_payment, mpf_payment) — *protected* edit
+- Editing is allowed but flagged: any change marks the entry as `manually_adjusted = true` so the next "Rebuild from operations" will **not** wipe it
+- Show a warning in the edit dialog explaining that the entry will be detached from its source
+- Same balanced-debits/credits rule applies
+- User can also click "Restore to auto-generated" to clear the flag and let the next rebuild replace it
 
-Entry B (only if net_salary_payment_date is set):
-  Dr  2040 Salary Payable          net_salary
-      Cr  <Cash account for payment_method>   net_salary
+## UI Changes
 
-Entry C (only if mpf_payment_date is set):
-  Dr  2030 MPF Payable             mpf_employee + mpf_employer
-      Cr  <Cash account for MPF>            total
-```
+In `src/pages/finance/Journal.tsx`:
+- Add a pencil (Edit) icon button on each row, next to the existing Void button, for **all** posted, non-void entries
+- Replace the current `NewEntryDialog` with a shared `EntryEditorDialog` that handles both create and edit modes
+- In edit mode, prefill the dialog with the entry header (date, memo) and all existing lines
+- Show a yellow banner inside the dialog when editing a non-manual entry: *"This entry was auto-generated from {source}. Saving will detach it from automatic rebuilds."*
+- Add a small "auto-detached" badge next to entries where `manually_adjusted = true`
 
-Result:
-- **P&L**: `6010` and `6020` light up as monthly OpEx, broken down by venue (`hr_employees.venue`).
-- **Balance Sheet**: `2040 Salary Payable` and `2030 MPF Payable` show what's still owed at month-end.
-- **AP page**: salary + MPF payables appear as outstanding obligations until paid.
-- **Cashflow**: cash outflows appear on the actual payment dates, not the accrual date.
+## Backend Changes
 
-### 2. Payroll mapping matrix (new tab in Finance → Mapping)
-A small matrix lets you confirm/override:
-- Salary Expense account (default `6010`, can split per venue)
-- MPF Expense account (default `6020`)
-- Salary Payable account (default `2040`)
-- MPF Payable account (default `2030`)
-- Per `payment_method` → cash account (bank_transfer, cash, cheque) — reuses the existing `payment_method_cash` rule type already used by AP payments.
-- Optional: deduction accounts (e.g. "other deductions" → a specific liability or expense reduction).
+**Migration** (schema only):
+- Add column `journal_entries.manually_adjusted boolean not null default false`
+- Update `rebuild_journal_from_operations` to **skip deletion** of any entry where `manually_adjusted = true` (currently it deletes everything where `source_type <> 'manual'`)
+- Add audit-log event `journal_entry_edited` recorded on every save
 
-### 3. Trigger
-The existing **Rebuild Journal from Operations** button on the Journal page will also pick up payroll. No new button needed; payroll is just another section of the rebuild function.
+**`useJournal.ts` hook**:
+- Add `updateEntry(id, { entry_date, memo, lines })` that:
+  1. Validates ≥ 2 lines and balanced debits/credits client-side
+  2. Updates `journal_entries` row (date, memo, sets `manually_adjusted = true` if source_type ≠ 'manual')
+  3. Deletes existing `journal_lines` for that entry and re-inserts the new lines
+  4. The DB trigger `check_journal_balance` enforces balance server-side
+  5. Writes a row to `ledger_audit_log` with event `journal_entry_edited`
+- Add `restoreAutoEntry(id)` that sets `manually_adjusted = false` (next rebuild will recreate)
 
-## Data sources (no schema changes)
+## Permissions
 
-Everything derives from existing tables:
-- `hr_payroll` — accruals, deductions, payment dates
-- `hr_employees.venue` — for per-venue P&L attribution
-- `chart_of_accounts` — already has `6010`, `6020`, `2030`, `2040`
-- `account_mapping_rules` — new `rule_type` values (`payroll_salary_expense`, `payroll_mpf_expense`, `payroll_salary_payable`, `payroll_mpf_payable`); reuses existing `payment_method_cash` for the cash side.
+Editing requires the same admin/manager access that already gates the Journal page — no new permission keys needed.
 
-## Edge cases handled
+## Files Touched
 
-- **Forecast vs actual**: only post `actual_*` if present; otherwise skip (don't accrue forecasts into the GL).
-- **Unpaid net salary**: posts the accrual but no cash entry — payable stays open in AP.
-- **Partial month / mid-month hire**: uses `gross_salary` / `net_salary` as-is (already calculated in the row).
-- **MPF paid before net salary** (or vice versa): two independent entries on their own dates.
-- **Voiding/republishing**: rebuild deletes all non-manual entries first (existing behavior), so re-running is idempotent.
-- **Missing mapping**: row is skipped and a count is returned, mirroring how unmapped invoice lines are skipped today.
+- `supabase/migrations/<new>.sql` — add column + update rebuild function
+- `src/hooks/useJournal.ts` — add `updateEntry`, `restoreAutoEntry`, expose `manually_adjusted`
+- `src/pages/finance/Journal.tsx` — extract editor dialog, add Edit button, badge
+- `src/integrations/supabase/types.ts` — auto-regenerated
 
-## Technical details
+## Out of scope
 
-**Modified files:**
-- `supabase/migrations/<new>.sql` — extend `rebuild_journal_from_operations()` to add a payroll section after the invoice/payment section. Also seed default `account_mapping_rules` for the four payroll types if not present.
-- `src/components/finance/PayrollMappingMatrix.tsx` (new) — small matrix UI (one column, four rows + payment-method rows).
-- `src/pages/finance/AccountMapping.tsx` (or wherever the existing mapping tabs live) — register the new tab.
-- `src/hooks/usePayables.ts` — extend to also surface `2030` and `2040` balances as "Payroll-related payables" alongside supplier invoices, so the AP page is complete.
-
-**No changes to:**
-- `hr_payroll` schema.
-- `journal_entries` / `journal_lines` schema.
-- The Journal UI (rebuild button already exists).
-
-**Mapping rule keys:**
-- `payroll_salary_expense` — match_key = `''` (global) or venue name (override).
-- `payroll_mpf_expense` — same pattern.
-- `payroll_salary_payable` — global.
-- `payroll_mpf_payable` — global.
-- `payment_method_cash` — already exists; reused for net_salary / MPF cash side.
-
-**Source IDs** for traceability:
-- Accrual entry: `source_type='payroll_accrual'`, `source_id=hr_payroll.id`.
-- Net salary payment: `source_type='payroll_net_payment'`, `source_id=hr_payroll.id`.
-- MPF payment: `source_type='payroll_mpf_payment'`, `source_id=hr_payroll.id`.
-
-## Out of scope (flag for later)
-
-- Per-employee sub-ledger (current plan rolls up by venue; if you want per-person P&L, that's a separate report).
-- Auto-reversing accruals across fiscal year boundaries.
-- Loan/advance accounts for staff (would need a new AR-style table).
-- Statutory reports (IR56, MPF schedules) — the GL data will be there, but formatted government reports are a separate module.
+- Editing the **source** records (sales rows, invoices, payroll) from the Journal page — that stays in their respective modules
+- Bulk edit / multi-entry operations
+- Versioning / change history beyond the audit log entry
