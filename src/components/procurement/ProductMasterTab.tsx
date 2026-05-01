@@ -699,6 +699,52 @@ export default function ProductMasterTab() {
                   />
                 </div>
                 <div>
+                  <Label className="text-xs">Financial Treatment</Label>
+                  <Select
+                    value={form.financial_treatment || "__none__"}
+                    onValueChange={v => setForm({ ...form, financial_treatment: v === "__none__" ? "" : v, default_coa_account_id: "" })}
+                  >
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select treatment" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      <SelectItem value="COGS">COGS</SelectItem>
+                      <SelectItem value="OpEx">OpEx</SelectItem>
+                      <SelectItem value="Asset - Supplier Deposit">Asset – Supplier Deposit</SelectItem>
+                      <SelectItem value="Asset - Fixed Asset">Asset – Fixed Asset</SelectItem>
+                      <SelectItem value="Asset - Prepayment">Asset – Prepayment</SelectItem>
+                      <SelectItem value="Asset - Other">Asset – Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground mt-1">Drives default COA account via L1 mapping. Override below if needed.</p>
+                </div>
+                <div>
+                  <Label className="text-xs">COA Account Override (optional)</Label>
+                  <Select
+                    value={form.default_coa_account_id || "__inherit__"}
+                    onValueChange={v => setForm({ ...form, default_coa_account_id: v === "__inherit__" ? "" : v })}
+                  >
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Inherit from mapping" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__inherit__">— Inherit from mapping —</SelectItem>
+                      {coaAccounts
+                        .filter(a => a.is_active)
+                        .filter(a => {
+                          const t = form.financial_treatment;
+                          if (!t) return true;
+                          if (t === "COGS") return a.account_type === "cogs";
+                          if (t === "OpEx") return a.account_type === "opex";
+                          if (t.startsWith("Asset")) return a.account_type === "asset";
+                          return true;
+                        })
+                        .map(a => (
+                          <SelectItem key={a.id} value={a.id} className="text-xs">
+                            <span className="font-mono text-muted-foreground mr-2">{a.code}</span>{a.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label className="text-xs">Supplier</Label>
                   <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
                     <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
