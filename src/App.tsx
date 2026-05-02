@@ -26,6 +26,7 @@ import Procurement from "./pages/Procurement";
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
 import CashflowStatement from "./pages/finance/CashflowStatement";
+import CashflowCombined from "./pages/finance/CashflowCombined";
 import BalanceSheet from "./pages/finance/BalanceSheet";
 import Ledger from "./pages/finance/Ledger";
 import Journal from "./pages/finance/Journal";
@@ -104,6 +105,7 @@ function App() {
                 <Route path="/finance/cashflow" element={<AdminRoute><Cashflow /></AdminRoute>} />
                 <Route path="/finance/cashflow-ledger" element={<AdminRoute><CashflowLedger /></AdminRoute>} />
                 <Route path="/finance/cashflow-statement" element={<AdminRoute><CashflowStatement /></AdminRoute>} />
+                <Route path="/finance/cashflow-report" element={<AdminRoute><CashflowCombined /></AdminRoute>} />
                 <Route path="/finance/balance-sheet" element={<AdminRoute><BalanceSheet /></AdminRoute>} />
                 <Route path="/finance/ledger" element={<AdminRoute><Ledger /></AdminRoute>} />
                 <Route path="/finance/journal" element={<AdminRoute><Journal /></AdminRoute>} />
