@@ -34,6 +34,7 @@ const financeItems = [
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Cashflow (Operations)", url: "/finance/cashflow", icon: TrendingUp },
   { title: "Cashflow (Ledger)", url: "/finance/cashflow-ledger", icon: TrendingUp },
+  { title: "Cashflow Statement", url: "/finance/cashflow-statement", icon: TrendingUp },
   { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
   { title: "Journal", url: "/finance/journal", icon: NotebookPen },
   { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
