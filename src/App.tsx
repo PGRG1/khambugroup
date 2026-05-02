@@ -25,6 +25,7 @@ import Invoices from "./pages/Invoices";
 import Procurement from "./pages/Procurement";
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
+import CashflowStatement from "./pages/finance/CashflowStatement";
 import BalanceSheet from "./pages/finance/BalanceSheet";
 import Ledger from "./pages/finance/Ledger";
 import Journal from "./pages/finance/Journal";
@@ -102,6 +103,7 @@ function App() {
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
                 <Route path="/finance/cashflow" element={<AdminRoute><Cashflow /></AdminRoute>} />
                 <Route path="/finance/cashflow-ledger" element={<AdminRoute><CashflowLedger /></AdminRoute>} />
+                <Route path="/finance/cashflow-statement" element={<AdminRoute><CashflowStatement /></AdminRoute>} />
                 <Route path="/finance/balance-sheet" element={<AdminRoute><BalanceSheet /></AdminRoute>} />
                 <Route path="/finance/ledger" element={<AdminRoute><Ledger /></AdminRoute>} />
                 <Route path="/finance/journal" element={<AdminRoute><Journal /></AdminRoute>} />
