@@ -3,11 +3,12 @@ import autoTable from "jspdf-autotable";
 import type { PLPeriodData } from "@/hooks/usePLData";
 import { KNOWN_LINES } from "@/hooks/usePLData";
 
-// Warm orange palette matching the web app
-const TERRACOTTA = [194, 89, 35] as const;     // hsl(24,80%,50%) ≈ #C25923
-const DARK_BROWN = [56, 46, 38] as const;       // --foreground
-const WARM_CREAM = [250, 247, 243] as const;    // --background
-const GOLD_ACCENT = [200, 130, 50] as const;
+// Brand palette — blue accent on white paper for printed PDFs
+const TERRACOTTA = [59, 130, 246] as const;     // brand blue #3B82F6
+const DARK_BROWN = [30, 41, 59] as const;        // slate-800 ink
+const WARM_CREAM = [255, 255, 255] as const;     // white paper
+const GOLD_ACCENT = [14, 165, 233] as const;     // sky-500 secondary
+const LABEL_TEXT = [100, 116, 139] as const;     // slate-500
 const LABEL_TEXT = [130, 115, 100] as const;
 const GRID_LINE = [225, 218, 210] as const;
 const WHITE = [255, 255, 255] as const;
