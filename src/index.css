@@ -6,35 +6,35 @@
 
 @layer base {
   :root {
-    /* Deep zinc canvas with warm undertone */
-    --background: 240 8% 6%;            /* near-black canvas */
-    --foreground: 210 20% 92%;
+    /* Soft slate canvas — darkish, not black. Linear / Vercel feel */
+    --background: 222 18% 14%;          /* warm slate canvas */
+    --foreground: 210 20% 94%;
 
-    --card: 240 8% 9%;                  /* elevated surface */
-    --card-foreground: 210 20% 94%;
+    --card: 222 16% 18%;                /* elevated surface */
+    --card-foreground: 210 20% 96%;
 
-    --popover: 240 10% 11%;
-    --popover-foreground: 210 20% 94%;
+    --popover: 222 16% 20%;
+    --popover-foreground: 210 20% 96%;
 
-    /* Vibrant emerald accent — fintech / terminal feel on dark */
-    --primary: 152 76% 50%;
-    --primary-foreground: 152 80% 8%;
+    /* Indigo-violet primary — modern SaaS */
+    --primary: 245 78% 66%;
+    --primary-foreground: 245 40% 10%;
 
-    --secondary: 240 6% 14%;
-    --secondary-foreground: 210 15% 85%;
+    --secondary: 222 14% 22%;
+    --secondary-foreground: 210 18% 90%;
 
-    --muted: 240 6% 12%;
-    --muted-foreground: 240 5% 58%;
+    --muted: 222 14% 20%;
+    --muted-foreground: 220 10% 65%;
 
-    --accent: 199 90% 55%;              /* electric sky for highlights */
-    --accent-foreground: 0 0% 100%;
+    --accent: 192 84% 60%;              /* cyan highlight */
+    --accent-foreground: 220 30% 10%;
 
-    --destructive: 0 75% 58%;
+    --destructive: 0 70% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 16%;
-    --input: 240 6% 14%;
-    --ring: 152 76% 50%;
+    --border: 222 12% 26%;
+    --input: 222 14% 22%;
+    --ring: 245 78% 66%;
 
     --radius: 0.625rem;
 
