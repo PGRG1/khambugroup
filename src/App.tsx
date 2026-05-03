@@ -36,6 +36,7 @@ import LedgerPL from "./pages/finance/LedgerPL";
 import Receivables from "./pages/finance/Receivables";
 import Payables from "./pages/finance/Payables";
 import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
+import FinanceDashboard from "./pages/finance/Dashboard";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HRSchedule from "./pages/hr/HRSchedule";
@@ -102,6 +103,8 @@ function App() {
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
+                <Route path="/finance" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
+                <Route path="/finance/dashboard" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
                 <Route path="/finance/cashflow" element={<AdminRoute><Cashflow /></AdminRoute>} />
                 <Route path="/finance/cashflow-ledger" element={<AdminRoute><CashflowLedger /></AdminRoute>} />
                 <Route path="/finance/cashflow-statement" element={<AdminRoute><CashflowStatement /></AdminRoute>} />

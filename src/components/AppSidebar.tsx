@@ -27,6 +27,7 @@ const revenueItems = [
 ];
 
 const financeItems = [
+  { title: "Dashboard", url: "/finance/dashboard", icon: LayoutDashboard },
   { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
   { title: "P&L (Ledger)", url: "/finance/pl-ledger", icon: Receipt },
   { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
