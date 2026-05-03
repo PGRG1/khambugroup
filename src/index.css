@@ -174,13 +174,13 @@
 
   /* P&L tokens — dark financial */
   .pl-table {
-    --pl-header: 240 8% 11%;
-    --pl-row-even: 240 8% 8%;
-    --pl-row-odd: 240 8% 10%;
-    --pl-total: 152 30% 14%;
-    --pl-grand-total: 152 50% 18%;
-    --pl-section: 240 8% 13%;
-    --pl-ratio: 240 6% 9%;
-    --pl-border: 240 6% 18%;
+    --pl-header: 222 16% 22%;
+    --pl-row-even: 222 16% 17%;
+    --pl-row-odd: 222 16% 19%;
+    --pl-total: 245 30% 24%;
+    --pl-grand-total: 245 50% 30%;
+    --pl-section: 222 16% 23%;
+    --pl-ratio: 222 14% 15%;
+    --pl-border: 222 12% 28%;
   }
 }
