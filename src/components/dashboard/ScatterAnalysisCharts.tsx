@@ -27,7 +27,7 @@ const MONTH_COLORS = [
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: "hsl(35, 25%, 95%)",
+    backgroundColor: "hsl(222, 39%, 14%)",
     border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
     color: "hsl(25, 20%, 15%)",
@@ -81,7 +81,7 @@ function calcStats(values: number[]) {
 }
 
 const refLineStyle = {
-  avg: { stroke: "hsl(24, 70%, 45%)", strokeDasharray: "6 3", strokeWidth: 1.5 },
+  avg: { stroke: "hsl(217, 91%, 65%)", strokeDasharray: "6 3", strokeWidth: 1.5 },
   med: { stroke: "hsl(175, 50%, 40%)", strokeDasharray: "0", strokeWidth: 1.5 },
   p75: { stroke: "hsl(258, 40%, 55%)", strokeDasharray: "3 3", strokeWidth: 1 },
   p25: { stroke: "hsl(258, 40%, 55%)", strokeDasharray: "3 3", strokeWidth: 1 },

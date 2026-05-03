@@ -17,7 +17,7 @@ const MONTH_COLORS = [
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: "hsl(35, 25%, 95%)",
+    backgroundColor: "hsl(222, 39%, 14%)",
     border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
     color: "hsl(25, 20%, 15%)",

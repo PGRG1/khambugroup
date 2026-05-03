@@ -17,7 +17,7 @@ const MONTH_COLORS = [
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: "hsl(35, 25%, 95%)",
+    backgroundColor: "hsl(222, 39%, 14%)",
     border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
     color: "hsl(25, 20%, 15%)",
@@ -271,12 +271,12 @@ export default function CumulativeSalesChart({ data }: Props) {
                         <line x1="0" y1="5" x2="12" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                         {/* Dashed portion */}
                         <line x1="14" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" strokeDasharray="3 2" opacity={hidden ? 0.4 : 1} />
-                        <circle cx="12" cy="5" r="3" fill="hsl(35, 25%, 95%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                        <circle cx="12" cy="5" r="3" fill="hsl(222, 39%, 14%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                       </>
                     ) : (
                       <>
                         <line x1="0" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
-                        <circle cx="14" cy="5" r="3" fill="hsl(35, 25%, 95%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                        <circle cx="14" cy="5" r="3" fill="hsl(222, 39%, 14%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                       </>
                     )}
                   </svg>
