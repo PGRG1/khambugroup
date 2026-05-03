@@ -286,7 +286,7 @@ export default function PLReport() {
       ) : selectedPeriods.length === 0 ? (
         <p className="text-muted-foreground">Select at least one period to view the P&L report.</p>
       ) : (
-        <div className="pl-table rounded-xl border border-[hsl(var(--pl-border))] overflow-x-auto relative" style={{ boxShadow: '0 2px 16px -4px hsl(25 20% 15% / 0.07)' }}>
+        <div className="pl-table rounded-xl border border-[hsl(var(--pl-border))] overflow-x-auto relative" style={{ boxShadow: '0 2px 16px -4px hsl(222 60% 4% / 0.6)' }}>
           <table className="w-full text-[13px] border-collapse">
             <thead>
               <tr>
@@ -299,7 +299,7 @@ export default function PLReport() {
                   </th>
                 ))}
                 {showTotal && (
-                  <th className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-l-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(28, 22%, 83%)' }}>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-l-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(217, 50%, 28%)' }}>
                     Total
                   </th>
                 )}
@@ -324,7 +324,7 @@ export default function PLReport() {
                   } else if (isTotal && line.bold) {
                     rowBg = "hsl(217, 50%, 28%)";
                   } else if (isTotal) {
-                    rowBg = "hsl(28, 22%, 89%)";
+                    rowBg = "hsl(217, 40%, 22%)";
                   } else if (isSection) {
                     rowBg = "hsl(222, 30%, 18%)";
                   } else if (isRatio) {
