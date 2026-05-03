@@ -9,7 +9,7 @@ const DARK_BROWN = [30, 41, 59] as const;        // slate-800 ink
 const WARM_CREAM = [255, 255, 255] as const;     // white paper
 const GOLD_ACCENT = [14, 165, 233] as const;     // sky-500 secondary
 const LABEL_TEXT = [100, 116, 139] as const;     // slate-500
-const LABEL_TEXT = [130, 115, 100] as const;
+
 const GRID_LINE = [225, 218, 210] as const;
 const WHITE = [255, 255, 255] as const;
 
