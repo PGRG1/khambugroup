@@ -6,71 +6,71 @@
 
 @layer base {
   :root {
-    /* Deep zinc canvas with warm undertone */
-    --background: 240 8% 6%;            /* near-black canvas */
-    --foreground: 210 20% 92%;
+    /* Soft slate canvas — darkish, not black. Linear / Vercel feel */
+    --background: 222 18% 14%;          /* warm slate canvas */
+    --foreground: 210 20% 94%;
 
-    --card: 240 8% 9%;                  /* elevated surface */
-    --card-foreground: 210 20% 94%;
+    --card: 222 16% 18%;                /* elevated surface */
+    --card-foreground: 210 20% 96%;
 
-    --popover: 240 10% 11%;
-    --popover-foreground: 210 20% 94%;
+    --popover: 222 16% 20%;
+    --popover-foreground: 210 20% 96%;
 
-    /* Vibrant emerald accent — fintech / terminal feel on dark */
-    --primary: 152 76% 50%;
-    --primary-foreground: 152 80% 8%;
+    /* Indigo-violet primary — modern SaaS */
+    --primary: 245 78% 66%;
+    --primary-foreground: 245 40% 10%;
 
-    --secondary: 240 6% 14%;
-    --secondary-foreground: 210 15% 85%;
+    --secondary: 222 14% 22%;
+    --secondary-foreground: 210 18% 90%;
 
-    --muted: 240 6% 12%;
-    --muted-foreground: 240 5% 58%;
+    --muted: 222 14% 20%;
+    --muted-foreground: 220 10% 65%;
 
-    --accent: 199 90% 55%;              /* electric sky for highlights */
-    --accent-foreground: 0 0% 100%;
+    --accent: 192 84% 60%;              /* cyan highlight */
+    --accent-foreground: 220 30% 10%;
 
-    --destructive: 0 75% 58%;
+    --destructive: 0 70% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 16%;
-    --input: 240 6% 14%;
-    --ring: 152 76% 50%;
+    --border: 222 12% 26%;
+    --input: 222 14% 22%;
+    --ring: 245 78% 66%;
 
     --radius: 0.625rem;
 
-    --chart-1: 152 76% 50%;
-    --chart-2: 199 90% 55%;
-    --chart-3: 268 80% 68%;
-    --chart-4: 38 95% 60%;
-    --chart-5: 340 82% 62%;
+    --chart-1: 245 78% 66%;
+    --chart-2: 192 84% 60%;
+    --chart-3: 152 60% 55%;
+    --chart-4: 38 92% 62%;
+    --chart-5: 330 78% 65%;
 
-    --sidebar-background: 240 10% 4%;
-    --sidebar-foreground: 240 5% 65%;
-    --sidebar-primary: 152 76% 50%;
-    --sidebar-primary-foreground: 152 80% 8%;
-    --sidebar-accent: 240 6% 11%;
+    --sidebar-background: 224 22% 11%;
+    --sidebar-foreground: 220 12% 72%;
+    --sidebar-primary: 245 78% 66%;
+    --sidebar-primary-foreground: 245 40% 10%;
+    --sidebar-accent: 224 18% 16%;
     --sidebar-accent-foreground: 210 20% 96%;
-    --sidebar-border: 240 8% 10%;
-    --sidebar-ring: 152 76% 50%;
+    --sidebar-border: 224 18% 14%;
+    --sidebar-ring: 245 78% 66%;
 
-    /* Soft chip palette tuned for dark */
-    --chip-success-bg: 152 50% 14%;
-    --chip-success-fg: 152 76% 65%;
-    --chip-info-bg: 199 50% 16%;
-    --chip-info-fg: 199 90% 70%;
-    --chip-warn-bg: 38 60% 16%;
-    --chip-warn-fg: 38 95% 70%;
-    --chip-neutral-bg: 240 6% 16%;
-    --chip-neutral-fg: 240 5% 75%;
-    --chip-danger-bg: 0 50% 18%;
-    --chip-danger-fg: 0 80% 72%;
+    /* Soft chip palette tuned for darkish slate */
+    --chip-success-bg: 152 40% 20%;
+    --chip-success-fg: 152 70% 70%;
+    --chip-info-bg: 199 50% 22%;
+    --chip-info-fg: 199 88% 75%;
+    --chip-warn-bg: 38 55% 22%;
+    --chip-warn-fg: 38 92% 72%;
+    --chip-neutral-bg: 222 12% 24%;
+    --chip-neutral-fg: 220 12% 80%;
+    --chip-danger-bg: 0 45% 24%;
+    --chip-danger-fg: 0 78% 75%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(152 76% 50%), hsl(199 90% 55%));
-    --gradient-card: linear-gradient(160deg, hsl(240 8% 10%) 0%, hsl(240 8% 8%) 100%);
-    --gradient-surface: radial-gradient(120% 80% at 0% 0%, hsl(152 50% 12% / 0.35) 0%, transparent 55%);
-    --shadow-glow: 0 0 32px -6px hsl(152 76% 50% / 0.45);
-    --shadow-card: 0 1px 0 0 hsl(0 0% 100% / 0.04) inset, 0 8px 24px -12px hsl(0 0% 0% / 0.6);
-    --shadow-elevated: 0 1px 0 0 hsl(0 0% 100% / 0.06) inset, 0 20px 40px -20px hsl(0 0% 0% / 0.8);
+    --gradient-gold: linear-gradient(135deg, hsl(245 78% 66%), hsl(192 84% 60%));
+    --gradient-card: linear-gradient(160deg, hsl(222 16% 19%) 0%, hsl(222 16% 16%) 100%);
+    --gradient-surface: radial-gradient(120% 80% at 0% 0%, hsl(245 50% 28% / 0.25) 0%, transparent 55%);
+    --shadow-glow: 0 0 32px -6px hsl(245 78% 66% / 0.45);
+    --shadow-card: 0 1px 0 0 hsl(0 0% 100% / 0.05) inset, 0 8px 24px -12px hsl(0 0% 0% / 0.5);
+    --shadow-elevated: 0 1px 0 0 hsl(0 0% 100% / 0.07) inset, 0 20px 40px -20px hsl(0 0% 0% / 0.7);
   }
 }
 
@@ -83,8 +83,8 @@
     @apply text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
     background-image:
-      radial-gradient(1200px 600px at 80% -10%, hsl(199 90% 55% / 0.06) 0%, transparent 60%),
-      radial-gradient(900px 500px at -10% 30%, hsl(152 76% 50% / 0.05) 0%, transparent 55%);
+      radial-gradient(1200px 600px at 80% -10%, hsl(192 84% 60% / 0.07) 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 30%, hsl(245 78% 66% / 0.08) 0%, transparent 55%);
     background-attachment: fixed;
   }
 
@@ -174,13 +174,13 @@
 
   /* P&L tokens — dark financial */
   .pl-table {
-    --pl-header: 240 8% 11%;
-    --pl-row-even: 240 8% 8%;
-    --pl-row-odd: 240 8% 10%;
-    --pl-total: 152 30% 14%;
-    --pl-grand-total: 152 50% 18%;
-    --pl-section: 240 8% 13%;
-    --pl-ratio: 240 6% 9%;
-    --pl-border: 240 6% 18%;
+    --pl-header: 222 16% 22%;
+    --pl-row-even: 222 16% 17%;
+    --pl-row-odd: 222 16% 19%;
+    --pl-total: 245 30% 24%;
+    --pl-grand-total: 245 50% 30%;
+    --pl-section: 222 16% 23%;
+    --pl-ratio: 222 14% 15%;
+    --pl-border: 222 12% 28%;
   }
 }
