@@ -17,15 +17,15 @@ const MONTH_COLORS = [
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: "hsl(222, 39%, 14%)",
+    backgroundColor: "hsl(0, 0%, 100%)",
     border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
-    color: "hsl(210, 40%, 96%)",
+    color: "hsl(222, 35%, 14%)",
     fontSize: "12px",
   },
 };
 
-const axisStyle = { fontSize: 11, fill: "hsl(217, 15%, 65%)" };
+const axisStyle = { fontSize: 11, fill: "hsl(220, 12%, 46%)" };
 const gridColor = "hsl(215, 22%, 22%)";
 
 interface ChartsProps {
