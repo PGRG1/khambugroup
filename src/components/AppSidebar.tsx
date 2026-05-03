@@ -77,10 +77,13 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-sidebar-border">
       <div className={`p-4 border-b border-sidebar-border ${isPreviewActive ? "mt-10" : ""}`}>
-        <h1 className="text-xl font-bold font-display tracking-tight">
-          <span className="text-gradient-gold">KHAMBU</span>
-        </h1>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Analytics Dashboard</p>
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shadow-md">KH</div>
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold font-display tracking-tight text-sidebar-foreground leading-tight">KHAMBU</h1>
+            <p className="text-[10px] text-sidebar-foreground/60 leading-tight">F&B Control OS</p>
+          </div>
+        </div>
       </div>
 
       <SidebarContent>
