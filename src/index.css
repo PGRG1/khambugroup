@@ -38,39 +38,39 @@
 
     --radius: 0.625rem;
 
-    --chart-1: 152 76% 50%;
-    --chart-2: 199 90% 55%;
-    --chart-3: 268 80% 68%;
-    --chart-4: 38 95% 60%;
-    --chart-5: 340 82% 62%;
+    --chart-1: 245 78% 66%;
+    --chart-2: 192 84% 60%;
+    --chart-3: 152 60% 55%;
+    --chart-4: 38 92% 62%;
+    --chart-5: 330 78% 65%;
 
-    --sidebar-background: 240 10% 4%;
-    --sidebar-foreground: 240 5% 65%;
-    --sidebar-primary: 152 76% 50%;
-    --sidebar-primary-foreground: 152 80% 8%;
-    --sidebar-accent: 240 6% 11%;
+    --sidebar-background: 224 22% 11%;
+    --sidebar-foreground: 220 12% 72%;
+    --sidebar-primary: 245 78% 66%;
+    --sidebar-primary-foreground: 245 40% 10%;
+    --sidebar-accent: 224 18% 16%;
     --sidebar-accent-foreground: 210 20% 96%;
-    --sidebar-border: 240 8% 10%;
-    --sidebar-ring: 152 76% 50%;
+    --sidebar-border: 224 18% 14%;
+    --sidebar-ring: 245 78% 66%;
 
-    /* Soft chip palette tuned for dark */
-    --chip-success-bg: 152 50% 14%;
-    --chip-success-fg: 152 76% 65%;
-    --chip-info-bg: 199 50% 16%;
-    --chip-info-fg: 199 90% 70%;
-    --chip-warn-bg: 38 60% 16%;
-    --chip-warn-fg: 38 95% 70%;
-    --chip-neutral-bg: 240 6% 16%;
-    --chip-neutral-fg: 240 5% 75%;
-    --chip-danger-bg: 0 50% 18%;
-    --chip-danger-fg: 0 80% 72%;
+    /* Soft chip palette tuned for darkish slate */
+    --chip-success-bg: 152 40% 20%;
+    --chip-success-fg: 152 70% 70%;
+    --chip-info-bg: 199 50% 22%;
+    --chip-info-fg: 199 88% 75%;
+    --chip-warn-bg: 38 55% 22%;
+    --chip-warn-fg: 38 92% 72%;
+    --chip-neutral-bg: 222 12% 24%;
+    --chip-neutral-fg: 220 12% 80%;
+    --chip-danger-bg: 0 45% 24%;
+    --chip-danger-fg: 0 78% 75%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(152 76% 50%), hsl(199 90% 55%));
-    --gradient-card: linear-gradient(160deg, hsl(240 8% 10%) 0%, hsl(240 8% 8%) 100%);
-    --gradient-surface: radial-gradient(120% 80% at 0% 0%, hsl(152 50% 12% / 0.35) 0%, transparent 55%);
-    --shadow-glow: 0 0 32px -6px hsl(152 76% 50% / 0.45);
-    --shadow-card: 0 1px 0 0 hsl(0 0% 100% / 0.04) inset, 0 8px 24px -12px hsl(0 0% 0% / 0.6);
-    --shadow-elevated: 0 1px 0 0 hsl(0 0% 100% / 0.06) inset, 0 20px 40px -20px hsl(0 0% 0% / 0.8);
+    --gradient-gold: linear-gradient(135deg, hsl(245 78% 66%), hsl(192 84% 60%));
+    --gradient-card: linear-gradient(160deg, hsl(222 16% 19%) 0%, hsl(222 16% 16%) 100%);
+    --gradient-surface: radial-gradient(120% 80% at 0% 0%, hsl(245 50% 28% / 0.25) 0%, transparent 55%);
+    --shadow-glow: 0 0 32px -6px hsl(245 78% 66% / 0.45);
+    --shadow-card: 0 1px 0 0 hsl(0 0% 100% / 0.05) inset, 0 8px 24px -12px hsl(0 0% 0% / 0.5);
+    --shadow-elevated: 0 1px 0 0 hsl(0 0% 100% / 0.07) inset, 0 20px 40px -20px hsl(0 0% 0% / 0.7);
   }
 }
 
