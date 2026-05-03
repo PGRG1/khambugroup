@@ -78,9 +78,12 @@ export function AppSidebar() {
     <Sidebar className="border-r border-sidebar-border">
       <div className={`p-4 border-b border-sidebar-border ${isPreviewActive ? "mt-10" : ""}`}>
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm shadow-md">KH</div>
+          <div className="relative h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-[13px] shadow-lg shadow-primary/30">
+            KH
+            <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-white/15" />
+          </div>
           <div className="min-w-0">
-            <h1 className="text-sm font-bold font-display tracking-tight text-sidebar-foreground leading-tight">KHAMBU</h1>
+            <h1 className="text-sm font-bold font-display tracking-tight text-sidebar-accent-foreground leading-tight">KHAMBU</h1>
             <p className="text-[10px] text-sidebar-foreground/60 leading-tight">F&B Control OS</p>
           </div>
         </div>
