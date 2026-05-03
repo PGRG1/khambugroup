@@ -8,7 +8,7 @@ const COLORS = [
   "hsl(258, 50%, 55%)",
   "hsl(330, 60%, 50%)",
   "hsl(50, 70%, 45%)",
-  "hsl(175, 55%, 42%)",
+  "hsl(199, 89%, 55%)",
 ];
 
 interface PaymentBreakdownChartProps {

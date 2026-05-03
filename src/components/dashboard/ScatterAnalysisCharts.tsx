@@ -17,7 +17,7 @@ import ChartCard from "./ChartCard";
 const MONTH_COLORS = [
   "hsl(217, 91%, 60%)",
   "hsl(199, 89%, 55%)",
-  "hsl(175, 55%, 42%)",
+  "hsl(199, 89%, 55%)",
   "hsl(258, 50%, 55%)",
   "hsl(340, 60%, 50%)",
   "hsl(200, 60%, 45%)",
@@ -30,12 +30,12 @@ const tooltipStyle = {
     backgroundColor: "hsl(222, 39%, 14%)",
     border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
-    color: "hsl(25, 20%, 15%)",
+    color: "hsl(210, 40%, 96%)",
     fontSize: "12px",
   },
 };
 
-const axisStyle = { fontSize: 11, fill: "hsl(25, 10%, 50%)" };
+const axisStyle = { fontSize: 11, fill: "hsl(217, 15%, 65%)" };
 const gridColor = "hsl(215, 22%, 22%)";
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -242,7 +242,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
                 />
                 <span
                   style={{
-                    color: visible ? color : "hsl(25, 10%, 50%)",
+                    color: visible ? color : "hsl(217, 15%, 65%)",
                     textDecoration: visible ? "none" : "line-through",
                   }}
                 >
@@ -264,7 +264,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               type="number"
               domain={[1, 31]}
               tick={axisStyle}
-              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
             />
             <YAxis
               dataKey="totalSales"
@@ -293,7 +293,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               type="number"
               domain={[1, 31]}
               tick={axisStyle}
-              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
             />
             <YAxis
               dataKey="guests"
@@ -321,7 +321,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               type="number"
               domain={[1, 31]}
               tick={axisStyle}
-              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
             />
             <YAxis
               dataKey="spendPerGuest"

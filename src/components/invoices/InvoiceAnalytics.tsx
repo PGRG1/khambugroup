@@ -9,7 +9,7 @@ import { useState } from "react";
 const COLORS = [
   "hsl(217, 91%, 60%)",   // primary
   "hsl(199, 89%, 55%)",   // accent
-  "hsl(175, 55%, 42%)",  // chart-3
+  "hsl(199, 89%, 55%)",  // chart-3
   "hsl(258, 50%, 55%)",  // chart-4
   "hsl(158, 64%, 52%)",  // chart-5
   "hsl(210, 60%, 50%)",
@@ -163,8 +163,8 @@ export default function InvoiceAnalytics({ invoices }: Props) {
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 22%, 22%)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
-                  <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(217, 15%, 65%)" />
+                  <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(217, 15%, 65%)" />
                   <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Amount"]} />
                   <Bar dataKey="amount" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -183,8 +183,8 @@ export default function InvoiceAnalytics({ invoices }: Props) {
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topSuppliers} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 22%, 22%)" />
-                  <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
-                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
+                  <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(217, 15%, 65%)" />
+                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} stroke="hsl(217, 15%, 65%)" />
                   <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Total"]} labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ""} />
                   <Bar dataKey="value" fill="hsl(199, 89%, 55%)" radius={[0, 4, 4, 0]} />
                 </BarChart>

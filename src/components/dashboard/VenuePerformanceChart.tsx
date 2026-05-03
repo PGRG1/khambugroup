@@ -68,7 +68,7 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
   const COLORS = [
     "hsl(217, 91%, 60%)",
     "hsl(210, 65%, 55%)",
-    "hsl(175, 55%, 42%)",
+    "hsl(199, 89%, 55%)",
     "hsl(258, 50%, 55%)",
     "hsl(199, 89%, 55%)",
   ];

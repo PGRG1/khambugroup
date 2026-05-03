@@ -11,7 +11,7 @@ import ScatterAnalysisCharts from "./ScatterAnalysisCharts";
 const MONTH_COLORS = [
   "hsl(217, 91%, 60%)",
   "hsl(199, 89%, 55%)",
-  "hsl(175, 55%, 42%)",
+  "hsl(199, 89%, 55%)",
   "hsl(258, 50%, 55%)",
 ];
 
@@ -20,12 +20,12 @@ const tooltipStyle = {
     backgroundColor: "hsl(222, 39%, 14%)",
     border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
-    color: "hsl(25, 20%, 15%)",
+    color: "hsl(210, 40%, 96%)",
     fontSize: "12px",
   },
 };
 
-const axisStyle = { fontSize: 11, fill: "hsl(25, 10%, 50%)" };
+const axisStyle = { fontSize: 11, fill: "hsl(217, 15%, 65%)" };
 const gridColor = "hsl(215, 22%, 22%)";
 
 interface ChartsProps {
@@ -215,11 +215,11 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                   return (
                     <div style={tooltipStyle.contentStyle} className="p-2">
                       <p className="font-medium">{dayTooltipLabel(label)}</p>
-                      <p style={{ color: "hsl(175, 55%, 42%)" }}>Guests: {formatCurrency(guests)}</p>
+                      <p style={{ color: "hsl(199, 89%, 55%)" }}>Guests: {formatCurrency(guests)}</p>
                     </div>
                   );
                 }} />
-                <Line type="monotone" dataKey="guests" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="guests" stroke="hsl(199, 89%, 55%)" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -475,7 +475,7 @@ const DashboardCharts = ({ data, view, venue = "All Venues", seats = null }: Cha
                     <XAxis dataKey="month" tick={axisStyle} />
                     <YAxis tick={axisStyle} />
                     <Tooltip {...tooltipStyle} formatter={(v: number) => [formatCurrency(v), "Guests/Day"]} />
-                    <Bar dataKey="guestsPerDay" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="guestsPerDay" fill="hsl(199, 89%, 55%)" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

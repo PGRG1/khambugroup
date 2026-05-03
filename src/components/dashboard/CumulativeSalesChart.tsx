@@ -7,7 +7,7 @@ import ChartCard from "./ChartCard";
 const MONTH_COLORS = [
   "hsl(217, 91%, 60%)",
   "hsl(199, 89%, 55%)",
-  "hsl(175, 55%, 42%)",
+  "hsl(199, 89%, 55%)",
   "hsl(258, 50%, 55%)",
   "hsl(340, 60%, 50%)",
   "hsl(200, 60%, 45%)",
@@ -20,12 +20,12 @@ const tooltipStyle = {
     backgroundColor: "hsl(222, 39%, 14%)",
     border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
-    color: "hsl(25, 20%, 15%)",
+    color: "hsl(210, 40%, 96%)",
     fontSize: "12px",
   },
 };
 
-const axisStyle = { fontSize: 11, fill: "hsl(25, 10%, 50%)" };
+const axisStyle = { fontSize: 11, fill: "hsl(217, 15%, 65%)" };
 const gridColor = "hsl(215, 22%, 22%)";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -209,7 +209,7 @@ export default function CumulativeSalesChart({ data }: Props) {
               <XAxis
                 dataKey="day"
                 tick={axisStyle}
-                label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+                label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
               />
               <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
@@ -282,7 +282,7 @@ export default function CumulativeSalesChart({ data }: Props) {
                   </svg>
                   <span
                     style={{
-                      color: hidden ? "hsl(25, 10%, 50%)" : color,
+                      color: hidden ? "hsl(217, 15%, 65%)" : color,
                       textDecoration: hidden ? "line-through" : "none",
                     }}
                   >
