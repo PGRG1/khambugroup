@@ -2,9 +2,9 @@ import { formatCurrency } from "@/utils/salesUtils";
 import ChartCard from "./ChartCard";
 
 const COLORS = [
-  "hsl(24, 80%, 50%)",
+  "hsl(217, 91%, 60%)",
   "hsl(210, 65%, 55%)",
-  "hsl(145, 45%, 42%)",
+  "hsl(158, 64%, 52%)",
   "hsl(258, 50%, 55%)",
   "hsl(330, 60%, 50%)",
   "hsl(50, 70%, 45%)",

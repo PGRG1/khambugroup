@@ -5,8 +5,8 @@ import { formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
 import ChartCard from "./ChartCard";
 
 const MONTH_COLORS = [
-  "hsl(24, 80%, 50%)",
-  "hsl(14, 70%, 52%)",
+  "hsl(217, 91%, 60%)",
+  "hsl(199, 89%, 55%)",
   "hsl(175, 55%, 42%)",
   "hsl(258, 50%, 55%)",
   "hsl(340, 60%, 50%)",
@@ -18,7 +18,7 @@ const MONTH_COLORS = [
 const tooltipStyle = {
   contentStyle: {
     backgroundColor: "hsl(35, 25%, 95%)",
-    border: "1px solid hsl(30, 15%, 85%)",
+    border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
     color: "hsl(25, 20%, 15%)",
     fontSize: "12px",
@@ -26,7 +26,7 @@ const tooltipStyle = {
 };
 
 const axisStyle = { fontSize: 11, fill: "hsl(25, 10%, 50%)" };
-const gridColor = "hsl(30, 15%, 85%)";
+const gridColor = "hsl(215, 22%, 22%)";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

@@ -66,11 +66,11 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
   const totalSales = activeVenues.reduce((s, d) => s + d.totalSales, 0);
 
   const COLORS = [
-    "hsl(24, 80%, 50%)",
+    "hsl(217, 91%, 60%)",
     "hsl(210, 65%, 55%)",
     "hsl(175, 55%, 42%)",
     "hsl(258, 50%, 55%)",
-    "hsl(14, 70%, 52%)",
+    "hsl(199, 89%, 55%)",
   ];
 
   const venuePercentages = activeVenues.map((v) => ({

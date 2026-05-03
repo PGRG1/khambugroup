@@ -290,11 +290,11 @@ export default function PLReport() {
           <table className="w-full text-[13px] border-collapse">
             <thead>
               <tr>
-                <th className="text-left px-5 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest sticky left-0 z-20 min-w-[230px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
+                <th className="text-left px-5 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest sticky left-0 z-20 min-w-[230px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(222, 35%, 16%)' }}>
                   P&L
                 </th>
                 {groupedData.map((gd) => (
-                  <th key={gd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
+                  <th key={gd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(222, 35%, 16%)' }}>
                     {gd.label}
                   </th>
                 ))}
@@ -309,7 +309,7 @@ export default function PLReport() {
               {(() => {
                 let rowIdx = 0;
                 return lines.map((line, i) => {
-                  if (line.type === "blank") return <tr key={i}><td colSpan={99} className="h-px" style={{ background: 'hsl(30, 12%, 90%)' }} /></tr>;
+                  if (line.type === "blank") return <tr key={i}><td colSpan={99} className="h-px" style={{ background: 'hsl(215, 20%, 18%)' }} /></tr>;
 
                   const indent = (line.indent || 0) * 20;
                   const isHeader = line.type === "header";
@@ -320,26 +320,26 @@ export default function PLReport() {
 
                   let rowBg: string;
                   if (isHeader) {
-                    rowBg = "hsl(30, 18%, 86%)";
+                    rowBg = "hsl(222, 35%, 16%)";
                   } else if (isTotal && line.bold) {
-                    rowBg = "hsl(24, 28%, 84%)";
+                    rowBg = "hsl(217, 50%, 28%)";
                   } else if (isTotal) {
                     rowBg = "hsl(28, 22%, 89%)";
                   } else if (isSection) {
-                    rowBg = "hsl(30, 15%, 91%)";
+                    rowBg = "hsl(222, 30%, 18%)";
                   } else if (isRatio) {
-                    rowBg = "hsl(35, 18%, 95%)";
+                    rowBg = "hsl(222, 30%, 14%)";
                   } else {
-                    rowBg = rowIdx % 2 === 0 ? "hsl(33, 22%, 95%)" : "hsl(35, 28%, 97.5%)";
+                    rowBg = rowIdx % 2 === 0 ? "hsl(222, 35%, 12%)" : "hsl(222, 35%, 14%)";
                     rowIdx++;
                   }
 
                   const borderStyle = isHeader
-                    ? { borderBottom: '1px solid hsl(30, 12%, 82%)' }
+                    ? { borderBottom: '1px solid hsl(215, 20%, 24%)' }
                     : (isTotal && line.bold)
-                    ? { borderTop: '2px solid hsl(24, 20%, 78%)', borderBottom: '1px solid hsl(30, 12%, 85%)' }
+                    ? { borderTop: '2px solid hsl(217, 50%, 30%)', borderBottom: '1px solid hsl(215, 20%, 22%)' }
                     : isTotal
-                    ? { borderTop: '1px solid hsl(30, 12%, 85%)', borderBottom: '1px solid hsl(30, 12%, 88%)' }
+                    ? { borderTop: '1px solid hsl(215, 20%, 22%)', borderBottom: '1px solid hsl(215, 20%, 20%)' }
                     : {};
 
                   const labelClass = isHeader
@@ -393,7 +393,7 @@ export default function PLReport() {
                         const val = line.getValue(totals);
                         const isNeg = typeof val === "number" && val < 0;
                         return (
-                          <td className={`${valueCellClass(isNeg)} ${isEditable ? "font-medium" : ""}`} style={{ borderLeft: '2px solid hsl(30, 12%, 82%)', background: rowBg }}>
+                          <td className={`${valueCellClass(isNeg)} ${isEditable ? "font-medium" : ""}`} style={{ borderLeft: '2px solid hsl(215, 20%, 24%)', background: rowBg }}>
                             {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
                           </td>
                         );
@@ -406,7 +406,7 @@ export default function PLReport() {
           </table>
 
           {!hideAddLineItem && (
-            <div style={{ borderTop: '2px solid hsl(30, 12%, 82%)' }}>
+            <div style={{ borderTop: '2px solid hsl(215, 20%, 24%)' }}>
               <PLAddLineItem year={selectedPeriods[0]?.year || new Date().getFullYear()} months={allMonths} onAdded={refetch} />
             </div>
           )}
