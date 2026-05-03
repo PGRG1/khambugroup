@@ -11,7 +11,7 @@ export default function CashflowCombined() {
       <div className="flex items-center justify-between mb-2">
         <Tabs value={view} onValueChange={(v) => setView(v as "statement" | "ledger")}>
           <TabsList>
-            <TabsTrigger value="statement">Statement view</TabsTrigger>
+            <TabsTrigger value="statement">Direct</TabsTrigger>
             <TabsTrigger value="ledger">Ledger view</TabsTrigger>
           </TabsList>
         </Tabs>
