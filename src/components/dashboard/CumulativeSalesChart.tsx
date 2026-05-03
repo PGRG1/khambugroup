@@ -5,9 +5,9 @@ import { formatCurrency, getMonthLabel, getMonthKey } from "@/utils/salesUtils";
 import ChartCard from "./ChartCard";
 
 const MONTH_COLORS = [
-  "hsl(24, 80%, 50%)",
-  "hsl(14, 70%, 52%)",
-  "hsl(175, 55%, 42%)",
+  "hsl(217, 91%, 60%)",
+  "hsl(199, 89%, 55%)",
+  "hsl(199, 89%, 55%)",
   "hsl(258, 50%, 55%)",
   "hsl(340, 60%, 50%)",
   "hsl(200, 60%, 45%)",
@@ -17,16 +17,16 @@ const MONTH_COLORS = [
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: "hsl(35, 25%, 95%)",
-    border: "1px solid hsl(30, 15%, 85%)",
+    backgroundColor: "hsl(222, 39%, 14%)",
+    border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
-    color: "hsl(25, 20%, 15%)",
+    color: "hsl(210, 40%, 96%)",
     fontSize: "12px",
   },
 };
 
-const axisStyle = { fontSize: 11, fill: "hsl(25, 10%, 50%)" };
-const gridColor = "hsl(30, 15%, 85%)";
+const axisStyle = { fontSize: 11, fill: "hsl(217, 15%, 65%)" };
+const gridColor = "hsl(215, 22%, 22%)";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -209,7 +209,7 @@ export default function CumulativeSalesChart({ data }: Props) {
               <XAxis
                 dataKey="day"
                 tick={axisStyle}
-                label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+                label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
               />
               <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
@@ -218,7 +218,7 @@ export default function CumulativeSalesChart({ data }: Props) {
                   const isProj = name.endsWith("_proj");
                   const monthKey = isProj ? name.replace("_proj", "") : name;
                   const label = getMonthLabel(monthKey);
-                  return [`$${formatCurrency(v)}`, isProj ? `${label} + Proj.` : label];
+                  return [`${formatCurrency(v)}`, isProj ? `${label} + Proj.` : label];
                 }}
                 labelFormatter={(l) => `Day ${l}`}
               />
@@ -271,18 +271,18 @@ export default function CumulativeSalesChart({ data }: Props) {
                         <line x1="0" y1="5" x2="12" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                         {/* Dashed portion */}
                         <line x1="14" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" strokeDasharray="3 2" opacity={hidden ? 0.4 : 1} />
-                        <circle cx="12" cy="5" r="3" fill="hsl(35, 25%, 95%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                        <circle cx="12" cy="5" r="3" fill="hsl(222, 39%, 14%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                       </>
                     ) : (
                       <>
                         <line x1="0" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
-                        <circle cx="14" cy="5" r="3" fill="hsl(35, 25%, 95%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                        <circle cx="14" cy="5" r="3" fill="hsl(222, 39%, 14%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                       </>
                     )}
                   </svg>
                   <span
                     style={{
-                      color: hidden ? "hsl(25, 10%, 50%)" : color,
+                      color: hidden ? "hsl(217, 15%, 65%)" : color,
                       textDecoration: hidden ? "line-through" : "none",
                     }}
                   >

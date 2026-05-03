@@ -55,12 +55,12 @@ interface PMCategory {
 
 // Warm muted palette consistent with platform design tokens
 const PALETTE = [
-  "hsl(24, 80%, 50%)",   // primary - terracotta
-  "hsl(14, 70%, 52%)",   // accent
-  "hsl(175, 55%, 42%)",  // chart-3 teal
+  "hsl(217, 91%, 60%)",   // primary - terracotta
+  "hsl(199, 89%, 55%)",   // accent
+  "hsl(199, 89%, 55%)",  // chart-3 teal
   "hsl(258, 50%, 55%)",  // chart-4 muted purple
-  "hsl(145, 45%, 42%)",  // chart-5 sage
-  "hsl(30, 60%, 58%)",   // warm gold
+  "hsl(158, 64%, 52%)",  // chart-5 sage
+  "hsl(38, 92%, 60%)",   // warm gold
   "hsl(200, 40%, 50%)",  // muted steel blue
   "hsl(340, 40%, 52%)",  // dusty rose
 ];
@@ -85,8 +85,8 @@ function formatMonthLabel(key: string) {
 }
 
 const tooltipStyle = {
-  backgroundColor: "hsl(33, 25%, 94%)",
-  border: "1px solid hsl(30, 15%, 85%)",
+  backgroundColor: "hsl(222, 39%, 14%)",
+  border: "1px solid hsl(215, 22%, 22%)",
   borderRadius: "0.5rem",
   fontSize: "12px",
   boxShadow: "0 4px 24px -4px hsl(25 20% 15% / 0.08)",
@@ -368,7 +368,7 @@ export default function ProcurementDashboardTab() {
       <text
         x={x + width + 6}
         y={y + height / 2}
-        fill="hsl(25, 10%, 50%)"
+        fill="hsl(217, 15%, 65%)"
         fontSize={10}
         fontFamily="monospace"
         dominantBaseline="middle"
@@ -482,9 +482,9 @@ export default function ProcurementDashboardTab() {
                     labelStyle={{ fontWeight: 600, fontSize: 12 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} name="Revenue" />
-                  <Bar yAxisId="left" dataKey="value" fill="hsl(24, 80%, 50%)" radius={[3, 3, 0, 0]} name="Spend" />
-                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cumulative Cost of Revenue %" connectNulls={false} />
+                  <Bar yAxisId="left" dataKey="revenue" fill="hsl(199, 89%, 55%)" radius={[3, 3, 0, 0]} name="Revenue" />
+                  <Bar yAxisId="left" dataKey="value" fill="hsl(217, 91%, 60%)" radius={[3, 3, 0, 0]} name="Spend" />
+                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(199, 89%, 55%)" strokeWidth={2} dot={{ r: 3 }} name="Cumulative Cost of Revenue %" connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : monthlyTrend.length > 0 ? (
@@ -504,9 +504,9 @@ export default function ProcurementDashboardTab() {
                     labelStyle={{ fontWeight: 600, fontSize: 12 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[4, 4, 0, 0]} name="Revenue" />
-                  <Bar yAxisId="left" dataKey="spend" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} name="Spend" />
-                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(14, 70%, 52%)" strokeWidth={2} dot={{ r: 3 }} name="Cost of Revenue %" connectNulls={false} />
+                  <Bar yAxisId="left" dataKey="revenue" fill="hsl(199, 89%, 55%)" radius={[4, 4, 0, 0]} name="Revenue" />
+                  <Bar yAxisId="left" dataKey="spend" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} name="Spend" />
+                  <Line yAxisId="right" type="monotone" dataKey="costPct" stroke="hsl(199, 89%, 55%)" strokeWidth={2} dot={{ r: 3 }} name="Cost of Revenue %" connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
@@ -541,8 +541,8 @@ export default function ProcurementDashboardTab() {
                     <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmt(v), "Spend"]} labelStyle={{ fontWeight: 600, fontSize: 12 }} />
                     <defs>
                       <linearGradient id="supplierGrad" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.7} />
-                        <stop offset="100%" stopColor="hsl(24, 80%, 55%)" stopOpacity={1} />
+                        <stop offset="0%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.7} />
+                        <stop offset="100%" stopColor="hsl(217, 91%, 65%)" stopOpacity={1} />
                       </linearGradient>
                     </defs>
                     <Bar dataKey="value" fill="url(#supplierGrad)" radius={[0, 4, 4, 0]} label={renderSupplierBarLabel} />
@@ -604,7 +604,7 @@ export default function ProcurementDashboardTab() {
                       dataKey="value"
                       nameKey="name"
                       paddingAngle={2}
-                      stroke="hsl(33, 25%, 94%)"
+                      stroke="hsl(222, 39%, 14%)"
                       strokeWidth={2}
                     >
                       {l1Data.map((_, i) => (
@@ -666,8 +666,8 @@ export default function ProcurementDashboardTab() {
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmt(v), "Spend"]} labelStyle={{ fontWeight: 600, fontSize: 12 }} />
                   <defs>
                     <linearGradient id="productGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="hsl(175, 55%, 42%)" stopOpacity={0.6} />
-                      <stop offset="100%" stopColor="hsl(175, 55%, 42%)" stopOpacity={1} />
+                      <stop offset="0%" stopColor="hsl(199, 89%, 55%)" stopOpacity={0.6} />
+                      <stop offset="100%" stopColor="hsl(199, 89%, 55%)" stopOpacity={1} />
                     </linearGradient>
                   </defs>
                   <Bar dataKey="value" fill="url(#productGrad)" radius={[0, 4, 4, 0]} />

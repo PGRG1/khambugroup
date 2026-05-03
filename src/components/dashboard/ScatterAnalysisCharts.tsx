@@ -15,9 +15,9 @@ import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import ChartCard from "./ChartCard";
 
 const MONTH_COLORS = [
-  "hsl(24, 80%, 50%)",
-  "hsl(14, 70%, 52%)",
-  "hsl(175, 55%, 42%)",
+  "hsl(217, 91%, 60%)",
+  "hsl(199, 89%, 55%)",
+  "hsl(199, 89%, 55%)",
   "hsl(258, 50%, 55%)",
   "hsl(340, 60%, 50%)",
   "hsl(200, 60%, 45%)",
@@ -27,16 +27,16 @@ const MONTH_COLORS = [
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: "hsl(35, 25%, 95%)",
-    border: "1px solid hsl(30, 15%, 85%)",
+    backgroundColor: "hsl(222, 39%, 14%)",
+    border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
-    color: "hsl(25, 20%, 15%)",
+    color: "hsl(210, 40%, 96%)",
     fontSize: "12px",
   },
 };
 
-const axisStyle = { fontSize: 11, fill: "hsl(25, 10%, 50%)" };
-const gridColor = "hsl(30, 15%, 85%)";
+const axisStyle = { fontSize: 11, fill: "hsl(217, 15%, 65%)" };
+const gridColor = "hsl(215, 22%, 22%)";
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -81,7 +81,7 @@ function calcStats(values: number[]) {
 }
 
 const refLineStyle = {
-  avg: { stroke: "hsl(24, 70%, 45%)", strokeDasharray: "6 3", strokeWidth: 1.5 },
+  avg: { stroke: "hsl(217, 91%, 65%)", strokeDasharray: "6 3", strokeWidth: 1.5 },
   med: { stroke: "hsl(175, 50%, 40%)", strokeDasharray: "0", strokeWidth: 1.5 },
   p75: { stroke: "hsl(258, 40%, 55%)", strokeDasharray: "3 3", strokeWidth: 1 },
   p25: { stroke: "hsl(258, 40%, 55%)", strokeDasharray: "3 3", strokeWidth: 1 },
@@ -168,7 +168,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
     if (!p) return null;
 
     let valueStr = "";
-    if (metric === "revenue") valueStr = `$${formatCurrency(p.totalSales)}`;
+    if (metric === "revenue") valueStr = `${formatCurrency(p.totalSales)}`;
     else if (metric === "guests") valueStr = `${p.guests}`;
     else valueStr = `$${p.spendPerGuest}`;
 
@@ -182,7 +182,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
   };
 
   const renderRefLines = (stats: { avg: number; med: number; p25: number; p75: number }, isCurrency: boolean) => {
-    const fmt = (v: number) => isCurrency ? `$${formatCurrency(v)}` : v.toLocaleString();
+    const fmt = (v: number) => isCurrency ? `${formatCurrency(v)}` : v.toLocaleString();
     return (
       <>
         <ReferenceLine y={stats.avg} {...refLineStyle.avg} label={{ value: `Avg ${fmt(stats.avg)}`, position: "right", fontSize: 10, fill: refLineStyle.avg.stroke }} />
@@ -242,7 +242,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
                 />
                 <span
                   style={{
-                    color: visible ? color : "hsl(25, 10%, 50%)",
+                    color: visible ? color : "hsl(217, 15%, 65%)",
                     textDecoration: visible ? "none" : "line-through",
                   }}
                 >
@@ -264,7 +264,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               type="number"
               domain={[1, 31]}
               tick={axisStyle}
-              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
             />
             <YAxis
               dataKey="totalSales"
@@ -293,7 +293,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               type="number"
               domain={[1, 31]}
               tick={axisStyle}
-              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
             />
             <YAxis
               dataKey="guests"
@@ -321,7 +321,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               type="number"
               domain={[1, 31]}
               tick={axisStyle}
-              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
+              label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
             />
             <YAxis
               dataKey="spendPerGuest"

@@ -24,7 +24,7 @@ export type ChartSpec = {
 
 // Warm terracotta + gold palette to match the dashboard
 const PALETTE = [
-  "hsl(14, 65%, 55%)",   // terracotta
+  "hsl(199, 89%, 55%)",   // terracotta
   "hsl(38, 80%, 55%)",   // gold
   "hsl(160, 40%, 45%)",  // sage
   "hsl(220, 50%, 55%)",  // dusty blue

@@ -96,7 +96,7 @@ export function SalesDetailModal({ record, open, onOpenChange, onEdit, onDelete,
       <div className="flex items-center justify-between py-0.5">
         <span className="text-sm text-muted-foreground">{label}</span>
         <span className={`text-sm font-medium ${warn ? "text-destructive" : "text-foreground"}`}>
-          {typeof value === "number" ? (isCurrency ? `$${formatCurrency(value)}` : value.toLocaleString()) : value}
+          {typeof value === "number" ? (isCurrency ? `${formatCurrency(value)}` : value.toLocaleString()) : value}
         </span>
       </div>
     );
