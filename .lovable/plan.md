@@ -1,102 +1,111 @@
-# Dark Theme Redesign + Format Standardization
 
-Move the whole app from the warm cream/terracotta palette to a **modern dark slate** theme with a **blue primary accent**, and unify text, table, dropdown, date, number and currency formatting across every page.
+## Goal
 
-## 1. Design tokens (`src/index.css` + `tailwind.config.ts`)
+Add a new page **Cashflow Statement** at `/finance/cashflow-statement` that presents cash movements in the standard accounting structure (Operating, Investing, Financing) — the way it appears in a real set of financial statements.
 
-Replace the `:root` HSL tokens with a slate-based dark palette (no `.dark` class needed — dark is the only mode). Update gradients, shadows and the `.pl-table` token block to match.
+The two existing pages stay unchanged:
+- `/finance/cashflow` — operations / source-based view (sales, invoices, payroll)
+- `/finance/cashflow-ledger` — flat ledger view of cash account movements
+
+The new page is the **formal statement** version.
+
+## Layout
 
 ```text
---background        222 47% 8%     // #0F172A near
---foreground        210 40% 96%
---card              222 39% 12%    // #1E293B
---card-foreground   210 40% 96%
---popover           222 39% 14%
---primary           217 91% 60%    // #3B82F6 blue
---primary-foreground 0 0% 100%
---secondary         215 28% 18%
---muted             215 25% 16%
---muted-foreground  217 15% 65%
---accent            217 91% 60%
---destructive       0 72% 55%
---border            215 22% 22%
---input             215 22% 22%
---ring              217 91% 65%
---sidebar-background 222 45% 9%
---sidebar-accent    217 30% 18%
---sidebar-primary   217 91% 60%
---chart-1..5        blue/cyan/violet/emerald/amber on dark
+Cashflow Statement                             [Period selector] [CSV] [PDF]
+For the period: 1 Jan 2026 – 30 Apr 2026
+
+──────────────────────────────────────────────────────────────────
+  Opening cash & cash equivalents                       1,234,567
+──────────────────────────────────────────────────────────────────
+  CASH FLOWS FROM OPERATING ACTIVITIES
+    Cash receipts from customers (sales)                2,500,000
+    Cash paid to suppliers                             (1,200,000)
+    Cash paid to employees (net salaries)                (450,000)
+    MPF contributions paid                                (35,000)
+    Tips paid out                                         (28,000)
+    Other operating receipts / (payments)                  12,000
+                                                       ──────────
+    Net cash from operating activities                    799,000
+
+  CASH FLOWS FROM INVESTING ACTIVITIES
+    Purchase of fixed assets                              (80,000)
+    Supplier deposits paid                                (25,000)
+    Refunds of supplier deposits                           10,000
+                                                       ──────────
+    Net cash used in investing activities                 (95,000)
+
+  CASH FLOWS FROM FINANCING ACTIVITIES
+    Owner contributions                                    50,000
+    Owner withdrawals                                     (30,000)
+                                                       ──────────
+    Net cash from financing activities                     20,000
+
+──────────────────────────────────────────────────────────────────
+  Net increase / (decrease) in cash                       724,000
+  Opening cash & cash equivalents                       1,234,567
+  Closing cash & cash equivalents                       1,958,567
+══════════════════════════════════════════════════════════════════
 ```
 
-Also update:
-- `--gradient-card` → subtle slate gradient
-- `--shadow-card` / `--shadow-glow` → blue-tinted shadow on dark
-- `.text-gradient-gold` → rename usage stays, but redefine to a blue→cyan gradient (keep class name for compatibility, or replace with `text-gradient-brand`)
-- `.pl-table` tokens → slate variants so the P&L still has visible row striping on dark
-- `body` keeps DM Sans / Space Grotesk fonts (no font change requested)
+Each section is expandable: clicking a line opens a sub-table showing the contributing journal lines (date, account, memo, amount) so the user can drill into how the figure was built.
 
-## 2. New shared format helpers (`src/utils/format.ts`)
+A small reconciliation footer confirms:  
+**Closing per statement = Cash account balances at period end (per Trial Balance)** — green check or red mismatch with delta.
 
-Single source of truth for all numeric/date display:
+## Period & filter controls
 
-```ts
-export const formatCurrency = (n: number, opts?: { decimals?: 0|2; sign?: boolean }) => string
-   // → "HK$ 1,234.56"  (default 2 decimals, no forced sign)
-export const formatCurrencyCompact = (n: number) => string  // "HK$ 12.3K / 1.2M"
-export const formatNumber = (n: number, decimals=0) => string
-export const formatPercent = (n: number, decimals=1) => string
-export const formatDate = (d: string|Date) => string         // "03 May 2026"
-export const formatDateShort = (d: string|Date) => string    // "03 May"
-export const formatMonth = (d: string|Date) => string        // "May 2026"
-export const formatDateTime = (d: string|Date) => string     // "03 May 2026 14:32"
-```
+- **Period selector**: Month / Quarter / Year-to-date / Custom date range (consistent with other Finance pages).
+- **Comparison column** (toggle): "vs prior period" — shows the same statement for the previous equivalent period side-by-side.
+- **Venue filter**: All Venues / specific venue (uses the `venue` field already present on journal lines).
 
-Locale `en-HK`, currency code displayed as `HK$` prefix manually so we control spacing.
+## Classification logic (Direct method)
 
-Then **sweep all 49 files** that use `formatCurrency` / `toLocaleString` / `toLocaleDateString` / `Intl.NumberFormat` to import from `@/utils/format`. The existing `formatCurrency` in `salesUtils.ts` becomes a thin re-export so old imports keep working, then we migrate them in batches.
+Cash movements are classified by looking at the **counter-account** on each cash-side journal line. For each row in `v_cash_movements` we read the *other* account(s) in the same `entry_id` and classify:
 
-PDF/CSV generators (`generateReport.ts`, `generatePLReport.ts`, CSV exports) also switch to these helpers so exports match the UI exactly.
+| Counter-account type / code                        | Section            | Line item                                |
+|----------------------------------------------------|--------------------|------------------------------------------|
+| `revenue`, merchant receivables (1220–1295), 1900  | Operating          | Cash receipts from customers             |
+| `cogs`, AP (2010/2100), supplier deposits refund   | Operating          | Cash paid to suppliers                   |
+| Salary Payable (2040)                              | Operating          | Cash paid to employees                   |
+| MPF Payable (2030)                                 | Operating          | MPF contributions paid                   |
+| Tips Payable (2110–2140)                           | Operating          | Tips paid out                            |
+| `opex` accounts                                    | Operating          | Other operating payments                 |
+| Fixed Assets (1500)                                | Investing          | Purchase of fixed assets                 |
+| Supplier Deposits (1310) — outflow                 | Investing          | Supplier deposits paid                   |
+| Supplier Deposits (1310) — inflow                  | Investing          | Refunds of supplier deposits             |
+| Prepayments (1320)                                 | Operating          | Prepayments made                         |
+| Owner Equity (3010) inflow                         | Financing          | Owner contributions                      |
+| Owner Equity (3010) outflow                        | Financing          | Owner withdrawals                        |
+| Anything else                                      | Operating — Other  | Other operating receipts / (payments)    |
 
-## 3. Shared UI primitives audit
+A small mapping table at the bottom of the page lists any **unclassified** journal lines so the admin can spot misposted entries.
 
-Standardize the look of these so every page is consistent on dark:
+## Technical Implementation
 
-- **Table** (`src/components/ui/table.tsx`): add subtle row hover (`hover:bg-muted/40`), zebra option via `data-zebra`, sticky header utility, right-aligned numeric cell helper class `td-num` (tabular-nums, font-mono-ish).
-- **Input / Textarea / Select / Popover / Dropdown / Dialog / Sheet / Tabs / Card / Badge / Button**: all already use CSS vars, so they pick up the new tokens automatically. Verify focus rings (`--ring`) and disabled states read well on dark; tighten where needed.
-- **Sidebar** (`AppSidebar.tsx`): keep structure, restyle the `KHAMBU` wordmark to use the new blue gradient, active-link bg uses `bg-primary/15 text-primary`.
-- **AppLayout header**: dark bg, border-b uses `--border`.
-- **`card-glass` utility**: keep the class name, redefine to slate gradient + 1px border + soft blue shadow — every existing card inherits the new look with zero per-file changes.
-- **Charts** (`components/ui/chart.tsx` and chart consumers): swap chart palette to the new `--chart-1..5`, set tooltip bg to `--popover`, gridline stroke to `--border`.
-- **Dropdown logic**: keep current Radix `Select` behaviour (already memo'd to filter empty strings — core rule preserved). Standardize trigger height (`h-9`), chevron icon, and option row padding across every Select usage.
+**New files**
+- `src/pages/finance/CashflowStatement.tsx` — the page
+- `src/hooks/useCashflowStatement.ts` — fetches `journal_lines` with their entries, joins to `chart_of_accounts`, classifies each line into a statement bucket, and aggregates by period
+- `src/utils/cashflowStatementClassifier.ts` — pure function that takes a (cash line, counter accounts[]) tuple and returns `{ section, lineItem }`
 
-## 4. Page-level sweep
+**Routing**
+- Add route in `src/App.tsx`:  
+  `<Route path="/finance/cashflow-statement" element={<AdminRoute><CashflowStatement /></AdminRoute>} />`
 
-For each route under `src/pages/**`, do a quick visual pass to:
-- Replace any hard-coded light hex colors (`#fff`, `bg-white`, `text-black`, cream/orange literals) with token classes.
-- Replace inline `toLocaleString`/`toLocaleDateString`/manual currency strings with the new helpers.
-- Ensure tables use the unified `<Table>` primitives with the `td-num` class on numeric columns.
-- Ensure date pickers / filter chips / KPI cards / modals all use `card-glass` or `bg-card`.
+**Sidebar**
+- Add a new entry **"Cashflow Statement"** under the Finance group in `AppSidebar.tsx`, next to the existing Cashflow / Cashflow (Ledger) entries.
 
-Files needing the most attention (based on hex/literal scans): `PLReport.tsx`, `Index.tsx`, `Invoices.tsx`, all `pages/finance/*`, all `pages/hr/*`, `components/dashboard/*`, `components/forecast/*`, `components/procurement/*`, `components/pl/*`, `components/hr/*`, `components/invoices/*`.
+**Data fetching**
+- Use `fetchAllRows("v_cash_movements", "*")` (already exists) for cash legs.
+- Pull the corresponding non-cash counter-lines via `fetchAllRows("journal_lines", "entry_id, account_id, debit, credit")` filtered to the same `entry_id` set, joined to `chart_of_accounts` for type/code lookup.
+- Opening balance = sum of `net_cash` for all dates `< fromDate` on cash accounts.
 
-## 5. PDF / Print themes
+**Export**
+- CSV export with the statement structure (section, line item, amount, comparative).
+- Optional PDF export reusing the existing `generatePLReport` styling pattern — out of scope unless requested.
 
-`generateReport.ts` and `generatePLReport.ts` currently use orange branding. Switch the PDF accent color to the new blue (`#3B82F6`) and run them through their existing color-mapping constants. Keep paper background white (PDFs stay light for printing) but headers/totals use the new blue.
+## Out of scope (for this iteration)
 
-## 6. Memory updates
+- Indirect-method version (start from Net Income, adjust for non-cash items + working capital changes). Can be added later as a toggle.
+- Editing classification rules from the UI (rules will live in code; misposted entries shown in the "Unclassified" table).
 
-After implementation, update these memory entries to reflect the new identity:
-- Core: change "Warm/light aesthetic. Cream backgrounds, terracotta/gold accents" → "Dark slate aesthetic (#0F172A bg, #1E293B cards). Primary blue #3B82F6. Use shared helpers in `@/utils/format` for all currency/date/number display."
-- `mem://style/visual-aesthetic` → rewrite for dark slate + blue.
-- `mem://features/pl-report/styling` and `mem://features/pl-report/export` → blue accent instead of orange.
-- Add new `mem://style/format-helpers` describing `@/utils/format` as the single source of truth.
-
-## Out of scope
-
-- No layout/IA changes, no component rewrites beyond styling and format calls.
-- No font change.
-- No changes to business logic, data fetching, RLS, or routing.
-
-## Deliverable
-
-After approval, the app will look uniformly dark-slate + blue across Revenue, Finance, Procurement, HR and Admin, and every currency/date/number on screen and in exports will follow `HK$ 1,234.56` / `DD MMM YYYY`.

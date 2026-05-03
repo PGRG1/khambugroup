@@ -7,11 +7,11 @@ import { Invoice } from "@/hooks/useInvoiceData";
 import { useState } from "react";
 
 const COLORS = [
-  "hsl(217, 91%, 60%)",   // primary
-  "hsl(199, 89%, 55%)",   // accent
-  "hsl(199, 89%, 55%)",  // chart-3
+  "hsl(24, 80%, 50%)",   // primary
+  "hsl(14, 70%, 52%)",   // accent
+  "hsl(175, 55%, 42%)",  // chart-3
   "hsl(258, 50%, 55%)",  // chart-4
-  "hsl(158, 64%, 52%)",  // chart-5
+  "hsl(145, 45%, 42%)",  // chart-5
   "hsl(210, 60%, 50%)",
   "hsl(340, 55%, 50%)",
   "hsl(45, 70%, 50%)",
@@ -162,11 +162,11 @@ export default function InvoiceAnalytics({ invoices }: Props) {
             {monthlyData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 22%, 22%)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(220, 12%, 46%)" />
-                  <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(220, 12%, 46%)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(30, 15%, 85%)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
+                  <YAxis tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
                   <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Amount"]} />
-                  <Bar dataKey="amount" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="amount" fill="hsl(24, 80%, 50%)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -182,11 +182,11 @@ export default function InvoiceAnalytics({ invoices }: Props) {
             {topSuppliers.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={topSuppliers} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 22%, 22%)" />
-                  <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(220, 12%, 46%)" />
-                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} stroke="hsl(220, 12%, 46%)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(30, 15%, 85%)" />
+                  <XAxis type="number" tickFormatter={(v) => fmt(v)} tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
+                  <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} stroke="hsl(25, 10%, 50%)" />
                   <Tooltip formatter={(v: number) => [`$${v.toLocaleString()}`, "Total"]} labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ""} />
-                  <Bar dataKey="value" fill="hsl(199, 89%, 55%)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="value" fill="hsl(14, 70%, 52%)" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

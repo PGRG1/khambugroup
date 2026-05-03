@@ -144,13 +144,13 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   y += 10;
 
   const kpis = [
-    { label: "TOTAL SALES", value: `${formatCurrency(totalSales)}` },
+    { label: "TOTAL SALES", value: `$${formatCurrency(totalSales)}` },
     { label: "TOTAL GUESTS", value: formatCurrency(totalGuests) },
     { label: "TOTAL ORDERS", value: formatCurrency(totalOrders) },
-    { label: "AVG / GUEST", value: `${formatCurrency(avgPerGuest)}` },
-    { label: "AVG / ORDER", value: `${formatCurrency(avgPerOrder)}` },
-    { label: "AVG DAILY SALES", value: `${formatCurrency(avgDailySales)}` },
-    { label: "TOTAL DISCOUNT", value: `${formatCurrency(Math.abs(totalDiscount))}` },
+    { label: "AVG / GUEST", value: `$${formatCurrency(avgPerGuest)}` },
+    { label: "AVG / ORDER", value: `$${formatCurrency(avgPerOrder)}` },
+    { label: "AVG DAILY SALES", value: `$${formatCurrency(avgDailySales)}` },
+    { label: "TOTAL DISCOUNT", value: `$${formatCurrency(Math.abs(totalDiscount))}` },
     { label: "TRADING DAYS", value: String(daysCount) },
   ];
 
@@ -190,11 +190,11 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
 
     const headRow = ["Metric", ...venueComp.map(v => v.venue)];
     const bodyRows = [
-      ["Total Sales", ...venueComp.map(v => `${formatCurrency(v.totalSales)}`)],
+      ["Total Sales", ...venueComp.map(v => `$${formatCurrency(v.totalSales)}`)],
       ["Total Guests", ...venueComp.map(v => formatCurrency(v.totalGuests))],
       ["Total Orders", ...venueComp.map(v => formatCurrency(v.totalOrders))],
-      ["Avg / Guest", ...venueComp.map(v => `${formatCurrency(v.avgPerGuest)}`)],
-      ["Avg / Order", ...venueComp.map(v => `${formatCurrency(v.avgPerOrder)}`)],
+      ["Avg / Guest", ...venueComp.map(v => `$${formatCurrency(v.avgPerGuest)}`)],
+      ["Avg / Order", ...venueComp.map(v => `$${formatCurrency(v.avgPerOrder)}`)],
       ["Trading Days", ...venueComp.map(v => String(v.days))],
     ];
 

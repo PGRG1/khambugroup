@@ -43,9 +43,9 @@ export function filterData(
   });
 }
 
-// Re-export from the canonical formatter so the whole app stays in sync.
-// Returns "HK$ 1,234.56" by default.
-export { formatCurrency, formatNumber, formatPercent, formatDate, formatDateShort, formatMonth, formatDateTime, formatCurrencyCompact } from "@/utils/format";
+export function formatCurrency(value: number): string {
+  return value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
 
 export function getPaymentTotal(
   record: Pick<SalesRecord, "visa" | "mastercard" | "amex" | "unionPay" | "jcb" | "alipay" | "wechat" | "payme" | "cash"> & Partial<Pick<SalesRecord, "cardTips">>,

@@ -2,185 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    /* Soft slate canvas — darkish, not black. Linear / Vercel feel */
-    --background: 222 18% 14%;          /* warm slate canvas */
-    --foreground: 210 20% 94%;
+    --background: 35 30% 97%;
+    --foreground: 25 20% 15%;
 
-    --card: 222 16% 18%;                /* elevated surface */
-    --card-foreground: 210 20% 96%;
+    --card: 33 25% 93%;
+    --card-foreground: 25 20% 15%;
 
-    --popover: 222 16% 20%;
-    --popover-foreground: 210 20% 96%;
+    --popover: 35 25% 95%;
+    --popover-foreground: 25 20% 15%;
 
-    /* Indigo-violet primary — modern SaaS */
-    --primary: 245 78% 66%;
-    --primary-foreground: 245 40% 10%;
+    --primary: 24 80% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 14% 22%;
-    --secondary-foreground: 210 18% 90%;
+    --secondary: 30 20% 90%;
+    --secondary-foreground: 25 15% 30%;
 
-    --muted: 222 14% 20%;
-    --muted-foreground: 220 10% 65%;
+    --muted: 30 15% 92%;
+    --muted-foreground: 25 10% 50%;
 
-    --accent: 192 84% 60%;              /* cyan highlight */
-    --accent-foreground: 220 30% 10%;
+    --accent: 14 70% 52%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 70% 60%;
+    --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 12% 26%;
-    --input: 222 14% 22%;
-    --ring: 245 78% 66%;
+    --border: 30 15% 85%;
+    --input: 30 15% 85%;
+    --ring: 24 80% 50%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
-    --chart-1: 245 78% 66%;
-    --chart-2: 192 84% 60%;
-    --chart-3: 152 60% 55%;
-    --chart-4: 38 92% 62%;
-    --chart-5: 330 78% 65%;
+    --chart-1: 24 80% 50%;
+    --chart-2: 14 70% 52%;
+    --chart-3: 175 55% 42%;
+    --chart-4: 258 50% 55%;
+    --chart-5: 145 45% 42%;
 
-    --sidebar-background: 224 22% 11%;
-    --sidebar-foreground: 220 12% 72%;
-    --sidebar-primary: 245 78% 66%;
-    --sidebar-primary-foreground: 245 40% 10%;
-    --sidebar-accent: 224 18% 16%;
-    --sidebar-accent-foreground: 210 20% 96%;
-    --sidebar-border: 224 18% 14%;
-    --sidebar-ring: 245 78% 66%;
+    --sidebar-background: 33 25% 94%;
+    --sidebar-foreground: 25 20% 15%;
+    --sidebar-primary: 24 80% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 20% 88%;
+    --sidebar-accent-foreground: 25 20% 15%;
+    --sidebar-border: 30 15% 85%;
+    --sidebar-ring: 24 80% 50%;
 
-    /* Soft chip palette tuned for darkish slate */
-    --chip-success-bg: 152 40% 20%;
-    --chip-success-fg: 152 70% 70%;
-    --chip-info-bg: 199 50% 22%;
-    --chip-info-fg: 199 88% 75%;
-    --chip-warn-bg: 38 55% 22%;
-    --chip-warn-fg: 38 92% 72%;
-    --chip-neutral-bg: 222 12% 24%;
-    --chip-neutral-fg: 220 12% 80%;
-    --chip-danger-bg: 0 45% 24%;
-    --chip-danger-fg: 0 78% 75%;
-
-    --gradient-gold: linear-gradient(135deg, hsl(245 78% 66%), hsl(192 84% 60%));
-    --gradient-card: linear-gradient(160deg, hsl(222 16% 19%) 0%, hsl(222 16% 16%) 100%);
-    --gradient-surface: radial-gradient(120% 80% at 0% 0%, hsl(245 50% 28% / 0.25) 0%, transparent 55%);
-    --shadow-glow: 0 0 32px -6px hsl(245 78% 66% / 0.45);
-    --shadow-card: 0 1px 0 0 hsl(0 0% 100% / 0.05) inset, 0 8px 24px -12px hsl(0 0% 0% / 0.5);
-    --shadow-elevated: 0 1px 0 0 hsl(0 0% 100% / 0.07) inset, 0 20px 40px -20px hsl(0 0% 0% / 0.7);
+    --gradient-gold: linear-gradient(135deg, hsl(24 80% 50%), hsl(14 70% 48%));
+    --gradient-card: linear-gradient(145deg, hsl(33 25% 94%), hsl(33 25% 91%));
+    --shadow-glow: 0 0 20px -5px hsl(24 80% 50% / 0.15);
+    --shadow-card: 0 4px 24px -4px hsl(25 20% 15% / 0.08);
   }
 }
 
 @layer base {
-  * { @apply border-border; }
-
-  html, body { background: hsl(var(--background)); }
+  * {
+    @apply border-border;
+  }
 
   body {
-    @apply text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
-    background-image:
-      radial-gradient(1200px 600px at 80% -10%, hsl(192 84% 60% / 0.07) 0%, transparent 60%),
-      radial-gradient(900px 500px at -10% 30%, hsl(245 78% 66% / 0.08) 0%, transparent 55%);
-    background-attachment: fixed;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'DM Sans', sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', sans-serif;
-    letter-spacing: -0.015em;
-    color: hsl(var(--foreground));
   }
-
-  td, th { font-variant-numeric: tabular-nums; }
-
-  /* Subtle scrollbar */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 999px;
-    border: 2px solid hsl(var(--background));
-  }
-  ::-webkit-scrollbar-thumb:hover { background: hsl(240 6% 22%); }
-
-  /* Focus ring softened for dark */
-  :focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.5); }
 }
 
 @layer utilities {
   .card-glass {
     background: var(--gradient-card);
-    background-image: var(--gradient-surface), var(--gradient-card);
     box-shadow: var(--shadow-card);
     border: 1px solid hsl(var(--border));
-    border-radius: var(--radius);
   }
 
-  .card-elevated {
-    background: var(--gradient-card);
-    box-shadow: var(--shadow-elevated);
-    border: 1px solid hsl(var(--border));
-    border-radius: var(--radius);
-  }
-
-  .text-gradient-gold,
-  .text-gradient-brand {
+  .text-gradient-gold {
     background: var(--gradient-gold);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  .glow-primary { box-shadow: var(--shadow-glow); }
-
-  .td-num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum";
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
   }
 
-  /* Hairline divider that subtly catches light */
-  .hairline { border-top: 1px solid hsl(var(--border)); box-shadow: 0 1px 0 0 hsl(0 0% 100% / 0.03); }
-
-  /* Soft pill chips */
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.15rem 0.55rem;
-    border-radius: 9999px;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    line-height: 1.1rem;
-    white-space: nowrap;
-    border: 1px solid transparent;
-  }
-  .chip::before {
-    content: "";
-    display: inline-block;
-    width: 5px; height: 5px; border-radius: 9999px;
-    background: currentColor;
-    opacity: 0.85;
-  }
-  .chip-success { background: hsl(var(--chip-success-bg)); color: hsl(var(--chip-success-fg)); border-color: hsl(var(--chip-success-fg) / 0.18); }
-  .chip-info    { background: hsl(var(--chip-info-bg));    color: hsl(var(--chip-info-fg));    border-color: hsl(var(--chip-info-fg) / 0.18); }
-  .chip-warn    { background: hsl(var(--chip-warn-bg));    color: hsl(var(--chip-warn-fg));    border-color: hsl(var(--chip-warn-fg) / 0.18); }
-  .chip-neutral { background: hsl(var(--chip-neutral-bg)); color: hsl(var(--chip-neutral-fg)); border-color: hsl(var(--chip-neutral-fg) / 0.12); }
-  .chip-danger  { background: hsl(var(--chip-danger-bg));  color: hsl(var(--chip-danger-fg));  border-color: hsl(var(--chip-danger-fg) / 0.18); }
-
-  /* P&L tokens — dark financial */
+  /* P&L Professional table styles */
   .pl-table {
-    --pl-header: 222 16% 22%;
-    --pl-row-even: 222 16% 17%;
-    --pl-row-odd: 222 16% 19%;
-    --pl-total: 245 30% 24%;
-    --pl-grand-total: 245 50% 30%;
-    --pl-section: 222 16% 23%;
-    --pl-ratio: 222 14% 15%;
-    --pl-border: 222 12% 28%;
+    --pl-header: 30 18% 86%;
+    --pl-row-even: 33 22% 95%;
+    --pl-row-odd: 35 28% 97%;
+    --pl-total: 28 25% 90%;
+    --pl-grand-total: 24 30% 85%;
+    --pl-section: 30 15% 92%;
+    --pl-ratio: 35 20% 96%;
+    --pl-border: 30 12% 82%;
   }
 }
