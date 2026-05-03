@@ -168,7 +168,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
     if (!p) return null;
 
     let valueStr = "";
-    if (metric === "revenue") valueStr = `$${formatCurrency(p.totalSales)}`;
+    if (metric === "revenue") valueStr = `${formatCurrency(p.totalSales)}`;
     else if (metric === "guests") valueStr = `${p.guests}`;
     else valueStr = `$${p.spendPerGuest}`;
 
@@ -182,7 +182,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
   };
 
   const renderRefLines = (stats: { avg: number; med: number; p25: number; p75: number }, isCurrency: boolean) => {
-    const fmt = (v: number) => isCurrency ? `$${formatCurrency(v)}` : v.toLocaleString();
+    const fmt = (v: number) => isCurrency ? `${formatCurrency(v)}` : v.toLocaleString();
     return (
       <>
         <ReferenceLine y={stats.avg} {...refLineStyle.avg} label={{ value: `Avg ${fmt(stats.avg)}`, position: "right", fontSize: 10, fill: refLineStyle.avg.stroke }} />

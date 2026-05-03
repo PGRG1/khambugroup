@@ -31,15 +31,15 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
     const guestsPerOrder = d.totalOrders ? (d.totalGuests / d.totalOrders).toFixed(1) : "-";
 
     const rows = [
-      { label: "Total Sales", val: `$${formatCurrency(d.totalSales)}` },
+      { label: "Total Sales", val: `${formatCurrency(d.totalSales)}` },
       { label: "Total Guests", val: formatCurrency(d.totalGuests) },
       { label: "Total Orders", val: formatCurrency(d.totalOrders) },
       { label: "Guests/Order", val: guestsPerOrder },
-      { label: "Avg Sales/Day", val: `$${formatCurrency(avgSalesPerDay)}` },
+      { label: "Avg Sales/Day", val: `${formatCurrency(avgSalesPerDay)}` },
       { label: "Avg Guests/Day", val: formatCurrency(avgGuestsPerDay) },
       { label: "Avg Orders/Day", val: formatCurrency(avgOrdersPerDay) },
-      { label: "Avg/Guest", val: `$${formatCurrency(d.avgPerGuest)}` },
-      { label: "Avg/Order", val: `$${formatCurrency(d.avgPerOrder)}` },
+      { label: "Avg/Guest", val: `${formatCurrency(d.avgPerGuest)}` },
+      { label: "Avg/Order", val: `${formatCurrency(d.avgPerOrder)}` },
       ...(seats ? [
         { label: `Seats`, val: String(seats) },
         { label: "Rev/Seat/Day", val: `$${d.days ? formatCurrency(Math.round(d.totalSales / seats / d.days)) : 0}` },
@@ -81,18 +81,18 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
   const hasAnySeats = activeVenues.some((v) => getVenueSeats(v.venue) !== null);
 
   const metricRows = [
-    { label: "Total Sales", getValue: (d: VenueData) => `$${formatCurrency(d.totalSales)}` },
+    { label: "Total Sales", getValue: (d: VenueData) => `${formatCurrency(d.totalSales)}` },
     { label: "Total Guests", getValue: (d: VenueData) => formatCurrency(d.totalGuests) },
     { label: "Total Orders", getValue: (d: VenueData) => formatCurrency(d.totalOrders) },
     { label: "Guests/Order", getValue: (d: VenueData) => d.totalOrders ? (d.totalGuests / d.totalOrders).toFixed(1) : "-" },
-    { label: "Avg Sales/Day", getValue: (d: VenueData) => d.days ? `$${formatCurrency(Math.round(d.totalSales / d.days))}` : "-" },
+    { label: "Avg Sales/Day", getValue: (d: VenueData) => d.days ? `${formatCurrency(Math.round(d.totalSales / d.days))}` : "-" },
     { label: "Avg Guests/Day", getValue: (d: VenueData) => d.days ? formatCurrency(Math.round(d.totalGuests / d.days)) : "-" },
     { label: "Avg Orders/Day", getValue: (d: VenueData) => d.days ? formatCurrency(Math.round(d.totalOrders / d.days)) : "-" },
-    { label: "Avg/Guest", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerGuest)}` },
-    { label: "Avg/Order", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerOrder)}` },
+    { label: "Avg/Guest", getValue: (d: VenueData) => `${formatCurrency(d.avgPerGuest)}` },
+    { label: "Avg/Order", getValue: (d: VenueData) => `${formatCurrency(d.avgPerOrder)}` },
     ...(hasAnySeats ? [
       { label: "Seats", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s ? String(s) : "-"; } },
-      { label: "Rev/Seat/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `$${formatCurrency(Math.round(d.totalSales / s / d.days))}` : "-"; } },
+      { label: "Rev/Seat/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${formatCurrency(Math.round(d.totalSales / s / d.days))}` : "-"; } },
       { label: "Turnover/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${(d.totalGuests / s / d.days).toFixed(1)}x` : "-"; } },
       { label: "Occupancy", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${Math.round((d.totalGuests / (s * d.days)) * 100)}%` : "-"; } },
     ] : []),

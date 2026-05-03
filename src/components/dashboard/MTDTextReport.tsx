@@ -53,10 +53,10 @@ function generateMTDText(data: SalesRecord[], from?: Date, to?: Date): string {
   const allStats = computeStats(data);
   lines.push("");
   lines.push("*All Venues*");
-  lines.push(`\`\`\`Sales: $${formatCurrency(allStats.totalSales)} ($${formatCurrency(allStats.salesPerDay)}/day)`);
+  lines.push(`\`\`\`Sales: ${formatCurrency(allStats.totalSales)} (${formatCurrency(allStats.salesPerDay)}/day)`);
   lines.push(`Guests: ${formatCurrency(allStats.totalGuests)} (${formatCurrency(allStats.guestsPerDay)}/day)`);
-  lines.push(`Avg Spend: $${formatCurrency(allStats.avgSpend)}/guest`);
-  lines.push(`Discount: $${formatCurrency(Math.abs(allStats.totalDiscount))} (${allStats.discountPct}% of sales)\`\`\``);
+  lines.push(`Avg Spend: ${formatCurrency(allStats.avgSpend)}/guest`);
+  lines.push(`Discount: ${formatCurrency(Math.abs(allStats.totalDiscount))} (${allStats.discountPct}% of sales)\`\`\``);
 
   // Per venue — inline backticks
   venueNames.forEach((venueName) => {
@@ -72,9 +72,9 @@ function generateMTDText(data: SalesRecord[], from?: Date, to?: Date): string {
 
     lines.push("");
     lines.push(venueHeader);
-    lines.push(`\`\`\`Sales: $${formatCurrency(stats.totalSales)} ($${formatCurrency(stats.salesPerDay)}/day)`);
+    lines.push(`\`\`\`Sales: ${formatCurrency(stats.totalSales)} (${formatCurrency(stats.salesPerDay)}/day)`);
     lines.push(`Guests: ${formatCurrency(stats.totalGuests)} (${formatCurrency(stats.guestsPerDay)}/day)`);
-    lines.push(`Avg Spend: $${formatCurrency(stats.avgSpend)}/guest\`\`\``);
+    lines.push(`Avg Spend: ${formatCurrency(stats.avgSpend)}/guest\`\`\``);
   });
 
   return lines.join("\n").trim();
