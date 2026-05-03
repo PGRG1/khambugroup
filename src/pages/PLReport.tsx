@@ -286,20 +286,20 @@ export default function PLReport() {
       ) : selectedPeriods.length === 0 ? (
         <p className="text-muted-foreground">Select at least one period to view the P&L report.</p>
       ) : (
-        <div className="pl-table rounded-xl border border-[hsl(var(--pl-border))] overflow-x-auto relative" style={{ boxShadow: '0 2px 16px -4px hsl(222 60% 4% / 0.6)' }}>
+        <div className="pl-table rounded-xl border border-[hsl(var(--pl-border))] overflow-x-auto relative" style={{ boxShadow: '0 2px 16px -4px hsl(222 30% 14% / 0.06)' }}>
           <table className="w-full text-[13px] border-collapse">
             <thead>
               <tr>
-                <th className="text-left px-5 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest sticky left-0 z-20 min-w-[230px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(222, 35%, 16%)' }}>
+                <th className="text-left px-5 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest sticky left-0 z-20 min-w-[230px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(var(--pl-header))' }}>
                   P&L
                 </th>
                 {groupedData.map((gd) => (
-                  <th key={gd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(222, 35%, 16%)' }}>
+                  <th key={gd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(var(--pl-header))' }}>
                     {gd.label}
                   </th>
                 ))}
                 {showTotal && (
-                  <th className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-l-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(217, 50%, 28%)' }}>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-l-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(var(--pl-grand-total))' }}>
                     Total
                   </th>
                 )}
@@ -309,7 +309,7 @@ export default function PLReport() {
               {(() => {
                 let rowIdx = 0;
                 return lines.map((line, i) => {
-                  if (line.type === "blank") return <tr key={i}><td colSpan={99} className="h-px" style={{ background: 'hsl(215, 20%, 18%)' }} /></tr>;
+                  if (line.type === "blank") return <tr key={i}><td colSpan={99} className="h-px" style={{ background: 'hsl(var(--pl-border))' }} /></tr>;
 
                   const indent = (line.indent || 0) * 20;
                   const isHeader = line.type === "header";
@@ -320,26 +320,26 @@ export default function PLReport() {
 
                   let rowBg: string;
                   if (isHeader) {
-                    rowBg = "hsl(222, 35%, 16%)";
+                    rowBg = "hsl(var(--pl-header))";
                   } else if (isTotal && line.bold) {
-                    rowBg = "hsl(217, 50%, 28%)";
+                    rowBg = "hsl(var(--pl-grand-total))";
                   } else if (isTotal) {
-                    rowBg = "hsl(217, 40%, 22%)";
+                    rowBg = "hsl(var(--pl-total))";
                   } else if (isSection) {
-                    rowBg = "hsl(222, 30%, 18%)";
+                    rowBg = "hsl(var(--pl-section))";
                   } else if (isRatio) {
-                    rowBg = "hsl(222, 30%, 14%)";
+                    rowBg = "hsl(var(--pl-ratio))";
                   } else {
-                    rowBg = rowIdx % 2 === 0 ? "hsl(222, 35%, 12%)" : "hsl(222, 35%, 14%)";
+                    rowBg = rowIdx % 2 === 0 ? "hsl(var(--pl-row-even))" : "hsl(var(--pl-row-odd))";
                     rowIdx++;
                   }
 
                   const borderStyle = isHeader
-                    ? { borderBottom: '1px solid hsl(215, 20%, 24%)' }
+                    ? { borderBottom: '1px solid hsl(var(--pl-border))' }
                     : (isTotal && line.bold)
-                    ? { borderTop: '2px solid hsl(217, 50%, 30%)', borderBottom: '1px solid hsl(215, 20%, 22%)' }
+                    ? { borderTop: '2px solid hsl(var(--primary))', borderBottom: '1px solid hsl(var(--pl-border))' }
                     : isTotal
-                    ? { borderTop: '1px solid hsl(215, 20%, 22%)', borderBottom: '1px solid hsl(215, 20%, 20%)' }
+                    ? { borderTop: '1px solid hsl(var(--pl-border))', borderBottom: '1px solid hsl(var(--pl-border))' }
                     : {};
 
                   const labelClass = isHeader
@@ -393,7 +393,7 @@ export default function PLReport() {
                         const val = line.getValue(totals);
                         const isNeg = typeof val === "number" && val < 0;
                         return (
-                          <td className={`${valueCellClass(isNeg)} ${isEditable ? "font-medium" : ""}`} style={{ borderLeft: '2px solid hsl(215, 20%, 24%)', background: rowBg }}>
+                          <td className={`${valueCellClass(isNeg)} ${isEditable ? "font-medium" : ""}`} style={{ borderLeft: '2px solid hsl(var(--pl-border))', background: rowBg }}>
                             {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
                           </td>
                         );
@@ -406,7 +406,7 @@ export default function PLReport() {
           </table>
 
           {!hideAddLineItem && (
-            <div style={{ borderTop: '2px solid hsl(215, 20%, 24%)' }}>
+            <div style={{ borderTop: '2px solid hsl(var(--pl-border))' }}>
               <PLAddLineItem year={selectedPeriods[0]?.year || new Date().getFullYear()} months={allMonths} onAdded={refetch} />
             </div>
           )}

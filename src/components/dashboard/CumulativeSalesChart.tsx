@@ -17,15 +17,15 @@ const MONTH_COLORS = [
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: "hsl(222, 39%, 14%)",
+    backgroundColor: "hsl(0, 0%, 100%)",
     border: "1px solid hsl(215, 22%, 22%)",
     borderRadius: "8px",
-    color: "hsl(210, 40%, 96%)",
+    color: "hsl(222, 35%, 14%)",
     fontSize: "12px",
   },
 };
 
-const axisStyle = { fontSize: 11, fill: "hsl(217, 15%, 65%)" };
+const axisStyle = { fontSize: 11, fill: "hsl(220, 12%, 46%)" };
 const gridColor = "hsl(215, 22%, 22%)";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -209,7 +209,7 @@ export default function CumulativeSalesChart({ data }: Props) {
               <XAxis
                 dataKey="day"
                 tick={axisStyle}
-                label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(217, 15%, 65%)" } }}
+                label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(220, 12%, 46%)" } }}
               />
               <YAxis tick={axisStyle} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
               <Tooltip
@@ -271,18 +271,18 @@ export default function CumulativeSalesChart({ data }: Props) {
                         <line x1="0" y1="5" x2="12" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                         {/* Dashed portion */}
                         <line x1="14" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" strokeDasharray="3 2" opacity={hidden ? 0.4 : 1} />
-                        <circle cx="12" cy="5" r="3" fill="hsl(222, 39%, 14%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                        <circle cx="12" cy="5" r="3" fill="hsl(0, 0%, 100%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                       </>
                     ) : (
                       <>
                         <line x1="0" y1="5" x2="28" y2="5" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
-                        <circle cx="14" cy="5" r="3" fill="hsl(222, 39%, 14%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
+                        <circle cx="14" cy="5" r="3" fill="hsl(0, 0%, 100%)" stroke={color} strokeWidth="2" opacity={hidden ? 0.4 : 1} />
                       </>
                     )}
                   </svg>
                   <span
                     style={{
-                      color: hidden ? "hsl(217, 15%, 65%)" : color,
+                      color: hidden ? "hsl(220, 12%, 46%)" : color,
                       textDecoration: hidden ? "line-through" : "none",
                     }}
                   >

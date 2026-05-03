@@ -85,7 +85,7 @@ function formatMonthLabel(key: string) {
 }
 
 const tooltipStyle = {
-  backgroundColor: "hsl(222, 39%, 14%)",
+  backgroundColor: "hsl(0, 0%, 100%)",
   border: "1px solid hsl(215, 22%, 22%)",
   borderRadius: "0.5rem",
   fontSize: "12px",
@@ -368,7 +368,7 @@ export default function ProcurementDashboardTab() {
       <text
         x={x + width + 6}
         y={y + height / 2}
-        fill="hsl(217, 15%, 65%)"
+        fill="hsl(220, 12%, 46%)"
         fontSize={10}
         fontFamily="monospace"
         dominantBaseline="middle"
@@ -604,7 +604,7 @@ export default function ProcurementDashboardTab() {
                       dataKey="value"
                       nameKey="name"
                       paddingAngle={2}
-                      stroke="hsl(222, 39%, 14%)"
+                      stroke="hsl(0, 0%, 100%)"
                       strokeWidth={2}
                     >
                       {l1Data.map((_, i) => (

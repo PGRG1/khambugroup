@@ -6,63 +6,74 @@
 
 @layer base {
   :root {
-    /* Dark slate base */
-    --background: 222 47% 8%;
-    --foreground: 210 40% 96%;
+    /* Light app canvas — soft off-white with cool neutrals */
+    --background: 220 25% 97%;       /* page bg */
+    --foreground: 222 35% 14%;       /* primary ink */
 
-    --card: 222 39% 12%;
-    --card-foreground: 210 40% 96%;
+    --card: 0 0% 100%;               /* white cards */
+    --card-foreground: 222 35% 14%;
 
-    --popover: 222 39% 14%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 35% 14%;
 
-    --primary: 217 91% 60%;
+    --primary: 217 91% 55%;          /* blue CTA */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 28% 18%;
-    --secondary-foreground: 210 30% 90%;
+    --secondary: 220 18% 94%;        /* muted chip / input bg */
+    --secondary-foreground: 222 25% 25%;
 
-    --muted: 215 25% 16%;
-    --muted-foreground: 217 15% 65%;
+    --muted: 220 16% 95%;
+    --muted-foreground: 220 12% 46%;
 
-    --accent: 199 89% 55%;
+    --accent: 199 89% 48%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 55%;
+    --destructive: 0 72% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 22% 22%;
-    --input: 215 22% 22%;
-    --ring: 217 91% 65%;
+    --border: 220 15% 90%;
+    --input: 220 15% 88%;
+    --ring: 217 91% 60%;
 
     --radius: 0.625rem;
 
-    --chart-1: 217 91% 60%;
-    --chart-2: 199 89% 55%;
-    --chart-3: 258 80% 65%;
-    --chart-4: 158 64% 52%;
-    --chart-5: 38 92% 60%;
+    --chart-1: 217 91% 55%;
+    --chart-2: 199 89% 48%;
+    --chart-3: 258 75% 62%;
+    --chart-4: 158 64% 45%;
+    --chart-5: 38 92% 55%;
 
-    --sidebar-background: 222 45% 9%;
-    --sidebar-foreground: 210 30% 88%;
+    /* Dark sidebar (navy) */
+    --sidebar-background: 222 47% 10%;
+    --sidebar-foreground: 215 20% 78%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 30% 18%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 215 22% 18%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 222 30% 16%;
     --sidebar-ring: 217 91% 65%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(217 91% 60%), hsl(199 89% 55%));
-    --gradient-card: linear-gradient(145deg, hsl(222 39% 13%), hsl(222 39% 11%));
-    --shadow-glow: 0 0 24px -4px hsl(217 91% 60% / 0.35);
-    --shadow-card: 0 4px 24px -8px hsl(222 60% 4% / 0.5);
+    /* Soft status chip palette (use directly via class names) */
+    --chip-success-bg: 152 60% 92%;
+    --chip-success-fg: 152 65% 28%;
+    --chip-info-bg: 211 95% 93%;
+    --chip-info-fg: 217 91% 38%;
+    --chip-warn-bg: 38 100% 92%;
+    --chip-warn-fg: 30 80% 35%;
+    --chip-neutral-bg: 220 16% 93%;
+    --chip-neutral-fg: 222 25% 30%;
+    --chip-danger-bg: 0 86% 95%;
+    --chip-danger-fg: 0 72% 40%;
+
+    --gradient-gold: linear-gradient(135deg, hsl(217 91% 55%), hsl(199 89% 48%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 25% 99%));
+    --shadow-glow: 0 0 22px -6px hsl(217 91% 55% / 0.25);
+    --shadow-card: 0 1px 2px 0 hsl(222 30% 14% / 0.04), 0 1px 3px 0 hsl(222 30% 14% / 0.05);
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
@@ -71,9 +82,9 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.01em;
   }
 
-  /* Tabular numbers everywhere a number appears in tables */
   td, th { font-variant-numeric: tabular-nums; }
 }
 
@@ -82,15 +93,10 @@
     background: var(--gradient-card);
     box-shadow: var(--shadow-card);
     border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
   }
 
-  .text-gradient-gold {
-    background: var(--gradient-gold);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
+  .text-gradient-gold,
   .text-gradient-brand {
     background: var(--gradient-gold);
     -webkit-background-clip: text;
@@ -98,9 +104,7 @@
     background-clip: text;
   }
 
-  .glow-primary {
-    box-shadow: var(--shadow-glow);
-  }
+  .glow-primary { box-shadow: var(--shadow-glow); }
 
   .td-num {
     text-align: right;
@@ -108,15 +112,33 @@
     font-feature-settings: "tnum";
   }
 
-  /* P&L Professional table styles — dark slate */
+  /* Soft pill chips — use as: <span class="chip chip-success">…</span> */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    white-space: nowrap;
+  }
+  .chip-success { background: hsl(var(--chip-success-bg)); color: hsl(var(--chip-success-fg)); }
+  .chip-info    { background: hsl(var(--chip-info-bg));    color: hsl(var(--chip-info-fg)); }
+  .chip-warn    { background: hsl(var(--chip-warn-bg));    color: hsl(var(--chip-warn-fg)); }
+  .chip-neutral { background: hsl(var(--chip-neutral-bg)); color: hsl(var(--chip-neutral-fg)); }
+  .chip-danger  { background: hsl(var(--chip-danger-bg));  color: hsl(var(--chip-danger-fg)); }
+
+  /* P&L Professional table styles — light financial */
   .pl-table {
-    --pl-header: 222 35% 16%;
-    --pl-row-even: 222 35% 12%;
-    --pl-row-odd: 222 35% 14%;
-    --pl-total: 217 40% 22%;
-    --pl-grand-total: 217 50% 28%;
-    --pl-section: 222 30% 18%;
-    --pl-ratio: 222 30% 14%;
-    --pl-border: 215 20% 24%;
+    --pl-header: 220 20% 95%;
+    --pl-row-even: 0 0% 100%;
+    --pl-row-odd: 220 25% 98%;
+    --pl-total: 217 60% 94%;
+    --pl-grand-total: 217 70% 88%;
+    --pl-section: 220 18% 93%;
+    --pl-ratio: 220 20% 97%;
+    --pl-border: 220 15% 88%;
   }
 }
