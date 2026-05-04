@@ -3,27 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  Shield,
-  BarChart3,
-  ShoppingCart,
-  DollarSign,
-  Activity,
-  User as UserIcon,
+  Mail, Lock, Eye, EyeOff, ArrowRight, Shield, User as UserIcon,
 } from "lucide-react";
 import baniLogo from "@/assets/bani-logo.png";
-import authHero from "@/assets/auth-hero.jpg";
-
-const features = [
-  { icon: BarChart3, title: "Revenue Intelligence", desc: "Monitor performance and uncover growth opportunities." },
-  { icon: ShoppingCart, title: "Procurement Excellence", desc: "Optimize spend and manage supplier relationships." },
-  { icon: DollarSign, title: "Financial Clarity", desc: "Real-time insights into financial health and forecasts." },
-  { icon: Activity, title: "Cash Flow Control", desc: "Keep liquidity strong and your future ready." },
-];
+import authHero from "@/assets/auth-hero.png";
 
 const Auth = () => {
   const { session, loading: authLoading } = useAuth();
@@ -74,91 +57,37 @@ const Auth = () => {
     setLoading(false);
   };
 
-  const BrandHeader = (
-    <div className="flex items-center gap-2.5">
-      <img src={baniLogo} alt="Bani" width={36} height={36} className="h-9 w-9" />
-      <span className="font-display text-xl font-bold tracking-tight text-foreground">Bani</span>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen w-full bg-background lg:grid lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.25fr_1fr]">
-      {/* LEFT — Brand panel (desktop only) */}
-      <aside className="relative hidden lg:flex flex-col overflow-hidden">
+    <div className="min-h-screen w-full bg-background lg:grid lg:grid-cols-[1.15fr_1fr] xl:grid-cols-[1.3fr_1fr]">
+      {/* LEFT — Brand image (desktop) */}
+      <aside className="relative hidden lg:block bg-background overflow-hidden">
         <img
           src={authHero}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 h-full w-full object-cover"
+          alt="Welcome to Bani — operational intelligence for revenue, procurement, finance, and cash flow."
+          className="absolute inset-0 h-full w-full object-cover object-center"
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-background/92 via-background/70 to-primary/15" />
-        <div
-          className="absolute -top-40 -right-40 h-[480px] w-[480px] rounded-full opacity-40 blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.5), transparent 70%)" }}
-        />
-
-        <div className="relative z-10 flex flex-col h-full p-10 xl:p-14">
-          {BrandHeader}
-
-          <div className="flex-1 flex flex-col justify-center max-w-xl mx-auto w-full">
-            <h1 className="font-display text-4xl xl:text-5xl 2xl:text-6xl font-bold tracking-tight text-foreground leading-[1.05]">
-              Welcome to <span className="text-primary">Bani</span>
-            </h1>
-            <div className="mt-4 h-1 w-16 rounded-full bg-primary" />
-            <p className="mt-6 text-lg xl:text-xl font-medium text-primary">
-              Operational intelligence for revenue, procurement, finance, and cash flow.
-            </p>
-            <p className="mt-3 text-base text-muted-foreground max-w-md">
-              Access your workspace and continue managing performance with clarity and control.
-            </p>
-
-            <ul className="mt-8 space-y-4">
-              {features.map(({ icon: Icon, title, desc }) => (
-                <li key={title} className="flex items-start gap-3">
-                  <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{title}</p>
-                    <p className="text-sm text-muted-foreground">{desc}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Bani. All rights reserved.</p>
-        </div>
       </aside>
 
       {/* RIGHT — Form panel */}
       <main className="relative flex min-h-screen flex-col bg-background">
-        {/* Mobile/tablet brand banner with hero image */}
-        <div className="relative lg:hidden overflow-hidden">
+        {/* Mobile/tablet hero banner */}
+        <div className="relative lg:hidden border-b border-border">
           <img
             src={authHero}
-            alt=""
-            aria-hidden
-            className="absolute inset-0 h-full w-full object-cover"
+            alt="Bani"
+            className="h-56 sm:h-72 w-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/85 via-background/60 to-background" />
-          <div className="relative z-10 px-6 pt-8 pb-10 sm:px-10">
-            {BrandHeader}
-            <div className="mt-6 max-w-lg">
-              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground leading-[1.1]">
-                Welcome to <span className="text-primary">Bani</span>
-              </h1>
-              <div className="mt-3 h-1 w-12 rounded-full bg-primary" />
-              <p className="mt-4 text-base sm:text-lg font-medium text-primary">
-                Operational intelligence for revenue, procurement, finance, and cash flow.
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Form area */}
         <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:p-10">
           <div className="w-full max-w-md">
+            {/* Brand row above the card */}
+            <div className="mb-6 flex items-center gap-2.5">
+              <img src={baniLogo} alt="Bani" width={36} height={36} className="h-9 w-9 object-contain" />
+              <span className="font-display text-xl font-bold tracking-tight text-foreground">Bani</span>
+            </div>
+
             <div className="rounded-2xl border border-border bg-card shadow-xl p-6 sm:p-8 lg:p-10">
               <div className="mb-6">
                 <h2 className="font-display text-2xl font-bold text-foreground">
@@ -294,7 +223,7 @@ const Auth = () => {
 
             <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <span>Powered by</span>
-              <img src={baniLogo} alt="" width={16} height={16} className="h-4 w-4" />
+              <img src={baniLogo} alt="" width={16} height={16} className="h-4 w-4 object-contain" />
               <span className="font-semibold text-foreground">Bani</span>
             </div>
           </div>
