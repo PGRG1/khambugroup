@@ -281,7 +281,7 @@ const ServicePeriodsSection = () => {
       ) : periods.length === 0 && !adding ? (
         <div className="text-center py-6 rounded-lg border border-dashed border-border bg-muted/10">
           <p className="text-sm text-muted-foreground mb-3">
-            No service periods yet. Add one to enable per-period tracking on Sales Data.
+            No service periods yet. Pick a parent Revenue Source, then add your first child period.
           </p>
           <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
             <Plus className="h-4 w-4 mr-1" /> Add first service period
