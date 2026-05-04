@@ -27,6 +27,7 @@ const revenueItems = [
   { title: "Dashboard", url: "/", icon: BarChart3, pageKey: "revenue", end: true },
   { title: "Sales Data", url: "/sales-data", icon: Database, pageKey: "revenue" },
   { title: "Forecast vs Actual", url: "/forecast/assembly", icon: ClipboardList, pageKey: "forecast" },
+  { title: "Events", url: "/events", icon: Calendar, pageKey: "revenue" },
 ];
 
 const financeItems = [
