@@ -139,6 +139,327 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_accounts: {
+        Row: {
+          account_name: string
+          account_number_last4: string
+          bank_name: string
+          created_at: string
+          currency: string
+          entity: string | null
+          id: string
+          is_active: boolean
+          last_reconciled_date: string | null
+          linked_gl_account_id: string | null
+          notes: string
+          opening_balance: number
+          opening_date: string
+          sort_order: number
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          account_name: string
+          account_number_last4?: string
+          bank_name?: string
+          created_at?: string
+          currency?: string
+          entity?: string | null
+          id?: string
+          is_active?: boolean
+          last_reconciled_date?: string | null
+          linked_gl_account_id?: string | null
+          notes?: string
+          opening_balance?: number
+          opening_date?: string
+          sort_order?: number
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          account_name?: string
+          account_number_last4?: string
+          bank_name?: string
+          created_at?: string
+          currency?: string
+          entity?: string | null
+          id?: string
+          is_active?: boolean
+          last_reconciled_date?: string | null
+          linked_gl_account_id?: string | null
+          notes?: string
+          opening_balance?: number
+          opening_date?: string
+          sort_order?: number
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_linked_gl_account_id_fkey"
+            columns: ["linked_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_linked_gl_account_id_fkey"
+            columns: ["linked_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_linked_gl_account_id_fkey"
+            columns: ["linked_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_linked_gl_account_id_fkey"
+            columns: ["linked_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
+      bank_audit_trail: {
+        Row: {
+          action: string
+          bank_account_id: string | null
+          bank_transaction_id: string | null
+          id: string
+          new_status: string | null
+          notes: Json
+          old_status: string | null
+          ts: string
+          user_display_name: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          id?: string
+          new_status?: string | null
+          notes?: Json
+          old_status?: string | null
+          ts?: string
+          user_display_name?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          id?: string
+          new_status?: string | null
+          notes?: Json
+          old_status?: string | null
+          ts?: string
+          user_display_name?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_audit_trail_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_audit_trail_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_reconciliation_periods: {
+        Row: {
+          bank_account_id: string
+          created_at: string
+          difference: number
+          id: string
+          ledger_balance: number
+          locked_at: string | null
+          locked_by: string | null
+          notes: string
+          period_end: string
+          period_start: string
+          statement_balance: number
+          status: string
+        }
+        Insert: {
+          bank_account_id: string
+          created_at?: string
+          difference?: number
+          id?: string
+          ledger_balance?: number
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string
+          period_end: string
+          period_start: string
+          statement_balance?: number
+          status?: string
+        }
+        Update: {
+          bank_account_id?: string
+          created_at?: string
+          difference?: number
+          id?: string
+          ledger_balance?: number
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string
+          period_end?: string
+          period_start?: string
+          statement_balance?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliation_periods_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statement_imports: {
+        Row: {
+          bank_account_id: string
+          closing_balance: number
+          file_name: string | null
+          file_url: string | null
+          id: string
+          notes: string
+          opening_balance: number
+          period_end: string
+          period_start: string
+          status: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bank_account_id: string
+          closing_balance?: number
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          notes?: string
+          opening_balance?: number
+          period_end: string
+          period_start: string
+          status?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bank_account_id?: string
+          closing_balance?: number
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          notes?: string
+          opening_balance?: number
+          period_end?: string
+          period_start?: string
+          status?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_imports_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_transactions: {
+        Row: {
+          bank_account_id: string
+          created_at: string
+          description: string
+          id: string
+          import_id: string | null
+          journal_entry_id: string | null
+          match_confidence: string | null
+          matched_record_id: string | null
+          matched_record_type: string | null
+          money_in: number
+          money_out: number
+          notes: string
+          reference: string
+          running_balance: number | null
+          status: string
+          txn_date: string
+          updated_at: string
+        }
+        Insert: {
+          bank_account_id: string
+          created_at?: string
+          description?: string
+          id?: string
+          import_id?: string | null
+          journal_entry_id?: string | null
+          match_confidence?: string | null
+          matched_record_id?: string | null
+          matched_record_type?: string | null
+          money_in?: number
+          money_out?: number
+          notes?: string
+          reference?: string
+          running_balance?: number | null
+          status?: string
+          txn_date: string
+          updated_at?: string
+        }
+        Update: {
+          bank_account_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          import_id?: string | null
+          journal_entry_id?: string | null
+          match_confidence?: string | null
+          matched_record_id?: string | null
+          matched_record_type?: string | null
+          money_in?: number
+          money_out?: number
+          notes?: string
+          reference?: string
+          running_balance?: number | null
+          status?: string
+          txn_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cashflow_settings: {
         Row: {
           id: string
