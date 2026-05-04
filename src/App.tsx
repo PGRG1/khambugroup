@@ -18,6 +18,7 @@ import ForecastInput from "./pages/ForecastInput";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
 import Settings from "./pages/Settings";
+import SystemConfiguration from "./pages/admin/SystemConfiguration";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
@@ -123,6 +124,7 @@ function App() {
                 <Route path="/finance/ledger-audit" element={<AdminRoute><LedgerAuditLog /></AdminRoute>} />
                 <Route path="/finance/bank-reconciliation" element={<AdminRoute><BankReconciliation /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+                <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
                 <Route path="/procurement" element={<Navigate to="/procurement/dashboard" replace />} />
