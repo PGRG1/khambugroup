@@ -150,6 +150,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_reconciled_date: string | null
+          legacy_venue_name: string | null
           linked_gl_account_id: string | null
           notes: string
           opening_balance: number
@@ -157,6 +158,7 @@ export type Database = {
           sort_order: number
           updated_at: string
           venue: string | null
+          venue_id: string | null
         }
         Insert: {
           account_name: string
@@ -168,6 +170,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_reconciled_date?: string | null
+          legacy_venue_name?: string | null
           linked_gl_account_id?: string | null
           notes?: string
           opening_balance?: number
@@ -175,6 +178,7 @@ export type Database = {
           sort_order?: number
           updated_at?: string
           venue?: string | null
+          venue_id?: string | null
         }
         Update: {
           account_name?: string
@@ -186,6 +190,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_reconciled_date?: string | null
+          legacy_venue_name?: string | null
           linked_gl_account_id?: string | null
           notes?: string
           opening_balance?: number
@@ -193,6 +198,7 @@ export type Database = {
           sort_order?: number
           updated_at?: string
           venue?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -222,6 +228,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_trial_balance"
             referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -575,7 +588,9 @@ export type Database = {
           forecast_revenue: number | null
           id: string
           include_in_dashboard: boolean
+          legacy_linked_venue_name: string | null
           linked_venue: string | null
+          linked_venue_id: string | null
           name: string
           notes: string
           revenue_source_id: string | null
@@ -598,7 +613,9 @@ export type Database = {
           forecast_revenue?: number | null
           id?: string
           include_in_dashboard?: boolean
+          legacy_linked_venue_name?: string | null
           linked_venue?: string | null
+          linked_venue_id?: string | null
           name: string
           notes?: string
           revenue_source_id?: string | null
@@ -621,7 +638,9 @@ export type Database = {
           forecast_revenue?: number | null
           id?: string
           include_in_dashboard?: boolean
+          legacy_linked_venue_name?: string | null
           linked_venue?: string | null
+          linked_venue_id?: string | null
           name?: string
           notes?: string
           revenue_source_id?: string | null
@@ -632,6 +651,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "events_linked_venue_id_fkey"
+            columns: ["linked_venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "events_revenue_source_id_fkey"
             columns: ["revenue_source_id"]
@@ -700,6 +726,7 @@ export type Database = {
           forecasted_service_charge: number
           forecasted_total_sales: number
           id: string
+          legacy_venue_name: string | null
           pending_post_event_notes: string | null
           post_event_notes: string
           revenue_source_id: string | null
@@ -709,6 +736,7 @@ export type Database = {
           submitted_by: string | null
           updated_at: string
           venue: string
+          venue_id: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -726,6 +754,7 @@ export type Database = {
           forecasted_service_charge?: number
           forecasted_total_sales?: number
           id?: string
+          legacy_venue_name?: string | null
           pending_post_event_notes?: string | null
           post_event_notes?: string
           revenue_source_id?: string | null
@@ -735,6 +764,7 @@ export type Database = {
           submitted_by?: string | null
           updated_at?: string
           venue: string
+          venue_id?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -752,6 +782,7 @@ export type Database = {
           forecasted_service_charge?: number
           forecasted_total_sales?: number
           id?: string
+          legacy_venue_name?: string | null
           pending_post_event_notes?: string | null
           post_event_notes?: string
           revenue_source_id?: string | null
@@ -761,6 +792,7 @@ export type Database = {
           submitted_by?: string | null
           updated_at?: string
           venue?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -775,6 +807,13 @@ export type Database = {
             columns: ["revenue_source_id"]
             isOneToOne: false
             referencedRelation: "revenue_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forecasts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -918,6 +957,7 @@ export type Database = {
           id: string
           job_title: string | null
           last_name: string
+          legacy_venue_name: string | null
           notes: string | null
           phone: string | null
           sort_order: number
@@ -925,6 +965,7 @@ export type Database = {
           updated_at: string
           user_id: string | null
           venue: string | null
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
@@ -940,6 +981,7 @@ export type Database = {
           id?: string
           job_title?: string | null
           last_name: string
+          legacy_venue_name?: string | null
           notes?: string | null
           phone?: string | null
           sort_order?: number
@@ -947,6 +989,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           venue?: string | null
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
@@ -962,6 +1005,7 @@ export type Database = {
           id?: string
           job_title?: string | null
           last_name?: string
+          legacy_venue_name?: string | null
           notes?: string | null
           phone?: string | null
           sort_order?: number
@@ -969,6 +1013,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           venue?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -984,6 +1029,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "hr_employees_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1436,6 +1488,7 @@ export type Database = {
           ending_qty: number
           id: string
           item_id: string
+          legacy_venue_name: string | null
           period_id: string
           purchases_qty: number
           total_usage_cost: number | null
@@ -1443,6 +1496,7 @@ export type Database = {
           updated_at: string
           usage_qty: number | null
           venue: string
+          venue_id: string | null
         }
         Insert: {
           beginning_qty?: number
@@ -1450,6 +1504,7 @@ export type Database = {
           ending_qty?: number
           id?: string
           item_id: string
+          legacy_venue_name?: string | null
           period_id: string
           purchases_qty?: number
           total_usage_cost?: number | null
@@ -1457,6 +1512,7 @@ export type Database = {
           updated_at?: string
           usage_qty?: number | null
           venue: string
+          venue_id?: string | null
         }
         Update: {
           beginning_qty?: number
@@ -1464,6 +1520,7 @@ export type Database = {
           ending_qty?: number
           id?: string
           item_id?: string
+          legacy_venue_name?: string | null
           period_id?: string
           purchases_qty?: number
           total_usage_cost?: number | null
@@ -1471,6 +1528,7 @@ export type Database = {
           updated_at?: string
           usage_qty?: number | null
           venue?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1485,6 +1543,13 @@ export type Database = {
             columns: ["period_id"]
             isOneToOne: false
             referencedRelation: "inventory_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -1551,36 +1616,50 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          legacy_venue_name: string | null
           period_end: string
           period_label: string
           period_start: string
           status: string
           updated_at: string
           venue: string
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
           created_by: string
           id?: string
+          legacy_venue_name?: string | null
           period_end: string
           period_label: string
           period_start: string
           status?: string
           updated_at?: string
           venue: string
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string
           id?: string
+          legacy_venue_name?: string | null
           period_end?: string
           period_label?: string
           period_start?: string
           status?: string
           updated_at?: string
           venue?: string
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inventory_periods_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_line_items: {
         Row: {
@@ -1745,6 +1824,7 @@ export type Database = {
           id: string
           invoice_date: string
           invoice_number: string
+          legacy_venue_name: string | null
           notes: string | null
           payment_method: string | null
           payment_status: string
@@ -1757,6 +1837,7 @@ export type Database = {
           total_amount: number
           updated_at: string
           venue: string
+          venue_id: string | null
           verified_at: string | null
           verified_by: string | null
         }
@@ -1774,6 +1855,7 @@ export type Database = {
           id?: string
           invoice_date: string
           invoice_number: string
+          legacy_venue_name?: string | null
           notes?: string | null
           payment_method?: string | null
           payment_status?: string
@@ -1786,6 +1868,7 @@ export type Database = {
           total_amount?: number
           updated_at?: string
           venue: string
+          venue_id?: string | null
           verified_at?: string | null
           verified_by?: string | null
         }
@@ -1803,6 +1886,7 @@ export type Database = {
           id?: string
           invoice_date?: string
           invoice_number?: string
+          legacy_venue_name?: string | null
           notes?: string | null
           payment_method?: string | null
           payment_status?: string
@@ -1815,6 +1899,7 @@ export type Database = {
           total_amount?: number
           updated_at?: string
           venue?: string
+          venue_id?: string | null
           verified_at?: string | null
           verified_by?: string | null
         }
@@ -1826,6 +1911,13 @@ export type Database = {
             referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoices_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       journal_entries: {
@@ -1834,6 +1926,7 @@ export type Database = {
           created_by: string | null
           entry_date: string
           id: string
+          legacy_venue_name: string | null
           manually_adjusted: boolean
           memo: string
           posted_at: string | null
@@ -1842,12 +1935,14 @@ export type Database = {
           status: string
           updated_at: string
           venue: string | null
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           entry_date: string
           id?: string
+          legacy_venue_name?: string | null
           manually_adjusted?: boolean
           memo?: string
           posted_at?: string | null
@@ -1856,12 +1951,14 @@ export type Database = {
           status?: string
           updated_at?: string
           venue?: string | null
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           entry_date?: string
           id?: string
+          legacy_venue_name?: string | null
           manually_adjusted?: boolean
           memo?: string
           posted_at?: string | null
@@ -1870,8 +1967,17 @@ export type Database = {
           status?: string
           updated_at?: string
           venue?: string | null
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_lines: {
         Row: {
@@ -1882,9 +1988,11 @@ export type Database = {
           debit: number
           entry_id: string
           id: string
+          legacy_venue_name: string | null
           line_no: number
           memo: string | null
           venue: string | null
+          venue_id: string | null
         }
         Insert: {
           account_id: string
@@ -1894,9 +2002,11 @@ export type Database = {
           debit?: number
           entry_id: string
           id?: string
+          legacy_venue_name?: string | null
           line_no?: number
           memo?: string | null
           venue?: string | null
+          venue_id?: string | null
         }
         Update: {
           account_id?: string
@@ -1906,9 +2016,11 @@ export type Database = {
           debit?: number
           entry_id?: string
           id?: string
+          legacy_venue_name?: string | null
           line_no?: number
           memo?: string | null
           venue?: string | null
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -1959,6 +2071,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_general_ledger"
             referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "journal_lines_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2572,6 +2691,7 @@ export type Database = {
           guests: number
           id: string
           jcb: number
+          legacy_venue_name: string | null
           mastercard: number
           orders: number
           payme: number
@@ -2582,10 +2702,12 @@ export type Database = {
           sales_channel: string | null
           service_charge: number
           service_period: string | null
+          service_period_id: string | null
           subtotal: number
           total_sales: number
           union_pay: number
           venue: string
+          venue_id: string | null
           visa: number
           wechat: number
         }
@@ -2604,6 +2726,7 @@ export type Database = {
           guests?: number
           id?: string
           jcb?: number
+          legacy_venue_name?: string | null
           mastercard?: number
           orders?: number
           payme?: number
@@ -2614,10 +2737,12 @@ export type Database = {
           sales_channel?: string | null
           service_charge?: number
           service_period?: string | null
+          service_period_id?: string | null
           subtotal?: number
           total_sales?: number
           union_pay?: number
           venue: string
+          venue_id?: string | null
           visa?: number
           wechat?: number
         }
@@ -2636,6 +2761,7 @@ export type Database = {
           guests?: number
           id?: string
           jcb?: number
+          legacy_venue_name?: string | null
           mastercard?: number
           orders?: number
           payme?: number
@@ -2646,10 +2772,12 @@ export type Database = {
           sales_channel?: string | null
           service_charge?: number
           service_period?: string | null
+          service_period_id?: string | null
           subtotal?: number
           total_sales?: number
           union_pay?: number
           venue?: string
+          venue_id?: string | null
           visa?: number
           wechat?: number
         }
@@ -2668,7 +2796,48 @@ export type Database = {
             referencedRelation: "revenue_sources"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sales_records_service_period_id_fkey"
+            columns: ["service_period_id"]
+            isOneToOne: false
+            referencedRelation: "service_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_records_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      service_periods: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       standard_products: {
         Row: {
@@ -2913,6 +3082,42 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      venues: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          notes: string
+          seats: number | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name: string
+          notes?: string
+          seats?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name?: string
+          notes?: string
+          seats?: number | null
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
