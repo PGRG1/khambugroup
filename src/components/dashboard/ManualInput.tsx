@@ -1,18 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { X, Plus, Paperclip } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { getPaymentTotal } from "@/utils/salesUtils";
+import { useRevenueSources } from "@/hooks/useRevenueSources";
+import { useEvents } from "@/hooks/useEvents";
+import { useVenuesConfig } from "@/hooks/useVenuesConfig";
+import { EVENT_TYPES_REQUIRING_LOCATION } from "@/types/event";
 
 interface ManualInputProps {
   onAdd: (record: SalesRecord, file?: File | null) => void;
   onClose: () => void;
 }
 
-const emptyRecord = {
-  date: "", day: "", venue: "Assembly" as const, reportNumber: "",
+const emptyRecord: SalesRecord = {
+  date: "", day: "", venue: "Assembly", reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0,
   totalSales: 0, visa: 0, mastercard: 0, amex: 0, unionPay: 0,
   jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, cardTips: 0,
+  revenueSourceId: null, eventId: null, eventName: null,
+  externalLocation: null, servicePeriod: null, salesChannel: null,
 };
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
