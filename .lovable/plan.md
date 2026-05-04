@@ -1,111 +1,80 @@
 
-## Goal
+# Bank Reconciliation Module — Plan
 
-Add a new page **Cashflow Statement** at `/finance/cashflow-statement` that presents cash movements in the standard accounting structure (Operating, Investing, Financing) — the way it appears in a real set of financial statements.
+A new Finance section page at `/finance/bank-reconciliation` that handles per-account and consolidated bank reconciliation, with full data model, matching engine, and period-close workflow.
 
-The two existing pages stay unchanged:
-- `/finance/cashflow` — operations / source-based view (sales, invoices, payroll)
-- `/finance/cashflow-ledger` — flat ledger view of cash account movements
+This is a large module. Proposed delivery in **3 phases** so you can verify each before moving on. Confirm the phasing or ask for it all at once.
 
-The new page is the **formal statement** version.
+---
 
-## Layout
+## Phase 1 — Foundations (data model + master + statement import + transactions + overview)
 
-```text
-Cashflow Statement                             [Period selector] [CSV] [PDF]
-For the period: 1 Jan 2026 – 30 Apr 2026
+**Database (new tables, all with RLS: read = authenticated, write = admin/manager):**
 
-──────────────────────────────────────────────────────────────────
-  Opening cash & cash equivalents                       1,234,567
-──────────────────────────────────────────────────────────────────
-  CASH FLOWS FROM OPERATING ACTIVITIES
-    Cash receipts from customers (sales)                2,500,000
-    Cash paid to suppliers                             (1,200,000)
-    Cash paid to employees (net salaries)                (450,000)
-    MPF contributions paid                                (35,000)
-    Tips paid out                                         (28,000)
-    Other operating receipts / (payments)                  12,000
-                                                       ──────────
-    Net cash from operating activities                    799,000
+- `bank_accounts` — id, account_name, bank_name, account_number_last4, currency, venue, entity, linked_gl_account_id (FK chart_of_accounts), opening_balance, opening_date, is_active, last_reconciled_date
+- `bank_statement_imports` — id, bank_account_id, period_start, period_end, opening_balance, closing_balance, file_url, uploaded_by, uploaded_at, status
+- `bank_transactions` — id, import_id, bank_account_id, txn_date, description, reference, money_in, money_out, running_balance, status (`unmatched|suggested|matched|partial|needs_review|duplicate|ignored|transfer_pending|reconciled|bank_fee`), match_confidence, matched_record_type, matched_record_id, notes, created_at
+- `bank_reconciliation_periods` — id, bank_account_id, period_start, period_end, statement_balance, ledger_balance, difference, status (`open|locked`), locked_by, locked_at
+- `bank_audit_trail` — id, ts, user_id, action, bank_account_id, bank_transaction_id, old_status, new_status, notes (JSONB)
 
-  CASH FLOWS FROM INVESTING ACTIVITIES
-    Purchase of fixed assets                              (80,000)
-    Supplier deposits paid                                (25,000)
-    Refunds of supplier deposits                           10,000
-                                                       ──────────
-    Net cash used in investing activities                 (95,000)
+GL link enforced in app: cannot upload statement until `linked_gl_account_id` set.
 
-  CASH FLOWS FROM FINANCING ACTIVITIES
-    Owner contributions                                    50,000
-    Owner withdrawals                                     (30,000)
-                                                       ──────────
-    Net cash from financing activities                     20,000
+**Storage:** new private bucket `bank-statements` with admin/manager RLS. CSV/PDF upload, parsed client-side (CSV) or stored for manual entry first pass.
 
-──────────────────────────────────────────────────────────────────
-  Net increase / (decrease) in cash                       724,000
-  Opening cash & cash equivalents                       1,234,567
-  Closing cash & cash equivalents                       1,958,567
-══════════════════════════════════════════════════════════════════
-```
+**UI (new files under `src/pages/finance/bank-recon/`):**
 
-Each section is expandable: clicking a line opens a sub-table showing the contributing journal lines (date, account, memo, amount) so the user can drill into how the figure was built.
+- `BankReconciliation.tsx` — page shell, header (title, bank account selector with "All Accounts" option, period selector, upload, export, lock, status badge), tabs container
+- `OverviewTab.tsx` — KPI cards (statement balance, ledger balance, difference, matched/unmatched counts), per-account status table, matched-vs-unmatched chart
+- `BankAccountsTab.tsx` — master CRUD table with link-GL action, opening balance, status column
+- `BankTransactionsTab.tsx` — transactions table with filter chips, sticky header, right-side detail drawer (`TxnDetailPanel.tsx`) showing suggested matches, related records, confirm/journal/transfer actions
+- `useBankReconciliation.ts` hook — fetches via `fetchAllRows`, computes ledger balance from `journal_lines` filtered by linked GL account, computes difference
 
-A small reconciliation footer confirms:  
-**Closing per statement = Cash account balances at period end (per Trial Balance)** — green check or red mismatch with delta.
+Routes added in `App.tsx`. Sidebar entry under Finance group.
 
-## Period & filter controls
+---
 
-- **Period selector**: Month / Quarter / Year-to-date / Custom date range (consistent with other Finance pages).
-- **Comparison column** (toggle): "vs prior period" — shows the same statement for the previous equivalent period side-by-side.
-- **Venue filter**: All Venues / specific venue (uses the `venue` field already present on journal lines).
+## Phase 2 — Matching workflows
 
-## Classification logic (Direct method)
+Tabs and matching engine:
 
-Cash movements are classified by looking at the **counter-account** on each cash-side journal line. For each row in `v_cash_movements` we read the *other* account(s) in the same `entry_id` and classify:
+- `SuggestedMatchesTab.tsx` — runs `suggestMatches()` util that scores candidates by: amount (exact/within tolerance), date proximity (±5d), supplier name fuzzy (bank description vs `suppliers.name`), reference vs invoice_number, payment_method. Returns confidence high/medium/low.
+- `KpaySettlementsTab.tsx` + new tables `kpay_settlements`, `kpay_settlement_settings` (venue → settlement bank account, default fee account, settlement delay). Settlement match creates 3-line journal (Bank Dr / Fee Dr / Receivable Cr).
+- `CashDepositsTab.tsx` + new table `cash_deposits` linking cash-on-hand source account to destination bank account. Shortage/overage posts to configurable expense/income accounts.
+- `SupplierPaymentsTab.tsx` — matches bank outflows to one or many open invoices (uses existing `invoices` + `invoice_payments`). Multi-invoice match writes multiple `invoice_payments` rows + one journal entry against the bank's GL account.
+- `InterAccountTransfersTab.tsx` + new table `inter_account_transfers`. Pairs outgoing/incoming bank lines; statuses: matched / pending_in / pending_out / amount_diff / timing_diff.
+- `UnmatchedItemsTab.tsx` — split view: unmatched bank lines (left) and unmatched ledger lines from the linked GL account (right).
 
-| Counter-account type / code                        | Section            | Line item                                |
-|----------------------------------------------------|--------------------|------------------------------------------|
-| `revenue`, merchant receivables (1220–1295), 1900  | Operating          | Cash receipts from customers             |
-| `cogs`, AP (2010/2100), supplier deposits refund   | Operating          | Cash paid to suppliers                   |
-| Salary Payable (2040)                              | Operating          | Cash paid to employees                   |
-| MPF Payable (2030)                                 | Operating          | MPF contributions paid                   |
-| Tips Payable (2110–2140)                           | Operating          | Tips paid out                            |
-| `opex` accounts                                    | Operating          | Other operating payments                 |
-| Fixed Assets (1500)                                | Investing          | Purchase of fixed assets                 |
-| Supplier Deposits (1310) — outflow                 | Investing          | Supplier deposits paid                   |
-| Supplier Deposits (1310) — inflow                  | Investing          | Refunds of supplier deposits             |
-| Prepayments (1320)                                 | Operating          | Prepayments made                         |
-| Owner Equity (3010) inflow                         | Financing          | Owner contributions                      |
-| Owner Equity (3010) outflow                        | Financing          | Owner withdrawals                        |
-| Anything else                                      | Operating — Other  | Other operating receipts / (payments)    |
+All matches use existing `journal_entries` / `journal_lines` infrastructure (with `manually_adjusted = true` to survive rebuilds), plus update `bank_transactions.status` and write to `bank_audit_trail`.
 
-A small mapping table at the bottom of the page lists any **unclassified** journal lines so the admin can spot misposted entries.
+---
 
-## Technical Implementation
+## Phase 3 — Rules, journals, audit, period close
 
-**New files**
-- `src/pages/finance/CashflowStatement.tsx` — the page
-- `src/hooks/useCashflowStatement.ts` — fetches `journal_lines` with their entries, joins to `chart_of_accounts`, classifies each line into a statement bucket, and aggregates by period
-- `src/utils/cashflowStatementClassifier.ts` — pure function that takes a (cash line, counter accounts[]) tuple and returns `{ section, lineItem }`
+- `JournalAdjustmentsTab.tsx` — list of journals created from bank recon (filter `journal_entries.source_type IN ('bank_recon', 'bank_fee', 'bank_transfer')`). Quick-create journal modal with bank/contra account picker.
+- `RulesTab.tsx` + new table `bank_recon_rules` — keyword → category/COA/supplier auto-match. Engine runs on statement import, applies high-confidence matches automatically when allowed.
+- `AuditTrailTab.tsx` — reads `bank_audit_trail` with filters by user/account/action/date.
+- `PeriodCloseTab.tsx` — checklist UI (difference=0, no high-priority unmatched, no unresolved KPay/cash differences, ledger==statement). Lock writes a row to `bank_reconciliation_periods` and prevents edits via RLS check (`status = 'open'`). Admin can unlock.
+- Export: CSV reconciliation report per account, plus PDF reusing the `generatePLReport` styling pattern.
 
-**Routing**
-- Add route in `src/App.tsx`:  
-  `<Route path="/finance/cashflow-statement" element={<AdminRoute><CashflowStatement /></AdminRoute>} />`
+---
 
-**Sidebar**
-- Add a new entry **"Cashflow Statement"** under the Finance group in `AppSidebar.tsx`, next to the existing Cashflow / Cashflow (Ledger) entries.
+## Design
 
-**Data fetching**
-- Use `fetchAllRows("v_cash_movements", "*")` (already exists) for cash legs.
-- Pull the corresponding non-cash counter-lines via `fetchAllRows("journal_lines", "entry_id, account_id, debit, credit")` filtered to the same `entry_id` set, joined to `chart_of_accounts` for type/code lookup.
-- Opening balance = sum of `net_cash` for all dates `< fromDate` on cash accounts.
+Hybrid of existing dark `card-glass` aesthetic but with **lighter table surfaces** for institutional feel: cards stay dark, table rows on `bg-card/50` with hover. Status chips reuse `.chip-success/warn/danger/info/neutral`. Right-side detail panel uses Sheet component. All amounts via `@/utils/format`, `td-num` class.
 
-**Export**
-- CSV export with the statement structure (section, line item, amount, comparative).
-- Optional PDF export reusing the existing `generatePLReport` styling pattern — out of scope unless requested.
+---
 
-## Out of scope (for this iteration)
+## Out of scope (this build)
 
-- Indirect-method version (start from Net Income, adjust for non-cash items + working capital changes). Can be added later as a toggle.
-- Editing classification rules from the UI (rules will live in code; misposted entries shown in the "Unclassified" table).
+- Automated bank-feed connectors (Plaid/etc.) — manual CSV/entry only
+- OCR of PDF statements — files stored, user keys data or imports CSV
+- FX revaluation across currencies — single currency per account
+- Forecasting cash position — separate concern
 
+---
+
+## Confirm before I start
+
+1. **Phasing**: deliver Phase 1 first, then 2, then 3? (Recommended — page is large.)
+2. **Statement upload**: CSV import for v1 (paste/upload + column mapping), with manual single-line entry as fallback? PDF parsing later.
+3. **Existing cash accounts**: I'll auto-seed `bank_accounts` from `chart_of_accounts` rows where `is_cash = true` so your current ledger keeps working — OK?
