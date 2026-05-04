@@ -256,6 +256,11 @@ export function AppSidebar() {
           <LogOut className="h-4 w-4" />
           <span>Sign Out</span>
         </button>
+        <div className="mt-3 pt-3 border-t border-sidebar-border/60 px-1">
+          <p className="text-[10px] text-sidebar-foreground/50 tracking-wide">
+            Powered by <span className="text-sidebar-primary font-semibold">Bani</span>
+          </p>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
