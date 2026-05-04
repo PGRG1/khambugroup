@@ -7,6 +7,7 @@ export interface ServicePeriod {
   name: string;
   sort_order: number;
   is_active: boolean;
+  revenue_source_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,11 +33,19 @@ export function useServicePeriods() {
 
   useEffect(() => { load(); }, [load]);
 
-  const create = async (name: string) => {
-    const trimmed = name.trim();
+  const create = async (input: { name: string; revenue_source_id: string }) => {
+    const trimmed = input.name.trim();
     if (!trimmed) return false;
+    if (!input.revenue_source_id) {
+      toast({ title: "Pick a Revenue Source", description: "A service period must belong to a Revenue Source.", variant: "destructive" });
+      return false;
+    }
     const maxOrder = periods.reduce((m, p) => Math.max(m, p.sort_order), 0);
-    const { error } = await supabase.from("service_periods").insert({ name: trimmed, sort_order: maxOrder + 1 });
+    const { error } = await supabase.from("service_periods").insert({
+      name: trimmed,
+      sort_order: maxOrder + 1,
+      revenue_source_id: input.revenue_source_id,
+    });
     if (error) {
       toast({ title: "Could not add service period", description: error.message, variant: "destructive" });
       return false;
@@ -45,7 +54,7 @@ export function useServicePeriods() {
     return true;
   };
 
-  const update = async (id: string, patch: Partial<Pick<ServicePeriod, "name" | "is_active" | "sort_order">>) => {
+  const update = async (id: string, patch: Partial<Pick<ServicePeriod, "name" | "is_active" | "sort_order" | "revenue_source_id">>) => {
     const cleaned: Record<string, unknown> = { ...patch };
     if (typeof cleaned.name === "string") cleaned.name = (cleaned.name as string).trim();
     const { error } = await supabase.from("service_periods").update(cleaned).eq("id", id);
