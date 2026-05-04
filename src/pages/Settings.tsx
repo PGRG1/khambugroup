@@ -2,7 +2,8 @@ import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, Palette } from "lucide-react";
+import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
 
 const Settings = () => {
   const { isAdmin } = useAuth();
@@ -17,6 +18,17 @@ const Settings = () => {
           <span className="text-gradient-gold">Settings</span>
         </h1>
         <p className="text-xs text-muted-foreground mt-1">Admin configuration</p>
+      </div>
+
+      <div className="card-glass rounded-xl p-6">
+        <h2 className="text-lg font-display font-semibold text-foreground flex items-center gap-2 mb-1">
+          <Palette className="h-5 w-5 text-primary" />
+          Appearance
+        </h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Choose your preferred theme. This setting is saved to your account and applies across devices.
+        </p>
+        <ThemeSwitcher />
       </div>
 
       <div className="card-glass rounded-xl p-6">

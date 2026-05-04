@@ -5,56 +5,139 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @layer base {
+  /* =========================================================
+     LIGHT — Dusty Blue + Copper
+     ========================================================= */
   :root {
-    --background: 35 30% 97%;
-    --foreground: 25 20% 15%;
+    /* App surfaces */
+    --background: 214 32% 97%;          /* #F6F8FB */
+    --foreground: 213 62% 16%;          /* #102A43 */
 
-    --card: 33 25% 93%;
-    --card-foreground: 25 20% 15%;
+    --card: 0 0% 100%;                   /* #FFFFFF */
+    --card-foreground: 213 62% 16%;
 
-    --popover: 35 25% 95%;
-    --popover-foreground: 25 20% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 62% 16%;
 
-    --primary: 24 80% 50%;
+    /* Brand — Copper */
+    --primary: 27 60% 46%;               /* #B87333 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 20% 90%;
-    --secondary-foreground: 25 15% 30%;
+    --secondary: 213 30% 93%;
+    --secondary-foreground: 213 62% 16%;
 
-    --muted: 30 15% 92%;
-    --muted-foreground: 25 10% 50%;
+    --muted: 214 32% 94%;                /* #F1F5F9-ish */
+    --muted-foreground: 210 17% 49%;     /* #627D98 */
 
-    --accent: 14 70% 52%;
+    --accent: 32 39% 36%;                /* #7C5C3B secondary copper */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 65% 50%;
+    --destructive: 0 62% 48%;            /* #C53030 */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 15% 85%;
-    --input: 30 15% 85%;
-    --ring: 24 80% 50%;
+    --success: 145 47% 35%;              /* #2F855A */
+    --warning: 32 95% 44%;               /* #D97706 */
+    --info: 217 91% 60%;                 /* #2563EB */
+
+    --border: 213 32% 88%;               /* #D9E2EC */
+    --input: 213 32% 88%;
+    --ring: 27 60% 46%;
 
     --radius: 0.75rem;
 
-    --chart-1: 24 80% 50%;
-    --chart-2: 14 70% 52%;
-    --chart-3: 175 55% 42%;
-    --chart-4: 258 50% 55%;
-    --chart-5: 145 45% 42%;
+    /* Surfaces */
+    --surface-panel: 0 0% 100%;
+    --surface-muted: 214 32% 94%;
 
-    --sidebar-background: 33 25% 94%;
-    --sidebar-foreground: 25 20% 15%;
-    --sidebar-primary: 24 80% 50%;
+    /* Charts */
+    --chart-1: 27 60% 46%;   /* copper */
+    --chart-2: 217 91% 51%;  /* blue   #2563EB */
+    --chart-3: 175 64% 26%;  /* teal   #0F766E */
+    --chart-4: 145 47% 35%;  /* green  #2F855A */
+    --chart-5: 262 78% 58%;  /* purple #7C3AED */
+    --chart-6: 0 62% 48%;    /* rose   #C53030 */
+    --chart-7: 32 95% 44%;   /* gold   #D97706 */
+    --chart-8: 215 16% 47%;  /* slate  #64748B */
+    --chart-grid: 213 32% 88%;
+
+    /* Sidebar — Dusty navy with light text */
+    --sidebar-background: 213 62% 16%;       /* #102A43 */
+    --sidebar-foreground: 213 30% 88%;
+    --sidebar-primary: 27 60% 56%;           /* copper accent */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 30 20% 88%;
-    --sidebar-accent-foreground: 25 20% 15%;
-    --sidebar-border: 30 15% 85%;
-    --sidebar-ring: 24 80% 50%;
+    --sidebar-accent: 211 37% 23%;           /* #243B53 */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 211 37% 23%;
+    --sidebar-ring: 27 60% 56%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(24 80% 50%), hsl(14 70% 48%));
-    --gradient-card: linear-gradient(145deg, hsl(33 25% 94%), hsl(33 25% 91%));
-    --shadow-glow: 0 0 20px -5px hsl(24 80% 50% / 0.15);
-    --shadow-card: 0 4px 24px -4px hsl(25 20% 15% / 0.08);
+    --gradient-gold: linear-gradient(135deg, hsl(27 60% 46%), hsl(32 39% 36%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(214 32% 97%));
+    --shadow-glow: 0 0 20px -5px hsl(27 60% 46% / 0.18);
+    --shadow-card: 0 4px 24px -8px hsl(213 62% 16% / 0.08);
+  }
+
+  /* =========================================================
+     DARK — Deep Navy + Copper
+     ========================================================= */
+  .dark {
+    --background: 213 53% 10%;           /* #0B1726 */
+    --foreground: 210 40% 98%;           /* #F8FAFC */
+
+    --card: 213 47% 16%;                 /* #14263B */
+    --card-foreground: 210 40% 98%;
+
+    --popover: 213 47% 16%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 27 60% 46%;               /* copper */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 213 45% 19%;            /* #1A2E45 */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 213 45% 19%;
+    --muted-foreground: 213 16% 65%;     /* #A8B3C2 */
+
+    --accent: 32 49% 65%;                /* #D4A373 */
+    --accent-foreground: 213 53% 10%;
+
+    --destructive: 0 70% 60%;            /* #E05353 */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 145 47% 43%;              /* #38A169 */
+    --warning: 38 67% 51%;               /* #D69E2E */
+    --info: 217 91% 67%;                 /* #60A5FA */
+
+    --border: 211 37% 23%;               /* #243B53 */
+    --input: 211 37% 23%;
+    --ring: 27 60% 56%;
+
+    --surface-panel: 213 45% 19%;
+    --surface-muted: 213 47% 16%;
+
+    --chart-1: 27 60% 56%;
+    --chart-2: 217 91% 67%;   /* blue   */
+    --chart-3: 172 66% 50%;   /* teal   #2DD4BF */
+    --chart-4: 142 71% 58%;   /* green  #4ADE80 */
+    --chart-5: 258 90% 76%;   /* purple #A78BFA */
+    --chart-6: 0 91% 71%;     /* rose   #F87171 */
+    --chart-7: 43 96% 56%;    /* gold   #FBBF24 */
+    --chart-8: 215 20% 65%;   /* slate  #94A3B8 */
+    --chart-grid: 213 35% 25%; /* #2A3B52 */
+
+    --sidebar-background: 213 53% 7%;        /* #08111D */
+    --sidebar-foreground: 213 16% 75%;
+    --sidebar-primary: 27 60% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 213 45% 19%;           /* #1A2E45 */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 211 37% 23%;
+    --sidebar-ring: 27 60% 56%;
+
+    --gradient-gold: linear-gradient(135deg, hsl(27 60% 56%), hsl(32 49% 65%));
+    --gradient-card: linear-gradient(145deg, hsl(213 47% 16%), hsl(213 45% 19%));
+    --shadow-glow: 0 0 24px -6px hsl(27 60% 46% / 0.25);
+    --shadow-card: 0 4px 24px -8px hsl(0 0% 0% / 0.45);
   }
 }
 
@@ -91,15 +174,15 @@
     box-shadow: var(--shadow-glow);
   }
 
-  /* P&L Professional table styles */
+  /* P&L Professional table styles — token-driven so they adapt to light/dark */
   .pl-table {
-    --pl-header: 30 18% 86%;
-    --pl-row-even: 33 22% 95%;
-    --pl-row-odd: 35 28% 97%;
-    --pl-total: 28 25% 90%;
-    --pl-grand-total: 24 30% 85%;
-    --pl-section: 30 15% 92%;
-    --pl-ratio: 35 20% 96%;
-    --pl-border: 30 12% 82%;
+    --pl-header: var(--muted);
+    --pl-row-even: var(--card);
+    --pl-row-odd: var(--background);
+    --pl-total: var(--secondary);
+    --pl-grand-total: var(--accent);
+    --pl-section: var(--muted);
+    --pl-ratio: var(--background);
+    --pl-border: var(--border);
   }
 }

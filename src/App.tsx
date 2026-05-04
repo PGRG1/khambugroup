@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { AppLayout } from "@/components/AppLayout";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
@@ -91,11 +92,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <PreviewModeProvider>
-            <Toaster />
-            <Sonner />
-            <PreviewBanner />
-            <BrowserRouter>
+          <ThemeProvider>
+            <PreviewModeProvider>
+              <Toaster />
+              <Sonner />
+              <PreviewBanner />
+              <BrowserRouter>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
@@ -143,7 +145,8 @@ function App() {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </PreviewModeProvider>
+            </PreviewModeProvider>
+          </ThemeProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
