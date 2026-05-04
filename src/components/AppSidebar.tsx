@@ -102,7 +102,7 @@ function CollapsibleNavGroup({
       <SidebarGroup>
         <CollapsibleTrigger asChild>
           <SidebarGroupLabel className="flex items-center justify-between cursor-pointer hover:text-sidebar-foreground transition-colors group/label">
-            <span>{label}</span>
+            <span className="text-base font-normal">{label}</span>
             {open ? (
               <ChevronUp className="h-3.5 w-3.5 transition-transform duration-200" />
             ) : (
