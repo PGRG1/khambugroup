@@ -15,6 +15,7 @@ import Index from "./pages/Index";
 import DataPage from "./pages/DataPage";
 
 import ForecastInput from "./pages/ForecastInput";
+import Events from "./pages/Events";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
 import Settings from "./pages/Settings";
@@ -104,6 +105,7 @@ function App() {
                 <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
                 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
+                <Route path="/events" element={<AdminRoute><Events /></AdminRoute>} />
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
                 <Route path="/finance" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
