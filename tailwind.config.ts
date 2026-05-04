@@ -57,7 +57,25 @@ export default {
           "3": "hsl(var(--chart-3))",
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
+          "6": "hsl(var(--chart-6))",
+          "7": "hsl(var(--chart-7))",
+          "8": "hsl(var(--chart-8))",
+          grid: "hsl(var(--chart-grid))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(0 0% 100%)",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(0 0% 100%)",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(0 0% 100%)",
+        },
+        "surface-panel": "hsl(var(--surface-panel))",
+        "surface-muted": "hsl(var(--surface-muted))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
