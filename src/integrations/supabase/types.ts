@@ -2612,6 +2612,7 @@ export type Database = {
       revenue_sources: {
         Row: {
           created_at: string
+          description: string
           id: string
           is_active: boolean
           is_default: boolean
@@ -2621,6 +2622,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -2630,6 +2632,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string
           id?: string
           is_active?: boolean
           is_default?: boolean
