@@ -28,12 +28,6 @@ function toDbRecord(r: SalesRecord) {
     card_tips: -Math.abs(r.cardTips), // always store as negative (mirrors discount)
     receipt_file_url: r.receiptFileUrl ?? null,
     receipt_file_name: r.receiptFileName ?? null,
-    revenue_source_id: r.revenueSourceId ?? null,
-    event_id: r.eventId ?? null,
-    event_name: r.eventName ?? null,
-    external_location: r.externalLocation ?? null,
-    service_period: r.servicePeriod ?? null,
-    sales_channel: r.salesChannel ?? null,
   };
 }
 
@@ -71,12 +65,6 @@ function fromDbRecord(r: any): SalesRecord {
     cardTips: normalizeCardTips(Number(r.card_tips)),
     receiptFileUrl: r.receipt_file_url ?? null,
     receiptFileName: r.receipt_file_name ?? null,
-    revenueSourceId: r.revenue_source_id ?? null,
-    eventId: r.event_id ?? null,
-    eventName: r.event_name ?? null,
-    externalLocation: r.external_location ?? null,
-    servicePeriod: r.service_period ?? null,
-    salesChannel: r.sales_channel ?? null,
   };
 }
 

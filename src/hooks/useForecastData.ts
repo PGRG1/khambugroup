@@ -24,11 +24,6 @@ function fromDb(r: any): ForecastRecord {
     approvedBy: r.approved_by,
     approvedAt: r.approved_at,
     createdAt: r.created_at,
-    revenueSourceId: r.revenue_source_id ?? null,
-    eventId: r.event_id ?? null,
-    externalLocation: r.external_location ?? null,
-    servicePeriod: r.service_period ?? null,
-    salesChannel: r.sales_channel ?? null,
   };
 }
 
@@ -50,11 +45,6 @@ function toDb(r: Partial<ForecastRecord>) {
   if (r.submittedBy !== undefined) dbRecord.submitted_by = r.submittedBy;
   if (r.approvedBy !== undefined) dbRecord.approved_by = r.approvedBy;
   if (r.approvedAt !== undefined) dbRecord.approved_at = r.approvedAt;
-  if (r.revenueSourceId !== undefined) dbRecord.revenue_source_id = r.revenueSourceId;
-  if (r.eventId !== undefined) dbRecord.event_id = r.eventId;
-  if (r.externalLocation !== undefined) dbRecord.external_location = r.externalLocation;
-  if (r.servicePeriod !== undefined) dbRecord.service_period = r.servicePeriod;
-  if (r.salesChannel !== undefined) dbRecord.sales_channel = r.salesChannel;
   return dbRecord;
 }
 

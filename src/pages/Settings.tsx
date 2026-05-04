@@ -4,8 +4,6 @@ import { Navigate } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import { Settings as SettingsIcon, Palette } from "lucide-react";
 import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
-import RevenueSourcesPanel from "@/components/admin/RevenueSourcesPanel";
-import VenuesConfigPanel from "@/components/admin/VenuesConfigPanel";
 
 const Settings = () => {
   const { isAdmin } = useAuth();
@@ -32,9 +30,6 @@ const Settings = () => {
         </p>
         <ThemeSwitcher />
       </div>
-
-      <VenuesConfigPanel />
-      <RevenueSourcesPanel />
 
       <div className="card-glass rounded-xl p-6">
         <h2 className="text-lg font-display font-semibold text-foreground flex items-center gap-2 mb-4">

@@ -4,13 +4,7 @@ export interface ForecastRecord {
   id: string;
   date: string;
   day: string;
-  venue: "Assembly" | "Caliente" | "Hanabi" | "Events" | "Off-site / External";
-  // Phase 2 extension fields (all optional, additive)
-  revenueSourceId?: string | null;
-  eventId?: string | null;
-  externalLocation?: string | null;
-  servicePeriod?: string | null;
-  salesChannel?: string | null;
+  venue: "Assembly" | "Caliente" | "Hanabi" | "Events";
   forecastedCustomers: number;
   forecastedAvgSpend: number;
   forecastedGrossSales: number;

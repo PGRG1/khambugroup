@@ -561,86 +561,6 @@ export type Database = {
           },
         ]
       }
-      events: {
-        Row: {
-          actual_guests: number | null
-          actual_revenue: number | null
-          created_at: string
-          created_by: string | null
-          end_date: string
-          event_type: string
-          expected_guests: number | null
-          external_location: string | null
-          forecast_avg_spend: number | null
-          forecast_revenue: number | null
-          id: string
-          include_in_dashboard: boolean
-          linked_venue: string | null
-          name: string
-          notes: string
-          revenue_source_id: string | null
-          sales_channel: string | null
-          service_period: string | null
-          start_date: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          actual_guests?: number | null
-          actual_revenue?: number | null
-          created_at?: string
-          created_by?: string | null
-          end_date: string
-          event_type?: string
-          expected_guests?: number | null
-          external_location?: string | null
-          forecast_avg_spend?: number | null
-          forecast_revenue?: number | null
-          id?: string
-          include_in_dashboard?: boolean
-          linked_venue?: string | null
-          name: string
-          notes?: string
-          revenue_source_id?: string | null
-          sales_channel?: string | null
-          service_period?: string | null
-          start_date: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          actual_guests?: number | null
-          actual_revenue?: number | null
-          created_at?: string
-          created_by?: string | null
-          end_date?: string
-          event_type?: string
-          expected_guests?: number | null
-          external_location?: string | null
-          forecast_avg_spend?: number | null
-          forecast_revenue?: number | null
-          id?: string
-          include_in_dashboard?: boolean
-          linked_venue?: string | null
-          name?: string
-          notes?: string
-          revenue_source_id?: string | null
-          sales_channel?: string | null
-          service_period?: string | null
-          start_date?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "events_revenue_source_id_fkey"
-            columns: ["revenue_source_id"]
-            isOneToOne: false
-            referencedRelation: "revenue_sources"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       expense_categories: {
         Row: {
           created_at: string
@@ -691,8 +611,6 @@ export type Database = {
           created_at: string
           date: string
           day: string
-          event_id: string | null
-          external_location: string | null
           forecast_notes: string
           forecasted_avg_spend: number
           forecasted_customers: number
@@ -702,9 +620,6 @@ export type Database = {
           id: string
           pending_post_event_notes: string | null
           post_event_notes: string
-          revenue_source_id: string | null
-          sales_channel: string | null
-          service_period: string | null
           status: string
           submitted_by: string | null
           updated_at: string
@@ -717,8 +632,6 @@ export type Database = {
           created_at?: string
           date: string
           day: string
-          event_id?: string | null
-          external_location?: string | null
           forecast_notes?: string
           forecasted_avg_spend?: number
           forecasted_customers?: number
@@ -728,9 +641,6 @@ export type Database = {
           id?: string
           pending_post_event_notes?: string | null
           post_event_notes?: string
-          revenue_source_id?: string | null
-          sales_channel?: string | null
-          service_period?: string | null
           status?: string
           submitted_by?: string | null
           updated_at?: string
@@ -743,8 +653,6 @@ export type Database = {
           created_at?: string
           date?: string
           day?: string
-          event_id?: string | null
-          external_location?: string | null
           forecast_notes?: string
           forecasted_avg_spend?: number
           forecasted_customers?: number
@@ -754,30 +662,12 @@ export type Database = {
           id?: string
           pending_post_event_notes?: string | null
           post_event_notes?: string
-          revenue_source_id?: string | null
-          sales_channel?: string | null
-          service_period?: string | null
           status?: string
           submitted_by?: string | null
           updated_at?: string
           venue?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "forecasts_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "forecasts_revenue_source_id_fkey"
-            columns: ["revenue_source_id"]
-            isOneToOne: false
-            referencedRelation: "revenue_sources"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       hr_attendance: {
         Row: {
@@ -2490,36 +2380,6 @@ export type Database = {
         }
         Relationships: []
       }
-      revenue_sources: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          is_default: boolean
-          name: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          name: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          name?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       revenue_targets: {
         Row: {
           created_at: string
@@ -2566,9 +2426,6 @@ export type Database = {
           date: string
           day: string
           discount: number
-          event_id: string | null
-          event_name: string | null
-          external_location: string | null
           guests: number
           id: string
           jcb: number
@@ -2578,10 +2435,7 @@ export type Database = {
           receipt_file_name: string | null
           receipt_file_url: string | null
           report_number: string
-          revenue_source_id: string | null
-          sales_channel: string | null
           service_charge: number
-          service_period: string | null
           subtotal: number
           total_sales: number
           union_pay: number
@@ -2598,9 +2452,6 @@ export type Database = {
           date: string
           day: string
           discount?: number
-          event_id?: string | null
-          event_name?: string | null
-          external_location?: string | null
           guests?: number
           id?: string
           jcb?: number
@@ -2610,10 +2461,7 @@ export type Database = {
           receipt_file_name?: string | null
           receipt_file_url?: string | null
           report_number: string
-          revenue_source_id?: string | null
-          sales_channel?: string | null
           service_charge?: number
-          service_period?: string | null
           subtotal?: number
           total_sales?: number
           union_pay?: number
@@ -2630,9 +2478,6 @@ export type Database = {
           date?: string
           day?: string
           discount?: number
-          event_id?: string | null
-          event_name?: string | null
-          external_location?: string | null
           guests?: number
           id?: string
           jcb?: number
@@ -2642,10 +2487,7 @@ export type Database = {
           receipt_file_name?: string | null
           receipt_file_url?: string | null
           report_number?: string
-          revenue_source_id?: string | null
-          sales_channel?: string | null
           service_charge?: number
-          service_period?: string | null
           subtotal?: number
           total_sales?: number
           union_pay?: number
@@ -2653,22 +2495,7 @@ export type Database = {
           visa?: number
           wechat?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "sales_records_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_records_revenue_source_id_fkey"
-            columns: ["revenue_source_id"]
-            isOneToOne: false
-            referencedRelation: "revenue_sources"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       standard_products: {
         Row: {
@@ -2913,51 +2740,6 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
-        }
-        Relationships: []
-      }
-      venues_config: {
-        Row: {
-          created_at: string
-          display_label: string
-          historical_only: boolean
-          include_in_dashboard: boolean
-          include_in_forecasting: boolean
-          include_in_inventory: boolean
-          include_in_payroll: boolean
-          is_active: boolean
-          name: string
-          sort_order: number
-          updated_at: string
-          venue_type: string
-        }
-        Insert: {
-          created_at?: string
-          display_label: string
-          historical_only?: boolean
-          include_in_dashboard?: boolean
-          include_in_forecasting?: boolean
-          include_in_inventory?: boolean
-          include_in_payroll?: boolean
-          is_active?: boolean
-          name: string
-          sort_order?: number
-          updated_at?: string
-          venue_type: string
-        }
-        Update: {
-          created_at?: string
-          display_label?: string
-          historical_only?: boolean
-          include_in_dashboard?: boolean
-          include_in_forecasting?: boolean
-          include_in_inventory?: boolean
-          include_in_payroll?: boolean
-          is_active?: boolean
-          name?: string
-          sort_order?: number
-          updated_at?: string
-          venue_type?: string
         }
         Relationships: []
       }
