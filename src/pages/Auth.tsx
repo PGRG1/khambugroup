@@ -74,53 +74,51 @@ const Auth = () => {
     setLoading(false);
   };
 
+  const BrandHeader = (
+    <div className="flex items-center gap-2.5">
+      <img src={baniLogo} alt="Bani" width={36} height={36} className="h-9 w-9" />
+      <span className="font-display text-xl font-bold tracking-tight text-foreground">Bani</span>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-background">
-      {/* LEFT — Brand panel */}
-      <div className="relative lg:w-[58%] overflow-hidden">
-        {/* Hero background image */}
+    <div className="min-h-screen w-full bg-background lg:grid lg:grid-cols-[1.1fr_1fr] xl:grid-cols-[1.25fr_1fr]">
+      {/* LEFT — Brand panel (desktop only) */}
+      <aside className="relative hidden lg:flex flex-col overflow-hidden">
         <img
           src={authHero}
           alt=""
           aria-hidden
           className="absolute inset-0 h-full w-full object-cover"
         />
-        {/* Gradient overlay for legibility */}
-        <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/75 to-primary/15" />
-        {/* Copper radial glow top-right */}
+        <div className="absolute inset-0 bg-gradient-to-br from-background/92 via-background/70 to-primary/15" />
         <div
-          className="absolute -top-32 -right-32 h-[420px] w-[420px] rounded-full opacity-40 blur-3xl"
-          style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.45), transparent 70%)" }}
+          className="absolute -top-40 -right-40 h-[480px] w-[480px] rounded-full opacity-40 blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(circle, hsl(var(--primary) / 0.5), transparent 70%)" }}
         />
 
-        <div className="relative z-10 flex flex-col justify-between min-h-[260px] lg:min-h-screen p-8 lg:p-14">
-          {/* Brand row */}
-          <div className="flex items-center gap-3">
-            <img src={baniLogo} alt="Bani" width={44} height={44} className="h-11 w-11" />
-            <span className="font-display text-2xl font-bold tracking-tight text-foreground">Bani</span>
-          </div>
+        <div className="relative z-10 flex flex-col h-full p-10 xl:p-14">
+          {BrandHeader}
 
-          {/* Hero copy */}
-          <div className="my-10 lg:my-0 max-w-xl">
-            <h1 className="font-display text-4xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.05]">
+          <div className="flex-1 flex flex-col justify-center max-w-xl mx-auto w-full">
+            <h1 className="font-display text-4xl xl:text-5xl 2xl:text-6xl font-bold tracking-tight text-foreground leading-[1.05]">
               Welcome to <span className="text-primary">Bani</span>
             </h1>
             <div className="mt-4 h-1 w-16 rounded-full bg-primary" />
-            <p className="mt-6 text-lg lg:text-xl font-medium text-primary">
+            <p className="mt-6 text-lg xl:text-xl font-medium text-primary">
               Operational intelligence for revenue, procurement, finance, and cash flow.
             </p>
             <p className="mt-3 text-base text-muted-foreground max-w-md">
               Access your workspace and continue managing performance with clarity and control.
             </p>
 
-            {/* Features */}
-            <ul className="mt-8 space-y-4 hidden lg:block">
+            <ul className="mt-8 space-y-4">
               {features.map(({ icon: Icon, title, desc }) => (
                 <li key={title} className="flex items-start gap-3">
-                  <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
+                  <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
                     <Icon className="h-5 w-5" />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">{title}</p>
                     <p className="text-sm text-muted-foreground">{desc}</p>
                   </div>
@@ -129,156 +127,179 @@ const Auth = () => {
             </ul>
           </div>
 
-          {/* spacer for layout balance */}
-          <div className="hidden lg:block" />
+          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Bani. All rights reserved.</p>
         </div>
-      </div>
+      </aside>
 
       {/* RIGHT — Form panel */}
-      <div className="lg:w-[42%] flex items-center justify-center p-6 lg:p-10 bg-background">
-        <div className="w-full max-w-md">
-          <div className="rounded-2xl border border-border bg-card shadow-xl p-8 lg:p-10">
-            <div className="mb-6">
-              <h2 className="font-display text-2xl font-bold text-foreground">
-                {isLogin ? "Sign In" : "Create Account"}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {isLogin ? "Sign in to continue to your workspace." : "Set up your account to get started."}
+      <main className="relative flex min-h-screen flex-col bg-background">
+        {/* Mobile/tablet brand banner with hero image */}
+        <div className="relative lg:hidden overflow-hidden">
+          <img
+            src={authHero}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/85 via-background/60 to-background" />
+          <div className="relative z-10 px-6 pt-8 pb-10 sm:px-10">
+            {BrandHeader}
+            <div className="mt-6 max-w-lg">
+              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground leading-[1.1]">
+                Welcome to <span className="text-primary">Bani</span>
+              </h1>
+              <div className="mt-3 h-1 w-12 rounded-full bg-primary" />
+              <p className="mt-4 text-base sm:text-lg font-medium text-primary">
+                Operational intelligence for revenue, procurement, finance, and cash flow.
               </p>
             </div>
+          </div>
+        </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
+        {/* Form area */}
+        <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:p-10">
+          <div className="w-full max-w-md">
+            <div className="rounded-2xl border border-border bg-card shadow-xl p-6 sm:p-8 lg:p-10">
+              <div className="mb-6">
+                <h2 className="font-display text-2xl font-bold text-foreground">
+                  {isLogin ? "Sign In" : "Create Account"}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isLogin ? "Sign in to continue to your workspace." : "Set up your account to get started."}
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {!isLogin && (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Display Name
+                    </label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="w-full pl-10 pr-3 h-11 rounded-lg border border-input bg-background text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
+                        placeholder="Your name"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                    Display Name
+                    Email
                   </label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-10 pr-3 h-11 rounded-lg border border-input bg-background text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
-                      placeholder="Your name"
+                      placeholder="you@example.com"
                     />
                   </div>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-3 h-11 rounded-lg border border-input bg-background text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
-                    placeholder="you@example.com"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 h-11 rounded-lg border border-input bg-background text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {isLogin && (
-                <div className="flex items-center justify-between">
-                  <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                      className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
-                    />
-                    Remember me
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Password
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    className="text-sm font-medium text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </button>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-10 pr-10 h-11 rounded-lg border border-input bg-background text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              {message && <p className="text-sm text-primary">{message}</p>}
+                {isLogin && (
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <label className="inline-flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={remember}
+                        onChange={(e) => setRemember(e.target.checked)}
+                        className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                      />
+                      Remember me
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="group w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm shadow-md hover:opacity-90 transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
-              >
-                {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
-                {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
-              </button>
-            </form>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                {message && <p className="text-sm text-primary">{message}</p>}
 
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs uppercase tracking-wider text-muted-foreground">or</span>
-              <div className="h-px flex-1 bg-border" />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="group w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm shadow-md hover:opacity-90 transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                >
+                  {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+                  {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
+                </button>
+              </form>
+
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              <p className="text-sm text-muted-foreground text-center">
+                {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+                <button
+                  onClick={() => { setIsLogin(!isLogin); setError(""); setMessage(""); }}
+                  className="text-primary font-semibold hover:underline"
+                >
+                  {isLogin ? "Sign Up" : "Sign In"}
+                </button>
+              </p>
             </div>
 
-            <p className="text-sm text-muted-foreground text-center">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <button
-                onClick={() => { setIsLogin(!isLogin); setError(""); setMessage(""); }}
-                className="text-primary font-semibold hover:underline"
-              >
-                {isLogin ? "Sign Up" : "Sign In"}
-              </button>
-            </p>
-          </div>
-
-          {/* Secure access strip */}
-          <div className="mt-4 flex items-start gap-3 rounded-xl border border-border bg-card/50 px-4 py-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
-              <Shield className="h-4 w-4" />
-            </span>
-            <div className="text-sm">
-              <p className="font-semibold text-foreground">Secure access — Enterprise-grade security.</p>
-              <p className="text-muted-foreground">Your data is protected.</p>
+            <div className="mt-4 flex items-start gap-3 rounded-xl border border-border bg-card/50 px-4 py-3">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
+                <Shield className="h-4 w-4" />
+              </span>
+              <div className="text-sm min-w-0">
+                <p className="font-semibold text-foreground">Secure access — Enterprise-grade security.</p>
+                <p className="text-muted-foreground">Your data is protected.</p>
+              </div>
             </div>
-          </div>
 
-          {/* Footer */}
-          <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <span>Powered by</span>
-            <img src={baniLogo} alt="" width={16} height={16} className="h-4 w-4" />
-            <span className="font-semibold text-foreground">Bani</span>
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <span>Powered by</span>
+              <img src={baniLogo} alt="" width={16} height={16} className="h-4 w-4" />
+              <span className="font-semibold text-foreground">Bani</span>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
