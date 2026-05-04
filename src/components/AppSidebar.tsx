@@ -197,7 +197,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-base font-normal">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{visibleItems.map(renderLink)}</SidebarMenu>
           </SidebarGroupContent>
