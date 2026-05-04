@@ -13,11 +13,12 @@ import { FileDown, FileText, Armchair } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 import { getVenueSeats } from "@/constants/venueSeating";
-
-const venues: VenueFilter[] = ["All Venues", "Assembly", "Caliente", "Hanabi", "Events"];
+import { useVenues } from "@/hooks/useVenues";
 
 const Index = () => {
   const { data, loading } = useSalesData();
+  const { venues: dbVenues } = useVenues();
+  const venues: VenueFilter[] = ["All Venues" as VenueFilter, ...dbVenues.filter(v => v.is_active).map(v => v.name as VenueFilter)];
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
   const [venue, setVenue] = useState<VenueFilter>("All Venues");
