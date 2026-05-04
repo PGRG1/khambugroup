@@ -227,22 +227,33 @@ const VenuesSection = () => {
 // ---------- Service Periods ----------
 const ServicePeriodsSection = () => {
   const { periods, loading, create, update, remove } = useServicePeriods();
+  const { sources } = useRevenueSources();
+  const activeSources = sources.filter((s) => s.is_active);
+  const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? "—";
+
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draftName, setDraftName] = useState("");
+  const [draft, setDraft] = useState<{ name: string; revenue_source_id: string }>({ name: "", revenue_source_id: "" });
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newSourceId, setNewSourceId] = useState<string>("");
 
-  const startEdit = (p: ServicePeriod) => { setEditingId(p.id); setDraftName(p.name); };
+  const startEdit = (p: ServicePeriod) => {
+    setEditingId(p.id);
+    setDraft({ name: p.name, revenue_source_id: p.revenue_source_id ?? "" });
+  };
 
   const saveEdit = async (p: ServicePeriod) => {
-    const ok = await update(p.id, { name: draftName });
+    if (!draft.revenue_source_id) {
+      return;
+    }
+    const ok = await update(p.id, { name: draft.name, revenue_source_id: draft.revenue_source_id });
     if (ok) setEditingId(null);
   };
 
   const handleAdd = async () => {
-    if (!newName.trim()) return;
-    const ok = await create(newName);
-    if (ok) { setNewName(""); setAdding(false); }
+    if (!newName.trim() || !newSourceId) return;
+    const ok = await create({ name: newName, revenue_source_id: newSourceId });
+    if (ok) { setNewName(""); setNewSourceId(""); setAdding(false); }
   };
 
   const handleDelete = async (p: ServicePeriod) => {
@@ -250,15 +261,23 @@ const ServicePeriodsSection = () => {
     await remove(p.id);
   };
 
+  const noSourcesYet = activeSources.length === 0;
+
   return (
     <SectionShell
       icon={Clock}
       title="Service Periods"
-      subtitle="Optional time-of-day breakdowns (e.g. Breakfast, Lunch, Dinner). Hidden across the app until at least one is created."
+      subtitle="Children of Revenue Sources (e.g. Restaurant Sales → Breakfast, Lunch, Dinner). Hidden across the app until at least one is created."
       count={periods.length}
     >
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : noSourcesYet ? (
+        <div className="text-center py-6 rounded-lg border border-dashed border-border bg-muted/10">
+          <p className="text-sm text-muted-foreground">
+            Create a <span className="text-foreground font-medium">Revenue Source</span> first — service periods are children of a Revenue Source.
+          </p>
+        </div>
       ) : periods.length === 0 && !adding ? (
         <div className="text-center py-6 rounded-lg border border-dashed border-border bg-muted/10">
           <p className="text-sm text-muted-foreground mb-3">
@@ -275,7 +294,8 @@ const ServicePeriodsSection = () => {
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="text-left px-3 py-2 font-medium">Name</th>
+                    <th className="text-left px-3 py-2 font-medium">Revenue Source</th>
+                    <th className="text-left px-3 py-2 font-medium">Period Name</th>
                     <th className="text-left px-3 py-2 font-medium w-24">Active</th>
                     <th className="text-right px-3 py-2 font-medium w-32">Actions</th>
                   </tr>
@@ -286,18 +306,31 @@ const ServicePeriodsSection = () => {
                       {editingId === p.id ? (
                         <>
                           <td className="px-3 py-2">
-                            <Input value={draftName} onChange={(e) => setDraftName(e.target.value)} className="h-8" />
+                            <select
+                              value={draft.revenue_source_id}
+                              onChange={(e) => setDraft({ ...draft, revenue_source_id: e.target.value })}
+                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                            >
+                              <option value="" disabled>Select source…</option>
+                              {activeSources.map((s) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="h-8" />
                           </td>
                           <td className="px-3 py-2">
                             <Switch checked={p.is_active} onCheckedChange={(c) => update(p.id, { is_active: c })} />
                           </td>
                           <td className="px-3 py-2 text-right">
-                            <Button size="sm" variant="ghost" onClick={() => saveEdit(p)}><Check className="h-4 w-4" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => saveEdit(p)} disabled={!draft.revenue_source_id || !draft.name.trim()}><Check className="h-4 w-4" /></Button>
                             <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
                           </td>
                         </>
                       ) : (
                         <>
+                          <td className="px-3 py-2 text-muted-foreground">{sourceName(p.revenue_source_id)}</td>
                           <td className="px-3 py-2 font-medium text-foreground">{p.name}</td>
                           <td className="px-3 py-2">
                             <Switch checked={p.is_active} onCheckedChange={(c) => update(p.id, { is_active: c })} />
@@ -317,6 +350,16 @@ const ServicePeriodsSection = () => {
 
           {adding ? (
             <div className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-border bg-muted/20">
+              <select
+                value={newSourceId}
+                onChange={(e) => setNewSourceId(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm min-w-[180px]"
+              >
+                <option value="" disabled>Parent (Revenue Source)…</option>
+                {activeSources.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
               <Input
                 placeholder="e.g. Breakfast, Lunch, Dinner"
                 value={newName}
@@ -324,8 +367,8 @@ const ServicePeriodsSection = () => {
                 className="h-9"
                 autoFocus
               />
-              <Button size="sm" onClick={handleAdd}>Add</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewName(""); }}>Cancel</Button>
+              <Button size="sm" onClick={handleAdd} disabled={!newSourceId || !newName.trim()}>Add</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewName(""); setNewSourceId(""); }}>Cancel</Button>
             </div>
           ) : periods.length > 0 ? (
             <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
