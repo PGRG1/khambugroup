@@ -2821,6 +2821,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          revenue_source_id: string | null
           sort_order: number
           updated_at: string
         }
@@ -2829,6 +2830,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          revenue_source_id?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -2837,10 +2839,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          revenue_source_id?: string | null
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "service_periods_revenue_source_id_fkey"
+            columns: ["revenue_source_id"]
+            isOneToOne: false
+            referencedRelation: "revenue_sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       standard_products: {
         Row: {
