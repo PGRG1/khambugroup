@@ -1,80 +1,107 @@
 
-# Bank Reconciliation Module — Plan
+# Global Theme System (Light / Dark / System) + Bani Footer
 
-A new Finance section page at `/finance/bank-reconciliation` that handles per-account and consolidated bank reconciliation, with full data model, matching engine, and period-close workflow.
+## 1. Foundations — design tokens
 
-This is a large module. Proposed delivery in **3 phases** so you can verify each before moving on. Confirm the phasing or ask for it all at once.
+Rewrite `src/index.css` so all colors live in CSS variables (HSL, to stay compatible with the existing Tailwind `hsl(var(--token))` setup). Two palettes:
 
----
+- `:root` → Light (Dusty Blue + Copper)
+- `.dark` → Dark (Deep Navy + Copper)
 
-## Phase 1 — Foundations (data model + master + statement import + transactions + overview)
+Map the existing shadcn tokens (`--background`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--accent`, `--border`, `--input`, `--ring`, `--sidebar-*`, `--destructive`, `--chart-1..5`) plus new semantic tokens:
 
-**Database (new tables, all with RLS: read = authenticated, write = admin/manager):**
+- `--success`, `--warning`, `--info`
+- `--text-primary`, `--text-secondary`, `--text-muted`
+- `--surface-panel`, `--surface-muted`
+- `--chart-grid`
+- `--accent-secondary` (copper-2)
 
-- `bank_accounts` — id, account_name, bank_name, account_number_last4, currency, venue, entity, linked_gl_account_id (FK chart_of_accounts), opening_balance, opening_date, is_active, last_reconciled_date
-- `bank_statement_imports` — id, bank_account_id, period_start, period_end, opening_balance, closing_balance, file_url, uploaded_by, uploaded_at, status
-- `bank_transactions` — id, import_id, bank_account_id, txn_date, description, reference, money_in, money_out, running_balance, status (`unmatched|suggested|matched|partial|needs_review|duplicate|ignored|transfer_pending|reconciled|bank_fee`), match_confidence, matched_record_type, matched_record_id, notes, created_at
-- `bank_reconciliation_periods` — id, bank_account_id, period_start, period_end, statement_balance, ledger_balance, difference, status (`open|locked`), locked_by, locked_at
-- `bank_audit_trail` — id, ts, user_id, action, bank_account_id, bank_transaction_id, old_status, new_status, notes (JSONB)
+Light values from spec: app `#F6F8FB`, card `#FFFFFF`, sidebar `#102A43`/`#243B53`, border `#D9E2EC`, copper `#B87333`, text `#102A43`/`#627D98`, success/danger/warning per spec.
 
-GL link enforced in app: cannot upload statement until `linked_gl_account_id` set.
+Dark values from spec: app `#0B1726`, card `#14263B`, panel `#1A2E45`, sidebar `#08111D`/`#1A2E45`, border `#243B53`, copper `#B87333`/`#D4A373`, text `#F8FAFC`/`#A8B3C2`/`#7B8A9A`, chart grid `#2A3B52`.
 
-**Storage:** new private bucket `bank-statements` with admin/manager RLS. CSV/PDF upload, parsed client-side (CSV) or stored for manual entry first pass.
+Both palettes keep copper `#B87333` as `--primary` so the brand stays consistent. Update `tailwind.config.ts`:
+- Add `darkMode: ["class"]` (already set) — verify
+- Extend `colors` with `success`, `warning`, `info`, `chart-grid`, `surface-panel`, `surface-muted`
+- Extend `chart` palette to 8 entries (copper, blue, teal, green, purple, rose, gold, slate) with light/dark variants driven by tokens
 
-**UI (new files under `src/pages/finance/bank-recon/`):**
+Update `.gradient-gold` and `.text-gradient-gold` to use copper tokens so KHAMBU wordmark stays branded in both themes.
 
-- `BankReconciliation.tsx` — page shell, header (title, bank account selector with "All Accounts" option, period selector, upload, export, lock, status badge), tabs container
-- `OverviewTab.tsx` — KPI cards (statement balance, ledger balance, difference, matched/unmatched counts), per-account status table, matched-vs-unmatched chart
-- `BankAccountsTab.tsx` — master CRUD table with link-GL action, opening balance, status column
-- `BankTransactionsTab.tsx` — transactions table with filter chips, sticky header, right-side detail drawer (`TxnDetailPanel.tsx`) showing suggested matches, related records, confirm/journal/transfer actions
-- `useBankReconciliation.ts` hook — fetches via `fetchAllRows`, computes ledger balance from `journal_lines` filtered by linked GL account, computes difference
+## 2. Theme provider + persistence
 
-Routes added in `App.tsx`. Sidebar entry under Finance group.
+New `src/components/theme/ThemeProvider.tsx`:
+- Context exposes `{ theme: 'light'|'dark'|'system', resolvedTheme, setTheme }`
+- Reads initial value from `localStorage('khambu.theme')`, fallback `light`
+- Applies/removes `.dark` class on `<html>`
+- Listens to `matchMedia('(prefers-color-scheme: dark)')` when `theme==='system'`
+- Persists per-user: when authenticated, also writes to a new `profiles.theme_preference` column (so it survives device changes / re-login)
 
----
+Migration: add nullable `theme_preference text` to `profiles` (values: `light|dark|system`). On login, hydrate from profile if present; on change, update both localStorage and profile.
 
-## Phase 2 — Matching workflows
+Inline pre-hydration script in `index.html` to set the `.dark` class before React mounts (prevents FOUC).
 
-Tabs and matching engine:
+Wrap `App.tsx` with `<ThemeProvider>` at the root.
 
-- `SuggestedMatchesTab.tsx` — runs `suggestMatches()` util that scores candidates by: amount (exact/within tolerance), date proximity (±5d), supplier name fuzzy (bank description vs `suppliers.name`), reference vs invoice_number, payment_method. Returns confidence high/medium/low.
-- `KpaySettlementsTab.tsx` + new tables `kpay_settlements`, `kpay_settlement_settings` (venue → settlement bank account, default fee account, settlement delay). Settlement match creates 3-line journal (Bank Dr / Fee Dr / Receivable Cr).
-- `CashDepositsTab.tsx` + new table `cash_deposits` linking cash-on-hand source account to destination bank account. Shortage/overage posts to configurable expense/income accounts.
-- `SupplierPaymentsTab.tsx` — matches bank outflows to one or many open invoices (uses existing `invoices` + `invoice_payments`). Multi-invoice match writes multiple `invoice_payments` rows + one journal entry against the bank's GL account.
-- `InterAccountTransfersTab.tsx` + new table `inter_account_transfers`. Pairs outgoing/incoming bank lines; statuses: matched / pending_in / pending_out / amount_diff / timing_diff.
-- `UnmatchedItemsTab.tsx` — split view: unmatched bank lines (left) and unmatched ledger lines from the linked GL account (right).
+## 3. Theme switcher UI
 
-All matches use existing `journal_entries` / `journal_lines` infrastructure (with `manually_adjusted = true` to survive rebuilds), plus update `bank_transactions.status` and write to `bank_audit_trail`.
+New `src/components/theme/ThemeSwitcher.tsx` — segmented control with Sun / Moon / Monitor icons, active item filled with copper.
 
----
+Placement:
+1. **Top-right user menu**: add a header user dropdown (currently the layout only has a `SidebarTrigger`). New `src/components/UserMenu.tsx` rendered in `AppLayout.tsx` header — shows email, "Appearance" submenu (Light / Dark / System), Sign Out.
+2. **Settings page**: add an "Appearance" card to `src/pages/Settings.tsx` with the same switcher + description.
 
-## Phase 3 — Rules, journals, audit, period close
+## 4. Sidebar — KHAMBU brand + Bani footer
 
-- `JournalAdjustmentsTab.tsx` — list of journals created from bank recon (filter `journal_entries.source_type IN ('bank_recon', 'bank_fee', 'bank_transfer')`). Quick-create journal modal with bank/contra account picker.
-- `RulesTab.tsx` + new table `bank_recon_rules` — keyword → category/COA/supplier auto-match. Engine runs on statement import, applies high-confidence matches automatically when allowed.
-- `AuditTrailTab.tsx` — reads `bank_audit_trail` with filters by user/account/action/date.
-- `PeriodCloseTab.tsx` — checklist UI (difference=0, no high-priority unmatched, no unresolved KPay/cash differences, ledger==statement). Lock writes a row to `bank_reconciliation_periods` and prevents edits via RLS check (`status = 'open'`). Admin can unlock.
-- Export: CSV reconciliation report per account, plus PDF reusing the `generatePLReport` styling pattern.
+Edit `src/components/AppSidebar.tsx`:
+- Keep the KHAMBU wordmark and "Analytics Dashboard" tagline as today.
+- Replace the current footer block to add, **above** the email/sign-out row, a small "Powered by **Bani**" line — muted text, copper accent on "Bani", separator line. Subtle, never replaces KHAMBU.
+- Sidebar tokens already drive bg/active state — verify dark/light variants render correctly via `--sidebar-*` tokens (no structural change).
 
----
+## 5. Chart theming
 
-## Design
+New `src/lib/chartTheme.ts` exporting:
+- `useChartColors()` hook returning the 8-color palette resolved from CSS vars for the current theme
+- `chartGridColor()`, `chartTooltipStyle()` helpers
 
-Hybrid of existing dark `card-glass` aesthetic but with **lighter table surfaces** for institutional feel: cards stay dark, table rows on `bg-card/50` with hover. Status chips reuse `.chip-success/warn/danger/info/neutral`. Right-side detail panel uses Sheet component. All amounts via `@/utils/format`, `td-num` class.
+Update recharts usages (`Dashboard.tsx`, `DashboardCharts.tsx`, `CumulativeSalesChart.tsx`, `PaymentBreakdownChart.tsx`, `ScatterAnalysisCharts.tsx`, `VenuePerformanceChart.tsx`, `ForecastCharts.tsx`, `InvoiceAnalytics.tsx`, `ProcurementDashboardTab.tsx`, `AssistantChart.tsx`) to:
+- Read stroke/fill from `useChartColors()` instead of hard-coded hex
+- Use `var(--chart-grid)` for `<CartesianGrid>` stroke
+- Use themed tooltip background/border
 
----
+This is a mechanical pass — no logic change.
 
-## Out of scope (this build)
+## 6. Audit hard-coded colors
 
-- Automated bank-feed connectors (Plaid/etc.) — manual CSV/entry only
-- OCR of PDF statements — files stored, user keys data or imports CSV
-- FX revaluation across currencies — single currency per account
-- Forecasting cash position — separate concern
+Sweep the codebase for raw hex / `text-white` / `bg-slate-*` etc. that break in light mode and replace with semantic Tailwind classes (`bg-card`, `text-foreground`, `border-border`, `bg-muted`, `text-muted-foreground`). Priority files: chip styles in `index.css` (`.chip-success/info/warn/danger/neutral`), KPI cards, P&L table classes (`.pl-table`), status badges, modals.
 
----
+The existing app already uses semantic tokens widely, so this is targeted cleanup, not a rewrite.
 
-## Confirm before I start
+## 7. Number / date formatting
 
-1. **Phasing**: deliver Phase 1 first, then 2, then 3? (Recommended — page is large.)
-2. **Statement upload**: CSV import for v1 (paste/upload + column mapping), with manual single-line entry as fallback? PDF parsing later.
-3. **Existing cash accounts**: I'll auto-seed `bank_accounts` from `chart_of_accounts` rows where `is_cash = true` so your current ledger keeps working — OK?
+`src/utils/format.ts` already exists per memory. Verify it exports `formatCurrency`, `formatNumber`, `formatPercentage`, `formatDateShort`, `formatDateTable`, `formatMonthLabel`, `formatAccountingAmount`. Add any missing helpers; do not refactor existing call sites in this pass beyond what's needed to keep things rendering.
+
+## Files to add
+- `src/components/theme/ThemeProvider.tsx`
+- `src/components/theme/ThemeSwitcher.tsx`
+- `src/components/UserMenu.tsx`
+- `src/lib/chartTheme.ts`
+- `supabase/migrations/<ts>_add_theme_preference.sql`
+
+## Files to edit
+- `src/index.css` (token rewrite + `.dark` block)
+- `tailwind.config.ts` (extra semantic colors)
+- `index.html` (pre-hydration script)
+- `src/App.tsx` (wrap with ThemeProvider)
+- `src/components/AppLayout.tsx` (mount UserMenu in header)
+- `src/components/AppSidebar.tsx` (Powered by Bani footer)
+- `src/pages/Settings.tsx` (Appearance section)
+- All recharts files listed in §5
+- Targeted hard-coded-color cleanup files from §6
+
+## Out of scope (call out)
+- No layout/structural changes to any page — only colors, per the UX rule.
+- Workspace name stays **KHAMBU**; Bani only appears in sidebar footer.
+- Not migrating every legacy `text-white` instantly — I'll fix the visible offenders (sidebar, header, chips, KPI/Settings/Dashboard) and leave deep-page polish for follow-ups if any slip through.
+
+## Open questions
+None — defaults from spec used (Light default, per-user persistence in `profiles.theme_preference`, copper `#B87333` as primary in both modes).
