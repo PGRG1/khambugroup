@@ -913,9 +913,7 @@ export default function ProcurementInvoicesTab() {
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   Invoice {selectedInvoice.invoice_number}
-                  {selectedInvoice.status === "paid" && (
-                    <Badge className={`text-[10px] ${STATUS_COLORS.paid}`}>paid</Badge>
-                  )}
+                  {selectedInvoice.status && <StatusBadge status={selectedInvoice.status} />}
                 </SheetTitle>
               </SheetHeader>
               <div className="mt-4 space-y-4">
@@ -1036,8 +1034,8 @@ function InvoiceVirtualBody({ filtered, openDetail, openAttachmentViewer, setDel
                 <div className="whitespace-nowrap px-3 text-muted-foreground">{fmtDate(inv.due_date || "")}</div>
                 <div className="px-3 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</div>
                 <div className="px-3">
-                  {inv.status === "paid" ? (
-                    <Badge className={`px-1.5 py-0 text-[10px] ${STATUS_COLORS.paid}`}>paid</Badge>
+                  {inv.status ? (
+                    <StatusBadge status={inv.status} />
                   ) : (
                     <span className="text-[10px] text-muted-foreground">—</span>
                   )}
