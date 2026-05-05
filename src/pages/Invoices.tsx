@@ -28,15 +28,7 @@ import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import LineItemsTab from "@/components/invoices/LineItemsTab";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  verified: "bg-indigo-100 text-indigo-800 border-indigo-300",
-  approved: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  paid: "bg-green-100 text-green-800 border-green-300",
-  overdue: "bg-red-100 text-red-800 border-red-300",
-  partial: "bg-blue-100 text-blue-800 border-blue-300",
-  cancelled: "bg-muted text-muted-foreground",
-};
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export default function Invoices() {
   const { invoices, suppliers, categories, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus, createSupplier, createCategory, fetchAll } = useInvoiceData();
@@ -612,7 +604,7 @@ export default function Invoices() {
                     <TableCell>{inv.invoice_date}</TableCell>
                     <TableCell>{inv.due_date || "—"}</TableCell>
                     <TableCell className="text-right font-mono">{Number(inv.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell><Badge className={STATUS_COLORS[inv.status] || ""}>{inv.status}</Badge></TableCell>
+                    <TableCell><StatusBadge status={inv.status} /></TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(inv); }}>
@@ -905,7 +897,7 @@ export default function Invoices() {
                   <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
                   <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{selectedInvoice.invoice_date}</span></div>
                   <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{selectedInvoice.due_date || "—"}</span></div>
-                  <div><span className="text-muted-foreground">Status:</span> <Badge className={STATUS_COLORS[selectedInvoice.status] || ""}>{selectedInvoice.status}</Badge></div>
+                  <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={selectedInvoice.status} /></div>
                   <div><span className="text-muted-foreground">Total:</span> <span className="font-bold font-mono">{Number(selectedInvoice.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
                 </div>
                 {selectedInvoice.notes && <p className="text-sm text-muted-foreground">{selectedInvoice.notes}</p>}
