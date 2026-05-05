@@ -31,15 +31,21 @@ const revenueItems = [
 
 const financeItems = [
   { title: "Dashboard", url: "/finance/dashboard", icon: LayoutDashboard },
-  { title: "P&L Report", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
   { title: "P&L (Ledger)", url: "/finance/pl-ledger", icon: Receipt },
-  { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
   { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Cashflow (Operations)", url: "/finance/cashflow", icon: TrendingUp },
-  { title: "Cashflow Report", url: "/finance/cashflow-report", icon: TrendingUp },
   { title: "Bank Reconciliation", url: "/finance/bank-reconciliation", icon: Landmark },
+];
+
+const financeReportsItems = [
+  { title: "P&L", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
+  { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
+  { title: "Cash Flow", url: "/finance/cashflow-report", icon: TrendingUp },
   { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
+];
+
+const financeAccountingItems = [
   { title: "Journal", url: "/finance/journal", icon: NotebookPen },
   { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
   { title: "Chart of Accounts", url: "/finance/chart-of-accounts", icon: ListTree },
