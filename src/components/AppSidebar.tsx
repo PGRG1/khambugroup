@@ -228,6 +228,28 @@ export function AppSidebar() {
             onOpenChange={(o) => setGroup("finance", o)}
           >
             <SidebarMenu>{financeItems.map(renderLink)}</SidebarMenu>
+            <Collapsible defaultOpen>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between cursor-pointer px-3 py-1.5 mt-2 text-xs font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors group/sub">
+                  <span className="uppercase tracking-wide">Reports</span>
+                  <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenu>{financeReportsItems.map(renderLink)}</SidebarMenu>
+              </CollapsibleContent>
+            </Collapsible>
+            <Collapsible defaultOpen>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between cursor-pointer px-3 py-1.5 mt-2 text-xs font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors group/sub">
+                  <span className="uppercase tracking-wide">Accounting</span>
+                  <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenu>{financeAccountingItems.map(renderLink)}</SidebarMenu>
+              </CollapsibleContent>
+            </Collapsible>
           </CollapsibleNavGroup>
         )}
 
