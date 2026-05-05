@@ -267,7 +267,7 @@ export function AppSidebar() {
         {showHR && (
           <CollapsibleNavGroup
             groupKey="hr"
-            label="Human Resources"
+            label="People"
             defaultOpen={groupState.hr}
             onOpenChange={(o) => setGroup("hr", o)}
           >
