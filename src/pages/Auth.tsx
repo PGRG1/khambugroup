@@ -12,7 +12,7 @@ import authHero from "@/assets/auth-hero.jpg";
 const features = [
   { icon: BarChart3, title: "Revenue Intelligence", desc: "Real-time visibility across every venue." },
   { icon: ShoppingCart, title: "Procurement Excellence", desc: "Control costs from invoice to plate." },
-  { icon: DollarSign, title: "Financial Clarity", desc: "P&L, cash flow, and margins at a glance." },
+  { icon: DollarSign, title: "Financial Clarity", desc: "Profit & Loss, cash flow, and margins at a glance." },
   { icon: Activity, title: "Operational Insight", desc: "Decisions grounded in clean, trusted data." },
 ];
 
