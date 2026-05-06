@@ -145,7 +145,7 @@ export default function DocumentCentre() {
                   <TableCell>{d.doc_type}</TableCell>
                   <TableCell className="text-muted-foreground">{d.source}</TableCell>
                   <TableCell>{d.linked_label}</TableCell>
-                  <TableCell><Badge variant="outline" className="capitalize">{d.status}</Badge></TableCell>
+                  <TableCell><span className={statusVariant(d.status)}>{d.status}</span></TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {new Date(d.uploaded_at).toLocaleDateString()}
                   </TableCell>
