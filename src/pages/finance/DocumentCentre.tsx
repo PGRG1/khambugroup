@@ -115,6 +115,10 @@ export default function DocumentCentre() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<DocType>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [uploaderFilter, setUploaderFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
 
   const ALL_COLUMNS = [
     { key: "file_name", label: "File Name" },
