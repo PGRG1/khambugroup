@@ -10,8 +10,6 @@ import DashboardCharts from "@/components/dashboard/DashboardCharts";
 import VenueSeatingEditor from "@/components/dashboard/VenueSeatingEditor";
 import { generateMTDReport } from "@/utils/generateReport";
 import { FileDown, FileText, Armchair } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import MTDTextReport from "@/components/dashboard/MTDTextReport";
 import { getVenueSeats } from "@/constants/venueSeating";
@@ -98,50 +96,61 @@ const Index = () => {
 
   return (
     <div className="w-full mx-auto space-y-4 sm:space-y-6">
-      <PageHeader
-        title="Revenue"
-        subtitle="Overview of sales performance across venues"
-        actions={
-          isAdmin ? (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setShowSeatingEditor(true)}>
-                <Armchair className="h-4 w-4" />
+      <div className="flex flex-col gap-2 sm:gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-base sm:text-2xl font-bold font-display tracking-tight shrink-0">
+            <span className="text-gradient-gold">Revenue</span>
+            <span className="text-muted-foreground ml-1 sm:ml-2 text-[10px] sm:text-base font-normal">Overview</span>
+          </h1>
+          {isAdmin && (
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                onClick={() => setShowSeatingEditor(true)}
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+              >
+                <Armchair className="h-3 w-3" />
                 <span className="hidden sm:inline">Seats</span>
-              </Button>
+              </button>
               {!hideGenerateReport && (
                 <>
-                  <Button variant="outline" size="sm" onClick={() => setShowMTDText(true)}>
-                    <FileText className="h-4 w-4" />
+                  <button
+                    onClick={() => setShowMTDText(true)}
+                    className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                  >
+                    <FileText className="h-3 w-3" />
                     <span className="hidden sm:inline">MTD </span>Summary
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleGenerateReport}>
-                    <FileDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleGenerateReport}
+                    className="flex items-center gap-1 px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md sm:rounded-lg border border-border bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                  >
+                    <FileDown className="h-3 w-3" />
                     Report
-                  </Button>
+                  </button>
                 </>
               )}
-            </>
-          ) : null
-        }
-      />
-
-      {!hideVenueFilter && (
-        <div className="flex items-center gap-1 flex-wrap">
-          {venues.map((v) => (
-            <button
-              key={v}
-              onClick={() => setVenue(v)}
-              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium rounded-md border transition-colors ${
-                venue === v
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {!hideVenueFilter && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {venues.map((v) => (
+              <button
+                key={v}
+                onClick={() => setVenue(v)}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-lg border transition-colors ${
+                  venue === v
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="space-y-6">
         <div className="flex items-center gap-3 flex-wrap">

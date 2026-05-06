@@ -8,7 +8,6 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
 import { generatePLReportPDF } from "@/utils/generatePLReport";
-import { PageHeader } from "@/components/ui/page-header";
 
 const fmt = (n: number) => n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (n: number, d: number) => d === 0 ? "—" : `${(n / d * 100).toFixed(1)}%`;
@@ -248,16 +247,22 @@ export default function PLReport() {
 
   return (
     <div className="max-w-[1920px] mx-auto space-y-6">
-      <PageHeader
-        title="P&L Report"
-        subtitle={`${allVenueNames.length > 0 ? allVenueNames.join(" + ") : "All Venues"} · Internal management reporting — may differ from statutory statements`}
-        actions={
-          <Button variant="outline" size="sm" onClick={handleExportPDF}>
-            <FileDown className="h-4 w-4" />
-            Export PDF
-          </Button>
-        }
-      />
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold font-display tracking-tight">
+            <span className="text-gradient-gold">P&L Report</span>
+            <span className="text-muted-foreground ml-2 text-base font-normal">{allVenueNames.length > 0 ? allVenueNames.join(" + ") : "All Venues"}</span>
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+            Note: Prepared for internal management use only. This P&L is based on management reporting conventions and may not align with statutory financial statements or formal accounting policies.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-2">
+          <FileDown className="h-4 w-4" />
+          Export PDF
+        </Button>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
