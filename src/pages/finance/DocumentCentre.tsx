@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,22 +11,11 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInvoiceData } from "@/hooks/useInvoiceData";
-import { useSalesData } from "@/hooks/useSalesData";
-import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
-import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 
 type DocType =
-  | "daily_sales"
-  | "invoice"
-  | "settlement"
-  | "bank_statement"
-  | "contract"
-  | "payroll"
-  | "petty_cash"
-  | "other";
+  | "daily_sales" | "invoice" | "settlement" | "bank_statement"
+  | "contract" | "payroll" | "petty_cash" | "other";
 
 const DOC_TYPES: { key: DocType; label: string; icon: any; description: string }[] = [
   { key: "daily_sales", label: "Daily Sales / EOD Report", icon: Receipt, description: "Scan end-of-day sales reports" },
@@ -42,21 +31,17 @@ const DOC_TYPES: { key: DocType; label: string; icon: any; description: string }
 export default function DocumentCentre() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
-  const { invoices, suppliers, fetchAll: refetchInvoices } = useInvoiceData();
-  const { data: sales, refetch: refetchSales } = useSalesData() as any;
+  const { invoices, suppliers } = useInvoiceData();
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [showSalesScanner, setShowSalesScanner] = useState(false);
-  const [showInvoiceScanner, setShowInvoiceScanner] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerUrl, setViewerUrl] = useState("");
   const [viewerTitle, setViewerTitle] = useState("");
 
   const handlePick = (type: DocType) => {
     setPickerOpen(false);
-    if (type === "daily_sales") setShowSalesScanner(true);
-    else if (type === "invoice") setShowInvoiceScanner(true);
+    if (type === "daily_sales") navigate("/?scan=1");
+    else if (type === "invoice") navigate("/invoices?scan=1");
     else if (type === "settlement") navigate("/finance/payments-settlements");
     else toast({ title: "Coming soon", description: `${DOC_TYPES.find(t => t.key === type)?.label} workflow is not yet available.` });
   };
@@ -75,7 +60,6 @@ export default function DocumentCentre() {
         file_name: inv.file_name || "—",
         doc_type: "Invoice / Bill",
         source: "Invoice scanner",
-        linked: inv.invoice_number,
         linked_label: `${supplierMap.get(inv.supplier_id) || "Unknown"} · #${inv.invoice_number}`,
         status: inv.status,
         uploaded_at: inv.created_at,
@@ -88,25 +72,6 @@ export default function DocumentCentre() {
     setViewerUrl(url);
     setViewerTitle(title);
     setViewerOpen(true);
-  };
-
-  const handleSaveSales = async (record: any, file?: File | null) => {
-    // Persist via useSalesData if available; fall back to direct insert
-    try {
-      const payload: any = { ...record };
-      if (file) {
-        const path = `daily-sales/${Date.now()}_${file.name}`;
-        const { error: upErr } = await supabase.storage.from("invoice-files").upload(path, file);
-        if (!upErr) payload.file_url = path;
-      }
-      const { error } = await supabase.from("sales_data").insert(payload);
-      if (error) throw error;
-      toast({ title: "Saved", description: "Daily sales record added." });
-      setShowSalesScanner(false);
-      if (typeof refetchSales === "function") await refetchSales();
-    } catch (e: any) {
-      toast({ title: "Save failed", description: e.message, variant: "destructive" });
-    }
   };
 
   return (
@@ -174,7 +139,6 @@ export default function DocumentCentre() {
         </div>
       </Card>
 
-      {/* Document type picker */}
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -199,20 +163,6 @@ export default function DocumentCentre() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {showSalesScanner && (
-        <ReceiptScanner onSave={handleSaveSales} onClose={() => setShowSalesScanner(false)} />
-      )}
-
-      {showInvoiceScanner && (
-        <InvoiceScanner
-          onClose={() => setShowInvoiceScanner(false)}
-          onSaved={async () => {
-            setShowInvoiceScanner(false);
-            await refetchInvoices?.();
-          }}
-        />
-      )}
 
       <AttachmentViewerDialog
         open={viewerOpen}

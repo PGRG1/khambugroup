@@ -63,15 +63,23 @@ export default function DocumentsBills() {
 
   const exportCSV = () => {
     const rows = filtered.map((inv) => ({
-      Vendor: supplierMap.get(inv.supplier_id) || "",
-      "Invoice Number": inv.invoice_number,
-      "Invoice Date": inv.invoice_date,
-      "Due Date": inv.due_date || "",
-      Amount: inv.total_amount,
-      Status: inv.status,
-      "File Name": inv.file_name || "",
+      vendor: supplierMap.get(inv.supplier_id) || "",
+      invoice_number: inv.invoice_number,
+      invoice_date: inv.invoice_date,
+      due_date: inv.due_date || "",
+      amount: inv.total_amount,
+      status: inv.status,
+      file_name: inv.file_name || "",
     }));
-    downloadCSV("documents-bills.csv", rows);
+    downloadCSV(rows, [
+      { key: "vendor", label: "Vendor" },
+      { key: "invoice_number", label: "Invoice Number" },
+      { key: "invoice_date", label: "Invoice Date" },
+      { key: "due_date", label: "Due Date" },
+      { key: "amount", label: "Amount" },
+      { key: "status", label: "Status" },
+      { key: "file_name", label: "File Name" },
+    ], "documents-bills");
   };
 
   return (
