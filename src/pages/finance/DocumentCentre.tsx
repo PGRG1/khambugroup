@@ -9,9 +9,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
   ScanLine, Receipt, FileSpreadsheet, CreditCard, Landmark, FileSignature,
   Users, Wallet, MoreHorizontal, Eye, Search, Calendar, Filter,
   FileText, AlertTriangle, ShieldCheck, Link2, XCircle, Layers, ArrowDownUp, Columns3,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInvoiceData } from "@/hooks/useInvoiceData";
