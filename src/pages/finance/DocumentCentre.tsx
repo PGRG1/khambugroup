@@ -52,6 +52,18 @@ export default function DocumentCentre() {
     return m;
   }, [suppliers]);
 
+  // Map invoice/payment statuses to document workflow statuses
+  const toDocStatus = (inv: any): "Extracted" | "Needs Review" | "Needs Approval" | "Linked" | "Failed" | "Archived" => {
+    const s = (inv.status || "").toLowerCase();
+    if (s === "cancelled" || s === "archived") return "Archived";
+    if (s === "disputed" || s === "failed") return "Failed";
+    if (s === "pending") return "Needs Review";
+    if (s === "verified") return "Needs Approval";
+    // approved, paid, partially_paid, unpaid, overdue → document is linked to a record
+    if (inv.supplier_id && inv.invoice_number) return "Linked";
+    return "Extracted";
+  };
+
   const docs = useMemo(() => {
     return (invoices || [])
       .filter((inv: any) => inv.file_url || inv.file_name)
@@ -61,12 +73,24 @@ export default function DocumentCentre() {
         doc_type: "Invoice / Bill",
         source: "Invoice scanner",
         linked_label: `${supplierMap.get(inv.supplier_id) || "Unknown"} · #${inv.invoice_number}`,
-        status: inv.status,
+        status: toDocStatus(inv),
         uploaded_at: inv.created_at,
         file_url: inv.file_url,
       }))
       .sort((a, b) => (a.uploaded_at < b.uploaded_at ? 1 : -1));
   }, [invoices, supplierMap]);
+
+  const statusVariant = (s: string) => {
+    switch (s) {
+      case "Extracted": return "chip chip-success";
+      case "Linked": return "chip chip-info";
+      case "Needs Review": return "chip chip-warn";
+      case "Needs Approval": return "chip chip-warn";
+      case "Failed": return "chip chip-danger";
+      case "Archived": return "chip chip-neutral";
+      default: return "chip chip-neutral";
+    }
+  };
 
   const openAttachment = (url: string, title: string) => {
     setViewerUrl(url);
@@ -121,7 +145,7 @@ export default function DocumentCentre() {
                   <TableCell>{d.doc_type}</TableCell>
                   <TableCell className="text-muted-foreground">{d.source}</TableCell>
                   <TableCell>{d.linked_label}</TableCell>
-                  <TableCell><Badge variant="outline" className="capitalize">{d.status}</Badge></TableCell>
+                  <TableCell><span className={statusVariant(d.status)}>{d.status}</span></TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {new Date(d.uploaded_at).toLocaleDateString()}
                   </TableCell>
