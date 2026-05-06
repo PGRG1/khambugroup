@@ -116,6 +116,31 @@ export default function DocumentCentre() {
   const [typeFilter, setTypeFilter] = useState<DocType>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const ALL_COLUMNS = [
+    { key: "file_name", label: "File Name" },
+    { key: "doc_type", label: "Document Type" },
+    { key: "source", label: "Source Workflow" },
+    { key: "linked", label: "Linked Record" },
+    { key: "status", label: "Status" },
+    { key: "uploaded_at", label: "Uploaded Date" },
+    { key: "uploaded_by", label: "Uploaded By" },
+  ] as const;
+  const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>(
+    Object.fromEntries(ALL_COLUMNS.map((c) => [c.key, true])),
+  );
+  type SortKey = "uploaded_at" | "file_name" | "doc_type" | "status";
+  const [sortKey, setSortKey] = useState<SortKey>("uploaded_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const SORT_LABELS: Record<SortKey, string> = {
+    uploaded_at: "Uploaded Date",
+    file_name: "File Name",
+    doc_type: "Document Type",
+    status: "Status",
+  };
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   const handlePick = (type: DocType) => {
     setPickerOpen(false);
     if (type === "daily_sales") navigate("/?scan=1");
