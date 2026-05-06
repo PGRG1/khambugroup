@@ -192,6 +192,10 @@ export default function DocumentCentre() {
     let list = docs;
     if (typeFilter !== "all") list = list.filter((d) => d.type_key === typeFilter);
     if (statusFilter !== "all") list = list.filter((d) => d.status === statusFilter);
+    if (sourceFilter !== "all") list = list.filter((d) => d.source === sourceFilter);
+    if (uploaderFilter !== "all") list = list.filter((d) => d.uploaded_by === uploaderFilter);
+    if (dateFrom) list = list.filter((d) => d.uploaded_at && d.uploaded_at.slice(0, 10) >= dateFrom);
+    if (dateTo) list = list.filter((d) => d.uploaded_at && d.uploaded_at.slice(0, 10) <= dateTo);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((d) =>
@@ -209,7 +213,16 @@ export default function DocumentCentre() {
       return 0;
     });
     return list;
-  }, [docs, typeFilter, statusFilter, search, sortKey, sortDir]);
+  }, [docs, typeFilter, statusFilter, sourceFilter, uploaderFilter, dateFrom, dateTo, search, sortKey, sortDir]);
+
+  const sourceOptions = useMemo(() => Array.from(new Set(docs.map((d) => d.source).filter(Boolean))), [docs]);
+  const uploaderOptions = useMemo(() => Array.from(new Set(docs.map((d) => d.uploaded_by).filter((v) => v && v !== "—"))), [docs]);
+  const activeFilterCount =
+    (statusFilter !== "all" ? 1 : 0) +
+    (sourceFilter !== "all" ? 1 : 0) +
+    (uploaderFilter !== "all" ? 1 : 0) +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
