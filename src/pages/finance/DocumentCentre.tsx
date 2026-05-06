@@ -29,7 +29,7 @@ type DocType =
 
 const TYPE_TILES: { key: DocType; label: string; icon: any }[] = [
   { key: "all", label: "All Types", icon: Layers },
-  { key: "daily_sales", label: "Daily Sales / EOD Report", icon: Receipt },
+  { key: "daily_sales", label: "Daily Sales ", icon: Receipt },
   { key: "invoice", label: "Invoice / Bill", icon: FileSpreadsheet },
   { key: "settlement", label: "Payment Processor / Settlement", icon: CreditCard },
   { key: "bank_statement", label: "Bank Statement", icon: Landmark },
@@ -58,7 +58,7 @@ const statusChip = (s: DocStatus) => {
 const typeChip = (label: string) => {
   // soft colored pill for document type column
   const map: Record<string, string> = {
-    "Daily Sales / EOD Report": "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20",
+    "Daily Sales ": "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20",
     "Invoice / Bill": "bg-sky-500/10 text-sky-300 border border-sky-500/20",
     "Payment Processor / Settlement": "bg-violet-500/10 text-violet-300 border border-violet-500/20",
     "Bank Statement": "bg-amber-500/10 text-amber-300 border border-amber-500/20",
