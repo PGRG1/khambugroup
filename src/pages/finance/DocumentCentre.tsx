@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -115,6 +116,10 @@ export default function DocumentCentre() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<DocType>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [uploaderFilter, setUploaderFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
 
   const ALL_COLUMNS = [
     { key: "file_name", label: "File Name" },
@@ -188,6 +193,10 @@ export default function DocumentCentre() {
     let list = docs;
     if (typeFilter !== "all") list = list.filter((d) => d.type_key === typeFilter);
     if (statusFilter !== "all") list = list.filter((d) => d.status === statusFilter);
+    if (sourceFilter !== "all") list = list.filter((d) => d.source === sourceFilter);
+    if (uploaderFilter !== "all") list = list.filter((d) => d.uploaded_by === uploaderFilter);
+    if (dateFrom) list = list.filter((d) => d.uploaded_at && d.uploaded_at.slice(0, 10) >= dateFrom);
+    if (dateTo) list = list.filter((d) => d.uploaded_at && d.uploaded_at.slice(0, 10) <= dateTo);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((d) =>
@@ -205,7 +214,16 @@ export default function DocumentCentre() {
       return 0;
     });
     return list;
-  }, [docs, typeFilter, statusFilter, search, sortKey, sortDir]);
+  }, [docs, typeFilter, statusFilter, sourceFilter, uploaderFilter, dateFrom, dateTo, search, sortKey, sortDir]);
+
+  const sourceOptions = useMemo(() => Array.from(new Set(docs.map((d) => d.source).filter(Boolean))), [docs]);
+  const uploaderOptions = useMemo(() => Array.from(new Set(docs.map((d) => d.uploaded_by).filter((v) => v && v !== "—"))), [docs]);
+  const activeFilterCount =
+    (statusFilter !== "all" ? 1 : 0) +
+    (sourceFilter !== "all" ? 1 : 0) +
+    (uploaderFilter !== "all" ? 1 : 0) +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -323,9 +341,60 @@ export default function DocumentCentre() {
               {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="h-3.5 w-3.5" /> Filters
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Filter className="h-3.5 w-3.5" /> Filters
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center text-[10px] font-medium bg-primary/20 text-primary rounded px-1.5 min-w-[16px] h-4">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 p-4 space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Source Workflow</label>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    {sourceOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Uploaded By</label>
+                <Select value={uploaderFilter} onValueChange={setUploaderFilter}>
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Anyone</SelectItem>
+                    {uploaderOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">From</label>
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">To</label>
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8" />
+                </div>
+              </div>
+              <div className="flex justify-end pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setSourceFilter("all"); setUploaderFilter("all"); setDateFrom(""); setDateTo(""); }}
+                  disabled={activeFilterCount === 0}
+                >
+                  Reset
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
