@@ -82,11 +82,11 @@ export function PLManualInputEditor({ onSave }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">Edit Manual P&L Inputs</Button>
+        <Button variant="outline" size="sm">Edit Manual Profit & Loss Inputs</Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Manual P&L Line Items</DialogTitle>
+          <DialogTitle>Manual Profit & Loss Line Items</DialogTitle>
         </DialogHeader>
 
         <div className="flex gap-3 mb-4">
