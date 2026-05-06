@@ -23,7 +23,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
 import AccessDenied from "./pages/AccessDenied";
-import Invoices from "./pages/Invoices";
+
 import Procurement from "./pages/Procurement";
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
@@ -57,7 +57,6 @@ const pageKeyMap: Record<string, string> = {
   "/forecast": "forecast",
   "/activity-log": "activity-log",
   "/pl-report": "pl-report",
-  "/invoices": "invoices",
   "/procurement": "invoices",
   "/inventory": "inventory",
   "/assistant": "assistant",
@@ -132,7 +131,7 @@ function App() {
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
-                <Route path="/invoices" element={<ProtectedRoute pageKey="invoices"><Invoices /></ProtectedRoute>} />
+                
                 <Route path="/procurement" element={<Navigate to="/procurement/dashboard" replace />} />
                 <Route path="/procurement/dashboard" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="dashboard" /></ProtectedRoute>} />
                 <Route path="/procurement/suppliers" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="suppliers" /></ProtectedRoute>} />

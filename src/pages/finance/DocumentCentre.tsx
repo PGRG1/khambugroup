@@ -41,7 +41,7 @@ export default function DocumentCentre() {
   const handlePick = (type: DocType) => {
     setPickerOpen(false);
     if (type === "daily_sales") navigate("/?scan=1");
-    else if (type === "invoice") navigate("/invoices?scan=1");
+    else if (type === "invoice") navigate("/procurement/invoices?scan=1");
     else if (type === "settlement") navigate("/finance/payments-settlements");
     else toast({ title: "Coming soon", description: `${DOC_TYPES.find(t => t.key === type)?.label} workflow is not yet available.` });
   };
