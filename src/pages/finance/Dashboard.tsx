@@ -406,7 +406,7 @@ export default function FinanceDashboard() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-display text-lg">Top expenses (MTD)</h3>
             <Link to="/finance/pl-ledger" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-              P&L <ArrowRight className="h-3 w-3" />
+              Profit & Loss <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
           <div className="overflow-hidden rounded-lg border border-border/40">
