@@ -328,8 +328,50 @@ export default function DocumentCentre() {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2"><Columns3 className="h-3.5 w-3.5" /> Columns</Button>
-          <Button variant="outline" size="sm" className="gap-2"><ArrowDownUp className="h-3.5 w-3.5" /> Uploaded Date</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2"><Columns3 className="h-3.5 w-3.5" /> Columns</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {ALL_COLUMNS.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c.key}
+                  checked={!!visibleCols[c.key]}
+                  onCheckedChange={(v) => setVisibleCols((prev) => ({ ...prev, [c.key]: !!v }))}
+                >
+                  {c.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <ArrowDownUp className="h-3.5 w-3.5" /> {SORT_LABELS[sortKey]} ({sortDir === "asc" ? "↑" : "↓"})
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <DropdownMenuItem key={k} onClick={() => setSortKey(k)}>
+                  {sortKey === k && <Check className="h-3.5 w-3.5 mr-2" />}
+                  <span className={sortKey === k ? "" : "ml-[22px]"}>{SORT_LABELS[k]}</span>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setSortDir("asc")}>
+                {sortDir === "asc" && <Check className="h-3.5 w-3.5 mr-2" />}
+                <span className={sortDir === "asc" ? "" : "ml-[22px]"}>Ascending</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortDir("desc")}>
+                {sortDir === "desc" && <Check className="h-3.5 w-3.5 mr-2" />}
+                <span className={sortDir === "desc" ? "" : "ml-[22px]"}>Descending</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -339,13 +381,13 @@ export default function DocumentCentre() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>File Name</TableHead>
-                <TableHead>Document Type</TableHead>
-                <TableHead>Source Workflow</TableHead>
-                <TableHead>Linked Record</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Uploaded Date</TableHead>
-                <TableHead>Uploaded By</TableHead>
+                {visibleCols.file_name && <TableHead>File Name</TableHead>}
+                {visibleCols.doc_type && <TableHead>Document Type</TableHead>}
+                {visibleCols.source && <TableHead>Source Workflow</TableHead>}
+                {visibleCols.linked && <TableHead>Linked Record</TableHead>}
+                {visibleCols.status && <TableHead>Status</TableHead>}
+                {visibleCols.uploaded_at && <TableHead>Uploaded Date</TableHead>}
+                {visibleCols.uploaded_by && <TableHead>Uploaded By</TableHead>}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -357,29 +399,35 @@ export default function DocumentCentre() {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((d) => (
+              {pageItems.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3 min-w-0 max-w-[320px]">
-                      <div className={`h-9 w-9 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${fileIcon(d.file_name)}`}>
-                        {(d.file_name.split(".").pop() || "FILE").toUpperCase().slice(0, 4)}
+                  {visibleCols.file_name && (
+                    <TableCell>
+                      <div className="flex items-center gap-3 min-w-0 max-w-[320px]">
+                        <div className={`h-9 w-9 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${fileIcon(d.file_name)}`}>
+                          {(d.file_name.split(".").pop() || "FILE").toUpperCase().slice(0, 4)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm truncate">{d.file_name}</div>
+                          {d.file_size && <div className="text-[11px] text-muted-foreground">{d.file_size}</div>}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-sm truncate">{d.file_name}</div>
-                        {d.file_size && <div className="text-[11px] text-muted-foreground">{d.file_size}</div>}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell><span className={typeChip(d.doc_type)}>{d.doc_type}</span></TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{d.source}</TableCell>
-                  <TableCell>
-                    <span className="text-sky-400 hover:underline cursor-pointer text-sm">{d.linked_label}</span>
-                  </TableCell>
-                  <TableCell><span className={statusChip(d.status)}>{d.status}</span></TableCell>
-                  <TableCell className="text-sm td-num text-muted-foreground whitespace-nowrap">
-                    {new Date(d.uploaded_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{d.uploaded_by}</TableCell>
+                    </TableCell>
+                  )}
+                  {visibleCols.doc_type && <TableCell><span className={typeChip(d.doc_type)}>{d.doc_type}</span></TableCell>}
+                  {visibleCols.source && <TableCell className="text-muted-foreground text-sm">{d.source}</TableCell>}
+                  {visibleCols.linked && (
+                    <TableCell>
+                      <span className="text-sky-400 hover:underline cursor-pointer text-sm">{d.linked_label}</span>
+                    </TableCell>
+                  )}
+                  {visibleCols.status && <TableCell><span className={statusChip(d.status)}>{d.status}</span></TableCell>}
+                  {visibleCols.uploaded_at && (
+                    <TableCell className="text-sm td-num text-muted-foreground whitespace-nowrap">
+                      {new Date(d.uploaded_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    </TableCell>
+                  )}
+                  {visibleCols.uploaded_by && <TableCell className="text-sm text-muted-foreground">{d.uploaded_by}</TableCell>}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       {d.file_url && (
@@ -396,6 +444,51 @@ export default function DocumentCentre() {
               ))}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Pagination footer */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border/50 flex-wrap">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Rows per page:</span>
+            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+              <SelectTrigger className="w-[80px] h-8"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[10, 25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="td-num">{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {filtered.length.toLocaleString()}</span>
+            <div className="flex items-center gap-1 ml-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(1)}>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {getPageNumbers().map((p, i) =>
+                p === "..." ? (
+                  <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === currentPage ? "default" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8 td-num"
+                    onClick={() => setPage(p as number)}
+                  >
+                    {p}
+                  </Button>
+                ),
+              )}
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setPage(totalPages)}>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
 
