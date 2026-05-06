@@ -9,9 +9,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
   ScanLine, Receipt, FileSpreadsheet, CreditCard, Landmark, FileSignature,
   Users, Wallet, MoreHorizontal, Eye, Search, Calendar, Filter,
   FileText, AlertTriangle, ShieldCheck, Link2, XCircle, Layers, ArrowDownUp, Columns3,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useInvoiceData } from "@/hooks/useInvoiceData";
@@ -111,6 +116,31 @@ export default function DocumentCentre() {
   const [typeFilter, setTypeFilter] = useState<DocType>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const ALL_COLUMNS = [
+    { key: "file_name", label: "File Name" },
+    { key: "doc_type", label: "Document Type" },
+    { key: "source", label: "Source Workflow" },
+    { key: "linked", label: "Linked Record" },
+    { key: "status", label: "Status" },
+    { key: "uploaded_at", label: "Uploaded Date" },
+    { key: "uploaded_by", label: "Uploaded By" },
+  ] as const;
+  const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>(
+    Object.fromEntries(ALL_COLUMNS.map((c) => [c.key, true])),
+  );
+  type SortKey = "uploaded_at" | "file_name" | "doc_type" | "status";
+  const [sortKey, setSortKey] = useState<SortKey>("uploaded_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const SORT_LABELS: Record<SortKey, string> = {
+    uploaded_at: "Uploaded Date",
+    file_name: "File Name",
+    doc_type: "Document Type",
+    status: "Status",
+  };
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   const handlePick = (type: DocType) => {
     setPickerOpen(false);
     if (type === "daily_sales") navigate("/?scan=1");
@@ -166,8 +196,39 @@ export default function DocumentCentre() {
         d.doc_type.toLowerCase().includes(q),
       );
     }
+    const dir = sortDir === "asc" ? 1 : -1;
+    list = [...list].sort((a: any, b: any) => {
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
     return list;
-  }, [docs, typeFilter, statusFilter, search]);
+  }, [docs, typeFilter, statusFilter, search, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageItems = filtered.slice(pageStart, pageStart + pageSize);
+  const rangeStart = filtered.length === 0 ? 0 : pageStart + 1;
+  const rangeEnd = Math.min(filtered.length, pageStart + pageSize);
+
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+      return pages;
+    }
+    pages.push(1);
+    if (currentPage > 3) pages.push("...");
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push("...");
+    pages.push(totalPages);
+    return pages;
+  };
 
   const kpis = useMemo(() => {
     const total = docs.length;
@@ -267,8 +328,50 @@ export default function DocumentCentre() {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2"><Columns3 className="h-3.5 w-3.5" /> Columns</Button>
-          <Button variant="outline" size="sm" className="gap-2"><ArrowDownUp className="h-3.5 w-3.5" /> Uploaded Date</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2"><Columns3 className="h-3.5 w-3.5" /> Columns</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {ALL_COLUMNS.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c.key}
+                  checked={!!visibleCols[c.key]}
+                  onCheckedChange={(v) => setVisibleCols((prev) => ({ ...prev, [c.key]: !!v }))}
+                >
+                  {c.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <ArrowDownUp className="h-3.5 w-3.5" /> {SORT_LABELS[sortKey]} ({sortDir === "asc" ? "↑" : "↓"})
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <DropdownMenuItem key={k} onClick={() => setSortKey(k)}>
+                  {sortKey === k && <Check className="h-3.5 w-3.5 mr-2" />}
+                  <span className={sortKey === k ? "" : "ml-[22px]"}>{SORT_LABELS[k]}</span>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setSortDir("asc")}>
+                {sortDir === "asc" && <Check className="h-3.5 w-3.5 mr-2" />}
+                <span className={sortDir === "asc" ? "" : "ml-[22px]"}>Ascending</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortDir("desc")}>
+                {sortDir === "desc" && <Check className="h-3.5 w-3.5 mr-2" />}
+                <span className={sortDir === "desc" ? "" : "ml-[22px]"}>Descending</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -278,13 +381,13 @@ export default function DocumentCentre() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>File Name</TableHead>
-                <TableHead>Document Type</TableHead>
-                <TableHead>Source Workflow</TableHead>
-                <TableHead>Linked Record</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Uploaded Date</TableHead>
-                <TableHead>Uploaded By</TableHead>
+                {visibleCols.file_name && <TableHead>File Name</TableHead>}
+                {visibleCols.doc_type && <TableHead>Document Type</TableHead>}
+                {visibleCols.source && <TableHead>Source Workflow</TableHead>}
+                {visibleCols.linked && <TableHead>Linked Record</TableHead>}
+                {visibleCols.status && <TableHead>Status</TableHead>}
+                {visibleCols.uploaded_at && <TableHead>Uploaded Date</TableHead>}
+                {visibleCols.uploaded_by && <TableHead>Uploaded By</TableHead>}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -296,29 +399,35 @@ export default function DocumentCentre() {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((d) => (
+              {pageItems.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3 min-w-0 max-w-[320px]">
-                      <div className={`h-9 w-9 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${fileIcon(d.file_name)}`}>
-                        {(d.file_name.split(".").pop() || "FILE").toUpperCase().slice(0, 4)}
+                  {visibleCols.file_name && (
+                    <TableCell>
+                      <div className="flex items-center gap-3 min-w-0 max-w-[320px]">
+                        <div className={`h-9 w-9 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${fileIcon(d.file_name)}`}>
+                          {(d.file_name.split(".").pop() || "FILE").toUpperCase().slice(0, 4)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm truncate">{d.file_name}</div>
+                          {d.file_size && <div className="text-[11px] text-muted-foreground">{d.file_size}</div>}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-sm truncate">{d.file_name}</div>
-                        {d.file_size && <div className="text-[11px] text-muted-foreground">{d.file_size}</div>}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell><span className={typeChip(d.doc_type)}>{d.doc_type}</span></TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{d.source}</TableCell>
-                  <TableCell>
-                    <span className="text-sky-400 hover:underline cursor-pointer text-sm">{d.linked_label}</span>
-                  </TableCell>
-                  <TableCell><span className={statusChip(d.status)}>{d.status}</span></TableCell>
-                  <TableCell className="text-sm td-num text-muted-foreground whitespace-nowrap">
-                    {new Date(d.uploaded_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{d.uploaded_by}</TableCell>
+                    </TableCell>
+                  )}
+                  {visibleCols.doc_type && <TableCell><span className={typeChip(d.doc_type)}>{d.doc_type}</span></TableCell>}
+                  {visibleCols.source && <TableCell className="text-muted-foreground text-sm">{d.source}</TableCell>}
+                  {visibleCols.linked && (
+                    <TableCell>
+                      <span className="text-sky-400 hover:underline cursor-pointer text-sm">{d.linked_label}</span>
+                    </TableCell>
+                  )}
+                  {visibleCols.status && <TableCell><span className={statusChip(d.status)}>{d.status}</span></TableCell>}
+                  {visibleCols.uploaded_at && (
+                    <TableCell className="text-sm td-num text-muted-foreground whitespace-nowrap">
+                      {new Date(d.uploaded_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    </TableCell>
+                  )}
+                  {visibleCols.uploaded_by && <TableCell className="text-sm text-muted-foreground">{d.uploaded_by}</TableCell>}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       {d.file_url && (
@@ -335,6 +444,51 @@ export default function DocumentCentre() {
               ))}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Pagination footer */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border/50 flex-wrap">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Rows per page:</span>
+            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+              <SelectTrigger className="w-[80px] h-8"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[10, 25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="td-num">{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {filtered.length.toLocaleString()}</span>
+            <div className="flex items-center gap-1 ml-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(1)}>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {getPageNumbers().map((p, i) =>
+                p === "..." ? (
+                  <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === currentPage ? "default" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8 td-num"
+                    onClick={() => setPage(p as number)}
+                  >
+                    {p}
+                  </Button>
+                ),
+              )}
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setPage(totalPages)}>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
 
