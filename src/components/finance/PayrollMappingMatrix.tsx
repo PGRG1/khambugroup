@@ -13,8 +13,8 @@ const EXPENSE_ROWS: Array<{
   label: string;
   description: string;
 }> = [
-  { rule_type: "payroll_salary_expense", label: "Salaries Expense", description: "Gross salary cost (P&L OpEx)" },
-  { rule_type: "payroll_mpf_expense", label: "MPF Expense", description: "Employer MPF contribution (P&L OpEx)" },
+  { rule_type: "payroll_salary_expense", label: "Salaries Expense", description: "Gross salary cost (Profit & Loss OpEx)" },
+  { rule_type: "payroll_mpf_expense", label: "MPF Expense", description: "Employer MPF contribution (Profit & Loss OpEx)" },
 ];
 
 const PAYABLE_ROWS: Array<{
@@ -92,13 +92,13 @@ export function PayrollMappingMatrix({ accounts }: { accounts: ChartAccount[] })
       <p className="text-sm text-muted-foreground max-w-3xl">
         These rules tell the ledger how each payroll record posts to the accounts.
         The "Global" column is the default; per-venue columns let you split Salaries
-        Expense by venue (P&L). Payables and cash mappings are global.
+        Expense by venue (Profit & Loss). Payables and cash mappings are global.
       </p>
 
       {/* EXPENSES per venue */}
       <Card className="card-glass overflow-hidden">
         <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
-          <h3 className="text-sm font-semibold">Expense side (P&L)</h3>
+          <h3 className="text-sm font-semibold">Expense side (Profit & Loss)</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Per venue — gross salary and employer MPF expense accounts. Use Global if you don't split by venue.
           </p>
