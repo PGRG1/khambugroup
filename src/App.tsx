@@ -40,6 +40,9 @@ import Payables from "./pages/finance/Payables";
 import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
 import FinanceDashboard from "./pages/finance/Dashboard";
 import BankReconciliation from "./pages/finance/BankReconciliation";
+import DocumentCentre from "./pages/finance/DocumentCentre";
+import DocumentsBills from "./pages/finance/DocumentsBills";
+import PaymentsSettlements from "./pages/finance/PaymentsSettlements";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HRSchedule from "./pages/hr/HRSchedule";
@@ -123,6 +126,9 @@ function App() {
                 <Route path="/finance/payables" element={<AdminRoute><Payables /></AdminRoute>} />
                 <Route path="/finance/ledger-audit" element={<AdminRoute><LedgerAuditLog /></AdminRoute>} />
                 <Route path="/finance/bank-reconciliation" element={<AdminRoute><BankReconciliation /></AdminRoute>} />
+                <Route path="/finance/document-centre" element={<AdminRoute><DocumentCentre /></AdminRoute>} />
+                <Route path="/finance/documents-bills" element={<AdminRoute><DocumentsBills /></AdminRoute>} />
+                <Route path="/finance/payments-settlements" element={<AdminRoute><PaymentsSettlements /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
