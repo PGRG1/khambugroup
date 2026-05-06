@@ -35,7 +35,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   invoice: "Supplier payments",
   payroll_salary: "Net salaries",
   payroll_mpf: "MPF contributions",
-  manual: "Manual P&L",
+  manual: "Manual Profit & Loss",
 };
 
 export default function Cashflow() {

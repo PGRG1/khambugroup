@@ -104,7 +104,7 @@ export default function FinanceDashboard() {
 
   // ===== KPIs =====
   const kpis = useMemo(() => {
-    // P&L convention: revenue = credit-normal (amount positive = credit). For income statements,
+    // Profit & Loss convention: revenue = credit-normal (amount positive = credit). For income statements,
     // revenue should be shown positive, expenses positive. v_pl `amount` is debit - credit per line.
     // Income accounts are credit-normal so amount is typically negative -> revenue = -amount.
     // Expense accounts are debit-normal so amount is positive.
@@ -406,7 +406,7 @@ export default function FinanceDashboard() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-display text-lg">Top expenses (MTD)</h3>
             <Link to="/finance/pl-ledger" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-              P&L <ArrowRight className="h-3 w-3" />
+              Profit & Loss <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
           <div className="overflow-hidden rounded-lg border border-border/40">

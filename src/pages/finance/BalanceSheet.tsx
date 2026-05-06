@@ -138,7 +138,7 @@ export default function BalanceSheet() {
                 subtotal={equityBase.subtotal}
                 suffix={
                   <div className="flex justify-between text-sm border-b border-border/30 py-1 italic text-muted-foreground">
-                    <span>Retained Earnings (P&L to date)</span>
+                    <span>Retained Earnings (Profit & Loss to date)</span>
                     <span className="font-mono">{fmt(retained)}</span>
                   </div>
                 }

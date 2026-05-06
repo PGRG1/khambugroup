@@ -251,11 +251,11 @@ export default function PLReport() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold font-display tracking-tight">
-            <span className="text-gradient-gold">P&L Report</span>
+            <span className="text-gradient-gold">Profit & Loss Report</span>
             <span className="text-muted-foreground ml-2 text-base font-normal">{allVenueNames.length > 0 ? allVenueNames.join(" + ") : "All Venues"}</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-            Note: Prepared for internal management use only. This P&L is based on management reporting conventions and may not align with statutory financial statements or formal accounting policies.
+            Note: Prepared for internal management use only. This Profit & Loss is based on management reporting conventions and may not align with statutory financial statements or formal accounting policies.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-2">
@@ -280,18 +280,18 @@ export default function PLReport() {
         )}
       </div>
 
-      {/* P&L Table */}
+      {/* Profit & Loss Table */}
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : selectedPeriods.length === 0 ? (
-        <p className="text-muted-foreground">Select at least one period to view the P&L report.</p>
+        <p className="text-muted-foreground">Select at least one period to view the Profit & Loss report.</p>
       ) : (
         <div className="pl-table rounded-xl border border-[hsl(var(--pl-border))] overflow-x-auto relative" style={{ boxShadow: '0 2px 16px -4px hsl(25 20% 15% / 0.07)' }}>
           <table className="w-full text-[13px] border-collapse">
             <thead>
               <tr>
                 <th className="text-left px-5 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest sticky left-0 z-20 min-w-[230px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
-                  P&L
+                  Profit & Loss
                 </th>
                 {groupedData.map((gd) => (
                   <th key={gd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>

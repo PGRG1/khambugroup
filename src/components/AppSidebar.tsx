@@ -40,8 +40,8 @@ const financeItems = [
 ];
 
 const financeReportsItems = [
-  { title: "P&L", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
-  { title: "P&L (Ledger)", url: "/finance/pl-ledger", icon: Receipt },
+  { title: "Profit & Loss", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
+  { title: "Profit & Loss (Ledger)", url: "/finance/pl-ledger", icon: Receipt },
   { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
   { title: "Cash Flow", url: "/finance/cashflow-report", icon: TrendingUp },
   { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
