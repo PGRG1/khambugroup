@@ -340,9 +340,60 @@ export default function DocumentCentre() {
               {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="h-3.5 w-3.5" /> Filters
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Filter className="h-3.5 w-3.5" /> Filters
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center text-[10px] font-medium bg-primary/20 text-primary rounded px-1.5 min-w-[16px] h-4">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 p-4 space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Source Workflow</label>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    {sourceOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Uploaded By</label>
+                <Select value={uploaderFilter} onValueChange={setUploaderFilter}>
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Anyone</SelectItem>
+                    {uploaderOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">From</label>
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">To</label>
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8" />
+                </div>
+              </div>
+              <div className="flex justify-end pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setSourceFilter("all"); setUploaderFilter("all"); setDateFrom(""); setDateTo(""); }}
+                  disabled={activeFilterCount === 0}
+                >
+                  Reset
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
