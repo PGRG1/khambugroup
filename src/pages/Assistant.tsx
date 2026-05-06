@@ -135,7 +135,7 @@ export default function Assistant() {
           </div>
           <div>
             <h1 className="text-xl font-display font-semibold">KHAMBU Analyst</h1>
-            <p className="text-xs text-muted-foreground">Ask anything about revenue, invoices, suppliers, P&L</p>
+            <p className="text-xs text-muted-foreground">Ask anything about revenue, invoices, suppliers, Profit & Loss</p>
           </div>
         </div>
       </header>
@@ -194,7 +194,7 @@ export default function Assistant() {
                 send(input);
               }
             }}
-            placeholder="Ask about revenue, suppliers, P&L…"
+            placeholder="Ask about revenue, suppliers, Profit & Loss…"
             rows={1}
             className="min-h-[48px] max-h-[200px] resize-none text-sm rounded-xl"
             disabled={loading}
