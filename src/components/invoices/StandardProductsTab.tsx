@@ -278,6 +278,6 @@ export default function StandardProductsTab({
       </Dialog>
 
       <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Product" description="This will remove the standard product and all its conversion rules and supplier mappings." />
-    </div>
+    </>
   );
 }
