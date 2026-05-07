@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
-import { Plus, Search, Download, Pencil, Trash2 } from "lucide-react";
+import { Plus, Download, Pencil, Trash2 } from "lucide-react";
+import { DataTableShell, usePagination } from "@/components/common/data-table";
 
 interface Supplier {
   id: string;
