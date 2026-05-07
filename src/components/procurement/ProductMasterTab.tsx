@@ -81,9 +81,11 @@ export default function ProductMasterTab() {
   const [mappingFilter, setMappingFilter] = useState("all");
   const [showLegacyCols, setShowLegacyCols] = useState(false);
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([
-    { key: "mapping_status", dir: "asc" }, // Unmapped first (alphabetical: Mapped > Unmapped — but we want Unmapped first)
+    { key: "mapping_status", dir: "asc" },
     { key: "internal_product_name", dir: "asc" },
   ]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingSupplierEntryId, setEditingSupplierEntryId] = useState<string | null>(null);
