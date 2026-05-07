@@ -50,15 +50,7 @@ export default function StandardProductsTab({
     return conversions.filter((c) => c.standard_product_id === editingProduct.id);
   }, [editingProduct, conversions]);
 
-  const toggleSort = (key: string) => {
-    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("asc"); }
-  };
-
-  const SortIcon = ({ col }: { col: string }) => {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
-    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
-  };
+  const handleSortChange = (key: string, dir: "asc" | "desc") => { setSortKey(key); setSortDir(dir); };
 
   const filtered = useMemo(() => {
     let result = products;
