@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronRight, FileDown, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { ChevronRight, FileDown, FileText, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
+import { generateCashflowPDF } from "@/utils/financePdfReports";
 
 const fmt = (n: number) => {
   const v = Math.abs(n).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -102,6 +103,24 @@ export default function CashflowStatement() {
     );
   };
 
+  const handleExportPDF = () => {
+    generateCashflowPDF({
+      fromDate,
+      toDate,
+      venueLabel: venueFilter,
+      opening,
+      closing,
+      netChange,
+      sectionTotals,
+      linesBySection: {
+        operating: linesBySection.operating.map((l) => ({ section: l.section, lineItem: l.lineItem, amount: l.amount })),
+        investing: linesBySection.investing.map((l) => ({ section: l.section, lineItem: l.lineItem, amount: l.amount })),
+        financing: linesBySection.financing.map((l) => ({ section: l.section, lineItem: l.lineItem, amount: l.amount })),
+      },
+      cashAccounts,
+    });
+  };
+
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -150,6 +169,9 @@ export default function CashflowStatement() {
           </Select>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <FileDown className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" onClick={handleExportPDF}>
+            <FileText className="h-4 w-4 mr-1" /> Download PDF
           </Button>
         </div>
       </header>
