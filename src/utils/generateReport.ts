@@ -298,7 +298,7 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
       doc.line(margin, 10, pageWidth - margin, 10);
       doc.setFontSize(6.5);
       doc.setTextColor(...LABEL_TEXT);
-      doc.text("Khambu Group — Revenue Report", margin, 8);
+      doc.text("Bani Group — Revenue Report", margin, 8);
       doc.text(monthLabel, pageWidth - margin, 8, { align: "right" });
     }
     // Footer
