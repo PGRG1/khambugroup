@@ -82,7 +82,7 @@ function loadGroupState(): Record<GroupKey, boolean> {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { revenue: true, finance: true, procurement: true, hr: true, admin: true };
+  return { revenue: false, finance: false, procurement: false, hr: false, admin: false };
 }
 
 function CollapsibleNavGroup({
