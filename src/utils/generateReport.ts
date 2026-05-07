@@ -115,7 +115,7 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(...WHITE);
-  doc.text("KHAMBU GROUP", margin, 15);
+  doc.text("BANI GROUP", margin, 15);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
