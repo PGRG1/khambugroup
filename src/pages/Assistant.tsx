@@ -131,10 +131,10 @@ export default function Assistant() {
       <header className="px-6 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
+            <BrainCircuit className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-xl font-display font-semibold">KHAMBU Analyst</h1>
+            <h1 className="text-xl font-display font-semibold">BANI Analyst</h1>
             <p className="text-xs text-muted-foreground">Ask anything about revenue, invoices, suppliers, Profit & Loss</p>
           </div>
         </div>
