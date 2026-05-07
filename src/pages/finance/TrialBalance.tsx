@@ -4,9 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
+import { FileDown, FileText } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { ACCOUNT_TYPE_LABEL } from "@/hooks/useChartOfAccounts";
+import { generateTrialBalancePDF } from "@/utils/financePdfReports";
 
 const fmt = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -53,6 +54,31 @@ export default function TrialBalance() {
     );
   };
 
+  const exportPdf = () => {
+    const groups = TYPE_ORDER
+      .map((t) => ({
+        type: t,
+        label: ACCOUNT_TYPE_LABEL[t as keyof typeof ACCOUNT_TYPE_LABEL],
+        rows: (grouped.get(t) || []).map((r) => ({
+          code: r.code,
+          name: r.name,
+          account_type: r.account_type,
+          total_debit: Number(r.total_debit),
+          total_credit: Number(r.total_credit),
+          balance: Number(r.balance),
+        })),
+      }))
+      .filter((g) => g.rows.length > 0);
+    generateTrialBalancePDF({
+      fromDate: fromDate || undefined,
+      toDate,
+      rows: rows as any,
+      groups,
+      totalDebit: totals.debit,
+      totalCredit: totals.credit,
+    });
+  };
+
   return (
     <div className="p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -64,6 +90,7 @@ export default function TrialBalance() {
           <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" placeholder="From" />
           <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" placeholder="To" />
           <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
+          <Button size="sm" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" /> Download PDF</Button>
         </div>
       </header>
 
