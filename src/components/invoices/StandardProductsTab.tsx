@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Search, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Package } from "lucide-react";
+import { Plus, Trash2, Package } from "lucide-react";
+import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 import { StandardProduct, PackConversion } from "@/hooks/useStandardProducts";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 
@@ -49,15 +50,7 @@ export default function StandardProductsTab({
     return conversions.filter((c) => c.standard_product_id === editingProduct.id);
   }, [editingProduct, conversions]);
 
-  const toggleSort = (key: string) => {
-    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
-    else { setSortKey(key); setSortDir("asc"); }
-  };
-
-  const SortIcon = ({ col }: { col: string }) => {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
-    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
-  };
+  const handleSortChange = (key: string, dir: "asc" | "desc") => { setSortKey(key); setSortDir(dir); };
 
   const filtered = useMemo(() => {
     let result = products;
@@ -130,44 +123,48 @@ export default function StandardProductsTab({
     setDeletingId(null);
   };
 
+  const filterFields: FilterField[] = [
+    { type: "select", key: "category", label: "Category", value: catFilter, onChange: setCatFilter, options: CATEGORIES.map(c => ({ value: c, label: c })), allLabel: "All Categories" },
+  ];
+  const sortOptions = [
+    { key: "name", label: "Name" },
+    { key: "category", label: "Category" },
+    { key: "base_unit", label: "Base Unit" },
+  ];
+  const pag = usePagination(filtered);
+
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2 flex-wrap items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
-        <Select value={catFilter} onValueChange={setCatFilter}>
-          <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />New Product</Button>
-      </div>
-
-      <div className="text-xs text-muted-foreground">
-        {filtered.length} product{filtered.length !== 1 ? "s" : ""}
-      </div>
-
-      <div className="rounded-lg border overflow-hidden">
+    <>
+      <DataTableShell
+        search={{ value: search, onChange: setSearch, placeholder: "Search products..." }}
+        filters={{ fields: filterFields, onReset: () => setCatFilter("all") }}
+        resultCount={`${filtered.length} product${filtered.length !== 1 ? "s" : ""}`}
+        toolbarRight={
+          <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />New Product</Button>
+        }
+        sort={{ options: sortOptions, sortKey, sortDir, onChange: handleSortChange }}
+        pagination={{
+          page: pag.page, pageSize: pag.pageSize, totalPages: pag.totalPages,
+          rangeStart: pag.rangeStart, rangeEnd: pag.rangeEnd, total: pag.total,
+          onPageChange: pag.setPage, onPageSizeChange: pag.setPageSize,
+        }}
+      >
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><button onClick={() => toggleSort("name")} className="flex items-center gap-1 hover:text-foreground">Name <SortIcon col="name" /></button></TableHead>
-              <TableHead><button onClick={() => toggleSort("category")} className="flex items-center gap-1 hover:text-foreground">Category <SortIcon col="category" /></button></TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Sub-category</TableHead>
-              <TableHead><button onClick={() => toggleSort("base_unit")} className="flex items-center gap-1 hover:text-foreground">Base Unit <SortIcon col="base_unit" /></button></TableHead>
+              <TableHead>Base Unit</TableHead>
               <TableHead>Reorder</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {pag.pageItems.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No products found</TableCell></TableRow>
-            ) : filtered.map((p) => (
+            ) : pag.pageItems.map((p) => (
               <TableRow key={p.id} className="cursor-pointer" onClick={() => onOpenDetail(p)}>
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
@@ -177,8 +174,8 @@ export default function StandardProductsTab({
                 <TableCell>
                   <Badge variant={p.is_active ? "default" : "secondary"}>{p.is_active ? "Active" : "Inactive"}</Badge>
                 </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
+                <TableCell className="text-right">
+                  <div className="flex gap-1 justify-end">
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                       <Package className="h-3.5 w-3.5" />
                     </Button>
@@ -191,7 +188,8 @@ export default function StandardProductsTab({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </DataTableShell>
+
 
       {/* Create/Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -280,6 +278,6 @@ export default function StandardProductsTab({
       </Dialog>
 
       <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Product" description="This will remove the standard product and all its conversion rules and supplier mappings." />
-    </div>
+    </>
   );
 }
