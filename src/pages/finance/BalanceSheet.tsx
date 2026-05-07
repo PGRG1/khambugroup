@@ -4,8 +4,9 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
+import { FileDown, FileText } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
+import { generateBalanceSheetPDF } from "@/utils/financePdfReports";
 
 const fmt = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -88,6 +89,19 @@ export default function BalanceSheet() {
     ], `balance_sheet_${asOf}`);
   };
 
+  const exportPdf = () => {
+    generateBalanceSheetPDF({
+      asOf,
+      assets: { title: "Assets", accounts: assets.accs, subtotal: assets.subtotal },
+      liabilities: { title: "Liabilities", accounts: liabilities.accs, subtotal: liabilities.subtotal },
+      equity: { title: "Equity", accounts: equityBase.accs, subtotal: equityBase.subtotal },
+      retainedEarnings: retained,
+      totalEquity,
+      totalLE,
+      balanced,
+    });
+  };
+
   const Section = ({ title, accs, subtotal, suffix }: { title: string; accs: { code: string; name: string; total: number }[]; subtotal: number; suffix?: React.ReactNode }) => (
     <div>
       <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2">{title}</h3>
@@ -119,6 +133,7 @@ export default function BalanceSheet() {
           <label className="text-xs text-muted-foreground">As of</label>
           <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="h-9 w-44" />
           <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
+          <Button size="sm" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" /> Download PDF</Button>
         </div>
       </header>
 
