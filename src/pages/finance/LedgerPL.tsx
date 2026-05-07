@@ -8,6 +8,7 @@ import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } 
 import { useLedgerPL } from "@/hooks/useLedgerPL";
 import type { ChartAccount, AccountType } from "@/hooks/useChartOfAccounts";
 import { downloadCSV } from "@/utils/csvDownload";
+import { generateLedgerPLPDF, type LedgerPLRow } from "@/utils/financePdfReports";
 
 const fmt = (n: number) => n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -211,6 +212,65 @@ export default function LedgerPL() {
     downloadCSV(rows, cols, "ledger_pl");
   };
 
+  const exportPdf = () => {
+    const pdfRows: LedgerPLRow[] = [];
+    const periodCols = columns.map((c) => ({ key: c.key, label: c.label }));
+
+    const walk = (nodes: TreeNode[], depth: number) => {
+      for (const n of nodes) {
+        const cells = columns.map((c) => getAmount(n.account, c.periodId, c.venue));
+        const total = selectedPeriods.reduce((s, p) => s + getAmount(n.account, p.id, null), 0);
+        if (cells.every((v) => v === 0) && total === 0 && n.children.length === 0) continue;
+        pdfRows.push({
+          label: n.account.name,
+          code: n.account.code,
+          depth,
+          cells,
+          total,
+        });
+        walk(n.children, depth + 1);
+      }
+    };
+
+    for (const sec of SECTION_ORDER) {
+      const tree = trees.get(sec.type) || [];
+      if (tree.length === 0) continue;
+      pdfRows.push({ label: sec.label, depth: 0, isSection: true, cells: [] });
+      walk(tree, 1);
+      const sub = subtotal(sec.type);
+      pdfRows.push({
+        label: `Total ${sec.label}`,
+        depth: 0,
+        isSubtotal: true,
+        cells: sub.cells,
+        total: sub.totalAcrossPeriods,
+      });
+    }
+
+    const compRow = (fn: (pid: string, v: string | null) => number, label: string, isFinal = false) => {
+      const r = computeRow(fn);
+      pdfRows.push({
+        label,
+        depth: 0,
+        isComputed: !isFinal,
+        isFinal,
+        cells: r.cells,
+        total: r.totalAcrossPeriods,
+      });
+    };
+    compRow(grossProfit, "Gross Profit");
+    compRow(operatingProfit, "Operating Profit");
+    compRow(netIncome, "Net Income", true);
+
+    const periodLabel = selectedPeriods.map((p) => p.label).join(", ");
+    generateLedgerPLPDF({
+      periodLabel,
+      columns: periodCols,
+      rows: pdfRows,
+      showGrandTotal,
+    });
+  };
+
   return (
     <div className="p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -233,6 +293,9 @@ export default function LedgerPL() {
           </div>
           <Button size="sm" variant="outline" onClick={exportCsv}>
             <FileDown className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" onClick={exportPdf}>
+            <FileDown className="h-4 w-4 mr-1" /> Download PDF
           </Button>
         </div>
       </header>
