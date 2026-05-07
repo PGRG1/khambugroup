@@ -85,12 +85,15 @@ function formatMonthLabel(key: string) {
 }
 
 const tooltipStyle = {
-  backgroundColor: "hsl(33, 25%, 94%)",
-  border: "1px solid hsl(30, 15%, 85%)",
+  backgroundColor: "hsl(33, 25%, 96%)",
+  border: "1px solid hsl(30, 15%, 80%)",
   borderRadius: "0.5rem",
   fontSize: "12px",
-  boxShadow: "0 4px 24px -4px hsl(25 20% 15% / 0.08)",
+  color: "hsl(220, 15%, 15%)",
+  boxShadow: "0 4px 24px -4px rgba(0,0,0,0.4)",
 };
+const tooltipItemStyle = { color: "hsl(220, 15%, 15%)" };
+const tooltipLabelStyle = { color: "hsl(220, 15%, 15%)", fontWeight: 600, fontSize: 12 };
 
 export default function ProcurementDashboardTab() {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
