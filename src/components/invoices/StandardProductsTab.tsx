@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Search, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Package } from "lucide-react";
+import { Plus, Trash2, Package } from "lucide-react";
+import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 import { StandardProduct, PackConversion } from "@/hooks/useStandardProducts";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 
