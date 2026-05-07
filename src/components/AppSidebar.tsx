@@ -134,26 +134,14 @@ export function AppSidebar() {
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
 
-  const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
-
-  // Auto-open the group containing the current route on navigation
-  useEffect(() => {
-    const path = location.pathname;
-    let auto: GroupKey | null = null;
-    if (path === "/" || path.startsWith("/sales-data") || path.startsWith("/forecast")) auto = "revenue";
-    else if (path.startsWith("/finance") || path.startsWith("/pl-report")) auto = "finance";
-    else if (path.startsWith("/procurement")) auto = "procurement";
-    else if (path.startsWith("/hr")) auto = "hr";
-    else if (path.startsWith("/user-access") || path.startsWith("/settings")) auto = "admin";
-    if (auto && !groupState[auto]) {
-      setGroupState((prev) => {
-        const next = { ...prev, [auto!]: true };
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
-        return next;
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  // All nav groups start collapsed by default; user toggles persist for the session only
+  const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>({
+    revenue: false,
+    finance: false,
+    procurement: false,
+    hr: false,
+    admin: false,
+  });
 
   const setGroup = (key: GroupKey, open: boolean) => {
     setGroupState((prev) => {
