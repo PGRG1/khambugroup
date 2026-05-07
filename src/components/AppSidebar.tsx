@@ -187,7 +187,7 @@ export function AppSidebar() {
     <Sidebar className="border-r border-sidebar-border">
       <div className={`p-4 border-b border-sidebar-border ${isPreviewActive ? "mt-10" : ""}`}>
         <h1 className="text-xl font-bold font-display tracking-tight">
-          <span className="text-gradient-gold">BANI</span>
+          <span className="text-gradient-gold">KHAMBU</span>
         </h1>
         <p className="text-[10px] text-muted-foreground mt-0.5">Analytics Dashboard</p>
       </div>
