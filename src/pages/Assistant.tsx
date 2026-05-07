@@ -145,7 +145,7 @@ export default function Assistant() {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center max-w-xl mx-auto">
             <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-4">
-              <Sparkles className="h-7 w-7 text-primary-foreground" />
+              <BrainCircuit className="h-7 w-7 text-primary-foreground" />
             </div>
             <h2 className="text-2xl font-display font-semibold mb-2">How can I help today?</h2>
             <p className="text-sm text-muted-foreground mb-8">
