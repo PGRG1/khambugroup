@@ -125,147 +125,91 @@ export default function DocumentsTab() {
 
   if (loading) return <div className="p-8 text-center text-muted-foreground">Loading documents…</div>;
 
+  const filterFields: FilterField[] = [
+    { type: "select", key: "period", label: "Period", value: periodFilter, onChange: setPeriodFilter, options: periods.map(p => ({ value: p, label: p })), allLabel: "All Periods" },
+    { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter, options: suppliers.map(s => ({ value: s.id, label: s.name })), allLabel: "All Suppliers" },
+    { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter, options: VENUES.map(v => ({ value: v, label: v })), allLabel: "All Venues" },
+    { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter, options: STATUSES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })), allLabel: "All Statuses" },
+  ];
+  const resetFilters = () => { setPeriodFilter("all"); setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all"); };
+  const pag = usePagination(filtered);
+
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-end">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search invoice # or supplier…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 w-[220px]"
-          />
-        </div>
-        <Select value={periodFilter} onValueChange={setPeriodFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Period" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Periods</SelectItem>
-            {periods.map((p) => (
-              <SelectItem key={p} value={p}>{p}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="w-[170px]"><SelectValue placeholder="Supplier" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Suppliers</SelectItem>
-            {suppliers.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Venue" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Venues</SelectItem>
-            {VENUES.map((v) => (
-              <SelectItem key={v} value={v}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">
-          {filtered.length} document{filtered.length !== 1 ? "s" : ""}
-          {selectedIds.size > 0 && ` · ${selectedIds.size} selected`}
-        </span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={selectedIds.size === 0 || downloading}
-          onClick={handleDownloadSelected}
-        >
-          {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          Download Selected
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={filtered.length === 0 || downloading}
-          onClick={handleDownloadAll}
-        >
-          <FileDown className="h-4 w-4" />
-          Download All
-        </Button>
-      </div>
-
-      {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
+    <DataTableShell
+      search={{ value: search, onChange: setSearch, placeholder: "Search invoice # or supplier…" }}
+      filters={{ fields: filterFields, onReset: resetFilters }}
+      resultCount={`${filtered.length} document${filtered.length !== 1 ? "s" : ""}${selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}`}
+      toolbarRight={
+        <>
+          <Button size="sm" variant="outline" disabled={selectedIds.size === 0 || downloading} onClick={handleDownloadSelected} className="h-9">
+            {downloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+            Download Selected
+          </Button>
+          <Button size="sm" variant="outline" disabled={filtered.length === 0 || downloading} onClick={handleDownloadAll} className="h-9">
+            <FileDown className="h-4 w-4 mr-1" />
+            Download All
+          </Button>
+        </>
+      }
+      pagination={{
+        page: pag.page, pageSize: pag.pageSize, totalPages: pag.totalPages,
+        rangeStart: pag.rangeStart, rangeEnd: pag.rangeEnd, total: pag.total,
+        onPageChange: pag.setPage, onPageSizeChange: pag.setPageSize,
+      }}
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">
+              <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+            </TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>Supplier</TableHead>
+            <TableHead>Invoice #</TableHead>
+            <TableHead>Venue</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>File</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pag.pageItems.length === 0 ? (
             <TableRow>
-              <TableHead className="w-10">
-                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
-              </TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Venue</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>File</TableHead>
-              <TableHead className="w-10"></TableHead>
+              <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                No documents found.
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                  No documents found.
+          ) : (
+            pag.pageItems.map((inv) => (
+              <TableRow key={inv.id}>
+                <TableCell>
+                  <Checkbox checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleOne(inv.id)} />
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {inv.invoice_date ? format(new Date(inv.invoice_date + "T00:00:00"), "dd MMM yyyy") : "—"}
+                </TableCell>
+                <TableCell>{inv.supplier_name || "—"}</TableCell>
+                <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
+                <TableCell>{inv.venue}</TableCell>
+                <TableCell>
+                  <Badge variant={statusColor(inv.status) as any} className="capitalize text-xs">
+                    {inv.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">
+                  {inv.file_name || "attachment"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" disabled={downloading} onClick={() => downloadFiles([inv])}>
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
                 </TableCell>
               </TableRow>
-            ) : (
-              filtered.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedIds.has(inv.id)}
-                      onCheckedChange={() => toggleOne(inv.id)}
-                    />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {inv.invoice_date ? format(new Date(inv.invoice_date + "T00:00:00"), "dd MMM yyyy") : "—"}
-                  </TableCell>
-                  <TableCell>{inv.supplier_name || "—"}</TableCell>
-                  <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
-                  <TableCell>{inv.venue}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusColor(inv.status) as any} className="capitalize text-xs">
-                      {inv.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">
-                    {inv.file_name || "attachment"}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      disabled={downloading}
-                      onClick={() => downloadFiles([inv])}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </DataTableShell>
   );
 }
+
