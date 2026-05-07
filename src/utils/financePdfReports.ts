@@ -129,7 +129,7 @@ export function generateBalanceSheetPDF(args: {
       startY: y,
       margin: { left: margin, right: margin },
       head: [[{ content: sec.title.toUpperCase(), colSpan: 3, styles: { fillColor: NAVY as any, textColor: [...WHITE], halign: "left", fontSize: 9 } }]],
-      body: buildBody(sec, withRetained),
+      body: buildBody(sec, withRetained) as any,
       styles: { fontSize: 8.5, cellPadding: 2.2, textColor: DARK as any, lineColor: [230, 230, 235], lineWidth: 0.15 },
       alternateRowStyles: { fillColor: ROW_ALT as any },
       columnStyles: { 0: { cellWidth: 22 }, 2: { cellWidth: 36 } },
@@ -146,7 +146,7 @@ export function generateBalanceSheetPDF(args: {
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
-    body: [
+    body: ([
       [
         { content: "Total Assets", styles: { fontStyle: "bold" } },
         { content: fmtSigned(args.assets.subtotal), styles: { halign: "right", font: "courier", fontStyle: "bold" } },
@@ -347,7 +347,7 @@ export function generateCashflowPDF(args: {
     startY: y2,
     margin: { left: margin, right: margin },
     head: [[{ content: `Closing Cash Balances (as of ${args.toDate})`, colSpan: 3, styles: { fillColor: NAVY as any, textColor: [...WHITE], halign: "left", fontSize: 9 } }]],
-    body: [
+    body: ([
       ...args.cashAccounts.map((a) => [
         { content: a.code, styles: { font: "courier", fontSize: 8, textColor: LABEL as any } },
         a.name,
