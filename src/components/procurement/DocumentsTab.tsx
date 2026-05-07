@@ -4,12 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileDown, Loader2, Search } from "lucide-react";
+import { Download, FileDown, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 
 const VENUES = ["The Carpet Bar", "Bosa", "Khambu"];
 const STATUSES = ["pending", "verified", "approved", "paid", "overdue", "cancelled", "disputed"];
