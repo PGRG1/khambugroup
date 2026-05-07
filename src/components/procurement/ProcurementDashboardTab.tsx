@@ -482,7 +482,7 @@ export default function ProcurementDashboardTab() {
                       if (name === "Cumulative Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
                       return [fmt(Number(v)), name];
                     }}
-                    labelStyle={{ fontWeight: 600, fontSize: 12 }}
+                   
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} name="Revenue" />
@@ -504,7 +504,7 @@ export default function ProcurementDashboardTab() {
                       if (name === "Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
                       return [fmt(Number(v)), name];
                     }}
-                    labelStyle={{ fontWeight: 600, fontSize: 12 }}
+                   
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[4, 4, 0, 0]} name="Revenue" />
@@ -541,7 +541,7 @@ export default function ProcurementDashboardTab() {
                       interval={0}
                       tickFormatter={(v: string) => v.length > 22 ? v.slice(0, 20) + "…" : v}
                     />
-                    <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => [fmt(v), "Spend"]} labelStyle={{ fontWeight: 600, fontSize: 12 }} />
+                    <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => [fmt(v), "Spend"]} />
                     <defs>
                       <linearGradient id="supplierGrad" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.7} />
@@ -666,7 +666,7 @@ export default function ProcurementDashboardTab() {
                     interval={0}
                     tickFormatter={(v: string) => v.length > 28 ? v.slice(0, 26) + "…" : v}
                   />
-                  <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => [fmt(v), "Spend"]} labelStyle={{ fontWeight: 600, fontSize: 12 }} />
+                  <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => [fmt(v), "Spend"]} />
                   <defs>
                     <linearGradient id="productGrad" x1="0" y1="0" x2="1" y2="0">
                       <stop offset="0%" stopColor="hsl(175, 55%, 42%)" stopOpacity={0.6} />
