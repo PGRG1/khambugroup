@@ -154,29 +154,29 @@ export default function SuppliersTab() {
     );
   };
 
+  const pag = usePagination(filtered);
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search suppliers…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-1" />CSV
-          </Button>
-          <Button size="sm" onClick={openAdd}>
-            <Plus className="h-4 w-4 mr-1" />Add Supplier
-          </Button>
-        </div>
-      </div>
-
-      <div className="rounded-md border">
+      <DataTableShell
+        search={{ value: search, onChange: setSearch, placeholder: "Search suppliers…" }}
+        toolbarRight={
+          <>
+            <Button variant="outline" size="sm" onClick={handleExport} className="h-9">
+              <Download className="h-4 w-4 mr-1" />CSV
+            </Button>
+            <Button size="sm" onClick={openAdd} className="h-9">
+              <Plus className="h-4 w-4 mr-1" />Add Supplier
+            </Button>
+          </>
+        }
+        resultCount={`${filtered.length} supplier${filtered.length !== 1 ? "s" : ""}`}
+        pagination={{
+          page: pag.page, pageSize: pag.pageSize, totalPages: pag.totalPages,
+          rangeStart: pag.rangeStart, rangeEnd: pag.rangeEnd, total: pag.total,
+          onPageChange: pag.setPage, onPageSizeChange: pag.setPageSize,
+        }}
+      >
         <Table>
           <TableHeader>
             <TableRow>
@@ -186,16 +186,16 @@ export default function SuppliersTab() {
               <TableHead>Phone</TableHead>
               <TableHead>Payment Terms</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[80px]" />
+              <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
+            ) : pag.pageItems.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suppliers found</TableCell></TableRow>
             ) : (
-              filtered.map((s) => (
+              pag.pageItems.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.name}</TableCell>
                   <TableCell>{s.contact_person || "—"}</TableCell>
@@ -207,8 +207,8 @@ export default function SuppliersTab() {
                       {s.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
+                  <TableCell className="text-right">
+                    <div className="flex gap-1 justify-end">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -222,7 +222,8 @@ export default function SuppliersTab() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </DataTableShell>
+
 
       {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
