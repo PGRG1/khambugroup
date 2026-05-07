@@ -144,12 +144,13 @@ export function AppSidebar() {
   });
 
   const setGroup = (key: GroupKey, open: boolean) => {
-    setGroupState((prev) => {
-      const next = { ...prev, [key]: open };
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
-      return next;
-    });
+    setGroupState((prev) => ({ ...prev, [key]: open }));
   };
+
+  // Clear any previously persisted sidebar state so collapsed-by-default truly applies
+  useEffect(() => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  }, []);
 
   const visibleItems = navItems.filter(item => {
     if (isAdmin && !isPreviewActive) return true;
