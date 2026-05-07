@@ -242,7 +242,7 @@ export function generateTrialBalancePDF(args: {
     startY: contentTop + 2,
     margin: { left: margin, right: margin, bottom: 18 },
     head: [["Code", "Account", "Debit", "Credit", "Balance"]],
-    body,
+    body: body as any,
     headStyles: { fillColor: NAVY as any, textColor: [...WHITE], fontSize: 9 },
     styles: { fontSize: 8.5, cellPadding: 2, textColor: DARK as any, lineColor: [230, 230, 235], lineWidth: 0.15 },
     alternateRowStyles: { fillColor: ROW_ALT as any },
@@ -335,7 +335,7 @@ export function generateCashflowPDF(args: {
   autoTable(doc, {
     startY: contentTop + 2,
     margin: { left: margin, right: margin, bottom: 18 },
-    body,
+    body: body as any,
     styles: { fontSize: 8.8, cellPadding: 2.2, textColor: DARK as any, lineColor: [230, 230, 235], lineWidth: 0.15 },
     columnStyles: { 1: { cellWidth: 45, halign: "right" } },
   });
