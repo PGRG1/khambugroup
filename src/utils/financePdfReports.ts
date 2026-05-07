@@ -40,7 +40,7 @@ function newDoc(meta: PageMeta) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
   doc.setTextColor(...WHITE);
-  doc.text("BANI GROUP", margin, 13);
+  doc.text("KHAMBU GROUP", margin, 13);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -65,7 +65,7 @@ function drawFooter(doc: jsPDF, pageWidth: number, pageHeight: number, margin: n
     doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
     doc.setFontSize(7);
     doc.setTextColor(...LABEL);
-    doc.text("Bani Group — Confidential", margin, pageHeight - 7);
+    doc.text("Khambu Group — Confidential", margin, pageHeight - 7);
     doc.text(`Page ${i} of ${total}`, pageWidth - margin, pageHeight - 7, { align: "right" });
   }
 }
