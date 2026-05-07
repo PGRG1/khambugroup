@@ -165,7 +165,7 @@ export function generateBalanceSheetPDF(args: {
           fillColor: SECTION_BG as any,
         },
       }],
-    ],
+    ] as any),
     styles: { fontSize: 9, cellPadding: 3 },
   });
 
@@ -361,7 +361,7 @@ export function generateCashflowPDF(args: {
           styles: { halign: "right", font: "courier", fontStyle: "bold", fillColor: TOTAL_BG as any },
         },
       ],
-    ],
+    ] as any),
     styles: { fontSize: 8.5, cellPadding: 2 },
     alternateRowStyles: { fillColor: ROW_ALT as any },
     columnStyles: { 0: { cellWidth: 22 }, 2: { cellWidth: 40 } },
