@@ -22,7 +22,7 @@ const DashboardHeader = ({ venue, onVenueChange, onToggleUpload, onToggleManual,
     <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 className="text-3xl font-bold font-display tracking-tight">
-          <span className="text-gradient-gold">KHAMBU</span>
+          <span className="text-gradient-gold">BANI</span>
           <span className="text-muted-foreground ml-3 text-lg font-normal">Analytics</span>
         </h1>
         {user && (

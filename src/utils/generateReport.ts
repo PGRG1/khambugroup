@@ -115,7 +115,7 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(...WHITE);
-  doc.text("KHAMBU GROUP", margin, 15);
+  doc.text("BANI GROUP", margin, 15);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -298,7 +298,7 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
       doc.line(margin, 10, pageWidth - margin, 10);
       doc.setFontSize(6.5);
       doc.setTextColor(...LABEL_TEXT);
-      doc.text("Khambu Group — Revenue Report", margin, 8);
+      doc.text("Bani Group — Revenue Report", margin, 8);
       doc.text(monthLabel, pageWidth - margin, 8, { align: "right" });
     }
     // Footer
@@ -307,11 +307,11 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
     doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
     doc.setFontSize(6.5);
     doc.setTextColor(...LABEL_TEXT);
-    doc.text("Khambu Group — Confidential", margin, pageHeight - 8);
+    doc.text("Bani Group — Confidential", margin, pageHeight - 8);
     doc.text(`${i}`, pageWidth - margin, pageHeight - 8, { align: "right" });
   }
 
-  const fileName = `Khambu_Revenue_Report_${venue.replace(/\s/g, "_")}_${monthLabel.replace(/\s/g, "_")}.pdf`;
+  const fileName = `Bani_Revenue_Report_${venue.replace(/\s/g, "_")}_${monthLabel.replace(/\s/g, "_")}.pdf`;
   doc.save(fileName);
 }
 
