@@ -85,12 +85,15 @@ function formatMonthLabel(key: string) {
 }
 
 const tooltipStyle = {
-  backgroundColor: "hsl(33, 25%, 94%)",
-  border: "1px solid hsl(30, 15%, 85%)",
+  backgroundColor: "hsl(33, 25%, 96%)",
+  border: "1px solid hsl(30, 15%, 80%)",
   borderRadius: "0.5rem",
   fontSize: "12px",
-  boxShadow: "0 4px 24px -4px hsl(25 20% 15% / 0.08)",
+  color: "hsl(220, 15%, 15%)",
+  boxShadow: "0 4px 24px -4px rgba(0,0,0,0.4)",
 };
+const tooltipItemStyle = { color: "hsl(220, 15%, 15%)" };
+const tooltipLabelStyle = { color: "hsl(220, 15%, 15%)", fontWeight: 600, fontSize: 12 };
 
 export default function ProcurementDashboardTab() {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
@@ -473,13 +476,13 @@ export default function ProcurementDashboardTab() {
                   <YAxis yAxisId="left" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                   <YAxis yAxisId="right" orientation="right" tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                   <Tooltip
-                    contentStyle={tooltipStyle}
+                    contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
                     formatter={(v: any, name: string) => {
                       if (v === null || v === undefined) return ["—", name];
                       if (name === "Cumulative Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
                       return [fmt(Number(v)), name];
                     }}
-                    labelStyle={{ fontWeight: 600, fontSize: 12 }}
+                   
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[3, 3, 0, 0]} name="Revenue" />
@@ -495,13 +498,13 @@ export default function ProcurementDashboardTab() {
                   <YAxis yAxisId="left" tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                   <YAxis yAxisId="right" orientation="right" tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                   <Tooltip
-                    contentStyle={tooltipStyle}
+                    contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
                     formatter={(v: any, name: string) => {
                       if (v === null || v === undefined) return ["—", name];
                       if (name === "Cost of Revenue %") return [`${Number(v).toFixed(1)}%`, name];
                       return [fmt(Number(v)), name];
                     }}
-                    labelStyle={{ fontWeight: 600, fontSize: 12 }}
+                   
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar yAxisId="left" dataKey="revenue" fill="hsl(175, 55%, 42%)" radius={[4, 4, 0, 0]} name="Revenue" />
@@ -538,7 +541,7 @@ export default function ProcurementDashboardTab() {
                       interval={0}
                       tickFormatter={(v: string) => v.length > 22 ? v.slice(0, 20) + "…" : v}
                     />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmt(v), "Spend"]} labelStyle={{ fontWeight: 600, fontSize: 12 }} />
+                    <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => [fmt(v), "Spend"]} />
                     <defs>
                       <linearGradient id="supplierGrad" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="hsl(24, 80%, 50%)" stopOpacity={0.7} />
@@ -611,7 +614,7 @@ export default function ProcurementDashboardTab() {
                         <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmt(v), "Spend"]} />
+                    <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => [fmt(v), "Spend"]} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -663,7 +666,7 @@ export default function ProcurementDashboardTab() {
                     interval={0}
                     tickFormatter={(v: string) => v.length > 28 ? v.slice(0, 26) + "…" : v}
                   />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [fmt(v), "Spend"]} labelStyle={{ fontWeight: 600, fontSize: 12 }} />
+                  <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => [fmt(v), "Spend"]} />
                   <defs>
                     <linearGradient id="productGrad" x1="0" y1="0" x2="1" y2="0">
                       <stop offset="0%" stopColor="hsl(175, 55%, 42%)" stopOpacity={0.6} />
