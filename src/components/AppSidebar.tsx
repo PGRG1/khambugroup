@@ -300,7 +300,7 @@ export function AppSidebar() {
           >
             <SidebarMenu>
               {renderLink({ title: "User Access", url: "/user-access", icon: UserCog })}
-              {renderLink({ title: "System Configuration", url: "/admin/system-configuration", icon: Sparkles })}
+              {renderLink({ title: "System Configuration", url: "/admin/system-configuration", icon: BrainCircuit })}
               {renderLink({ title: "Settings", url: "/settings", icon: Settings })}
             </SidebarMenu>
           </CollapsibleNavGroup>
