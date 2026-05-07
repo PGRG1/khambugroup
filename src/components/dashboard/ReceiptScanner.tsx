@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Camera } from "lucide-react";
+import { Upload, X, BrainCircuit, Loader2, Check, Camera } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
