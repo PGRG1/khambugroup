@@ -449,90 +449,47 @@ export default function ProductMasterTab() {
     ? "minmax(200px,1.5fr) 130px 100px 100px 100px 180px 110px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 70px"
     : "minmax(220px,1.6fr) 140px 110px 110px 110px 200px 110px 90px 70px";
 
-  // Virtualization
-  if (loading) {
-    // hooks must be unconditional — moved virtualizer below
-  }
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
-    count: filtered.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 36,
-    overscan: 100,
-  });
-
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading products...</div>;
 
-  const virtualItems = rowVirtualizer.getVirtualItems();
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageItems = filtered.slice(pageStart, pageStart + pageSize);
+  const rangeStart = filtered.length === 0 ? 0 : pageStart + 1;
+  const rangeEnd = Math.min(filtered.length, pageStart + pageSize);
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i); return pages; }
+    pages.push(1);
+    if (currentPage > 3) pages.push("...");
+    const s = Math.max(2, currentPage - 1);
+    const e = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = s; i <= e; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push("...");
+    pages.push(totalPages);
+    return pages;
+  };
+
+  const activeFilterCount =
+    (catFilter !== "all" ? 1 : 0) +
+    (l2Filter !== "all" ? 1 : 0) +
+    (subCatFilter !== "all" ? 1 : 0) +
+    (supplierFilter !== "all" ? 1 : 0) +
+    (treatmentFilter !== "all" ? 1 : 0) +
+    (mappingFilter !== "all" ? 1 : 0);
+
+  const SORT_LABELS: Record<string, string> = Object.fromEntries(columns.map(c => [c.key, c.label]));
+  const primarySort = sortColumns[0];
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
+      {/* Top toolbar: search + add */}
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search SKU, product name, supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+          <Input placeholder="Search SKU, product name, supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-background/40" />
         </div>
-        <Select value={catFilter} onValueChange={(v) => { setCatFilter(v); setL2Filter("all"); setSubCatFilter("all"); }}>
-          <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="L1 Category" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All L1</SelectItem>
-            {categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={l2Filter} onValueChange={(v) => { setL2Filter(v); setSubCatFilter("all"); }}>
-          <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="L2 Category" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All L2</SelectItem>
-            {l2Categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={subCatFilter} onValueChange={setSubCatFilter}>
-          <SelectTrigger className="w-[130px] h-9 text-xs"><SelectValue placeholder="L3 Category" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All L3</SelectItem>
-            {subCategories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="w-[160px] h-9 text-xs"><SelectValue placeholder="Supplier" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Suppliers</SelectItem>
-            {allSuppliers.filter(s => s && s.trim() !== "").map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[100px] h-9 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="Inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={treatmentFilter} onValueChange={setTreatmentFilter}>
-          <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="Treatment" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Treatments</SelectItem>
-            <SelectItem value="__unmapped__">— Unmapped —</SelectItem>
-            {FINANCIAL_TREATMENTS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={mappingFilter} onValueChange={setMappingFilter}>
-          <SelectTrigger className="w-[120px] h-9 text-xs"><SelectValue placeholder="Mapping" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Mapping</SelectItem>
-            <SelectItem value="Mapped">Mapped</SelectItem>
-            <SelectItem value="Unmapped">Unmapped</SelectItem>
-          </SelectContent>
-        </Select>
-        <button onClick={() => setShowLegacyCols(v => !v)} className="text-xs text-muted-foreground hover:text-foreground underline">
-          {showLegacyCols ? "Hide" : "Show"} more columns
-        </button>
-        {hasFilters && (
-          <button onClick={clearFilters} className="text-xs text-primary hover:underline flex items-center gap-1">
-            <X className="h-3 w-3" /> Clear
-          </button>
-        )}
         <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => ({
           internal_sku: r.internal_sku, external_sku: r.external_sku,
           internal_product_name: r.internal_product_name, supplier_product_name: r.supplier_product_name,
@@ -542,120 +499,244 @@ export default function ProductMasterTab() {
           base_unit_type: r.base_unit_type, base_unit_qty: r.base_unit_qty,
           cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
           supplier: r.supplier, status: r.status,
-        })), columns.map(c => ({ key: c.key, label: c.label })), "product_master")} className="h-9"><Download className="h-4 w-4 mr-1" />Download</Button>
-        <Button size="sm" onClick={openCreate} className="ml-auto h-9"><Plus className="h-4 w-4 mr-1" />Add Product</Button>
+        })), columns.map(c => ({ key: c.key, label: c.label })), "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
+        <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Product</Button>
       </div>
 
-      <p className="text-xs text-muted-foreground">Showing {filtered.length} rows ({products.length} unique products)</p>
-
-      {/* Virtualized table */}
-      <div className="card-glass rounded-xl overflow-hidden">
-        <div
-          ref={scrollRef}
-          className="overflow-auto bg-card"
-          style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
-        >
-          <div style={{ minWidth: 1800, width: "max-content" }}>
-            {/* Header */}
-            <div
-              className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10 w-full"
-              style={{ gridTemplateColumns: GRID_COLS }}
-            >
-              {columns.map(col => (
-                <div
-                  key={col.key}
-                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap overflow-hidden flex items-center ${(col as any).align === "right" ? "justify-end" : ""}`}
-                  onClick={(e) => toggleSort(col.key, e.shiftKey)}
-                  title="Click to sort. Shift+click to add another column."
-                >
-                  <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
-                </div>
+      {/* Document-Centre-style toolbar */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="Inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 h-9">
+                <Filter className="h-3.5 w-3.5" /> Filters
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center text-[10px] font-medium bg-primary/20 text-primary rounded px-1.5 min-w-[16px] h-4">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 p-4 space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">L1 Category</label>
+                <Select value={catFilter} onValueChange={(v) => { setCatFilter(v); setL2Filter("all"); setSubCatFilter("all"); }}>
+                  <SelectTrigger className="h-8"><SelectValue placeholder="All L1" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All L1</SelectItem>
+                    {categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">L2 Category</label>
+                <Select value={l2Filter} onValueChange={(v) => { setL2Filter(v); setSubCatFilter("all"); }}>
+                  <SelectTrigger className="h-8"><SelectValue placeholder="All L2" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All L2</SelectItem>
+                    {l2Categories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">L3 Category</label>
+                <Select value={subCatFilter} onValueChange={setSubCatFilter}>
+                  <SelectTrigger className="h-8"><SelectValue placeholder="All L3" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All L3</SelectItem>
+                    {subCategories.filter(c => c && c.trim() !== "").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Supplier</label>
+                <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                  <SelectTrigger className="h-8"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Suppliers</SelectItem>
+                    {allSuppliers.filter(s => s && s.trim() !== "").map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Financial Treatment</label>
+                <Select value={treatmentFilter} onValueChange={setTreatmentFilter}>
+                  <SelectTrigger className="h-8"><SelectValue placeholder="All Treatments" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Treatments</SelectItem>
+                    <SelectItem value="__unmapped__">— Unmapped —</SelectItem>
+                    {FINANCIAL_TREATMENTS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Mapping Status</label>
+                <Select value={mappingFilter} onValueChange={setMappingFilter}>
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Mapping</SelectItem>
+                    <SelectItem value="Mapped">Mapped</SelectItem>
+                    <SelectItem value="Unmapped">Unmapped</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end pt-1">
+                <Button variant="ghost" size="sm" onClick={clearFilters} disabled={!hasFilters}>Reset</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <span className="text-xs text-muted-foreground ml-1">Showing {filtered.length} rows ({products.length} unique products)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 h-9"><Columns3 className="h-3.5 w-3.5" /> Columns</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={showLegacyCols}
+                onCheckedChange={(v) => setShowLegacyCols(!!v)}
+              >
+                Show SKU / UOM details
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 h-9">
+                <ArrowUpDown className="h-3.5 w-3.5" /> {primarySort ? SORT_LABELS[primarySort.key] || primarySort.key : "Sort"} ({primarySort?.dir === "asc" ? "↑" : "↓"})
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {columns.map(c => (
+                <DropdownMenuItem key={c.key} onClick={() => setSortColumns([{ key: c.key, dir: primarySort?.key === c.key && primarySort.dir === "asc" ? "desc" : "asc" }])}>
+                  {primarySort?.key === c.key && <Check className="h-3.5 w-3.5 mr-2" />}
+                  <span className={primarySort?.key === c.key ? "" : "ml-[22px]"}>{c.label}</span>
+                </DropdownMenuItem>
               ))}
-              <div></div>
-            </div>
-
-            {/* Body */}
-            {filtered.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-sm">No products found</div>
-            ) : (
-              <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
-                  {virtualItems.map(vRow => {
-                    const r = filtered[vRow.index];
-                    const idx = vRow.index;
-                    return (
-                      <div
-                        key={r.rowKey}
-                        className={`grid items-center border-b border-border/40 hover:bg-accent/30 transition-colors text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
-                        style={{
-                          gridTemplateColumns: GRID_COLS,
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          height: vRow.size,
-                          transform: `translateY(${vRow.start}px)`,
-                        }}
-                      >
-                        <div className="px-3 font-medium text-foreground truncate" title={r.internal_product_name}>{r.internal_product_name}</div>
-                        <div className="px-3 truncate" title={r.supplier}>{r.supplier}</div>
-                        <div className="px-3 truncate">{r.level1_category}</div>
-                        <div className="px-3 truncate">{r.level2_category}</div>
-                        <div className="px-3 truncate">{r.level3_category}</div>
-                        <div className="px-3">
-                          {r.financial_treatment ? (
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] px-1.5 py-0 ${
-                                r.financial_treatment === "COGS" || r.financial_treatment === "OpEx"
-                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
-                                  : "border-sky-500/40 bg-sky-500/10 text-sky-700"
-                              }`}
-                            >
-                              {r.financial_treatment}
-                            </Badge>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground italic">—</span>
-                          )}
-                        </div>
-                        <div className="px-3">
-                          {r.mapping_status === "Mapped" ? (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-700">
-                              <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Mapped
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-destructive/40 bg-destructive/10 text-destructive">
-                              <AlertTriangle className="h-2.5 w-2.5 mr-0.5" /> Unmapped
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="px-3">
-                          <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                            {r.status}
-                          </Badge>
-                        </div>
-                        {showLegacyCols && (
-                          <>
-                            <div className="px-3 font-mono font-medium text-primary truncate">{r.internal_sku}</div>
-                            <div className="px-3 font-mono text-muted-foreground truncate">{r.external_sku}</div>
-                            <div className="px-3 text-muted-foreground truncate">{r.supplier_product_name}</div>
-                            <div className="px-3 truncate">{r.purchase_unit}</div>
-                            <div className="px-3 text-right tabular-nums font-medium">{fmt(r.purchase_unit_cost)}</div>
-                            <div className="px-3 truncate">{r.stock_uom}</div>
-                            <div className="px-3 text-right tabular-nums">{fmt(r.stock_qty)}</div>
-                          </>
-                        )}
-                        <div className="px-2 flex gap-1">
-                          <button onClick={() => openEdit(r)} className="p-1 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
-                          <button onClick={() => { setDeletingRow(r); setDeleteOpen(true); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-            )}
-          </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      {/* Table */}
+      <Card className="card-glass overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map(col => (
+                  <TableHead
+                    key={col.key}
+                    className={`cursor-pointer select-none whitespace-nowrap ${(col as any).align === "right" ? "text-right" : ""}`}
+                    onClick={(e) => toggleSort(col.key, (e as any).shiftKey)}
+                    title="Click to sort. Shift+click to add another column."
+                  >
+                    <span className="inline-flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
+                  </TableHead>
+                ))}
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pageItems.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={columns.length + 1} className="text-center text-muted-foreground py-12">
+                    No products found.
+                  </TableCell>
+                </TableRow>
+              )}
+              {pageItems.map((r) => (
+                <TableRow key={r.rowKey}>
+                  <TableCell className="font-medium max-w-[280px] truncate" title={r.internal_product_name}>{r.internal_product_name}</TableCell>
+                  <TableCell className="truncate max-w-[180px]" title={r.supplier}>{r.supplier}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{r.level1_category}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{r.level2_category}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{r.level3_category}</TableCell>
+                  <TableCell>
+                    {r.financial_treatment ? (
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${r.financial_treatment === "COGS" || r.financial_treatment === "OpEx" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-sky-500/40 bg-sky-500/10 text-sky-300"}`}>
+                        {r.financial_treatment}
+                      </Badge>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground italic">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {r.mapping_status === "Mapped" ? (
+                      <span className="chip chip-success"><CheckCircle2 className="h-3 w-3" /> Mapped</span>
+                    ) : (
+                      <span className="chip chip-danger"><AlertTriangle className="h-3 w-3" /> Unmapped</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">{r.status}</Badge>
+                  </TableCell>
+                  {showLegacyCols && (
+                    <>
+                      <TableCell className="font-mono text-xs text-primary truncate max-w-[140px]">{r.internal_sku}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground truncate max-w-[140px]">{r.external_sku}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">{r.supplier_product_name}</TableCell>
+                      <TableCell className="text-xs">{r.purchase_unit}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">{fmt(r.purchase_unit_cost)}</TableCell>
+                      <TableCell className="text-xs">{r.stock_uom}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">{fmt(r.stock_qty)}</TableCell>
+                    </>
+                  )}
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDeletingRow(r); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination footer */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border/50 flex-wrap">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Rows per page:</span>
+            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+              <SelectTrigger className="w-[80px] h-8"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[10, 25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="td-num">{rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {filtered.length.toLocaleString()}</span>
+            <div className="flex items-center gap-1 ml-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+              {getPageNumbers().map((p, i) =>
+                p === "..." ? (
+                  <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
+                ) : (
+                  <Button key={p} variant={p === currentPage ? "default" : "ghost"} size="icon" className="h-8 w-8 td-num" onClick={() => setPage(p as number)}>{p}</Button>
+                ),
+              )}
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-4 w-4" /></Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
 
       {/* Draggable Create/Edit Modal */}
       {dialogOpen && (
