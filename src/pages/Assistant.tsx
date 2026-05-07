@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Loader2, BrainCircuit, User } from "lucide-react";
+import { Send, Loader2, SlidersHorizontal, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
@@ -131,7 +131,7 @@ export default function Assistant() {
       <header className="px-6 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <BrainCircuit className="h-5 w-5 text-primary-foreground" />
+            <SlidersHorizontal className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
             <h1 className="text-xl font-display font-semibold">BANI Analyst</h1>
@@ -145,7 +145,7 @@ export default function Assistant() {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center max-w-xl mx-auto">
             <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-4">
-              <BrainCircuit className="h-7 w-7 text-primary-foreground" />
+              <SlidersHorizontal className="h-7 w-7 text-primary-foreground" />
             </div>
             <h2 className="text-2xl font-display font-semibold mb-2">How can I help today?</h2>
             <p className="text-sm text-muted-foreground mb-8">
@@ -171,7 +171,7 @@ export default function Assistant() {
             {loading && messages[messages.length - 1]?.role === "user" && (
               <div className="flex gap-3">
                 <div className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
-                  <BrainCircuit className="h-4 w-4 text-primary-foreground" />
+                  <SlidersHorizontal className="h-4 w-4 text-primary-foreground" />
                 </div>
                 <div className="pt-1">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -228,7 +228,7 @@ function MessageBlock({ msg }: { msg: Msg }) {
   return (
     <div className="flex gap-3">
       <div className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
-        <BrainCircuit className="h-4 w-4 text-primary-foreground" />
+        <SlidersHorizontal className="h-4 w-4 text-primary-foreground" />
       </div>
       <div className="flex-1 min-w-0 space-y-3">
         <div className="prose prose-sm dark:prose-invert max-w-none
