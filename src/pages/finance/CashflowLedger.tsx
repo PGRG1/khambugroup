@@ -22,6 +22,7 @@ import {
 } from "recharts";
 import { ArrowDownCircle, ArrowUpCircle, TrendingUp, Wallet, FileDown, BookOpen, Info } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
+import { generateLedgerCashflowPDF } from "@/utils/financePdfReports";
 
 const fmtMoney = (n: number) =>
   n.toLocaleString("en-HK", { style: "currency", currency: "HKD", maximumFractionDigits: 0 });
@@ -91,6 +92,37 @@ export default function CashflowLedger() {
     );
   };
 
+  const handleExportPDF = () => {
+    const accountLabel =
+      accountFilter === "All Accounts"
+        ? "All cash accounts"
+        : (accounts.find((a) => a.code === accountFilter)
+            ? `${accountFilter} — ${accounts.find((a) => a.code === accountFilter)!.name}`
+            : accountFilter);
+    const periodLabel =
+      (fromDate || "—") + " → " + (toDate || new Date().toISOString().slice(0, 10));
+    generateLedgerCashflowPDF({
+      periodLabel,
+      granularity: granularity.charAt(0).toUpperCase() + granularity.slice(1),
+      venueLabel: venueFilter,
+      accountLabel,
+      totals,
+      buckets,
+      byAccount: byAccount.map((a) => ({
+        label: `${a.code} — ${a.name}`,
+        cashIn: a.cashIn,
+        cashOut: a.cashOut,
+        net: a.net,
+      })),
+      bySource: bySource.map((s) => ({
+        label: SOURCE_LABELS[s.source] || s.source,
+        cashIn: s.cashIn,
+        cashOut: s.cashOut,
+        net: s.net,
+      })),
+    });
+  };
+
   return (
     <div className="p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -126,6 +158,9 @@ export default function CashflowLedger() {
           </Select>
           <Button variant="outline" size="sm" onClick={handleExportCSV}>
             <FileDown className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          <Button size="sm" onClick={handleExportPDF}>
+            <FileDown className="h-4 w-4 mr-1" /> Download PDF
           </Button>
         </div>
       </header>
