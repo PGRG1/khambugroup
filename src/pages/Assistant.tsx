@@ -171,7 +171,7 @@ export default function Assistant() {
             {loading && messages[messages.length - 1]?.role === "user" && (
               <div className="flex gap-3">
                 <div className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
-                  <Sparkles className="h-4 w-4 text-primary-foreground" />
+                  <BrainCircuit className="h-4 w-4 text-primary-foreground" />
                 </div>
                 <div className="pt-1">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -228,7 +228,7 @@ function MessageBlock({ msg }: { msg: Msg }) {
   return (
     <div className="flex gap-3">
       <div className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
-        <Sparkles className="h-4 w-4 text-primary-foreground" />
+        <BrainCircuit className="h-4 w-4 text-primary-foreground" />
       </div>
       <div className="flex-1 min-w-0 space-y-3">
         <div className="prose prose-sm dark:prose-invert max-w-none
