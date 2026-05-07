@@ -311,7 +311,7 @@ export function generateMTDReport({ data, venue, monthLabel }: ReportOptions) {
     doc.text(`${i}`, pageWidth - margin, pageHeight - 8, { align: "right" });
   }
 
-  const fileName = `Khambu_Revenue_Report_${venue.replace(/\s/g, "_")}_${monthLabel.replace(/\s/g, "_")}.pdf`;
+  const fileName = `Bani_Revenue_Report_${venue.replace(/\s/g, "_")}_${monthLabel.replace(/\s/g, "_")}.pdf`;
   doc.save(fileName);
 }
 
