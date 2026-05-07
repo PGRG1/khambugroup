@@ -230,26 +230,40 @@ export function AppSidebar() {
             onOpenChange={(o) => setGroup("finance", o)}
           >
             <SidebarMenu>{financeItems.map(renderLink)}</SidebarMenu>
+
+            <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
+
             <Collapsible defaultOpen>
               <CollapsibleTrigger asChild>
-                <div className="flex items-center justify-between cursor-pointer px-3 py-1.5 mt-2 text-xs font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors group/sub">
-                  <span className="uppercase tracking-wide">Reports</span>
+                <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                  <span className="flex items-center gap-2">
+                    <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                    Reports
+                  </span>
                   <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <SidebarMenu>{financeReportsItems.map(renderLink)}</SidebarMenu>
+                <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                  <SidebarMenu>{financeReportsItems.map(renderLink)}</SidebarMenu>
+                </div>
               </CollapsibleContent>
             </Collapsible>
+
             <Collapsible defaultOpen>
               <CollapsibleTrigger asChild>
-                <div className="flex items-center justify-between cursor-pointer px-3 py-1.5 mt-2 text-xs font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors group/sub">
-                  <span className="uppercase tracking-wide">Accounting</span>
+                <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                  <span className="flex items-center gap-2">
+                    <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                    Accounting
+                  </span>
                   <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <SidebarMenu>{financeAccountingItems.map(renderLink)}</SidebarMenu>
+                <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                  <SidebarMenu>{financeAccountingItems.map(renderLink)}</SidebarMenu>
+                </div>
               </CollapsibleContent>
             </Collapsible>
           </CollapsibleNavGroup>
