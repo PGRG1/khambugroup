@@ -28,6 +28,20 @@ type ParsedLine = {
   fee_variance: number;
   audit_status: AuditStatus;
 };
+type ParsedTxn = {
+  transaction_time: string;
+  payment_method_raw: string;
+  payment_method_key: string;
+  locality: string;
+  merchant_number: string;
+  gross_amount: number;
+  fee_amount: number;
+  net_amount: number;
+  expected_fee: number;
+  fee_variance: number;
+  audit_status: AuditStatus;
+  reference: string;
+};
 type ParsedBatch = {
   merchant_number: string;
   merchant_label: string;
@@ -42,6 +56,7 @@ type ParsedBatch = {
   net_settlement: number;
   count: number;
   lines: ParsedLine[];
+  transactions: ParsedTxn[];
   transactions_flagged: number;
   fee_variance: number;
   audit_status: AuditStatus;
@@ -230,6 +245,31 @@ export function ParseSettlementModal({
             })),
           );
           if (le) throw le;
+        }
+        if (b.transactions && b.transactions.length > 0) {
+          // chunk to keep payload reasonable
+          const chunk = 500;
+          for (let i = 0; i < b.transactions.length; i += chunk) {
+            const slice = b.transactions.slice(i, i + chunk);
+            const { error: te } = await supabase.from("payment_settlement_transactions" as any).insert(
+              slice.map((t) => ({
+                batch_id: batchId,
+                transaction_time: t.transaction_time,
+                payment_method_raw: t.payment_method_raw,
+                payment_method_key: t.payment_method_key,
+                locality: t.locality,
+                merchant_number: t.merchant_number,
+                gross_amount: t.gross_amount,
+                fee_amount: t.fee_amount,
+                net_amount: t.net_amount,
+                expected_fee: t.expected_fee,
+                fee_variance: t.fee_variance,
+                audit_status: t.audit_status,
+                reference: t.reference || "",
+              })),
+            );
+            if (te) throw te;
+          }
         }
       }
       await supabase.from("payment_settlement_imports" as any).update({ status: "parsed" }).eq("id", imp.id);

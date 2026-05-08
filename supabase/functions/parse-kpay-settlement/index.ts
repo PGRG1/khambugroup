@@ -26,19 +26,31 @@ const toNum = (v: any): number => {
 };
 
 const toDate = (v: any): string | null => {
+  const dt = toDateTime(v);
+  return dt ? dt.slice(0, 10) : null;
+};
+
+const toDateTime = (v: any): string | null => {
   if (!v) return null;
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (v instanceof Date) return v.toISOString();
   if (typeof v === "number") {
     const d = new Date(Math.round((v - 25569) * 86400 * 1000));
-    return d.toISOString().slice(0, 10);
+    return d.toISOString();
   }
   const s = String(v).trim();
-  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
-  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  // YYYY-MM-DD [HH:MM[:SS]]
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const iso = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}T${(m[4] || "00").padStart(2, "0")}:${m[5] || "00"}:${m[6] || "00"}Z`;
+    return new Date(iso).toISOString();
+  }
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const iso = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}T${(m[4] || "00").padStart(2, "0")}:${m[5] || "00"}:${m[6] || "00"}Z`;
+    return new Date(iso).toISOString();
+  }
   const d = new Date(s);
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  if (!isNaN(d.getTime())) return d.toISOString();
   return null;
 };
 
@@ -112,11 +124,27 @@ type ParsedBatch = {
   net_settlement: number;
   count: number;
   lines: ParsedLine[];
+  transactions: ParsedTxn[];
   // audit aggregates
   transactions_flagged: number;
   fee_variance: number;
   audit_status: "ok" | "rate_off" | "unknown_pm";
   audit_note: string;
+};
+
+type ParsedTxn = {
+  transaction_time: string;          // ISO timestamp
+  payment_method_raw: string;
+  payment_method_key: string;
+  locality: string;
+  merchant_number: string;
+  gross_amount: number;
+  fee_amount: number;                 // negative
+  net_amount: number;
+  expected_fee: number;               // negative
+  fee_variance: number;
+  audit_status: "ok" | "rate_off" | "unknown_pm";
+  reference: string;
 };
 
 function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
@@ -174,6 +202,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
           net_settlement: round2(toNum(row[cNet])),
           count: toNum(row[cCount]),
           lines: [],
+          transactions: [],
           transactions_flagged: 0,
           fee_variance: 0,
           audit_status: "ok",
@@ -221,6 +250,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         key: string;
       };
       const agg = new Map<string, Agg>();
+      const txnsByKey = new Map<string, ParsedTxn[]>();
 
       for (let r = headerRow + 1; r < rows.length; r++) {
         const row = rows[r] || [];
@@ -228,7 +258,8 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         const merchant = String(row[cMerch] ?? "").trim();
         const method = String(row[cMethod] ?? "").trim();
         const locality = cLocality >= 0 ? String(row[cLocality] ?? "").trim() : "";
-        const t = toDate(row[cTxnTime]);
+        const tDateTime = toDateTime(row[cTxnTime]);
+        const t = tDateTime ? tDateTime.slice(0, 10) : null;
         if (!merchant || !method || !t) continue;
 
         const amount = toNum(row[cAmount]);
@@ -240,8 +271,9 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         const expected = rate ? -round2(amount * rate.rate) : 0;
         const variance = round2(actualFee - expected);
         const isFlagged = !rate ? true : Math.abs(variance) > 0.01;
+        const status: ParsedTxn["audit_status"] = !rate ? "unknown_pm" : (Math.abs(variance) > 0.01 ? "rate_off" : "ok");
 
-        // group key: merchant + txn_date + classified method + locality
+        // group key for aggregate line: merchant + txn_date + classified method + locality
         const k = `${merchant}|${t}|${cls.key}|${cls.locality}`;
         let a = agg.get(k);
         if (!a) {
@@ -256,6 +288,35 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         if (isFlagged) a.flagged += 1;
         if (!rate) a.unknown = true;
         else if (Math.abs(variance) > 0.01) a.rateOff = true;
+
+        // raw per-transaction (keyed by merchant+txn_date so we can attach to batch later)
+        const tk = `${merchant}|${t}`;
+        const arr = txnsByKey.get(tk) || [];
+        arr.push({
+          transaction_time: tDateTime!,
+          payment_method_raw: method,
+          payment_method_key: cls.key,
+          locality: cls.locality,
+          merchant_number: merchant,
+          gross_amount: round2(amount),
+          fee_amount: round2(actualFee),
+          net_amount: round2(netAmt),
+          expected_fee: round2(expected),
+          fee_variance: variance,
+          audit_status: status,
+          reference: "",
+        });
+        txnsByKey.set(tk, arr);
+      }
+
+      // attach raw transactions to their batches
+      for (const [tk, arr] of txnsByKey) {
+        const [merchant, txnDate] = tk.split("|");
+        const batch = Array.from(batchMap.values()).find(
+          (b) => b.merchant_number === merchant && b.transaction_date === txnDate,
+        );
+        if (!batch) continue;
+        batch.transactions = arr.sort((a, b) => b.transaction_time.localeCompare(a.transaction_time));
       }
 
       // attach lines to batches

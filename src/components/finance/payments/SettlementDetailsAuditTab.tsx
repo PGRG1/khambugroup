@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle2 } from "lucide-react";
-import type { PaymentProcessor, ProcessorMerchant, SettlementBatch, SettlementLine } from "@/hooks/usePaymentSettlements";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertTriangle, CheckCircle2, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
+import type { PaymentProcessor, ProcessorMerchant, SettlementBatch, SettlementTransaction } from "@/hooks/usePaymentSettlements";
 import { formatCurrency as fmtMoney } from "@/utils/salesUtils";
 
-const fmtDate = (s: string) => {
+const fmtDateTime = (s: string) => {
   if (!s) return "—";
   const d = new Date(s);
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 };
 
 const STATUS_STYLE: Record<string, string> = {
@@ -21,15 +23,21 @@ const STATUS_LABEL: Record<string, string> = {
   unknown_pm: "Unknown PM",
 };
 
+type SortKey = "time" | "merchant" | "method" | "gross" | "fee" | "expected" | "variance";
+type SortDir = "asc" | "desc";
+
 export function SettlementDetailsAuditTab({
-  processor, merchants, batches, lines,
+  processor, merchants, batches, transactions,
 }: {
   processor: PaymentProcessor | null;
   merchants: ProcessorMerchant[];
   batches: SettlementBatch[];
-  lines: SettlementLine[];
+  transactions: SettlementTransaction[];
 }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("time");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const merchantById = useMemo(() => {
     const m = new Map<string, ProcessorMerchant>();
@@ -37,48 +45,76 @@ export function SettlementDetailsAuditTab({
     return m;
   }, [merchants]);
 
-  const linesByBatch = useMemo(() => {
-    const m = new Map<string, SettlementLine[]>();
-    lines.forEach((l) => {
-      const arr = m.get(l.batch_id) || [];
-      arr.push(l);
-      m.set(l.batch_id, arr);
-    });
+  const batchById = useMemo(() => {
+    const m = new Map<string, SettlementBatch>();
+    batches.forEach((b) => m.set(b.id, b));
     return m;
-  }, [lines]);
+  }, [batches]);
 
-  const sorted = useMemo(
-    () => [...batches].sort((a, b) =>
-      b.settlement_date.localeCompare(a.settlement_date) ||
-      b.transaction_date.localeCompare(a.transaction_date),
-    ),
-    [batches],
-  );
+  const enriched = useMemo(() => {
+    return transactions.map((t) => {
+      const batch = batchById.get(t.batch_id);
+      const merchant = batch ? merchantById.get(batch.merchant_id) : undefined;
+      return {
+        ...t,
+        merchantLabel: merchant?.display_name || t.merchant_number || "?",
+      };
+    });
+  }, [transactions, batchById, merchantById]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return enriched.filter((t) => {
+      if (statusFilter !== "all" && t.audit_status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        t.merchantLabel.toLowerCase().includes(q) ||
+        t.merchant_number.toLowerCase().includes(q) ||
+        t.payment_method_raw.toLowerCase().includes(q)
+      );
+    });
+  }, [enriched, search, statusFilter]);
+
+  const sorted = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      switch (sortKey) {
+        case "time": return a.transaction_time.localeCompare(b.transaction_time) * dir;
+        case "merchant": return a.merchantLabel.localeCompare(b.merchantLabel) * dir;
+        case "method": return a.payment_method_raw.localeCompare(b.payment_method_raw) * dir;
+        case "gross": return (a.gross_amount - b.gross_amount) * dir;
+        case "fee": return (a.fee_amount - b.fee_amount) * dir;
+        case "expected": return (a.expected_fee - b.expected_fee) * dir;
+        case "variance": return (a.fee_variance - b.fee_variance) * dir;
+      }
+    });
+    return arr;
+  }, [filtered, sortKey, sortDir]);
 
   const totals = useMemo(() => {
-    let count = 0, gross = 0, actual = 0, expected = 0, flagged = 0;
-    sorted.forEach((b) => {
-      (linesByBatch.get(b.id) || []).forEach((l) => {
-        count += Number(l.count || 0);
-        gross += Number(l.gross_amount || 0);
-        actual += Number(l.fee_amount || 0);
-        expected += Number(l.expected_fee || 0);
-      });
-      flagged += Number(b.transactions_flagged || 0);
+    let gross = 0, actual = 0, expected = 0, flagged = 0;
+    filtered.forEach((t) => {
+      gross += Number(t.gross_amount || 0);
+      actual += Number(t.fee_amount || 0);
+      expected += Number(t.expected_fee || 0);
+      if (t.audit_status !== "ok") flagged += 1;
     });
-    return { count, gross, actual, expected, variance: actual - expected, flagged };
-  }, [sorted, linesByBatch]);
+    return { count: filtered.length, gross, actual, expected, variance: actual - expected, flagged };
+  }, [filtered]);
 
-  const toggle = (id: string) => {
-    const next = new Set(expanded);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setExpanded(next);
+  const onSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortKey(k); setSortDir(k === "time" ? "desc" : "asc"); }
   };
 
   if (!processor) return <Card className="card-glass p-6 text-sm text-muted-foreground">Choose a processor.</Card>;
-
-  if (sorted.length === 0)
-    return <Card className="card-glass p-6 text-sm text-muted-foreground text-center">No settlement batches imported yet.</Card>;
+  if (transactions.length === 0)
+    return (
+      <Card className="card-glass p-6 text-sm text-muted-foreground text-center">
+        No transactions yet. Upload &amp; commit a settlement under <strong>Imports</strong> to populate this view.
+      </Card>
+    );
 
   const ok = totals.flagged === 0 && Math.abs(totals.variance) <= 0.01;
 
@@ -86,7 +122,7 @@ export function SettlementDetailsAuditTab({
     <Card className="card-glass p-4 space-y-3">
       {ok ? (
         <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 p-2.5 text-xs flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" /> Per-transaction fees match the contracted Fee Rates exactly across all imported batches.
+          <CheckCircle2 className="h-3.5 w-3.5" /> All transactions were charged at the contracted KPay fee rates.
         </div>
       ) : (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-600 p-2.5 text-xs flex items-center gap-1.5">
@@ -103,44 +139,67 @@ export function SettlementDetailsAuditTab({
         <Stat label="Δ" value={fmtMoney(totals.variance)} tone={Math.abs(totals.variance) > 0.01 ? "warn" : "ok"} />
       </div>
 
-      <div className="rounded-md border border-border/40 overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Search merchant, method…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-8 max-w-sm text-xs"
+        />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="ok">OK only</SelectItem>
+            <SelectItem value="rate_off">Rate off</SelectItem>
+            <SelectItem value="unknown_pm">Unknown PM</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-[11px] text-muted-foreground ml-auto">
+          {sorted.length} of {transactions.length} transactions
+        </span>
+      </div>
+
+      <div className="rounded-md border border-border/40 overflow-auto max-h-[60vh]">
         <table className="w-full text-xs">
-          <thead className="bg-muted/40 uppercase tracking-wider text-[10px] text-muted-foreground">
+          <thead className="bg-muted/40 uppercase tracking-wider text-[10px] text-muted-foreground sticky top-0">
             <tr>
-              <th className="w-6"></th>
-              <th className="text-left px-2 py-1.5">Settle</th>
-              <th className="text-left px-2 py-1.5">Txn</th>
-              <th className="text-left px-2 py-1.5">Merchant</th>
-              <th className="text-right px-2 py-1.5">#</th>
-              <th className="text-right px-2 py-1.5">Gross</th>
-              <th className="text-right px-2 py-1.5">Actual fee</th>
-              <th className="text-right px-2 py-1.5">Expected</th>
-              <th className="text-right px-2 py-1.5">Δ</th>
+              <Th label="Txn time" k="time" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <Th label="Merchant" k="merchant" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <Th label="Payment method" k="method" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="text-left px-2 py-1.5">Locality</th>
+              <Th label="Gross" k="gross" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <Th label="Actual fee" k="fee" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <Th label="Expected" k="expected" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <Th label="Δ" k="variance" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <th className="text-left px-2 py-1.5">Status</th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map((b) => {
-              const bLines = linesByBatch.get(b.id) || [];
-              const merchant = merchantById.get(b.merchant_id);
-              const expected = bLines.reduce((s, l) => s + Number(l.expected_fee || 0), 0);
-              const isOpen = expanded.has(b.id);
-              const flagged = b.audit_status !== "ok";
-              const status = (b.audit_status || "ok") as keyof typeof STATUS_STYLE;
+            {sorted.map((t) => {
+              const flagged = t.audit_status !== "ok";
               return (
-                <FragmentRow
-                  key={b.id}
-                  isOpen={isOpen}
-                  onToggle={() => toggle(b.id)}
-                  flagged={flagged}
-                  batch={b}
-                  bLines={bLines}
-                  merchantLabel={merchant?.display_name || "?"}
-                  expected={expected}
-                  status={status}
-                />
+                <tr key={t.id} className={`border-t border-border/40 ${flagged ? "bg-amber-500/5" : ""}`}>
+                  <td className="px-2 py-1.5 td-num whitespace-nowrap">{fmtDateTime(t.transaction_time)}</td>
+                  <td className="px-2 py-1.5">
+                    <div className="font-medium">{t.merchantLabel}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">{t.merchant_number}</div>
+                  </td>
+                  <td className="px-2 py-1.5">{t.payment_method_raw}</td>
+                  <td className="px-2 py-1.5 capitalize text-muted-foreground">{t.locality || "—"}</td>
+                  <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.gross_amount)}</td>
+                  <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
+                  <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(t.expected_fee)}</td>
+                  <td className={`px-2 py-1.5 text-right td-num ${Math.abs(Number(t.fee_variance)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(t.fee_variance)}</td>
+                  <td className="px-2 py-1.5">
+                    <span className={STATUS_STYLE[t.audit_status] || STATUS_STYLE.ok}>{STATUS_LABEL[t.audit_status] || t.audit_status}</span>
+                  </td>
+                </tr>
               );
             })}
+            {sorted.length === 0 && (
+              <tr><td colSpan={9} className="text-center text-muted-foreground py-6">No transactions match your filters.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -148,70 +207,22 @@ export function SettlementDetailsAuditTab({
   );
 }
 
-function FragmentRow({
-  isOpen, onToggle, flagged, batch, bLines, merchantLabel, expected, status,
-}: {
-  isOpen: boolean; onToggle: () => void; flagged: boolean;
-  batch: SettlementBatch; bLines: SettlementLine[];
-  merchantLabel: string; expected: number; status: string;
+function Th({ label, k, right, sortKey, sortDir, onSort }: {
+  label: string; k: SortKey; right?: boolean;
+  sortKey: SortKey; sortDir: SortDir; onSort: (k: SortKey) => void;
 }) {
-  const count = bLines.reduce((s, l) => s + Number(l.count || 0), 0);
-  const gross = bLines.reduce((s, l) => s + Number(l.gross_amount || 0), 0);
-  const actual = bLines.reduce((s, l) => s + Number(l.fee_amount || 0), 0);
-  const variance = actual - expected;
+  const active = sortKey === k;
+  const Icon = !active ? ArrowUpDown : (sortDir === "asc" ? ArrowUp : ArrowDown);
   return (
-    <>
-      <tr
-        className={`border-t border-border/40 cursor-pointer hover:bg-muted/30 ${flagged ? "bg-amber-500/5" : ""}`}
-        onClick={onToggle}
-      >
-        <td className="px-1 text-muted-foreground">{isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</td>
-        <td className="px-2 py-1.5">{fmtDate(batch.settlement_date)}</td>
-        <td className="px-2 py-1.5">{fmtDate(batch.transaction_date)}</td>
-        <td className="px-2 py-1.5 font-medium">{merchantLabel}</td>
-        <td className="px-2 py-1.5 text-right td-num">{count}</td>
-        <td className="px-2 py-1.5 text-right td-num">{fmtMoney(gross)}</td>
-        <td className="px-2 py-1.5 text-right td-num">{fmtMoney(actual)}</td>
-        <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(expected)}</td>
-        <td className={`px-2 py-1.5 text-right td-num ${Math.abs(variance) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(variance)}</td>
-        <td className="px-2 py-1.5">
-          <span className={STATUS_STYLE[status] || STATUS_STYLE.ok}>{STATUS_LABEL[status] || status}{batch.transactions_flagged > 0 ? ` · ${batch.transactions_flagged}` : ""}</span>
-        </td>
-      </tr>
-      {isOpen && (
-        <tr className="bg-muted/10">
-          <td></td>
-          <td colSpan={9} className="px-2 py-2">
-            <table className="w-full text-[11px]">
-              <thead className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="text-left py-1">Payment method</th>
-                  <th className="text-right py-1">Count</th>
-                  <th className="text-right py-1">Gross</th>
-                  <th className="text-right py-1">Actual fee</th>
-                  <th className="text-right py-1">Expected fee</th>
-                  <th className="text-right py-1">Δ</th>
-                  <th className="text-left py-1 pl-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bLines.map((l) => (
-                  <tr key={l.id} className="border-t border-border/20">
-                    <td className="py-1">{l.payment_type_label}</td>
-                    <td className="py-1 text-right td-num">{l.count}</td>
-                    <td className="py-1 text-right td-num">{fmtMoney(l.gross_amount)}</td>
-                    <td className="py-1 text-right td-num">{fmtMoney(l.fee_amount)}</td>
-                    <td className="py-1 text-right td-num text-muted-foreground">{fmtMoney(l.expected_fee)}</td>
-                    <td className={`py-1 text-right td-num ${Math.abs(Number(l.fee_variance)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(l.fee_variance)}</td>
-                    <td className="py-1 pl-3"><span className={STATUS_STYLE[l.audit_status] || STATUS_STYLE.ok}>{STATUS_LABEL[l.audit_status] || l.audit_status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </td>
-        </tr>
-      )}
-    </>
+    <th
+      onClick={() => onSort(k)}
+      className={`px-2 py-1.5 cursor-pointer select-none ${right ? "text-right" : "text-left"}`}
+    >
+      <span className={`inline-flex items-center gap-1 ${active ? "text-foreground" : ""}`}>
+        {label}
+        <Icon className="h-3 w-3 opacity-60" />
+      </span>
+    </th>
   );
 }
 
