@@ -2371,6 +2371,280 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_processor_merchants: {
+        Row: {
+          created_at: string
+          default_bank_account_id: string | null
+          display_name: string
+          fee_account_id: string | null
+          id: string
+          is_active: boolean
+          merchant_number: string
+          notes: string
+          processor_id: string
+          shared_venues: string[]
+          sort_order: number
+          store_address: string
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          created_at?: string
+          default_bank_account_id?: string | null
+          display_name: string
+          fee_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          merchant_number: string
+          notes?: string
+          processor_id: string
+          shared_venues?: string[]
+          sort_order?: number
+          store_address?: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          created_at?: string
+          default_bank_account_id?: string | null
+          display_name?: string
+          fee_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          merchant_number?: string
+          notes?: string
+          processor_id?: string
+          shared_venues?: string[]
+          sort_order?: number
+          store_address?: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_processor_merchants_processor_id_fkey"
+            columns: ["processor_id"]
+            isOneToOne: false
+            referencedRelation: "payment_processors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_processors: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_settlement_batches: {
+        Row: {
+          adjustments: number
+          bank_account_id: string | null
+          bank_transaction_id: string | null
+          bank_transfer_fee: number
+          created_at: string
+          fee_amount: number
+          frozen_amount: number
+          gross_amount: number
+          id: string
+          import_id: string | null
+          merchant_id: string
+          net_settlement: number
+          notes: string
+          points_offset: number
+          processor_id: string
+          settlement_date: string
+          status: string
+          transaction_date: string
+          updated_at: string
+        }
+        Insert: {
+          adjustments?: number
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          bank_transfer_fee?: number
+          created_at?: string
+          fee_amount?: number
+          frozen_amount?: number
+          gross_amount?: number
+          id?: string
+          import_id?: string | null
+          merchant_id: string
+          net_settlement?: number
+          notes?: string
+          points_offset?: number
+          processor_id: string
+          settlement_date: string
+          status?: string
+          transaction_date: string
+          updated_at?: string
+        }
+        Update: {
+          adjustments?: number
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          bank_transfer_fee?: number
+          created_at?: string
+          fee_amount?: number
+          frozen_amount?: number
+          gross_amount?: number
+          id?: string
+          import_id?: string | null
+          merchant_id?: string
+          net_settlement?: number
+          notes?: string
+          points_offset?: number
+          processor_id?: string
+          settlement_date?: string
+          status?: string
+          transaction_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_settlement_batches_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "payment_settlement_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_settlement_batches_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "payment_processor_merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_settlement_batches_processor_id_fkey"
+            columns: ["processor_id"]
+            isOneToOne: false
+            referencedRelation: "payment_processors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_settlement_imports: {
+        Row: {
+          currency: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          notes: string
+          period_end: string
+          period_start: string
+          processor_id: string
+          status: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          currency?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          notes?: string
+          period_end: string
+          period_start: string
+          processor_id: string
+          status?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          currency?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          notes?: string
+          period_end?: string
+          period_start?: string
+          processor_id?: string
+          status?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_settlement_imports_processor_id_fkey"
+            columns: ["processor_id"]
+            isOneToOne: false
+            referencedRelation: "payment_processors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_settlement_lines: {
+        Row: {
+          batch_id: string
+          count: number
+          created_at: string
+          fee_amount: number
+          gross_amount: number
+          id: string
+          net_amount: number
+          payment_type: string
+          payment_type_label: string
+        }
+        Insert: {
+          batch_id: string
+          count?: number
+          created_at?: string
+          fee_amount?: number
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          payment_type: string
+          payment_type_label?: string
+        }
+        Update: {
+          batch_id?: string
+          count?: number
+          created_at?: string
+          fee_amount?: number
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          payment_type?: string
+          payment_type_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_settlement_lines_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "payment_settlement_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pl_manual_lines: {
         Row: {
           amount: number
