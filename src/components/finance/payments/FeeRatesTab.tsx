@@ -91,22 +91,45 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     setAdding(false);
   }, [processor?.id]);
 
-  const allVenuesLabel = (() => {
-    const set = new Set<string>();
+  // Build distinct merchant groupings: e.g. "Assembly · 12345" + "Caliente / Hanabi · 67890"
+  const merchantGroups = (() => {
+    const seen = new Set<string>();
+    const out: { label: string; mn: string }[] = [];
     merchants.forEach((m) => {
-      if (m.shared_venues?.length) m.shared_venues.forEach((v) => set.add(v));
-      else if (m.venue) set.add(m.venue);
+      if (seen.has(m.merchant_number)) return;
+      seen.add(m.merchant_number);
+      const venueLabel = m.shared_venues?.length
+        ? m.shared_venues.join(" / ")
+        : (m.venue || m.display_name);
+      out.push({ label: venueLabel, mn: m.merchant_number });
     });
-    const list = Array.from(set);
-    return list.length ? list.join(" · ") : "All venues";
+    return out;
   })();
 
-  const merchantLabel = (mn: string | null) => {
-    if (!mn) return allVenuesLabel;
+  const renderMerchantCell = (mn: string | null) => {
+    if (!mn) {
+      if (merchantGroups.length === 0) return <span>All</span>;
+      return (
+        <div className="flex flex-col gap-0.5">
+          {merchantGroups.map((g) => (
+            <div key={g.mn} className="flex items-baseline gap-2">
+              <span>{g.label}</span>
+              <span className="font-mono text-[10px] text-muted-foreground/70">{g.mn}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
     const m = merchants.find((x) => x.merchant_number === mn);
-    if (!m) return mn;
-    if (m.shared_venues?.length) return m.shared_venues.join(" / ");
-    return m.venue || m.display_name;
+    const label = m
+      ? (m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name))
+      : mn;
+    return (
+      <div className="flex items-baseline gap-2">
+        <span>{label}</span>
+        <span className="font-mono text-[10px] text-muted-foreground/70">{mn}</span>
+      </div>
+    );
   };
 
   const startEdit = (r: FeeRate) => {
@@ -297,7 +320,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                   <tr key={r.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
                     <td className="py-2.5 pr-2">{PM_LABEL[r.payment_method] || r.payment_method}</td>
                     <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[r.locality] || r.locality}</td>
-                    <td className="py-2.5 pr-2 text-muted-foreground">{merchantLabel(r.merchant_number)}</td>
+                    <td className="py-2.5 pr-2 text-muted-foreground align-top">{renderMerchantCell(r.merchant_number)}</td>
                     <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
                     <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
                     <td className="py-2.5 pr-2 text-right">
