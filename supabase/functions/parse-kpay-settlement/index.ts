@@ -534,7 +534,7 @@ Deno.serve(async (req) => {
     // Load fee rates for this processor
     const { data: rateRows } = await admin
       .from("payment_processor_fee_rates")
-      .select("payment_method, locality, merchant_number, rate, rounding_dp")
+      .select("payment_method, locality, merchant_number, wallet_type, rate, rounding_dp")
       .eq("processor_id", imp.processor_id);
     const rates: FeeRate[] = (rateRows || []) as any;
 
