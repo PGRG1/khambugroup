@@ -211,6 +211,23 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
 
   const renderEditor = () => (
     <tr className="bg-muted/30 border-b border-border/40">
+      <td className="py-2 pr-2" colSpan={2}>
+        <Select
+          value={draft.merchant_number || ALL_MERCHANTS}
+          onValueChange={(v) => setDraft({ ...draft, merchant_number: v === ALL_MERCHANTS ? "" : v })}
+        >
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_MERCHANTS}>All terminals</SelectItem>
+            {merchants.map((m) => (
+              <SelectItem key={m.merchant_number} value={m.merchant_number}>
+                <span className="font-mono text-[10px] mr-2">{m.merchant_number}</span>
+                {m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
       <td className="py-2 pr-2">
         <Select value={draft.payment_method} onValueChange={(v) => setDraft({ ...draft, payment_method: v })}>
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -224,23 +241,6 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             {LOCALITY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="py-2 pr-2">
-        <Select
-          value={draft.merchant_number || ALL_MERCHANTS}
-          onValueChange={(v) => setDraft({ ...draft, merchant_number: v === ALL_MERCHANTS ? "" : v })}
-        >
-          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_MERCHANTS}>All</SelectItem>
-            {merchants.map((m) => (
-              <SelectItem key={m.merchant_number} value={m.merchant_number}>
-                {m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name)}
-                <span className="text-muted-foreground ml-2 font-mono text-[10px]">{m.merchant_number}</span>
-              </SelectItem>
-            ))}
           </SelectContent>
         </Select>
       </td>
