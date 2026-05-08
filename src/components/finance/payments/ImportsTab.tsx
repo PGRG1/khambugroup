@@ -17,14 +17,17 @@ const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 export function ImportsTab({
   processor,
   imports,
+  merchants,
   onChanged,
 }: {
   processor: PaymentProcessor | null;
   imports: SettlementImport[];
+  merchants: ProcessorMerchant[];
   onChanged: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [parseTarget, setParseTarget] = useState<SettlementImport | null>(null);
 
   const filtered = processor ? imports.filter((i) => i.processor_id === processor.id) : [];
 
