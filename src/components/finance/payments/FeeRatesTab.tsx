@@ -150,6 +150,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       payment_method: r.payment_method,
       locality: r.locality,
       merchant_number: r.merchant_number || "",
+      wallet_type: r.wallet_type || "",
       rate_pct: (Number(r.rate) * 100).toFixed(2),
       rounding_dp: r.rounding_dp,
     });
@@ -166,6 +167,19 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     setAdding(false);
   };
 
+  // When the user picks a method that supports wallet sub-types, auto-pick the first
+  // sub-type so the rate is always specific. Otherwise clear wallet_type.
+  const setMethod = (method: string) => {
+    const wallets = WALLET_OPTIONS[method];
+    setDraft({
+      ...draft,
+      payment_method: method,
+      wallet_type: wallets ? wallets[0].value : "",
+      // Wallet methods always use locality "any"
+      locality: wallets ? "any" : (draft.locality === "any" ? "domestic" : draft.locality),
+    });
+  };
+
   const save = async () => {
     if (!processor) return;
     const rateNum = parseFloat(draft.rate_pct);
@@ -179,6 +193,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       payment_method: draft.payment_method,
       locality: draft.locality,
       merchant_number: draft.merchant_number || null,
+      wallet_type: draft.wallet_type || null,
       rate: rateNum / 100,
       rounding_dp: draft.rounding_dp,
     };
