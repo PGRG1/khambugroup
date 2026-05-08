@@ -279,6 +279,7 @@ export function SettlementDetailsAuditTab({
                     <div className="font-mono text-[10px] text-muted-foreground">{t.merchant_number}</div>
                   </td>
                   <td className="px-2 py-1.5">{t.payment_method_raw}</td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{(t as any).wallet_type || "—"}</td>
                   <td className="px-2 py-1.5 capitalize text-muted-foreground">{t.locality || "—"}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.gross_amount)}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
