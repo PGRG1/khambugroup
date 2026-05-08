@@ -93,18 +93,31 @@ type FeeRate = {
   payment_method: string;
   locality: string;
   merchant_number: string | null;
+  wallet_type: string | null;
   rate: number;
   rounding_dp: number;
 };
 
-// Find the most-specific rate: (method, locality, merchant) > (method, locality, NULL)
-function findRate(rates: FeeRate[], method: string, locality: string, merchant: string): FeeRate | null {
-  const candidates = rates.filter(
+// Find the most-specific rate.
+// Priority: exact (method+locality+wallet+merchant) > (method+locality+wallet+null)
+//        > (method+locality+merchant) > (method+locality+null)
+function findRate(rates: FeeRate[], method: string, locality: string, merchant: string, wallet: string | null): FeeRate | null {
+  const base = rates.filter(
     (r) => r.payment_method === method && (r.locality === locality || r.locality === "any"),
   );
-  const exact = candidates.find((r) => r.merchant_number === merchant);
+  const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
+  const w = norm(wallet);
+  if (w) {
+    const walletMatch = base.filter((r) => norm(r.wallet_type) === w);
+    const exactWM = walletMatch.find((r) => r.merchant_number === merchant);
+    if (exactWM) return exactWM;
+    const anyWM = walletMatch.find((r) => !r.merchant_number);
+    if (anyWM) return anyWM;
+  }
+  const noWallet = base.filter((r) => !r.wallet_type);
+  const exact = noWallet.find((r) => r.merchant_number === merchant);
   if (exact) return exact;
-  return candidates.find((r) => !r.merchant_number) || null;
+  return noWallet.find((r) => !r.merchant_number) || null;
 }
 
 // ---------- Core parser ----------
