@@ -13,7 +13,7 @@ import { SettlementDetailsAuditTab } from "@/components/finance/payments/Settlem
 import { MonthlyReconciliationTab } from "@/components/finance/payments/MonthlyReconciliationTab";
 
 export default function PaymentsSettlements() {
-  const { loading, processors, merchants, imports, batches, lines, reload } = usePaymentSettlements();
+  const { loading, processors, merchants, imports, batches, lines, transactions, reload } = usePaymentSettlements();
   const { accounts: bankAccounts } = useBankReconciliation();
   const [processorId, setProcessorId] = useState<string>("");
   const [tab, setTab] = useState("overview");
@@ -34,6 +34,7 @@ export default function PaymentsSettlements() {
   );
   const procBatchIds = useMemo(() => new Set(procBatches.map((b) => b.id)), [procBatches]);
   const procLines = useMemo(() => lines.filter((l) => procBatchIds.has(l.batch_id)), [lines, procBatchIds]);
+  const procTxns = useMemo(() => transactions.filter((t) => procBatchIds.has(t.batch_id)), [transactions, procBatchIds]);
 
   const totalGross = procBatches.reduce((s, b) => s + Number(b.gross_amount || 0), 0);
   const totalFees = procBatches.reduce((s, b) => s + Math.abs(Number(b.fee_amount || 0)) + Math.abs(Number(b.bank_transfer_fee || 0)), 0);
