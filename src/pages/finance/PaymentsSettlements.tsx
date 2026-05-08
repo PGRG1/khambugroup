@@ -120,7 +120,7 @@ export default function PaymentsSettlements() {
         </TabsContent>
 
         <TabsContent value="details-audit" className="mt-4">
-          <SettlementDetailsAuditTab processor={processor} merchants={procMerchants} batches={procBatches} lines={procLines} />
+          <SettlementDetailsAuditTab processor={processor} merchants={procMerchants} batches={procBatches} transactions={procTxns} />
         </TabsContent>
 
         <TabsContent value="monthly-recon" className="mt-4">
