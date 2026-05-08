@@ -13,10 +13,32 @@ type FeeRate = {
   payment_method: string;
   locality: string;
   merchant_number: string | null;
+  wallet_type: string | null;
   rate: number;
   rounding_dp: number;
   notes: string | null;
 };
+
+// Wallet sub-types for digital wallet methods
+const WALLET_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  alipay: [
+    { value: "AlipayHK", label: "HK" },
+    { value: "AlipayCN", label: "CN" },
+  ],
+  wechat: [
+    { value: "WeChatHK", label: "HK" },
+    { value: "WeChatCN", label: "CN" },
+  ],
+  payme: [
+    { value: "PayMeHK", label: "HK" },
+  ],
+};
+const WALLET_SHORT: Record<string, string> = {
+  AlipayHK: "HK", AlipayCN: "CN",
+  WeChatHK: "HK", WeChatCN: "CN",
+  PayMeHK: "HK",
+};
+const NO_WALLET = "__none__";
 
 type Merchant = {
   merchant_number: string;
@@ -53,6 +75,7 @@ type Draft = {
   payment_method: string;
   locality: string;
   merchant_number: string; // "" means All
+  wallet_type: string; // "" means none
   rate_pct: string; // editable percent string
   rounding_dp: number;
 };
@@ -61,8 +84,16 @@ const blankDraft: Draft = {
   payment_method: "visa",
   locality: "domestic",
   merchant_number: "",
+  wallet_type: "",
   rate_pct: "1.50",
   rounding_dp: 2,
+};
+
+// Build a display label like "WeChat Pay (HK)" or just "Visa"
+const formatMethodLabel = (method: string, wallet: string | null) => {
+  const base = PM_LABEL[method] || method;
+  if (wallet && WALLET_SHORT[wallet]) return `${base} (${WALLET_SHORT[wallet]})`;
+  return base;
 };
 
 export function FeeRatesTab({ processor, merchants }: { processor: { id: string; name: string } | null; merchants: Merchant[] }) {
@@ -119,6 +150,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       payment_method: r.payment_method,
       locality: r.locality,
       merchant_number: r.merchant_number || "",
+      wallet_type: r.wallet_type || "",
       rate_pct: (Number(r.rate) * 100).toFixed(2),
       rounding_dp: r.rounding_dp,
     });
@@ -135,6 +167,19 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     setAdding(false);
   };
 
+  // When the user picks a method that supports wallet sub-types, auto-pick the first
+  // sub-type so the rate is always specific. Otherwise clear wallet_type.
+  const setMethod = (method: string) => {
+    const wallets = WALLET_OPTIONS[method];
+    setDraft({
+      ...draft,
+      payment_method: method,
+      wallet_type: wallets ? wallets[0].value : "",
+      // Wallet methods always use locality "any"
+      locality: wallets ? "any" : (draft.locality === "any" ? "domestic" : draft.locality),
+    });
+  };
+
   const save = async () => {
     if (!processor) return;
     const rateNum = parseFloat(draft.rate_pct);
@@ -148,6 +193,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       payment_method: draft.payment_method,
       locality: draft.locality,
       merchant_number: draft.merchant_number || null,
+      wallet_type: draft.wallet_type || null,
       rate: rateNum / 100,
       rounding_dp: draft.rounding_dp,
     };
@@ -165,7 +211,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
   };
 
   const remove = async (r: FeeRate) => {
-    if (!confirm(`Delete ${PM_LABEL[r.payment_method] || r.payment_method} (${LOCALITY_LABEL[r.locality]}) rate?`)) return;
+    if (!confirm(`Delete ${formatMethodLabel(r.payment_method, r.wallet_type)} (${LOCALITY_LABEL[r.locality] || r.locality}) rate?`)) return;
     const { error } = await supabase.from("payment_processor_fee_rates").delete().eq("id", r.id);
     if (error) {
       toast.error(error.message);
@@ -180,8 +226,8 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
   }
 
   const sorted = [...rates].sort((a, b) => {
-    const la = PM_LABEL[a.payment_method] || a.payment_method;
-    const lb = PM_LABEL[b.payment_method] || b.payment_method;
+    const la = formatMethodLabel(a.payment_method, a.wallet_type);
+    const lb = formatMethodLabel(b.payment_method, b.wallet_type);
     if (la !== lb) return la.localeCompare(lb);
     if (a.locality !== b.locality) return a.locality.localeCompare(b.locality);
     return (a.merchant_number || "").localeCompare(b.merchant_number || "");
@@ -207,15 +253,34 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
         </Select>
       </td>
       <td className="py-2 pr-2">
-        <Select value={draft.payment_method} onValueChange={(v) => setDraft({ ...draft, payment_method: v })}>
-          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {PM_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1">
+          <Select value={draft.payment_method} onValueChange={setMethod}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PM_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {WALLET_OPTIONS[draft.payment_method] && (
+            <Select
+              value={draft.wallet_type || NO_WALLET}
+              onValueChange={(v) => setDraft({ ...draft, wallet_type: v === NO_WALLET ? "" : v })}
+            >
+              <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {WALLET_OPTIONS[draft.payment_method].map((w) => (
+                  <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </td>
       <td className="py-2 pr-2">
-        <Select value={draft.locality} onValueChange={(v) => setDraft({ ...draft, locality: v })}>
+        <Select
+          value={draft.locality}
+          onValueChange={(v) => setDraft({ ...draft, locality: v })}
+          disabled={!!WALLET_OPTIONS[draft.payment_method]}
+        >
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             {LOCALITY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
@@ -305,17 +370,19 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                   const targets = r.merchant_number
                     ? [{ mn: r.merchant_number, label: merchantInfo(r.merchant_number).label }]
                     : (merchantGroups.length ? merchantGroups : [{ mn: "—", label: "All" }]);
-                  // Expand "Any" locality into Domestic + Foreign
-                  const localities = r.locality === "any"
-                    ? ["domestic", "foreign"]
-                    : [r.locality];
+                  // Expand "Any" locality into Domestic + Foreign — but for wallet rates,
+                  // locality doesn't apply (these are e-wallet methods), so keep one row.
+                  const isWallet = !!r.wallet_type;
+                  const localities = isWallet
+                    ? ["any"]
+                    : (r.locality === "any" ? ["domestic", "foreign"] : [r.locality]);
                   const combos = targets.flatMap((t) => localities.map((loc) => ({ t, loc })));
                   return combos.map(({ t, loc }, idx) => (
                     <tr key={`${r.id}-${t.mn}-${loc}`} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
                       <td className="py-2.5 pr-2 font-mono text-xs">{t.mn}</td>
                       <td className="py-2.5 pr-2 text-muted-foreground">{t.label}</td>
-                      <td className="py-2.5 pr-2">{PM_LABEL[r.payment_method] || r.payment_method}</td>
-                      <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[loc] || loc}</td>
+                      <td className="py-2.5 pr-2">{formatMethodLabel(r.payment_method, r.wallet_type)}</td>
+                      <td className="py-2.5 pr-2 text-muted-foreground">{isWallet ? "—" : (LOCALITY_LABEL[loc] || loc)}</td>
                       <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
                       <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
                       <td className="py-2.5 pr-2 text-right">
