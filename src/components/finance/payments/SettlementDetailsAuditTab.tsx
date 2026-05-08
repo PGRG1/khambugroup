@@ -134,7 +134,7 @@ export function SettlementDetailsAuditTab({
       const classified = classifyPaymentMethod(t.payment_method_raw, t.locality);
       const methodKey = t.payment_method_key || classified.key;
       const localityKey = ["domestic", "foreign", "any"].includes(norm(t.locality)) ? norm(t.locality) : classified.locality;
-      const rate = findRate(rates, methodKey, localityKey, t.merchant_number);
+      const rate = findRate(rates, methodKey, localityKey, t.merchant_number, (t as any).wallet_type ?? null);
       const expectedFeeComputed = rate
         ? -roundTo(Number(t.gross_amount || 0) * Number(rate.rate || 0), rate.rounding_dp ?? 2)
         : 0;
