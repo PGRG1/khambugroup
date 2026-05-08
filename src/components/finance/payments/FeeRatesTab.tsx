@@ -291,50 +291,107 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
+      ) : merchants.length === 0 ? (
+        <div className="py-8 text-center text-sm text-muted-foreground">No merchants configured.</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border/40">
-                <th className="py-2 pr-2 font-medium">Payment Method</th>
-                <th className="py-2 pr-2 font-medium">Locality</th>
-                <th className="py-2 pr-2 font-medium">Store / Terminal</th>
-                <th className="py-2 pr-2 font-medium text-right">Fee Rate</th>
-                <th className="py-2 pr-2 font-medium text-right">Rounding</th>
-                <th className="py-2 pr-2 font-medium text-right w-24">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {adding && renderEditor()}
-              {sorted.length === 0 && !adding ? (
-                <tr><td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
-              ) : (
-                sorted.map((r) => editingId === r.id ? (
-                  <tr key={r.id} className="bg-muted/30 border-b border-border/40">
-                    {renderEditor().props.children}
-                  </tr>
-                ) : (
-                  <tr key={r.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
-                    <td className="py-2.5 pr-2">{PM_LABEL[r.payment_method] || r.payment_method}</td>
-                    <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[r.locality] || r.locality}</td>
-                    <td className="py-2.5 pr-2 text-muted-foreground">{merchantLabel(r.merchant_number)}</td>
-                    <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
-                    <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
-                    <td className="py-2.5 pr-2 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" variant="ghost" onClick={() => startEdit(r)} disabled={!!editingId || adding}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => remove(r)} disabled={!!editingId || adding}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="space-y-8">
+          {adding && (
+            <div className="overflow-x-auto rounded border border-border/40">
+              <table className="w-full text-sm">
+                <tbody>{renderEditor()}</tbody>
+              </table>
+            </div>
+          )}
+          {merchants.map((m) => (
+            <div key={m.merchant_number}>
+              <div className="flex items-baseline gap-3 mb-2">
+                <h4 className="text-sm font-semibold">{merchantHeading(m)}</h4>
+                <span className="text-xs text-muted-foreground">
+                  Merchant #: <span className="font-mono">{m.merchant_number}</span>
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border/40">
+                      <th className="py-2 pr-2 font-medium">Payment type / rule</th>
+                      <th className="py-2 pr-2 font-medium text-right">Standard fee rate</th>
+                      <th className="py-2 pr-2 font-medium text-right">Rounding</th>
+                      <th className="py-2 pr-2 font-medium text-right">Source</th>
+                      <th className="py-2 pr-2 font-medium text-right w-24">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ROW_SPECS.map((spec) => {
+                      const r = findRate(spec.pm, spec.locality, m.merchant_number);
+                      const isOverride = r && r.merchant_number === m.merchant_number;
+                      const isEditingThis = r && editingId === r.id;
+                      if (isEditingThis) {
+                        return (
+                          <tr key={`${spec.pm}-${spec.locality}`} className="bg-muted/30 border-b border-border/40">
+                            {renderEditor().props.children}
+                          </tr>
+                        );
+                      }
+                      return (
+                        <tr key={`${spec.pm}-${spec.locality}`} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
+                          <td className="py-2.5 pr-2">{spec.label}</td>
+                          <td className="py-2.5 pr-2 text-right td-num">
+                            {r ? `${(Number(r.rate) * 100).toFixed(2)}%` : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">
+                            {r ? `${r.rounding_dp} dp` : "—"}
+                          </td>
+                          <td className="py-2.5 pr-2 text-right text-xs">
+                            {!r ? (
+                              <span className="text-muted-foreground">Not set</span>
+                            ) : isOverride ? (
+                              <span className="chip chip-info">Override</span>
+                            ) : (
+                              <span className="text-muted-foreground">Default</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 pr-2 text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {r && isOverride ? (
+                                <>
+                                  <Button size="sm" variant="ghost" onClick={() => startEdit(r)} disabled={!!editingId || adding}>
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={() => remove(r)} disabled={!!editingId || adding}>
+                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={!!editingId || adding}
+                                  onClick={() => {
+                                    setEditingId(null);
+                                    setAdding(true);
+                                    setDraft({
+                                      payment_method: spec.pm,
+                                      locality: spec.locality,
+                                      merchant_number: m.merchant_number,
+                                      rate_pct: r ? (Number(r.rate) * 100).toFixed(2) : "0.00",
+                                      rounding_dp: r?.rounding_dp ?? 2,
+                                    });
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </Card>
