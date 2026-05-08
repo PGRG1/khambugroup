@@ -160,6 +160,7 @@ type ParsedTxn = {
   payment_method_raw: string;
   payment_method_key: string;
   locality: string;
+  wallet_type: string | null;        // e.g. AlipayHK, AlipayCN, WeChatHK
   merchant_number: string;
   gross_amount: number;
   fee_amount: number;                 // negative
