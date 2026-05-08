@@ -106,17 +106,24 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     return out;
   })();
 
-  const renderMerchantCell = (mn: string | null) => {
+  const renderTerminalCell = (mn: string | null) => {
+    if (!mn) {
+      if (merchantGroups.length === 0) return <span className="text-muted-foreground">—</span>;
+      return (
+        <div className="flex flex-col gap-0.5 font-mono text-xs">
+          {merchantGroups.map((g) => <span key={g.mn}>{g.mn}</span>)}
+        </div>
+      );
+    }
+    return <span className="font-mono text-xs">{mn}</span>;
+  };
+
+  const renderStoreCell = (mn: string | null) => {
     if (!mn) {
       if (merchantGroups.length === 0) return <span>All</span>;
       return (
         <div className="flex flex-col gap-0.5">
-          {merchantGroups.map((g) => (
-            <div key={g.mn} className="flex items-baseline gap-2">
-              <span>{g.label}</span>
-              <span className="font-mono text-[10px] text-muted-foreground/70">{g.mn}</span>
-            </div>
-          ))}
+          {merchantGroups.map((g) => <span key={g.mn}>{g.label}</span>)}
         </div>
       );
     }
@@ -124,12 +131,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     const label = m
       ? (m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name))
       : mn;
-    return (
-      <div className="flex items-baseline gap-2">
-        <span>{label}</span>
-        <span className="font-mono text-[10px] text-muted-foreground/70">{mn}</span>
-      </div>
-    );
+    return <span>{label}</span>;
   };
 
   const startEdit = (r: FeeRate) => {
