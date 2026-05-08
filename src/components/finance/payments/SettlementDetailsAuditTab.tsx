@@ -13,6 +13,7 @@ type FeeRate = {
   payment_method: string;
   locality: string;
   merchant_number: string | null;
+  wallet_type: string | null;
   rate: number;
   rounding_dp: number;
 };
@@ -42,10 +43,19 @@ function classifyPaymentMethod(rawMethod: string, rawLocality: string) {
   return { key: method.replace(/\s+/g, "_") || "other", locality: localityKey };
 }
 
-function findRate(rates: FeeRate[], method: string, locality: string, merchant: string) {
-  const candidates = rates.filter((r) => r.payment_method === method && (r.locality === locality || r.locality === "any"));
-  const exact = candidates.find((r) => r.merchant_number === merchant);
-  return exact || candidates.find((r) => !r.merchant_number) || null;
+function findRate(rates: FeeRate[], method: string, locality: string, merchant: string, wallet: string | null) {
+  const base = rates.filter((r) => r.payment_method === method && (r.locality === locality || r.locality === "any"));
+  const w = norm(wallet);
+  if (w) {
+    const wm = base.filter((r) => norm(r.wallet_type) === w);
+    const exact = wm.find((r) => r.merchant_number === merchant);
+    if (exact) return exact;
+    const any = wm.find((r) => !r.merchant_number);
+    if (any) return any;
+  }
+  const noW = base.filter((r) => !r.wallet_type);
+  const exact = noW.find((r) => r.merchant_number === merchant);
+  return exact || noW.find((r) => !r.merchant_number) || null;
 }
 
 const fmtDateTime = (s: string) => {
