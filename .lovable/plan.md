@@ -1,36 +1,57 @@
-## Problem
+## Restructure Review Settlement modal into two reconciliation tabs
 
-When opening the **Settlement Details Audit** tab, a warning banner (e.g. "1110 transaction(s) flagged. Net Δ -14,427.49") and a table full of red `Unknown PM` rows appears for a fraction of a second before the real numbers settle to zero.
+The current modal mixes two different reconciliation questions into one table. Split them into two clear tabs that mirror the two source sheets in the KPay file.
 
-## Root cause
+### Tab 1 — Settlement Details (per-transaction fee audit)
 
-`SettlementDetailsAuditTab.tsx` initializes `rates` as an empty array and fetches `payment_processor_fee_rates` inside a `useEffect`. The `enriched`/`totals` memos run immediately on first render with `rates = []`, so:
+**Question answered:** Is KPay charging the right fee on each transaction, according to our Fee Rates tab?
 
-- `findRate(...)` returns `null` for every transaction
-- every row is tagged `unknown_pm`
-- the KPI banner sums all of them into a fake net delta
+For every row in the `Settlement details` sheet:
+- Classify payment method + locality (Visa / Visa FC / Mastercard / Mastercard FC / Alipay / WeChat / UnionPay / PayMe / unknown).
+- Look up the contracted rate from `payment_processor_fee_rates` (same source as the Fee Rates tab), respecting the merchant override (Mastercard 2.60% on Assembly vs 1.50% on Caliente/Hanabi).
+- `expected_fee = round(local_payment_amount × rate, rounding_dp)` with the sign convention KPay uses (negative).
+- Compare to `transaction fee` from the sheet. Tolerance: |Δ| ≤ HK$0.01.
 
-Once the Supabase query resolves (a few hundred ms later), state updates and the view recomputes correctly — producing the visible flash.
+**Group rows by** (merchant, transaction date, payment method classification) — same grain as today, but **without** mixing in the HK$1 settlement fee. The settlement fee belongs to Tab 2.
 
-## Fix
+**Display:** one row per group with `Settle date | Txn date | Merchant | PM | Count | Gross | Actual fee | Expected fee | Δ | Status`. Status pill: `OK` (all match), `Rate off` (rate exists but math disagrees), `Unknown PM` (no rate rule). Top-of-tab KPI strip: Transactions, Gross, Expected fee, Actual fee, Δ, plus a single "Fees check out" / "N anomalies" banner.
 
-Add an explicit `ratesLoading` state and suppress the audit results until the fee-rate fetch has completed.
+Because the user has confirmed KPay's per-transaction math is correct, this tab should normally show all OK; any non-zero Δ means the Fee Rates tab is out of sync with what KPay actually charged (or an unmapped method like AMEX / JCB slipped through).
 
-1. In `SettlementDetailsAuditTab.tsx`:
-   - Add `const [ratesLoading, setRatesLoading] = useState(true);`
-   - Wrap the `loadRates` effect: set `ratesLoading` true before the query, false in `finally` (guarded by `cancelled`).
-   - When `processor` is null, set `ratesLoading = false` (nothing to load).
-2. In the render:
-   - While `ratesLoading` is true (and a processor is selected), render a lightweight skeleton/placeholder in place of the warning banner, KPI strip, and table — reusing the existing card layout so there is no layout jump.
-   - Do **not** render the `flagged > 0` warning banner or the KPI delta tone until rates are loaded.
+### Tab 2 — Monthly Settlement Report (batch reconciliation)
 
-No business-logic changes; only render gating.
+**Question answered:** Does the Monthly Settlement Report row reconcile to the Settlement details, once the HK$1 per-batch settlement fee is applied?
 
-## Files
+For every row in `Monthly Settlement Report` (one row per merchant + settlement date + transaction date):
+- Aggregate matching rows from Settlement details: `details_gross`, `details_fee`, `details_net = sum(settlement amount)`.
+- Pull `settlement_fee` (the HK$1) and `points_offset`, `adjustments`, `frozen_amount` from the Monthly row.
+- Compute `expected_net = details_net − settlement_fee + adjustments − frozen_amount + points_offset` (signs follow the existing `bank_transfer_fee` / KPay convention; final formula will match how KPay constructs `Net total settlement`).
+- Compare to `Net total settlement` on the Monthly row. Tolerance: |Δ| ≤ HK$0.01.
 
-- `src/components/finance/payments/SettlementDetailsAuditTab.tsx`
+**Display:** one row per Monthly batch with `Settle date | Txn date | Merchant | # | Details net | Settlement fee | Adjustments | Net (Monthly) | Δ | Status`. Status pill: `OK` if reconciled, `Off` if not, `Missing details` if no Settlement details rows match the batch. Top-of-tab KPI strip: Batches, Gross, Net settled, Settlement fees, Reconciliation Δ.
 
-## Verification
+### Modal shell changes
 
-- Reload `/finance/payments-settlements` and click **Settlement Details Audit** — the banner should never flash; the skeleton appears briefly, then the correct (zero-flag) state renders.
-- Switching processors should also show the skeleton during the refetch instead of a stale "all flagged" view.
+- Replace today's single audit table with `<Tabs>`: **Settlement Details** (default) and **Monthly Settlement Report**.
+- Keep the global header banner, but drive its message from both audits combined ("Fees check out and all batches reconcile" vs "N transactions / M batches need review").
+- `Confirm & save (N)` stays in the footer and is always enabled — saving still persists batches + lines exactly as today.
+
+### Backend / data changes
+
+`supabase/functions/parse-kpay-settlement/index.ts`:
+- Keep the existing per-transaction audit (it powers Tab 1) — already correct.
+- Add a second pass that builds a `monthly_audit` array: one entry per Monthly row with `details_gross`, `details_fee`, `details_net`, `monthly_net`, `settlement_fee`, `reconciliation_variance`, `audit_status` ∈ {`ok`, `off`, `missing_details`}.
+- Return `{ batches, monthly_audit, audit, unknown_merchants, sheets }`. `batches` shape unchanged so the save path in `usePaymentSettlements.ts` keeps working.
+
+No DB migration required — `payment_settlement_batches` already stores `bank_transfer_fee` (the HK$1) and `net_settlement`. The reconciliation status is computed at parse-time and only shown in the modal; no new columns needed unless you want to persist it.
+
+### Files to change
+
+- `supabase/functions/parse-kpay-settlement/index.ts` — add monthly reconciliation pass and return `monthly_audit`.
+- `src/components/finance/payments/ParseSettlementModal.tsx` — split body into two `<Tabs>`, build the two tables and KPI strips, refactor banner.
+
+### Out of scope
+
+- Persisting reconciliation status to the database (modal-only for now).
+- Editing the Fee Rates tab to silence Tab 1 anomalies — that's already a separate tab.
+- Auto-creating fee-rate rules for unknown methods (AMEX / JCB).

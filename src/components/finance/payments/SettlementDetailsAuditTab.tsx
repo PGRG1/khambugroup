@@ -81,7 +81,6 @@ export function SettlementDetailsAuditTab({
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [rates, setRates] = useState<FeeRate[]>([]);
-  const [ratesLoading, setRatesLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,21 +88,15 @@ export function SettlementDetailsAuditTab({
     const loadRates = async () => {
       if (!processor) {
         setRates([]);
-        setRatesLoading(false);
         return;
       }
 
-      setRatesLoading(true);
-      try {
-        const { data } = await supabase
-          .from("payment_processor_fee_rates")
-          .select("id, payment_method, locality, merchant_number, rate, rounding_dp")
-          .eq("processor_id", processor.id);
+      const { data } = await supabase
+        .from("payment_processor_fee_rates")
+        .select("id, payment_method, locality, merchant_number, rate, rounding_dp")
+        .eq("processor_id", processor.id);
 
-        if (!cancelled) setRates((data || []) as FeeRate[]);
-      } finally {
-        if (!cancelled) setRatesLoading(false);
-      }
+      if (!cancelled) setRates((data || []) as FeeRate[]);
     };
 
     loadRates();
@@ -209,11 +202,7 @@ export function SettlementDetailsAuditTab({
 
   return (
     <Card className="card-glass p-4 space-y-3">
-      {ratesLoading ? (
-        <div className="rounded-md border border-border/40 bg-muted/20 p-2.5 text-xs text-muted-foreground animate-pulse">
-          Loading fee rates…
-        </div>
-      ) : ok ? (
+      {ok ? (
         <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 p-2.5 text-xs flex items-center gap-1.5">
           <CheckCircle2 className="h-3.5 w-3.5" /> All transactions were charged at the contracted KPay fee rates.
         </div>
@@ -229,7 +218,7 @@ export function SettlementDetailsAuditTab({
         <Stat label="Gross" value={fmtMoney(totals.gross)} />
         <Stat label="Expected fee" value={fmtMoney(totals.expected)} />
         <Stat label="Actual fee" value={fmtMoney(totals.actual)} />
-        <Stat label="Δ" value={fmtMoney(totals.variance)} tone={!ratesLoading && totals.flagged > 0 ? "warn" : "ok"} />
+        <Stat label="Δ" value={fmtMoney(totals.variance)} tone={totals.flagged > 0 ? "warn" : "ok"} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -270,7 +259,7 @@ export function SettlementDetailsAuditTab({
           </thead>
           <tbody>
             {sorted.map((t) => {
-              const flagged = !ratesLoading && t.auditStatusComputed !== "ok";
+              const flagged = t.auditStatusComputed !== "ok";
               return (
                 <tr key={t.id} className={`border-t border-border/40 ${flagged ? "bg-amber-500/5" : ""}`}>
                   <td className="px-2 py-1.5 td-num whitespace-nowrap">{fmtDateTime(t.transaction_time)}</td>
@@ -282,14 +271,10 @@ export function SettlementDetailsAuditTab({
                   <td className="px-2 py-1.5 capitalize text-muted-foreground">{t.locality || "—"}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.gross_amount)}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
-                  <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{ratesLoading ? "—" : fmtMoney(t.expectedFeeComputed)}</td>
-                  <td className={`px-2 py-1.5 text-right td-num ${!ratesLoading && Math.abs(Number(t.feeVarianceComputed)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{ratesLoading ? "—" : fmtMoney(t.feeVarianceComputed)}</td>
+                  <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(t.expectedFeeComputed)}</td>
+                  <td className={`px-2 py-1.5 text-right td-num ${Math.abs(Number(t.feeVarianceComputed)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(t.feeVarianceComputed)}</td>
                   <td className="px-2 py-1.5">
-                    {ratesLoading ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : (
-                      <span className={STATUS_STYLE[t.auditStatusComputed] || STATUS_STYLE.ok}>{STATUS_LABEL[t.auditStatusComputed] || t.auditStatusComputed}</span>
-                    )}
+                    <span className={STATUS_STYLE[t.auditStatusComputed] || STATUS_STYLE.ok}>{STATUS_LABEL[t.auditStatusComputed] || t.auditStatusComputed}</span>
                   </td>
                 </tr>
               );
