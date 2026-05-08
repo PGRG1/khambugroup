@@ -6,7 +6,8 @@ import { Loader2, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { PaymentProcessor, ProcessorMerchant, SettlementImport } from "@/hooks/usePaymentSettlements";
-import { formatCurrency as fmtMoney } from "@/utils/salesUtils";
+const fmtMoney = (v: number) =>
+  Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const fmtDate = (s: string) => {
   if (!s) return "—";

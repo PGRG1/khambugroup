@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { PaymentProcessor, ProcessorMerchant, SettlementBatch, SettlementLine } from "@/hooks/usePaymentSettlements";
-import { formatCurrency as fmtMoney } from "@/utils/salesUtils";
+const fmtMoney = (v: number) =>
+  Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const fmtDate = (s: string) => {
   if (!s) return "—";
