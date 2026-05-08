@@ -106,17 +106,24 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     return out;
   })();
 
-  const renderMerchantCell = (mn: string | null) => {
+  const renderTerminalCell = (mn: string | null) => {
+    if (!mn) {
+      if (merchantGroups.length === 0) return <span className="text-muted-foreground">—</span>;
+      return (
+        <div className="flex flex-col gap-0.5 font-mono text-xs">
+          {merchantGroups.map((g) => <span key={g.mn}>{g.mn}</span>)}
+        </div>
+      );
+    }
+    return <span className="font-mono text-xs">{mn}</span>;
+  };
+
+  const renderStoreCell = (mn: string | null) => {
     if (!mn) {
       if (merchantGroups.length === 0) return <span>All</span>;
       return (
         <div className="flex flex-col gap-0.5">
-          {merchantGroups.map((g) => (
-            <div key={g.mn} className="flex items-baseline gap-2">
-              <span>{g.label}</span>
-              <span className="font-mono text-[10px] text-muted-foreground/70">{g.mn}</span>
-            </div>
-          ))}
+          {merchantGroups.map((g) => <span key={g.mn}>{g.label}</span>)}
         </div>
       );
     }
@@ -124,12 +131,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     const label = m
       ? (m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name))
       : mn;
-    return (
-      <div className="flex items-baseline gap-2">
-        <span>{label}</span>
-        <span className="font-mono text-[10px] text-muted-foreground/70">{mn}</span>
-      </div>
-    );
+    return <span>{label}</span>;
   };
 
   const startEdit = (r: FeeRate) => {
@@ -209,6 +211,23 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
 
   const renderEditor = () => (
     <tr className="bg-muted/30 border-b border-border/40">
+      <td className="py-2 pr-2" colSpan={2}>
+        <Select
+          value={draft.merchant_number || ALL_MERCHANTS}
+          onValueChange={(v) => setDraft({ ...draft, merchant_number: v === ALL_MERCHANTS ? "" : v })}
+        >
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_MERCHANTS}>All terminals</SelectItem>
+            {merchants.map((m) => (
+              <SelectItem key={m.merchant_number} value={m.merchant_number}>
+                <span className="font-mono text-[10px] mr-2">{m.merchant_number}</span>
+                {m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
       <td className="py-2 pr-2">
         <Select value={draft.payment_method} onValueChange={(v) => setDraft({ ...draft, payment_method: v })}>
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -222,23 +241,6 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             {LOCALITY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="py-2 pr-2">
-        <Select
-          value={draft.merchant_number || ALL_MERCHANTS}
-          onValueChange={(v) => setDraft({ ...draft, merchant_number: v === ALL_MERCHANTS ? "" : v })}
-        >
-          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_MERCHANTS}>All</SelectItem>
-            {merchants.map((m) => (
-              <SelectItem key={m.merchant_number} value={m.merchant_number}>
-                {m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name)}
-                <span className="text-muted-foreground ml-2 font-mono text-[10px]">{m.merchant_number}</span>
-              </SelectItem>
-            ))}
           </SelectContent>
         </Select>
       </td>
@@ -299,9 +301,10 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border/40">
+                <th className="py-2 pr-2 font-medium">Terminal</th>
+                <th className="py-2 pr-2 font-medium">Store</th>
                 <th className="py-2 pr-2 font-medium">Payment Method</th>
                 <th className="py-2 pr-2 font-medium">Locality</th>
-                <th className="py-2 pr-2 font-medium">Store / Terminal</th>
                 <th className="py-2 pr-2 font-medium text-right">Fee Rate</th>
                 <th className="py-2 pr-2 font-medium text-right">Rounding</th>
                 <th className="py-2 pr-2 font-medium text-right w-24">Actions</th>
@@ -310,7 +313,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
             <tbody>
               {adding && renderEditor()}
               {sorted.length === 0 && !adding ? (
-                <tr><td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
               ) : (
                 sorted.map((r) => editingId === r.id ? (
                   <tr key={r.id} className="bg-muted/30 border-b border-border/40">
@@ -318,11 +321,12 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                   </tr>
                 ) : (
                   <tr key={r.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
-                    <td className="py-2.5 pr-2">{PM_LABEL[r.payment_method] || r.payment_method}</td>
-                    <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[r.locality] || r.locality}</td>
-                    <td className="py-2.5 pr-2 text-muted-foreground align-top">{renderMerchantCell(r.merchant_number)}</td>
-                    <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
-                    <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
+                    <td className="py-2.5 pr-2 align-top">{renderTerminalCell(r.merchant_number)}</td>
+                    <td className="py-2.5 pr-2 text-muted-foreground align-top">{renderStoreCell(r.merchant_number)}</td>
+                    <td className="py-2.5 pr-2 align-top">{PM_LABEL[r.payment_method] || r.payment_method}</td>
+                    <td className="py-2.5 pr-2 text-muted-foreground align-top">{LOCALITY_LABEL[r.locality] || r.locality}</td>
+                    <td className="py-2.5 pr-2 text-right td-num align-top">{(Number(r.rate) * 100).toFixed(2)}%</td>
+                    <td className="py-2.5 pr-2 text-right td-num text-muted-foreground align-top">{r.rounding_dp} decimals</td>
                     <td className="py-2.5 pr-2 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="sm" variant="ghost" onClick={() => startEdit(r)} disabled={!!editingId || adding}>
