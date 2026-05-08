@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Upload, Download, Trash2, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "@/utils/format";
+const formatDate = (s: string) => {
+  if (!s) return "—";
+  const d = new Date(s);
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
 import type { PaymentProcessor, SettlementImport } from "@/hooks/usePaymentSettlements";
 
 const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
