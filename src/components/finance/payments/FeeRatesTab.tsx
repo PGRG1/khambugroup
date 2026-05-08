@@ -280,7 +280,9 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                 <tr><td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
               ) : (
                 sorted.map((r) => editingId === r.id ? (
-                  <tr key={r.id}>{renderEditor().props.children}</tr>
+                  <tr key={r.id} className="bg-muted/30 border-b border-border/40">
+                    {renderEditor().props.children}
+                  </tr>
                 ) : (
                   <tr key={r.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
                     <td className="py-2.5 pr-2">{PM_LABEL[r.payment_method] || r.payment_method}</td>
