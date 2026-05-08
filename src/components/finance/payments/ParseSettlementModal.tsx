@@ -246,6 +246,31 @@ export function ParseSettlementModal({
           );
           if (le) throw le;
         }
+        if (b.transactions && b.transactions.length > 0) {
+          // chunk to keep payload reasonable
+          const chunk = 500;
+          for (let i = 0; i < b.transactions.length; i += chunk) {
+            const slice = b.transactions.slice(i, i + chunk);
+            const { error: te } = await supabase.from("payment_settlement_transactions" as any).insert(
+              slice.map((t) => ({
+                batch_id: batchId,
+                transaction_time: t.transaction_time,
+                payment_method_raw: t.payment_method_raw,
+                payment_method_key: t.payment_method_key,
+                locality: t.locality,
+                merchant_number: t.merchant_number,
+                gross_amount: t.gross_amount,
+                fee_amount: t.fee_amount,
+                net_amount: t.net_amount,
+                expected_fee: t.expected_fee,
+                fee_variance: t.fee_variance,
+                audit_status: t.audit_status,
+                reference: t.reference || "",
+              })),
+            );
+            if (te) throw te;
+          }
+        }
       }
       await supabase.from("payment_settlement_imports" as any).update({ status: "parsed" }).eq("id", imp.id);
       toast({ title: "Settlement imported", description: `${batches.length} batches saved.` });
