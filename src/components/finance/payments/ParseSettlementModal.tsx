@@ -171,12 +171,13 @@ export function ParseSettlementModal({
         acc.gross += l.gross_amount;
         acc.actual += l.fee_amount;
         acc.expected += l.expected_fee;
+        if (Math.abs(Number(l.fee_variance || 0)) > 0.01) acc.variance += Number(l.fee_variance || 0);
       });
       return acc;
     },
-    { count: 0, gross: 0, actual: 0, expected: 0 },
+    { count: 0, gross: 0, actual: 0, expected: 0, variance: 0 },
   ), [batches]);
-  const detailsVariance = (detailsTotals.actual ?? 0) - (detailsTotals.expected ?? 0);
+  const detailsVariance = Math.round((detailsTotals.variance ?? 0) * 100) / 100;
 
   const monthlyTotals = useMemo(() => monthly.reduce(
     (acc, m) => {
@@ -343,7 +344,7 @@ export function ParseSettlementModal({
                   <Stat label="Gross" value={fmtMoney(detailsTotals.gross)} />
                   <Stat label="Expected fee" value={fmtMoney(detailsTotals.expected)} />
                   <Stat label="Actual fee" value={fmtMoney(detailsTotals.actual)} />
-                  <Stat label="Δ" value={fmtMoney(detailsVariance)} tone={Math.abs(detailsVariance) > 0.01 ? "warn" : "ok"} />
+                  <Stat label="Δ" value={fmtMoney(detailsVariance)} tone={detailsAnomalies ? "warn" : "ok"} />
                 </div>
 
                 <div className="rounded-md border border-border/40 overflow-hidden">

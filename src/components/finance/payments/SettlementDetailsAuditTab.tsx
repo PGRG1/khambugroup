@@ -177,9 +177,10 @@ export function SettlementDetailsAuditTab({
       gross += Number(t.gross_amount || 0);
       actual += Number(t.fee_amount || 0);
       expected += Number(t.expectedFeeComputed || 0);
-      // Sum the per-row rounded variances so the KPI Δ matches the visible row deltas exactly.
-      variance += Number(t.feeVarianceComputed || 0);
-      if (t.auditStatusComputed !== "ok") flagged += 1;
+      if (t.auditStatusComputed !== "ok") {
+        flagged += 1;
+        variance += Number(t.feeVarianceComputed || 0);
+      }
     });
     return { count: filtered.length, gross, actual, expected, variance: round2(variance), flagged };
   }, [filtered]);
@@ -197,7 +198,7 @@ export function SettlementDetailsAuditTab({
       </Card>
     );
 
-  const ok = totals.flagged === 0 && Math.abs(totals.variance) <= 0.01;
+  const ok = totals.flagged === 0;
 
   return (
     <Card className="card-glass p-4 space-y-3">
@@ -217,7 +218,7 @@ export function SettlementDetailsAuditTab({
         <Stat label="Gross" value={fmtMoney(totals.gross)} />
         <Stat label="Expected fee" value={fmtMoney(totals.expected)} />
         <Stat label="Actual fee" value={fmtMoney(totals.actual)} />
-        <Stat label="Δ" value={fmtMoney(totals.variance)} tone={Math.abs(totals.variance) > 0.01 ? "warn" : "ok"} />
+        <Stat label="Δ" value={fmtMoney(totals.variance)} tone={totals.flagged > 0 ? "warn" : "ok"} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
