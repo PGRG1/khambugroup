@@ -119,6 +119,10 @@ export default function PaymentsSettlements() {
         <TabsContent value="imports" className="mt-4">
           <ImportsTab processor={processor} imports={imports} merchants={merchants} onChanged={reload} />
         </TabsContent>
+
+        <TabsContent value="fee-rates" className="mt-4">
+          <FeeRatesTab processor={processor} merchants={procMerchants} />
+        </TabsContent>
       </Tabs>
     </div>
   );
