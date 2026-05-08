@@ -74,6 +74,8 @@ export default function PaymentsSettlements() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="batches">Settlement Batches</TabsTrigger>
+          <TabsTrigger value="details-audit">Settlement Details Audit</TabsTrigger>
+          <TabsTrigger value="monthly-recon">Monthly Reconciliation</TabsTrigger>
           <TabsTrigger value="merchants">Merchants</TabsTrigger>
           <TabsTrigger value="imports">Imports</TabsTrigger>
           <TabsTrigger value="fee-rates">Fee Rates</TabsTrigger>
