@@ -143,6 +143,9 @@ export function ImportsTab({
                   <td className="px-3 py-2 text-xs text-muted-foreground">{formatDate(i.uploaded_at)}</td>
                   <td className="px-3 py-2"><span className="chip chip-info">{i.status}</span></td>
                   <td className="px-3 py-2 text-right">
+                    <Button size="sm" variant="ghost" onClick={() => setParseTarget(i)} title="Parse & review">
+                      <ScanLine className="h-3.5 w-3.5 mr-1" /> Parse
+                    </Button>
                     <Button size="icon" variant="ghost" onClick={() => handleDownload(i)}><Download className="h-3.5 w-3.5" /></Button>
                     <Button size="icon" variant="ghost" onClick={() => handleDelete(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </td>
@@ -152,6 +155,15 @@ export function ImportsTab({
           </table>
         </div>
       </Card>
+
+      <ParseSettlementModal
+        open={!!parseTarget}
+        onOpenChange={(v) => !v && setParseTarget(null)}
+        processor={processor}
+        imp={parseTarget}
+        merchants={merchants}
+        onCommitted={onChanged}
+      />
     </div>
   );
 }
