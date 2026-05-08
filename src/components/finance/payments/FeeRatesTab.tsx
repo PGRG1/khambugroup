@@ -166,13 +166,43 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     return <Card className="card-glass p-6 text-sm text-muted-foreground">Select a processor to view fee rates.</Card>;
   }
 
-  const sorted = [...rates].sort((a, b) => {
-    const la = PM_LABEL[a.payment_method] || a.payment_method;
-    const lb = PM_LABEL[b.payment_method] || b.payment_method;
-    if (la !== lb) return la.localeCompare(lb);
-    if (a.locality !== b.locality) return a.locality.localeCompare(b.locality);
-    return (a.merchant_number || "").localeCompare(b.merchant_number || "");
-  });
+  // Comprehensive matrix: for every merchant, list every payment method × locality
+  // and resolve effective rate (merchant-specific override > "All" fallback).
+  const ROW_SPECS: { pm: string; locality: string; label: string }[] = [
+    { pm: "visa", locality: "domestic", label: "Visa — Domestic" },
+    { pm: "visa_foreign", locality: "any", label: "Visa Foreign Card" },
+    { pm: "mastercard", locality: "domestic", label: "Mastercard — Domestic" },
+    { pm: "mastercard_foreign", locality: "any", label: "Mastercard Foreign Card" },
+    { pm: "amex", locality: "domestic", label: "American Express — Domestic" },
+    { pm: "amex_foreign", locality: "any", label: "American Express Foreign" },
+    { pm: "alipay", locality: "any", label: "Alipay HK / CN" },
+    { pm: "wechat", locality: "any", label: "WeChat Pay HK / CN" },
+    { pm: "union_pay", locality: "any", label: "China UnionPay" },
+    { pm: "union_pay_quickpass", locality: "any", label: "UnionPay QuickPass" },
+    { pm: "payme", locality: "any", label: "PayMe" },
+    { pm: "jcb", locality: "any", label: "JCB" },
+  ];
+
+  const findRate = (pm: string, locality: string, mn: string | null): FeeRate | undefined => {
+    const exact = rates.find((r) => r.payment_method === pm && r.locality === locality && r.merchant_number === mn);
+    if (exact) return exact;
+    if (locality !== "any") {
+      const anyLoc = rates.find((r) => r.payment_method === pm && r.locality === "any" && r.merchant_number === mn);
+      if (anyLoc) return anyLoc;
+    }
+    if (mn !== null) {
+      const fallback = rates.find((r) => r.payment_method === pm && r.locality === locality && r.merchant_number === null);
+      if (fallback) return fallback;
+      if (locality !== "any") {
+        const fallbackAny = rates.find((r) => r.payment_method === pm && r.locality === "any" && r.merchant_number === null);
+        if (fallbackAny) return fallbackAny;
+      }
+    }
+    return undefined;
+  };
+
+  const merchantHeading = (m: Merchant) =>
+    m.shared_venues?.length ? m.shared_venues.join(" + ") : (m.venue || m.display_name);
 
   const renderEditor = () => (
     <tr className="bg-muted/30 border-b border-border/40">
