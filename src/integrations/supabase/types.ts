@@ -2716,6 +2716,68 @@ export type Database = {
           },
         ]
       }
+      payment_settlement_transactions: {
+        Row: {
+          audit_status: string
+          batch_id: string
+          created_at: string
+          expected_fee: number
+          fee_amount: number
+          fee_variance: number
+          gross_amount: number
+          id: string
+          locality: string
+          merchant_number: string
+          net_amount: number
+          payment_method_key: string
+          payment_method_raw: string
+          reference: string
+          transaction_time: string
+        }
+        Insert: {
+          audit_status?: string
+          batch_id: string
+          created_at?: string
+          expected_fee?: number
+          fee_amount?: number
+          fee_variance?: number
+          gross_amount?: number
+          id?: string
+          locality?: string
+          merchant_number?: string
+          net_amount?: number
+          payment_method_key?: string
+          payment_method_raw?: string
+          reference?: string
+          transaction_time: string
+        }
+        Update: {
+          audit_status?: string
+          batch_id?: string
+          created_at?: string
+          expected_fee?: number
+          fee_amount?: number
+          fee_variance?: number
+          gross_amount?: number
+          id?: string
+          locality?: string
+          merchant_number?: string
+          net_amount?: number
+          payment_method_key?: string
+          payment_method_raw?: string
+          reference?: string
+          transaction_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_settlement_transactions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "payment_settlement_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pl_manual_lines: {
         Row: {
           amount: number
