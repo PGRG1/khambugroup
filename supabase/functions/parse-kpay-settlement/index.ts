@@ -15,6 +15,10 @@ const json = (b: unknown, status = 200) =>
 
 // ---------- Helpers ----------
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const roundTo = (n: number, dp: number) => {
+  const f = Math.pow(10, Math.max(0, dp | 0));
+  return Math.round(n * f) / f;
+};
 const norm = (v: any) => String(v ?? "").trim().toLowerCase();
 
 const toNum = (v: any): number => {
