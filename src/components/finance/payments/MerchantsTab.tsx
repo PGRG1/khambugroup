@@ -153,12 +153,10 @@ function MerchantDialog({
   onClose: () => void;
   onSave: (m: Partial<ProcessorMerchant>) => void;
 }) {
-  const [form, setForm] = useState<Partial<ProcessorMerchant>>({});
+  const [form, setForm] = useState<Partial<ProcessorMerchant>>(merchant || { is_active: true, shared_venues: [] });
 
-  // reset when opening
-  useState(() => { setForm(merchant || {}); return undefined; });
   // sync when target changes
-  useMemo(() => { setForm(merchant || { is_active: true, shared_venues: [] }); }, [merchant, open]);
+  useEffect(() => { setForm(merchant || { is_active: true, shared_venues: [] }); }, [merchant, open]);
 
   const isShared = (form.shared_venues?.length || 0) > 0;
 
