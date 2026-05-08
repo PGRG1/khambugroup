@@ -72,6 +72,7 @@ export default function PaymentsSettlements() {
           <TabsTrigger value="batches">Settlement Batches</TabsTrigger>
           <TabsTrigger value="merchants">Merchants</TabsTrigger>
           <TabsTrigger value="imports">Imports</TabsTrigger>
+          <TabsTrigger value="fee-rates">Fee Rates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
