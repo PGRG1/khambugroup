@@ -124,11 +124,27 @@ type ParsedBatch = {
   net_settlement: number;
   count: number;
   lines: ParsedLine[];
+  transactions: ParsedTxn[];
   // audit aggregates
   transactions_flagged: number;
   fee_variance: number;
   audit_status: "ok" | "rate_off" | "unknown_pm";
   audit_note: string;
+};
+
+type ParsedTxn = {
+  transaction_time: string;          // ISO timestamp
+  payment_method_raw: string;
+  payment_method_key: string;
+  locality: string;
+  merchant_number: string;
+  gross_amount: number;
+  fee_amount: number;                 // negative
+  net_amount: number;
+  expected_fee: number;               // negative
+  fee_variance: number;
+  audit_status: "ok" | "rate_off" | "unknown_pm";
+  reference: string;
 };
 
 function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
