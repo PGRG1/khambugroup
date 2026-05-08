@@ -253,15 +253,34 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
         </Select>
       </td>
       <td className="py-2 pr-2">
-        <Select value={draft.payment_method} onValueChange={(v) => setDraft({ ...draft, payment_method: v })}>
-          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {PM_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1">
+          <Select value={draft.payment_method} onValueChange={setMethod}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PM_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {WALLET_OPTIONS[draft.payment_method] && (
+            <Select
+              value={draft.wallet_type || NO_WALLET}
+              onValueChange={(v) => setDraft({ ...draft, wallet_type: v === NO_WALLET ? "" : v })}
+            >
+              <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {WALLET_OPTIONS[draft.payment_method].map((w) => (
+                  <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </td>
       <td className="py-2 pr-2">
-        <Select value={draft.locality} onValueChange={(v) => setDraft({ ...draft, locality: v })}>
+        <Select
+          value={draft.locality}
+          onValueChange={(v) => setDraft({ ...draft, locality: v })}
+          disabled={!!WALLET_OPTIONS[draft.payment_method]}
+        >
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             {LOCALITY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
