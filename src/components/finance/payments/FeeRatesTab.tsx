@@ -107,31 +107,10 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
   })();
 
   const renderTerminalCell = (mn: string | null) => {
-    if (!mn) {
-      if (merchantGroups.length === 0) return <span className="text-muted-foreground">—</span>;
-      return (
-        <div className="flex flex-col gap-0.5 font-mono text-xs">
-          {merchantGroups.map((g) => <span key={g.mn}>{g.mn}</span>)}
-        </div>
-      );
-    }
-    return <span className="font-mono text-xs">{mn}</span>;
-  };
-
-  const renderStoreCell = (mn: string | null) => {
-    if (!mn) {
-      if (merchantGroups.length === 0) return <span>All</span>;
-      return (
-        <div className="flex flex-col gap-0.5">
-          {merchantGroups.map((g) => <span key={g.mn}>{g.label}</span>)}
-        </div>
-      );
-    }
+  const merchantInfo = (mn: string) => {
     const m = merchants.find((x) => x.merchant_number === mn);
-    const label = m
-      ? (m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name))
-      : mn;
-    return <span>{label}</span>;
+    if (!m) return { label: mn };
+    return { label: m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name) };
   };
 
   const startEdit = (r: FeeRate) => {
