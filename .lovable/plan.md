@@ -1,174 +1,122 @@
-## Bank Reconciliation — First Working Version
 
-Build on the existing `src/pages/finance/BankReconciliation.tsx`. Keep the current header, account selector, KPI grid, tabs, and Bank Account Master table. Layer in real functionality: PDF statement upload, multi-account extraction, transaction recognition, mapping, and review.
+## Goal
 
-### 1. Empty state fix (KPI cards & status)
+Turn the placeholder **Finance → Payments & Settlements** page into a working module that ingests KPay monthly settlement reports (and is extensible to other processors later: Stripe, PayMe, etc.). It should mirror the Bank Reconciliation experience: upload statement → AI extract → user confirms → store in DB → reconcile against sales and against bank deposits.
 
-In `BankReconciliation.tsx`:
-- Detect `hasAnyStatement = imports.length > 0` and `hasFilteredTxns = filteredTxns.length > 0`.
-- When no statement exists for the current selection, render `—` for Statement Balance, Ledger Balance, Difference, Matched, Unmatched, Needs Review.
-- Replace the "Reconciled" chip with `No Statement Uploaded` (chip-neutral) until at least one statement import exists.
-- When `accounts.length === 0`, show a top-level alert card: *"No bank accounts added yet. Add a bank account or upload a statement to begin."* with an inline **Add Account** button.
+## What the KPay report contains
 
-### 2. Bank Account Master tab (already structurally present)
+From the April 2026 PDF you uploaded:
 
-- Add missing columns: **Account Type** (e.g. Current / Savings / Foreign Currency Savings).
-- Account editor modal already exists; extend with: Account Type select, Notes textarea (already present), Opening balance, Opening balance date.
-- Seed three suggested example accounts via the "Add Account" modal (no auto-insert) — BOCHK HKD Current (5027), BOCHK HKD Savings (5001), BOCHK CNY Savings (5014). User confirms.
+- **Header**: month, currency (HKD), transaction date range.
+- **Store overview** (per merchant number):
+  - ASSEMBLY — merchant `852124709700001`
+  - CALIENTE AND HANABI — merchant `852124661800002` (shared)
+  - Columns: count, transaction amount, frozen, adjustments, fund released, transaction fee, fee offset by points, bank transfer fee, **net settlement**.
+- **Store details** — for each store, grouped by transaction date → settlement date → payment type (Visa, Visa Foreign Card, Mastercard, MC Foreign Card, Alipay, Amex, UnionPay, JCB, WeChat, etc.) with count, amount, fee, net. Each batch ends with a bank transfer fee line and a **Total net settlement** that matches a single bank deposit.
 
-Schema migration:
-```sql
-ALTER TABLE public.bank_accounts ADD COLUMN IF NOT EXISTS account_type text NOT NULL DEFAULT 'current';
+This means each KPay file produces three things we care about:
+
+1. A **settlement batch** per (merchant, settlement date) → one bank deposit.
+2. **Daily transactions per payment type** → reconciles against POS sales.
+3. **Fees** (transaction fees + bank transfer fees + points offsets + adjustments) → posted as expense.
+
+## Data model (new tables)
+
+```text
+payment_processors                 -- master: KPay, Stripe, PayMe, etc.
+  id, name, type ('kpay'|'stripe'|...), is_active, sort_order
+
+payment_processor_merchants        -- merchant accounts under a processor
+  id, processor_id, merchant_number, display_name,
+  venue_id (nullable, for shared merchants),
+  shared_venues text[] (e.g. ['Caliente','Hanabi']),
+  default_bank_account_id, fee_account_id
+
+payment_settlement_imports         -- one per uploaded file
+  id, processor_id, period_start, period_end, currency,
+  file_url, file_name, uploaded_at, uploaded_by, status
+
+payment_settlement_batches         -- one per (merchant, settlement date)
+  id, import_id, processor_id, merchant_id,
+  transaction_date, settlement_date,
+  gross_amount, fee_amount, points_offset, bank_transfer_fee,
+  adjustments, frozen_amount, net_settlement,
+  bank_account_id (target), bank_transaction_id (matched), status
+
+payment_settlement_lines           -- per payment-type row in a batch
+  id, batch_id, payment_type ('visa','visa_foreign','mastercard',
+    'mastercard_foreign','amex','unionpay','jcb','alipay','wechat','payme'),
+  count, gross_amount, fee_amount, net_amount
+
+payment_processor_audit            -- audit trail
 ```
 
-### 3. Statement upload + extraction (Edge Function)
+RLS: same pattern as Bank Reconciliation (read = authenticated, write = admin/manager).
 
-New edge function `supabase/functions/parse-bank-statement/index.ts`:
-- Accepts a PDF file (multipart) or a base64 payload + filename.
-- Stores the PDF in storage bucket `bank-statements` (new, private).
-- Calls Lovable AI Gateway (`google/gemini-2.5-pro`) with the PDF inline to extract a strict JSON schema:
-  ```
-  {
-    bank_name, company_name, statement_date, currency_summary[],
-    accounts: [{
-      account_type, account_number, currency,
-      opening_balance, closing_balance,
-      total_deposits, total_withdrawals,
-      deposit_count, withdrawal_count,
-      transactions: [{
-        txn_date, value_date, raw_description, cleaned_counterparty,
-        reference, deposit, withdrawal, running_balance, source_page
-      }]
-    }]
-  }
-  ```
-- Validates with Zod and returns parsed JSON to the client (no DB write yet — preview first).
+## Page layout (replace placeholder, keep structure consistent with Bank Recon)
 
-Client-side: replace placeholder `StatementUpload` body with a 3-step flow:
-1. **Upload** PDF → call edge function → show progress.
-2. **Preview & map accounts**: list each detected account (type / last4 / currency / opening / closing). For each, dropdown to map to an existing `bank_accounts` row OR "Create new" (opens inline form pre-filled with detected values). Mapping persists in a new `bank_statement_account_mappings` table keyed by `(bank, account_number_last4) → bank_account_id`.
-3. **Confirm** → write `bank_statement_imports` (one per detected account) + bulk-insert `bank_transactions`.
+```text
+Header: "Payments & Settlements"
+Controls row:
+  [ Processor selector: KPay ▼ ]   [ Merchant selector ▼ ]
+  [ Upload Statement ]  [ Export ]  [ Lock Period ]
 
-Schema migrations:
-```sql
-CREATE TABLE public.bank_statement_account_mappings (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  bank_name text NOT NULL,
-  account_number_last4 text NOT NULL,
-  bank_account_id uuid NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (bank_name, account_number_last4)
-);
-ALTER TABLE public.bank_statement_account_mappings ENABLE ROW LEVEL SECURITY;
--- read for authenticated, manage for admin/manager (mirror existing patterns)
+KPI cards (period-scoped):
+  Gross transactions | Total fees | Net settled | Unmatched batches
 
-ALTER TABLE public.bank_transactions
-  ADD COLUMN IF NOT EXISTS value_date date,
-  ADD COLUMN IF NOT EXISTS counterparty text NOT NULL DEFAULT '',
-  ADD COLUMN IF NOT EXISTS source_page integer,
-  ADD COLUMN IF NOT EXISTS suggested_type text,
-  ADD COLUMN IF NOT EXISTS suggested_category text,
-  ADD COLUMN IF NOT EXISTS suggested_match_id text,
-  ADD COLUMN IF NOT EXISTS extraction_confidence numeric;
-
--- private storage bucket
-INSERT INTO storage.buckets (id, name, public) VALUES ('bank-statements', 'bank-statements', false)
-  ON CONFLICT DO NOTHING;
+Tabs:
+  1. Overview          — chart: daily gross vs net, fee % trend
+  2. Settlement Batches — table grouped by settlement date,
+                          columns: settle date | merchant | gross | fee
+                          | net | bank match status | actions
+  3. Transactions       — flat list of all settlement_lines with filters
+  4. Merchants          — master table (CRUD), map merchant# → venue(s),
+                          default bank account, default fee account
+  5. Imports            — file history with re-process / delete
+  6. Rules              — auto-mapping rules (payment_type → COA acct)
+  7. Audit              — actions log
 ```
-RLS for the bucket: read/write restricted to admin + manager.
 
-### 4. Transaction recognition rules
+## Upload & extract flow (mirrors `StatementUploadFlow`)
 
-New `src/utils/bankTxnRules.ts` with a pure function `classifyTxn(description, money_in, money_out) → { suggested_type, suggested_category }`. Patterns (case-insensitive):
-- `KPAY MERCHANT SERVICE LIMITED` → `kpay_settlement`
-- `FPS OUT FEE` → `bank_fee` / `Bank Charges`
-- `FPS/...` (deposit) → `customer_receipt`; (withdrawal with counterparty) → `supplier_payment`
-- `CBS TRANSFER` → `internal_transfer`
-- `FPS RTN`, ` RTN`, ` CORR` → `reversal`
-- `ATM DEP`, `CDM DEP` → `cash_deposit`
-- `JP-GAS` → `utility_payment` / `Utilities - Gas`
-- `JP-WSD` → `utility_payment` / `Utilities - Water`
-- `Interest` (line type) → `interest_income`
+1. User drops PDF → uploaded to `payment-statements` storage bucket.
+2. Edge function `parse-kpay-settlement` (Gemini 2.5 Pro, fallback Flash) extracts:
+   - Period range, currency
+   - For each store: merchant#, total row
+   - For each transaction date / settlement date: type lines + bank transfer fee + total net
+3. UI shows a **review screen**:
+   - Detected merchants → user maps unknown ones to a venue & bank account.
+   - Summary table per batch with editable cells.
+4. On **Confirm**: insert `import` + `batches` + `lines`, run auto-classification.
 
-Applied (a) at extraction commit time, populating `suggested_type` / `suggested_category`, and (b) live in the UI via the same util when displaying the Transactions tab.
+## Reconciliation logic
 
-A second new table holds user-defined rules for the **Rules tab**:
-```sql
-CREATE TABLE public.bank_recon_rules (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  match_contains text NOT NULL,
-  suggested_type text NOT NULL,
-  suggested_category text,
-  is_active boolean NOT NULL DEFAULT true,
-  sort_order int NOT NULL DEFAULT 0,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-```
-User rules merge with built-ins (built-ins seeded via UI, not DB).
+- **Bank side**: each `payment_settlement_batches.net_settlement` should match one `bank_transactions.money_in` on `settlement_date` for the merchant's default bank account. Add an automatic suggestion (already partially handled by `bankTxnRules.ts` "kpay_settlement"). When matched, link both rows.
+- **Sales side**: sum of `settlement_lines.gross_amount` per (venue, transaction_date, payment_type) should match POS sales for that day. Variance shown in Transactions tab.
+- **Journal posting** (optional later): debit Bank, debit Bank Fees, credit Merchant Receivable / KPay clearing account.
 
-### 5. Tabs build-out
+## Phase plan
 
-Enable previously-disabled tabs and back each with a focused component file under `src/components/finance/bank-recon/`:
+**Phase 1 — Foundation (this build)**
+- Tables + RLS migration.
+- Storage bucket `payment-statements`.
+- Replace placeholder page with the layout above.
+- Implement Merchants tab (CRUD) seeded with the 2 KPay merchants from your file.
+- Implement Imports tab + manual upload (file only, no parsing yet).
 
-- **Suggested Matches** — `SuggestedMatchesTab.tsx`: lists `bank_transactions` where `suggested_match_id IS NOT NULL` and `status IN ('suggested','partial')`. Columns: bank line, suggested source, type, amount diff, date diff, confidence, Confirm/Reject.
-- **KPay** — `KPayTab.tsx`: filters by `suggested_type='kpay_settlement'`. Lists candidate matches from `payment_method_settlements` / daily sales (KPay) join. Reminder: venue allocation comes from source records, not the bank line.
-- **Cash Deposits** — filters `cash_deposit` against Cash on Hand records.
-- **Supplier Payments** — filters `supplier_payment`/`bank_fee` excluded; matches against `invoices` by counterparty + amount.
-- **Transfers** — pairs `internal_transfer` lines across two `bank_accounts` (same date ±2 days, opposite sign, equal amount).
-- **Unmatched** — groups `status='unmatched'` by suggested issue.
-- **Journals** — lists `journal_entries` where `source_type='bank_recon'`; deep-links to the originating bank line.
-- **Rules** — CRUD for `bank_recon_rules`.
-- **Audit** — reads `bank_audit_trail`; writes from all status changes.
-- **Period Close** — per account+period checklist; "Lock Period" inserts/updates `bank_reconciliation_periods` with `status='locked'`.
+**Phase 2 — Parser**
+- Edge function `parse-kpay-settlement`.
+- Review/confirm modal → commit batches & lines.
 
-Each tab is gated: shows a friendly empty state until data exists.
+**Phase 3 — Reconciliation**
+- Auto-match settlement batches → bank deposits.
+- Variance view vs POS sales.
 
-### 6. Match / Review side panel
+**Phase 4 — Other processors**
+- Add processor type `stripe`, `payme`, etc., each with its own parser.
 
-Replace the placeholder Sheet body with a richer panel (still in the existing `Sheet`):
-- Header: cleaned date, amount (colored), status chip.
-- Sections: Raw description, Cleaned details, Source PDF page (link opens signed URL to the stored PDF, anchored to page), Suggested type, Suggested match (with diff), Confidence reason, Related source records, Notes textarea, Audit history (from `bank_audit_trail`).
-- Action bar (buttons): Confirm match / Reject / Search source records (opens a small command palette over `invoices`, `payments`, `daily_sales`) / Manually match / Split match / Create journal / Mark internal transfer / Mark reversal / Mark bank fee / Mark cash deposit / Mark needs review / Ignore with reason.
-- Each action writes a row into `bank_audit_trail` (existing table) and updates the bank line.
+## Questions before I start Phase 1
 
-### 7. Reconciliation summary logic
-
-In `useBankReconciliation`, expand to compute per-account, per-period:
-- statement closing balance (latest `bank_statement_imports`)
-- ledger balance (existing)
-- difference, matched / unmatched / needs-review counts, txn count
-- status from logic table:
-  - no imports → `No Statement Uploaded`
-  - import exists but >0 unmatched and matched=0 → `Imported`
-  - some matched + open items → `In Review`
-  - matched but |diff| > 0.01 → `Partially Reconciled`
-  - all matched + |diff| < 0.01 → `Reconciled`
-  - locked period exists → `Locked`
-
-KPIs and the Overview table consume these.
-
-### 8. Acceptance criteria mapping
-
-All 13 acceptance items in the request are addressed by the items above (empty state, account CRUD, PDF upload, extraction, multi-account split, mapping, transactions tab, rule recognition, manual review, source-record matching, summary updates, audit trail, no venue requirement on bank lines).
-
-### Technical notes
-
-- Edge function uses `LOVABLE_API_KEY` (already provisioned) → no new secret prompt.
-- BOCHK PDF parsed earlier confirms shape: 3 accounts (HKD Savings 5001, HKD Current 5027, FCY/CNY Savings 5014), transaction rows include `Transaction Date`, `Value/Effective Date`, `Transaction Details`, `Deposit`, `Withdrawal`, `Balance`. Extractor will split on the per-account headings (`HKD Savings (012-...-5001)`, `HKD Current (...-5027)`, `Foreign Currency Savings (...-5014)`).
-- Storage bucket is private; PDF preview links use short-lived signed URLs.
-- All new components follow `card-glass`, `chip-*`, `td-num`, `formatCurrency`, `formatDate` per project memory.
-
-### Files to add / modify
-
-- modify: `src/pages/finance/BankReconciliation.tsx`, `src/hooks/useBankReconciliation.ts`
-- add: `src/utils/bankTxnRules.ts`
-- add: `src/components/finance/bank-recon/{SuggestedMatchesTab,KPayTab,CashDepositsTab,SupplierPaymentsTab,TransfersTab,UnmatchedTab,JournalsTab,RulesTab,AuditTab,PeriodCloseTab,StatementUploadFlow,TransactionReviewPanel}.tsx`
-- add: `supabase/functions/parse-bank-statement/index.ts`
-- migration: column additions, two new tables, storage bucket + RLS
-
-### Out of scope (to confirm explicitly later)
-
-- Auto-creating journals for bank fees / interest (button present but writes a draft journal only).
-- OCR of scanned (non-text) PDFs — relies on Gemini's vision capability already available.
-- CSV/OFX import — only PDF in this iteration.
+1. **Merchant → venue mapping**: `CALIENTE AND HANABI` shares one merchant. When a transaction comes in, do you want to (a) split it 50/50, (b) split by POS sales ratio for that day, or (c) keep it lumped under a synthetic "Caliente+Hanabi" bucket and only split at reporting time?
+2. **Bank account mapping**: do all KPay net settlements land in the BOCHK HKD Current `5027` account, or do different merchants settle to different bank accounts?
+3. **Scope of Phase 1**: should I also build the parser (Phase 2) in the first pass, or keep this PR to layout + tables + manual upload first, then iterate?
