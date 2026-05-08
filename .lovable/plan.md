@@ -1,122 +1,135 @@
 
 ## Goal
 
-Turn the placeholder **Finance → Payments & Settlements** page into a working module that ingests KPay monthly settlement reports (and is extensible to other processors later: Stripe, PayMe, etc.). It should mirror the Bank Reconciliation experience: upload statement → AI extract → user confirms → store in DB → reconcile against sales and against bank deposits.
+Rebuild the KPay settlement parser so it:
+1. Extracts both the **per-day batch summary** and the **per-transaction details** from the workbook.
+2. **Verifies** every transaction's fee against the contracted rate sheet, flagging any discrepancy.
+3. Uses **Gemini 2.5 Pro** as the extraction engine (with a deterministic XLSX pre-pass to keep tokens manageable).
 
-## What the KPay report contains
+The current data shown in the review modal is mathematically correct — the new value is the **fee audit layer**.
 
-From the April 2026 PDF you uploaded:
+## Contracted fee rates (source of truth)
 
-- **Header**: month, currency (HKD), transaction date range.
-- **Store overview** (per merchant number):
-  - ASSEMBLY — merchant `852124709700001`
-  - CALIENTE AND HANABI — merchant `852124661800002` (shared)
-  - Columns: count, transaction amount, frozen, adjustments, fund released, transaction fee, fee offset by points, bank transfer fee, **net settlement**.
-- **Store details** — for each store, grouped by transaction date → settlement date → payment type (Visa, Visa Foreign Card, Mastercard, MC Foreign Card, Alipay, Amex, UnionPay, JCB, WeChat, etc.) with count, amount, fee, net. Each batch ends with a bank transfer fee line and a **Total net settlement** that matches a single bank deposit.
+| Payment Method | Locality | Store | Rate | Rounding |
+|---|---|---|---|---|
+| Visa | Domestic | All | 1.50% | 2 dp |
+| Visa Foreign Card | Foreign | All | 3.00% | 2 dp |
+| Mastercard | Domestic | Assembly | 2.60% | 2 dp |
+| Mastercard | Domestic | Caliente / Hanabi | 1.50% | 2 dp |
+| Mastercard Foreign Card | Foreign | All | 3.00% | 2 dp |
+| Alipay | Any | All | 1.20% | 2 dp |
+| WeChat Pay | Any | All | 1.20% | 2 dp |
+| China UnionPay | Domestic | All | 1.80% | 2 dp |
+| PayMe | Any | All | 1.10% | 2 dp |
 
-This means each KPay file produces three things we care about:
+Stored as a typed `FEE_RATES` table in the edge function, keyed by `(payment_method, locality, merchant_number)`.
 
-1. A **settlement batch** per (merchant, settlement date) → one bank deposit.
-2. **Daily transactions per payment type** → reconciles against POS sales.
-3. **Fees** (transaction fees + bank transfer fees + points offsets + adjustments) → posted as expense.
-
-## Data model (new tables)
-
-```text
-payment_processors                 -- master: KPay, Stripe, PayMe, etc.
-  id, name, type ('kpay'|'stripe'|...), is_active, sort_order
-
-payment_processor_merchants        -- merchant accounts under a processor
-  id, processor_id, merchant_number, display_name,
-  venue_id (nullable, for shared merchants),
-  shared_venues text[] (e.g. ['Caliente','Hanabi']),
-  default_bank_account_id, fee_account_id
-
-payment_settlement_imports         -- one per uploaded file
-  id, processor_id, period_start, period_end, currency,
-  file_url, file_name, uploaded_at, uploaded_by, status
-
-payment_settlement_batches         -- one per (merchant, settlement date)
-  id, import_id, processor_id, merchant_id,
-  transaction_date, settlement_date,
-  gross_amount, fee_amount, points_offset, bank_transfer_fee,
-  adjustments, frozen_amount, net_settlement,
-  bank_account_id (target), bank_transaction_id (matched), status
-
-payment_settlement_lines           -- per payment-type row in a batch
-  id, batch_id, payment_type ('visa','visa_foreign','mastercard',
-    'mastercard_foreign','amex','unionpay','jcb','alipay','wechat','payme'),
-  count, gross_amount, fee_amount, net_amount
-
-payment_processor_audit            -- audit trail
-```
-
-RLS: same pattern as Bank Reconciliation (read = authenticated, write = admin/manager).
-
-## Page layout (replace placeholder, keep structure consistent with Bank Recon)
+## New parser flow
 
 ```text
-Header: "Payments & Settlements"
-Controls row:
-  [ Processor selector: KPay ▼ ]   [ Merchant selector ▼ ]
-  [ Upload Statement ]  [ Export ]  [ Lock Period ]
-
-KPI cards (period-scoped):
-  Gross transactions | Total fees | Net settled | Unmatched batches
-
-Tabs:
-  1. Overview          — chart: daily gross vs net, fee % trend
-  2. Settlement Batches — table grouped by settlement date,
-                          columns: settle date | merchant | gross | fee
-                          | net | bank match status | actions
-  3. Transactions       — flat list of all settlement_lines with filters
-  4. Merchants          — master table (CRUD), map merchant# → venue(s),
-                          default bank account, default fee account
-  5. Imports            — file history with re-process / delete
-  6. Rules              — auto-mapping rules (payment_type → COA acct)
-  7. Audit              — actions log
+XLSX file
+  │
+  ▼
+┌─────────────────────────────────────────────────────┐
+│ 1. Deterministic XLSX read (xlsx lib)               │
+│    • Monthly Settlement Report → batches            │
+│    • Settlement details        → transactions       │
+└─────────────────────────────────────────────────────┘
+  │
+  ▼
+┌─────────────────────────────────────────────────────┐
+│ 2. Gemini 2.5 Pro audit pass                        │
+│    Input: structured rows + FEE_RATES table         │
+│    Task : reconcile, classify anomalies, normalize  │
+│           payment-type names, flag suspicious rows  │
+└─────────────────────────────────────────────────────┘
+  │
+  ▼
+┌─────────────────────────────────────────────────────┐
+│ 3. Per-batch summary with audit columns             │
+│    expected_fee, actual_fee, variance, status       │
+└─────────────────────────────────────────────────────┘
 ```
 
-## Upload & extract flow (mirrors `StatementUploadFlow`)
+### Step 1 — Deterministic extraction (already works; tighten it)
 
-1. User drops PDF → uploaded to `payment-statements` storage bucket.
-2. Edge function `parse-kpay-settlement` (Gemini 2.5 Pro, fallback Flash) extracts:
-   - Period range, currency
-   - For each store: merchant#, total row
-   - For each transaction date / settlement date: type lines + bank transfer fee + total net
-3. UI shows a **review screen**:
-   - Detected merchants → user maps unknown ones to a venue & bank account.
-   - Summary table per batch with editable cells.
-4. On **Confirm**: insert `import` + `batches` + `lines`, run auto-classification.
+Read the two sheets exactly as before:
+- `Monthly Settlement Report` rows 8+ → one `batch` per (merchant, settlement_date, transaction_date)
+- `Settlement details` rows 4+ → one `transaction` per row, with `payment_method`, `locality` ("Domestic"/"Foreign"), `local_payment_amount`, `transaction_fee`, `settlement_amount`
 
-## Reconciliation logic
+### Step 2 — Fee verification (the new core logic)
 
-- **Bank side**: each `payment_settlement_batches.net_settlement` should match one `bank_transactions.money_in` on `settlement_date` for the merchant's default bank account. Add an automatic suggestion (already partially handled by `bankTxnRules.ts` "kpay_settlement"). When matched, link both rows.
-- **Sales side**: sum of `settlement_lines.gross_amount` per (venue, transaction_date, payment_type) should match POS sales for that day. Variance shown in Transactions tab.
-- **Journal posting** (optional later): debit Bank, debit Bank Fees, credit Merchant Receivable / KPay clearing account.
+For each transaction:
 
-## Phase plan
+```
+expected_fee = round( amount × rate_for(method, locality, merchant), 2 )
+variance     = actual_fee − (−expected_fee)        // KPay shows fees as negatives
+status       = ok          if |variance| ≤ 0.01
+             | rate_off    if abs variance proportional to amount (suggests wrong rate)
+             | unknown_pm  if no rule matched
+             | review      otherwise
+```
 
-**Phase 1 — Foundation (this build)**
-- Tables + RLS migration.
-- Storage bucket `payment-statements`.
-- Replace placeholder page with the layout above.
-- Implement Merchants tab (CRUD) seeded with the 2 KPay merchants from your file.
-- Implement Imports tab + manual upload (file only, no parsing yet).
+Aggregate to batch level:
+- `transactions_total`, `transactions_flagged`
+- `expected_fee_total`, `actual_fee_total`, `fee_variance`
 
-**Phase 2 — Parser**
-- Edge function `parse-kpay-settlement`.
-- Review/confirm modal → commit batches & lines.
+### Step 3 — Gemini 2.5 Pro pass (audit, not extraction)
 
-**Phase 3 — Reconciliation**
-- Auto-match settlement batches → bank deposits.
-- Variance view vs POS sales.
+The deterministic step gives us clean rows; we hand Gemini a compact JSON payload (~rows, totals, rate table, flagged items) and ask it to:
 
-**Phase 4 — Other processors**
-- Add processor type `stripe`, `payme`, etc., each with its own parser.
+1. Confirm each flagged transaction's reasoning (e.g., "row classified as Foreign but card BIN 4385 is HK domestic — likely mis-classified by KPay").
+2. Suggest a `recommended_action` per flag: `accept`, `dispute_with_kpay`, `reclassify_locality`, `unknown_method_needs_mapping`.
+3. Write a one-sentence batch-level note when the batch has any anomalies.
 
-## Questions before I start Phase 1
+This keeps Gemini's role narrow (auditor + narrator), so token usage stays low and we don't depend on the model for arithmetic.
 
-1. **Merchant → venue mapping**: `CALIENTE AND HANABI` shares one merchant. When a transaction comes in, do you want to (a) split it 50/50, (b) split by POS sales ratio for that day, or (c) keep it lumped under a synthetic "Caliente+Hanabi" bucket and only split at reporting time?
-2. **Bank account mapping**: do all KPay net settlements land in the BOCHK HKD Current `5027` account, or do different merchants settle to different bank accounts?
-3. **Scope of Phase 1**: should I also build the parser (Phase 2) in the first pass, or keep this PR to layout + tables + manual upload first, then iterate?
+Model: `google/gemini-2.5-pro`, with **structured output via tool calling** (no free-text JSON parsing).
+
+## UI changes — `ParseSettlementModal.tsx`
+
+Add to each batch row:
+- A status pill: `OK` / `Flagged (n)` / `Unknown PM`
+- A small expand caret → reveals per-payment-type lines with `Method | Count | Gross | Expected Fee | Actual Fee | Δ | Status`
+- Top-of-modal KPI: `Fee variance: HK$ X` and `Flagged transactions: N`
+
+`Confirm & save` is **enabled** even with flags (with a warning banner) — the flags are persisted, not blocking.
+
+## Database changes
+
+Add columns (migration) to support the audit:
+
+- `payment_settlement_lines`
+  - `expected_fee numeric default 0`
+  - `fee_variance numeric default 0`
+  - `audit_status text default 'ok'` ∈ {ok, rate_off, unknown_pm, review}
+  - `audit_note text default ''`
+
+- `payment_settlement_batches`
+  - `transactions_flagged int default 0`
+  - `fee_variance numeric default 0`
+  - `audit_status text default 'ok'`
+
+A new lightweight table for transparency:
+
+- `payment_processor_fee_rates` — seeded with the 9 rules above, editable later if KPay terms change. The edge function reads from this table instead of hardcoding.
+
+```
+id | processor_id | payment_method | locality | merchant_number (nullable = all)
+   | rate (numeric) | rounding_dp (int) | effective_from | notes
+```
+
+## Files to change
+
+- `supabase/migrations/<new>.sql` — new columns + `payment_processor_fee_rates` table + seed for KPay
+- `supabase/functions/parse-kpay-settlement/index.ts` — rewrite: deterministic XLSX + Gemini audit pass + persists per-line audit fields
+- `src/components/finance/payments/ParseSettlementModal.tsx` — add status pill, expandable per-line breakdown, fee-variance KPI, warning banner
+- `src/hooks/usePaymentSettlements.ts` — surface the new audit columns
+- `src/integrations/supabase/types.ts` — auto-regenerated
+
+## Out of scope (future)
+
+- Editing the fee-rate table from the UI (Settings page) — Phase 3
+- Auto-disputing flagged transactions back to KPay — Phase 3
+- PDF parsing fallback (still XLSX only)
+- Bank-deposit matching — already planned as Phase 3

@@ -2371,6 +2371,56 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_processor_fee_rates: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          locality: string
+          merchant_number: string | null
+          notes: string
+          payment_method: string
+          processor_id: string
+          rate: number
+          rounding_dp: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          locality?: string
+          merchant_number?: string | null
+          notes?: string
+          payment_method: string
+          processor_id: string
+          rate: number
+          rounding_dp?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          locality?: string
+          merchant_number?: string | null
+          notes?: string
+          payment_method?: string
+          processor_id?: string
+          rate?: number
+          rounding_dp?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_processor_fee_rates_processor_id_fkey"
+            columns: ["processor_id"]
+            isOneToOne: false
+            referencedRelation: "payment_processors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_processor_merchants: {
         Row: {
           created_at: string
@@ -2466,11 +2516,13 @@ export type Database = {
       payment_settlement_batches: {
         Row: {
           adjustments: number
+          audit_status: string
           bank_account_id: string | null
           bank_transaction_id: string | null
           bank_transfer_fee: number
           created_at: string
           fee_amount: number
+          fee_variance: number
           frozen_amount: number
           gross_amount: number
           id: string
@@ -2483,15 +2535,18 @@ export type Database = {
           settlement_date: string
           status: string
           transaction_date: string
+          transactions_flagged: number
           updated_at: string
         }
         Insert: {
           adjustments?: number
+          audit_status?: string
           bank_account_id?: string | null
           bank_transaction_id?: string | null
           bank_transfer_fee?: number
           created_at?: string
           fee_amount?: number
+          fee_variance?: number
           frozen_amount?: number
           gross_amount?: number
           id?: string
@@ -2504,15 +2559,18 @@ export type Database = {
           settlement_date: string
           status?: string
           transaction_date: string
+          transactions_flagged?: number
           updated_at?: string
         }
         Update: {
           adjustments?: number
+          audit_status?: string
           bank_account_id?: string | null
           bank_transaction_id?: string | null
           bank_transfer_fee?: number
           created_at?: string
           fee_amount?: number
+          fee_variance?: number
           frozen_amount?: number
           gross_amount?: number
           id?: string
@@ -2525,6 +2583,7 @@ export type Database = {
           settlement_date?: string
           status?: string
           transaction_date?: string
+          transactions_flagged?: number
           updated_at?: string
         }
         Relationships: [
@@ -2603,10 +2662,14 @@ export type Database = {
       }
       payment_settlement_lines: {
         Row: {
+          audit_note: string
+          audit_status: string
           batch_id: string
           count: number
           created_at: string
+          expected_fee: number
           fee_amount: number
+          fee_variance: number
           gross_amount: number
           id: string
           net_amount: number
@@ -2614,10 +2677,14 @@ export type Database = {
           payment_type_label: string
         }
         Insert: {
+          audit_note?: string
+          audit_status?: string
           batch_id: string
           count?: number
           created_at?: string
+          expected_fee?: number
           fee_amount?: number
+          fee_variance?: number
           gross_amount?: number
           id?: string
           net_amount?: number
@@ -2625,10 +2692,14 @@ export type Database = {
           payment_type_label?: string
         }
         Update: {
+          audit_note?: string
+          audit_status?: string
           batch_id?: string
           count?: number
           created_at?: string
+          expected_fee?: number
           fee_amount?: number
+          fee_variance?: number
           gross_amount?: number
           id?: string
           net_amount?: number

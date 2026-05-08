@@ -1,7 +1,6 @@
-// Parse a KPay monthly settlement XLSX (or PDF via AI fallback).
-// Input JSON: { import_id }
-// Output: { batches: [...], unknown_merchants: [...] }
-// No DB writes; the client confirms then commits.
+// Parse a KPay monthly settlement XLSX, build batches + per-payment-type lines,
+// and audit each transaction's fee against the contracted rate sheet stored in DB.
+// Optionally calls Gemini to add a one-line narrative for each flagged batch.
 
 import * as XLSX from "npm:xlsx@0.18.5";
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
@@ -11,11 +10,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 // ---------- Helpers ----------
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const norm = (v: any) => String(v ?? "").trim().toLowerCase();
+
 const toNum = (v: any): number => {
   if (v === null || v === undefined || v === "") return 0;
   if (typeof v === "number") return v;
@@ -28,61 +29,74 @@ const toDate = (v: any): string | null => {
   if (!v) return null;
   if (v instanceof Date) return v.toISOString().slice(0, 10);
   if (typeof v === "number") {
-    // Excel serial date
     const d = new Date(Math.round((v - 25569) * 86400 * 1000));
     return d.toISOString().slice(0, 10);
   }
   const s = String(v).trim();
-  // Try YYYY-MM-DD or YYYY/MM/DD
   let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
   if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-  // DD-MM-YYYY
   m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
   if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-  // ISO datetime
   const d = new Date(s);
   if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   return null;
 };
 
-const norm = (v: any) => String(v ?? "").trim().toLowerCase();
+// Map raw KPay "Payment Method" + "Transaction Locality" → canonical key used by FEE_RATES
+function classifyPaymentMethod(rawMethod: string, rawLocality: string): { key: string; locality: "domestic" | "foreign" | "any" | "unknown" } {
+  const m = norm(rawMethod);
+  const loc = norm(rawLocality);
+  const localityKey: "domestic" | "foreign" | "unknown" =
+    loc === "domestic" ? "domestic" : loc === "foreign" ? "foreign" : "unknown";
 
-// Map a payment-type label from KPay to a canonical key
-const PAYMENT_TYPE_MAP: Record<string, string> = {
-  visa: "visa",
-  mastercard: "mastercard",
-  master: "mastercard",
-  amex: "amex",
-  "american express": "amex",
-  unionpay: "union_pay",
-  "union pay": "union_pay",
-  "china unionpay": "union_pay",
-  jcb: "jcb",
-  alipay: "alipay",
-  "alipay hk": "alipay",
-  "alipay cn": "alipay",
-  wechat: "wechat",
-  "wechat pay": "wechat",
-  "weixin pay": "wechat",
-  payme: "payme",
-  "payme from hsbc": "payme",
-  fps: "fps",
-};
-const mapPaymentType = (label: string) => {
-  const k = norm(label);
-  for (const [needle, canonical] of Object.entries(PAYMENT_TYPE_MAP)) {
-    if (k.includes(needle)) return canonical;
+  if (m.includes("visa")) {
+    if (m.includes("foreign")) return { key: "visa_foreign", locality: "foreign" };
+    return { key: "visa", locality: localityKey === "unknown" ? "domestic" : localityKey };
   }
-  return k.replace(/\s+/g, "_") || "other";
+  if (m.includes("master")) {
+    if (m.includes("foreign")) return { key: "mastercard_foreign", locality: "foreign" };
+    return { key: "mastercard", locality: localityKey === "unknown" ? "domestic" : localityKey };
+  }
+  if (m.includes("alipay")) return { key: "alipay", locality: "any" };
+  if (m.includes("wechat") || m.includes("weixin")) return { key: "wechat", locality: "any" };
+  if (m.includes("unionpay") || m.includes("union pay")) return { key: "union_pay", locality: localityKey === "unknown" ? "domestic" : localityKey };
+  if (m.includes("payme")) return { key: "payme", locality: "any" };
+  if (m.includes("amex") || m.includes("american express")) return { key: "amex", locality: localityKey };
+  if (m.includes("jcb")) return { key: "jcb", locality: localityKey };
+  if (m.includes("fps")) return { key: "fps", locality: "any" };
+  return { key: m.replace(/\s+/g, "_") || "other", locality: localityKey };
+}
+
+type FeeRate = {
+  payment_method: string;
+  locality: string;
+  merchant_number: string | null;
+  rate: number;
+  rounding_dp: number;
 };
 
-// Extract every row of every sheet into a flat array of cell rows
-function readAllRows(wb: XLSX.WorkBook): { sheet: string; rows: any[][] }[] {
-  return wb.SheetNames.map((s) => ({
-    sheet: s,
-    rows: XLSX.utils.sheet_to_json<any[]>(wb.Sheets[s], { header: 1, raw: true, defval: null }),
-  }));
+// Find the most-specific rate: (method, locality, merchant) > (method, locality, NULL)
+function findRate(rates: FeeRate[], method: string, locality: string, merchant: string): FeeRate | null {
+  const candidates = rates.filter(
+    (r) => r.payment_method === method && (r.locality === locality || r.locality === "any"),
+  );
+  const exact = candidates.find((r) => r.merchant_number === merchant);
+  if (exact) return exact;
+  return candidates.find((r) => !r.merchant_number) || null;
 }
+
+// ---------- Core parser ----------
+type ParsedLine = {
+  payment_type: string;
+  payment_type_label: string;
+  count: number;
+  gross_amount: number;
+  fee_amount: number;       // negative (KPay convention)
+  net_amount: number;
+  expected_fee: number;     // negative (matches actual sign convention)
+  fee_variance: number;     // actual - expected; positive = KPay charged more
+  audit_status: "ok" | "rate_off" | "unknown_pm";
+};
 
 type ParsedBatch = {
   merchant_number: string;
@@ -97,28 +111,26 @@ type ParsedBatch = {
   frozen_amount: number;
   net_settlement: number;
   count: number;
-  lines: { payment_type: string; payment_type_label: string; count: number; gross_amount: number; fee_amount: number; net_amount: number }[];
+  lines: ParsedLine[];
+  // audit aggregates
+  transactions_flagged: number;
+  fee_variance: number;
+  audit_status: "ok" | "rate_off" | "unknown_pm";
+  audit_note: string;
 };
 
-// ---------- Core parser (KPay Monthly Settlement Report) ----------
-// Sheet "Monthly Settlement Report" → "Transaction settled" section gives one row per batch.
-// Sheet "Settlement details" gives per-transaction rows; aggregate by (merchant, txn date, payment method) → lines.
-function parseKPayWorkbook(wb: XLSX.WorkBook) {
-  const round2 = (n: number) => Math.round(n * 100) / 100;
+function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
+  const batchMap = new Map<string, ParsedBatch>();
 
-  // ---- 1) Batches from "Monthly Settlement Report" ----
-  type RawBatch = ParsedBatch;
-  const batchMap = new Map<string, RawBatch>();
+  // 1) Batches from Monthly Settlement Report
   const monthly = wb.Sheets["Monthly Settlement Report"];
   if (monthly) {
     const rows = XLSX.utils.sheet_to_json<any[]>(monthly, { header: 1, raw: true, defval: null });
-    // Find the "Transaction settled" header row (the 2nd table)
     let headerRow = -1;
     for (let r = 0; r < rows.length; r++) {
       const joined = (rows[r] || []).map((c) => norm(c)).join("|");
       if (joined.includes("settlement date") && joined.includes("transaction date") && joined.includes("net total settlement")) {
-        headerRow = r;
-        break;
+        headerRow = r; break;
       }
     }
     if (headerRow >= 0) {
@@ -142,7 +154,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook) {
 
       for (let r = headerRow + 1; r < rows.length; r++) {
         const row = rows[r] || [];
-        if (row.every((c) => c === null || c === "" || c === undefined)) continue;
+        if (row.every((c: any) => c === null || c === "" || c === undefined)) continue;
         const merchant_number = String(row[cMerch] ?? "").trim();
         const settlement_date = toDate(row[cSettleDate]);
         const transaction_date = toDate(row[cTxnDate]);
@@ -162,12 +174,16 @@ function parseKPayWorkbook(wb: XLSX.WorkBook) {
           net_settlement: round2(toNum(row[cNet])),
           count: toNum(row[cCount]),
           lines: [],
+          transactions_flagged: 0,
+          fee_variance: 0,
+          audit_status: "ok",
+          audit_note: "",
         });
       }
     }
   }
 
-  // ---- 2) Lines from "Settlement details" ----
+  // 2) Per-transaction audit from Settlement details
   const details = wb.Sheets["Settlement details"];
   if (details) {
     const rows = XLSX.utils.sheet_to_json<any[]>(details, { header: 1, raw: true, defval: null });
@@ -175,8 +191,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook) {
     for (let r = 0; r < Math.min(rows.length, 20); r++) {
       const joined = (rows[r] || []).map((c) => norm(c)).join("|");
       if (joined.includes("payment method") && joined.includes("transaction time")) {
-        headerRow = r;
-        break;
+        headerRow = r; break;
       }
     }
     if (headerRow >= 0) {
@@ -191,42 +206,82 @@ function parseKPayWorkbook(wb: XLSX.WorkBook) {
       const cAmount = find("local payment amount");
       const cFee = find("transaction fee");
       const cNet = find("settlement amount");
+      const cLocality = find("transaction locality");
 
-      type Agg = { count: number; gross: number; fee: number; net: number; label: string };
-      // key: merchant|txn_date|method
+      type Agg = {
+        count: number;
+        gross: number;
+        fee: number;
+        net: number;
+        expected: number;
+        flagged: number;
+        unknown: boolean;
+        rateOff: boolean;
+        label: string;
+        key: string;
+      };
       const agg = new Map<string, Agg>();
+
       for (let r = headerRow + 1; r < rows.length; r++) {
         const row = rows[r] || [];
-        if (row.every((c) => c === null || c === "" || c === undefined)) continue;
+        if (row.every((c: any) => c === null || c === "" || c === undefined)) continue;
         const merchant = String(row[cMerch] ?? "").trim();
         const method = String(row[cMethod] ?? "").trim();
+        const locality = cLocality >= 0 ? String(row[cLocality] ?? "").trim() : "";
         const t = toDate(row[cTxnTime]);
         if (!merchant || !method || !t) continue;
-        const k = `${merchant}|${t}|${method}`;
+
+        const amount = toNum(row[cAmount]);
+        const actualFee = toNum(row[cFee]); // negative
+        const netAmt = toNum(row[cNet]);
+
+        const cls = classifyPaymentMethod(method, locality);
+        const rate = findRate(rates, cls.key, cls.locality, merchant);
+        const expected = rate ? -round2(amount * rate.rate) : 0;
+        const variance = round2(actualFee - expected);
+        const isFlagged = !rate ? true : Math.abs(variance) > 0.01;
+
+        // group key: merchant + txn_date + classified method + locality
+        const k = `${merchant}|${t}|${cls.key}|${cls.locality}`;
         let a = agg.get(k);
-        if (!a) { a = { count: 0, gross: 0, fee: 0, net: 0, label: method }; agg.set(k, a); }
+        if (!a) {
+          a = { count: 0, gross: 0, fee: 0, net: 0, expected: 0, flagged: 0, unknown: !rate, rateOff: false, label: method, key: cls.key };
+          agg.set(k, a);
+        }
         a.count += 1;
-        a.gross += toNum(row[cAmount]);
-        a.fee += toNum(row[cFee]);
-        a.net += toNum(row[cNet]);
+        a.gross += amount;
+        a.fee += actualFee;
+        a.net += netAmt;
+        a.expected += expected;
+        if (isFlagged) a.flagged += 1;
+        if (!rate) a.unknown = true;
+        else if (Math.abs(variance) > 0.01) a.rateOff = true;
       }
 
-      // Attach aggregated lines to matching batches (match by merchant + txn date)
+      // attach lines to batches
       for (const [k, a] of agg) {
-        const [merchant, txnDate, method] = k.split("|");
-        // Find the batch with this merchant + txn_date (settlement_date may differ)
+        const [merchant, txnDate] = k.split("|");
         const batch = Array.from(batchMap.values()).find(
           (b) => b.merchant_number === merchant && b.transaction_date === txnDate,
         );
         if (!batch) continue;
+        const variance = round2(a.fee - a.expected);
+        const status: ParsedLine["audit_status"] = a.unknown ? "unknown_pm" : a.rateOff ? "rate_off" : "ok";
         batch.lines.push({
-          payment_type: mapPaymentType(method),
-          payment_type_label: method,
+          payment_type: a.key,
+          payment_type_label: a.label,
           count: a.count,
           gross_amount: round2(a.gross),
           fee_amount: round2(a.fee),
           net_amount: round2(a.net),
+          expected_fee: round2(a.expected),
+          fee_variance: variance,
+          audit_status: status,
         });
+        batch.transactions_flagged += a.flagged;
+        batch.fee_variance = round2(batch.fee_variance + variance);
+        if (status === "unknown_pm" && batch.audit_status !== "unknown_pm") batch.audit_status = "unknown_pm";
+        else if (status === "rate_off" && batch.audit_status === "ok") batch.audit_status = "rate_off";
       }
     }
   }
@@ -235,6 +290,75 @@ function parseKPayWorkbook(wb: XLSX.WorkBook) {
     (a, b) => a.settlement_date.localeCompare(b.settlement_date) || a.merchant_number.localeCompare(b.merchant_number),
   );
   return { batches };
+}
+
+// Optional: ask Gemini to write a one-line note per flagged batch
+async function annotateFlaggedBatches(batches: ParsedBatch[]): Promise<void> {
+  const flagged = batches.filter((b) => b.audit_status !== "ok");
+  if (flagged.length === 0) return;
+
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) return;
+
+  const payload = flagged.slice(0, 50).map((b) => ({
+    settle: b.settlement_date,
+    txn: b.transaction_date,
+    merchant: b.merchant_label || b.merchant_number,
+    variance: b.fee_variance,
+    status: b.audit_status,
+    lines: b.lines
+      .filter((l) => l.audit_status !== "ok")
+      .map((l) => ({ pm: l.payment_type_label, count: l.count, gross: l.gross_amount, expected: l.expected_fee, actual: l.fee_amount, variance: l.fee_variance, status: l.audit_status })),
+  }));
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a payments auditor. For each settlement batch in the input, write a single short sentence (max 100 chars) explaining the fee anomaly in plain English. Reply ONLY by calling the write_notes tool.",
+          },
+          { role: "user", content: JSON.stringify(payload) },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "write_notes",
+              description: "Return one note per flagged batch in input order.",
+              parameters: {
+                type: "object",
+                properties: {
+                  notes: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+                required: ["notes"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "write_notes" } },
+      }),
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!args) return;
+    const notes: string[] = JSON.parse(args).notes || [];
+    flagged.slice(0, notes.length).forEach((b, i) => {
+      b.audit_note = notes[i] || "";
+    });
+  } catch (e) {
+    console.warn("Gemini annotate skipped:", (e as Error).message);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -249,7 +373,7 @@ Deno.serve(async (req) => {
 
     const { data: imp, error: ie } = await admin
       .from("payment_settlement_imports")
-      .select("id, file_url, file_name")
+      .select("id, file_url, file_name, processor_id")
       .eq("id", import_id)
       .single();
     if (ie || !imp) return json({ error: ie?.message || "Import not found" }, 404);
@@ -264,17 +388,34 @@ Deno.serve(async (req) => {
       return json({ error: "Only XLSX/XLS/CSV is supported in this phase. PDF parsing will be added later." }, 400);
     }
 
-    const wb = XLSX.read(new Uint8Array(ab), { type: "array", cellDates: true });
-    const { batches } = parseKPayWorkbook(wb);
+    // Load fee rates for this processor
+    const { data: rateRows } = await admin
+      .from("payment_processor_fee_rates")
+      .select("payment_method, locality, merchant_number, rate, rounding_dp")
+      .eq("processor_id", imp.processor_id);
+    const rates: FeeRate[] = (rateRows || []) as any;
 
-    // Look up merchants we know about
+    const wb = XLSX.read(new Uint8Array(ab), { type: "array", cellDates: true });
+    const { batches } = parseKPayWorkbook(wb, rates);
+
+    // Annotate flagged batches via Gemini (best-effort)
+    await annotateFlaggedBatches(batches);
+
+    // Audit summary
+    const auditSummary = {
+      transactions_flagged: batches.reduce((s, b) => s + b.transactions_flagged, 0),
+      fee_variance: round2(batches.reduce((s, b) => s + b.fee_variance, 0)),
+      expected_fee_total: round2(batches.reduce((s, b) => s + b.lines.reduce((x, l) => x + l.expected_fee, 0), 0)),
+      actual_fee_total: round2(batches.reduce((s, b) => s + b.lines.reduce((x, l) => x + l.fee_amount, 0), 0)),
+    };
+
     const knownMerchants = await admin
       .from("payment_processor_merchants")
       .select("id, merchant_number, display_name");
     const known = new Set((knownMerchants.data || []).map((m: any) => m.merchant_number));
     const unknown_merchants = Array.from(new Set(batches.map((b) => b.merchant_number).filter((n) => n && !known.has(n))));
 
-    return json({ batches, unknown_merchants, sheets: wb.SheetNames });
+    return json({ batches, unknown_merchants, audit: auditSummary, sheets: wb.SheetNames });
   } catch (e: any) {
     console.error("parse-kpay-settlement error:", e);
     return json({ error: e?.message || "Unknown error" }, 500);
