@@ -320,7 +320,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                   <tr key={r.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
                     <td className="py-2.5 pr-2">{PM_LABEL[r.payment_method] || r.payment_method}</td>
                     <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[r.locality] || r.locality}</td>
-                    <td className="py-2.5 pr-2 text-muted-foreground">{merchantLabel(r.merchant_number)}</td>
+                    <td className="py-2.5 pr-2 text-muted-foreground align-top">{renderMerchantCell(r.merchant_number)}</td>
                     <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
                     <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
                     <td className="py-2.5 pr-2 text-right">
