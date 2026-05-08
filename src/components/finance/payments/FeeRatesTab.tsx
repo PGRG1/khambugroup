@@ -301,9 +301,10 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border/40">
+                <th className="py-2 pr-2 font-medium">Terminal</th>
+                <th className="py-2 pr-2 font-medium">Store</th>
                 <th className="py-2 pr-2 font-medium">Payment Method</th>
                 <th className="py-2 pr-2 font-medium">Locality</th>
-                <th className="py-2 pr-2 font-medium">Store / Terminal</th>
                 <th className="py-2 pr-2 font-medium text-right">Fee Rate</th>
                 <th className="py-2 pr-2 font-medium text-right">Rounding</th>
                 <th className="py-2 pr-2 font-medium text-right w-24">Actions</th>
