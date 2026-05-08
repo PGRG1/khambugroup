@@ -347,38 +347,43 @@ export function ParseSettlementModal({
 
                 <div className="rounded-md border border-border/40 overflow-hidden">
                   <table className="w-full text-xs">
-                    <thead className="bg-muted/40 uppercase tracking-wider text-[10px] text-muted-foreground">
+                    <thead className="bg-muted/40 uppercase tracking-wider text-[10px] text-muted-foreground sticky top-0">
                       <tr>
-                        <th className="w-6"></th>
-                        <th className="text-left px-2 py-1.5">Settle</th>
-                        <th className="text-left px-2 py-1.5">Txn</th>
+                        <th className="text-left px-2 py-1.5">Txn time</th>
                         <th className="text-left px-2 py-1.5">Merchant</th>
-                        <th className="text-right px-2 py-1.5">#</th>
+                        <th className="text-left px-2 py-1.5">Payment method</th>
+                        <th className="text-left px-2 py-1.5">Locality</th>
                         <th className="text-right px-2 py-1.5">Gross</th>
                         <th className="text-right px-2 py-1.5">Actual fee</th>
                         <th className="text-right px-2 py-1.5">Expected</th>
                         <th className="text-right px-2 py-1.5">Δ</th>
-                        <th className="text-left px-2 py-1.5">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {batches.map((b, idx) => {
-                        const merchant = merchantByNumber.get(b.merchant_number);
-                        const expectedBatch = b.lines.reduce((s, l) => s + l.expected_fee, 0);
-                        const isOpen = expanded.has(idx);
-                        const flagged = b.audit_status !== "ok";
-                        return (
-                          <DetailsRow
-                            key={idx}
-                            isOpen={isOpen}
-                            onToggle={() => toggle(idx)}
-                            flagged={flagged}
-                            batch={b}
-                            merchantLabel={merchant?.display_name || b.merchant_label || "?"}
-                            expectedBatch={expectedBatch}
-                          />
-                        );
-                      })}
+                      {batches
+                        .flatMap((b) => (b.transactions || []).map((t) => ({ t, b })))
+                        .sort((a, z) => z.t.transaction_time.localeCompare(a.t.transaction_time))
+                        .map(({ t, b }, idx) => {
+                          const merchant = merchantByNumber.get(t.merchant_number);
+                          const flagged = Math.abs(Number(t.fee_variance)) > 0.01;
+                          return (
+                            <tr key={idx} className={`border-t border-border/40 ${flagged ? "bg-amber-500/5" : ""}`}>
+                              <td className="px-2 py-1.5 td-num whitespace-nowrap">
+                                {new Date(t.transaction_time).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <div className="font-medium">{merchant?.display_name || b.merchant_label || "?"}</div>
+                                <div className="font-mono text-[10px] text-muted-foreground">{t.merchant_number}</div>
+                              </td>
+                              <td className="px-2 py-1.5">{t.payment_method_raw}</td>
+                              <td className="px-2 py-1.5 capitalize text-muted-foreground">{t.locality || "—"}</td>
+                              <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.gross_amount)}</td>
+                              <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
+                              <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(t.expected_fee)}</td>
+                              <td className={`px-2 py-1.5 text-right td-num ${flagged ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(t.fee_variance)}</td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
