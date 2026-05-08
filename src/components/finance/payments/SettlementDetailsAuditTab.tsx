@@ -259,6 +259,7 @@ export function SettlementDetailsAuditTab({
               <Th label="Txn time" k="time" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Merchant" k="merchant" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Payment method" k="method" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="text-left px-2 py-1.5">Wallet</th>
               <th className="text-left px-2 py-1.5">Locality</th>
               <Th label="Gross" k="gross" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Actual fee" k="fee" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
