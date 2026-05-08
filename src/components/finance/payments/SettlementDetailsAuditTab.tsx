@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import type { PaymentProcessor, ProcessorMerchant, SettlementBatch, SettlementTransaction } from "@/hooks/usePaymentSettlements";
-import { formatCurrency as fmtMoney } from "@/utils/salesUtils";
+const fmtMoney = (v: number) =>
+  Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const fmtDateTime = (s: string) => {
   if (!s) return "—";
