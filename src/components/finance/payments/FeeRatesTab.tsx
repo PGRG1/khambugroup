@@ -106,7 +106,6 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     return out;
   })();
 
-  const renderTerminalCell = (mn: string | null) => {
   const merchantInfo = (mn: string) => {
     const m = merchants.find((x) => x.merchant_number === mn);
     if (!m) return { label: mn };
