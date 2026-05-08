@@ -73,8 +73,14 @@ function classifyPaymentMethod(rawMethod: string, rawLocality: string): { key: s
   if (m.includes("wechat") || m.includes("weixin")) return { key: "wechat", locality: "any" };
   if (m.includes("unionpay") || m.includes("union pay")) return { key: "union_pay", locality: localityKey === "unknown" ? "domestic" : localityKey };
   if (m.includes("payme")) return { key: "payme", locality: "any" };
-  if (m.includes("amex") || m.includes("american express")) return { key: "amex", locality: localityKey };
-  if (m.includes("jcb")) return { key: "jcb", locality: localityKey };
+  if (m.includes("amex") || m.includes("american express")) {
+    if (m.includes("foreign") || localityKey === "foreign") return { key: "amex_foreign", locality: "foreign" };
+    return { key: "amex", locality: localityKey === "unknown" ? "domestic" : localityKey };
+  }
+  if (m.includes("jcb")) {
+    if (m.includes("foreign") || localityKey === "foreign") return { key: "jcb_foreign", locality: "foreign" };
+    return { key: "jcb", locality: localityKey === "unknown" ? "domestic" : localityKey };
+  }
   if (m.includes("fps")) return { key: "fps", locality: "any" };
   return { key: m.replace(/\s+/g, "_") || "other", locality: localityKey };
 }
