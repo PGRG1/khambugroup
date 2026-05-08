@@ -58,6 +58,9 @@ export type SettlementBatch = {
   bank_transaction_id: string | null;
   status: string;
   notes: string;
+  transactions_flagged: number;
+  fee_variance: number;
+  audit_status: string;
 };
 
 export type SettlementLine = {
@@ -69,6 +72,10 @@ export type SettlementLine = {
   gross_amount: number;
   fee_amount: number;
   net_amount: number;
+  expected_fee: number;
+  fee_variance: number;
+  audit_status: string;
+  audit_note: string;
 };
 
 export function usePaymentSettlements() {
