@@ -129,14 +129,14 @@ export function ImportsTab({
               )}
               {filtered.map((i) => (
                 <tr key={i.id} className="border-t border-border/40 hover:bg-muted/30">
-                  <td className="px-3 py-2">{format.date(i.period_start)} – {format.date(i.period_end)}</td>
+                  <td className="px-3 py-2">{formatDate(i.period_start)} – {formatDate(i.period_end)}</td>
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-2 text-xs">
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                       {i.file_name || "—"}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{format.date(i.uploaded_at)}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{formatDate(i.uploaded_at)}</td>
                   <td className="px-3 py-2"><span className="chip chip-info">{i.status}</span></td>
                   <td className="px-3 py-2 text-right">
                     <Button size="icon" variant="ghost" onClick={() => handleDownload(i)}><Download className="h-3.5 w-3.5" /></Button>
