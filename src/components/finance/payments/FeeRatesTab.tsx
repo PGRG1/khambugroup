@@ -226,8 +226,8 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
   }
 
   const sorted = [...rates].sort((a, b) => {
-    const la = PM_LABEL[a.payment_method] || a.payment_method;
-    const lb = PM_LABEL[b.payment_method] || b.payment_method;
+    const la = formatMethodLabel(a.payment_method, a.wallet_type);
+    const lb = formatMethodLabel(b.payment_method, b.wallet_type);
     if (la !== lb) return la.localeCompare(lb);
     if (a.locality !== b.locality) return a.locality.localeCompare(b.locality);
     return (a.merchant_number || "").localeCompare(b.merchant_number || "");
