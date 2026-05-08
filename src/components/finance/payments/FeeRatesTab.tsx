@@ -91,8 +91,18 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     setAdding(false);
   }, [processor?.id]);
 
+  const allVenuesLabel = (() => {
+    const set = new Set<string>();
+    merchants.forEach((m) => {
+      if (m.shared_venues?.length) m.shared_venues.forEach((v) => set.add(v));
+      else if (m.venue) set.add(m.venue);
+    });
+    const list = Array.from(set);
+    return list.length ? list.join(" · ") : "All venues";
+  })();
+
   const merchantLabel = (mn: string | null) => {
-    if (!mn) return "All";
+    if (!mn) return allVenuesLabel;
     const m = merchants.find((x) => x.merchant_number === mn);
     if (!m) return mn;
     if (m.shared_venues?.length) return m.shared_venues.join(" / ");
