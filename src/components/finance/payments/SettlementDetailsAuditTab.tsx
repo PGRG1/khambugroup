@@ -103,7 +103,7 @@ export function SettlementDetailsAuditTab({
 
       const { data } = await supabase
         .from("payment_processor_fee_rates")
-        .select("id, payment_method, locality, merchant_number, rate, rounding_dp")
+        .select("id, payment_method, locality, merchant_number, wallet_type, rate, rounding_dp")
         .eq("processor_id", processor.id);
 
       if (!cancelled) setRates((data || []) as FeeRate[]);
