@@ -209,7 +209,11 @@ export function SettlementDetailsAuditTab({
 
   return (
     <Card className="card-glass p-4 space-y-3">
-      {ok ? (
+      {ratesLoading ? (
+        <div className="rounded-md border border-border/40 bg-muted/20 p-2.5 text-xs text-muted-foreground animate-pulse">
+          Loading fee rates…
+        </div>
+      ) : ok ? (
         <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 p-2.5 text-xs flex items-center gap-1.5">
           <CheckCircle2 className="h-3.5 w-3.5" /> All transactions were charged at the contracted KPay fee rates.
         </div>
