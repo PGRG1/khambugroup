@@ -100,198 +100,140 @@ type ParsedBatch = {
   lines: { payment_type: string; payment_type_label: string; count: number; gross_amount: number; fee_amount: number; net_amount: number }[];
 };
 
-// ---------- Core parser ----------
+// ---------- Core parser (KPay Monthly Settlement Report) ----------
+// Sheet "Monthly Settlement Report" → "Transaction settled" section gives one row per batch.
+// Sheet "Settlement details" gives per-transaction rows; aggregate by (merchant, txn date, payment method) → lines.
 function parseKPayWorkbook(wb: XLSX.WorkBook) {
-  const sheets = readAllRows(wb);
+  const round2 = (n: number) => Math.round(n * 100) / 100;
 
-  // Build a key→column index per row (header detection)
-  // Strategy: scan every sheet for header rows that contain common KPay columns.
-  // Two record kinds we care about:
-  //  - Store-detail row: has txn date + settlement date + payment type + amount/fee/net
-  //  - Overview row: has merchant + count + transaction amount + net settlement (no per-payment-type)
-
-  const detailRows: ParsedBatch["lines"][number][] & { _meta?: any }[] = [] as any;
-  type Detail = {
-    merchant_number: string;
-    merchant_label: string;
-    transaction_date: string;
-    settlement_date: string;
-    payment_type_label: string;
-    count: number;
-    gross_amount: number;
-    fee_amount: number;
-    net_amount: number;
-    points_offset: number;
-    bank_transfer_fee: number;
-    adjustments: number;
-    frozen_amount: number;
-  };
-  const details: Detail[] = [];
-
-  const findHeader = (rows: any[][]) => {
-    for (let r = 0; r < Math.min(rows.length, 60); r++) {
-      const row = (rows[r] || []).map((c) => norm(c));
-      const joined = row.join("|");
-      if (
-        joined.includes("payment type") ||
-        joined.includes("payment method") ||
-        (joined.includes("transaction date") && (joined.includes("settlement date") || joined.includes("settlement"))) ||
-        (joined.includes("transaction amount") && joined.includes("net"))
-      ) {
-        return r;
+  // ---- 1) Batches from "Monthly Settlement Report" ----
+  type RawBatch = ParsedBatch;
+  const batchMap = new Map<string, RawBatch>();
+  const monthly = wb.Sheets["Monthly Settlement Report"];
+  if (monthly) {
+    const rows = XLSX.utils.sheet_to_json<any[]>(monthly, { header: 1, raw: true, defval: null });
+    // Find the "Transaction settled" header row (the 2nd table)
+    let headerRow = -1;
+    for (let r = 0; r < rows.length; r++) {
+      const joined = (rows[r] || []).map((c) => norm(c)).join("|");
+      if (joined.includes("settlement date") && joined.includes("transaction date") && joined.includes("net total settlement")) {
+        headerRow = r;
+        break;
       }
     }
-    return -1;
-  };
+    if (headerRow >= 0) {
+      const header = rows[headerRow];
+      const find = (...needles: string[]) => header.findIndex((h: any) => {
+        const n = norm(h);
+        return n && needles.some((x) => n.includes(x));
+      });
+      const cStore = find("name of store");
+      const cMerch = find("merchant number");
+      const cSettleDate = find("settlement date");
+      const cTxnDate = find("transaction date");
+      const cCount = find("transaction count");
+      const cGross = find("transaction amount");
+      const cFee = find("transaction fee");
+      const cPoints = find("points redeemed");
+      const cAdj = find("adjustment amount");
+      const cFrozen = find("frozen amount");
+      const cSettleFee = find("settlement fee");
+      const cNet = find("net total settlement");
 
-  const colFinder = (header: any[]) => {
-    const idx = (...needles: string[]) => {
-      for (let i = 0; i < header.length; i++) {
-        const h = norm(header[i]);
-        if (!h) continue;
-        if (needles.some((n) => h.includes(n))) return i;
-      }
-      return -1;
-    };
-    return idx;
-  };
-
-  // Track current merchant context as we walk rows (KPay groups "Store: 852... ASSEMBLY")
-  let currentMerchantNumber = "";
-  let currentMerchantLabel = "";
-
-  const merchantFromRow = (row: any[]): { num: string; label: string } | null => {
-    for (const c of row) {
-      const s = String(c ?? "");
-      const m = s.match(/(\d{15,18})/); // KPay merchant numbers are long
-      if (m) {
-        return { num: m[1], label: s.replace(m[1], "").replace(/[:：\-]/g, "").trim() || s.trim() };
-      }
-    }
-    // Sometimes label is on its own row right after the number
-    return null;
-  };
-
-  for (const { rows } of sheets) {
-    const headerRow = findHeader(rows);
-    const header = headerRow >= 0 ? rows[headerRow] : [];
-    const idx = colFinder(header);
-
-    const cTxnDate = idx("transaction date", "txn date");
-    const cSettleDate = idx("settlement date", "settle date", "settle on");
-    const cPayType = idx("payment type", "payment method", "card type", "type");
-    const cCount = idx("count", "transactions", "no. of");
-    const cGross = idx("transaction amount", "amount", "gross");
-    const cFee = idx("transaction fee", "fee");
-    const cPoints = idx("points", "fee offset");
-    const cBankFee = idx("bank transfer fee");
-    const cAdj = idx("adjustment");
-    const cFrozen = idx("frozen");
-    const cNet = idx("net settlement", "fund released", "net");
-
-    let mode: "details" | "overview" | "unknown" = "unknown";
-    if (cPayType >= 0 && cTxnDate >= 0) mode = "details";
-    else if (cNet >= 0 && cGross >= 0) mode = "overview";
-
-    for (let r = headerRow >= 0 ? headerRow + 1 : 0; r < rows.length; r++) {
-      const row = rows[r] || [];
-      if (row.every((c) => c === null || c === "" || c === undefined)) continue;
-
-      // Update merchant context on rows that contain a long numeric ID
-      const m = merchantFromRow(row);
-      if (m) {
-        currentMerchantNumber = m.num;
-        currentMerchantLabel = m.label || currentMerchantLabel;
-        continue;
-      }
-
-      if (mode === "details" && cTxnDate >= 0 && cPayType >= 0) {
-        const t = toDate(row[cTxnDate]);
-        const s = cSettleDate >= 0 ? toDate(row[cSettleDate]) : t;
-        const pt = String(row[cPayType] ?? "").trim();
-        if (!t || !pt) continue;
-        // Skip totals
-        if (/total|subtotal|sum/i.test(pt)) continue;
-        details.push({
-          merchant_number: currentMerchantNumber,
-          merchant_label: currentMerchantLabel,
-          transaction_date: t,
-          settlement_date: s || t,
-          payment_type_label: pt,
-          count: cCount >= 0 ? toNum(row[cCount]) : 0,
-          gross_amount: cGross >= 0 ? toNum(row[cGross]) : 0,
-          fee_amount: cFee >= 0 ? toNum(row[cFee]) : 0,
-          net_amount: cNet >= 0 ? toNum(row[cNet]) : 0,
-          points_offset: cPoints >= 0 ? toNum(row[cPoints]) : 0,
-          bank_transfer_fee: cBankFee >= 0 ? toNum(row[cBankFee]) : 0,
-          adjustments: cAdj >= 0 ? toNum(row[cAdj]) : 0,
-          frozen_amount: cFrozen >= 0 ? toNum(row[cFrozen]) : 0,
+      for (let r = headerRow + 1; r < rows.length; r++) {
+        const row = rows[r] || [];
+        if (row.every((c) => c === null || c === "" || c === undefined)) continue;
+        const merchant_number = String(row[cMerch] ?? "").trim();
+        const settlement_date = toDate(row[cSettleDate]);
+        const transaction_date = toDate(row[cTxnDate]);
+        if (!merchant_number || !settlement_date || !transaction_date) continue;
+        const key = `${merchant_number}|${settlement_date}|${transaction_date}`;
+        batchMap.set(key, {
+          merchant_number,
+          merchant_label: String(row[cStore] ?? "").trim(),
+          transaction_date,
+          settlement_date,
+          gross_amount: round2(toNum(row[cGross])),
+          fee_amount: round2(toNum(row[cFee])),
+          points_offset: round2(toNum(row[cPoints])),
+          bank_transfer_fee: round2(toNum(row[cSettleFee])),
+          adjustments: round2(toNum(row[cAdj])),
+          frozen_amount: round2(toNum(row[cFrozen])),
+          net_settlement: round2(toNum(row[cNet])),
+          count: toNum(row[cCount]),
+          lines: [],
         });
       }
     }
   }
 
-  // Group details into batches keyed by (merchant, settlement_date, transaction_date)
-  const map = new Map<string, ParsedBatch>();
-  for (const d of details) {
-    const key = `${d.merchant_number}|${d.settlement_date}|${d.transaction_date}`;
-    let b = map.get(key);
-    if (!b) {
-      b = {
-        merchant_number: d.merchant_number,
-        merchant_label: d.merchant_label,
-        transaction_date: d.transaction_date,
-        settlement_date: d.settlement_date,
-        gross_amount: 0,
-        fee_amount: 0,
-        points_offset: 0,
-        bank_transfer_fee: 0,
-        adjustments: 0,
-        frozen_amount: 0,
-        net_settlement: 0,
-        count: 0,
-        lines: [],
-      };
-      map.set(key, b);
+  // ---- 2) Lines from "Settlement details" ----
+  const details = wb.Sheets["Settlement details"];
+  if (details) {
+    const rows = XLSX.utils.sheet_to_json<any[]>(details, { header: 1, raw: true, defval: null });
+    let headerRow = -1;
+    for (let r = 0; r < Math.min(rows.length, 20); r++) {
+      const joined = (rows[r] || []).map((c) => norm(c)).join("|");
+      if (joined.includes("payment method") && joined.includes("transaction time")) {
+        headerRow = r;
+        break;
+      }
     }
-    b.gross_amount += d.gross_amount;
-    b.fee_amount += d.fee_amount;
-    b.points_offset += d.points_offset;
-    b.bank_transfer_fee += d.bank_transfer_fee;
-    b.adjustments += d.adjustments;
-    b.frozen_amount += d.frozen_amount;
-    b.net_settlement += d.net_amount;
-    b.count += d.count;
-    b.lines.push({
-      payment_type: mapPaymentType(d.payment_type_label),
-      payment_type_label: d.payment_type_label,
-      count: d.count,
-      gross_amount: d.gross_amount,
-      fee_amount: d.fee_amount,
-      net_amount: d.net_amount,
-    });
+    if (headerRow >= 0) {
+      const header = rows[headerRow];
+      const find = (...needles: string[]) => header.findIndex((h: any) => {
+        const n = norm(h);
+        return n && needles.some((x) => n.includes(x));
+      });
+      const cMerch = find("merchant number");
+      const cMethod = find("payment method");
+      const cTxnTime = find("transaction time");
+      const cAmount = find("local payment amount");
+      const cFee = find("transaction fee");
+      const cNet = find("settlement amount");
+
+      type Agg = { count: number; gross: number; fee: number; net: number; label: string };
+      // key: merchant|txn_date|method
+      const agg = new Map<string, Agg>();
+      for (let r = headerRow + 1; r < rows.length; r++) {
+        const row = rows[r] || [];
+        if (row.every((c) => c === null || c === "" || c === undefined)) continue;
+        const merchant = String(row[cMerch] ?? "").trim();
+        const method = String(row[cMethod] ?? "").trim();
+        const t = toDate(row[cTxnTime]);
+        if (!merchant || !method || !t) continue;
+        const k = `${merchant}|${t}|${method}`;
+        let a = agg.get(k);
+        if (!a) { a = { count: 0, gross: 0, fee: 0, net: 0, label: method }; agg.set(k, a); }
+        a.count += 1;
+        a.gross += toNum(row[cAmount]);
+        a.fee += toNum(row[cFee]);
+        a.net += toNum(row[cNet]);
+      }
+
+      // Attach aggregated lines to matching batches (match by merchant + txn date)
+      for (const [k, a] of agg) {
+        const [merchant, txnDate, method] = k.split("|");
+        // Find the batch with this merchant + txn_date (settlement_date may differ)
+        const batch = Array.from(batchMap.values()).find(
+          (b) => b.merchant_number === merchant && b.transaction_date === txnDate,
+        );
+        if (!batch) continue;
+        batch.lines.push({
+          payment_type: mapPaymentType(method),
+          payment_type_label: method,
+          count: a.count,
+          gross_amount: round2(a.gross),
+          fee_amount: round2(a.fee),
+          net_amount: round2(a.net),
+        });
+      }
+    }
   }
 
-  const round2 = (n: number) => Math.round(n * 100) / 100;
-  const batches = Array.from(map.values())
-    .map((b) => ({
-      ...b,
-      gross_amount: round2(b.gross_amount),
-      fee_amount: round2(b.fee_amount),
-      points_offset: round2(b.points_offset),
-      bank_transfer_fee: round2(b.bank_transfer_fee),
-      adjustments: round2(b.adjustments),
-      frozen_amount: round2(b.frozen_amount),
-      net_settlement: round2(b.net_settlement),
-      lines: b.lines.map((l) => ({
-        ...l,
-        gross_amount: round2(l.gross_amount),
-        fee_amount: round2(l.fee_amount),
-        net_amount: round2(l.net_amount),
-      })),
-    }))
-    .sort((a, b) => (a.settlement_date.localeCompare(b.settlement_date) || a.merchant_number.localeCompare(b.merchant_number)));
-
+  const batches = Array.from(batchMap.values()).sort(
+    (a, b) => a.settlement_date.localeCompare(b.settlement_date) || a.merchant_number.localeCompare(b.merchant_number),
+  );
   return { batches };
 }
 
