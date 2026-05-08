@@ -15,6 +15,10 @@ const json = (b: unknown, status = 200) =>
 
 // ---------- Helpers ----------
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const roundTo = (n: number, dp: number) => {
+  const f = Math.pow(10, Math.max(0, dp | 0));
+  return Math.round(n * f) / f;
+};
 const norm = (v: any) => String(v ?? "").trim().toLowerCase();
 
 const toNum = (v: any): number => {
@@ -274,7 +278,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
 
         const cls = classifyPaymentMethod(method, locality);
         const rate = findRate(rates, cls.key, cls.locality, merchant);
-        const expected = rate ? -round2(amount * rate.rate) : 0;
+        const expected = rate ? -roundTo(amount * rate.rate, rate.rounding_dp ?? 2) : 0;
         const variance = round2(actualFee - expected);
         const isFlagged = !rate ? true : Math.abs(variance) > 0.01;
         const status: ParsedTxn["audit_status"] = !rate ? "unknown_pm" : (Math.abs(variance) > 0.01 ? "rate_off" : "ok");
