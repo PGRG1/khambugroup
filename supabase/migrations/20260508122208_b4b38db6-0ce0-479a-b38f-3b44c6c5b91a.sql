@@ -1,0 +1,4 @@
+DELETE FROM payment_settlement_transactions;
+DELETE FROM payment_settlement_lines;
+DELETE FROM payment_settlement_batches;
+DELETE FROM payment_settlement_imports;
