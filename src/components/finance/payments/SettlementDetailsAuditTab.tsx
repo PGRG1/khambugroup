@@ -172,14 +172,16 @@ export function SettlementDetailsAuditTab({
   }, [filtered, sortKey, sortDir]);
 
   const totals = useMemo(() => {
-    let gross = 0, actual = 0, expected = 0, flagged = 0;
+    let gross = 0, actual = 0, expected = 0, variance = 0, flagged = 0;
     filtered.forEach((t) => {
       gross += Number(t.gross_amount || 0);
       actual += Number(t.fee_amount || 0);
       expected += Number(t.expectedFeeComputed || 0);
+      // Sum the per-row rounded variances so the KPI Δ matches the visible row deltas exactly.
+      variance += Number(t.feeVarianceComputed || 0);
       if (t.auditStatusComputed !== "ok") flagged += 1;
     });
-    return { count: filtered.length, gross, actual, expected, variance: actual - expected, flagged };
+    return { count: filtered.length, gross, actual, expected, variance: round2(variance), flagged };
   }, [filtered]);
 
   const onSort = (k: SortKey) => {
