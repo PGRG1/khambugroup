@@ -1,11 +1,52 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, CheckCircle2, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import type { PaymentProcessor, ProcessorMerchant, SettlementBatch, SettlementTransaction } from "@/hooks/usePaymentSettlements";
 const fmtMoney = (v: number) =>
   Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+type FeeRate = {
+  id: string;
+  payment_method: string;
+  locality: string;
+  merchant_number: string | null;
+  rate: number;
+  rounding_dp: number;
+};
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const roundTo = (n: number, dp: number) => {
+  const factor = Math.pow(10, Math.max(0, dp | 0));
+  return Math.round(n * factor) / factor;
+};
+
+const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+
+function classifyPaymentMethod(rawMethod: string, rawLocality: string) {
+  const method = norm(rawMethod);
+  const locality = norm(rawLocality);
+  const localityKey = locality === "domestic" ? "domestic" : locality === "foreign" ? "foreign" : "unknown";
+
+  if (method.includes("visa")) return { key: method.includes("foreign") ? "visa_foreign" : "visa", locality: method.includes("foreign") ? "foreign" : localityKey === "unknown" ? "domestic" : localityKey };
+  if (method.includes("master")) return { key: method.includes("foreign") ? "mastercard_foreign" : "mastercard", locality: method.includes("foreign") ? "foreign" : localityKey === "unknown" ? "domestic" : localityKey };
+  if (method.includes("alipay")) return { key: "alipay", locality: "any" };
+  if (method.includes("wechat") || method.includes("weixin")) return { key: "wechat", locality: "any" };
+  if (method.includes("unionpay") || method.includes("union pay")) return { key: "union_pay", locality: localityKey === "unknown" ? "domestic" : localityKey };
+  if (method.includes("payme")) return { key: "payme", locality: "any" };
+  if (method.includes("amex") || method.includes("american express")) return { key: method.includes("foreign") || localityKey === "foreign" ? "amex_foreign" : "amex", locality: method.includes("foreign") || localityKey === "foreign" ? "foreign" : localityKey === "unknown" ? "domestic" : localityKey };
+  if (method.includes("jcb")) return { key: method.includes("foreign") || localityKey === "foreign" ? "jcb_foreign" : "jcb", locality: method.includes("foreign") || localityKey === "foreign" ? "foreign" : localityKey === "unknown" ? "domestic" : localityKey };
+  if (method.includes("fps")) return { key: "fps", locality: "any" };
+  return { key: method.replace(/\s+/g, "_") || "other", locality: localityKey };
+}
+
+function findRate(rates: FeeRate[], method: string, locality: string, merchant: string) {
+  const candidates = rates.filter((r) => r.payment_method === method && (r.locality === locality || r.locality === "any"));
+  const exact = candidates.find((r) => r.merchant_number === merchant);
+  return exact || candidates.find((r) => !r.merchant_number) || null;
+}
 
 const fmtDateTime = (s: string) => {
   if (!s) return "—";
@@ -39,6 +80,30 @@ export function SettlementDetailsAuditTab({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [rates, setRates] = useState<FeeRate[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRates = async () => {
+      if (!processor) {
+        setRates([]);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("payment_processor_fee_rates")
+        .select("id, payment_method, locality, merchant_number, rate, rounding_dp")
+        .eq("processor_id", processor.id);
+
+      if (!cancelled) setRates((data || []) as FeeRate[]);
+    };
+
+    loadRates();
+    return () => {
+      cancelled = true;
+    };
+  }, [processor]);
 
   const merchantById = useMemo(() => {
     const m = new Map<string, ProcessorMerchant>();
@@ -56,17 +121,30 @@ export function SettlementDetailsAuditTab({
     return transactions.map((t) => {
       const batch = batchById.get(t.batch_id);
       const merchant = batch ? merchantById.get(batch.merchant_id) : undefined;
+      const classified = classifyPaymentMethod(t.payment_method_raw, t.locality);
+      const methodKey = t.payment_method_key || classified.key;
+      const localityKey = ["domestic", "foreign", "any"].includes(norm(t.locality)) ? norm(t.locality) : classified.locality;
+      const rate = findRate(rates, methodKey, localityKey, t.merchant_number);
+      const expectedFeeComputed = rate
+        ? -roundTo(Number(t.gross_amount || 0) * Number(rate.rate || 0), rate.rounding_dp ?? 2)
+        : 0;
+      const feeVarianceComputed = round2(Number(t.fee_amount || 0) - expectedFeeComputed);
+      const auditStatusComputed = !rate ? "unknown_pm" : Math.abs(feeVarianceComputed) > 0.01 ? "rate_off" : "ok";
+
       return {
         ...t,
         merchantLabel: merchant?.display_name || t.merchant_number || "?",
+        expectedFeeComputed,
+        feeVarianceComputed,
+        auditStatusComputed,
       };
     });
-  }, [transactions, batchById, merchantById]);
+  }, [transactions, batchById, merchantById, rates]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return enriched.filter((t) => {
-      if (statusFilter !== "all" && t.audit_status !== statusFilter) return false;
+      if (statusFilter !== "all" && t.auditStatusComputed !== statusFilter) return false;
       if (!q) return true;
       return (
         t.merchantLabel.toLowerCase().includes(q) ||
@@ -86,8 +164,8 @@ export function SettlementDetailsAuditTab({
         case "method": return a.payment_method_raw.localeCompare(b.payment_method_raw) * dir;
         case "gross": return (a.gross_amount - b.gross_amount) * dir;
         case "fee": return (a.fee_amount - b.fee_amount) * dir;
-        case "expected": return (a.expected_fee - b.expected_fee) * dir;
-        case "variance": return (a.fee_variance - b.fee_variance) * dir;
+        case "expected": return (a.expectedFeeComputed - b.expectedFeeComputed) * dir;
+        case "variance": return (a.feeVarianceComputed - b.feeVarianceComputed) * dir;
       }
     });
     return arr;
@@ -98,8 +176,8 @@ export function SettlementDetailsAuditTab({
     filtered.forEach((t) => {
       gross += Number(t.gross_amount || 0);
       actual += Number(t.fee_amount || 0);
-      expected += Number(t.expected_fee || 0);
-      if (t.audit_status !== "ok") flagged += 1;
+      expected += Number(t.expectedFeeComputed || 0);
+      if (t.auditStatusComputed !== "ok") flagged += 1;
     });
     return { count: filtered.length, gross, actual, expected, variance: actual - expected, flagged };
   }, [filtered]);
@@ -178,7 +256,7 @@ export function SettlementDetailsAuditTab({
           </thead>
           <tbody>
             {sorted.map((t) => {
-              const flagged = t.audit_status !== "ok";
+              const flagged = t.auditStatusComputed !== "ok";
               return (
                 <tr key={t.id} className={`border-t border-border/40 ${flagged ? "bg-amber-500/5" : ""}`}>
                   <td className="px-2 py-1.5 td-num whitespace-nowrap">{fmtDateTime(t.transaction_time)}</td>
@@ -190,10 +268,10 @@ export function SettlementDetailsAuditTab({
                   <td className="px-2 py-1.5 capitalize text-muted-foreground">{t.locality || "—"}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.gross_amount)}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
-                  <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(t.expected_fee)}</td>
-                  <td className={`px-2 py-1.5 text-right td-num ${Math.abs(Number(t.fee_variance)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(t.fee_variance)}</td>
+                  <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(t.expectedFeeComputed)}</td>
+                  <td className={`px-2 py-1.5 text-right td-num ${Math.abs(Number(t.feeVarianceComputed)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(t.feeVarianceComputed)}</td>
                   <td className="px-2 py-1.5">
-                    <span className={STATUS_STYLE[t.audit_status] || STATUS_STYLE.ok}>{STATUS_LABEL[t.audit_status] || t.audit_status}</span>
+                    <span className={STATUS_STYLE[t.auditStatusComputed] || STATUS_STYLE.ok}>{STATUS_LABEL[t.auditStatusComputed] || t.auditStatusComputed}</span>
                   </td>
                 </tr>
               );
