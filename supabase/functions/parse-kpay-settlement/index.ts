@@ -260,6 +260,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
       const cFee = find("transaction fee");
       const cNet = find("settlement amount");
       const cLocality = find("transaction locality");
+      const cWallet = find("wallet type", "wallet");
 
       type Agg = {
         count: number;
