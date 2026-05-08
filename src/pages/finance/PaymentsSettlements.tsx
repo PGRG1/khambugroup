@@ -9,6 +9,8 @@ import { formatCurrency } from "@/utils/salesUtils";
 import { MerchantsTab } from "@/components/finance/payments/MerchantsTab";
 import { ImportsTab } from "@/components/finance/payments/ImportsTab";
 import { FeeRatesTab } from "@/components/finance/payments/FeeRatesTab";
+import { SettlementDetailsAuditTab } from "@/components/finance/payments/SettlementDetailsAuditTab";
+import { MonthlyReconciliationTab } from "@/components/finance/payments/MonthlyReconciliationTab";
 
 export default function PaymentsSettlements() {
   const { loading, processors, merchants, imports, batches, lines, reload } = usePaymentSettlements();
@@ -30,6 +32,8 @@ export default function PaymentsSettlements() {
     () => (processor ? imports.filter((i) => i.processor_id === processor.id) : []),
     [imports, processor],
   );
+  const procBatchIds = useMemo(() => new Set(procBatches.map((b) => b.id)), [procBatches]);
+  const procLines = useMemo(() => lines.filter((l) => procBatchIds.has(l.batch_id)), [lines, procBatchIds]);
 
   const totalGross = procBatches.reduce((s, b) => s + Number(b.gross_amount || 0), 0);
   const totalFees = procBatches.reduce((s, b) => s + Math.abs(Number(b.fee_amount || 0)) + Math.abs(Number(b.bank_transfer_fee || 0)), 0);
@@ -70,6 +74,8 @@ export default function PaymentsSettlements() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="batches">Settlement Batches</TabsTrigger>
+          <TabsTrigger value="details-audit">Settlement Details Audit</TabsTrigger>
+          <TabsTrigger value="monthly-recon">Monthly Reconciliation</TabsTrigger>
           <TabsTrigger value="merchants">Merchants</TabsTrigger>
           <TabsTrigger value="imports">Imports</TabsTrigger>
           <TabsTrigger value="fee-rates">Fee Rates</TabsTrigger>
@@ -110,6 +116,14 @@ export default function PaymentsSettlements() {
             <FileText className="h-6 w-6 mx-auto mb-2 text-primary/70" />
             Settlement batches will appear here once the parser (Phase 2) is enabled and you upload a report.
           </Card>
+        </TabsContent>
+
+        <TabsContent value="details-audit" className="mt-4">
+          <SettlementDetailsAuditTab processor={processor} merchants={procMerchants} batches={procBatches} lines={procLines} />
+        </TabsContent>
+
+        <TabsContent value="monthly-recon" className="mt-4">
+          <MonthlyReconciliationTab processor={processor} merchants={procMerchants} batches={procBatches} lines={procLines} />
         </TabsContent>
 
         <TabsContent value="merchants" className="mt-4">
