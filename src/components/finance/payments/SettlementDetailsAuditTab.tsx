@@ -270,7 +270,7 @@ export function SettlementDetailsAuditTab({
           </thead>
           <tbody>
             {sorted.map((t) => {
-              const flagged = t.auditStatusComputed !== "ok";
+              const flagged = !ratesLoading && t.auditStatusComputed !== "ok";
               return (
                 <tr key={t.id} className={`border-t border-border/40 ${flagged ? "bg-amber-500/5" : ""}`}>
                   <td className="px-2 py-1.5 td-num whitespace-nowrap">{fmtDateTime(t.transaction_time)}</td>
@@ -282,10 +282,14 @@ export function SettlementDetailsAuditTab({
                   <td className="px-2 py-1.5 capitalize text-muted-foreground">{t.locality || "—"}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.gross_amount)}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
-                  <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(t.expectedFeeComputed)}</td>
-                  <td className={`px-2 py-1.5 text-right td-num ${Math.abs(Number(t.feeVarianceComputed)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(t.feeVarianceComputed)}</td>
+                  <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{ratesLoading ? "—" : fmtMoney(t.expectedFeeComputed)}</td>
+                  <td className={`px-2 py-1.5 text-right td-num ${!ratesLoading && Math.abs(Number(t.feeVarianceComputed)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{ratesLoading ? "—" : fmtMoney(t.feeVarianceComputed)}</td>
                   <td className="px-2 py-1.5">
-                    <span className={STATUS_STYLE[t.auditStatusComputed] || STATUS_STYLE.ok}>{STATUS_LABEL[t.auditStatusComputed] || t.auditStatusComputed}</span>
+                    {ratesLoading ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <span className={STATUS_STYLE[t.auditStatusComputed] || STATUS_STYLE.ok}>{STATUS_LABEL[t.auditStatusComputed] || t.auditStatusComputed}</span>
+                    )}
                   </td>
                 </tr>
               );
