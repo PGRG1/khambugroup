@@ -32,6 +32,8 @@ export default function PaymentsSettlements() {
     () => (processor ? imports.filter((i) => i.processor_id === processor.id) : []),
     [imports, processor],
   );
+  const procBatchIds = useMemo(() => new Set(procBatches.map((b) => b.id)), [procBatches]);
+  const procLines = useMemo(() => lines.filter((l) => procBatchIds.has(l.batch_id)), [lines, procBatchIds]);
 
   const totalGross = procBatches.reduce((s, b) => s + Number(b.gross_amount || 0), 0);
   const totalFees = procBatches.reduce((s, b) => s + Math.abs(Number(b.fee_amount || 0)) + Math.abs(Number(b.bank_transfer_fee || 0)), 0);
