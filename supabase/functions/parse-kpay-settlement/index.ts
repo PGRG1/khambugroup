@@ -289,7 +289,61 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
   const batches = Array.from(batchMap.values()).sort(
     (a, b) => a.settlement_date.localeCompare(b.settlement_date) || a.merchant_number.localeCompare(b.merchant_number),
   );
-  return { batches };
+
+  // Build monthly reconciliation: details aggregate (per merchant + txn_date) vs Monthly row
+  type MonthlyAudit = {
+    merchant_number: string;
+    merchant_label: string;
+    settlement_date: string;
+    transaction_date: string;
+    monthly_gross: number;
+    monthly_fee: number;
+    monthly_net: number;
+    settlement_fee: number;
+    adjustments: number;
+    points_offset: number;
+    frozen_amount: number;
+    details_count: number;
+    details_gross: number;
+    details_fee: number;
+    details_net: number;
+    expected_net: number;
+    reconciliation_variance: number;
+    audit_status: "ok" | "off" | "missing_details";
+  };
+  const monthly_audit: MonthlyAudit[] = batches.map((b) => {
+    const details_count = b.lines.reduce((s, l) => s + l.count, 0);
+    const details_gross = round2(b.lines.reduce((s, l) => s + l.gross_amount, 0));
+    const details_fee = round2(b.lines.reduce((s, l) => s + l.fee_amount, 0));
+    const details_net = round2(b.lines.reduce((s, l) => s + l.net_amount, 0));
+    // KPay: monthly_net = details_net (per-txn net) + adjustments + points - settlement_fee - frozen
+    const expected_net = round2(details_net + b.adjustments + b.points_offset - b.bank_transfer_fee - b.frozen_amount);
+    const variance = round2(b.net_settlement - expected_net);
+    const status: MonthlyAudit["audit_status"] =
+      b.lines.length === 0 ? "missing_details" : Math.abs(variance) <= 0.01 ? "ok" : "off";
+    return {
+      merchant_number: b.merchant_number,
+      merchant_label: b.merchant_label,
+      settlement_date: b.settlement_date,
+      transaction_date: b.transaction_date,
+      monthly_gross: b.gross_amount,
+      monthly_fee: b.fee_amount,
+      monthly_net: b.net_settlement,
+      settlement_fee: b.bank_transfer_fee,
+      adjustments: b.adjustments,
+      points_offset: b.points_offset,
+      frozen_amount: b.frozen_amount,
+      details_count,
+      details_gross,
+      details_fee,
+      details_net,
+      expected_net,
+      reconciliation_variance: variance,
+      audit_status: status,
+    };
+  });
+
+  return { batches, monthly_audit };
 }
 
 // Optional: ask Gemini to write a one-line note per flagged batch
@@ -396,7 +450,7 @@ Deno.serve(async (req) => {
     const rates: FeeRate[] = (rateRows || []) as any;
 
     const wb = XLSX.read(new Uint8Array(ab), { type: "array", cellDates: true });
-    const { batches } = parseKPayWorkbook(wb, rates);
+    const { batches, monthly_audit } = parseKPayWorkbook(wb, rates);
 
     // Annotate flagged batches via Gemini (best-effort)
     await annotateFlaggedBatches(batches);
@@ -407,6 +461,9 @@ Deno.serve(async (req) => {
       fee_variance: round2(batches.reduce((s, b) => s + b.fee_variance, 0)),
       expected_fee_total: round2(batches.reduce((s, b) => s + b.lines.reduce((x, l) => x + l.expected_fee, 0), 0)),
       actual_fee_total: round2(batches.reduce((s, b) => s + b.lines.reduce((x, l) => x + l.fee_amount, 0), 0)),
+      reconciliation_off: monthly_audit.filter((m) => m.audit_status !== "ok").length,
+      reconciliation_variance: round2(monthly_audit.reduce((s, m) => s + m.reconciliation_variance, 0)),
+      settlement_fee_total: round2(monthly_audit.reduce((s, m) => s + m.settlement_fee, 0)),
     };
 
     const knownMerchants = await admin
@@ -415,7 +472,7 @@ Deno.serve(async (req) => {
     const known = new Set((knownMerchants.data || []).map((m: any) => m.merchant_number));
     const unknown_merchants = Array.from(new Set(batches.map((b) => b.merchant_number).filter((n) => n && !known.has(n))));
 
-    return json({ batches, unknown_merchants, audit: auditSummary, sheets: wb.SheetNames });
+    return json({ batches, monthly_audit, unknown_merchants, audit: auditSummary, sheets: wb.SheetNames });
   } catch (e: any) {
     console.error("parse-kpay-settlement error:", e);
     return json({ error: e?.message || "Unknown error" }, 500);
