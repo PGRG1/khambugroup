@@ -75,6 +75,7 @@ type Draft = {
   payment_method: string;
   locality: string;
   merchant_number: string; // "" means All
+  wallet_type: string; // "" means none
   rate_pct: string; // editable percent string
   rounding_dp: number;
 };
@@ -83,8 +84,16 @@ const blankDraft: Draft = {
   payment_method: "visa",
   locality: "domestic",
   merchant_number: "",
+  wallet_type: "",
   rate_pct: "1.50",
   rounding_dp: 2,
+};
+
+// Build a display label like "WeChat Pay (HK)" or just "Visa"
+const formatMethodLabel = (method: string, wallet: string | null) => {
+  const base = PM_LABEL[method] || method;
+  if (wallet && WALLET_SHORT[wallet]) return `${base} (${WALLET_SHORT[wallet]})`;
+  return base;
 };
 
 export function FeeRatesTab({ processor, merchants }: { processor: { id: string; name: string } | null; merchants: Merchant[] }) {
