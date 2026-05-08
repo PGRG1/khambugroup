@@ -13,10 +13,32 @@ type FeeRate = {
   payment_method: string;
   locality: string;
   merchant_number: string | null;
+  wallet_type: string | null;
   rate: number;
   rounding_dp: number;
   notes: string | null;
 };
+
+// Wallet sub-types for digital wallet methods
+const WALLET_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  alipay: [
+    { value: "AlipayHK", label: "HK" },
+    { value: "AlipayCN", label: "CN" },
+  ],
+  wechat: [
+    { value: "WeChatHK", label: "HK" },
+    { value: "WeChatCN", label: "CN" },
+  ],
+  payme: [
+    { value: "PayMeHK", label: "HK" },
+  ],
+};
+const WALLET_SHORT: Record<string, string> = {
+  AlipayHK: "HK", AlipayCN: "CN",
+  WeChatHK: "HK", WeChatCN: "CN",
+  PayMeHK: "HK",
+};
+const NO_WALLET = "__none__";
 
 type Merchant = {
   merchant_number: string;
