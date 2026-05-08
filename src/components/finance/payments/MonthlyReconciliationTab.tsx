@@ -61,7 +61,8 @@ export function MonthlyReconciliationTab({
       const points_offset = Number(b.points_offset || 0);
       const frozen_amount = Number(b.frozen_amount || 0);
       const monthly_net = Number(b.net_settlement || 0);
-      const expected_net = round2(details_net + adjustments + points_offset - settlement_fee - frozen_amount);
+      // settlement_fee is stored signed (negative for a deduction), so add directly
+      const expected_net = round2(details_net + adjustments + points_offset + settlement_fee - frozen_amount);
       const variance = round2(monthly_net - expected_net);
       const status = bLines.length === 0 ? "missing_details" : Math.abs(variance) <= 0.01 ? "ok" : "off";
       return {
