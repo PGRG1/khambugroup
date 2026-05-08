@@ -118,6 +118,14 @@ export default function PaymentsSettlements() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="details-audit" className="mt-4">
+          <SettlementDetailsAuditTab processor={processor} merchants={procMerchants} batches={procBatches} lines={procLines} />
+        </TabsContent>
+
+        <TabsContent value="monthly-recon" className="mt-4">
+          <MonthlyReconciliationTab processor={processor} merchants={procMerchants} batches={procBatches} lines={procLines} />
+        </TabsContent>
+
         <TabsContent value="merchants" className="mt-4">
           <MerchantsTab processor={processor} merchants={merchants} bankAccounts={bankAccounts} onChanged={reload} />
         </TabsContent>
