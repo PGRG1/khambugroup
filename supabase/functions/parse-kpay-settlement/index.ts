@@ -202,6 +202,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
           net_settlement: round2(toNum(row[cNet])),
           count: toNum(row[cCount]),
           lines: [],
+          transactions: [],
           transactions_flagged: 0,
           fee_variance: 0,
           audit_status: "ok",
