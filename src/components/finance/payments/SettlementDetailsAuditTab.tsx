@@ -229,7 +229,7 @@ export function SettlementDetailsAuditTab({
         <Stat label="Gross" value={fmtMoney(totals.gross)} />
         <Stat label="Expected fee" value={fmtMoney(totals.expected)} />
         <Stat label="Actual fee" value={fmtMoney(totals.actual)} />
-        <Stat label="Δ" value={fmtMoney(totals.variance)} tone={totals.flagged > 0 ? "warn" : "ok"} />
+        <Stat label="Δ" value={fmtMoney(totals.variance)} tone={!ratesLoading && totals.flagged > 0 ? "warn" : "ok"} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
