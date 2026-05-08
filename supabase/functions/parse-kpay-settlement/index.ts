@@ -283,6 +283,8 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         const merchant = String(row[cMerch] ?? "").trim();
         const method = String(row[cMethod] ?? "").trim();
         const locality = cLocality >= 0 ? String(row[cLocality] ?? "").trim() : "";
+        const walletRaw = cWallet >= 0 ? String(row[cWallet] ?? "").trim() : "";
+        const wallet = walletRaw || null;
         const tDateTime = toDateTime(row[cTxnTime]);
         const t = tDateTime ? tDateTime.slice(0, 10) : null;
         if (!merchant || !method || !t) continue;
@@ -292,7 +294,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         const netAmt = toNum(row[cNet]);
 
         const cls = classifyPaymentMethod(method, locality);
-        const rate = findRate(rates, cls.key, cls.locality, merchant);
+        const rate = findRate(rates, cls.key, cls.locality, merchant, wallet);
         const expected = rate ? -roundTo(amount * rate.rate, rate.rounding_dp ?? 2) : 0;
         const variance = round2(actualFee - expected);
         const isFlagged = !rate ? true : Math.abs(variance) > 0.01;
@@ -322,6 +324,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
           payment_method_raw: method,
           payment_method_key: cls.key,
           locality: cls.locality,
+          wallet_type: wallet,
           merchant_number: merchant,
           gross_amount: round2(amount),
           fee_amount: round2(actualFee),
