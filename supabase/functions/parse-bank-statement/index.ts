@@ -94,60 +94,107 @@ Deno.serve(async (req) => {
 
     const dataUrl = `data:${mime_type || "application/pdf"};base64,${file_base64}`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: `Extract the bank statement (file: ${file_name || "statement.pdf"}). Return ALL transactions across ALL pages and ALL accounts.` },
-              { type: "image_url", image_url: { url: dataUrl } },
-            ],
-          },
-        ],
-        tools: [TOOL],
-        tool_choice: { type: "function", function: { name: "extract_statement" } },
-      }),
-    });
-
-    if (!aiRes.ok) {
-      const txt = await aiRes.text();
-      console.error("AI gateway error", aiRes.status, txt);
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited, please try again shortly." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Add funds in Workspace → Usage." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "AI extraction failed", detail: txt.slice(0, 500) }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const callAI = async (model: string) => {
+      return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: `Extract the bank statement (file: ${file_name || "statement.pdf"}). Return ALL transactions across ALL pages and ALL accounts.` },
+                { type: "image_url", image_url: { url: dataUrl } },
+              ],
+            },
+          ],
+          tools: [TOOL],
+          tool_choice: { type: "function", function: { name: "extract_statement" } },
+        }),
       });
+    };
+
+    // Try gemini-2.5-pro first; on upstream failure (no tool call / network lost), retry once,
+    // then fall back to gemini-2.5-flash which is more reliable for tool calling on large PDFs.
+    const models = ["google/gemini-2.5-pro", "google/gemini-2.5-pro", "google/gemini-2.5-flash"];
+    let parsed: any = null;
+    let lastError: string = "";
+    let lastStatus = 500;
+
+    for (const model of models) {
+      let aiRes: Response;
+      try {
+        aiRes = await callAI(model);
+      } catch (e) {
+        lastError = `Network error calling ${model}: ${String(e)}`;
+        console.error(lastError);
+        continue;
+      }
+
+      if (!aiRes.ok) {
+        const txt = await aiRes.text();
+        console.error("AI gateway error", aiRes.status, txt);
+        lastStatus = aiRes.status;
+        lastError = txt.slice(0, 500);
+        if (aiRes.status === 429 || aiRes.status === 402) {
+          // No point retrying; bail.
+          const msg = aiRes.status === 429
+            ? "Rate limited, please try again shortly."
+            : "AI credits exhausted. Add funds in Workspace → Usage.";
+          return new Response(JSON.stringify({ error: msg }), {
+            status: aiRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        continue;
+      }
+
+      let json: any;
+      try {
+        json = await aiRes.json();
+      } catch (e) {
+        lastError = `Empty/invalid JSON from ${model}: ${String(e)}`;
+        console.error(lastError);
+        continue;
+      }
+
+      const choice = json?.choices?.[0];
+      const upstreamErr = choice?.error;
+      if (upstreamErr) {
+        lastError = `Upstream provider error (${model}): ${upstreamErr.code} ${upstreamErr.message}`;
+        console.error(lastError);
+        continue;
+      }
+
+      const call = choice?.message?.tool_calls?.[0];
+      if (!call) {
+        lastError = `No tool call returned from ${model}`;
+        console.error(lastError, JSON.stringify(json).slice(0, 800));
+        continue;
+      }
+
+      try {
+        parsed = typeof call.function.arguments === "string"
+          ? JSON.parse(call.function.arguments)
+          : call.function.arguments;
+        break; // success
+      } catch (e) {
+        lastError = `Failed to parse tool arguments from ${model}: ${String(e)}`;
+        console.error(lastError);
+        continue;
+      }
     }
 
-    const json = await aiRes.json();
-    const call = json.choices?.[0]?.message?.tool_calls?.[0];
-    if (!call) {
-      return new Response(JSON.stringify({ error: "No tool call returned", raw: json }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    let parsed: any;
-    try {
-      parsed = typeof call.function.arguments === "string" ? JSON.parse(call.function.arguments) : call.function.arguments;
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Failed to parse tool arguments", detail: String(e) }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (!parsed) {
+      return new Response(JSON.stringify({
+        error: "AI extraction failed after retries. The PDF may be too large or the AI provider is temporarily unavailable. Please try again, or split the PDF into smaller files.",
+        detail: lastError,
+      }), {
+        status: lastStatus, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
