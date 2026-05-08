@@ -8,6 +8,7 @@ import { useBankReconciliation } from "@/hooks/useBankReconciliation";
 import { formatCurrency } from "@/utils/salesUtils";
 import { MerchantsTab } from "@/components/finance/payments/MerchantsTab";
 import { ImportsTab } from "@/components/finance/payments/ImportsTab";
+import { FeeRatesTab } from "@/components/finance/payments/FeeRatesTab";
 
 export default function PaymentsSettlements() {
   const { loading, processors, merchants, imports, batches, lines, reload } = usePaymentSettlements();
@@ -71,6 +72,7 @@ export default function PaymentsSettlements() {
           <TabsTrigger value="batches">Settlement Batches</TabsTrigger>
           <TabsTrigger value="merchants">Merchants</TabsTrigger>
           <TabsTrigger value="imports">Imports</TabsTrigger>
+          <TabsTrigger value="fee-rates">Fee Rates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -116,6 +118,10 @@ export default function PaymentsSettlements() {
 
         <TabsContent value="imports" className="mt-4">
           <ImportsTab processor={processor} imports={imports} merchants={merchants} onChanged={reload} />
+        </TabsContent>
+
+        <TabsContent value="fee-rates" className="mt-4">
+          <FeeRatesTab processor={processor} merchants={procMerchants} />
         </TabsContent>
       </Tabs>
     </div>
