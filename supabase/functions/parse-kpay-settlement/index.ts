@@ -26,19 +26,31 @@ const toNum = (v: any): number => {
 };
 
 const toDate = (v: any): string | null => {
+  const dt = toDateTime(v);
+  return dt ? dt.slice(0, 10) : null;
+};
+
+const toDateTime = (v: any): string | null => {
   if (!v) return null;
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (v instanceof Date) return v.toISOString();
   if (typeof v === "number") {
     const d = new Date(Math.round((v - 25569) * 86400 * 1000));
-    return d.toISOString().slice(0, 10);
+    return d.toISOString();
   }
   const s = String(v).trim();
-  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
-  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  // YYYY-MM-DD [HH:MM[:SS]]
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const iso = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}T${(m[4] || "00").padStart(2, "0")}:${m[5] || "00"}:${m[6] || "00"}Z`;
+    return new Date(iso).toISOString();
+  }
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const iso = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}T${(m[4] || "00").padStart(2, "0")}:${m[5] || "00"}:${m[6] || "00"}Z`;
+    return new Date(iso).toISOString();
+  }
   const d = new Date(s);
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  if (!isNaN(d.getTime())) return d.toISOString();
   return null;
 };
 
