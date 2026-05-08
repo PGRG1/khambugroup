@@ -450,7 +450,7 @@ Deno.serve(async (req) => {
     const rates: FeeRate[] = (rateRows || []) as any;
 
     const wb = XLSX.read(new Uint8Array(ab), { type: "array", cellDates: true });
-    const { batches } = parseKPayWorkbook(wb, rates);
+    const { batches, monthly_audit } = parseKPayWorkbook(wb, rates);
 
     // Annotate flagged batches via Gemini (best-effort)
     await annotateFlaggedBatches(batches);
@@ -461,6 +461,9 @@ Deno.serve(async (req) => {
       fee_variance: round2(batches.reduce((s, b) => s + b.fee_variance, 0)),
       expected_fee_total: round2(batches.reduce((s, b) => s + b.lines.reduce((x, l) => x + l.expected_fee, 0), 0)),
       actual_fee_total: round2(batches.reduce((s, b) => s + b.lines.reduce((x, l) => x + l.fee_amount, 0), 0)),
+      reconciliation_off: monthly_audit.filter((m) => m.audit_status !== "ok").length,
+      reconciliation_variance: round2(monthly_audit.reduce((s, m) => s + m.reconciliation_variance, 0)),
+      settlement_fee_total: round2(monthly_audit.reduce((s, m) => s + m.settlement_fee, 0)),
     };
 
     const knownMerchants = await admin
@@ -469,7 +472,7 @@ Deno.serve(async (req) => {
     const known = new Set((knownMerchants.data || []).map((m: any) => m.merchant_number));
     const unknown_merchants = Array.from(new Set(batches.map((b) => b.merchant_number).filter((n) => n && !known.has(n))));
 
-    return json({ batches, unknown_merchants, audit: auditSummary, sheets: wb.SheetNames });
+    return json({ batches, monthly_audit, unknown_merchants, audit: auditSummary, sheets: wb.SheetNames });
   } catch (e: any) {
     console.error("parse-kpay-settlement error:", e);
     return json({ error: e?.message || "Unknown error" }, 500);
