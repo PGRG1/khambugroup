@@ -106,32 +106,10 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
     return out;
   })();
 
-  const renderTerminalCell = (mn: string | null) => {
-    if (!mn) {
-      if (merchantGroups.length === 0) return <span className="text-muted-foreground">—</span>;
-      return (
-        <div className="flex flex-col gap-0.5 font-mono text-xs">
-          {merchantGroups.map((g) => <span key={g.mn}>{g.mn}</span>)}
-        </div>
-      );
-    }
-    return <span className="font-mono text-xs">{mn}</span>;
-  };
-
-  const renderStoreCell = (mn: string | null) => {
-    if (!mn) {
-      if (merchantGroups.length === 0) return <span>All</span>;
-      return (
-        <div className="flex flex-col gap-0.5">
-          {merchantGroups.map((g) => <span key={g.mn}>{g.label}</span>)}
-        </div>
-      );
-    }
+  const merchantInfo = (mn: string) => {
     const m = merchants.find((x) => x.merchant_number === mn);
-    const label = m
-      ? (m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name))
-      : mn;
-    return <span>{label}</span>;
+    if (!m) return { label: mn };
+    return { label: m.shared_venues?.length ? m.shared_venues.join(" / ") : (m.venue || m.display_name) };
   };
 
   const startEdit = (r: FeeRate) => {
@@ -315,30 +293,41 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
               {sorted.length === 0 && !adding ? (
                 <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
               ) : (
-                sorted.map((r) => editingId === r.id ? (
-                  <tr key={r.id} className="bg-muted/30 border-b border-border/40">
-                    {renderEditor().props.children}
-                  </tr>
-                ) : (
-                  <tr key={r.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
-                    <td className="py-2.5 pr-2 align-top">{renderTerminalCell(r.merchant_number)}</td>
-                    <td className="py-2.5 pr-2 text-muted-foreground align-top">{renderStoreCell(r.merchant_number)}</td>
-                    <td className="py-2.5 pr-2 align-top">{PM_LABEL[r.payment_method] || r.payment_method}</td>
-                    <td className="py-2.5 pr-2 text-muted-foreground align-top">{LOCALITY_LABEL[r.locality] || r.locality}</td>
-                    <td className="py-2.5 pr-2 text-right td-num align-top">{(Number(r.rate) * 100).toFixed(2)}%</td>
-                    <td className="py-2.5 pr-2 text-right td-num text-muted-foreground align-top">{r.rounding_dp} decimals</td>
-                    <td className="py-2.5 pr-2 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" variant="ghost" onClick={() => startEdit(r)} disabled={!!editingId || adding}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => remove(r)} disabled={!!editingId || adding}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                sorted.flatMap((r) => {
+                  if (editingId === r.id) {
+                    return [(
+                      <tr key={r.id} className="bg-muted/30 border-b border-border/40">
+                        {renderEditor().props.children}
+                      </tr>
+                    )];
+                  }
+                  // Expand "All" rates into one row per merchant group
+                  const targets = r.merchant_number
+                    ? [{ mn: r.merchant_number, label: merchantInfo(r.merchant_number).label }]
+                    : (merchantGroups.length ? merchantGroups : [{ mn: "—", label: "All" }]);
+                  return targets.map((t, idx) => (
+                    <tr key={`${r.id}-${t.mn}`} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
+                      <td className="py-2.5 pr-2 font-mono text-xs">{t.mn}</td>
+                      <td className="py-2.5 pr-2 text-muted-foreground">{t.label}</td>
+                      <td className="py-2.5 pr-2">{PM_LABEL[r.payment_method] || r.payment_method}</td>
+                      <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[r.locality] || r.locality}</td>
+                      <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
+                      <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
+                      <td className="py-2.5 pr-2 text-right">
+                        {idx === 0 && (
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="ghost" onClick={() => startEdit(r)} disabled={!!editingId || adding}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => remove(r)} disabled={!!editingId || adding}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ));
+                })
               )}
             </tbody>
           </table>
