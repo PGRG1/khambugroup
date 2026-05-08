@@ -13,6 +13,7 @@ type FeeRate = {
   payment_method: string;
   locality: string;
   merchant_number: string | null;
+  wallet_type: string | null;
   rate: number;
   rounding_dp: number;
 };
@@ -42,10 +43,19 @@ function classifyPaymentMethod(rawMethod: string, rawLocality: string) {
   return { key: method.replace(/\s+/g, "_") || "other", locality: localityKey };
 }
 
-function findRate(rates: FeeRate[], method: string, locality: string, merchant: string) {
-  const candidates = rates.filter((r) => r.payment_method === method && (r.locality === locality || r.locality === "any"));
-  const exact = candidates.find((r) => r.merchant_number === merchant);
-  return exact || candidates.find((r) => !r.merchant_number) || null;
+function findRate(rates: FeeRate[], method: string, locality: string, merchant: string, wallet: string | null) {
+  const base = rates.filter((r) => r.payment_method === method && (r.locality === locality || r.locality === "any"));
+  const w = norm(wallet);
+  if (w) {
+    const wm = base.filter((r) => norm(r.wallet_type) === w);
+    const exact = wm.find((r) => r.merchant_number === merchant);
+    if (exact) return exact;
+    const any = wm.find((r) => !r.merchant_number);
+    if (any) return any;
+  }
+  const noW = base.filter((r) => !r.wallet_type);
+  const exact = noW.find((r) => r.merchant_number === merchant);
+  return exact || noW.find((r) => !r.merchant_number) || null;
 }
 
 const fmtDateTime = (s: string) => {
@@ -93,7 +103,7 @@ export function SettlementDetailsAuditTab({
 
       const { data } = await supabase
         .from("payment_processor_fee_rates")
-        .select("id, payment_method, locality, merchant_number, rate, rounding_dp")
+        .select("id, payment_method, locality, merchant_number, wallet_type, rate, rounding_dp")
         .eq("processor_id", processor.id);
 
       if (!cancelled) setRates((data || []) as FeeRate[]);
@@ -124,7 +134,7 @@ export function SettlementDetailsAuditTab({
       const classified = classifyPaymentMethod(t.payment_method_raw, t.locality);
       const methodKey = t.payment_method_key || classified.key;
       const localityKey = ["domestic", "foreign", "any"].includes(norm(t.locality)) ? norm(t.locality) : classified.locality;
-      const rate = findRate(rates, methodKey, localityKey, t.merchant_number);
+      const rate = findRate(rates, methodKey, localityKey, t.merchant_number, (t as any).wallet_type ?? null);
       const expectedFeeComputed = rate
         ? -roundTo(Number(t.gross_amount || 0) * Number(rate.rate || 0), rate.rounding_dp ?? 2)
         : 0;
@@ -249,6 +259,7 @@ export function SettlementDetailsAuditTab({
               <Th label="Txn time" k="time" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Merchant" k="merchant" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Payment method" k="method" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="text-left px-2 py-1.5">Wallet</th>
               <th className="text-left px-2 py-1.5">Locality</th>
               <Th label="Gross" k="gross" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Actual fee" k="fee" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -268,6 +279,7 @@ export function SettlementDetailsAuditTab({
                     <div className="font-mono text-[10px] text-muted-foreground">{t.merchant_number}</div>
                   </td>
                   <td className="px-2 py-1.5">{t.payment_method_raw}</td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{(t as any).wallet_type || "—"}</td>
                   <td className="px-2 py-1.5 capitalize text-muted-foreground">{t.locality || "—"}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.gross_amount)}</td>
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
@@ -280,7 +292,7 @@ export function SettlementDetailsAuditTab({
               );
             })}
             {sorted.length === 0 && (
-              <tr><td colSpan={9} className="text-center text-muted-foreground py-6">No transactions match your filters.</td></tr>
+              <tr><td colSpan={10} className="text-center text-muted-foreground py-6">No transactions match your filters.</td></tr>
             )}
           </tbody>
         </table>

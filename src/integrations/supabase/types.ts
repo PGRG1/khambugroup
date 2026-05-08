@@ -2384,6 +2384,7 @@ export type Database = {
           rate: number
           rounding_dp: number
           updated_at: string
+          wallet_type: string | null
         }
         Insert: {
           created_at?: string
@@ -2397,6 +2398,7 @@ export type Database = {
           rate: number
           rounding_dp?: number
           updated_at?: string
+          wallet_type?: string | null
         }
         Update: {
           created_at?: string
@@ -2410,6 +2412,7 @@ export type Database = {
           rate?: number
           rounding_dp?: number
           updated_at?: string
+          wallet_type?: string | null
         }
         Relationships: [
           {
@@ -2733,6 +2736,7 @@ export type Database = {
           payment_method_raw: string
           reference: string
           transaction_time: string
+          wallet_type: string | null
         }
         Insert: {
           audit_status?: string
@@ -2750,6 +2754,7 @@ export type Database = {
           payment_method_raw?: string
           reference?: string
           transaction_time: string
+          wallet_type?: string | null
         }
         Update: {
           audit_status?: string
@@ -2767,6 +2772,7 @@ export type Database = {
           payment_method_raw?: string
           reference?: string
           transaction_time?: string
+          wallet_type?: string | null
         }
         Relationships: [
           {

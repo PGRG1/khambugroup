@@ -260,6 +260,7 @@ export function ParseSettlementModal({
                 payment_method_raw: t.payment_method_raw,
                 payment_method_key: t.payment_method_key,
                 locality: t.locality,
+                wallet_type: (t as any).wallet_type ?? null,
                 merchant_number: t.merchant_number,
                 gross_amount: t.gross_amount,
                 fee_amount: t.fee_amount,

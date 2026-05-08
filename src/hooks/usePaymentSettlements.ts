@@ -85,6 +85,7 @@ export type SettlementTransaction = {
   payment_method_raw: string;
   payment_method_key: string;
   locality: string;
+  wallet_type: string | null;
   merchant_number: string;
   gross_amount: number;
   fee_amount: number;
