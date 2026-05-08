@@ -383,8 +383,8 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
     const details_gross = round2(b.lines.reduce((s, l) => s + l.gross_amount, 0));
     const details_fee = round2(b.lines.reduce((s, l) => s + l.fee_amount, 0));
     const details_net = round2(b.lines.reduce((s, l) => s + l.net_amount, 0));
-    // KPay: monthly_net = details_net (per-txn net) + adjustments + points - settlement_fee - frozen
-    const expected_net = round2(details_net + b.adjustments + b.points_offset - b.bank_transfer_fee - b.frozen_amount);
+    // KPay: settlement_fee comes through signed (negative), add directly
+    const expected_net = round2(details_net + b.adjustments + b.points_offset + b.bank_transfer_fee - b.frozen_amount);
     const variance = round2(b.net_settlement - expected_net);
     const status: MonthlyAudit["audit_status"] =
       b.lines.length === 0 ? "missing_details" : Math.abs(variance) <= 0.01 ? "ok" : "off";
