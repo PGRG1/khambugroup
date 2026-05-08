@@ -81,6 +81,7 @@ export function SettlementDetailsAuditTab({
   const [sortKey, setSortKey] = useState<SortKey>("time");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [rates, setRates] = useState<FeeRate[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,15 +89,21 @@ export function SettlementDetailsAuditTab({
     const loadRates = async () => {
       if (!processor) {
         setRates([]);
+        setRatesLoading(false);
         return;
       }
 
-      const { data } = await supabase
-        .from("payment_processor_fee_rates")
-        .select("id, payment_method, locality, merchant_number, rate, rounding_dp")
-        .eq("processor_id", processor.id);
+      setRatesLoading(true);
+      try {
+        const { data } = await supabase
+          .from("payment_processor_fee_rates")
+          .select("id, payment_method, locality, merchant_number, rate, rounding_dp")
+          .eq("processor_id", processor.id);
 
-      if (!cancelled) setRates((data || []) as FeeRate[]);
+        if (!cancelled) setRates((data || []) as FeeRate[]);
+      } finally {
+        if (!cancelled) setRatesLoading(false);
+      }
     };
 
     loadRates();
