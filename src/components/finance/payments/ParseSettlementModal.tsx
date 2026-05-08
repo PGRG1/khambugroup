@@ -28,6 +28,20 @@ type ParsedLine = {
   fee_variance: number;
   audit_status: AuditStatus;
 };
+type ParsedTxn = {
+  transaction_time: string;
+  payment_method_raw: string;
+  payment_method_key: string;
+  locality: string;
+  merchant_number: string;
+  gross_amount: number;
+  fee_amount: number;
+  net_amount: number;
+  expected_fee: number;
+  fee_variance: number;
+  audit_status: AuditStatus;
+  reference: string;
+};
 type ParsedBatch = {
   merchant_number: string;
   merchant_label: string;
@@ -42,6 +56,7 @@ type ParsedBatch = {
   net_settlement: number;
   count: number;
   lines: ParsedLine[];
+  transactions: ParsedTxn[];
   transactions_flagged: number;
   fee_variance: number;
   audit_status: AuditStatus;
