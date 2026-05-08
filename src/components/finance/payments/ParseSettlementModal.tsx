@@ -5,7 +5,12 @@ import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { PaymentProcessor, ProcessorMerchant, SettlementImport } from "@/hooks/usePaymentSettlements";
-import { fmtMoney, fmtDate } from "@/utils/format";
+import { formatCurrency as fmtMoney } from "@/utils/salesUtils";
+const fmtDate = (s: string) => {
+  if (!s) return "—";
+  const d = new Date(s);
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
 
 type ParsedLine = {
   payment_type: string;
