@@ -250,6 +250,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         key: string;
       };
       const agg = new Map<string, Agg>();
+      const txnsByKey = new Map<string, ParsedTxn[]>();
 
       for (let r = headerRow + 1; r < rows.length; r++) {
         const row = rows[r] || [];
@@ -257,7 +258,8 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         const merchant = String(row[cMerch] ?? "").trim();
         const method = String(row[cMethod] ?? "").trim();
         const locality = cLocality >= 0 ? String(row[cLocality] ?? "").trim() : "";
-        const t = toDate(row[cTxnTime]);
+        const tDateTime = toDateTime(row[cTxnTime]);
+        const t = tDateTime ? tDateTime.slice(0, 10) : null;
         if (!merchant || !method || !t) continue;
 
         const amount = toNum(row[cAmount]);
@@ -269,8 +271,9 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         const expected = rate ? -round2(amount * rate.rate) : 0;
         const variance = round2(actualFee - expected);
         const isFlagged = !rate ? true : Math.abs(variance) > 0.01;
+        const status: ParsedTxn["audit_status"] = !rate ? "unknown_pm" : (Math.abs(variance) > 0.01 ? "rate_off" : "ok");
 
-        // group key: merchant + txn_date + classified method + locality
+        // group key for aggregate line: merchant + txn_date + classified method + locality
         const k = `${merchant}|${t}|${cls.key}|${cls.locality}`;
         let a = agg.get(k);
         if (!a) {
@@ -285,6 +288,35 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
         if (isFlagged) a.flagged += 1;
         if (!rate) a.unknown = true;
         else if (Math.abs(variance) > 0.01) a.rateOff = true;
+
+        // raw per-transaction (keyed by merchant+txn_date so we can attach to batch later)
+        const tk = `${merchant}|${t}`;
+        const arr = txnsByKey.get(tk) || [];
+        arr.push({
+          transaction_time: tDateTime!,
+          payment_method_raw: method,
+          payment_method_key: cls.key,
+          locality: cls.locality,
+          merchant_number: merchant,
+          gross_amount: round2(amount),
+          fee_amount: round2(actualFee),
+          net_amount: round2(netAmt),
+          expected_fee: round2(expected),
+          fee_variance: variance,
+          audit_status: status,
+          reference: "",
+        });
+        txnsByKey.set(tk, arr);
+      }
+
+      // attach raw transactions to their batches
+      for (const [tk, arr] of txnsByKey) {
+        const [merchant, txnDate] = tk.split("|");
+        const batch = Array.from(batchMap.values()).find(
+          (b) => b.merchant_number === merchant && b.transaction_date === txnDate,
+        );
+        if (!batch) continue;
+        batch.transactions = arr.sort((a, b) => b.transaction_time.localeCompare(a.transaction_time));
       }
 
       // attach lines to batches
