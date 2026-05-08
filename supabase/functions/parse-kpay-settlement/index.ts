@@ -265,14 +265,7 @@ Deno.serve(async (req) => {
     }
 
     const wb = XLSX.read(new Uint8Array(ab), { type: "array", cellDates: true });
-    console.log("Sheets:", wb.SheetNames);
-    for (const sn of wb.SheetNames) {
-      const rows = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[sn], { header: 1, raw: true, defval: null });
-      console.log(`--- Sheet: ${sn} (${rows.length} rows) ---`);
-      console.log(JSON.stringify(rows.slice(0, 40)));
-    }
     const { batches } = parseKPayWorkbook(wb);
-    console.log("Parsed batches:", batches.length);
 
     // Look up merchants we know about
     const knownMerchants = await admin
