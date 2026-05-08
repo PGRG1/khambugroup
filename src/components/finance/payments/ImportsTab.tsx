@@ -1,15 +1,16 @@
 import { useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Download, Trash2, FileText } from "lucide-react";
+import { Upload, Download, Trash2, FileText, ScanLine } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ParseSettlementModal } from "./ParseSettlementModal";
 const formatDate = (s: string) => {
   if (!s) return "—";
   const d = new Date(s);
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
-import type { PaymentProcessor, SettlementImport } from "@/hooks/usePaymentSettlements";
+import type { PaymentProcessor, ProcessorMerchant, SettlementImport } from "@/hooks/usePaymentSettlements";
 
 const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 
