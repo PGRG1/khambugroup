@@ -211,7 +211,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
   };
 
   const remove = async (r: FeeRate) => {
-    if (!confirm(`Delete ${PM_LABEL[r.payment_method] || r.payment_method} (${LOCALITY_LABEL[r.locality]}) rate?`)) return;
+    if (!confirm(`Delete ${formatMethodLabel(r.payment_method, r.wallet_type)} (${LOCALITY_LABEL[r.locality] || r.locality}) rate?`)) return;
     const { error } = await supabase.from("payment_processor_fee_rates").delete().eq("id", r.id);
     if (error) {
       toast.error(error.message);
