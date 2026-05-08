@@ -278,7 +278,7 @@ function parseKPayWorkbook(wb: XLSX.WorkBook, rates: FeeRate[]) {
 
         const cls = classifyPaymentMethod(method, locality);
         const rate = findRate(rates, cls.key, cls.locality, merchant);
-        const expected = rate ? -round2(amount * rate.rate) : 0;
+        const expected = rate ? -roundTo(amount * rate.rate, rate.rounding_dp ?? 2) : 0;
         const variance = round2(actualFee - expected);
         const isFlagged = !rate ? true : Math.abs(variance) > 0.01;
         const status: ParsedTxn["audit_status"] = !rate ? "unknown_pm" : (Math.abs(variance) > 0.01 ? "rate_off" : "ok");
