@@ -1,29 +1,33 @@
 import { useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Download, Trash2, FileText } from "lucide-react";
+import { Upload, Download, Trash2, FileText, ScanLine } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ParseSettlementModal } from "./ParseSettlementModal";
 const formatDate = (s: string) => {
   if (!s) return "—";
   const d = new Date(s);
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 };
-import type { PaymentProcessor, SettlementImport } from "@/hooks/usePaymentSettlements";
+import type { PaymentProcessor, ProcessorMerchant, SettlementImport } from "@/hooks/usePaymentSettlements";
 
 const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 
 export function ImportsTab({
   processor,
   imports,
+  merchants,
   onChanged,
 }: {
   processor: PaymentProcessor | null;
   imports: SettlementImport[];
+  merchants: ProcessorMerchant[];
   onChanged: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [parseTarget, setParseTarget] = useState<SettlementImport | null>(null);
 
   const filtered = processor ? imports.filter((i) => i.processor_id === processor.id) : [];
 
@@ -139,6 +143,9 @@ export function ImportsTab({
                   <td className="px-3 py-2 text-xs text-muted-foreground">{formatDate(i.uploaded_at)}</td>
                   <td className="px-3 py-2"><span className="chip chip-info">{i.status}</span></td>
                   <td className="px-3 py-2 text-right">
+                    <Button size="sm" variant="ghost" onClick={() => setParseTarget(i)} title="Parse & review">
+                      <ScanLine className="h-3.5 w-3.5 mr-1" /> Parse
+                    </Button>
                     <Button size="icon" variant="ghost" onClick={() => handleDownload(i)}><Download className="h-3.5 w-3.5" /></Button>
                     <Button size="icon" variant="ghost" onClick={() => handleDelete(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </td>
@@ -148,6 +155,15 @@ export function ImportsTab({
           </table>
         </div>
       </Card>
+
+      <ParseSettlementModal
+        open={!!parseTarget}
+        onOpenChange={(v) => !v && setParseTarget(null)}
+        processor={processor}
+        imp={parseTarget}
+        merchants={merchants}
+        onCommitted={onChanged}
+      />
     </div>
   );
 }
