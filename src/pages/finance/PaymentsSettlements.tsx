@@ -8,6 +8,7 @@ import { useBankReconciliation } from "@/hooks/useBankReconciliation";
 import { formatCurrency } from "@/utils/salesUtils";
 import { MerchantsTab } from "@/components/finance/payments/MerchantsTab";
 import { ImportsTab } from "@/components/finance/payments/ImportsTab";
+import { FeeRatesTab } from "@/components/finance/payments/FeeRatesTab";
 
 export default function PaymentsSettlements() {
   const { loading, processors, merchants, imports, batches, lines, reload } = usePaymentSettlements();
