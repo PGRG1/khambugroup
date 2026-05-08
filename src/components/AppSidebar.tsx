@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, ScanLine, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -19,7 +19,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const navItems = [
-  { title: "AI Analyst", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
+  { title: "AI Analyst", url: "/assistant", icon: ScanLine, pageKey: "assistant" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
 ];
 

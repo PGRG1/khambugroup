@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Upload, X, BrainCircuit, Loader2, Check, Camera } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Camera } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -237,7 +237,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     <div className="card-glass rounded-xl p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-display font-semibold text-foreground flex items-center gap-2">
-          <BrainCircuit className="h-5 w-5 text-primary" />
+          <ScanLine className="h-5 w-5 text-primary" />
           Scan Receipt
         </h3>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
