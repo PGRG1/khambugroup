@@ -143,6 +143,7 @@ export type Database = {
         Row: {
           account_name: string
           account_number_last4: string
+          account_type: string
           bank_name: string
           created_at: string
           currency: string
@@ -163,6 +164,7 @@ export type Database = {
         Insert: {
           account_name: string
           account_number_last4?: string
+          account_type?: string
           bank_name?: string
           created_at?: string
           currency?: string
@@ -183,6 +185,7 @@ export type Database = {
         Update: {
           account_name?: string
           account_number_last4?: string
+          account_type?: string
           bank_name?: string
           created_at?: string
           currency?: string
@@ -292,6 +295,39 @@ export type Database = {
           },
         ]
       }
+      bank_recon_rules: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          match_contains: string
+          name: string
+          sort_order: number
+          suggested_category: string | null
+          suggested_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          match_contains: string
+          name: string
+          sort_order?: number
+          suggested_category?: string | null
+          suggested_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          match_contains?: string
+          name?: string
+          sort_order?: number
+          suggested_category?: string | null
+          suggested_type?: string
+        }
+        Relationships: []
+      }
       bank_reconciliation_periods: {
         Row: {
           bank_account_id: string
@@ -338,6 +374,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "bank_reconciliation_periods_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statement_account_mappings: {
+        Row: {
+          account_number_last4: string
+          bank_account_id: string
+          bank_name: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          account_number_last4: string
+          bank_account_id: string
+          bank_name: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          account_number_last4?: string
+          bank_account_id?: string
+          bank_name?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_account_mappings_bank_account_id_fkey"
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
@@ -401,8 +469,10 @@ export type Database = {
       bank_transactions: {
         Row: {
           bank_account_id: string
+          counterparty: string
           created_at: string
           description: string
+          extraction_confidence: number | null
           id: string
           import_id: string | null
           journal_entry_id: string | null
@@ -414,14 +484,21 @@ export type Database = {
           notes: string
           reference: string
           running_balance: number | null
+          source_page: number | null
           status: string
+          suggested_category: string | null
+          suggested_match_id: string | null
+          suggested_type: string | null
           txn_date: string
           updated_at: string
+          value_date: string | null
         }
         Insert: {
           bank_account_id: string
+          counterparty?: string
           created_at?: string
           description?: string
+          extraction_confidence?: number | null
           id?: string
           import_id?: string | null
           journal_entry_id?: string | null
@@ -433,14 +510,21 @@ export type Database = {
           notes?: string
           reference?: string
           running_balance?: number | null
+          source_page?: number | null
           status?: string
+          suggested_category?: string | null
+          suggested_match_id?: string | null
+          suggested_type?: string | null
           txn_date: string
           updated_at?: string
+          value_date?: string | null
         }
         Update: {
           bank_account_id?: string
+          counterparty?: string
           created_at?: string
           description?: string
+          extraction_confidence?: number | null
           id?: string
           import_id?: string | null
           journal_entry_id?: string | null
@@ -452,9 +536,14 @@ export type Database = {
           notes?: string
           reference?: string
           running_balance?: number | null
+          source_page?: number | null
           status?: string
+          suggested_category?: string | null
+          suggested_match_id?: string | null
+          suggested_type?: string | null
           txn_date?: string
           updated_at?: string
+          value_date?: string | null
         }
         Relationships: [
           {

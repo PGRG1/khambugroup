@@ -7,6 +7,7 @@ export type BankAccount = {
   account_name: string;
   bank_name: string;
   account_number_last4: string;
+  account_type?: string;
   currency: string;
   venue: string | null;
   entity: string | null;
