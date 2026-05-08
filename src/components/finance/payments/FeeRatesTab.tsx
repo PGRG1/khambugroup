@@ -313,7 +313,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
             <tbody>
               {adding && renderEditor()}
               {sorted.length === 0 && !adding ? (
-                <tr><td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
               ) : (
                 sorted.map((r) => editingId === r.id ? (
                   <tr key={r.id} className="bg-muted/30 border-b border-border/40">
