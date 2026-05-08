@@ -305,12 +305,17 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                   const targets = r.merchant_number
                     ? [{ mn: r.merchant_number, label: merchantInfo(r.merchant_number).label }]
                     : (merchantGroups.length ? merchantGroups : [{ mn: "—", label: "All" }]);
-                  return targets.map((t, idx) => (
-                    <tr key={`${r.id}-${t.mn}`} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
+                  // Expand "Any" locality into Domestic + Foreign
+                  const localities = r.locality === "any"
+                    ? ["domestic", "foreign"]
+                    : [r.locality];
+                  const combos = targets.flatMap((t) => localities.map((loc) => ({ t, loc })));
+                  return combos.map(({ t, loc }, idx) => (
+                    <tr key={`${r.id}-${t.mn}-${loc}`} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
                       <td className="py-2.5 pr-2 font-mono text-xs">{t.mn}</td>
                       <td className="py-2.5 pr-2 text-muted-foreground">{t.label}</td>
                       <td className="py-2.5 pr-2">{PM_LABEL[r.payment_method] || r.payment_method}</td>
-                      <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[r.locality] || r.locality}</td>
+                      <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[loc] || loc}</td>
                       <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
                       <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
                       <td className="py-2.5 pr-2 text-right">
