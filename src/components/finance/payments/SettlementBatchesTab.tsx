@@ -35,12 +35,16 @@ type SortDir = "asc" | "desc";
 
 export function SettlementBatchesTab({
   processor, merchants, batches, lines, transactions,
+  bankTxns = [], bankAccounts = [], onReload,
 }: {
   processor: PaymentProcessor | null;
   merchants: ProcessorMerchant[];
   batches: SettlementBatch[];
   lines: SettlementLine[];
   transactions: SettlementTransaction[];
+  bankTxns?: BankTxn[];
+  bankAccounts?: BankAccount[];
+  onReload?: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -48,6 +52,7 @@ export function SettlementBatchesTab({
   const [sortKey, setSortKey] = useState<SortKey>("settle");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [aiOpen, setAiOpen] = useState(false);
 
   const merchantById = useMemo(() => {
     const m = new Map<string, ProcessorMerchant>();
