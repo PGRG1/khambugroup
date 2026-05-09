@@ -268,16 +268,25 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       </td>
       <td className="py-2 pr-2">
         <div className="flex items-center gap-1">
-          <Select value={draft.payment_method} onValueChange={setMethod}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PM_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Input
+            list="fee-rate-method-options"
+            value={draft.payment_method}
+            onChange={(e) => setMethod(e.target.value)}
+            placeholder="e.g. UnionPay QuickPass"
+            className="h-8 text-xs flex-1 min-w-0"
+          />
+          <datalist id="fee-rate-method-options">
+            {PM_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+            {Array.from(new Set(rates.map((r) => r.payment_method)))
+              .filter((m) => !PM_LABEL[m])
+              .map((m) => <option key={m} value={m} />)}
+          </datalist>
           {WALLET_OPTIONS[draft.payment_method] && (
             <Select
               value={draft.wallet_type || NO_WALLET}
-              onValueChange={(v) => setDraft({ ...draft, wallet_type: v === NO_WALLET ? "" : v })}
+              onValueChange={(v) => v !== NO_WALLET && setWallet(v)}
             >
               <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -293,7 +302,6 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
         <Select
           value={draft.locality}
           onValueChange={(v) => setDraft({ ...draft, locality: v })}
-          disabled={!!WALLET_OPTIONS[draft.payment_method]}
         >
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
