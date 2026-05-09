@@ -38,6 +38,12 @@ const WALLET_SHORT: Record<string, string> = {
   WeChatHK: "HK", WeChatCN: "CN",
   PayMeHK: "HK",
 };
+// Wallet sub-type → locality (HK = domestic, CN = foreign)
+const WALLET_LOCALITY: Record<string, string> = {
+  AlipayHK: "domestic", AlipayCN: "foreign",
+  WeChatHK: "domestic", WeChatCN: "foreign",
+  PayMeHK: "domestic",
+};
 const NO_WALLET = "__none__";
 
 type Merchant = {
@@ -168,15 +174,23 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
   };
 
   // When the user picks a method that supports wallet sub-types, auto-pick the first
-  // sub-type so the rate is always specific. Otherwise clear wallet_type.
+  // sub-type and set locality accordingly. Otherwise clear wallet_type.
   const setMethod = (method: string) => {
     const wallets = WALLET_OPTIONS[method];
+    const firstWallet = wallets ? wallets[0].value : "";
     setDraft({
       ...draft,
       payment_method: method,
-      wallet_type: wallets ? wallets[0].value : "",
-      // Wallet methods always use locality "any"
-      locality: wallets ? "any" : (draft.locality === "any" ? "domestic" : draft.locality),
+      wallet_type: firstWallet,
+      locality: firstWallet ? (WALLET_LOCALITY[firstWallet] || "domestic") : (draft.locality === "any" ? "domestic" : draft.locality),
+    });
+  };
+
+  const setWallet = (wallet: string) => {
+    setDraft({
+      ...draft,
+      wallet_type: wallet,
+      locality: WALLET_LOCALITY[wallet] || draft.locality,
     });
   };
 
@@ -254,16 +268,25 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       </td>
       <td className="py-2 pr-2">
         <div className="flex items-center gap-1">
-          <Select value={draft.payment_method} onValueChange={setMethod}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PM_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Input
+            list="fee-rate-method-options"
+            value={draft.payment_method}
+            onChange={(e) => setMethod(e.target.value)}
+            placeholder="e.g. UnionPay QuickPass"
+            className="h-8 text-xs flex-1 min-w-0"
+          />
+          <datalist id="fee-rate-method-options">
+            {PM_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+            {Array.from(new Set(rates.map((r) => r.payment_method)))
+              .filter((m) => !PM_LABEL[m])
+              .map((m) => <option key={m} value={m} />)}
+          </datalist>
           {WALLET_OPTIONS[draft.payment_method] && (
             <Select
               value={draft.wallet_type || NO_WALLET}
-              onValueChange={(v) => setDraft({ ...draft, wallet_type: v === NO_WALLET ? "" : v })}
+              onValueChange={(v) => v !== NO_WALLET && setWallet(v)}
             >
               <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -279,7 +302,6 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
         <Select
           value={draft.locality}
           onValueChange={(v) => setDraft({ ...draft, locality: v })}
-          disabled={!!WALLET_OPTIONS[draft.payment_method]}
         >
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -371,24 +393,27 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                     ? [{ mn: r.merchant_number, label: merchantInfo(r.merchant_number).label }]
                     : (merchantGroups.length ? merchantGroups : [{ mn: "—", label: "All" }]);
                   // For wallet methods, expand into the configured wallet sub-types (HK / CN / etc.)
-                  // when the rate row itself doesn't pin a specific wallet. Locality doesn't apply.
+                  // when the rate row itself doesn't pin a specific wallet.
                   const walletDefs = WALLET_OPTIONS[r.payment_method];
                   const wallets: (string | null)[] = walletDefs
                     ? (r.wallet_type ? [r.wallet_type] : walletDefs.map((w) => w.value))
                     : [null];
-                  // Expand "Any" locality into Domestic + Foreign for non-wallet methods
-                  const localities = walletDefs
-                    ? ["any"]
-                    : (r.locality === "any" ? ["domestic", "foreign"] : [r.locality]);
+                  // Locality: for wallet methods derive from the wallet sub-type (HK=domestic, CN=foreign).
+                  // For non-wallet methods, expand "Any" into Domestic + Foreign.
                   const combos = targets.flatMap((t) =>
-                    wallets.flatMap((w) => localities.map((loc) => ({ t, loc, w })))
+                    wallets.flatMap((w) => {
+                      const localities = w
+                        ? [WALLET_LOCALITY[w] || r.locality || "domestic"]
+                        : (r.locality === "any" ? ["domestic", "foreign"] : [r.locality]);
+                      return localities.map((loc) => ({ t, loc, w }));
+                    })
                   );
                   return combos.map(({ t, loc, w }, idx) => (
                     <tr key={`${r.id}-${t.mn}-${loc}-${w || "x"}`} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
                       <td className="py-2.5 pr-2 font-mono text-xs">{t.mn}</td>
                       <td className="py-2.5 pr-2 text-muted-foreground">{t.label}</td>
                       <td className="py-2.5 pr-2">{formatMethodLabel(r.payment_method, w)}</td>
-                      <td className="py-2.5 pr-2 text-muted-foreground">{walletDefs ? "—" : (LOCALITY_LABEL[loc] || loc)}</td>
+                      <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[loc] || loc}</td>
                       <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
                       <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
                       <td className="py-2.5 pr-2 text-right">
