@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 import type {
   PaymentProcessor,
   ProcessorMerchant,
@@ -10,6 +11,8 @@ import type {
   SettlementLine,
   SettlementTransaction,
 } from "@/hooks/usePaymentSettlements";
+import type { BankAccount, BankTxn } from "@/hooks/useBankReconciliation";
+import { AiMatchModal } from "./AiMatchModal";
 
 const fmtMoney = (v: number) =>
   Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
