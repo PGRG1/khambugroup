@@ -120,6 +120,9 @@ export default function PaymentsSettlements() {
             batches={procBatches}
             lines={procLines}
             transactions={procTxns}
+            bankTxns={bankTxns}
+            bankAccounts={bankAccounts}
+            onReload={reload}
           />
         </TabsContent>
 
