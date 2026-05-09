@@ -15,7 +15,7 @@ import { SettlementBatchesTab } from "@/components/finance/payments/SettlementBa
 
 export default function PaymentsSettlements() {
   const { loading, processors, merchants, imports, batches, lines, transactions, reload } = usePaymentSettlements();
-  const { accounts: bankAccounts } = useBankReconciliation();
+  const { accounts: bankAccounts, transactions: bankTxns } = useBankReconciliation();
   const [processorId, setProcessorId] = useState<string>("");
   const [tab, setTab] = useState("overview");
 
@@ -120,6 +120,9 @@ export default function PaymentsSettlements() {
             batches={procBatches}
             lines={procLines}
             transactions={procTxns}
+            bankTxns={bankTxns}
+            bankAccounts={bankAccounts}
+            onReload={reload}
           />
         </TabsContent>
 

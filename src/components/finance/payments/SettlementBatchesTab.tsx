@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 import type {
   PaymentProcessor,
   ProcessorMerchant,
@@ -10,6 +11,8 @@ import type {
   SettlementLine,
   SettlementTransaction,
 } from "@/hooks/usePaymentSettlements";
+import type { BankAccount, BankTxn } from "@/hooks/useBankReconciliation";
+import { AiMatchModal } from "./AiMatchModal";
 
 const fmtMoney = (v: number) =>
   Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -32,12 +35,16 @@ type SortDir = "asc" | "desc";
 
 export function SettlementBatchesTab({
   processor, merchants, batches, lines, transactions,
+  bankTxns = [], bankAccounts = [], onReload,
 }: {
   processor: PaymentProcessor | null;
   merchants: ProcessorMerchant[];
   batches: SettlementBatch[];
   lines: SettlementLine[];
   transactions: SettlementTransaction[];
+  bankTxns?: BankTxn[];
+  bankAccounts?: BankAccount[];
+  onReload?: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -45,6 +52,7 @@ export function SettlementBatchesTab({
   const [sortKey, setSortKey] = useState<SortKey>("settle");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [aiOpen, setAiOpen] = useState(false);
 
   const merchantById = useMemo(() => {
     const m = new Map<string, ProcessorMerchant>();
@@ -200,7 +208,10 @@ export function SettlementBatchesTab({
             <SelectItem value="pending">Pending</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-[11px] text-muted-foreground ml-auto">
+        <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" onClick={() => setAiOpen(true)}>
+          <Sparkles className="h-3.5 w-3.5 mr-1.5" /> AI Auto-Match
+        </Button>
+        <span className="text-[11px] text-muted-foreground">
           {sorted.length} of {batches.length} batches
         </span>
       </div>
@@ -299,6 +310,16 @@ export function SettlementBatchesTab({
           </tbody>
         </table>
       </div>
+      <AiMatchModal
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        processor={processor}
+        merchants={merchants}
+        batches={batches}
+        bankTxns={bankTxns}
+        bankAccounts={bankAccounts}
+        onApplied={() => onReload?.()}
+      />
     </Card>
   );
 }
