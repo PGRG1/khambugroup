@@ -38,6 +38,12 @@ const WALLET_SHORT: Record<string, string> = {
   WeChatHK: "HK", WeChatCN: "CN",
   PayMeHK: "HK",
 };
+// Wallet sub-type → locality (HK = domestic, CN = foreign)
+const WALLET_LOCALITY: Record<string, string> = {
+  AlipayHK: "domestic", AlipayCN: "foreign",
+  WeChatHK: "domestic", WeChatCN: "foreign",
+  PayMeHK: "domestic",
+};
 const NO_WALLET = "__none__";
 
 type Merchant = {
