@@ -310,6 +310,16 @@ export function SettlementBatchesTab({
           </tbody>
         </table>
       </div>
+      <AiMatchModal
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        processor={processor}
+        merchants={merchants}
+        batches={batches}
+        bankTxns={bankTxns}
+        bankAccounts={bankAccounts}
+        onApplied={() => onReload?.()}
+      />
     </Card>
   );
 }
