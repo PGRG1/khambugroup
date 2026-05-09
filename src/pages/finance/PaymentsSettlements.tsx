@@ -11,6 +11,7 @@ import { ImportsTab } from "@/components/finance/payments/ImportsTab";
 import { FeeRatesTab } from "@/components/finance/payments/FeeRatesTab";
 import { SettlementDetailsAuditTab } from "@/components/finance/payments/SettlementDetailsAuditTab";
 import { MonthlyReconciliationTab } from "@/components/finance/payments/MonthlyReconciliationTab";
+import { SettlementBatchesTab } from "@/components/finance/payments/SettlementBatchesTab";
 
 export default function PaymentsSettlements() {
   const { loading, processors, merchants, imports, batches, lines, transactions, reload } = usePaymentSettlements();
@@ -113,10 +114,13 @@ export default function PaymentsSettlements() {
         </TabsContent>
 
         <TabsContent value="batches" className="mt-4">
-          <Card className="card-glass p-6 text-center text-sm text-muted-foreground">
-            <FileText className="h-6 w-6 mx-auto mb-2 text-primary/70" />
-            Settlement batches will appear here once the parser (Phase 2) is enabled and you upload a report.
-          </Card>
+          <SettlementBatchesTab
+            processor={processor}
+            merchants={procMerchants}
+            batches={procBatches}
+            lines={procLines}
+            transactions={procTxns}
+          />
         </TabsContent>
 
         <TabsContent value="details-audit" className="mt-4">
