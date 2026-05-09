@@ -393,24 +393,27 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                     ? [{ mn: r.merchant_number, label: merchantInfo(r.merchant_number).label }]
                     : (merchantGroups.length ? merchantGroups : [{ mn: "—", label: "All" }]);
                   // For wallet methods, expand into the configured wallet sub-types (HK / CN / etc.)
-                  // when the rate row itself doesn't pin a specific wallet. Locality doesn't apply.
+                  // when the rate row itself doesn't pin a specific wallet.
                   const walletDefs = WALLET_OPTIONS[r.payment_method];
                   const wallets: (string | null)[] = walletDefs
                     ? (r.wallet_type ? [r.wallet_type] : walletDefs.map((w) => w.value))
                     : [null];
-                  // Expand "Any" locality into Domestic + Foreign for non-wallet methods
-                  const localities = walletDefs
-                    ? ["any"]
-                    : (r.locality === "any" ? ["domestic", "foreign"] : [r.locality]);
+                  // Locality: for wallet methods derive from the wallet sub-type (HK=domestic, CN=foreign).
+                  // For non-wallet methods, expand "Any" into Domestic + Foreign.
                   const combos = targets.flatMap((t) =>
-                    wallets.flatMap((w) => localities.map((loc) => ({ t, loc, w })))
+                    wallets.flatMap((w) => {
+                      const localities = w
+                        ? [WALLET_LOCALITY[w] || r.locality || "domestic"]
+                        : (r.locality === "any" ? ["domestic", "foreign"] : [r.locality]);
+                      return localities.map((loc) => ({ t, loc, w }));
+                    })
                   );
                   return combos.map(({ t, loc, w }, idx) => (
                     <tr key={`${r.id}-${t.mn}-${loc}-${w || "x"}`} className="border-b border-border/20 last:border-0 hover:bg-muted/20 group">
                       <td className="py-2.5 pr-2 font-mono text-xs">{t.mn}</td>
                       <td className="py-2.5 pr-2 text-muted-foreground">{t.label}</td>
                       <td className="py-2.5 pr-2">{formatMethodLabel(r.payment_method, w)}</td>
-                      <td className="py-2.5 pr-2 text-muted-foreground">{walletDefs ? "—" : (LOCALITY_LABEL[loc] || loc)}</td>
+                      <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[loc] || loc}</td>
                       <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
                       <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
                       <td className="py-2.5 pr-2 text-right">
