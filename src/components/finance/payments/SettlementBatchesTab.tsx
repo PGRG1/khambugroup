@@ -208,7 +208,10 @@ export function SettlementBatchesTab({
             <SelectItem value="pending">Pending</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-[11px] text-muted-foreground ml-auto">
+        <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" onClick={() => setAiOpen(true)}>
+          <Sparkles className="h-3.5 w-3.5 mr-1.5" /> AI Auto-Match
+        </Button>
+        <span className="text-[11px] text-muted-foreground">
           {sorted.length} of {batches.length} batches
         </span>
       </div>
