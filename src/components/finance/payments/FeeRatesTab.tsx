@@ -174,15 +174,23 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
   };
 
   // When the user picks a method that supports wallet sub-types, auto-pick the first
-  // sub-type so the rate is always specific. Otherwise clear wallet_type.
+  // sub-type and set locality accordingly. Otherwise clear wallet_type.
   const setMethod = (method: string) => {
     const wallets = WALLET_OPTIONS[method];
+    const firstWallet = wallets ? wallets[0].value : "";
     setDraft({
       ...draft,
       payment_method: method,
-      wallet_type: wallets ? wallets[0].value : "",
-      // Wallet methods always use locality "any"
-      locality: wallets ? "any" : (draft.locality === "any" ? "domestic" : draft.locality),
+      wallet_type: firstWallet,
+      locality: firstWallet ? (WALLET_LOCALITY[firstWallet] || "domestic") : (draft.locality === "any" ? "domestic" : draft.locality),
+    });
+  };
+
+  const setWallet = (wallet: string) => {
+    setDraft({
+      ...draft,
+      wallet_type: wallet,
+      locality: WALLET_LOCALITY[wallet] || draft.locality,
     });
   };
 
