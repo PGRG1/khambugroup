@@ -1,60 +1,42 @@
 ## Problem
 
-The Rebuild Ledger action fails with:
+On `/procurement/line-items`, the **External SKU** column does not show what was captured at scan time. In the screenshot, two different suppliers (Global Fine Foods code `1564020` vs ONGO Food Ltd code `81060529` for "Black Truffle Oil") both display External SKU `3761003` — the same value. That value is the *product master's* external SKU, not the SKU that was actually scanned and saved on each invoice line.
 
-```
-new row for relation "journal_lines" violates check constraint "journal_lines_debit_check"
-```
+## Root Cause
 
-The DB constraint is `CHECK (debit >= 0)` — a negative value is being inserted into `debit`.
+`src/components/procurement/ProcurementLineItemsTab.tsx` builds each row like this:
 
-Root cause is in `rebuild_journal_from_operations()`. Three loops insert raw amounts without sign-handling, and any negative value (credit notes, refunds, reversed settlements) trips the constraint:
-
-1. **Invoice lines** (line 166): `VALUES (e_id, line.acct, line.total, 0, ...)` — `line.total` can be negative (credit-memo lines). Guard is `<> 0`, not `> 0`.
-2. **Invoice payments** (line 196): `VALUES (e_id, acc_ap, r.amount, 0, ...)` — `r.amount` can be negative (refunds). Filter is `p.amount <> 0`.
-3. **Settlement clearing** (new migration, line 303): `v_bank_amt := NULLIF(bank_money_in, 0)` — if a matched bank transaction stored the receipt in `money_out` instead of `money_in` (or money_in is negative for a chargeback), the value flows through and can produce negative debits in the bank/fee lines.
-
-## Fix Plan
-
-Single new migration that replaces `rebuild_journal_from_operations()` with sign-safe inserts. No schema changes, no app/UI changes.
-
-### 1. Invoice lines — flip sign for credit lines
-
-```text
-IF line.total > 0 THEN  Dr line.acct = line.total
-ELSIF line.total < 0 THEN  Cr line.acct = ABS(line.total)
+```ts
+const pm = pmId ? pmMap.get(pmId) : null;
+...
+external_sku: pm?.ext_sku || "",   // ← always from product_master
+internal_sku: pm?.sku || "",
 ```
 
-The AP credit (line 172) already uses `inv.total_amount` which naturally nets positive/negative. Wrap it the same way: positive total → Cr AP, negative total → Dr AP. The existing suspense plug already handles either direction.
+It never reads `invoice_line_items.item_code` — the field where the scanner stores the supplier code captured from the invoice. So once a line is matched to any product master, every row inherits that master's single `external_sku`, hiding the per-supplier code that was actually entered.
 
-### 2. Invoice payments — handle refunds
+(Internal SKU correctly comes from the master because it is the canonical internal code; that part is fine.)
 
-```text
-IF r.amount > 0 THEN  Dr AP, Cr Cash         (normal payment)
-ELSIF r.amount < 0 THEN Dr Cash, Cr AP       (refund from supplier)
-```
+## Fix
 
-Use `ABS(r.amount)` on both lines.
+In `ProcurementLineItemsTab.tsx`:
 
-### 3. Settlement clearing — guard against negative bank amount
+1. Include `item_code` in the `LineItemRow` type and in `buildRow()`.
+2. Set `external_sku` from the **line item itself**:
+   - `external_sku: li.item_code || pm?.ext_sku || ""`
+   - Fallback to the master only when the line never had a scanned code (legacy rows).
+3. Keep `internal_sku` sourced from the matched master (unchanged).
+4. Update the searchable `_s` blob and the CSV download to use the new value (no extra column needed; same column, correct data).
 
-- Normalise `v_bank_amt` to its absolute value AFTER deciding direction.
-- If `bank_money_in` is null/zero AND `net_settlement` is negative, treat the batch as a chargeback: skip clearing (CONTINUE) and log to `ledger_audit_log` with status `skipped` — these need manual review.
-- Add a final safety net inside the loop: if any computed `v_proc_fee`, `v_xfer_fee`, `v_bank_amt` is `< 0`, set it to 0 before insert (already wrapped in ABS but defensive).
-
-### 4. Final defensive check
-
-At the end of every entry-creation block, sum debits & credits; if either is negative due to any unexpected path, delete the entry and log to `ledger_audit_log` instead of letting the insert blow up the whole rebuild transaction.
+That's the only change required to make the displayed External SKU match what was scanned. No DB migration, no scanner change — the data is already saved correctly in `invoice_line_items.item_code`; the page was just showing the wrong source.
 
 ## Verification
 
-1. After migration approved, click **Rebuild** on `/finance/journal`.
-2. Confirm no error toast.
-3. Check `ledger_audit_log` for any new `_skipped` rows — those are the edge cases (refund invoices, chargebacks) that need user attention; surface them to the user as the verification report.
-4. Spot-check one previously failing entry (e.g. an invoice with a negative line) renders correctly in the Journal table with the credit on the right side.
+- Reload `/procurement/line-items`, search "truffle".
+- Global Fine Foods row should show External SKU `1564020`-style scanned code (whatever is in that line's `item_code`), and ONGO row should show its own (`81060529`-style) scanned code — no longer identical.
+- Rows with no `item_code` (older imports) still fall back to the master's external SKU so nothing goes blank.
+- CSV export reflects the same corrected values.
 
 ## Files Touched
 
-- New migration: `supabase/migrations/<ts>_fix_journal_negative_amounts.sql` — replaces `public.rebuild_journal_from_operations()` only.
-
-No frontend changes. No types regen needed (function signature unchanged).
+- `src/components/procurement/ProcurementLineItemsTab.tsx` (single component edit)

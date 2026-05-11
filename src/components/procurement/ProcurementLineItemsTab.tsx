@@ -53,7 +53,9 @@ function buildRow(li: any, invMap: Map<string, InvoiceMeta>, supMap: Map<string,
   const invoice_number = inv?.invoice_number || "";
   const description = li.description || "";
   const internal_sku = pm?.sku || "";
-  const external_sku = pm?.ext_sku || "";
+  // External SKU should reflect what was actually scanned/entered on the line.
+  // Fallback to the master's external SKU only for legacy rows with no item_code.
+  const external_sku = (li.item_code && String(li.item_code).trim()) || pm?.ext_sku || "";
   const master_name = pm?.name || "";
   return {
     id: li.id,
