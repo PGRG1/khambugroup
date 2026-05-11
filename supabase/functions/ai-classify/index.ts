@@ -246,7 +246,7 @@ The rule_pattern must be a generic trigger like {"contains":"FPS"} that would ma
         learned_rules: activeRules ?? [],
         recent_examples: recent ?? [],
         input: body.input ?? {},
-      });
+      }, workflow);
 
       return new Response(JSON.stringify({
         suggestion: out.output_action,
