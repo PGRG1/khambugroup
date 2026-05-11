@@ -7,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
 import { formatCurrency } from "@/utils/salesUtils";
 import { classifyTxn, SUGGESTED_TYPE_LABEL, type UserRule } from "@/utils/bankTxnRules";
-import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeftRight, Coins, Receipt, AlertTriangle } from "lucide-react";
+import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeftRight, Coins, Receipt, AlertTriangle, Sparkles } from "lucide-react";
 
 type AuditRow = { id: string; ts: string; action: string; old_status: string | null; new_status: string | null; user_display_name: string | null; notes: any };
 
@@ -24,6 +24,8 @@ export function TransactionReviewPanel({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: string; confidence?: number } | null>(null);
 
   useEffect(() => {
     if (!txn) return;
@@ -76,6 +78,52 @@ export function TransactionReviewPanel({
     onClose();
   };
 
+  const runAi = async () => {
+    setAiBusy(true);
+    setAiResult(null);
+    const { data, error } = await supabase.functions.invoke("classify-bank-txn", {
+      body: { description: txn.description, money_in: Number(txn.money_in), money_out: Number(txn.money_out) },
+    });
+    setAiBusy(false);
+    if (error) { toast({ title: "AI failed", description: error.message, variant: "destructive" }); return; }
+    if ((data as any)?.error) { toast({ title: "AI failed", description: (data as any).error, variant: "destructive" }); return; }
+    setAiResult(data as any);
+  };
+
+  const acceptAi = async (alsoSaveRule: boolean) => {
+    if (!aiResult?.suggested_type) return;
+    setBusy(true);
+    const newStatus = aiResult.suggested_type === "bank_fee" ? "bank_fee" : "matched";
+    const { error } = await supabase.from("bank_transactions").update({
+      status: newStatus, notes,
+      suggested_type: aiResult.suggested_type,
+      suggested_category: aiResult.suggested_category ?? null,
+    }).eq("id", txn.id);
+    if (error) { setBusy(false); toast({ title: "Update failed", description: error.message, variant: "destructive" }); return; }
+    await supabase.from("bank_audit_trail" as any).insert({
+      bank_account_id: txn.bank_account_id, bank_transaction_id: txn.id,
+      action: "ai_classify_accepted", old_status: txn.status, new_status: newStatus,
+      notes: { manual_notes: notes, ai: aiResult },
+    });
+    if (alsoSaveRule && aiResult.rule_pattern && aiResult.rule_pattern.length >= 3) {
+      const { error: rerr } = await supabase.from("bank_recon_rules" as any).insert({
+        name: `AI: ${aiResult.rule_pattern.slice(0, 40)}`,
+        match_contains: aiResult.rule_pattern.toUpperCase(),
+        suggested_type: aiResult.suggested_type,
+        suggested_category: aiResult.suggested_category ?? null,
+        is_active: true, sort_order: 0,
+      });
+      if (rerr) toast({ title: "Rule save failed", description: rerr.message, variant: "destructive" });
+      else toast({ title: "Rule saved — system learned this pattern" });
+    } else {
+      toast({ title: "Classification applied" });
+    }
+    setBusy(false);
+    onChanged();
+    onClose();
+  };
+
+
   return (
     <Sheet open={!!txn} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-[520px] sm:max-w-[520px] overflow-y-auto">
@@ -120,6 +168,29 @@ export function TransactionReviewPanel({
             ) : (
               <div className="text-xs text-muted-foreground">No automatic suggestion. Classify manually below.</div>
             )}
+          </Section>
+
+          <Section title="🤖 AI classification">
+            <div className="space-y-2">
+              <Button size="sm" variant="outline" onClick={runAi} disabled={aiBusy || busy} className="w-full">
+                <Sparkles className="h-3 w-3" /> {aiBusy ? "Thinking…" : "Suggest with AI"}
+              </Button>
+              {aiResult?.suggested_type && (
+                <div className="border border-border rounded-md p-2 bg-card/50 space-y-2">
+                  <div>
+                    <div className="font-medium">{SUGGESTED_TYPE_LABEL[aiResult.suggested_type] || aiResult.suggested_type}</div>
+                    {aiResult.suggested_category && <div className="text-xs text-muted-foreground">→ {aiResult.suggested_category}</div>}
+                    {typeof aiResult.confidence === "number" && <div className="text-xs text-muted-foreground">Confidence: {Math.round(aiResult.confidence * 100)}%</div>}
+                    {aiResult.reason && <div className="text-xs text-muted-foreground mt-1">{aiResult.reason}</div>}
+                    {aiResult.rule_pattern && <div className="text-xs mt-1">Pattern to remember: <span className="font-mono bg-background/40 px-1 rounded">{aiResult.rule_pattern}</span></div>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => acceptAi(true)} disabled={busy} className="flex-1">Accept &amp; Teach</Button>
+                    <Button size="sm" variant="outline" onClick={() => acceptAi(false)} disabled={busy} className="flex-1">Accept Once</Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </Section>
 
           <Section title="Notes">
