@@ -172,7 +172,6 @@ export default function BankReconciliation() {
           <TabsTrigger value="suppliers">Supplier Payments</TabsTrigger>
           <TabsTrigger value="transfers">Transfers</TabsTrigger>
           <TabsTrigger value="unmatched">Unmatched</TabsTrigger>
-          <TabsTrigger value="rules">Rules</TabsTrigger>
           <TabsTrigger value="audit">Audit</TabsTrigger>
         </TabsList>
 
