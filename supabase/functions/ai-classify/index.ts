@@ -35,9 +35,8 @@ async function resolveCaller(req: Request, requestedTenantId: string | null): Pr
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
   });
-  const token = authHeader.replace("Bearer ", "");
-  const { data: claims } = await userClient.auth.getClaims(token);
-  const userId = claims?.claims?.sub;
+  const { data: u } = await userClient.auth.getUser();
+  const userId = u?.user?.id;
   if (!userId) return null;
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
