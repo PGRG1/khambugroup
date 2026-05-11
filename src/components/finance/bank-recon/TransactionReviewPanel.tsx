@@ -24,6 +24,8 @@ export function TransactionReviewPanel({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: string; confidence?: number } | null>(null);
 
   useEffect(() => {
     if (!txn) return;
