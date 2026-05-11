@@ -188,8 +188,20 @@ export default function AiRules() {
             </SelectContent>
           </Select>
           <Input placeholder="Min hits" type="number" value={fMinHits} onChange={(e) => setFMinHits(e.target.value)} />
+          {isSuperAdmin ? (
+            <Select value={fTenant} onValueChange={setFTenant}>
+              <SelectTrigger><SelectValue placeholder="Tenant" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active tenant only</SelectItem>
+                <SelectItem value="all">All tenants (super admin)</SelectItem>
+                {memberships.map((m) => (
+                  <SelectItem key={m.tenant_id} value={m.tenant_id}>{m.tenant_name ?? m.tenant_id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           <Input
-            className="md:col-span-2"
+            className={isSuperAdmin ? "md:col-span-1" : "md:col-span-2"}
             placeholder="Search input/output/name…"
             value={fSearch}
             onChange={(e) => setFSearch(e.target.value)}
