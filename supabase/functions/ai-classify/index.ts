@@ -24,7 +24,21 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 const WORKFLOW_PROMPTS: Record<string, string> = {
   bank_txn_classify:
-    "You classify bank-statement transactions into accounting categories. Decide a transaction type (e.g. sales_deposit, supplier_payment, payroll, bank_fee, transfer, refund, other) and an optional category. Be conservative — prefer 'other' if unclear.",
+    `You classify bank-statement transactions into accounting categories.
+
+The "output_action" object you return MUST have this exact shape:
+{
+  "suggested_type": one of ["sales_deposit","supplier_payment","payroll","bank_fee","transfer","refund","settlement","other"],
+  "suggested_category": short human label like "KPay Settlement", "FPS Bank Fee", "Rent", or null
+}
+
+Examples:
+- "Autopay KPAY MERCHANT SERVICE LIMITED" (money_in > 0)  -> {"suggested_type":"settlement","suggested_category":"KPay Settlement"}
+- "FPS Transfer Charge" / "FPS FEE"                       -> {"suggested_type":"bank_fee","suggested_category":"FPS Bank Fee"}
+- "SALARY" / "PAYROLL"                                    -> {"suggested_type":"payroll","suggested_category":"Payroll"}
+- transfer between own accounts                           -> {"suggested_type":"transfer","suggested_category":"Internal Transfer"}
+
+Be conservative — use "other" only if truly unclear. NEVER return an empty output_action.`,
 };
 
 type Caller = { user_id: string; tenant_id: string; role: string; isSuper: boolean };
