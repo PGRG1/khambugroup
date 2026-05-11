@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
 import { formatCurrency } from "@/utils/salesUtils";
 import { classifyTxn, SUGGESTED_TYPE_LABEL, type UserRule } from "@/utils/bankTxnRules";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeftRight, Coins, Receipt, AlertTriangle, Sparkles } from "lucide-react";
 
 type AuditRow = { id: string; ts: string; action: string; old_status: string | null; new_status: string | null; user_display_name: string | null; notes: any };
@@ -20,12 +21,13 @@ export function TransactionReviewPanel({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { tenantId } = useActiveTenant();
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
-  const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: any; confidence?: number; rationale?: string; _full?: any } | null>(null);
+  const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: any; confidence?: number; rationale?: string; source?: string; rule_id?: string; _full?: any } | null>(null);
 
   useEffect(() => {
     if (!txn) return;
@@ -79,6 +81,7 @@ export function TransactionReviewPanel({
   };
 
   const runAi = async () => {
+    if (!tenantId) { toast({ title: "No active tenant", variant: "destructive" }); return; }
     setAiBusy(true);
     setAiResult(null);
     const { data, error } = await supabase.functions.invoke("ai-classify", {
@@ -86,6 +89,7 @@ export function TransactionReviewPanel({
         op: "suggest",
         domain: "bank_recon",
         workflow: "bank_txn_classify",
+        tenant_id: tenantId,
         input: {
           description: txn.description,
           money_in: Number(txn.money_in),
@@ -99,19 +103,21 @@ export function TransactionReviewPanel({
     if (error) { toast({ title: "AI failed", description: error.message, variant: "destructive" }); return; }
     if ((data as any)?.error) { toast({ title: "AI failed", description: (data as any).error, variant: "destructive" }); return; }
     const s = data as any;
-    // Flatten to keep existing UI compatible
     setAiResult({
       suggested_type: s.suggestion?.suggested_type ?? s.suggestion?.type ?? null,
       suggested_category: s.suggestion?.suggested_category ?? s.suggestion?.category ?? null,
       rule_pattern: s.rule_pattern,
       confidence: s.confidence,
       rationale: s.rationale,
+      source: s.source,
+      rule_id: s.rule_id,
       _full: s,
     });
   };
 
   const acceptAi = async (alsoSaveRule: boolean) => {
     if (!aiResult?.suggested_type) return;
+    if (!tenantId) { toast({ title: "No active tenant", variant: "destructive" }); return; }
     setBusy(true);
     const newStatus = aiResult.suggested_type === "bank_fee" ? "bank_fee" : "matched";
     const { error } = await supabase.from("bank_transactions").update({
@@ -123,15 +129,16 @@ export function TransactionReviewPanel({
     await supabase.from("bank_audit_trail" as any).insert({
       bank_account_id: txn.bank_account_id, bank_transaction_id: txn.id,
       action: "ai_classify_accepted", old_status: txn.status, new_status: newStatus,
-      notes: { manual_notes: notes, ai: aiResult },
+      notes: { manual_notes: notes, ai: aiResult, teach: alsoSaveRule },
     });
-    // Record into the unified learning system (and teach if requested)
     await supabase.functions.invoke("ai-classify", {
       body: {
         op: "apply",
         domain: "bank_recon",
         workflow: "bank_txn_classify",
+        tenant_id: tenantId,
         teach: alsoSaveRule,
+        rule_id: aiResult.rule_id ?? null,
         input: {
           description: txn.description,
           money_in: Number(txn.money_in),
@@ -208,11 +215,21 @@ export function TransactionReviewPanel({
               {aiResult?.suggested_type && (
                 <div className="border border-border rounded-md p-2 bg-card/50 space-y-2">
                   <div>
-                    <div className="font-medium">{SUGGESTED_TYPE_LABEL[aiResult.suggested_type] || aiResult.suggested_type}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {SUGGESTED_TYPE_LABEL[aiResult.suggested_type] || aiResult.suggested_type}
+                      {aiResult.source === "learned_rule" && <span className="chip chip-success"><span /> learned rule</span>}
+                      {aiResult.source === "ai_model" && <span className="chip chip-info"><span /> AI</span>}
+                    </div>
                     {aiResult.suggested_category && <div className="text-xs text-muted-foreground">→ {aiResult.suggested_category}</div>}
                     {typeof aiResult.confidence === "number" && <div className="text-xs text-muted-foreground">Confidence: {Math.round(aiResult.confidence * 100)}%</div>}
-                    {aiResult.reason && <div className="text-xs text-muted-foreground mt-1">{aiResult.reason}</div>}
-                    {aiResult.rule_pattern && <div className="text-xs mt-1">Pattern to remember: <span className="font-mono bg-background/40 px-1 rounded">{aiResult.rule_pattern}</span></div>}
+                    {aiResult.rationale && <div className="text-xs text-muted-foreground mt-1">{aiResult.rationale}</div>}
+                    {aiResult.rule_pattern && (
+                      <div className="text-xs mt-1">Pattern to remember:{" "}
+                        <span className="font-mono bg-background/40 px-1 rounded">
+                          {typeof aiResult.rule_pattern === "string" ? aiResult.rule_pattern : JSON.stringify(aiResult.rule_pattern)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => acceptAi(true)} disabled={busy} className="flex-1">Accept &amp; Teach</Button>

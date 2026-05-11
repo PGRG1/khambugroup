@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,6 +56,7 @@ function summariseAction(a: any) {
 
 export default function AiRules() {
   const { user, loading } = useAuth();
+  const { tenantId, memberships, isSuperAdmin, loading: tenantLoading } = useActiveTenant();
   const [rules, setRules] = useState<Rule[]>([]);
   const [busy, setBusy] = useState(true);
   const [tab, setTab] = useState<"all" | "review" | "history">("all");
@@ -66,14 +67,23 @@ export default function AiRules() {
   const [fWorkflow, setFWorkflow] = useState<string>("");
   const [fSearch, setFSearch] = useState<string>("");
   const [fMinHits, setFMinHits] = useState<string>("");
+  const [fTenant, setFTenant] = useState<string>("active"); // super-admin only
 
   const [drawer, setDrawer] = useState<Rule | null>(null);
 
   const load = async () => {
+    if (!tenantId && !isSuperAdmin) return;
     setBusy(true);
     try {
-      const data = await fetchAllRows("ai_learned_rules", "*", { col: "updated_at", asc: false });
-      setRules(data as Rule[]);
+      let q = supabase.from("ai_learned_rules").select("*").order("updated_at", { ascending: false }).limit(2000);
+      if (!isSuperAdmin || fTenant === "active") {
+        if (tenantId) q = q.eq("tenant_id", tenantId);
+      } else if (fTenant !== "all") {
+        q = q.eq("tenant_id", fTenant);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      setRules((data ?? []) as Rule[]);
     } catch (e: any) {
       toast.error(`Failed to load rules: ${e.message ?? e}`);
     } finally {
@@ -82,8 +92,8 @@ export default function AiRules() {
   };
 
   useEffect(() => {
-    void load();
-  }, []);
+    if (!tenantLoading) void load();
+  }, [tenantLoading, tenantId, fTenant, isSuperAdmin]);
 
   const workflows = useMemo(() => Array.from(new Set(rules.map((r) => r.workflow))).sort(), [rules]);
 
@@ -178,8 +188,20 @@ export default function AiRules() {
             </SelectContent>
           </Select>
           <Input placeholder="Min hits" type="number" value={fMinHits} onChange={(e) => setFMinHits(e.target.value)} />
+          {isSuperAdmin ? (
+            <Select value={fTenant} onValueChange={setFTenant}>
+              <SelectTrigger><SelectValue placeholder="Tenant" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active tenant only</SelectItem>
+                <SelectItem value="all">All tenants (super admin)</SelectItem>
+                {memberships.map((m) => (
+                  <SelectItem key={m.tenant_id} value={m.tenant_id}>{m.tenant_name ?? m.tenant_id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           <Input
-            className="md:col-span-2"
+            className={isSuperAdmin ? "md:col-span-1" : "md:col-span-2"}
             placeholder="Search input/output/name…"
             value={fSearch}
             onChange={(e) => setFSearch(e.target.value)}
