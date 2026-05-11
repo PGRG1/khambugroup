@@ -78,6 +78,52 @@ export function TransactionReviewPanel({
     onClose();
   };
 
+  const runAi = async () => {
+    setAiBusy(true);
+    setAiResult(null);
+    const { data, error } = await supabase.functions.invoke("classify-bank-txn", {
+      body: { description: txn.description, money_in: Number(txn.money_in), money_out: Number(txn.money_out) },
+    });
+    setAiBusy(false);
+    if (error) { toast({ title: "AI failed", description: error.message, variant: "destructive" }); return; }
+    if ((data as any)?.error) { toast({ title: "AI failed", description: (data as any).error, variant: "destructive" }); return; }
+    setAiResult(data as any);
+  };
+
+  const acceptAi = async (alsoSaveRule: boolean) => {
+    if (!aiResult?.suggested_type) return;
+    setBusy(true);
+    const newStatus = aiResult.suggested_type === "bank_fee" ? "bank_fee" : "matched";
+    const { error } = await supabase.from("bank_transactions").update({
+      status: newStatus, notes,
+      suggested_type: aiResult.suggested_type,
+      suggested_category: aiResult.suggested_category ?? null,
+    }).eq("id", txn.id);
+    if (error) { setBusy(false); toast({ title: "Update failed", description: error.message, variant: "destructive" }); return; }
+    await supabase.from("bank_audit_trail" as any).insert({
+      bank_account_id: txn.bank_account_id, bank_transaction_id: txn.id,
+      action: "ai_classify_accepted", old_status: txn.status, new_status: newStatus,
+      notes: { manual_notes: notes, ai: aiResult },
+    });
+    if (alsoSaveRule && aiResult.rule_pattern && aiResult.rule_pattern.length >= 3) {
+      const { error: rerr } = await supabase.from("bank_recon_rules" as any).insert({
+        name: `AI: ${aiResult.rule_pattern.slice(0, 40)}`,
+        match_contains: aiResult.rule_pattern.toUpperCase(),
+        suggested_type: aiResult.suggested_type,
+        suggested_category: aiResult.suggested_category ?? null,
+        is_active: true, sort_order: 0,
+      });
+      if (rerr) toast({ title: "Rule save failed", description: rerr.message, variant: "destructive" });
+      else toast({ title: "Rule saved — system learned this pattern" });
+    } else {
+      toast({ title: "Classification applied" });
+    }
+    setBusy(false);
+    onChanged();
+    onClose();
+  };
+
+
   return (
     <Sheet open={!!txn} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-[520px] sm:max-w-[520px] overflow-y-auto">
