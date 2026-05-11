@@ -21,12 +21,13 @@ export function TransactionReviewPanel({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { tenantId } = useActiveTenant();
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
-  const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: any; confidence?: number; rationale?: string; _full?: any } | null>(null);
+  const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: any; confidence?: number; rationale?: string; source?: string; rule_id?: string; _full?: any } | null>(null);
 
   useEffect(() => {
     if (!txn) return;
