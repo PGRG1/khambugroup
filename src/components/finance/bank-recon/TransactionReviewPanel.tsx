@@ -25,7 +25,7 @@ export function TransactionReviewPanel({
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
-  const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: string; confidence?: number } | null>(null);
+  const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: any; confidence?: number; rationale?: string; _full?: any } | null>(null);
 
   useEffect(() => {
     if (!txn) return;
@@ -81,13 +81,33 @@ export function TransactionReviewPanel({
   const runAi = async () => {
     setAiBusy(true);
     setAiResult(null);
-    const { data, error } = await supabase.functions.invoke("classify-bank-txn", {
-      body: { description: txn.description, money_in: Number(txn.money_in), money_out: Number(txn.money_out) },
+    const { data, error } = await supabase.functions.invoke("ai-classify", {
+      body: {
+        op: "suggest",
+        domain: "bank_recon",
+        workflow: "bank_txn_classify",
+        input: {
+          description: txn.description,
+          money_in: Number(txn.money_in),
+          money_out: Number(txn.money_out),
+        },
+        record_type: "bank_transaction",
+        record_id: txn.id,
+      },
     });
     setAiBusy(false);
     if (error) { toast({ title: "AI failed", description: error.message, variant: "destructive" }); return; }
     if ((data as any)?.error) { toast({ title: "AI failed", description: (data as any).error, variant: "destructive" }); return; }
-    setAiResult(data as any);
+    const s = data as any;
+    // Flatten to keep existing UI compatible
+    setAiResult({
+      suggested_type: s.suggestion?.suggested_type ?? s.suggestion?.type ?? null,
+      suggested_category: s.suggestion?.suggested_category ?? s.suggestion?.category ?? null,
+      rule_pattern: s.rule_pattern,
+      confidence: s.confidence,
+      rationale: s.rationale,
+      _full: s,
+    });
   };
 
   const acceptAi = async (alsoSaveRule: boolean) => {
@@ -105,19 +125,29 @@ export function TransactionReviewPanel({
       action: "ai_classify_accepted", old_status: txn.status, new_status: newStatus,
       notes: { manual_notes: notes, ai: aiResult },
     });
-    if (alsoSaveRule && aiResult.rule_pattern && aiResult.rule_pattern.length >= 3) {
-      const { error: rerr } = await supabase.from("bank_recon_rules" as any).insert({
-        name: `AI: ${aiResult.rule_pattern.slice(0, 40)}`,
-        match_contains: aiResult.rule_pattern.toUpperCase(),
-        suggested_type: aiResult.suggested_type,
-        suggested_category: aiResult.suggested_category ?? null,
-        is_active: true, sort_order: 0,
-      });
-      if (rerr) toast({ title: "Rule save failed", description: rerr.message, variant: "destructive" });
-      else toast({ title: "Rule saved — system learned this pattern" });
-    } else {
-      toast({ title: "Classification applied" });
-    }
+    // Record into the unified learning system (and teach if requested)
+    await supabase.functions.invoke("ai-classify", {
+      body: {
+        op: "apply",
+        domain: "bank_recon",
+        workflow: "bank_txn_classify",
+        teach: alsoSaveRule,
+        input: {
+          description: txn.description,
+          money_in: Number(txn.money_in),
+          money_out: Number(txn.money_out),
+        },
+        output_action: {
+          suggested_type: aiResult.suggested_type,
+          suggested_category: aiResult.suggested_category ?? null,
+        },
+        rule_pattern: aiResult.rule_pattern,
+        confidence: aiResult.confidence ?? 0.85,
+        record_type: "bank_transaction",
+        record_id: txn.id,
+      },
+    });
+    toast({ title: alsoSaveRule ? "Accepted & taught — AI will remember this" : "Classification applied" });
     setBusy(false);
     onChanged();
     onClose();

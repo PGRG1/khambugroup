@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, ScanLine, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, ScanLine, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -290,6 +290,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {renderLink({ title: "User Access", url: "/user-access", icon: UserCog })}
               {renderLink({ title: "System Configuration", url: "/admin/system-configuration", icon: SlidersHorizontal })}
+              {renderLink({ title: "AI Learned Rules", url: "/admin/ai-rules", icon: Sparkles })}
               {renderLink({ title: "Settings", url: "/settings", icon: Settings })}
             </SidebarMenu>
           </CollapsibleNavGroup>

@@ -19,6 +19,7 @@ import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
 import Settings from "./pages/Settings";
 import SystemConfiguration from "./pages/admin/SystemConfiguration";
+import AiRules from "./pages/admin/AiRules";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
@@ -130,6 +131,7 @@ function App() {
                 <Route path="/finance/payments-settlements" element={<AdminRoute><PaymentsSettlements /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
+                <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 
                 <Route path="/procurement" element={<Navigate to="/procurement/dashboard" replace />} />

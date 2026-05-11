@@ -106,6 +106,169 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_learned_rules: {
+        Row: {
+          confidence: number
+          created_at: string
+          created_by: string | null
+          domain: string
+          hit_count: number
+          id: string
+          input_pattern: Json
+          last_used_at: string | null
+          name: string | null
+          output_action: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rule_type: string | null
+          source_examples: Json
+          status: string
+          tenant_id: string
+          updated_at: string
+          venue_id: string | null
+          version: number
+          workflow: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          domain: string
+          hit_count?: number
+          id?: string
+          input_pattern?: Json
+          last_used_at?: string | null
+          name?: string | null
+          output_action?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rule_type?: string | null
+          source_examples?: Json
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          venue_id?: string | null
+          version?: number
+          workflow: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          domain?: string
+          hit_count?: number
+          id?: string
+          input_pattern?: Json
+          last_used_at?: string | null
+          name?: string | null
+          output_action?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rule_type?: string | null
+          source_examples?: Json
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string | null
+          version?: number
+          workflow?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_learned_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_learned_rules_history: {
+        Row: {
+          change_type: string
+          changed_at: string
+          changed_by: string | null
+          diff: Json
+          id: string
+          rule_id: string
+          snapshot: Json
+          tenant_id: string
+        }
+        Insert: {
+          change_type: string
+          changed_at?: string
+          changed_by?: string | null
+          diff?: Json
+          id?: string
+          rule_id: string
+          snapshot?: Json
+          tenant_id: string
+        }
+        Update: {
+          change_type?: string
+          changed_at?: string
+          changed_by?: string | null
+          diff?: Json
+          id?: string
+          rule_id?: string
+          snapshot?: Json
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      ai_rule_applications: {
+        Row: {
+          applied_by: string | null
+          created_at: string
+          domain: string
+          id: string
+          input_snapshot: Json
+          output_snapshot: Json
+          record_id: string | null
+          record_type: string | null
+          rule_id: string | null
+          tenant_id: string
+          was_overridden: boolean
+          workflow: string
+        }
+        Insert: {
+          applied_by?: string | null
+          created_at?: string
+          domain: string
+          id?: string
+          input_snapshot?: Json
+          output_snapshot?: Json
+          record_id?: string | null
+          record_type?: string | null
+          rule_id?: string | null
+          tenant_id: string
+          was_overridden?: boolean
+          workflow: string
+        }
+        Update: {
+          applied_by?: string | null
+          created_at?: string
+          domain?: string
+          id?: string
+          input_snapshot?: Json
+          output_snapshot?: Json
+          record_id?: string | null
+          record_type?: string | null
+          rule_id?: string | null
+          tenant_id?: string
+          was_overridden?: boolean
+          workflow?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_rule_applications_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "ai_learned_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -3487,6 +3650,62 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_members: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       uom_options: {
         Row: {
           code: string
@@ -3869,11 +4088,21 @@ export type Database = {
       }
     }
     Functions: {
+      current_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_tenant_admin: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_tenant_member: {
+        Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
       rebuild_journal_from_operations: { Args: never; Returns: Json }
