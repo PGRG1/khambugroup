@@ -56,6 +56,7 @@ function summariseAction(a: any) {
 
 export default function AiRules() {
   const { user, loading } = useAuth();
+  const { tenantId, memberships, isSuperAdmin, loading: tenantLoading } = useActiveTenant();
   const [rules, setRules] = useState<Rule[]>([]);
   const [busy, setBusy] = useState(true);
   const [tab, setTab] = useState<"all" | "review" | "history">("all");
@@ -66,14 +67,23 @@ export default function AiRules() {
   const [fWorkflow, setFWorkflow] = useState<string>("");
   const [fSearch, setFSearch] = useState<string>("");
   const [fMinHits, setFMinHits] = useState<string>("");
+  const [fTenant, setFTenant] = useState<string>("active"); // super-admin only
 
   const [drawer, setDrawer] = useState<Rule | null>(null);
 
   const load = async () => {
+    if (!tenantId && !isSuperAdmin) return;
     setBusy(true);
     try {
-      const data = await fetchAllRows("ai_learned_rules", "*", { col: "updated_at", asc: false });
-      setRules(data as Rule[]);
+      let q = supabase.from("ai_learned_rules").select("*").order("updated_at", { ascending: false }).limit(2000);
+      if (!isSuperAdmin || fTenant === "active") {
+        if (tenantId) q = q.eq("tenant_id", tenantId);
+      } else if (fTenant !== "all") {
+        q = q.eq("tenant_id", fTenant);
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      setRules((data ?? []) as Rule[]);
     } catch (e: any) {
       toast.error(`Failed to load rules: ${e.message ?? e}`);
     } finally {
@@ -82,8 +92,8 @@ export default function AiRules() {
   };
 
   useEffect(() => {
-    void load();
-  }, []);
+    if (!tenantLoading) void load();
+  }, [tenantLoading, tenantId, fTenant, isSuperAdmin]);
 
   const workflows = useMemo(() => Array.from(new Set(rules.map((r) => r.workflow))).sort(), [rules]);
 
