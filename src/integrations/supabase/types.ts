@@ -2689,6 +2689,7 @@ export type Database = {
           bank_account_id: string | null
           bank_transaction_id: string | null
           bank_transfer_fee: number
+          clearing_journal_entry_id: string | null
           created_at: string
           fee_amount: number
           fee_variance: number
@@ -2713,6 +2714,7 @@ export type Database = {
           bank_account_id?: string | null
           bank_transaction_id?: string | null
           bank_transfer_fee?: number
+          clearing_journal_entry_id?: string | null
           created_at?: string
           fee_amount?: number
           fee_variance?: number
@@ -2737,6 +2739,7 @@ export type Database = {
           bank_account_id?: string | null
           bank_transaction_id?: string | null
           bank_transfer_fee?: number
+          clearing_journal_entry_id?: string | null
           created_at?: string
           fee_amount?: number
           fee_variance?: number
@@ -2756,6 +2759,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_settlement_batches_clearing_journal_entry_id_fkey"
+            columns: ["clearing_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_settlement_batches_clearing_journal_entry_id_fkey"
+            columns: ["clearing_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "payment_settlement_batches_clearing_journal_entry_id_fkey"
+            columns: ["clearing_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
           {
             foreignKeyName: "payment_settlement_batches_import_id_fkey"
             columns: ["import_id"]
