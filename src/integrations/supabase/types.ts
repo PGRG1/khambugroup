@@ -120,6 +120,7 @@ export type Database = {
           output_action: Json
           reviewed_at: string | null
           reviewed_by: string | null
+          rule_key: string
           rule_type: string | null
           source_examples: Json
           status: string
@@ -142,6 +143,7 @@ export type Database = {
           output_action?: Json
           reviewed_at?: string | null
           reviewed_by?: string | null
+          rule_key: string
           rule_type?: string | null
           source_examples?: Json
           status?: string
@@ -164,6 +166,7 @@ export type Database = {
           output_action?: Json
           reviewed_at?: string | null
           reviewed_by?: string | null
+          rule_key?: string
           rule_type?: string | null
           source_examples?: Json
           status?: string
@@ -4088,6 +4091,10 @@ export type Database = {
       }
     }
     Functions: {
+      compute_ai_rule_key: {
+        Args: { _action: Json; _pattern: Json }
+        Returns: string
+      }
       current_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
