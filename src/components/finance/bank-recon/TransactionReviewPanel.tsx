@@ -81,6 +81,7 @@ export function TransactionReviewPanel({
   };
 
   const runAi = async () => {
+    if (!tenantId) { toast({ title: "No active tenant", variant: "destructive" }); return; }
     setAiBusy(true);
     setAiResult(null);
     const { data, error } = await supabase.functions.invoke("ai-classify", {
@@ -88,6 +89,7 @@ export function TransactionReviewPanel({
         op: "suggest",
         domain: "bank_recon",
         workflow: "bank_txn_classify",
+        tenant_id: tenantId,
         input: {
           description: txn.description,
           money_in: Number(txn.money_in),
@@ -101,19 +103,21 @@ export function TransactionReviewPanel({
     if (error) { toast({ title: "AI failed", description: error.message, variant: "destructive" }); return; }
     if ((data as any)?.error) { toast({ title: "AI failed", description: (data as any).error, variant: "destructive" }); return; }
     const s = data as any;
-    // Flatten to keep existing UI compatible
     setAiResult({
       suggested_type: s.suggestion?.suggested_type ?? s.suggestion?.type ?? null,
       suggested_category: s.suggestion?.suggested_category ?? s.suggestion?.category ?? null,
       rule_pattern: s.rule_pattern,
       confidence: s.confidence,
       rationale: s.rationale,
+      source: s.source,
+      rule_id: s.rule_id,
       _full: s,
     });
   };
 
   const acceptAi = async (alsoSaveRule: boolean) => {
     if (!aiResult?.suggested_type) return;
+    if (!tenantId) { toast({ title: "No active tenant", variant: "destructive" }); return; }
     setBusy(true);
     const newStatus = aiResult.suggested_type === "bank_fee" ? "bank_fee" : "matched";
     const { error } = await supabase.from("bank_transactions").update({
@@ -125,15 +129,16 @@ export function TransactionReviewPanel({
     await supabase.from("bank_audit_trail" as any).insert({
       bank_account_id: txn.bank_account_id, bank_transaction_id: txn.id,
       action: "ai_classify_accepted", old_status: txn.status, new_status: newStatus,
-      notes: { manual_notes: notes, ai: aiResult },
+      notes: { manual_notes: notes, ai: aiResult, teach: alsoSaveRule },
     });
-    // Record into the unified learning system (and teach if requested)
     await supabase.functions.invoke("ai-classify", {
       body: {
         op: "apply",
         domain: "bank_recon",
         workflow: "bank_txn_classify",
+        tenant_id: tenantId,
         teach: alsoSaveRule,
+        rule_id: aiResult.rule_id ?? null,
         input: {
           description: txn.description,
           money_in: Number(txn.money_in),
