@@ -215,11 +215,21 @@ export function TransactionReviewPanel({
               {aiResult?.suggested_type && (
                 <div className="border border-border rounded-md p-2 bg-card/50 space-y-2">
                   <div>
-                    <div className="font-medium">{SUGGESTED_TYPE_LABEL[aiResult.suggested_type] || aiResult.suggested_type}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {SUGGESTED_TYPE_LABEL[aiResult.suggested_type] || aiResult.suggested_type}
+                      {aiResult.source === "learned_rule" && <span className="chip chip-success"><span /> learned rule</span>}
+                      {aiResult.source === "ai_model" && <span className="chip chip-info"><span /> AI</span>}
+                    </div>
                     {aiResult.suggested_category && <div className="text-xs text-muted-foreground">→ {aiResult.suggested_category}</div>}
                     {typeof aiResult.confidence === "number" && <div className="text-xs text-muted-foreground">Confidence: {Math.round(aiResult.confidence * 100)}%</div>}
-                    {aiResult.reason && <div className="text-xs text-muted-foreground mt-1">{aiResult.reason}</div>}
-                    {aiResult.rule_pattern && <div className="text-xs mt-1">Pattern to remember: <span className="font-mono bg-background/40 px-1 rounded">{aiResult.rule_pattern}</span></div>}
+                    {aiResult.rationale && <div className="text-xs text-muted-foreground mt-1">{aiResult.rationale}</div>}
+                    {aiResult.rule_pattern && (
+                      <div className="text-xs mt-1">Pattern to remember:{" "}
+                        <span className="font-mono bg-background/40 px-1 rounded">
+                          {typeof aiResult.rule_pattern === "string" ? aiResult.rule_pattern : JSON.stringify(aiResult.rule_pattern)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => acceptAi(true)} disabled={busy} className="flex-1">Accept &amp; Teach</Button>
