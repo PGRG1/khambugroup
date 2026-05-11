@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
