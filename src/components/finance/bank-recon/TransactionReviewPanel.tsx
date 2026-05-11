@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
 import { formatCurrency } from "@/utils/salesUtils";
 import { classifyTxn, SUGGESTED_TYPE_LABEL, type UserRule } from "@/utils/bankTxnRules";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeftRight, Coins, Receipt, AlertTriangle, Sparkles } from "lucide-react";
 
 type AuditRow = { id: string; ts: string; action: string; old_status: string | null; new_status: string | null; user_display_name: string | null; notes: any };
