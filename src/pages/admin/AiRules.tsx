@@ -72,10 +72,8 @@ export default function AiRules() {
   const load = async () => {
     setBusy(true);
     try {
-      const data = await fetchAllRows<Rule>(
-        supabase.from("ai_learned_rules").select("*").order("updated_at", { ascending: false })
-      );
-      setRules(data);
+      const data = await fetchAllRows("ai_learned_rules", "*", { col: "updated_at", asc: false });
+      setRules(data as Rule[]);
     } catch (e: any) {
       toast.error(`Failed to load rules: ${e.message ?? e}`);
     } finally {
