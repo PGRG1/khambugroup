@@ -100,7 +100,37 @@ function matchesPattern(pattern: any, input: any): boolean {
   return true;
 }
 
-async function callAI(systemPrompt: string, userPayload: unknown) {
+function outputActionSchema(workflow: string) {
+  if (workflow === "bank_txn_classify") {
+    return {
+      type: "object",
+      properties: {
+        suggested_type: {
+          type: "string",
+          enum: ["sales_deposit","supplier_payment","payroll","bank_fee","transfer","refund","settlement","other"],
+        },
+        suggested_category: { type: ["string", "null"] },
+      },
+      required: ["suggested_type"],
+      additionalProperties: false,
+    };
+  }
+  return { type: "object", additionalProperties: true };
+}
+
+function rulePatternSchema() {
+  return {
+    type: "object",
+    properties: {
+      contains: { type: "string" },
+      equals: { type: "string" },
+      regex: { type: "string" },
+    },
+    additionalProperties: true,
+  };
+}
+
+async function callAI(systemPrompt: string, userPayload: unknown, workflow: string) {
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -122,12 +152,12 @@ async function callAI(systemPrompt: string, userPayload: unknown) {
             parameters: {
               type: "object",
               properties: {
-                output_action: { type: "object", additionalProperties: true },
-                rule_pattern: { type: "object", additionalProperties: true },
+                output_action: outputActionSchema(workflow),
+                rule_pattern: rulePatternSchema(),
                 confidence: { type: "number", minimum: 0, maximum: 1 },
                 rationale: { type: "string" },
               },
-              required: ["output_action", "confidence"],
+              required: ["output_action", "rule_pattern", "confidence"],
               additionalProperties: false,
             },
           },
