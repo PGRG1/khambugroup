@@ -734,7 +734,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
-    if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Product Master", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
+    if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Bills & Invoices", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
     await doSaveCurrent(current, currentIdx);
   };
 
@@ -742,7 +742,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     // Check all unsaved invoices for unmatched items
     const unmatchedInvoices = invoices.filter((inv, i) => !inv.saved && !inv.is_duplicate && hasUnmatchedForSave(inv));
     if (unmatchedInvoices.length > 0) {
-      toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Product Master first.`, variant: "destructive" });
+      toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Bills & Invoices first.`, variant: "destructive" });
       return;
     }
     setSavingAll(true);
@@ -989,7 +989,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Product Master</strong> — review required.
+                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Bills & Invoices</strong> — review required.
               </span>
             </div>
           )}
@@ -998,7 +998,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>SKU mismatch:</strong> Some scanned item codes don't match the Product Master external SKU. Review highlighted rows.
+                <strong>SKU mismatch:</strong> Some scanned item codes don't match the Bills & Invoices external SKU. Review highlighted rows.
               </span>
             </div>
           )}
@@ -1007,7 +1007,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>{priceChangedItems.length} price change{priceChangedItems.length > 1 ? "s" : ""} detected</strong> — invoice prices differ from Product Master. Review highlighted rows.
+                <strong>{priceChangedItems.length} price change{priceChangedItems.length > 1 ? "s" : ""} detected</strong> — invoice prices differ from Bills & Invoices. Review highlighted rows.
               </span>
             </div>
           )}

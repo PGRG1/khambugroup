@@ -636,12 +636,12 @@ export default function ProcurementDashboardTab() {
         </Card>
       )}
 
-      {/* ─── Expenses by Product ─── */}
+      {/* ─── Expenses by Bill / Invoice ─── */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium">
-              Expenses by Product ({productExpenses.length} items)
+              Expenses by Bill / Invoice ({productExpenses.length} items)
             </CardTitle>
             {productExpenses.length > 20 && (
               <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setShowAllProducts(v => !v)}>
@@ -678,7 +678,7 @@ export default function ProcurementDashboardTab() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">No product data for this period</div>
+            <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">No bill / invoice data for this period</div>
           )}
         </CardContent>
       </Card>

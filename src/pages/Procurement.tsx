@@ -13,7 +13,7 @@ import DocumentsTab from "@/components/procurement/DocumentsTab";
 const tabTitles: Record<string, string> = {
   dashboard: "Dashboard",
   suppliers: "Suppliers",
-  "product-master": "Product Master",
+  "product-master": "Bills & Invoices",
   categories: "Categories",
   invoices: "Invoices",
   "line-items": "Invoice Line Items",

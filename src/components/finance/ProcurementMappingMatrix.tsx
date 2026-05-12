@@ -101,7 +101,7 @@ export function ProcurementMappingMatrix({ accounts }: { accounts: ChartAccount[
         <p className="text-sm text-muted-foreground">Loading categories…</p>
       ) : rows.length === 0 ? (
         <Card className="card-glass p-6 text-center text-sm text-muted-foreground">
-          No products have a Financial Treatment + L1 Category yet. Set them in Procurement → Product Master.
+          No items have a Financial Treatment + L1 Category yet. Set them in Procurement → Bills & Invoices.
         </Card>
       ) : (
         Array.from(grouped.entries()).map(([treatment, list]) => {
@@ -120,7 +120,7 @@ export function ProcurementMappingMatrix({ accounts }: { accounts: ChartAccount[
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground border-b border-border/30">
                       <th className="px-4 py-2.5 font-medium w-[280px]">L1 Category</th>
-                      <th className="px-3 py-2.5 font-medium w-[100px] text-right">Products</th>
+                      <th className="px-3 py-2.5 font-medium w-[100px] text-right">Bills & Invoices</th>
                       <th className="px-3 py-2.5 font-medium w-[110px] text-right">Overrides</th>
                       <th className="px-3 py-2.5 font-medium">Default COA Account</th>
                     </tr>
@@ -180,7 +180,7 @@ export function ProcurementMappingMatrix({ accounts }: { accounts: ChartAccount[
           Each invoice line resolves its debit account in this order:
         </p>
         <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
-          <li>Per-product override (set on the product in Product Master)</li>
+          <li>Per-item override (set on the item in Bills & Invoices)</li>
           <li>This mapping (Treatment + L1 Category)</li>
           <li>Otherwise the line is unmapped and the invoice will not post until corrected</li>
         </ol>
