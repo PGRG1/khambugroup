@@ -190,17 +190,18 @@ export function SettlementDetailsAuditTab({
   }, [filtered, sortKey, sortDir]);
 
   const totals = useMemo(() => {
-    let gross = 0, actual = 0, expected = 0, variance = 0, flagged = 0;
+    let gross = 0, actual = 0, expected = 0, flagged = 0;
     filtered.forEach((t) => {
       gross += Number(t.gross_amount || 0);
       actual += Number(t.fee_amount || 0);
+      // Sum of per-transaction ROUNDED expected fees (rounding already
+      // applied per line in `expectedFeeComputed` using the fee-rate rule).
       expected += Number(t.expectedFeeComputed || 0);
-      if (t.auditStatusComputed !== "ok") {
-        flagged += 1;
-        variance += Number(t.feeVarianceComputed || 0);
-      }
+      if (t.auditStatusComputed !== "ok") flagged += 1;
     });
-    return { count: filtered.length, gross, actual, expected, variance: round2(variance), flagged };
+    // Δ KPI = Actual Fee KPI − Expected Fee KPI (using the same rounded values shown).
+    const variance = round2(round2(actual) - round2(expected));
+    return { count: filtered.length, gross, actual, expected, variance, flagged };
   }, [filtered]);
 
   const onSort = (k: SortKey) => {
