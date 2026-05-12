@@ -619,7 +619,7 @@ export default function ProcurementInvoicesTab() {
           {unmatchedCount > 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span><strong>{unmatchedCount} item(s) not matched to Product Master</strong> — use autocomplete to match.</span>
+              <span><strong>{unmatchedCount} item(s) not matched to Bills & Invoices</strong> — use autocomplete to match.</span>
             </div>
           )}
 
