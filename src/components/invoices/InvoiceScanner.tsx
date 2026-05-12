@@ -989,7 +989,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Product Master</strong> — review required.
+                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Bills & Invoices</strong> — review required.
               </span>
             </div>
           )}
