@@ -18,7 +18,6 @@ interface LineItemRow {
   invoice_date: string;
   supplier_name: string;
   description: string;
-  pack_size: string;
   quantity: number;
   unit: string;
   unit_price: number;
