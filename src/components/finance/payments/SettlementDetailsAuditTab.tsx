@@ -273,6 +273,7 @@ export function SettlementDetailsAuditTab({
               <Th label="Actual fee" k="fee" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Expected" k="expected" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Δ" k="variance" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="text-right px-2 py-1.5">Net</th>
               <th className="text-left px-2 py-1.5">Status</th>
             </tr>
           </thead>
