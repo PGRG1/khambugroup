@@ -63,7 +63,6 @@ function buildRow(li: any, invMap: Map<string, InvoiceMeta>, supMap: Map<string,
     invoice_date: inv?.invoice_date || "",
     supplier_name,
     description,
-    pack_size: li.pack_size || "",
     quantity: li.quantity || 0,
     unit: li.unit || "",
     unit_price: li.unit_price || 0,
@@ -337,7 +336,6 @@ export default function ProcurementLineItemsTab() {
                         </div>
                         <div className="px-3 text-foreground truncate">
                           {r.description}
-                          {r.pack_size && <span className="text-muted-foreground ml-1">[{r.pack_size}]</span>}
                         </div>
                         <div className="px-3 text-right tabular-nums">{r.quantity}</div>
                         <div className="px-3 text-center text-muted-foreground">{r.unit}</div>
