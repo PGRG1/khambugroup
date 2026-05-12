@@ -626,7 +626,7 @@ export default function ProcurementInvoicesTab() {
           {priceChangedCount > 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-accent/40 p-3 text-sm text-foreground">
               <AlertTriangle className="h-4 w-4 shrink-0 text-primary" />
-              <span><strong>{priceChangedCount} price change(s) detected</strong> — invoice prices differ from Product Master.</span>
+              <span><strong>{priceChangedCount} price change(s) detected</strong> — invoice prices differ from Bills & Invoices.</span>
             </div>
           )}
 
