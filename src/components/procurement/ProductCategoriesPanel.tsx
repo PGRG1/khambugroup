@@ -325,12 +325,12 @@ export default function ProductCategoriesPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          Manage your 3-level product category tree. These dropdowns show up when editing
-          products and scanning invoices.
+          Manage your 3-level bill & invoice category tree. These dropdowns show up when editing
+          bills & invoices and scanning invoices.
         </p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={importFromProducts}>
-            <Upload className="h-4 w-4 mr-1" /> Import from existing products
+            <Upload className="h-4 w-4 mr-1" /> Import from existing bills & invoices
           </Button>
           <Button size="sm" variant="outline" onClick={exportCsv}>
             <Download className="h-4 w-4 mr-1" /> Export CSV
