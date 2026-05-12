@@ -7,7 +7,7 @@ export default function CategoriesTab() {
   return (
     <Tabs defaultValue="products" className="w-full">
       <TabsList className="mb-4">
-        <TabsTrigger value="products">Product Categories</TabsTrigger>
+        <TabsTrigger value="products">Bill & Invoice Categories</TabsTrigger>
         <TabsTrigger value="uom">Units of Measure</TabsTrigger>
       </TabsList>
       <TabsContent value="products"><ProductCategoriesPanel /></TabsContent>
