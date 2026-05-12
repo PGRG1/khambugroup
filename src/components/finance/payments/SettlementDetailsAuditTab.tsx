@@ -294,6 +294,7 @@ export function SettlementDetailsAuditTab({
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
                   <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(t.expectedFeeComputed)}</td>
                   <td className={`px-2 py-1.5 text-right td-num ${Math.abs(Number(t.feeVarianceComputed)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(t.feeVarianceComputed)}</td>
+                  <td className="px-2 py-1.5 text-right td-num font-medium">{fmtMoney(t.net_amount)}</td>
                   <td className="px-2 py-1.5">
                     <span className={STATUS_STYLE[t.auditStatusComputed] || STATUS_STYLE.ok}>{STATUS_LABEL[t.auditStatusComputed] || t.auditStatusComputed}</span>
                   </td>
