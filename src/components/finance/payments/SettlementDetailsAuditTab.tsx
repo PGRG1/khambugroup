@@ -58,10 +58,18 @@ function findRate(rates: FeeRate[], method: string, locality: string, merchant: 
   return exact || noW.find((r) => !r.merchant_number) || null;
 }
 
+// Render the stored wall-clock timestamp verbatim (UTC components),
+// because KPay times are local HK times stored as-is in the DB.
 const fmtDateTime = (s: string) => {
   if (!s) return "—";
   const d = new Date(s);
-  return d.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  if (isNaN(d.getTime())) return s;
+  const y = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const da = String(d.getUTCDate()).padStart(2, "0");
+  const h = String(d.getUTCHours()).padStart(2, "0");
+  const mi = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${da} ${h}:${mi}`;
 };
 
 const STATUS_STYLE: Record<string, string> = {
