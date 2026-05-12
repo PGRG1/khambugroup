@@ -180,7 +180,7 @@ export function ProcurementMappingMatrix({ accounts }: { accounts: ChartAccount[
           Each invoice line resolves its debit account in this order:
         </p>
         <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
-          <li>Per-product override (set on the product in Product Master)</li>
+          <li>Per-item override (set on the item in Bills & Invoices)</li>
           <li>This mapping (Treatment + L1 Category)</li>
           <li>Otherwise the line is unmapped and the invoice will not post until corrected</li>
         </ol>
