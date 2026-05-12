@@ -678,7 +678,7 @@ export default function ProcurementDashboardTab() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">No product data for this period</div>
+            <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">No bill / invoice data for this period</div>
           )}
         </CardContent>
       </Card>
