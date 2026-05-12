@@ -120,7 +120,7 @@ export function ProcurementMappingMatrix({ accounts }: { accounts: ChartAccount[
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground border-b border-border/30">
                       <th className="px-4 py-2.5 font-medium w-[280px]">L1 Category</th>
-                      <th className="px-3 py-2.5 font-medium w-[100px] text-right">Products</th>
+                      <th className="px-3 py-2.5 font-medium w-[100px] text-right">Bills & Invoices</th>
                       <th className="px-3 py-2.5 font-medium w-[110px] text-right">Overrides</th>
                       <th className="px-3 py-2.5 font-medium">Default COA Account</th>
                     </tr>
