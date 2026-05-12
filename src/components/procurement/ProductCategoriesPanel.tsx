@@ -178,7 +178,7 @@ export default function ProductCategoriesPanel() {
         { key: "L1", label: "L1" },
         { key: "L2", label: "L2" },
         { key: "L3", label: "L3" },
-        { key: "products", label: "Products" },
+        { key: "products", label: "Bills & Invoices" },
       ],
       "product_categories"
     );
