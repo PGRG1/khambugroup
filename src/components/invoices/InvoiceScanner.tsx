@@ -998,7 +998,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>SKU mismatch:</strong> Some scanned item codes don't match the Product Master external SKU. Review highlighted rows.
+                <strong>SKU mismatch:</strong> Some scanned item codes don't match the Bills & Invoices external SKU. Review highlighted rows.
               </span>
             </div>
           )}
