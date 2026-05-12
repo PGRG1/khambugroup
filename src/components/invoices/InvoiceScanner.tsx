@@ -1007,7 +1007,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
-                <strong>{priceChangedItems.length} price change{priceChangedItems.length > 1 ? "s" : ""} detected</strong> — invoice prices differ from Product Master. Review highlighted rows.
+                <strong>{priceChangedItems.length} price change{priceChangedItems.length > 1 ? "s" : ""} detected</strong> — invoice prices differ from Bills & Invoices. Review highlighted rows.
               </span>
             </div>
           )}
