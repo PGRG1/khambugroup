@@ -734,7 +734,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
-    if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Product Master", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
+    if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Bills & Invoices", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
     await doSaveCurrent(current, currentIdx);
   };
 
