@@ -101,7 +101,7 @@ export function ProcurementMappingMatrix({ accounts }: { accounts: ChartAccount[
         <p className="text-sm text-muted-foreground">Loading categories…</p>
       ) : rows.length === 0 ? (
         <Card className="card-glass p-6 text-center text-sm text-muted-foreground">
-          No products have a Financial Treatment + L1 Category yet. Set them in Procurement → Product Master.
+          No items have a Financial Treatment + L1 Category yet. Set them in Procurement → Bills & Invoices.
         </Card>
       ) : (
         Array.from(grouped.entries()).map(([treatment, list]) => {
