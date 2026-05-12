@@ -273,6 +273,7 @@ export function SettlementDetailsAuditTab({
               <Th label="Actual fee" k="fee" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Expected" k="expected" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               <Th label="Δ" k="variance" right sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              <th className="text-right px-2 py-1.5">Net</th>
               <th className="text-left px-2 py-1.5">Status</th>
             </tr>
           </thead>
@@ -293,6 +294,7 @@ export function SettlementDetailsAuditTab({
                   <td className="px-2 py-1.5 text-right td-num">{fmtMoney(t.fee_amount)}</td>
                   <td className="px-2 py-1.5 text-right td-num text-muted-foreground">{fmtMoney(t.expectedFeeComputed)}</td>
                   <td className={`px-2 py-1.5 text-right td-num ${Math.abs(Number(t.feeVarianceComputed)) > 0.01 ? "text-amber-500 font-medium" : ""}`}>{fmtMoney(t.feeVarianceComputed)}</td>
+                  <td className="px-2 py-1.5 text-right td-num font-medium">{fmtMoney(t.net_amount)}</td>
                   <td className="px-2 py-1.5">
                     <span className={STATUS_STYLE[t.auditStatusComputed] || STATUS_STYLE.ok}>{STATUS_LABEL[t.auditStatusComputed] || t.auditStatusComputed}</span>
                   </td>
@@ -300,7 +302,7 @@ export function SettlementDetailsAuditTab({
               );
             })}
             {sorted.length === 0 && (
-              <tr><td colSpan={10} className="text-center text-muted-foreground py-6">No transactions match your filters.</td></tr>
+              <tr><td colSpan={11} className="text-center text-muted-foreground py-6">No transactions match your filters.</td></tr>
             )}
           </tbody>
         </table>
