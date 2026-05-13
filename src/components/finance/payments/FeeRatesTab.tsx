@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Plus, Trash2, Save, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+type RoundingMethod = "normal" | "round_up" | "round_down" | "truncate";
+
 type FeeRate = {
   id: string;
   processor_id?: string;
@@ -16,8 +18,19 @@ type FeeRate = {
   wallet_type: string | null;
   rate: number;
   rounding_dp: number;
+  rounding_method: RoundingMethod;
   notes: string | null;
 };
+
+const ROUNDING_OPTIONS: { value: RoundingMethod; label: string }[] = [
+  { value: "normal", label: "Normal Rounding" },
+  { value: "round_up", label: "Round Up" },
+  { value: "round_down", label: "Round Down" },
+  { value: "truncate", label: "Truncate" },
+];
+const ROUNDING_LABEL: Record<string, string> = Object.fromEntries(
+  ROUNDING_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 // Wallet sub-types for digital wallet methods
 const WALLET_OPTIONS: Record<string, { value: string; label: string }[]> = {
