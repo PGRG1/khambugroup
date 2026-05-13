@@ -593,7 +593,7 @@ export default function ProductMasterTab() {
               </div>
             </PopoverContent>
           </Popover>
-          <span className="text-xs text-muted-foreground ml-1">Showing {filtered.length} rows ({products.length} unique bills & invoices)</span>
+          <span className="text-xs text-muted-foreground ml-1">Showing {filtered.length} rows ({products.length} unique items)</span>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
