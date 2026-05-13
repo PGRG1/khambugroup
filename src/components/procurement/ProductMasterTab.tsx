@@ -500,7 +500,7 @@ export default function ProductMasterTab() {
           cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
           supplier: r.supplier, status: r.status,
         })), columns.map(c => ({ key: c.key, label: c.label })), "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
-        <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Bill / Invoice</Button>
+        <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
       </div>
 
       {/* Document-Centre-style toolbar */}
@@ -593,7 +593,7 @@ export default function ProductMasterTab() {
               </div>
             </PopoverContent>
           </Popover>
-          <span className="text-xs text-muted-foreground ml-1">Showing {filtered.length} rows ({products.length} unique bills & invoices)</span>
+          <span className="text-xs text-muted-foreground ml-1">Showing {filtered.length} rows ({products.length} unique items)</span>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
