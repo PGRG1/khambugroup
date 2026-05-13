@@ -14,11 +14,12 @@ import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeft
 type AuditRow = { id: string; ts: string; action: string; old_status: string | null; new_status: string | null; user_display_name: string | null; notes: any };
 
 export function TransactionReviewPanel({
-  txn, accounts, userRules, onClose, onChanged,
+  txn, accounts, userRules, reconRules = [], onClose, onChanged,
 }: {
   txn: BankTxn | null;
   accounts: BankAccount[];
   userRules: UserRule[];
+  reconRules?: ReconMappingRule[];
   onClose: () => void;
   onChanged: () => void;
 }) {
