@@ -226,6 +226,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       wallet_type: draft.wallet_type || null,
       rate: rateNum / 100,
       rounding_dp: draft.rounding_dp,
+      rounding_method: draft.rounding_method,
     };
     const res = editingId
       ? await supabase.from("payment_processor_fee_rates").update(payload).eq("id", editingId)
