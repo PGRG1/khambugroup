@@ -8,6 +8,8 @@ import type { PaymentProcessor, ProcessorMerchant, SettlementBatch, SettlementTr
 const fmtMoney = (v: number) =>
   Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+type RoundingMethod = "normal" | "round_up" | "round_down" | "truncate";
+
 type FeeRate = {
   id: string;
   payment_method: string;
@@ -16,12 +18,37 @@ type FeeRate = {
   wallet_type: string | null;
   rate: number;
   rounding_dp: number;
+  rounding_method: RoundingMethod;
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const roundTo = (n: number, dp: number) => {
+
+// Apply Decimal Places + Rounding Method exactly as configured on the fee rate.
+// Uses a small epsilon to neutralise IEEE-754 representation drift
+// (e.g. 8.555 * 100 = 855.4999999... → would otherwise round down).
+const EPS = 1e-9;
+const applyRounding = (n: number, dp: number, method: RoundingMethod) => {
   const factor = Math.pow(10, Math.max(0, dp | 0));
-  return Math.round(n * factor) / factor;
+  const sign = n < 0 ? -1 : 1;
+  const x = Math.abs(n) * factor;
+  let rounded: number;
+  switch (method) {
+    case "round_up":
+      rounded = Math.ceil(x - EPS);
+      break;
+    case "round_down":
+      rounded = Math.floor(x + EPS);
+      break;
+    case "truncate":
+      rounded = Math.floor(x + EPS); // same as round_down for positive magnitudes
+      break;
+    case "normal":
+    default:
+      // Half-away-from-zero, e.g. 8.555 → 8.56
+      rounded = Math.floor(x + 0.5 + EPS);
+      break;
+  }
+  return (sign * rounded) / factor;
 };
 
 const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
