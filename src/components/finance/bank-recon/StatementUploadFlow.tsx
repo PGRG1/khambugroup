@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Upload, ArrowRight, CheckCircle2 } from "lucide-react";
 import { classifyTxn } from "@/utils/bankTxnRules";
+import { loadReconMappingRules, matchReconRule } from "@/utils/reconciliationMappingRules";
 import type { BankAccount } from "@/hooks/useBankReconciliation";
 import { formatCurrency } from "@/utils/salesUtils";
 
@@ -127,6 +128,7 @@ export function StatementUploadFlow({
     if (!extracted) return;
     setStep("saving");
     try {
+      const reconRules = await loadReconMappingRules();
       for (let i = 0; i < extracted.accounts.length; i++) {
         const a = extracted.accounts[i];
         const m = mappings[i];
@@ -183,7 +185,8 @@ export function StatementUploadFlow({
 
         if (a.transactions.length) {
           const rows = a.transactions.map((t) => {
-            const cls = classifyTxn(t.raw_description, t.deposit || 0, t.withdrawal || 0, []);
+            const rec = matchReconRule(t.raw_description, t.deposit || 0, t.withdrawal || 0, reconRules);
+            const cls = rec ? null : classifyTxn(t.raw_description, t.deposit || 0, t.withdrawal || 0, []);
             return {
               import_id: imp.id,
               bank_account_id: bankAccountId,
@@ -196,8 +199,8 @@ export function StatementUploadFlow({
               money_out: t.withdrawal || 0,
               running_balance: t.running_balance ?? null,
               source_page: t.source_page ?? null,
-              suggested_type: cls?.suggested_type || null,
-              suggested_category: cls?.suggested_category || null,
+              suggested_type: rec?.suggested_type || cls?.suggested_type || null,
+              suggested_category: rec?.suggested_category || cls?.suggested_category || null,
               status: "unmatched",
             } as any;
           });

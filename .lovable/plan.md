@@ -1,42 +1,57 @@
-## Problem
+## Plan: Reconciliation Mapping Rules
 
-On `/procurement/line-items`, the **External SKU** column does not show what was captured at scan time. In the screenshot, two different suppliers (Global Fine Foods code `1564020` vs ONGO Food Ltd code `81060529` for "Black Truffle Oil") both display External SKU `3761003` — the same value. That value is the *product master's* external SKU, not the SKU that was actually scanned and saved on each invoice line.
+Create a new master table that drives classification + match suggestions for Bank Transactions. No journal posting in this step.
 
-## Root Cause
+### 1. Database
 
-`src/components/procurement/ProcurementLineItemsTab.tsx` builds each row like this:
+New table `reconciliation_mapping_rules`:
 
-```ts
-const pm = pmId ? pmMap.get(pmId) : null;
-...
-external_sku: pm?.ext_sku || "",   // ← always from product_master
-internal_sku: pm?.sku || "",
-```
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | default gen_random_uuid() |
+| rule_name | text | required, unique |
+| bank_description_contains | text | case-insensitive match key |
+| bank_movement | text | enum: `money_in` \| `money_out` \| `either` |
+| counterparty_type | text | free text (Payment Processor, Bank, Supplier, Cash, Internal Bank Account, Payroll, Supplier / Employee / Other) |
+| classification | text | e.g. Merchant Settlement, Bank Fee, Supplier Payment… |
+| match_to | text | e.g. KPay Report / Merchant Clearing, Supplier Invoice / AP… |
+| source_required | boolean | default false |
+| debit_account | text | label for now (string, not FK) |
+| credit_account | text | label for now (string, not FK) |
+| review_required | boolean | default true |
+| auto_post | boolean | default false |
+| is_active | boolean | default true |
+| sort_order | int | default 0 |
+| created_at / updated_at | timestamptz | with trigger |
 
-It never reads `invoice_line_items.item_code` — the field where the scanner stores the supplier code captured from the invoice. So once a line is matched to any product master, every row inherits that master's single `external_sku`, hiding the per-supplier code that was actually entered.
+RLS: read = authenticated; manage = admin OR manager (matches `bank_recon_rules`).
 
-(Internal SKU correctly comes from the master because it is the canonical internal code; that part is fine.)
+Seed the 9 initial rules from the spec.
 
-## Fix
+### 2. Suggestion engine (frontend, no posting)
 
-In `ProcurementLineItemsTab.tsx`:
+Add `src/utils/reconciliationMappingRules.ts`:
+- `loadRules()` — fetch active rules.
+- `matchRule(txn, rules)` — first rule where:
+  - `bank_description_contains` is found (case-insensitive) in `description`, AND
+  - `bank_movement` matches `money_in` (>0) / `money_out` (>0) / `either`.
+- Returns `{ rule_name, classification, match_to, suggested_type, suggested_category, debit_account, credit_account, review_required, auto_post, source_required }`.
 
-1. Include `item_code` in the `LineItemRow` type and in `buildRow()`.
-2. Set `external_sku` from the **line item itself**:
-   - `external_sku: li.item_code || pm?.ext_sku || ""`
-   - Fallback to the master only when the line never had a scanned code (legacy rows).
-3. Keep `internal_sku` sourced from the matched master (unchanged).
-4. Update the searchable `_s` blob and the CSV download to use the new value (no extra column needed; same column, correct data).
+### 3. Wire into Bank Transactions
 
-That's the only change required to make the displayed External SKU match what was scanned. No DB migration, no scanner change — the data is already saved correctly in `invoice_line_items.item_code`; the page was just showing the wrong source.
+- In `StatementUploadFlow` commit step and in `TransactionReviewPanel` live render: run `matchRule` first, fall back to existing `classifyTxn` / AI suggestion (`ai-classify` edge function) only when no rule matches.
+- Persist into existing `bank_transactions` columns (`suggested_type`, `suggested_category`, `notes`) — no schema change to bank_transactions.
+- Display rule name + classification + match-to + accounts in the review panel as a "Suggested Mapping" block. User must approve; no auto-posting yet (`auto_post` is stored but ignored at this stage).
 
-## Verification
+### 4. Out of scope (explicit)
 
-- Reload `/procurement/line-items`, search "truffle".
-- Global Fine Foods row should show External SKU `1564020`-style scanned code (whatever is in that line's `item_code`), and ONGO row should show its own (`81060529`-style) scanned code — no longer identical.
-- Rows with no `item_code` (older imports) still fall back to the master's external SKU so nothing goes blank.
-- CSV export reflects the same corrected values.
+- No journal_lines / journal_entries writes.
+- No KPay matching engine changes — only surface "Match To: KPay Report / Merchant Clearing" hint; existing KPay matching tab keeps working unchanged.
+- No admin UI for editing the rules in this step (rules are seeded; CRUD UI can come next). If you'd like me to also build the management screen now, say so.
 
-## Files Touched
+### Files touched
 
-- `src/components/procurement/ProcurementLineItemsTab.tsx` (single component edit)
+- new migration: create table + RLS + seed
+- new `src/utils/reconciliationMappingRules.ts`
+- edit `src/components/finance/bank-recon/StatementUploadFlow.tsx`
+- edit `src/components/finance/bank-recon/TransactionReviewPanel.tsx`

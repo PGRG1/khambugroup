@@ -3304,6 +3304,63 @@ export type Database = {
         }
         Relationships: []
       }
+      reconciliation_mapping_rules: {
+        Row: {
+          auto_post: boolean
+          bank_description_contains: string
+          bank_movement: string
+          classification: string
+          counterparty_type: string
+          created_at: string
+          credit_account: string
+          debit_account: string
+          id: string
+          is_active: boolean
+          match_to: string
+          review_required: boolean
+          rule_name: string
+          sort_order: number
+          source_required: boolean
+          updated_at: string
+        }
+        Insert: {
+          auto_post?: boolean
+          bank_description_contains?: string
+          bank_movement?: string
+          classification?: string
+          counterparty_type?: string
+          created_at?: string
+          credit_account?: string
+          debit_account?: string
+          id?: string
+          is_active?: boolean
+          match_to?: string
+          review_required?: boolean
+          rule_name: string
+          sort_order?: number
+          source_required?: boolean
+          updated_at?: string
+        }
+        Update: {
+          auto_post?: boolean
+          bank_description_contains?: string
+          bank_movement?: string
+          classification?: string
+          counterparty_type?: string
+          created_at?: string
+          credit_account?: string
+          debit_account?: string
+          id?: string
+          is_active?: boolean
+          match_to?: string
+          review_required?: boolean
+          rule_name?: string
+          sort_order?: number
+          source_required?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       revenue_sources: {
         Row: {
           created_at: string

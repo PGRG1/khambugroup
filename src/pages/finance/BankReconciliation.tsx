@@ -17,6 +17,7 @@ import { RulesTab } from "@/components/finance/bank-recon/RulesTab";
 import { AuditTab } from "@/components/finance/bank-recon/AuditTab";
 import { FilteredTxnList } from "@/components/finance/bank-recon/FilteredTxnList";
 import { classifyTxn, type UserRule } from "@/utils/bankTxnRules";
+import { loadReconMappingRules, matchReconRule, type ReconMappingRule } from "@/utils/reconciliationMappingRules";
 
 const ALL = "__all__";
 const ACCOUNT_TYPES = ["HKD Current", "HKD Savings", "Foreign Currency Savings", "USD Current", "Other"];
@@ -46,11 +47,13 @@ export default function BankReconciliation() {
   const [drawerTxn, setDrawerTxn] = useState<BankTxn | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [userRules, setUserRules] = useState<UserRule[]>([]);
+  const [reconRules, setReconRules] = useState<ReconMappingRule[]>([]);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("bank_recon_rules" as any).select("*").order("sort_order");
       setUserRules((data as any) || []);
+      setReconRules(await loadReconMappingRules());
     })();
   }, []);
 
@@ -92,8 +95,9 @@ export default function BankReconciliation() {
 
   // Filtered subsets for tabs
   const txWith = (type: string) => filteredTxns.filter((t) => {
-    const cls = classifyTxn(t.description, Number(t.money_in), Number(t.money_out), userRules);
-    return ((t as any).suggested_type || cls?.suggested_type) === type;
+    const rec = matchReconRule(t.description, Number(t.money_in), Number(t.money_out), reconRules);
+    const cls = rec ? null : classifyTxn(t.description, Number(t.money_in), Number(t.money_out), userRules);
+    return ((t as any).suggested_type || rec?.suggested_type || cls?.suggested_type) === type;
   });
   const kpayTxns = txWith("kpay_settlement");
   const cashDepositTxns = txWith("cash_deposit");
@@ -320,7 +324,8 @@ export default function BankReconciliation() {
                   )}
                   {filteredTxns.map((t) => {
                     const acct = accounts.find((a) => a.id === t.bank_account_id);
-                    const sugg = (t as any).suggested_type || classifyTxn(t.description, Number(t.money_in), Number(t.money_out), userRules)?.suggested_type;
+                    const rec = matchReconRule(t.description, Number(t.money_in), Number(t.money_out), reconRules);
+                    const sugg = (t as any).suggested_type || rec?.suggested_type || classifyTxn(t.description, Number(t.money_in), Number(t.money_out), userRules)?.suggested_type;
                     return (
                       <tr key={t.id} className="border-b border-border/50 hover:bg-card/50 cursor-pointer" onClick={() => setDrawerTxn(t)}>
                         <td className="py-2 px-2">{t.txn_date}</td>
@@ -385,6 +390,7 @@ export default function BankReconciliation() {
         txn={drawerTxn}
         accounts={accounts}
         userRules={userRules}
+        reconRules={reconRules}
         onClose={() => setDrawerTxn(null)}
         onChanged={reload}
       />

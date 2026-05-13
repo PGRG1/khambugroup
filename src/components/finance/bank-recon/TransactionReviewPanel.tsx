@@ -7,17 +7,19 @@ import { toast } from "@/hooks/use-toast";
 import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
 import { formatCurrency } from "@/utils/salesUtils";
 import { classifyTxn, SUGGESTED_TYPE_LABEL, type UserRule } from "@/utils/bankTxnRules";
+import { matchReconRule, type ReconMappingRule } from "@/utils/reconciliationMappingRules";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeftRight, Coins, Receipt, AlertTriangle, Sparkles } from "lucide-react";
 
 type AuditRow = { id: string; ts: string; action: string; old_status: string | null; new_status: string | null; user_display_name: string | null; notes: any };
 
 export function TransactionReviewPanel({
-  txn, accounts, userRules, onClose, onChanged,
+  txn, accounts, userRules, reconRules = [], onClose, onChanged,
 }: {
   txn: BankTxn | null;
   accounts: BankAccount[];
   userRules: UserRule[];
+  reconRules?: ReconMappingRule[];
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -57,6 +59,7 @@ export function TransactionReviewPanel({
 
   if (!txn) return null;
   const acct = accounts.find((a) => a.id === txn.bank_account_id);
+  const reconMatch = matchReconRule(txn.description, Number(txn.money_in), Number(txn.money_out), reconRules);
   const cls = classifyTxn(txn.description, Number(txn.money_in), Number(txn.money_out), userRules);
   const amount = Number(txn.money_in) - Number(txn.money_out);
 
@@ -192,6 +195,31 @@ export function TransactionReviewPanel({
               <a href={pdfUrl} target="_blank" rel="noreferrer" className="text-emerald-400 inline-flex items-center gap-1 text-xs hover:underline">
                 Open statement PDF{(txn as any).source_page ? ` (page ${(txn as any).source_page})` : ""} <ExternalLink className="h-3 w-3" />
               </a>
+            </Section>
+          )}
+
+          {reconMatch && (
+            <Section title="Suggested mapping (rule)">
+              <div className="border border-emerald-500/30 rounded-md p-2 bg-emerald-500/5 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium">{reconMatch.classification}</div>
+                  <span className="chip chip-success"><span /> {reconMatch.rule_name}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">Counterparty: {reconMatch.counterparty_type || "—"}</div>
+                <div className="text-xs text-muted-foreground">Match to: {reconMatch.match_to || "—"}</div>
+                <div className="grid grid-cols-2 gap-2 text-xs mt-1">
+                  <div><span className="text-muted-foreground">Dr:</span> {reconMatch.debit_account || "—"}</div>
+                  <div><span className="text-muted-foreground">Cr:</span> {reconMatch.credit_account || "—"}</div>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {reconMatch.source_required && <span className="chip chip-warn"><span /> source required</span>}
+                  {reconMatch.review_required && <span className="chip chip-info"><span /> review required</span>}
+                  {reconMatch.auto_post && <span className="chip chip-neutral"><span /> auto-post enabled</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground italic mt-1">
+                  Suggestion only — posting requires user approval.
+                </div>
+              </div>
             </Section>
           )}
 
