@@ -185,7 +185,8 @@ export function StatementUploadFlow({
 
         if (a.transactions.length) {
           const rows = a.transactions.map((t) => {
-            const cls = classifyTxn(t.raw_description, t.deposit || 0, t.withdrawal || 0, []);
+            const rec = matchReconRule(t.raw_description, t.deposit || 0, t.withdrawal || 0, reconRules);
+            const cls = rec ? null : classifyTxn(t.raw_description, t.deposit || 0, t.withdrawal || 0, []);
             return {
               import_id: imp.id,
               bank_account_id: bankAccountId,
@@ -198,8 +199,8 @@ export function StatementUploadFlow({
               money_out: t.withdrawal || 0,
               running_balance: t.running_balance ?? null,
               source_page: t.source_page ?? null,
-              suggested_type: cls?.suggested_type || null,
-              suggested_category: cls?.suggested_category || null,
+              suggested_type: rec?.suggested_type || cls?.suggested_type || null,
+              suggested_category: rec?.suggested_category || cls?.suggested_category || null,
               status: "unmatched",
             } as any;
           });
