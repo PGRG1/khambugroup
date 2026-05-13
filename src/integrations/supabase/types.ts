@@ -2549,6 +2549,7 @@ export type Database = {
           processor_id: string
           rate: number
           rounding_dp: number
+          rounding_method: string
           updated_at: string
           wallet_type: string | null
         }
@@ -2563,6 +2564,7 @@ export type Database = {
           processor_id: string
           rate: number
           rounding_dp?: number
+          rounding_method?: string
           updated_at?: string
           wallet_type?: string | null
         }
@@ -2577,6 +2579,7 @@ export type Database = {
           processor_id?: string
           rate?: number
           rounding_dp?: number
+          rounding_method?: string
           updated_at?: string
           wallet_type?: string | null
         }
