@@ -795,7 +795,7 @@ export default function ProductMasterTab() {
                       <SelectItem value="__none__">— None —</SelectItem>
                       <SelectItem value="COGS">COGS</SelectItem>
                       <SelectItem value="OpEx">OpEx</SelectItem>
-                      <SelectItem value="Asset - Supplier Deposit">Asset – Supplier Deposit</SelectItem>
+                      <SelectItem value="Asset - Supplier Deposit">Asset – Supplier & Vendor Deposit</SelectItem>
                       <SelectItem value="Asset - Fixed Asset">Asset – Fixed Asset</SelectItem>
                       <SelectItem value="Asset - Prepayment">Asset – Prepayment</SelectItem>
                       <SelectItem value="Asset - Other">Asset – Other</SelectItem>

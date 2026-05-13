@@ -30,7 +30,7 @@ export type FinancialTreatment =
 export const FINANCIAL_TREATMENTS: { value: FinancialTreatment; label: string; group: "P&L" | "Asset" }[] = [
   { value: "COGS", label: "COGS", group: "P&L" },
   { value: "OpEx", label: "OpEx", group: "P&L" },
-  { value: "Asset - Supplier Deposit", label: "Asset – Supplier Deposit", group: "Asset" },
+  { value: "Asset - Supplier Deposit", label: "Asset – Supplier & Vendor Deposit", group: "Asset" },
   { value: "Asset - Fixed Asset", label: "Asset – Fixed Asset", group: "Asset" },
   { value: "Asset - Prepayment", label: "Asset – Prepayment", group: "Asset" },
   { value: "Asset - Other", label: "Asset – Other", group: "Asset" },
