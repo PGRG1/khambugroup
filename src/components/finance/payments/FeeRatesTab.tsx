@@ -401,14 +401,15 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                 <th className="py-2 pr-2 font-medium">Payment Method</th>
                 <th className="py-2 pr-2 font-medium">Locality</th>
                 <th className="py-2 pr-2 font-medium text-right">Fee Rate</th>
-                <th className="py-2 pr-2 font-medium text-right">Rounding</th>
+                <th className="py-2 pr-2 font-medium text-right">Decimal Places</th>
+                <th className="py-2 pr-2 font-medium">Rounding Method</th>
                 <th className="py-2 pr-2 font-medium text-right w-24">Actions</th>
               </tr>
             </thead>
             <tbody>
               {adding && renderEditor()}
               {sorted.length === 0 && !adding ? (
-                <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
+                <tr><td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
               ) : (
                 sorted.flatMap((r) => {
                   if (editingId === r.id) {
