@@ -347,6 +347,19 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
           className="h-8 w-16 text-right td-num text-xs ml-auto"
         />
       </td>
+      <td className="py-2 pr-2">
+        <Select
+          value={draft.rounding_method}
+          onValueChange={(v) => setDraft({ ...draft, rounding_method: v as RoundingMethod })}
+        >
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {ROUNDING_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
       <td className="py-2 pr-2 text-right">
         <div className="flex items-center justify-end gap-1">
           <Button size="sm" variant="ghost" onClick={cancel} disabled={saving}>
