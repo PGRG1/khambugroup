@@ -242,7 +242,7 @@ export default function ProcurementInvoicesTab() {
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },
     { key: "invoice_number", label: "Invoice #", w: "w-[120px]" },
-    { key: "supplier_name", label: "Supplier", w: "min-w-[160px]" },
+    { key: "supplier_name", label: "Supplier & Vendor", w: "min-w-[160px]" },
     { key: "venue", label: "Venue", w: "w-[90px]" },
     { key: "due_date", label: "Due Date", w: "w-[100px]" },
     { key: "total_amount", label: "Total", w: "w-[110px]", align: "right" as const },

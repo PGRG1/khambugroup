@@ -445,7 +445,7 @@ export default function ProcurementDashboardTab() {
           { label: "Total Spend", value: fmt(kpis.totalSpend), icon: DollarSign },
           { label: "Invoice Count", value: kpis.count.toString(), icon: FileText },
           { label: "Avg Invoice", value: fmt(kpis.avg), icon: BarChart3 },
-          { label: "Unique Suppliers", value: kpis.uniqueSuppliers.toString(), icon: Users },
+          { label: "Unique Suppliers & Vendors", value: kpis.uniqueSuppliers.toString(), icon: Users },
         ].map(kpi => (
           <Card key={kpi.label} className="relative overflow-hidden">
             <CardContent className="p-4">
@@ -523,7 +523,7 @@ export default function ProcurementDashboardTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Spend by Supplier</CardTitle>
+            <CardTitle className="text-sm font-medium">Spend by Supplier & Vendor</CardTitle>
           </CardHeader>
           <CardContent>
             <div style={{ height: Math.max(220, supplierSpendData.length * 36) }}>
@@ -560,13 +560,13 @@ export default function ProcurementDashboardTab() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Supplier Concentration</CardTitle>
+            <CardTitle className="text-sm font-medium">Supplier & Vendor Concentration</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center h-full min-h-[220px] gap-4">
               <div className="text-center">
                 <p className="text-4xl font-bold font-mono tabular-nums text-primary">{supplierConcentration.top3Pct.toFixed(1)}%</p>
-                <p className="text-xs text-muted-foreground mt-1">of total spend from top 3 suppliers</p>
+                <p className="text-xs text-muted-foreground mt-1">of total spend from top 3 suppliers & vendors</p>
               </div>
               <div className="space-y-2 w-full">
                 {supplierConcentration.top3Names.map((name, i) => {
@@ -714,7 +714,7 @@ export default function ProcurementDashboardTab() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">
-            Supplier Detail {isSingleMonth && `— ${formatMonthLabel(selectedMonth)}`}
+            Supplier & Vendor Detail {isSingleMonth && `— ${formatMonthLabel(selectedMonth)}`}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">

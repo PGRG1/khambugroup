@@ -427,7 +427,7 @@ export default function ProductMasterTab() {
 
   const baseColumns = [
     { key: "internal_product_name", label: "Product Name" },
-    { key: "supplier", label: "Supplier" },
+    { key: "supplier", label: "Supplier & Vendor" },
     { key: "level1_category", label: "L1" },
     { key: "level2_category", label: "L2" },
     { key: "level3_category", label: "L3" },
@@ -488,7 +488,7 @@ export default function ProductMasterTab() {
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search SKU, product name, supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-background/40" />
+          <Input placeholder="Search SKU, product name, supplier & vendor..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-background/40" />
         </div>
         <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => ({
           internal_sku: r.internal_sku, external_sku: r.external_sku,
@@ -557,11 +557,11 @@ export default function ProductMasterTab() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Supplier</label>
+                <label className="text-xs text-muted-foreground">Supplier & Vendor</label>
                 <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-                  <SelectTrigger className="h-8"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
+                  <SelectTrigger className="h-8"><SelectValue placeholder="All Suppliers & Vendors" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Suppliers</SelectItem>
+                    <SelectItem value="all">All Suppliers & Vendors</SelectItem>
                     {allSuppliers.filter(s => s && s.trim() !== "").map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>

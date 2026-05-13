@@ -184,7 +184,7 @@ export default function ProcurementLineItemsTab() {
 
   const columns = [
     { key: "invoice_date", label: "Date" },
-    { key: "supplier_name", label: "Supplier" },
+    { key: "supplier_name", label: "Supplier & Vendor" },
     { key: "invoice_number", label: "Invoice #" },
     { key: "internal_sku", label: "Internal SKU" },
     { key: "external_sku", label: "External SKU" },
@@ -215,12 +215,12 @@ export default function ProcurementLineItemsTab() {
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search description, code, invoice #, supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+          <Input placeholder="Search description, code, invoice #, supplier & vendor..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="w-[160px] h-9 text-xs"><SelectValue placeholder="Supplier" /></SelectTrigger>
+          <SelectTrigger className="w-[160px] h-9 text-xs"><SelectValue placeholder="Supplier & Vendor" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Suppliers</SelectItem>
+            <SelectItem value="all">All Suppliers & Vendors</SelectItem>
             {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
