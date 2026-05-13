@@ -59,6 +59,7 @@ export function TransactionReviewPanel({
 
   if (!txn) return null;
   const acct = accounts.find((a) => a.id === txn.bank_account_id);
+  const reconMatch = matchReconRule(txn.description, Number(txn.money_in), Number(txn.money_out), reconRules);
   const cls = classifyTxn(txn.description, Number(txn.money_in), Number(txn.money_out), userRules);
   const amount = Number(txn.money_in) - Number(txn.money_out);
 
