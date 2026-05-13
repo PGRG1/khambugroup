@@ -95,8 +95,9 @@ export default function BankReconciliation() {
 
   // Filtered subsets for tabs
   const txWith = (type: string) => filteredTxns.filter((t) => {
-    const cls = classifyTxn(t.description, Number(t.money_in), Number(t.money_out), userRules);
-    return ((t as any).suggested_type || cls?.suggested_type) === type;
+    const rec = matchReconRule(t.description, Number(t.money_in), Number(t.money_out), reconRules);
+    const cls = rec ? null : classifyTxn(t.description, Number(t.money_in), Number(t.money_out), userRules);
+    return ((t as any).suggested_type || rec?.suggested_type || cls?.suggested_type) === type;
   });
   const kpayTxns = txWith("kpay_settlement");
   const cashDepositTxns = txWith("cash_deposit");
