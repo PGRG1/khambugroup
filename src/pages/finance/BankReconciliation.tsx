@@ -366,6 +366,7 @@ export default function BankReconciliation() {
           <FilteredTxnList title="Unmatched" emptyMessage="No unmatched transactions." txns={unmatchedTxns} accounts={accounts} onOpen={setDrawerTxn} />
         </TabsContent>
         <TabsContent value="rules"><RulesTab /></TabsContent>
+        <TabsContent value="mapping-rules"><MappingRulesTab /></TabsContent>
         <TabsContent value="audit"><AuditTab /></TabsContent>
       </Tabs>
 
