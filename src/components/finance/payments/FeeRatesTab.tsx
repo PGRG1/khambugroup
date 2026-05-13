@@ -97,6 +97,7 @@ type Draft = {
   wallet_type: string; // "" means none
   rate_pct: string; // editable percent string
   rounding_dp: number;
+  rounding_method: RoundingMethod;
 };
 
 const blankDraft: Draft = {
@@ -106,6 +107,7 @@ const blankDraft: Draft = {
   wallet_type: "",
   rate_pct: "1.50",
   rounding_dp: 2,
+  rounding_method: "normal",
 };
 
 // Build a display label like "WeChat Pay (HK)" or just "Visa"
