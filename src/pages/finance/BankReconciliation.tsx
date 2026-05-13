@@ -17,6 +17,7 @@ import { RulesTab } from "@/components/finance/bank-recon/RulesTab";
 import { AuditTab } from "@/components/finance/bank-recon/AuditTab";
 import { FilteredTxnList } from "@/components/finance/bank-recon/FilteredTxnList";
 import { classifyTxn, type UserRule } from "@/utils/bankTxnRules";
+import { loadReconMappingRules, matchReconRule, type ReconMappingRule } from "@/utils/reconciliationMappingRules";
 
 const ALL = "__all__";
 const ACCOUNT_TYPES = ["HKD Current", "HKD Savings", "Foreign Currency Savings", "USD Current", "Other"];
