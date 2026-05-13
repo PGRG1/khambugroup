@@ -15,6 +15,7 @@ import { StatementUploadFlow } from "@/components/finance/bank-recon/StatementUp
 import { TransactionReviewPanel } from "@/components/finance/bank-recon/TransactionReviewPanel";
 import { RulesTab } from "@/components/finance/bank-recon/RulesTab";
 import { AuditTab } from "@/components/finance/bank-recon/AuditTab";
+import { MappingRulesTab } from "@/components/finance/bank-recon/MappingRulesTab";
 import { FilteredTxnList } from "@/components/finance/bank-recon/FilteredTxnList";
 import { classifyTxn, type UserRule } from "@/utils/bankTxnRules";
 import { loadReconMappingRules, matchReconRule, type ReconMappingRule } from "@/utils/reconciliationMappingRules";
