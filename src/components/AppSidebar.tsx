@@ -41,7 +41,7 @@ const financeItems = [
 
 const financeReportsItems = [
   { title: "Profit & Loss", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
-  { title: "Profit & Loss (Ledger)", url: "/finance/pl-ledger", icon: Receipt },
+  { title: "Profit & Loss (M)", url: "/finance/pl-ledger", icon: Receipt },
   { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
   { title: "Cash Flow", url: "/finance/cashflow-report", icon: TrendingUp },
   { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
