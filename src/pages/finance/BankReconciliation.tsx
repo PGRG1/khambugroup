@@ -15,6 +15,7 @@ import { StatementUploadFlow } from "@/components/finance/bank-recon/StatementUp
 import { TransactionReviewPanel } from "@/components/finance/bank-recon/TransactionReviewPanel";
 import { RulesTab } from "@/components/finance/bank-recon/RulesTab";
 import { AuditTab } from "@/components/finance/bank-recon/AuditTab";
+import { MappingRulesTab } from "@/components/finance/bank-recon/MappingRulesTab";
 import { FilteredTxnList } from "@/components/finance/bank-recon/FilteredTxnList";
 import { classifyTxn, type UserRule } from "@/utils/bankTxnRules";
 import { loadReconMappingRules, matchReconRule, type ReconMappingRule } from "@/utils/reconciliationMappingRules";
@@ -176,6 +177,7 @@ export default function BankReconciliation() {
           <TabsTrigger value="suppliers">Supplier Payments</TabsTrigger>
           <TabsTrigger value="transfers">Transfers</TabsTrigger>
           <TabsTrigger value="unmatched">Unmatched</TabsTrigger>
+          <TabsTrigger value="mapping-rules">Mapping Rules</TabsTrigger>
           <TabsTrigger value="audit">Audit</TabsTrigger>
         </TabsList>
 
@@ -364,6 +366,7 @@ export default function BankReconciliation() {
           <FilteredTxnList title="Unmatched" emptyMessage="No unmatched transactions." txns={unmatchedTxns} accounts={accounts} onOpen={setDrawerTxn} />
         </TabsContent>
         <TabsContent value="rules"><RulesTab /></TabsContent>
+        <TabsContent value="mapping-rules"><MappingRulesTab /></TabsContent>
         <TabsContent value="audit"><AuditTab /></TabsContent>
       </Tabs>
 
