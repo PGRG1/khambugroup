@@ -174,6 +174,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       wallet_type: r.wallet_type || "",
       rate_pct: (Number(r.rate) * 100).toFixed(2),
       rounding_dp: r.rounding_dp,
+      rounding_method: (r.rounding_method ?? "normal") as RoundingMethod,
     });
   };
 
