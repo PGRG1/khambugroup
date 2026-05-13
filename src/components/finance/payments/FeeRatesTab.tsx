@@ -446,7 +446,8 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                       <td className="py-2.5 pr-2">{formatMethodLabel(r.payment_method, w)}</td>
                       <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[loc] || loc}</td>
                       <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
-                      <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
+                      <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp}</td>
+                      <td className="py-2.5 pr-2 text-muted-foreground">{ROUNDING_LABEL[r.rounding_method ?? "normal"] || "Normal Rounding"}</td>
                       <td className="py-2.5 pr-2 text-right">
                         {idx === 0 && (
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
