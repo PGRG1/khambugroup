@@ -57,7 +57,7 @@ const financeAccountingItems = [
 const procurementItems = [
   { title: "Dashboard", url: "/procurement/dashboard", icon: LayoutDashboard },
   { title: "Suppliers", url: "/procurement/suppliers", icon: Building2 },
-  { title: "Bills & Invoices", url: "/procurement/products", icon: Package },
+  { title: "Items Master", url: "/procurement/products", icon: Package },
   { title: "Categories", url: "/procurement/categories", icon: Tags },
   { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
   { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
