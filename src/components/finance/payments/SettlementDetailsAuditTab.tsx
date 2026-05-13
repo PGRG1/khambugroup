@@ -171,7 +171,11 @@ export function SettlementDetailsAuditTab({
       const localityKey = ["domestic", "foreign", "any"].includes(norm(t.locality)) ? norm(t.locality) : classified.locality;
       const rate = findRate(rates, methodKey, localityKey, t.merchant_number, (t as any).wallet_type ?? null);
       const expectedFeeComputed = rate
-        ? -roundTo(Number(t.gross_amount || 0) * Number(rate.rate || 0), rate.rounding_dp ?? 2)
+        ? -applyRounding(
+            Number(t.gross_amount || 0) * Number(rate.rate || 0),
+            rate.rounding_dp ?? 2,
+            (rate.rounding_method ?? "normal") as RoundingMethod,
+          )
         : 0;
       const feeVarianceComputed = round2(Number(t.fee_amount || 0) - expectedFeeComputed);
       const auditStatusComputed = !rate ? "unknown_pm" : Math.abs(feeVarianceComputed) > 0.01 ? "rate_off" : "ok";
