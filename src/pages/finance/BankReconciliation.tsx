@@ -390,6 +390,7 @@ export default function BankReconciliation() {
         txn={drawerTxn}
         accounts={accounts}
         userRules={userRules}
+        reconRules={reconRules}
         onClose={() => setDrawerTxn(null)}
         onChanged={reload}
       />
