@@ -64,7 +64,7 @@ export default function Payables() {
         { key: "date", label: "Invoice Date" },
         { key: "due_date", label: "Due Date" },
         { key: "invoice_number", label: "Invoice #" },
-        { key: "supplier", label: "Supplier" },
+        { key: "supplier", label: "Supplier & Vendor" },
         { key: "venue", label: "Venue" },
         { key: "amount", label: "Amount" },
         { key: "age_days", label: "Age (days)" },
@@ -81,7 +81,7 @@ export default function Payables() {
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><CreditCard className="h-5 w-5 text-primary" /></div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Accounts Payable</h1>
-            <p className="text-sm text-muted-foreground mt-1">Track money you owe to suppliers — based on unpaid procurement invoices.</p>
+            <p className="text-sm text-muted-foreground mt-1">Track money you owe to suppliers & vendors — based on unpaid procurement invoices.</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={refresh}><RefreshCw className="h-4 w-4 mr-1" /> Refresh</Button>
@@ -118,7 +118,7 @@ export default function Payables() {
 
       <Tabs defaultValue="by-supplier">
         <TabsList>
-          <TabsTrigger value="by-supplier">By Supplier</TabsTrigger>
+          <TabsTrigger value="by-supplier">By Supplier & Vendor</TabsTrigger>
           <TabsTrigger value="open-invoices">Open Invoices</TabsTrigger>
           <TabsTrigger value="aging">Aging Summary</TabsTrigger>
         </TabsList>
@@ -128,7 +128,7 @@ export default function Payables() {
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs text-muted-foreground">
                 <tr>
-                  <th className="text-left px-4 py-2 font-medium">Supplier</th>
+                  <th className="text-left px-4 py-2 font-medium">Supplier & Vendor</th>
                   <th className="text-right px-4 py-2 font-medium">Open Invoices</th>
                   <th className="text-right px-4 py-2 font-medium">Outstanding</th>
                   <th className="text-right px-4 py-2 font-medium">Oldest</th>
@@ -160,7 +160,7 @@ export default function Payables() {
           <div className="flex items-center gap-2">
             <div className="relative flex-1 max-w-md">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9 h-9" placeholder="Search supplier, invoice #, venue…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-9 h-9" placeholder="Search supplier & vendor, invoice #, venue…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Button size="sm" variant="outline" onClick={exportInvoicesCSV}><Download className="h-4 w-4 mr-1" /> Export CSV</Button>
           </div>
@@ -171,7 +171,7 @@ export default function Payables() {
                   <tr>
                     <th className="text-left px-3 py-2 font-medium">Date</th>
                     <th className="text-left px-3 py-2 font-medium">Invoice #</th>
-                    <th className="text-left px-3 py-2 font-medium">Supplier</th>
+                    <th className="text-left px-3 py-2 font-medium">Supplier & Vendor</th>
                     <th className="text-left px-3 py-2 font-medium">Venue</th>
                     <th className="text-right px-3 py-2 font-medium">Amount</th>
                     <th className="text-right px-3 py-2 font-medium">Age</th>
@@ -207,7 +207,7 @@ export default function Payables() {
         </TabsContent>
 
         <TabsContent value="aging" className="mt-4">
-          <AgingMatrix title="AP Aging by Supplier" rows={agingRows} />
+          <AgingMatrix title="AP Aging by Supplier & Vendor" rows={agingRows} />
         </TabsContent>
       </Tabs>
     </div>

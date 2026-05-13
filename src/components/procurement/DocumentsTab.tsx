@@ -127,7 +127,7 @@ export default function DocumentsTab() {
 
   const filterFields: FilterField[] = [
     { type: "select", key: "period", label: "Period", value: periodFilter, onChange: setPeriodFilter, options: periods.map(p => ({ value: p, label: p })), allLabel: "All Periods" },
-    { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter, options: suppliers.map(s => ({ value: s.id, label: s.name })), allLabel: "All Suppliers" },
+    { type: "select", key: "supplier", label: "Supplier & Vendor", value: supplierFilter, onChange: setSupplierFilter, options: suppliers.map(s => ({ value: s.id, label: s.name })), allLabel: "All Suppliers & Vendors" },
     { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter, options: VENUES.map(v => ({ value: v, label: v })), allLabel: "All Venues" },
     { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter, options: STATUSES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })), allLabel: "All Statuses" },
   ];
@@ -136,7 +136,7 @@ export default function DocumentsTab() {
 
   return (
     <DataTableShell
-      search={{ value: search, onChange: setSearch, placeholder: "Search invoice # or supplier…" }}
+      search={{ value: search, onChange: setSearch, placeholder: "Search invoice # or supplier & vendor…" }}
       filters={{ fields: filterFields, onReset: resetFilters }}
       resultCount={`${filtered.length} document${filtered.length !== 1 ? "s" : ""}${selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""}`}
       toolbarRight={
@@ -164,7 +164,7 @@ export default function DocumentsTab() {
               <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
             </TableHead>
             <TableHead>Date</TableHead>
-            <TableHead>Supplier</TableHead>
+            <TableHead>Supplier & Vendor</TableHead>
             <TableHead>Invoice #</TableHead>
             <TableHead>Venue</TableHead>
             <TableHead>Status</TableHead>

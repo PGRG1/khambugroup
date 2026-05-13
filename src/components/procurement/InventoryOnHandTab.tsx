@@ -172,7 +172,7 @@ export default function InventoryOnHandTab() {
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="rounded-lg bg-primary/10 p-2"><TrendingUp className="h-5 w-5 text-primary" /></div>
-            <div><p className="text-xs text-muted-foreground">Total Supplier Value</p><p className="text-xl font-bold tabular-nums">${fmt(totals.supplierValue)}</p></div>
+            <div><p className="text-xs text-muted-foreground">Total Supplier & Vendor Value</p><p className="text-xl font-bold tabular-nums">${fmt(totals.supplierValue)}</p></div>
           </CardContent>
         </Card>
       </div>
@@ -199,8 +199,8 @@ export default function InventoryOnHandTab() {
           { key: "internal_sku", label: "SKU" }, { key: "internal_product_name", label: "Product Name" },
           { key: "level1_category", label: "Category" }, { key: "qty_on_hand", label: "Qty On Hand" },
           { key: "unit", label: "Unit" }, { key: "avg_cost", label: "Avg Cost" },
-          { key: "cost_value", label: "Cost Value" }, { key: "unit_cost", label: "Supplier Price" },
-          { key: "supplier_value", label: "Supplier Value" },
+         { key: "cost_value", label: "Cost Value" }, { key: "unit_cost", label: "Supplier & Vendor Price" },
+         { key: "supplier_value", label: "Supplier & Vendor Value" },
         ], "inventory")} className="h-9">
           <Download className="h-4 w-4 mr-1" />Download
         </Button>
@@ -219,8 +219,8 @@ export default function InventoryOnHandTab() {
                 <TableHead className="text-xs">Unit</TableHead>
                 <TableHead className="text-xs text-right"><SortHeader label="Avg Cost" col="avg_cost" /></TableHead>
                 <TableHead className="text-xs text-right"><SortHeader label="Cost Value" col="cost_value" /></TableHead>
-                <TableHead className="text-xs text-right"><SortHeader label="Supplier Price" col="unit_cost" /></TableHead>
-                <TableHead className="text-xs text-right"><SortHeader label="Supplier Value" col="supplier_value" /></TableHead>
+               <TableHead className="text-xs text-right"><SortHeader label="Supplier & Vendor Price" col="unit_cost" /></TableHead>
+               <TableHead className="text-xs text-right"><SortHeader label="Supplier & Vendor Value" col="supplier_value" /></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

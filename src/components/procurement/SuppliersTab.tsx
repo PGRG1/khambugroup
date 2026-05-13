@@ -57,7 +57,7 @@ export default function SuppliersTab() {
       .select("*")
       .order("name");
     if (error) {
-      toast.error("Failed to load suppliers");
+      toast.error("Failed to load suppliers & vendors");
     } else {
       setSuppliers(data || []);
     }
@@ -99,7 +99,7 @@ export default function SuppliersTab() {
 
   const handleSave = async () => {
     if (!form.name.trim()) {
-      toast.error("Supplier name is required");
+      toast.error("Supplier & vendor name is required");
       return;
     }
     setSaving(true);
@@ -116,12 +116,12 @@ export default function SuppliersTab() {
 
     if (editingId) {
       const { error } = await supabase.from("suppliers").update(payload).eq("id", editingId);
-      if (error) toast.error("Failed to update supplier");
-      else toast.success("Supplier updated");
+      if (error) toast.error("Failed to update supplier & vendor");
+      else toast.success("Supplier & vendor updated");
     } else {
       const { error } = await supabase.from("suppliers").insert(payload);
-      if (error) toast.error("Failed to add supplier");
-      else toast.success("Supplier added");
+      if (error) toast.error("Failed to add supplier & vendor");
+      else toast.success("Supplier & vendor added");
     }
     setSaving(false);
     setDialogOpen(false);
@@ -131,8 +131,8 @@ export default function SuppliersTab() {
   const handleDelete = async () => {
     if (!deleteId) return;
     const { error } = await supabase.from("suppliers").delete().eq("id", deleteId);
-    if (error) toast.error("Failed to delete supplier");
-    else toast.success("Supplier deleted");
+    if (error) toast.error("Failed to delete supplier & vendor");
+    else toast.success("Supplier & vendor deleted");
     setDeleteId(null);
     fetchSuppliers();
   };
@@ -159,18 +159,18 @@ export default function SuppliersTab() {
   return (
     <div className="space-y-4">
       <DataTableShell
-        search={{ value: search, onChange: setSearch, placeholder: "Search suppliers…" }}
+        search={{ value: search, onChange: setSearch, placeholder: "Search suppliers & vendors…" }}
         toolbarRight={
           <>
             <Button variant="outline" size="sm" onClick={handleExport} className="h-9">
               <Download className="h-4 w-4 mr-1" />CSV
             </Button>
             <Button size="sm" onClick={openAdd} className="h-9">
-              <Plus className="h-4 w-4 mr-1" />Add Supplier
+              <Plus className="h-4 w-4 mr-1" />Add Supplier & Vendor
             </Button>
           </>
         }
-        resultCount={`${filtered.length} supplier${filtered.length !== 1 ? "s" : ""}`}
+        resultCount={`${filtered.length} supplier & vendor${filtered.length !== 1 ? "s" : ""}`}
         pagination={{
           page: pag.page, pageSize: pag.pageSize, totalPages: pag.totalPages,
           rangeStart: pag.rangeStart, rangeEnd: pag.rangeEnd, total: pag.total,
@@ -193,7 +193,7 @@ export default function SuppliersTab() {
             {loading ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
             ) : pag.pageItems.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suppliers found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
             ) : (
               pag.pageItems.map((s) => (
                 <TableRow key={s.id}>
@@ -229,7 +229,7 @@ export default function SuppliersTab() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Supplier" : "Add Supplier"}</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Supplier & Vendor" : "Add Supplier & Vendor"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-1.5">
@@ -285,8 +285,8 @@ export default function SuppliersTab() {
         open={!!deleteId}
         onOpenChange={(open) => { if (!open) setDeleteId(null); }}
         onConfirm={handleDelete}
-        title="Delete Supplier"
-        description="Are you sure? This supplier will be permanently removed."
+        title="Delete Supplier & Vendor"
+        description="Are you sure? This supplier & vendor will be permanently removed."
       />
     </div>
   );
