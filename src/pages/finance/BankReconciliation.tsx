@@ -47,11 +47,13 @@ export default function BankReconciliation() {
   const [drawerTxn, setDrawerTxn] = useState<BankTxn | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [userRules, setUserRules] = useState<UserRule[]>([]);
+  const [reconRules, setReconRules] = useState<ReconMappingRule[]>([]);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("bank_recon_rules" as any).select("*").order("sort_order");
       setUserRules((data as any) || []);
+      setReconRules(await loadReconMappingRules());
     })();
   }, []);
 
