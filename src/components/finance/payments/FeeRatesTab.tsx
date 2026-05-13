@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Plus, Trash2, Save, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+type RoundingMethod = "normal" | "round_up" | "round_down" | "truncate";
+
 type FeeRate = {
   id: string;
   processor_id?: string;
@@ -16,8 +18,19 @@ type FeeRate = {
   wallet_type: string | null;
   rate: number;
   rounding_dp: number;
+  rounding_method: RoundingMethod;
   notes: string | null;
 };
+
+const ROUNDING_OPTIONS: { value: RoundingMethod; label: string }[] = [
+  { value: "normal", label: "Normal Rounding" },
+  { value: "round_up", label: "Round Up" },
+  { value: "round_down", label: "Round Down" },
+  { value: "truncate", label: "Truncate" },
+];
+const ROUNDING_LABEL: Record<string, string> = Object.fromEntries(
+  ROUNDING_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 // Wallet sub-types for digital wallet methods
 const WALLET_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -84,6 +97,7 @@ type Draft = {
   wallet_type: string; // "" means none
   rate_pct: string; // editable percent string
   rounding_dp: number;
+  rounding_method: RoundingMethod;
 };
 
 const blankDraft: Draft = {
@@ -93,6 +107,7 @@ const blankDraft: Draft = {
   wallet_type: "",
   rate_pct: "1.50",
   rounding_dp: 2,
+  rounding_method: "normal",
 };
 
 // Build a display label like "WeChat Pay (HK)" or just "Visa"
@@ -159,6 +174,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       wallet_type: r.wallet_type || "",
       rate_pct: (Number(r.rate) * 100).toFixed(2),
       rounding_dp: r.rounding_dp,
+      rounding_method: (r.rounding_method ?? "normal") as RoundingMethod,
     });
   };
 
@@ -210,6 +226,7 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
       wallet_type: draft.wallet_type || null,
       rate: rateNum / 100,
       rounding_dp: draft.rounding_dp,
+      rounding_method: draft.rounding_method,
     };
     const res = editingId
       ? await supabase.from("payment_processor_fee_rates").update(payload).eq("id", editingId)
@@ -330,6 +347,19 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
           className="h-8 w-16 text-right td-num text-xs ml-auto"
         />
       </td>
+      <td className="py-2 pr-2">
+        <Select
+          value={draft.rounding_method}
+          onValueChange={(v) => setDraft({ ...draft, rounding_method: v as RoundingMethod })}
+        >
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {ROUNDING_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
       <td className="py-2 pr-2 text-right">
         <div className="flex items-center justify-end gap-1">
           <Button size="sm" variant="ghost" onClick={cancel} disabled={saving}>
@@ -371,14 +401,15 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                 <th className="py-2 pr-2 font-medium">Payment Method</th>
                 <th className="py-2 pr-2 font-medium">Locality</th>
                 <th className="py-2 pr-2 font-medium text-right">Fee Rate</th>
-                <th className="py-2 pr-2 font-medium text-right">Rounding</th>
+                <th className="py-2 pr-2 font-medium text-right">Decimal Places</th>
+                <th className="py-2 pr-2 font-medium">Rounding Method</th>
                 <th className="py-2 pr-2 font-medium text-right w-24">Actions</th>
               </tr>
             </thead>
             <tbody>
               {adding && renderEditor()}
               {sorted.length === 0 && !adding ? (
-                <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
+                <tr><td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">No fee rates configured.</td></tr>
               ) : (
                 sorted.flatMap((r) => {
                   if (editingId === r.id) {
@@ -415,7 +446,8 @@ export function FeeRatesTab({ processor, merchants }: { processor: { id: string;
                       <td className="py-2.5 pr-2">{formatMethodLabel(r.payment_method, w)}</td>
                       <td className="py-2.5 pr-2 text-muted-foreground">{LOCALITY_LABEL[loc] || loc}</td>
                       <td className="py-2.5 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
-                      <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp} decimals</td>
+                      <td className="py-2.5 pr-2 text-right td-num text-muted-foreground">{r.rounding_dp}</td>
+                      <td className="py-2.5 pr-2 text-muted-foreground">{ROUNDING_LABEL[r.rounding_method ?? "normal"] || "Normal Rounding"}</td>
                       <td className="py-2.5 pr-2 text-right">
                         {idx === 0 && (
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
