@@ -198,6 +198,31 @@ export function TransactionReviewPanel({
             </Section>
           )}
 
+          {reconMatch && (
+            <Section title="Suggested mapping (rule)">
+              <div className="border border-emerald-500/30 rounded-md p-2 bg-emerald-500/5 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium">{reconMatch.classification}</div>
+                  <span className="chip chip-success"><span /> {reconMatch.rule_name}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">Counterparty: {reconMatch.counterparty_type || "—"}</div>
+                <div className="text-xs text-muted-foreground">Match to: {reconMatch.match_to || "—"}</div>
+                <div className="grid grid-cols-2 gap-2 text-xs mt-1">
+                  <div><span className="text-muted-foreground">Dr:</span> {reconMatch.debit_account || "—"}</div>
+                  <div><span className="text-muted-foreground">Cr:</span> {reconMatch.credit_account || "—"}</div>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {reconMatch.source_required && <span className="chip chip-warn"><span /> source required</span>}
+                  {reconMatch.review_required && <span className="chip chip-info"><span /> review required</span>}
+                  {reconMatch.auto_post && <span className="chip chip-neutral"><span /> auto-post enabled</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground italic mt-1">
+                  Suggestion only — posting requires user approval.
+                </div>
+              </div>
+            </Section>
+          )}
+
           <Section title="Suggested classification">
             {cls ? (
               <div>
