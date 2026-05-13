@@ -23,7 +23,7 @@ export function AgingMatrix({ title, rows, valueLabel = "" }: { title: string; r
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th className="text-left px-4 py-2 font-medium">Account / Supplier</th>
+              <th className="text-left px-4 py-2 font-medium">Account / Supplier & Vendor</th>
               {AGE_BUCKETS.map((b) => (
                 <th key={b} className="text-right px-3 py-2 font-medium font-mono">{b}</th>
               ))}

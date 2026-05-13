@@ -9,7 +9,7 @@ import { Check, AlertCircle } from "lucide-react";
 const TREATMENTS: Array<{ value: string; label: string; allowed: AccountType[] }> = [
   { value: "COGS",                     label: "COGS",                     allowed: ["cogs"] },
   { value: "OpEx",                     label: "OpEx",                     allowed: ["opex"] },
-  { value: "Asset - Supplier Deposit", label: "Asset – Supplier Deposit", allowed: ["asset"] },
+  { value: "Asset - Supplier Deposit", label: "Asset – Supplier & Vendor Deposit", allowed: ["asset"] },
   { value: "Asset - Fixed Asset",      label: "Asset – Fixed Asset",      allowed: ["asset"] },
   { value: "Asset - Prepayment",       label: "Asset – Prepayment",       allowed: ["asset"] },
   { value: "Asset - Other",            label: "Asset – Other",            allowed: ["asset"] },

@@ -138,7 +138,7 @@ export default function LineItemsTab({ suppliers }: Props) {
 
   const columns: { key: string; label: string; align?: "right" | "left" }[] = [
     { key: "invoice_date", label: "Date" },
-    { key: "supplier_name", label: "Supplier" },
+    { key: "supplier_name", label: "Supplier & Vendor" },
     { key: "invoice_number", label: "Invoice No." },
     { key: "item_code", label: "Product No." },
     { key: "master_name", label: "Master Name" },
@@ -160,9 +160,9 @@ export default function LineItemsTab({ suppliers }: Props) {
           <Input placeholder="Search items..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-xs" />
         </div>
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
+          <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="All Suppliers & Vendors" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Suppliers</SelectItem>
+            <SelectItem value="all">All Suppliers & Vendors</SelectItem>
             {uniqueSuppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>

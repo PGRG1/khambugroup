@@ -103,7 +103,7 @@ export default function DocumentsBills() {
           <div className="relative flex-1 min-w-[240px]">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search vendor or invoice #..."
+              placeholder="Search vendor / supplier or invoice #..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -130,7 +130,7 @@ export default function DocumentsBills() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Vendor / Counterparty</TableHead>
+                <TableHead>Vendor / Supplier & Vendor / Counterparty</TableHead>
                 <TableHead>Invoice #</TableHead>
                 <TableHead>Invoice Date</TableHead>
                 <TableHead>Due Date</TableHead>
