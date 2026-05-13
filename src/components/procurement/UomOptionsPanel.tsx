@@ -18,7 +18,7 @@ import {
 const TYPES: { value: UomType; label: string; hint: string }[] = [
   { value: "base", label: "Base / Recipe", hint: "Smallest unit used in recipes (g, ml, each…)" },
   { value: "stock", label: "Stock", hint: "How you count inventory (Bottle, Pack, Bag…)" },
-  { value: "purchase", label: "Purchase", hint: "How you order from suppliers (Case, Carton, Pallet…)" },
+  { value: "purchase", label: "Purchase", hint: "How you order from suppliers & vendors (Case, Carton, Pallet…)" },
 ];
 
 export default function UomOptionsPanel() {

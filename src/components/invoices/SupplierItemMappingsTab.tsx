@@ -119,9 +119,9 @@ export default function SupplierItemMappingsTab({ mappings, products, suppliers,
           <Input placeholder="Search mappings..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Suppliers & Vendors" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Suppliers</SelectItem>
+            <SelectItem value="all">All Suppliers & Vendors</SelectItem>
             {suppliers.filter((s) => s.is_active).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -134,8 +134,8 @@ export default function SupplierItemMappingsTab({ mappings, products, suppliers,
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><button onClick={() => toggleSort("supplier_name")} className="flex items-center gap-1 hover:text-foreground">Supplier <SortIcon col="supplier_name" /></button></TableHead>
-              <TableHead><button onClick={() => toggleSort("supplier_item_name")} className="flex items-center gap-1 hover:text-foreground">Supplier Item <SortIcon col="supplier_item_name" /></button></TableHead>
+              <TableHead><button onClick={() => toggleSort("supplier_name")} className="flex items-center gap-1 hover:text-foreground">Supplier & Vendor <SortIcon col="supplier_name" /></button></TableHead>
+              <TableHead><button onClick={() => toggleSort("supplier_item_name")} className="flex items-center gap-1 hover:text-foreground">Supplier & Vendor Item <SortIcon col="supplier_item_name" /></button></TableHead>
               <TableHead>SKU</TableHead>
               <TableHead><button onClick={() => toggleSort("standard_product_name")} className="flex items-center gap-1 hover:text-foreground">Standard Product <SortIcon col="standard_product_name" /></button></TableHead>
               <TableHead>Purchase Unit</TableHead>
@@ -175,13 +175,13 @@ export default function SupplierItemMappingsTab({ mappings, products, suppliers,
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit Mapping" : "New Supplier Item Mapping"}</DialogTitle>
+            <DialogTitle>{editing ? "Edit Mapping" : "New Supplier & Vendor Item Mapping"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Supplier *</Label>
+              <Label>Supplier & Vendor *</Label>
               <Select value={form.supplier_id} onValueChange={(v) => setForm({ ...form, supplier_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select supplier & vendor" /></SelectTrigger>
                 <SelectContent>
                   {suppliers.filter((s) => s.is_active).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
@@ -189,7 +189,7 @@ export default function SupplierItemMappingsTab({ mappings, products, suppliers,
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Supplier Item Name *</Label>
+                <Label>Supplier & Vendor Item Name *</Label>
                 <Input value={form.supplier_item_name} onChange={(e) => setForm({ ...form, supplier_item_name: e.target.value })} placeholder="As on invoice" />
               </div>
               <div>
@@ -233,7 +233,7 @@ export default function SupplierItemMappingsTab({ mappings, products, suppliers,
         </DialogContent>
       </Dialog>
 
-      <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Mapping" description="Remove this supplier item mapping?" />
+      <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Mapping" description="Remove this supplier & vendor item mapping?" />
     </div>
   );
 }
