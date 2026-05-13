@@ -128,6 +128,7 @@ export function StatementUploadFlow({
     if (!extracted) return;
     setStep("saving");
     try {
+      const reconRules = await loadReconMappingRules();
       for (let i = 0; i < extracted.accounts.length; i++) {
         const a = extracted.accounts[i];
         const m = mappings[i];
