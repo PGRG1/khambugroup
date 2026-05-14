@@ -477,13 +477,13 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
                         <td className={`${td} text-center font-medium`}>{type}</td>
                         <td className={td}><ECell value={row.baseSalary} onChange={v => setEdit(emp.id, "forecast_base_salary", v)} /></td>
                         <td className={td}><ECell value={row.daysHours} onChange={v => setEdit(emp.id, "days_hours", v)} /></td>
-                        <td className={`${td} ${calc}`}><SCell value={row.earnedSalary} /></td>
+                        <td className={`${td} ${calc}`}><OCell value={row.earnedSalary} isOverride={row.earnedOverride != null} onChange={v => setEdit(emp.id, "earned_salary_override", v)} /></td>
                         <td className={td}><ECell value={row.alDays} onChange={v => setEdit(emp.id, "al_days", v)} /></td>
                         <td className={td}><ECell value={row.nplDays} onChange={v => setEdit(emp.id, "npl_days", v)} /></td>
-                        <td className={`${td} ${calc}`}><SCell value={row.adjustments} negative /></td>
+                        <td className={`${td} ${calc}`}><OCell value={row.adjustments} isOverride={row.adjOverride != null} onChange={v => setEdit(emp.id, "adjustments_override", v)} /></td>
                         <td className={`${td} ${calc}`}><SCell value={row.grossPay} /></td>
-                        <td className={td}><SCell value={row.mpfEE} /></td>
-                        <td className={td}><SCell value={row.mpfER} /></td>
+                        <td className={td}><OCell value={row.mpfEE} isOverride={row.mpfEEOverride != null} onChange={v => setEdit(emp.id, "mpf_employee_override", v)} /></td>
+                        <td className={td}><OCell value={row.mpfER} isOverride={row.mpfEROverride != null} onChange={v => setEdit(emp.id, "mpf_employer_override", v)} /></td>
                         <td className={`${td} ${calc}`}><SCell value={row.totalMPF} /></td>
                         <td className={`${td} font-bold`}><SCell value={row.netPay} bold /></td>
                         <td className={td}><ETextCell value={row.bank} onChange={v => setEdit(emp.id, "bank", v)} /></td>
