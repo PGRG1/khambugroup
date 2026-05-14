@@ -15,6 +15,9 @@ const SUGGESTED_TYPES = [
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const auth = await requireAuth(req, corsHeaders);
+  if (auth.response) return auth.response;
+
   try {
     const { description, money_in, money_out } = await req.json();
     if (!description || typeof description !== "string") {
