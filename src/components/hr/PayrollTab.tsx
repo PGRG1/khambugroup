@@ -241,7 +241,6 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
     return g;
   }, [activeEmployees]);
 
-  const setEdit = (empId: string, field: string, value: number | string) => {
   const setEdit = (empId: string, field: string, value: number | string | null) => {
     setEdits(prev => ({ ...prev, [empId]: { ...prev[empId], [field]: value as any } }));
   };
