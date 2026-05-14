@@ -91,6 +91,43 @@ function SCell({ value, bold, negative }: { value: number; bold?: boolean; negat
   );
 }
 
+/* ── Override cell: editable, blank clears override back to computed ── */
+function OCell({ value, isOverride, onChange }: { value: number; isOverride: boolean; onChange: (v: number | null) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState("");
+
+  const commit = () => {
+    const trimmed = local.trim();
+    onChange(trimmed === "" ? null : Number(trimmed) || 0);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        placeholder="auto"
+        className="w-full bg-chart-1/5 border border-chart-1/40 rounded px-1.5 py-0.5 text-[11px] tabular-nums text-right text-chart-1 font-semibold outline-none"
+        value={local}
+        onChange={e => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
+      />
+    );
+  }
+
+  return (
+    <div
+      onClick={() => { setLocal(isOverride ? String(value) : ""); setEditing(true); }}
+      title={isOverride ? "Manual override — clear field to revert to auto-calculated" : "Auto-calculated — click to override"}
+      className={`text-right text-[11px] tabular-nums cursor-pointer rounded px-1.5 py-0.5 hover:bg-chart-1/5 transition-colors ${isOverride ? "text-chart-1 font-semibold underline decoration-dotted" : ""}`}
+    >
+      {fmt(value)}
+    </div>
+  );
+}
+
 /* ── MTD Schedule sub-view ── */
 function MTDScheduleView({ employeeId, shifts, month, year }: { employeeId: string; shifts: HRShift[]; month: number; year: number }) {
   const monthShifts = useMemo(() => {
