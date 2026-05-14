@@ -91,6 +91,43 @@ function SCell({ value, bold, negative }: { value: number; bold?: boolean; negat
   );
 }
 
+/* ── Override cell: editable, blank clears override back to computed ── */
+function OCell({ value, isOverride, onChange }: { value: number; isOverride: boolean; onChange: (v: number | null) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState("");
+
+  const commit = () => {
+    const trimmed = local.trim();
+    onChange(trimmed === "" ? null : Number(trimmed) || 0);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        placeholder="auto"
+        className="w-full bg-chart-1/5 border border-chart-1/40 rounded px-1.5 py-0.5 text-[11px] tabular-nums text-right text-chart-1 font-semibold outline-none"
+        value={local}
+        onChange={e => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
+      />
+    );
+  }
+
+  return (
+    <div
+      onClick={() => { setLocal(isOverride ? String(value) : ""); setEditing(true); }}
+      title={isOverride ? "Manual override — clear field to revert to auto-calculated" : "Auto-calculated — click to override"}
+      className={`text-right text-[11px] tabular-nums cursor-pointer rounded px-1.5 py-0.5 hover:bg-chart-1/5 transition-colors ${isOverride ? "text-chart-1 font-semibold underline decoration-dotted" : ""}`}
+    >
+      {fmt(value)}
+    </div>
+  );
+}
+
 /* ── MTD Schedule sub-view ── */
 function MTDScheduleView({ employeeId, shifts, month, year }: { employeeId: string; shifts: HRShift[]; month: number; year: number }) {
   const monthShifts = useMemo(() => {
@@ -170,7 +207,7 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [saving, setSaving] = useState(false);
   const [detailModal, setDetailModal] = useState<HRPayroll | null>(null);
-  const [edits, setEdits] = useState<Record<string, Record<string, number | string>>>({});
+  const [edits, setEdits] = useState<Record<string, Record<string, number | string | null>>>({});
 
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
@@ -204,8 +241,8 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
     return g;
   }, [activeEmployees]);
 
-  const setEdit = (empId: string, field: string, value: number | string) => {
-    setEdits(prev => ({ ...prev, [empId]: { ...prev[empId], [field]: value } }));
+  const setEdit = (empId: string, field: string, value: number | string | null) => {
+    setEdits(prev => ({ ...prev, [empId]: { ...prev[empId], [field]: value as any } }));
   };
 
   const getRowData = useCallback((emp: HREmployee) => {
@@ -214,20 +251,36 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
     const baseSalary = e.forecast_base_salary != null ? Number(e.forecast_base_salary) : n(p?.forecast_base_salary);
     const daysHours = e.days_hours != null ? Number(e.days_hours) : (p ? n(p.forecast_allowances) || daysInMonth : daysInMonth);
     const isFT = emp.employment_type === "full_time";
-    const earnedSalary = isFT ? baseSalary : baseSalary * daysHours;
+    const computedEarned = isFT ? baseSalary : baseSalary * daysHours;
+    const earnedOverride = e.earned_salary_override !== undefined
+      ? (e.earned_salary_override === "" ? null : Number(e.earned_salary_override))
+      : (p?.earned_salary_override ?? null);
+    const earnedSalary = earnedOverride != null ? earnedOverride : computedEarned;
     const alDays = e.al_days != null ? Number(e.al_days) : n(p?.annual_leave_pay);
     const nplDays = e.npl_days != null ? Number(e.npl_days) : n(p?.unpaid_leave_deduction);
     const dailyRate = isFT && daysInMonth > 0 ? baseSalary / daysInMonth : 0;
-    const adjustments = isFT ? dailyRate * (alDays - nplDays) : 0;
+    const computedAdj = isFT ? dailyRate * (alDays - nplDays) : 0;
+    const adjOverride = e.adjustments_override !== undefined
+      ? (e.adjustments_override === "" ? null : Number(e.adjustments_override))
+      : (p?.adjustments_override ?? null);
+    const adjustments = adjOverride != null ? adjOverride : computedAdj;
     const grossPay = earnedSalary + adjustments;
-    const mpfEE = Math.min(MPF_CAP, grossPay * MPF_RATE);
-    const mpfER = Math.min(MPF_CAP, grossPay * MPF_RATE);
+    const computedMpfEE = Math.min(MPF_CAP, grossPay * MPF_RATE);
+    const computedMpfER = Math.min(MPF_CAP, grossPay * MPF_RATE);
+    const mpfEEOverride = e.mpf_employee_override !== undefined
+      ? (e.mpf_employee_override === "" ? null : Number(e.mpf_employee_override))
+      : (p?.mpf_employee_override ?? null);
+    const mpfEROverride = e.mpf_employer_override !== undefined
+      ? (e.mpf_employer_override === "" ? null : Number(e.mpf_employer_override))
+      : (p?.mpf_employer_override ?? null);
+    const mpfEE = mpfEEOverride != null ? mpfEEOverride : computedMpfEE;
+    const mpfER = mpfEROverride != null ? mpfEROverride : computedMpfER;
     const totalMPF = mpfEE + mpfER;
     const netPay = grossPay - mpfEE;
     const bank = e.bank != null ? String(e.bank) : (p?.payment_method || "");
     const account = e.account != null ? String(e.account) : (p?.notes || "");
     const totalCost = grossPay + mpfER;
-    return { baseSalary, daysHours, earnedSalary, alDays, nplDays, adjustments, grossPay, mpfEE, mpfER, totalMPF, netPay, bank, account, totalCost, payrollRecord: p };
+    return { baseSalary, daysHours, earnedSalary, alDays, nplDays, adjustments, grossPay, mpfEE, mpfER, totalMPF, netPay, bank, account, totalCost, payrollRecord: p, earnedOverride, adjOverride, mpfEEOverride, mpfEROverride };
   }, [payrollMap, edits, daysInMonth]);
 
   const saveRow = async (emp: HREmployee) => {
@@ -243,6 +296,10 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
       mpf_payment_amount: row.totalMPF, net_salary: row.netPay, total_deductions: row.mpfEE,
       payment_method: row.bank || "bank_transfer", notes: row.account,
       payment_status: p?.payment_status || "draft",
+      earned_salary_override: row.earnedOverride,
+      adjustments_override: row.adjOverride,
+      mpf_employee_override: row.mpfEEOverride,
+      mpf_employer_override: row.mpfEROverride,
     });
     if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[emp.id]; return next; }); }
     setSaving(false);
@@ -420,13 +477,13 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
                         <td className={`${td} text-center font-medium`}>{type}</td>
                         <td className={td}><ECell value={row.baseSalary} onChange={v => setEdit(emp.id, "forecast_base_salary", v)} /></td>
                         <td className={td}><ECell value={row.daysHours} onChange={v => setEdit(emp.id, "days_hours", v)} /></td>
-                        <td className={`${td} ${calc}`}><SCell value={row.earnedSalary} /></td>
+                        <td className={`${td} ${calc}`}><OCell value={row.earnedSalary} isOverride={row.earnedOverride != null} onChange={v => setEdit(emp.id, "earned_salary_override", v)} /></td>
                         <td className={td}><ECell value={row.alDays} onChange={v => setEdit(emp.id, "al_days", v)} /></td>
                         <td className={td}><ECell value={row.nplDays} onChange={v => setEdit(emp.id, "npl_days", v)} /></td>
-                        <td className={`${td} ${calc}`}><SCell value={row.adjustments} negative /></td>
+                        <td className={`${td} ${calc}`}><OCell value={row.adjustments} isOverride={row.adjOverride != null} onChange={v => setEdit(emp.id, "adjustments_override", v)} /></td>
                         <td className={`${td} ${calc}`}><SCell value={row.grossPay} /></td>
-                        <td className={td}><SCell value={row.mpfEE} /></td>
-                        <td className={td}><SCell value={row.mpfER} /></td>
+                        <td className={td}><OCell value={row.mpfEE} isOverride={row.mpfEEOverride != null} onChange={v => setEdit(emp.id, "mpf_employee_override", v)} /></td>
+                        <td className={td}><OCell value={row.mpfER} isOverride={row.mpfEROverride != null} onChange={v => setEdit(emp.id, "mpf_employer_override", v)} /></td>
                         <td className={`${td} ${calc}`}><SCell value={row.totalMPF} /></td>
                         <td className={`${td} font-bold`}><SCell value={row.netPay} bold /></td>
                         <td className={td}><ETextCell value={row.bank} onChange={v => setEdit(emp.id, "bank", v)} /></td>

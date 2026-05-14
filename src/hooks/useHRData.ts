@@ -140,6 +140,10 @@ export interface HRPayroll {
   payment_status: string;
   payment_date: string | null;
   notes: string | null;
+  earned_salary_override: number | null;
+  adjustments_override: number | null;
+  mpf_employee_override: number | null;
+  mpf_employer_override: number | null;
   employee?: HREmployee;
 }
 
