@@ -214,20 +214,36 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
     const baseSalary = e.forecast_base_salary != null ? Number(e.forecast_base_salary) : n(p?.forecast_base_salary);
     const daysHours = e.days_hours != null ? Number(e.days_hours) : (p ? n(p.forecast_allowances) || daysInMonth : daysInMonth);
     const isFT = emp.employment_type === "full_time";
-    const earnedSalary = isFT ? baseSalary : baseSalary * daysHours;
+    const computedEarned = isFT ? baseSalary : baseSalary * daysHours;
+    const earnedOverride = e.earned_salary_override !== undefined
+      ? (e.earned_salary_override === "" ? null : Number(e.earned_salary_override))
+      : (p?.earned_salary_override ?? null);
+    const earnedSalary = earnedOverride != null ? earnedOverride : computedEarned;
     const alDays = e.al_days != null ? Number(e.al_days) : n(p?.annual_leave_pay);
     const nplDays = e.npl_days != null ? Number(e.npl_days) : n(p?.unpaid_leave_deduction);
     const dailyRate = isFT && daysInMonth > 0 ? baseSalary / daysInMonth : 0;
-    const adjustments = isFT ? dailyRate * (alDays - nplDays) : 0;
+    const computedAdj = isFT ? dailyRate * (alDays - nplDays) : 0;
+    const adjOverride = e.adjustments_override !== undefined
+      ? (e.adjustments_override === "" ? null : Number(e.adjustments_override))
+      : (p?.adjustments_override ?? null);
+    const adjustments = adjOverride != null ? adjOverride : computedAdj;
     const grossPay = earnedSalary + adjustments;
-    const mpfEE = Math.min(MPF_CAP, grossPay * MPF_RATE);
-    const mpfER = Math.min(MPF_CAP, grossPay * MPF_RATE);
+    const computedMpfEE = Math.min(MPF_CAP, grossPay * MPF_RATE);
+    const computedMpfER = Math.min(MPF_CAP, grossPay * MPF_RATE);
+    const mpfEEOverride = e.mpf_employee_override !== undefined
+      ? (e.mpf_employee_override === "" ? null : Number(e.mpf_employee_override))
+      : (p?.mpf_employee_override ?? null);
+    const mpfEROverride = e.mpf_employer_override !== undefined
+      ? (e.mpf_employer_override === "" ? null : Number(e.mpf_employer_override))
+      : (p?.mpf_employer_override ?? null);
+    const mpfEE = mpfEEOverride != null ? mpfEEOverride : computedMpfEE;
+    const mpfER = mpfEROverride != null ? mpfEROverride : computedMpfER;
     const totalMPF = mpfEE + mpfER;
     const netPay = grossPay - mpfEE;
     const bank = e.bank != null ? String(e.bank) : (p?.payment_method || "");
     const account = e.account != null ? String(e.account) : (p?.notes || "");
     const totalCost = grossPay + mpfER;
-    return { baseSalary, daysHours, earnedSalary, alDays, nplDays, adjustments, grossPay, mpfEE, mpfER, totalMPF, netPay, bank, account, totalCost, payrollRecord: p };
+    return { baseSalary, daysHours, earnedSalary, alDays, nplDays, adjustments, grossPay, mpfEE, mpfER, totalMPF, netPay, bank, account, totalCost, payrollRecord: p, earnedOverride, adjOverride, mpfEEOverride, mpfEROverride };
   }, [payrollMap, edits, daysInMonth]);
 
   const saveRow = async (emp: HREmployee) => {
@@ -243,6 +259,10 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
       mpf_payment_amount: row.totalMPF, net_salary: row.netPay, total_deductions: row.mpfEE,
       payment_method: row.bank || "bank_transfer", notes: row.account,
       payment_status: p?.payment_status || "draft",
+      earned_salary_override: row.earnedOverride,
+      adjustments_override: row.adjOverride,
+      mpf_employee_override: row.mpfEEOverride,
+      mpf_employer_override: row.mpfEROverride,
     });
     if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[emp.id]; return next; }); }
     setSaving(false);
