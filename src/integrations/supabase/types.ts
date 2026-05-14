@@ -1542,8 +1542,10 @@ export type Database = {
           actual_deductions: number | null
           actual_overtime: number | null
           actual_total: number | null
+          adjustments_override: number | null
           annual_leave_pay: number
           created_at: string
+          earned_salary_override: number | null
           employee_id: string
           forecast_allowances: number
           forecast_base_salary: number
@@ -1555,7 +1557,9 @@ export type Database = {
           id: string
           month: number
           mpf_employee: number
+          mpf_employee_override: number | null
           mpf_employer: number
+          mpf_employer_override: number | null
           mpf_payment_amount: number
           mpf_payment_date: string | null
           net_salary: number
@@ -1582,8 +1586,10 @@ export type Database = {
           actual_deductions?: number | null
           actual_overtime?: number | null
           actual_total?: number | null
+          adjustments_override?: number | null
           annual_leave_pay?: number
           created_at?: string
+          earned_salary_override?: number | null
           employee_id: string
           forecast_allowances?: number
           forecast_base_salary?: number
@@ -1595,7 +1601,9 @@ export type Database = {
           id?: string
           month: number
           mpf_employee?: number
+          mpf_employee_override?: number | null
           mpf_employer?: number
+          mpf_employer_override?: number | null
           mpf_payment_amount?: number
           mpf_payment_date?: string | null
           net_salary?: number
@@ -1622,8 +1630,10 @@ export type Database = {
           actual_deductions?: number | null
           actual_overtime?: number | null
           actual_total?: number | null
+          adjustments_override?: number | null
           annual_leave_pay?: number
           created_at?: string
+          earned_salary_override?: number | null
           employee_id?: string
           forecast_allowances?: number
           forecast_base_salary?: number
@@ -1635,7 +1645,9 @@ export type Database = {
           id?: string
           month?: number
           mpf_employee?: number
+          mpf_employee_override?: number | null
           mpf_employer?: number
+          mpf_employer_override?: number | null
           mpf_payment_amount?: number
           mpf_payment_date?: string | null
           net_salary?: number
