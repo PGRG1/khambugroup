@@ -1,6 +1,7 @@
 // Parse a bank statement PDF using Lovable AI Gateway (Gemini).
 // Accepts JSON: { file_base64, file_name, mime_type } (mime_type optional).
 // Returns the extracted, structured JSON. No DB writes; client confirms then commits.
+import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,6 +78,8 @@ const TOOL = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const auth = await requireAuth(req, corsHeaders);
+  if (auth.response) return auth.response;
   try {
     const body = await req.json();
     const { file_base64, file_name, mime_type } = body || {};

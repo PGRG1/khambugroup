@@ -4,6 +4,7 @@
 
 import * as XLSX from "npm:xlsx@0.18.5";
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -506,6 +507,8 @@ async function annotateFlaggedBatches(batches: ParsedBatch[]): Promise<void> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const auth = await requireAuth(req, corsHeaders);
+  if (auth.response) return auth.response;
   try {
     const { import_id } = await req.json().catch(() => ({}));
     if (!import_id) return json({ error: "import_id is required" }, 400);

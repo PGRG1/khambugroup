@@ -7,6 +7,7 @@
 //   4. Return suggestions; the client decides which to apply.
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +35,9 @@ type Suggestion = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const auth = await requireAuth(req, corsHeaders);
+  if (auth.response) return auth.response;
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

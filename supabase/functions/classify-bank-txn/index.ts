@@ -1,5 +1,6 @@
 // AI-powered bank transaction classifier that learns from user-confirmed examples and active rules.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,9 @@ const SUGGESTED_TYPES = [
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const auth = await requireAuth(req, corsHeaders);
+  if (auth.response) return auth.response;
 
   try {
     const { description, money_in, money_out } = await req.json();
