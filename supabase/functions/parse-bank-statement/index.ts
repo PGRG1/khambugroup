@@ -78,6 +78,8 @@ const TOOL = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const auth = await requireAuth(req, corsHeaders);
+  if (auth.response) return auth.response;
   try {
     const body = await req.json();
     const { file_base64, file_name, mime_type } = body || {};
