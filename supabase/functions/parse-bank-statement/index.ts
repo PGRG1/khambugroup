@@ -1,6 +1,7 @@
 // Parse a bank statement PDF using Lovable AI Gateway (Gemini).
 // Accepts JSON: { file_base64, file_name, mime_type } (mime_type optional).
 // Returns the extracted, structured JSON. No DB writes; client confirms then commits.
+import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
