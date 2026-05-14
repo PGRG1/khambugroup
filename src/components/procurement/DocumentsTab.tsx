@@ -123,8 +123,6 @@ export default function DocumentsTab() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-muted-foreground">Loading documents…</div>;
-
   const filterFields: FilterField[] = [
     { type: "select", key: "period", label: "Period", value: periodFilter, onChange: setPeriodFilter, options: periods.map(p => ({ value: p, label: p })), allLabel: "All Periods" },
     { type: "select", key: "supplier", label: "Supplier & Vendor", value: supplierFilter, onChange: setSupplierFilter, options: suppliers.map(s => ({ value: s.id, label: s.name })), allLabel: "All Suppliers & Vendors" },
