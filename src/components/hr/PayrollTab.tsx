@@ -207,7 +207,7 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [saving, setSaving] = useState(false);
   const [detailModal, setDetailModal] = useState<HRPayroll | null>(null);
-  const [edits, setEdits] = useState<Record<string, Record<string, number | string>>>({});
+  const [edits, setEdits] = useState<Record<string, Record<string, number | string | null>>>({});
 
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
