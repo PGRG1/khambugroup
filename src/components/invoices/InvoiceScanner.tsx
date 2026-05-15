@@ -553,9 +553,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const disc = parseFloat(line.discount) || 0;
         const tax = parseFloat(line.tax_amount) || 0;
         const supplierName = copy[currentIdx].supplier_name || "";
-        const isBW = supplierName.toLowerCase().includes("beverage world");
+        const supplierObj = suppliers.find((s) => s.id === copy[currentIdx].supplier_id) ?? { name: supplierName };
+        const mode = getRoundingMode(supplierObj, supplierName);
         const raw = (qty * price) - disc + tax;
-        line.total = isBW ? String(Math.round(raw)) : (Math.round((raw + Number.EPSILON) * 100) / 100).toFixed(2);
+        line.total = formatLineTotal(raw, mode);
       }
       if (["unit_price", "matched_sku"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
