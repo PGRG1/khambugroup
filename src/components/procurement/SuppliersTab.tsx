@@ -191,15 +191,16 @@ export default function SuppliersTab() {
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Payment Terms</TableHead>
+              <TableHead>Invoice Rounding</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
             ) : pag.pageItems.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
             ) : (
               pag.pageItems.map((s) => (
                 <TableRow key={s.id}>
@@ -208,6 +209,9 @@ export default function SuppliersTab() {
                   <TableCell>{s.email || "—"}</TableCell>
                   <TableCell>{s.phone || "—"}</TableCell>
                   <TableCell>{s.payment_terms || "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {ROUNDING_MODE_LABELS[(s.invoice_rounding_mode || "sum_then_round") as RoundingMode]}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={s.is_active ? "default" : "secondary"}>
                       {s.is_active ? "Active" : "Inactive"}
