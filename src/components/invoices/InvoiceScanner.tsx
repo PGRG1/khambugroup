@@ -624,25 +624,27 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-  const calcLineTotal = (l: ScannedLineItem) => {
+  const currentSupplierObj = current ? suppliers.find((s) => s.id === current.supplier_id) : undefined;
+  const currentSupplierName = currentSupplierObj?.name || current?.supplier_name || "";
+  const currentMode: RoundingMode = getRoundingMode(currentSupplierObj ?? { name: currentSupplierName }, currentSupplierName);
+
+  const lineRawValue = (l: ScannedLineItem) => {
     const price = parseFloat(l.unit_price) || 0;
     const qty = parseFloat(l.quantity) || 0;
     const disc = parseFloat(l.discount) || 0;
     const tax = parseFloat(l.tax_amount) || 0;
-    const raw = qty * price - disc + tax;
-    const supplierName = current?.supplier_name || "";
-    return supplierName.toLowerCase().includes("beverage world") ? Math.round(raw) : round2(raw);
+    return qty * price - disc + tax;
   };
 
-  const lineItemsTotal = current?.line_items.reduce((s, l) => s + calcLineTotal(l), 0) || 0;
+  const calcLineTotal = (l: ScannedLineItem) => roundLineTotal(lineRawValue(l), currentMode);
+
+  const rawLineValues = current?.line_items.map(lineRawValue) || [];
+  const lineItemsTotal = aggregateTotal(rawLineValues, currentMode);
   const taxTotal = current?.line_items.reduce((s, l) => s + (parseFloat(l.tax_amount) || 0), 0) || 0;
   const invoiceDiscount = parseFloat(current?.invoice_discount || "0") || 0;
-  const subtotal = round2(lineItemsTotal);
+  const subtotal = aggregateTotal(rawLineValues.map((v, i) => v - (parseFloat(current?.line_items[i]?.tax_amount || "0") || 0)), currentMode);
   const calculatedTotal = lineItemsTotal - invoiceDiscount;
-
-  const currentSupplierName = current ? (suppliers.find(s => s.id === current.supplier_id)?.name || "") : "";
-  const isBeverageWorld = currentSupplierName.toLowerCase().includes("beverage world");
-  const displayTotal = isBeverageWorld ? Math.round(calculatedTotal) : round2(calculatedTotal);
+  const displayTotal = currentMode === "integer" ? Math.round(calculatedTotal) : round2(calculatedTotal);
 
   const aiTotal = current?.ai_total;
   const totalMismatch = aiTotal !== undefined && Math.abs(aiTotal - calculatedTotal) > 0.50;
