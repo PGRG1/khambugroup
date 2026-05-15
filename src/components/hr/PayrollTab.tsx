@@ -609,7 +609,60 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
         </div>
       </div>
 
-      {/* Detail Modal */}
+      {/* ── Payment Batches panel ── */}
+      {batches.length > 0 && (
+        <div className="border border-border rounded-md overflow-hidden">
+          <div className={hdr}>Payment Batches — {MONTHS[filterMonth - 1]} {filterYear}</div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Date</TableHead>
+                <TableHead className="text-xs">Kind</TableHead>
+                <TableHead className="text-xs">Method</TableHead>
+                <TableHead className="text-xs text-right">Amount</TableHead>
+                <TableHead className="text-xs text-center">Employees</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
+                <TableHead className="text-xs">Bank txn</TableHead>
+                <TableHead className="text-xs"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {batches.map((b) => {
+                const lc = batchLines.filter((l) => l.batch_id === b.id).length;
+                return (
+                  <TableRow key={b.id}>
+                    <TableCell className="text-xs">{b.payment_date}</TableCell>
+                    <TableCell className="text-xs uppercase">{b.payment_kind}</TableCell>
+                    <TableCell className="text-xs">{b.payment_method}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums font-medium">{fmt(Number(b.total_amount))}</TableCell>
+                    <TableCell className="text-xs text-center">{lc}</TableCell>
+                    <TableCell><Badge variant={b.status === "posted" ? "default" : b.status === "void" ? "outline" : "secondary"} className="text-[10px]">{b.status}</Badge></TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{b.bank_transaction_id ? "matched" : "—"}</TableCell>
+                    <TableCell>
+                      {b.status === "posted" && (
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => voidBatch(b.id)}>
+                          <X className="h-3 w-3 mr-1" /> Void
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <PayrollPaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        year={filterYear}
+        month={filterMonth}
+        payroll={filtered}
+        employees={employees}
+        onPosted={() => { reloadBatches(); window.dispatchEvent(new Event("hr-data-refresh")); }}
+      />
+
       <Dialog open={!!detailModal} onOpenChange={() => setDetailModal(null)}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
