@@ -637,6 +637,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const currentMode: RoundingMode = getRoundingMode(currentSupplierObj ?? { name: currentSupplierName }, currentSupplierName);
 
   const lineRawValue = (l: ScannedLineItem) => {
+    if (l.total_override) {
+      return parseFloat(l.total) || 0;
+    }
     const price = parseFloat(l.unit_price) || 0;
     const qty = parseFloat(l.quantity) || 0;
     const disc = parseFloat(l.discount) || 0;
