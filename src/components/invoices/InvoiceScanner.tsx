@@ -666,15 +666,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
     setSaving(true);
     try {
-      const supplierName = suppliers.find(s => s.id === inv.supplier_id)?.name || "";
-      const isBW = supplierName.toLowerCase().includes("beverage world");
+      const supplierObj = suppliers.find(s => s.id === inv.supplier_id);
+      const supplierName = supplierObj?.name || "";
+      const mode = getRoundingMode(supplierObj ?? { name: supplierName });
 
       const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
         const qty = parseFloat(l.quantity) || 0;
         const price = parseFloat(l.unit_price) || 0;
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
-        const lineTotal = isBW ? Math.round((qty * price) - disc + tax) : parseFloat(((qty * price) - disc + tax).toFixed(2));
+        const lineTotal = roundLineTotal((qty * price) - disc + tax, mode);
         // Resolve product_master_id at save time using EXACT match only
         let pmId: string | null = null;
         if (productMaster) {
