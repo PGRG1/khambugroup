@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, BookOpen } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRPayroll, HREmployee, HRShift } from "@/hooks/useHRData";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   payroll: HRPayroll[];
@@ -343,7 +344,18 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
     }
   };
 
-  /* ── Styles ── */
+  const [posting, setPosting] = useState(false);
+  const postToLedger = async () => {
+    if (hasAnyEdits) {
+      toast({ title: "Save changes first", description: "You have unsaved edits. Save before posting to ledger.", variant: "destructive" });
+      return;
+    }
+    setPosting(true);
+    const { data, error } = await (supabase as any).rpc("rebuild_journal_from_operations");
+    setPosting(false);
+    if (error) { toast({ title: "Post failed", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Posted to ledger", description: `${(data as any)?.entries_created ?? 0} journal entries created/refreshed. Flowed to Trial Balance & P&L.` });
+  };
   const hdr = "bg-foreground text-background text-[11px] font-bold uppercase tracking-wider px-3 py-1.5";
   const th = "text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap border-b border-border";
   const thP = "px-2 py-2"; // padding for th
@@ -362,11 +374,16 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
           <span className="text-base font-display font-bold min-w-[160px] text-center">{MONTHS[filterMonth - 1]} {filterYear}</span>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
         </div>
-        {hasAnyEdits && (
-          <Button size="sm" onClick={saveAll} disabled={saving} className="h-7 text-xs gap-1">
-            <Save className="h-3.5 w-3.5" /> Save All Changes
+        <div className="flex items-center gap-2">
+          {hasAnyEdits && (
+            <Button size="sm" onClick={saveAll} disabled={saving} className="h-7 text-xs gap-1">
+              <Save className="h-3.5 w-3.5" /> Save All Changes
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={postToLedger} disabled={posting || hasAnyEdits} className="h-7 text-xs gap-1" title="Create journal entries from payroll and refresh Ledger, Trial Balance & P&L">
+            <BookOpen className="h-3.5 w-3.5" /> {posting ? "Posting…" : "Post to Ledger"}
           </Button>
-        )}
+        </div>
       </div>
 
       {/* ── Summary cards ── */}
