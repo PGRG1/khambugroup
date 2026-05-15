@@ -561,6 +561,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const mode = getRoundingMode(supplierObj, supplierName);
         const raw = (qty * price) - disc + tax;
         line.total = formatLineTotal(raw, mode);
+        line.total_override = false;
+      }
+      if (field === "total") {
+        line.total_override = true;
       }
       if (["unit_price", "matched_sku"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
