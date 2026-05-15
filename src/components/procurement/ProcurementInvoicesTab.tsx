@@ -31,10 +31,10 @@ const STATUS_COLORS: Record<string, string> = {
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtRound = (n: number) => Math.round(n).toLocaleString("en-US");
-const fmtForSupplier = (n: number, supplierName?: string) => {
-  if (supplierName && supplierName.toLowerCase().includes("beverage world")) return fmtRound(n);
-  return fmt(n);
-};
+const fmtForMode = (n: number, mode: RoundingMode) =>
+  mode === "integer" ? fmtRound(n) : fmt(n);
+const fmtForSupplier = (n: number, supplierName?: string) =>
+  fmtForMode(n, getRoundingMode({ name: supplierName }));
 const fmtDate = (d: string) => {
   if (!d) return "—";
   const date = new Date(d + "T00:00:00");
