@@ -398,9 +398,19 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
               <Save className="h-3.5 w-3.5" /> Save All Changes
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={postToLedger} disabled={posting || hasAnyEdits} className="h-7 text-xs gap-1" title="Create journal entries from payroll and refresh Ledger, Trial Balance & P&L">
-            <BookOpen className="h-3.5 w-3.5" /> {posting ? "Posting…" : "Post to Ledger"}
+          {accrualPosted ? (
+            <Button size="sm" variant="outline" onClick={() => postAccrual(true)} disabled={posting || hasAnyEdits} className="h-7 text-xs gap-1" title="Void existing accrual & re-post">
+              <RotateCcw className="h-3.5 w-3.5" /> {posting ? "…" : "Rebuild Accrual"}
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => postAccrual(false)} disabled={posting || hasAnyEdits} className="h-7 text-xs gap-1" title="Post month-end payroll accrual journal">
+              <BookOpen className="h-3.5 w-3.5" /> {posting ? "Posting…" : "Post Accrual"}
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setPaymentOpen(true)} disabled={!accrualPosted || hasAnyEdits} className="h-7 text-xs gap-1" title={accrualPosted ? "Settle salary or MPF" : "Post accrual first"}>
+            <Banknote className="h-3.5 w-3.5" /> Record Payment
           </Button>
+          {accrualPosted && <Badge variant="outline" className="text-[10px]">Accrued</Badge>}
         </div>
       </div>
 
