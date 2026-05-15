@@ -54,6 +54,7 @@ export interface Invoice {
   tax_amount: number;
   total_amount: number;
   discount: number;
+  discount_type?: "discount" | "refund";
   notes: string | null;
   entered_by: string;
   created_at: string;

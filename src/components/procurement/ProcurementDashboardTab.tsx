@@ -20,6 +20,8 @@ interface InvoiceRow {
   invoice_date: string;
   invoice_number: string;
   total_amount: number;
+  discount?: number;
+  discount_type?: string;
   payment_status: string;
   status: string;
   venue: string;
@@ -113,7 +115,7 @@ export default function ProcurementDashboardTab() {
   useEffect(() => {
     (async () => {
       const [invData, liData, supData, pmData, salesData] = await Promise.all([
-        fetchAllRows("invoices", "id, supplier_id, invoice_date, invoice_number, total_amount, payment_status, status, venue", { col: "invoice_date", asc: false }),
+        fetchAllRows("invoices", "id, supplier_id, invoice_date, invoice_number, total_amount, discount, discount_type, payment_status, status, venue", { col: "invoice_date", asc: false }),
         fetchAllRows("invoice_line_items", "id, invoice_id, description, quantity, unit_price, total, product_master_id"),
         fetchAllRows("suppliers", "id, name", { col: "name", asc: true }),
         fetchAllRows("product_master", "id, level1_category, level2_category, level3_category, internal_product_name"),
@@ -167,7 +169,13 @@ export default function ProcurementDashboardTab() {
     const count = filteredInvoices.length;
     const avg = count > 0 ? totalSpend / count : 0;
     const uniqueSuppliers = new Set(filteredInvoices.map(inv => inv.supplier_id)).size;
-    return { totalSpend, count, avg, uniqueSuppliers };
+    const totalDiscounts = filteredInvoices
+      .filter(inv => (inv.discount_type || "discount") === "discount")
+      .reduce((s, inv) => s + Number(inv.discount || 0), 0);
+    const totalRefunds = filteredInvoices
+      .filter(inv => inv.discount_type === "refund")
+      .reduce((s, inv) => s + Number(inv.discount || 0), 0);
+    return { totalSpend, count, avg, uniqueSuppliers, totalDiscounts, totalRefunds };
   }, [filteredInvoices]);
 
   // ─── Monthly Spend Trend (all time) ───
@@ -440,12 +448,14 @@ export default function ProcurementDashboardTab() {
       </div>
 
       {/* ─── KPI Cards ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
           { label: "Total Spend", value: fmt(kpis.totalSpend), icon: DollarSign },
           { label: "Invoice Count", value: kpis.count.toString(), icon: FileText },
           { label: "Avg Invoice", value: fmt(kpis.avg), icon: BarChart3 },
-          { label: "Unique Suppliers & Vendors", value: kpis.uniqueSuppliers.toString(), icon: Users },
+          { label: "Suppliers & Vendors", value: kpis.uniqueSuppliers.toString(), icon: Users },
+          { label: "Discounts", value: fmt(kpis.totalDiscounts), icon: DollarSign },
+          { label: "Refunds", value: fmt(kpis.totalRefunds), icon: DollarSign },
         ].map(kpi => (
           <Card key={kpi.label} className="relative overflow-hidden">
             <CardContent className="p-4">
