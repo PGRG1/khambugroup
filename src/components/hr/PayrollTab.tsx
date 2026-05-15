@@ -344,7 +344,18 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
     }
   };
 
-  /* ── Styles ── */
+  const [posting, setPosting] = useState(false);
+  const postToLedger = async () => {
+    if (hasAnyEdits) {
+      toast({ title: "Save changes first", description: "You have unsaved edits. Save before posting to ledger.", variant: "destructive" });
+      return;
+    }
+    setPosting(true);
+    const { data, error } = await (supabase as any).rpc("rebuild_journal_from_operations");
+    setPosting(false);
+    if (error) { toast({ title: "Post failed", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Posted to ledger", description: `${(data as any)?.entries_created ?? 0} journal entries created/refreshed. Flowed to Trial Balance & P&L.` });
+  };
   const hdr = "bg-foreground text-background text-[11px] font-bold uppercase tracking-wider px-3 py-1.5";
   const th = "text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap border-b border-border";
   const thP = "px-2 py-2"; // padding for th
