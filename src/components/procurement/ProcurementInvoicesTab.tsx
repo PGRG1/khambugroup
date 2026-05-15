@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
 
 // Grid template for virtualized invoice rows (must match header)
 const INV_GRID_COLS = "100px 120px minmax(160px,1fr) 90px 100px 110px 90px 90px";
