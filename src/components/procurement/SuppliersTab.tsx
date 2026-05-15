@@ -96,6 +96,7 @@ export default function SuppliersTab() {
       address: s.address || "",
       notes: s.notes || "",
       payment_terms: s.payment_terms || "COD",
+      invoice_rounding_mode: (s.invoice_rounding_mode || "sum_then_round") as RoundingMode,
       is_active: s.is_active,
     });
     setDialogOpen(true);
@@ -115,6 +116,7 @@ export default function SuppliersTab() {
       address: form.address || null,
       notes: form.notes || null,
       payment_terms: form.payment_terms,
+      invoice_rounding_mode: form.invoice_rounding_mode,
       is_active: form.is_active,
     };
 
