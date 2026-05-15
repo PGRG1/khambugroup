@@ -2255,6 +2255,7 @@ export type Database = {
           approved_by: string | null
           created_at: string
           discount: number
+          discount_type: string
           dispute_notes: string | null
           due_date: string | null
           entered_by: string
@@ -2286,6 +2287,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string
           discount?: number
+          discount_type?: string
           dispute_notes?: string | null
           due_date?: string | null
           entered_by: string
@@ -2317,6 +2319,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string
           discount?: number
+          discount_type?: string
           dispute_notes?: string | null
           due_date?: string | null
           entered_by?: string
