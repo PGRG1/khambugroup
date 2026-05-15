@@ -61,6 +61,7 @@ interface ScannedLineItem {
   unmatched?: boolean;
   price_changed?: boolean;
   pm_unit_price?: number;
+  total_override?: boolean;
 }
 
 interface ScannedInvoice {
@@ -560,6 +561,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const mode = getRoundingMode(supplierObj, supplierName);
         const raw = (qty * price) - disc + tax;
         line.total = formatLineTotal(raw, mode);
+        line.total_override = false;
+      }
+      if (field === "total") {
+        line.total_override = true;
       }
       if (["unit_price", "matched_sku"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
@@ -632,6 +637,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const currentMode: RoundingMode = getRoundingMode(currentSupplierObj ?? { name: currentSupplierName }, currentSupplierName);
 
   const lineRawValue = (l: ScannedLineItem) => {
+    if (l.total_override) {
+      return parseFloat(l.total) || 0;
+    }
     const price = parseFloat(l.unit_price) || 0;
     const qty = parseFloat(l.quantity) || 0;
     const disc = parseFloat(l.discount) || 0;
@@ -678,7 +686,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const price = parseFloat(l.unit_price) || 0;
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
-        const lineTotal = roundLineTotal((qty * price) - disc + tax, mode);
+        const lineTotal = l.total_override
+          ? roundLineTotal(parseFloat(l.total) || 0, mode)
+          : roundLineTotal((qty * price) - disc + tax, mode);
         // Resolve product_master_id at save time using EXACT match only
         let pmId: string | null = null;
         if (productMaster) {
