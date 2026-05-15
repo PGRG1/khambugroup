@@ -288,19 +288,16 @@ export default function ProcurementDashboardTab() {
       const l1 = pm?.level1_category || "Uncategorized";
       l1Map.set(l1, (l1Map.get(l1) || 0) + Number(li.total));
     });
-    const arr = Array.from(l1Map.entries())
+    const arr: { name: string; value: number; isDeduction?: boolean }[] = Array.from(l1Map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    // Include header-level discounts and refunds as their own categories
-    const discountTotal = filteredInvoices
-      .filter(inv => (inv.discount_type || "discount") === "discount")
+    // Combine header-level discounts and refunds into one deduction slice
+    const deduction = filteredInvoices
       .reduce((s, inv) => s + Number(inv.discount || 0), 0);
-    const refundTotal = filteredInvoices
-      .filter(inv => inv.discount_type === "refund")
-      .reduce((s, inv) => s + Number(inv.discount || 0), 0);
-    if (discountTotal > 0) arr.push({ name: "Discounts", value: discountTotal });
-    if (refundTotal > 0) arr.push({ name: "Refunds", value: refundTotal });
+    if (deduction > 0) {
+      arr.push({ name: "Discount / Refund", value: deduction, isDeduction: true });
+    }
     return arr;
   }, [filteredLineItems, pmMap, filteredInvoices]);
 
@@ -635,19 +632,20 @@ export default function ProcurementDashboardTab() {
                         <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => [fmt(v), "Spend"]} />
+                    <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number, _n, p: any) => [fmt(p?.payload?.isDeduction ? -v : v), p?.payload?.isDeduction ? "Deduction" : "Spend"]} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
               <div className="w-full lg:w-1/2 space-y-2">
                 {l1Data.map((item, i) => {
                   const pct = l1Total > 0 ? ((item.value / l1Total) * 100).toFixed(1) : "0";
+                  const signed = item.isDeduction ? -item.value : item.value;
                   return (
                     <div key={item.name} className="flex items-center gap-2.5 text-sm">
                       <div className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
                       <span className="flex-1 truncate" title={item.name}>{item.name}</span>
-                      <span className="font-mono text-xs text-muted-foreground tabular-nums shrink-0">{fmtShort(item.value)}</span>
-                      <span className="font-mono text-xs font-medium tabular-nums shrink-0 w-12 text-right">{pct}%</span>
+                      <span className={`font-mono text-xs tabular-nums shrink-0 ${item.isDeduction ? "text-red-400" : "text-muted-foreground"}`}>{item.isDeduction ? `-${fmtShort(item.value)}` : fmtShort(item.value)}</span>
+                      <span className="font-mono text-xs font-medium tabular-nums shrink-0 w-12 text-right">{item.isDeduction ? `-${pct}%` : `${pct}%`}</span>
                     </div>
                   );
                 })}
