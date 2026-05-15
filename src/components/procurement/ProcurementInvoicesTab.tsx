@@ -403,20 +403,21 @@ export default function ProcurementInvoicesTab() {
         product_master_id: line.product_master_id,
       }));
 
-    // Subtotal/total are computed from raw line values to avoid 2dp drift
-    // (matches scanner behavior — see VegFresh 1,240.50 fix).
-    const supplierNameForSave = getSupplierNameById(editForm.supplier_id || selectedInvoice.supplier_id) || selectedInvoice.supplier_name || "";
-    const isBWSave = supplierNameForSave.toLowerCase().includes("beverage world");
-    const rawSum = editLines.reduce((sum, line) => {
+    // Subtotal/total are computed using the supplier's invoice rounding rule
+    // (see Suppliers & Vendors → Invoice rounding rule).
+    const supplierIdForSave = editForm.supplier_id || selectedInvoice.supplier_id;
+    const supplierNameForSave = getSupplierNameById(supplierIdForSave) || selectedInvoice.supplier_name || "";
+    const modeForSave = getModeForSupplier(supplierIdForSave, supplierNameForSave);
+    const rawLines = editLines.map((line) => {
       const qty = parseFloat(line.quantity) || 0;
       const price = parseFloat(line.unit_price) || 0;
       const discount = parseFloat(line.discount) || 0;
       const tax = parseFloat(line.tax_amount) || 0;
-      return sum + ((qty * price) - discount + tax);
-    }, 0);
-    const taxSum = editLines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0);
-    const totalAmount = isBWSave ? Math.round(rawSum) : Math.round((rawSum + Number.EPSILON) * 100) / 100;
-    const subtotalAmount = isBWSave ? Math.round(rawSum - taxSum) : Math.round(((rawSum - taxSum) + Number.EPSILON) * 100) / 100;
+      return { gross: (qty * price) - discount + tax, tax };
+    });
+    const taxSum = rawLines.reduce((s, l) => s + l.tax, 0);
+    const totalAmount = aggregateTotal(rawLines.map((l) => l.gross), modeForSave);
+    const subtotalAmount = aggregateTotal(rawLines.map((l) => l.gross - l.tax), modeForSave);
 
     const success = await updateInvoice(
       selectedInvoice.id,
