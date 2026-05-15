@@ -257,6 +257,11 @@ export default function ProcurementInvoicesTab() {
     return suppliers.find((supplier) => supplier.id === supplierId)?.name || "";
   };
 
+  const getModeForSupplier = (supplierId?: string | null, fallbackName?: string | null): RoundingMode => {
+    const supplier = supplierId ? suppliers.find((s) => s.id === supplierId) : undefined;
+    return getRoundingMode(supplier ?? { name: fallbackName ?? "" }, fallbackName);
+  };
+
   const getScopedProductMaster = (supplierId?: string | null) => {
     const supplierName = getSupplierNameById(supplierId) || selectedInvoice?.supplier_name || "";
     if (!supplierName) return productMaster;
