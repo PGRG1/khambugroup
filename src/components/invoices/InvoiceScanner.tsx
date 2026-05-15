@@ -403,9 +403,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             const resolvedDesc = pmData.entry
               ? (pmData.entry.supplier_product_name || pmData.entry.internal_product_name || li?.description || "")
               : (li?.description || "");
-            const isBW = supplierName.toLowerCase().includes("beverage world");
+            const supplierObj = suppliers.find((s) => s.id === supplierId) ?? { name: supplierName };
+            const mode = getRoundingMode(supplierObj, supplierName);
             const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
-            const totalStr = isBW ? String(Math.round(rawTotal)) : (Math.round((rawTotal + Number.EPSILON) * 100) / 100).toFixed(2);
+            const totalStr = formatLineTotal(rawTotal, mode);
             return {
               item_code: itemCode,
               description: itemCode && pmData.entry ? resolvedDesc : (li?.description || ""),
