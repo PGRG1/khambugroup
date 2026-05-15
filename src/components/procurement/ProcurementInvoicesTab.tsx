@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
 
 // Grid template for virtualized invoice rows (must match header)
 const INV_GRID_COLS = "100px 120px minmax(160px,1fr) 90px 100px 110px 90px 90px";
@@ -30,10 +31,10 @@ const STATUS_COLORS: Record<string, string> = {
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtRound = (n: number) => Math.round(n).toLocaleString("en-US");
-const fmtForSupplier = (n: number, supplierName?: string) => {
-  if (supplierName && supplierName.toLowerCase().includes("beverage world")) return fmtRound(n);
-  return fmt(n);
-};
+const fmtForMode = (n: number, mode: RoundingMode) =>
+  mode === "integer" ? fmtRound(n) : fmt(n);
+const fmtForSupplier = (n: number, supplierName?: string) =>
+  fmtForMode(n, getRoundingMode({ name: supplierName }));
 const fmtDate = (d: string) => {
   if (!d) return "—";
   const date = new Date(d + "T00:00:00");
@@ -256,6 +257,11 @@ export default function ProcurementInvoicesTab() {
     return suppliers.find((supplier) => supplier.id === supplierId)?.name || "";
   };
 
+  const getModeForSupplier = (supplierId?: string | null, fallbackName?: string | null): RoundingMode => {
+    const supplier = supplierId ? suppliers.find((s) => s.id === supplierId) : undefined;
+    return getRoundingMode(supplier ?? { name: fallbackName ?? "" }, fallbackName);
+  };
+
   const getScopedProductMaster = (supplierId?: string | null) => {
     const supplierName = getSupplierNameById(supplierId) || selectedInvoice?.supplier_name || "";
     if (!supplierName) return productMaster;
@@ -282,14 +288,13 @@ export default function ProcurementInvoicesTab() {
     );
   };
 
-  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">, supplierName?: string) => {
+  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">, supplierName?: string, supplierId?: string | null) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
     const raw = (qty * price) - discount + tax;
-    const isBW = (supplierName || "").toLowerCase().includes("beverage world");
-    return isBW ? String(Math.round(raw)) : raw.toFixed(2);
+    return formatLineTotal(raw, getModeForSupplier(supplierId, supplierName));
   };
 
   const hydrateEditLine = (line: Partial<InvoiceLineItem> | EditableInvoiceLine, supplierId?: string | null): EditableInvoiceLine => {
@@ -297,7 +302,8 @@ export default function ProcurementInvoicesTab() {
     const currentPrice = parseFloat(String(line.unit_price ?? 0)) || 0;
     const pmPrice = matchedProduct?.purchase_unit_cost;
     const supplierName = getSupplierNameById(supplierId || null) || "";
-    const isBW = supplierName.toLowerCase().includes("beverage world");
+    const mode = getModeForSupplier(supplierId, supplierName);
+    const recalcLineTotal = mode !== "sum_then_round"; // for integer or round_then_sum, line totals are derived
 
     // When matched by SKU, sync description from the matched product entry
     const itemCode = (line.item_code || "").trim().toLowerCase();
@@ -310,7 +316,7 @@ export default function ProcurementInvoicesTab() {
     const priceStr = String(line.unit_price ?? 0);
     const discStr = String(line.discount ?? 0);
     const taxStr = String(line.tax_amount ?? 0);
-    const computedTotal = calculateEditLineTotal({ quantity: qtyStr, unit_price: priceStr, discount: discStr, tax_amount: taxStr }, supplierName);
+    const computedTotal = calculateEditLineTotal({ quantity: qtyStr, unit_price: priceStr, discount: discStr, tax_amount: taxStr }, supplierName, supplierId);
 
     // PM is the source of truth for External SKU when a supplier-scoped product is matched.
     // Empty PM SKU must stay empty — never fall back to the scanned/typed code.
@@ -329,7 +335,7 @@ export default function ProcurementInvoicesTab() {
       unit_price: priceStr,
       discount: discStr,
       tax_amount: taxStr,
-      total: isBW
+      total: recalcLineTotal
         ? computedTotal
         : ("total" in line && typeof line.total === "string" ? line.total : computedTotal),
       product_master_id: matchedProduct?.id || line.product_master_id || null,
@@ -397,20 +403,21 @@ export default function ProcurementInvoicesTab() {
         product_master_id: line.product_master_id,
       }));
 
-    // Subtotal/total are computed from raw line values to avoid 2dp drift
-    // (matches scanner behavior — see VegFresh 1,240.50 fix).
-    const supplierNameForSave = getSupplierNameById(editForm.supplier_id || selectedInvoice.supplier_id) || selectedInvoice.supplier_name || "";
-    const isBWSave = supplierNameForSave.toLowerCase().includes("beverage world");
-    const rawSum = editLines.reduce((sum, line) => {
+    // Subtotal/total are computed using the supplier's invoice rounding rule
+    // (see Suppliers & Vendors → Invoice rounding rule).
+    const supplierIdForSave = editForm.supplier_id || selectedInvoice.supplier_id;
+    const supplierNameForSave = getSupplierNameById(supplierIdForSave) || selectedInvoice.supplier_name || "";
+    const modeForSave = getModeForSupplier(supplierIdForSave, supplierNameForSave);
+    const rawLines = editLines.map((line) => {
       const qty = parseFloat(line.quantity) || 0;
       const price = parseFloat(line.unit_price) || 0;
       const discount = parseFloat(line.discount) || 0;
       const tax = parseFloat(line.tax_amount) || 0;
-      return sum + ((qty * price) - discount + tax);
-    }, 0);
-    const taxSum = editLines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0);
-    const totalAmount = isBWSave ? Math.round(rawSum) : Math.round((rawSum + Number.EPSILON) * 100) / 100;
-    const subtotalAmount = isBWSave ? Math.round(rawSum - taxSum) : Math.round(((rawSum - taxSum) + Number.EPSILON) * 100) / 100;
+      return { gross: (qty * price) - discount + tax, tax };
+    });
+    const taxSum = rawLines.reduce((s, l) => s + l.tax, 0);
+    const totalAmount = aggregateTotal(rawLines.map((l) => l.gross), modeForSave);
+    const subtotalAmount = aggregateTotal(rawLines.map((l) => l.gross - l.tax), modeForSave);
 
     const success = await updateInvoice(
       selectedInvoice.id,
@@ -438,8 +445,9 @@ export default function ProcurementInvoicesTab() {
       const nextLine: EditableInvoiceLine = { ...updated[idx], [field]: value };
 
       if (["quantity", "unit_price", "discount", "tax_amount"].includes(field)) {
-        const supplierName = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id || null) || selectedInvoice?.supplier_name || "";
-        nextLine.total = calculateEditLineTotal(nextLine, supplierName);
+        const supplierId = editForm.supplier_id || selectedInvoice?.supplier_id || null;
+        const supplierName = getSupplierNameById(supplierId) || selectedInvoice?.supplier_name || "";
+        nextLine.total = calculateEditLineTotal(nextLine, supplierName, supplierId);
       }
 
       if (field === "unit_price" && nextLine.pm_unit_price) {
@@ -537,20 +545,20 @@ export default function ProcurementInvoicesTab() {
 
   const editFilteredPM = useMemo(() => getScopedProductMaster(editForm.supplier_id), [productMaster, suppliers, editForm.supplier_id, selectedInvoice]);
 
-  // Sum from raw line values (qty × price − discount + tax) so subtotal/total
-  // match the scanner's rounding behavior (e.g. VegFresh 1,240.50 vs 1,240.49).
-  const editSupplierNameForTotal = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id) || selectedInvoice?.supplier_name || "";
-  const editIsBW = editSupplierNameForTotal.toLowerCase().includes("beverage world");
-  const editRawSum = editLines.reduce((sum, line) => {
+  // Apply each supplier's invoice rounding rule (configured in Suppliers & Vendors).
+  const editSupplierIdForTotal = editForm.supplier_id || selectedInvoice?.supplier_id || null;
+  const editSupplierNameForTotal = getSupplierNameById(editSupplierIdForTotal) || selectedInvoice?.supplier_name || "";
+  const editMode = getModeForSupplier(editSupplierIdForTotal, editSupplierNameForTotal);
+  const editRawLines = editLines.map((line) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
-    return sum + ((qty * price) - discount + tax);
-  }, 0);
-  const editTaxSum = editLines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0);
-  const editTotal = editIsBW ? Math.round(editRawSum) : Math.round((editRawSum + Number.EPSILON) * 100) / 100;
-  const editSubtotal = editIsBW ? Math.round(editRawSum - editTaxSum) : Math.round(((editRawSum - editTaxSum) + Number.EPSILON) * 100) / 100;
+    return { gross: (qty * price) - discount + tax, tax };
+  });
+  const editTaxSum = editRawLines.reduce((s, l) => s + l.tax, 0);
+  const editTotal = aggregateTotal(editRawLines.map((l) => l.gross), editMode);
+  const editSubtotal = aggregateTotal(editRawLines.map((l) => l.gross - l.tax), editMode);
   const unmatchedCount = editLines.filter((line) => line.unmatched && line.description.trim()).length;
   const priceChangedCount = editLines.filter((line) => line.price_changed).length;
 

@@ -14,6 +14,7 @@ import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
 import { Plus, Download, Pencil, Trash2 } from "lucide-react";
 import { DataTableShell, usePagination } from "@/components/common/data-table";
+import { ROUNDING_MODE_LABELS, type RoundingMode } from "@/utils/invoiceRounding";
 
 interface Supplier {
   id: string;
@@ -24,11 +25,13 @@ interface Supplier {
   address: string | null;
   notes: string | null;
   payment_terms: string | null;
+  invoice_rounding_mode: RoundingMode | null;
   is_active: boolean;
   created_at: string;
 }
 
 const PAYMENT_TERMS = ["COD", "Net 7", "Net 14", "Net 30", "Net 60"];
+const ROUNDING_MODES: RoundingMode[] = ["sum_then_round", "round_then_sum", "integer"];
 
 const emptyForm = {
   name: "",
@@ -38,6 +41,7 @@ const emptyForm = {
   address: "",
   notes: "",
   payment_terms: "COD",
+  invoice_rounding_mode: "sum_then_round" as RoundingMode,
   is_active: true,
 };
 
@@ -59,7 +63,7 @@ export default function SuppliersTab() {
     if (error) {
       toast.error("Failed to load suppliers & vendors");
     } else {
-      setSuppliers(data || []);
+      setSuppliers((data || []) as unknown as Supplier[]);
     }
     setLoading(false);
   };
@@ -92,6 +96,7 @@ export default function SuppliersTab() {
       address: s.address || "",
       notes: s.notes || "",
       payment_terms: s.payment_terms || "COD",
+      invoice_rounding_mode: (s.invoice_rounding_mode || "sum_then_round") as RoundingMode,
       is_active: s.is_active,
     });
     setDialogOpen(true);
@@ -111,6 +116,7 @@ export default function SuppliersTab() {
       address: form.address || null,
       notes: form.notes || null,
       payment_terms: form.payment_terms,
+      invoice_rounding_mode: form.invoice_rounding_mode,
       is_active: form.is_active,
     };
 
@@ -185,15 +191,16 @@ export default function SuppliersTab() {
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Payment Terms</TableHead>
+              <TableHead>Invoice Rounding</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
             ) : pag.pageItems.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
             ) : (
               pag.pageItems.map((s) => (
                 <TableRow key={s.id}>
@@ -202,6 +209,9 @@ export default function SuppliersTab() {
                   <TableCell>{s.email || "—"}</TableCell>
                   <TableCell>{s.phone || "—"}</TableCell>
                   <TableCell>{s.payment_terms || "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {ROUNDING_MODE_LABELS[(s.invoice_rounding_mode || "sum_then_round") as RoundingMode]}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={s.is_active ? "default" : "secondary"}>
                       {s.is_active ? "Active" : "Inactive"}
@@ -268,6 +278,23 @@ export default function SuppliersTab() {
                 <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
                 <Label>Active</Label>
               </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Invoice rounding rule</Label>
+              <Select
+                value={form.invoice_rounding_mode}
+                onValueChange={(v) => setForm({ ...form, invoice_rounding_mode: v as RoundingMode })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ROUNDING_MODES.map((m) => (
+                    <SelectItem key={m} value={m}>{ROUNDING_MODE_LABELS[m]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Controls how line item totals are rounded and how the invoice total is summed.
+              </p>
             </div>
             <div className="grid gap-1.5">
               <Label>Notes</Label>

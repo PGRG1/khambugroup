@@ -12,6 +12,7 @@ export interface Supplier {
   address: string | null;
   notes: string | null;
   payment_terms: string | null;
+  invoice_rounding_mode?: string | null;
   is_active: boolean;
 }
 
