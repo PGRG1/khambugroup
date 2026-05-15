@@ -73,6 +73,7 @@ interface ScannedInvoice {
   notes: string;
   invoice_status: string;
   invoice_discount: string;
+  invoice_discount_type: "discount" | "refund";
   line_items: ScannedLineItem[];
   saved?: boolean;
   sourceFiles?: File[];
@@ -92,6 +93,7 @@ interface InvoiceScannerProps {
     due_date: string | null;
     notes: string | null;
     discount?: number;
+    discount_type?: "discount" | "refund";
     status?: string;
   }, lineItems: {
     item_code: string;
@@ -439,6 +441,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           notes: "",
           invoice_status: "outstanding",
           invoice_discount: "0",
+          invoice_discount_type: "discount",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
@@ -709,6 +712,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           due_date: inv.due_date || null,
           notes: inv.notes || null,
           discount: parseFloat(inv.invoice_discount || "0") || 0,
+          discount_type: inv.invoice_discount_type || "discount",
           status: inv.invoice_status || undefined,
         },
         lines,
@@ -1315,6 +1319,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             )}
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">Discount:</span>
+              <Select
+                value={current.invoice_discount_type || "discount"}
+                onValueChange={(v) => updateField("invoice_discount_type", v as "discount" | "refund")}
+              >
+                <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="discount">Discount</SelectItem>
+                  <SelectItem value="refund">Refund</SelectItem>
+                </SelectContent>
+              </Select>
               <Input
                 type="number"
                 value={current.invoice_discount}
