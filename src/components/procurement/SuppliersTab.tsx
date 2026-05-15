@@ -14,6 +14,7 @@ import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
 import { Plus, Download, Pencil, Trash2 } from "lucide-react";
 import { DataTableShell, usePagination } from "@/components/common/data-table";
+import { ROUNDING_MODE_LABELS, type RoundingMode } from "@/utils/invoiceRounding";
 
 interface Supplier {
   id: string;
@@ -24,11 +25,13 @@ interface Supplier {
   address: string | null;
   notes: string | null;
   payment_terms: string | null;
+  invoice_rounding_mode: RoundingMode | null;
   is_active: boolean;
   created_at: string;
 }
 
 const PAYMENT_TERMS = ["COD", "Net 7", "Net 14", "Net 30", "Net 60"];
+const ROUNDING_MODES: RoundingMode[] = ["sum_then_round", "round_then_sum", "integer"];
 
 const emptyForm = {
   name: "",
@@ -38,6 +41,7 @@ const emptyForm = {
   address: "",
   notes: "",
   payment_terms: "COD",
+  invoice_rounding_mode: "sum_then_round" as RoundingMode,
   is_active: true,
 };
 
