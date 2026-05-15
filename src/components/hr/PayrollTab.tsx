@@ -374,11 +374,16 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
           <span className="text-base font-display font-bold min-w-[160px] text-center">{MONTHS[filterMonth - 1]} {filterYear}</span>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
         </div>
-        {hasAnyEdits && (
-          <Button size="sm" onClick={saveAll} disabled={saving} className="h-7 text-xs gap-1">
-            <Save className="h-3.5 w-3.5" /> Save All Changes
+        <div className="flex items-center gap-2">
+          {hasAnyEdits && (
+            <Button size="sm" onClick={saveAll} disabled={saving} className="h-7 text-xs gap-1">
+              <Save className="h-3.5 w-3.5" /> Save All Changes
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={postToLedger} disabled={posting || hasAnyEdits} className="h-7 text-xs gap-1" title="Create journal entries from payroll and refresh Ledger, Trial Balance & P&L">
+            <BookOpen className="h-3.5 w-3.5" /> {posting ? "Posting…" : "Post to Ledger"}
           </Button>
-        )}
+        </div>
       </div>
 
       {/* ── Summary cards ── */}
