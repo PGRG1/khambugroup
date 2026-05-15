@@ -508,10 +508,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     setInvoices((prev) => {
       const copy = [...prev];
       const newSupplierName = selectedSupplier?.name || copy[targetIdx].supplier_name;
-      const isBW = (newSupplierName || "").toLowerCase().includes("beverage world");
+      const mode = getRoundingMode(selectedSupplier ?? { name: newSupplierName });
       const recomputedLines = (copy[targetIdx].line_items || []).map((line) => {
         const raw = ((Number(line.quantity) || 0) * (Number(line.unit_price) || 0)) - (Number(line.discount) || 0) + (Number(line.tax_amount) || 0);
-        return { ...line, total: isBW ? String(Math.round(raw)) : (Math.round((raw + Number.EPSILON) * 100) / 100).toFixed(2) };
+        return { ...line, total: formatLineTotal(raw, mode) };
       });
       copy[targetIdx] = {
         ...copy[targetIdx],
