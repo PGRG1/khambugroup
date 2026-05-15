@@ -1,8 +1,14 @@
+import { useEffect } from "react";
 import { useHRData } from "@/hooks/useHRData";
 import { PayrollTab } from "@/components/hr/PayrollTab";
 
 export default function HRPayroll() {
   const hr = useHRData();
+  useEffect(() => {
+    const h = () => hr.refetch();
+    window.addEventListener("hr-data-refresh", h);
+    return () => window.removeEventListener("hr-data-refresh", h);
+  }, [hr]);
 
   if (hr.loading) {
     return (
