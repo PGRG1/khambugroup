@@ -395,7 +395,7 @@ export function generateLedgerPLPDF(args: {
 }) {
   const orientation = args.columns.length > 4 ? "landscape" : "portrait";
   const { doc, pageWidth, pageHeight, margin, contentTop } = newDoc({
-    title: "Profit & Loss (M)",
+    title: "Profit & Loss",
     subtitle: "Built from posted journal entries",
     periodLabel: args.periodLabel,
     filename: `khambu_pl_ledger.pdf`,
