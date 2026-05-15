@@ -686,7 +686,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const price = parseFloat(l.unit_price) || 0;
         const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
-        const lineTotal = roundLineTotal((qty * price) - disc + tax, mode);
+        const lineTotal = l.total_override
+          ? roundLineTotal(parseFloat(l.total) || 0, mode)
+          : roundLineTotal((qty * price) - disc + tax, mode);
         // Resolve product_master_id at save time using EXACT match only
         let pmId: string | null = null;
         if (productMaster) {
