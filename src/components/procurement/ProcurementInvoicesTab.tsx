@@ -288,14 +288,13 @@ export default function ProcurementInvoicesTab() {
     );
   };
 
-  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">, supplierName?: string) => {
+  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">, supplierName?: string, supplierId?: string | null) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
     const raw = (qty * price) - discount + tax;
-    const isBW = (supplierName || "").toLowerCase().includes("beverage world");
-    return isBW ? String(Math.round(raw)) : raw.toFixed(2);
+    return formatLineTotal(raw, getModeForSupplier(supplierId, supplierName));
   };
 
   const hydrateEditLine = (line: Partial<InvoiceLineItem> | EditableInvoiceLine, supplierId?: string | null): EditableInvoiceLine => {
@@ -303,7 +302,8 @@ export default function ProcurementInvoicesTab() {
     const currentPrice = parseFloat(String(line.unit_price ?? 0)) || 0;
     const pmPrice = matchedProduct?.purchase_unit_cost;
     const supplierName = getSupplierNameById(supplierId || null) || "";
-    const isBW = supplierName.toLowerCase().includes("beverage world");
+    const mode = getModeForSupplier(supplierId, supplierName);
+    const recalcLineTotal = mode !== "sum_then_round"; // for integer or round_then_sum, line totals are derived
 
     // When matched by SKU, sync description from the matched product entry
     const itemCode = (line.item_code || "").trim().toLowerCase();
@@ -316,7 +316,7 @@ export default function ProcurementInvoicesTab() {
     const priceStr = String(line.unit_price ?? 0);
     const discStr = String(line.discount ?? 0);
     const taxStr = String(line.tax_amount ?? 0);
-    const computedTotal = calculateEditLineTotal({ quantity: qtyStr, unit_price: priceStr, discount: discStr, tax_amount: taxStr }, supplierName);
+    const computedTotal = calculateEditLineTotal({ quantity: qtyStr, unit_price: priceStr, discount: discStr, tax_amount: taxStr }, supplierName, supplierId);
 
     // PM is the source of truth for External SKU when a supplier-scoped product is matched.
     // Empty PM SKU must stay empty — never fall back to the scanned/typed code.
@@ -335,7 +335,7 @@ export default function ProcurementInvoicesTab() {
       unit_price: priceStr,
       discount: discStr,
       tax_amount: taxStr,
-      total: isBW
+      total: recalcLineTotal
         ? computedTotal
         : ("total" in line && typeof line.total === "string" ? line.total : computedTotal),
       product_master_id: matchedProduct?.id || line.product_master_id || null,
