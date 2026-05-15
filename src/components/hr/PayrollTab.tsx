@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Save, BookOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, BookOpen, Banknote, RotateCcw, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRPayroll, HREmployee, HRShift } from "@/hooks/useHRData";
 import { supabase } from "@/integrations/supabase/client";
+import { PayrollPaymentDialog } from "./PayrollPaymentDialog";
+import { usePayrollPaymentBatches } from "@/hooks/usePayrollPaymentBatches";
 
 interface Props {
   payroll: HRPayroll[];
@@ -345,17 +347,33 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   };
 
   const [posting, setPosting] = useState(false);
-  const postToLedger = async () => {
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const { batches, lines: batchLines, reload: reloadBatches, voidBatch } = usePayrollPaymentBatches(filterYear, filterMonth);
+
+  const accrualPosted = useMemo(
+    () => filtered.some((p) => p.accrual_journal_entry_id),
+    [filtered],
+  );
+
+  const postAccrual = async (rebuild = false) => {
     if (hasAnyEdits) {
-      toast({ title: "Save changes first", description: "You have unsaved edits. Save before posting to ledger.", variant: "destructive" });
+      toast({ title: "Save changes first", description: "You have unsaved edits.", variant: "destructive" });
       return;
     }
     setPosting(true);
-    const { data, error } = await (supabase as any).rpc("rebuild_journal_from_operations");
+    const fn = rebuild ? "rebuild_payroll_accrual" : "post_payroll_accrual";
+    const { data, error } = await (supabase as any).rpc(fn, { p_year: filterYear, p_month: filterMonth });
     setPosting(false);
     if (error) { toast({ title: "Post failed", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Posted to ledger", description: `${(data as any)?.entries_created ?? 0} journal entries created/refreshed. Flowed to Trial Balance & P&L.` });
+    if ((data as any)?.already_posted) {
+      toast({ title: "Already posted", description: `${MONTHS[filterMonth - 1]} ${filterYear} payroll accrual is already in the ledger.` });
+    } else {
+      toast({ title: "Accrual posted", description: `${(data as any)?.entries_created ?? 0} journal entries created. Flowed to Trial Balance, P&L & Balance Sheet.` });
+    }
+    // Refresh page payroll data
+    window.dispatchEvent(new Event("hr-data-refresh"));
   };
+
   const hdr = "bg-foreground text-background text-[11px] font-bold uppercase tracking-wider px-3 py-1.5";
   const th = "text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap border-b border-border";
   const thP = "px-2 py-2"; // padding for th
@@ -380,9 +398,19 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
               <Save className="h-3.5 w-3.5" /> Save All Changes
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={postToLedger} disabled={posting || hasAnyEdits} className="h-7 text-xs gap-1" title="Create journal entries from payroll and refresh Ledger, Trial Balance & P&L">
-            <BookOpen className="h-3.5 w-3.5" /> {posting ? "Posting…" : "Post to Ledger"}
+          {accrualPosted ? (
+            <Button size="sm" variant="outline" onClick={() => postAccrual(true)} disabled={posting || hasAnyEdits} className="h-7 text-xs gap-1" title="Void existing accrual & re-post">
+              <RotateCcw className="h-3.5 w-3.5" /> {posting ? "…" : "Rebuild Accrual"}
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => postAccrual(false)} disabled={posting || hasAnyEdits} className="h-7 text-xs gap-1" title="Post month-end payroll accrual journal">
+              <BookOpen className="h-3.5 w-3.5" /> {posting ? "Posting…" : "Post Accrual"}
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setPaymentOpen(true)} disabled={!accrualPosted || hasAnyEdits} className="h-7 text-xs gap-1" title={accrualPosted ? "Settle salary or MPF" : "Post accrual first"}>
+            <Banknote className="h-3.5 w-3.5" /> Record Payment
           </Button>
+          {accrualPosted && <Badge variant="outline" className="text-[10px]">Accrued</Badge>}
         </div>
       </div>
 
@@ -581,7 +609,60 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
         </div>
       </div>
 
-      {/* Detail Modal */}
+      {/* ── Payment Batches panel ── */}
+      {batches.length > 0 && (
+        <div className="border border-border rounded-md overflow-hidden">
+          <div className={hdr}>Payment Batches — {MONTHS[filterMonth - 1]} {filterYear}</div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Date</TableHead>
+                <TableHead className="text-xs">Kind</TableHead>
+                <TableHead className="text-xs">Method</TableHead>
+                <TableHead className="text-xs text-right">Amount</TableHead>
+                <TableHead className="text-xs text-center">Employees</TableHead>
+                <TableHead className="text-xs">Status</TableHead>
+                <TableHead className="text-xs">Bank txn</TableHead>
+                <TableHead className="text-xs"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {batches.map((b) => {
+                const lc = batchLines.filter((l) => l.batch_id === b.id).length;
+                return (
+                  <TableRow key={b.id}>
+                    <TableCell className="text-xs">{b.payment_date}</TableCell>
+                    <TableCell className="text-xs uppercase">{b.payment_kind}</TableCell>
+                    <TableCell className="text-xs">{b.payment_method}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums font-medium">{fmt(Number(b.total_amount))}</TableCell>
+                    <TableCell className="text-xs text-center">{lc}</TableCell>
+                    <TableCell><Badge variant={b.status === "posted" ? "default" : b.status === "void" ? "outline" : "secondary"} className="text-[10px]">{b.status}</Badge></TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{b.bank_transaction_id ? "matched" : "—"}</TableCell>
+                    <TableCell>
+                      {b.status === "posted" && (
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => voidBatch(b.id)}>
+                          <X className="h-3 w-3 mr-1" /> Void
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <PayrollPaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        year={filterYear}
+        month={filterMonth}
+        payroll={filtered}
+        employees={employees}
+        onPosted={() => { reloadBatches(); window.dispatchEvent(new Event("hr-data-refresh")); }}
+      />
+
       <Dialog open={!!detailModal} onOpenChange={() => setDetailModal(null)}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

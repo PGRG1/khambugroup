@@ -144,6 +144,9 @@ export interface HRPayroll {
   adjustments_override: number | null;
   mpf_employee_override: number | null;
   mpf_employer_override: number | null;
+  accrual_journal_entry_id: string | null;
+  salary_paid_amount: number;
+  mpf_paid_amount: number;
   employee?: HREmployee;
 }
 

@@ -1536,6 +1536,7 @@ export type Database = {
       }
       hr_payroll: {
         Row: {
+          accrual_journal_entry_id: string | null
           actual_allowances: number | null
           actual_base_salary: number | null
           actual_bonus: number | null
@@ -1560,6 +1561,7 @@ export type Database = {
           mpf_employee_override: number | null
           mpf_employer: number
           mpf_employer_override: number | null
+          mpf_paid_amount: number
           mpf_payment_amount: number
           mpf_payment_date: string | null
           net_salary: number
@@ -1572,6 +1574,7 @@ export type Database = {
           payment_date: string | null
           payment_method: string
           payment_status: string
+          salary_paid_amount: number
           sick_leave_deduction: number
           statutory_holiday_pay: number
           total_deductions: number
@@ -1580,6 +1583,7 @@ export type Database = {
           year: number
         }
         Insert: {
+          accrual_journal_entry_id?: string | null
           actual_allowances?: number | null
           actual_base_salary?: number | null
           actual_bonus?: number | null
@@ -1604,6 +1608,7 @@ export type Database = {
           mpf_employee_override?: number | null
           mpf_employer?: number
           mpf_employer_override?: number | null
+          mpf_paid_amount?: number
           mpf_payment_amount?: number
           mpf_payment_date?: string | null
           net_salary?: number
@@ -1616,6 +1621,7 @@ export type Database = {
           payment_date?: string | null
           payment_method?: string
           payment_status?: string
+          salary_paid_amount?: number
           sick_leave_deduction?: number
           statutory_holiday_pay?: number
           total_deductions?: number
@@ -1624,6 +1630,7 @@ export type Database = {
           year: number
         }
         Update: {
+          accrual_journal_entry_id?: string | null
           actual_allowances?: number | null
           actual_base_salary?: number | null
           actual_bonus?: number | null
@@ -1648,6 +1655,7 @@ export type Database = {
           mpf_employee_override?: number | null
           mpf_employer?: number
           mpf_employer_override?: number | null
+          mpf_paid_amount?: number
           mpf_payment_amount?: number
           mpf_payment_date?: string | null
           net_salary?: number
@@ -1660,6 +1668,7 @@ export type Database = {
           payment_date?: string | null
           payment_method?: string
           payment_status?: string
+          salary_paid_amount?: number
           sick_leave_deduction?: number
           statutory_holiday_pay?: number
           total_deductions?: number
@@ -1669,11 +1678,174 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "hr_payroll_accrual_journal_entry_id_fkey"
+            columns: ["accrual_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_accrual_journal_entry_id_fkey"
+            columns: ["accrual_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_accrual_journal_entry_id_fkey"
+            columns: ["accrual_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
             foreignKeyName: "hr_payroll_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "hr_employees"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payroll_payment_batch_lines: {
+        Row: {
+          amount: number
+          batch_id: string
+          created_at: string
+          employee_id: string
+          id: string
+          kind: string
+          payroll_id: string
+        }
+        Insert: {
+          amount?: number
+          batch_id: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          kind: string
+          payroll_id: string
+        }
+        Update: {
+          amount?: number
+          batch_id?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          kind?: string
+          payroll_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_payment_batch_lines_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "hr_payroll_payment_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_payment_batch_lines_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_payment_batch_lines_payroll_id_fkey"
+            columns: ["payroll_id"]
+            isOneToOne: false
+            referencedRelation: "hr_payroll"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_payroll_payment_batches: {
+        Row: {
+          bank_account_id: string | null
+          bank_transaction_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          journal_entry_id: string | null
+          notes: string
+          payment_date: string
+          payment_kind: string
+          payment_method: string
+          period_month: number
+          period_year: number
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string
+          payment_date: string
+          payment_kind: string
+          payment_method: string
+          period_month: number
+          period_year: number
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string
+          payment_date?: string
+          payment_kind?: string
+          payment_method?: string
+          period_month?: number
+          period_year?: number
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_payroll_payment_batches_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_payment_batches_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_payment_batches_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_payment_batches_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_payment_batches_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
           },
         ]
       }
@@ -4208,7 +4380,23 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
+      post_payroll_accrual: {
+        Args: { p_month: number; p_year: number }
+        Returns: Json
+      }
+      post_payroll_payment_batch: {
+        Args: { p_batch_id: string }
+        Returns: Json
+      }
       rebuild_journal_from_operations: { Args: never; Returns: Json }
+      rebuild_payroll_accrual: {
+        Args: { p_month: number; p_year: number }
+        Returns: Json
+      }
+      void_payroll_payment_batch: {
+        Args: { p_batch_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "manager"
