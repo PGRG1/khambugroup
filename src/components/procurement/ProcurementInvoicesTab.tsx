@@ -418,8 +418,10 @@ export default function ProcurementInvoicesTab() {
       return { gross: (qty * price) - discount + tax, tax };
     });
     const taxSum = rawLines.reduce((s, l) => s + l.tax, 0);
-    const totalAmount = aggregateTotal(rawLines.map((l) => l.gross), modeForSave);
+    const grossTotal = aggregateTotal(rawLines.map((l) => l.gross), modeForSave);
     const subtotalAmount = aggregateTotal(rawLines.map((l) => l.gross - l.tax), modeForSave);
+    const headerDiscount = Number((editForm as any).discount) || 0;
+    const totalAmount = grossTotal - headerDiscount;
 
     const success = await updateInvoice(
       selectedInvoice.id,
