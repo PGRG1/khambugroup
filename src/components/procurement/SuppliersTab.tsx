@@ -63,7 +63,7 @@ export default function SuppliersTab() {
     if (error) {
       toast.error("Failed to load suppliers & vendors");
     } else {
-      setSuppliers(data || []);
+      setSuppliers((data || []) as unknown as Supplier[]);
     }
     setLoading(false);
   };
