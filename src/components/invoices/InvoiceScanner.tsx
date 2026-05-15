@@ -61,6 +61,7 @@ interface ScannedLineItem {
   unmatched?: boolean;
   price_changed?: boolean;
   pm_unit_price?: number;
+  total_override?: boolean;
 }
 
 interface ScannedInvoice {
