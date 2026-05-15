@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Save, BookOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, BookOpen, Banknote, RotateCcw, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRPayroll, HREmployee, HRShift } from "@/hooks/useHRData";
 import { supabase } from "@/integrations/supabase/client";
+import { PayrollPaymentDialog } from "./PayrollPaymentDialog";
+import { usePayrollPaymentBatches } from "@/hooks/usePayrollPaymentBatches";
 
 interface Props {
   payroll: HRPayroll[];
