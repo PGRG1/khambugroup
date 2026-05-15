@@ -545,20 +545,20 @@ export default function ProcurementInvoicesTab() {
 
   const editFilteredPM = useMemo(() => getScopedProductMaster(editForm.supplier_id), [productMaster, suppliers, editForm.supplier_id, selectedInvoice]);
 
-  // Sum from raw line values (qty × price − discount + tax) so subtotal/total
-  // match the scanner's rounding behavior (e.g. VegFresh 1,240.50 vs 1,240.49).
-  const editSupplierNameForTotal = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id) || selectedInvoice?.supplier_name || "";
-  const editIsBW = editSupplierNameForTotal.toLowerCase().includes("beverage world");
-  const editRawSum = editLines.reduce((sum, line) => {
+  // Apply each supplier's invoice rounding rule (configured in Suppliers & Vendors).
+  const editSupplierIdForTotal = editForm.supplier_id || selectedInvoice?.supplier_id || null;
+  const editSupplierNameForTotal = getSupplierNameById(editSupplierIdForTotal) || selectedInvoice?.supplier_name || "";
+  const editMode = getModeForSupplier(editSupplierIdForTotal, editSupplierNameForTotal);
+  const editRawLines = editLines.map((line) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
     const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
-    return sum + ((qty * price) - discount + tax);
-  }, 0);
-  const editTaxSum = editLines.reduce((sum, line) => sum + (parseFloat(line.tax_amount) || 0), 0);
-  const editTotal = editIsBW ? Math.round(editRawSum) : Math.round((editRawSum + Number.EPSILON) * 100) / 100;
-  const editSubtotal = editIsBW ? Math.round(editRawSum - editTaxSum) : Math.round(((editRawSum - editTaxSum) + Number.EPSILON) * 100) / 100;
+    return { gross: (qty * price) - discount + tax, tax };
+  });
+  const editTaxSum = editRawLines.reduce((s, l) => s + l.tax, 0);
+  const editTotal = aggregateTotal(editRawLines.map((l) => l.gross), editMode);
+  const editSubtotal = aggregateTotal(editRawLines.map((l) => l.gross - l.tax), editMode);
   const unmatchedCount = editLines.filter((line) => line.unmatched && line.description.trim()).length;
   const priceChangedCount = editLines.filter((line) => line.price_changed).length;
 
