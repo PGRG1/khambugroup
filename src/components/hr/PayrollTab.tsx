@@ -347,17 +347,33 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   };
 
   const [posting, setPosting] = useState(false);
-  const postToLedger = async () => {
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const { batches, lines: batchLines, reload: reloadBatches, voidBatch } = usePayrollPaymentBatches(filterYear, filterMonth);
+
+  const accrualPosted = useMemo(
+    () => filtered.some((p) => p.accrual_journal_entry_id),
+    [filtered],
+  );
+
+  const postAccrual = async (rebuild = false) => {
     if (hasAnyEdits) {
-      toast({ title: "Save changes first", description: "You have unsaved edits. Save before posting to ledger.", variant: "destructive" });
+      toast({ title: "Save changes first", description: "You have unsaved edits.", variant: "destructive" });
       return;
     }
     setPosting(true);
-    const { data, error } = await (supabase as any).rpc("rebuild_journal_from_operations");
+    const fn = rebuild ? "rebuild_payroll_accrual" : "post_payroll_accrual";
+    const { data, error } = await (supabase as any).rpc(fn, { p_year: filterYear, p_month: filterMonth });
     setPosting(false);
     if (error) { toast({ title: "Post failed", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Posted to ledger", description: `${(data as any)?.entries_created ?? 0} journal entries created/refreshed. Flowed to Trial Balance & P&L.` });
+    if ((data as any)?.already_posted) {
+      toast({ title: "Already posted", description: `${MONTHS[filterMonth - 1]} ${filterYear} payroll accrual is already in the ledger.` });
+    } else {
+      toast({ title: "Accrual posted", description: `${(data as any)?.entries_created ?? 0} journal entries created. Flowed to Trial Balance, P&L & Balance Sheet.` });
+    }
+    // Refresh page payroll data
+    window.dispatchEvent(new Event("hr-data-refresh"));
   };
+
   const hdr = "bg-foreground text-background text-[11px] font-bold uppercase tracking-wider px-3 py-1.5";
   const th = "text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap border-b border-border";
   const thP = "px-2 py-2"; // padding for th
