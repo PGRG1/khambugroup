@@ -3886,6 +3886,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          invoice_rounding_mode: string
           is_active: boolean
           name: string
           notes: string | null
@@ -3899,6 +3900,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          invoice_rounding_mode?: string
           is_active?: boolean
           name: string
           notes?: string | null
@@ -3912,6 +3914,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          invoice_rounding_mode?: string
           is_active?: boolean
           name?: string
           notes?: string | null
