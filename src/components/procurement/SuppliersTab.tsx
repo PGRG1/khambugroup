@@ -280,6 +280,23 @@ export default function SuppliersTab() {
               </div>
             </div>
             <div className="grid gap-1.5">
+              <Label>Invoice rounding rule</Label>
+              <Select
+                value={form.invoice_rounding_mode}
+                onValueChange={(v) => setForm({ ...form, invoice_rounding_mode: v as RoundingMode })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ROUNDING_MODES.map((m) => (
+                    <SelectItem key={m} value={m}>{ROUNDING_MODE_LABELS[m]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Controls how line item totals are rounded and how the invoice total is summed.
+              </p>
+            </div>
+            <div className="grid gap-1.5">
               <Label>Notes</Label>
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
