@@ -288,10 +288,21 @@ export default function ProcurementDashboardTab() {
       const l1 = pm?.level1_category || "Uncategorized";
       l1Map.set(l1, (l1Map.get(l1) || 0) + Number(li.total));
     });
-    return Array.from(l1Map.entries())
+    const arr = Array.from(l1Map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [filteredLineItems, pmMap]);
+
+    // Include header-level discounts and refunds as their own categories
+    const discountTotal = filteredInvoices
+      .filter(inv => (inv.discount_type || "discount") === "discount")
+      .reduce((s, inv) => s + Number(inv.discount || 0), 0);
+    const refundTotal = filteredInvoices
+      .filter(inv => inv.discount_type === "refund")
+      .reduce((s, inv) => s + Number(inv.discount || 0), 0);
+    if (discountTotal > 0) arr.push({ name: "Discounts", value: discountTotal });
+    if (refundTotal > 0) arr.push({ name: "Refunds", value: refundTotal });
+    return arr;
+  }, [filteredLineItems, pmMap, filteredInvoices]);
 
   const l1Total = l1Data.reduce((s, d) => s + d.value, 0);
 
