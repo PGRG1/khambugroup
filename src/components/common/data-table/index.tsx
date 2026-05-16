@@ -65,22 +65,23 @@ export interface DataTablePaginationProps {
   total: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
-  pageSizeOptions?: number[];
+  pageSizeOptions?: Array<number | "all">;
 }
 
 export function DataTablePagination({
   page, pageSize, totalPages, rangeStart, rangeEnd, total,
   onPageChange, onPageSizeChange, pageSizeOptions = [10, 25, 50, 100],
 }: DataTablePaginationProps) {
+  const currentValue = pageSize <= 0 ? "all" : String(pageSize);
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border/50 flex-wrap">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Rows per page:</span>
-        <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+        <Select value={currentValue} onValueChange={(v) => onPageSizeChange(v === "all" ? 0 : Number(v))}>
           <SelectTrigger className="w-[80px] h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
             {pageSizeOptions.map((n) => (
-              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              <SelectItem key={String(n)} value={n === "all" ? "all" : String(n)}>{n === "all" ? "All" : n}</SelectItem>
             ))}
           </SelectContent>
         </Select>
