@@ -759,11 +759,35 @@ export default function ProcurementInvoicesTab() {
             <Plus className="h-3 w-3 mr-1" />Add Line
           </Button>
 
-          <div className="border-t pt-2 text-right text-sm">
-            <span className="text-muted-foreground">Subtotal: </span>
-            <span className="font-mono font-medium">{editSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            <span className="ml-4 text-muted-foreground">Total: </span>
-            <span className="font-mono font-bold">{editTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+          <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
+            <div>
+              <span className="text-muted-foreground">Subtotal: </span>
+              <span className="font-mono font-medium">{editSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">Discount:</span>
+              <Select
+                value={(editForm as any).discount_type || "discount"}
+                onValueChange={(v) => setEditForm((f) => ({ ...f, discount_type: v as any }))}
+              >
+                <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="discount">Discount</SelectItem>
+                  <SelectItem value="refund">Refund</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                value={String(editForm.discount ?? 0)}
+                onChange={(e) => setEditForm((f) => ({ ...f, discount: parseFloat(e.target.value) || 0 }))}
+                className="h-7 w-24 font-mono text-xs text-right"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <span className="text-muted-foreground">Total: </span>
+              <span className="font-mono font-bold">{(editTotal - (Number((editForm as any).discount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
           </div>
         </div>
       </div>
