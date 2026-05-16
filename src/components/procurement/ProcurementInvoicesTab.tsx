@@ -622,19 +622,6 @@ export default function ProcurementInvoicesTab() {
               <Label className="text-xs">Due Date</Label>
               <Input type="date" value={editForm.due_date || ""} onChange={(e) => setEditForm((form) => ({ ...form, due_date: e.target.value }))} />
             </div>
-            <div>
-              <Label className="text-xs">Discount / Refund</Label>
-              <div className="flex gap-1">
-                <Select value={(editForm as any).discount_type || "discount"} onValueChange={(v) => setEditForm((f) => ({ ...f, discount_type: v as any }))}>
-                  <SelectTrigger className="h-9 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="discount">Discount</SelectItem>
-                    <SelectItem value="refund">Refund</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input type="number" value={String(editForm.discount ?? 0)} onChange={(e) => setEditForm((f) => ({ ...f, discount: parseFloat(e.target.value) || 0 }))} className="font-mono text-right" />
-              </div>
-            </div>
             <div className="md:col-span-2 xl:col-span-2">
               <Label className="text-xs">Notes</Label>
               <Textarea value={editForm.notes || ""} onChange={(e) => setEditForm((form) => ({ ...form, notes: e.target.value }))} className="min-h-[42px]" rows={1} />
