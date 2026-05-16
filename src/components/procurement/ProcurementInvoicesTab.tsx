@@ -861,109 +861,30 @@ export default function ProcurementInvoicesTab() {
         />
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search invoice # or supplier..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 pl-9 text-sm" />
-        </div>
-        <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="h-9 w-[120px] text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Venues</SelectItem>
-            <SelectItem value="Assembly">Assembly</SelectItem>
-            <SelectItem value="Caliente">Caliente</SelectItem>
-            <SelectItem value="Hanabi">Hanabi</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-9 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="unpaid">Unpaid</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={monthFilter === "__latest__" ? "all" : monthFilter} onValueChange={setMonthFilter}>
-          <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="Month" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Months</SelectItem>
-            {months.map(m => <SelectItem key={m} value={m}>{fmtMonth(m)}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)} className="h-9">
-          <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => downloadCSV(
-            filtered.map((inv) => ({
-              invoice_date: fmtDate(inv.invoice_date),
-              invoice_number: inv.invoice_number,
-              supplier_name: inv.supplier_name,
-              venue: inv.venue,
-              due_date: fmtDate(inv.due_date || ""),
-              total_amount: Number(inv.total_amount).toFixed(2),
-              status: inv.status,
-            })),
-            columns.map((column) => ({ key: column.key, label: column.label })),
-            "invoices"
-          )}
-          className="h-9"
-        >
-          <Download className="h-4 w-4 mr-1" />Download
-        </Button>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Showing {filtered.length} of {invoices.length} invoices · Total: <span className="font-semibold">${fmt(totalAmount)}</span>
-      </p>
-
-      <div className="card-glass overflow-hidden rounded-xl">
-        <div className="overflow-x-auto">
-          <div style={{ minWidth: 880 }}>
-            {/* Header */}
-            <div
-              className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
-              style={{ gridTemplateColumns: INV_GRID_COLS }}
-            >
-              {columns.map((column) => (
-                <div
-                  key={column.key}
-                  className={`cursor-pointer select-none px-3 py-2.5 font-semibold flex items-center ${column.align === "right" ? "justify-end" : ""}`}
-                  onClick={(e) => toggleSort(column.key, e.shiftKey)}
-                  title="Click to sort. Shift+click to add another column."
-                >
-                  <span className="flex items-center gap-1">{column.label}<SortIcon col={column.key} /></span>
-                </div>
-              ))}
-              <div className="px-3 py-2.5"></div>
-            </div>
-
-            {/* Virtualized body */}
-            <InvoiceVirtualBody
-              filtered={filtered}
-              openDetail={openDetail}
-              openAttachmentViewer={openAttachmentViewer}
-              setDeletingId={setDeletingId}
-              setDeleteOpen={setDeleteOpen}
-            />
-
-            {/* Footer */}
-            {filtered.length > 0 && (
-              <div
-                className="grid bg-muted/40 text-[12px] font-semibold border-t border-border"
-                style={{ gridTemplateColumns: INV_GRID_COLS }}
-              >
-                <div className="px-3 py-2 text-right" style={{ gridColumn: "span 5" }}>Total</div>
-                <div className="px-3 py-2 text-right tabular-nums">{fmt(totalAmount)}</div>
-                <div></div>
-                <div></div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <InvoiceTableSection
+        filtered={filtered}
+        invoices={invoices}
+        totalAmount={totalAmount}
+        columns={columns}
+        sortColumns={sortColumns}
+        toggleSort={toggleSort}
+        SortIcon={SortIcon}
+        search={search}
+        setSearch={setSearch}
+        venueFilter={venueFilter}
+        setVenueFilter={setVenueFilter}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        monthFilter={monthFilter === "__latest__" ? "all" : monthFilter}
+        setMonthFilter={setMonthFilter}
+        months={months}
+        fmtMonth={fmtMonth}
+        openDetail={openDetail}
+        openAttachmentViewer={openAttachmentViewer}
+        setDeletingId={setDeletingId}
+        setDeleteOpen={setDeleteOpen}
+        onUploadClick={() => setScannerOpen(true)}
+      />
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
