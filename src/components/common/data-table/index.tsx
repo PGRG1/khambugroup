@@ -19,17 +19,20 @@ import { cn } from "@/lib/utils";
 /* ============================================================
  * Pagination
  * ============================================================ */
+export const PAGE_SIZE_ALL = 0;
+
 export function usePagination<T>(items: T[], initialPageSize = 25) {
   const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(initialPageSize);
+  const [pageSize, setPageSize] = React.useState<number>(initialPageSize);
   React.useEffect(() => { setPage(1); }, [items.length, pageSize]);
 
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const effectiveSize = pageSize <= 0 ? Math.max(items.length, 1) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(items.length / effectiveSize));
   const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * pageSize;
-  const pageItems = items.slice(pageStart, pageStart + pageSize);
+  const pageStart = (currentPage - 1) * effectiveSize;
+  const pageItems = items.slice(pageStart, pageStart + effectiveSize);
   const rangeStart = items.length === 0 ? 0 : pageStart + 1;
-  const rangeEnd = Math.min(items.length, pageStart + pageSize);
+  const rangeEnd = Math.min(items.length, pageStart + effectiveSize);
 
   return {
     page: currentPage, pageSize, setPage, setPageSize,
