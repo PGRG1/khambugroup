@@ -966,63 +966,134 @@ export default function ProcurementInvoicesTab() {
   );
 }
 
-// ----- Virtualized invoice rows ----------------------------------
-interface InvoiceVirtualBodyProps {
+// ----- Invoice table section with pagination & filters -----------
+interface InvoiceTableSectionProps {
   filtered: Invoice[];
+  invoices: Invoice[];
+  totalAmount: number;
+  columns: { key: string; label: string; align?: "right" }[];
+  sortColumns: SortColumn[];
+  toggleSort: (key: string, additive: boolean) => void;
+  SortIcon: React.FC<{ col: string }>;
+  search: string;
+  setSearch: (v: string) => void;
+  venueFilter: string;
+  setVenueFilter: (v: string) => void;
+  statusFilter: string;
+  setStatusFilter: (v: string) => void;
+  monthFilter: string;
+  setMonthFilter: (v: string) => void;
+  months: string[];
+  fmtMonth: (ym: string) => string;
   openDetail: (inv: Invoice) => void;
   openAttachmentViewer: (fileUrl: string, invoiceNumber: string) => void;
   setDeletingId: (id: string) => void;
   setDeleteOpen: (open: boolean) => void;
+  onUploadClick: () => void;
 }
 
-function InvoiceVirtualBody({ filtered, openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen }: InvoiceVirtualBodyProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
-    count: filtered.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 36,
-    overscan: 100,
-  });
-  const items = rowVirtualizer.getVirtualItems();
+function InvoiceTableSection({
+  filtered, invoices, totalAmount, columns, sortColumns, toggleSort, SortIcon,
+  search, setSearch, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
+  monthFilter, setMonthFilter, months, fmtMonth,
+  openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
+}: InvoiceTableSectionProps) {
+  const pag = usePagination(filtered, 25);
+
+  const filterFields: FilterField[] = [
+    { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
+      options: [{ value: "Assembly", label: "Assembly" }, { value: "Caliente", label: "Caliente" }, { value: "Hanabi", label: "Hanabi" }],
+      allLabel: "All Venues" },
+    { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
+      options: STATUSES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
+      allLabel: "All Statuses" },
+    { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
+      options: months.map(m => ({ value: m, label: fmtMonth(m) })),
+      allLabel: "All Months" },
+  ];
+
+  const resetFilters = () => { setVenueFilter("all"); setStatusFilter("all"); setMonthFilter("all"); };
+
+  const handleDownload = () => downloadCSV(
+    filtered.map((inv) => ({
+      invoice_date: fmtDate(inv.invoice_date),
+      invoice_number: inv.invoice_number,
+      supplier_name: inv.supplier_name,
+      venue: inv.venue,
+      due_date: fmtDate(inv.due_date || ""),
+      total_amount: Number(inv.total_amount).toFixed(2),
+      status: inv.status,
+    })),
+    columns.map((column) => ({ key: column.key, label: column.label })),
+    "invoices",
+  );
 
   return (
-    <div ref={scrollRef} className="overflow-auto" style={{ height: "calc(100vh - 360px)", minHeight: 420 }}>
-      {filtered.length === 0 ? (
-        <div className="py-12 text-center text-muted-foreground">No invoices found. Upload your first invoice above.</div>
-      ) : (
-        <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
-          {items.map((vRow) => {
-            const inv = filtered[vRow.index];
-            const idx = vRow.index;
-            return (
-              <div
-                key={inv.id}
-                className={`grid items-center cursor-pointer border-b border-border/40 transition-colors hover:bg-accent/30 text-[12px] ${idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
-                style={{
-                  gridTemplateColumns: INV_GRID_COLS,
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: vRow.size,
-                  transform: `translateY(${vRow.start}px)`,
-                }}
-                onClick={() => openDetail(inv)}
+    <DataTableShell
+      search={{ value: search, onChange: setSearch, placeholder: "Search invoice # or supplier..." }}
+      filters={{ fields: filterFields, onReset: resetFilters }}
+      resultCount={<>Showing {filtered.length} of {invoices.length} invoices · Total: <span className="font-semibold">${fmt(totalAmount)}</span></>}
+      toolbarRight={
+        <>
+          <Button size="sm" variant="outline" onClick={onUploadClick} className="h-9">
+            <ScanLine className="h-4 w-4 mr-1" />Upload Invoice
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
+            <Download className="h-4 w-4 mr-1" />Download
+          </Button>
+        </>
+      }
+      pagination={{
+        page: pag.page, pageSize: pag.pageSize, totalPages: pag.totalPages,
+        rangeStart: pag.rangeStart, rangeEnd: pag.rangeEnd, total: pag.total,
+        onPageChange: pag.setPage, onPageSizeChange: pag.setPageSize,
+        pageSizeOptions: [10, 25, 50, 100, "all"],
+      }}
+    >
+      <Table>
+        <TableHeader className="bg-primary">
+          <TableRow className="hover:bg-primary">
+            {columns.map((column) => (
+              <TableHead
+                key={column.key}
+                onClick={(e) => toggleSort(column.key, (e as any).shiftKey)}
+                className={`cursor-pointer select-none text-primary-foreground font-semibold ${column.align === "right" ? "text-right" : ""}`}
+                title="Click to sort. Shift+click for multi-column sort."
               >
-                <div className="whitespace-nowrap px-3 text-muted-foreground">{fmtDate(inv.invoice_date)}</div>
-                <div className="px-3 font-mono font-medium text-primary truncate">{inv.invoice_number}</div>
-                <div className="px-3 font-medium text-foreground truncate">{inv.supplier_name}</div>
-                <div className="px-3 truncate">{inv.venue}</div>
-                <div className="whitespace-nowrap px-3 text-muted-foreground">{fmtDate(inv.due_date || "")}</div>
-                <div className="px-3 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</div>
-                <div className="px-3">
-                  {inv.status === "paid" ? (
-                    <Badge className={`px-1.5 py-0 text-[10px] ${STATUS_COLORS.paid}`}>paid</Badge>
+                <span className={`inline-flex items-center gap-1 ${column.align === "right" ? "justify-end w-full" : ""}`}>
+                  {column.label}<SortIcon col={column.key} />
+                </span>
+              </TableHead>
+            ))}
+            <TableHead className="bg-primary text-primary-foreground w-[80px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pag.pageItems.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={columns.length + 1} className="py-12 text-center text-muted-foreground">
+                No invoices found. Upload your first invoice above.
+              </TableCell>
+            </TableRow>
+          ) : (
+            pag.pageItems.map((inv) => (
+              <TableRow key={inv.id} onClick={() => openDetail(inv)} className="cursor-pointer text-[12px]">
+                <TableCell className="whitespace-nowrap text-muted-foreground py-2">{fmtDate(inv.invoice_date)}</TableCell>
+                <TableCell className="py-2 font-mono font-medium text-primary">{inv.invoice_number}</TableCell>
+                <TableCell className="py-2 font-medium text-foreground">{inv.supplier_name}</TableCell>
+                <TableCell className="py-2">{inv.venue}</TableCell>
+                <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
+                <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
+                <TableCell className="py-2">
+                  {inv.status ? (
+                    <Badge className={`capitalize px-1.5 py-0 text-[10px] ${STATUS_BADGE[inv.status] || "bg-muted text-muted-foreground"}`}>
+                      {inv.status}
+                    </Badge>
                   ) : (
                     <span className="text-[10px] text-muted-foreground">—</span>
                   )}
-                </div>
-                <div className="px-3">
+                </TableCell>
+                <TableCell className="py-2">
                   <div className="flex gap-1">
                     {inv.file_url && (
                       <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
@@ -1033,12 +1104,13 @@ function InvoiceVirtualBody({ filtered, openDetail, openAttachmentViewer, setDel
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </DataTableShell>
   );
 }
+
