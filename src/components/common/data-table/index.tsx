@@ -19,17 +19,20 @@ import { cn } from "@/lib/utils";
 /* ============================================================
  * Pagination
  * ============================================================ */
+export const PAGE_SIZE_ALL = 0;
+
 export function usePagination<T>(items: T[], initialPageSize = 25) {
   const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(initialPageSize);
+  const [pageSize, setPageSize] = React.useState<number>(initialPageSize);
   React.useEffect(() => { setPage(1); }, [items.length, pageSize]);
 
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const effectiveSize = pageSize <= 0 ? Math.max(items.length, 1) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(items.length / effectiveSize));
   const currentPage = Math.min(page, totalPages);
-  const pageStart = (currentPage - 1) * pageSize;
-  const pageItems = items.slice(pageStart, pageStart + pageSize);
+  const pageStart = (currentPage - 1) * effectiveSize;
+  const pageItems = items.slice(pageStart, pageStart + effectiveSize);
   const rangeStart = items.length === 0 ? 0 : pageStart + 1;
-  const rangeEnd = Math.min(items.length, pageStart + pageSize);
+  const rangeEnd = Math.min(items.length, pageStart + effectiveSize);
 
   return {
     page: currentPage, pageSize, setPage, setPageSize,
@@ -62,22 +65,23 @@ export interface DataTablePaginationProps {
   total: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
-  pageSizeOptions?: number[];
+  pageSizeOptions?: Array<number | "all">;
 }
 
 export function DataTablePagination({
   page, pageSize, totalPages, rangeStart, rangeEnd, total,
   onPageChange, onPageSizeChange, pageSizeOptions = [10, 25, 50, 100],
 }: DataTablePaginationProps) {
+  const currentValue = pageSize <= 0 ? "all" : String(pageSize);
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border/50 flex-wrap">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Rows per page:</span>
-        <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+        <Select value={currentValue} onValueChange={(v) => onPageSizeChange(v === "all" ? 0 : Number(v))}>
           <SelectTrigger className="w-[80px] h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
             {pageSizeOptions.map((n) => (
-              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              <SelectItem key={String(n)} value={n === "all" ? "all" : String(n)}>{n === "all" ? "All" : n}</SelectItem>
             ))}
           </SelectContent>
         </Select>
