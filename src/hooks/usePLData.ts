@@ -78,9 +78,9 @@ function buildPeriodData(
 
   for (const l of filtered) {
     const amt = Number(l.amount) || 0;
-    if (KNOWN_LINES.includes(l.line_item_name)) {
-      manual[l.line_item_name] = (manual[l.line_item_name] || 0) + amt;
-    } else {
+    // Store every manual line by name so structure-driven rendering can look it up
+    manual[l.line_item_name] = (manual[l.line_item_name] || 0) + amt;
+    if (!KNOWN_LINES.includes(l.line_item_name)) {
       unknownMap[l.line_item_name] = (unknownMap[l.line_item_name] || 0) + amt;
     }
   }
