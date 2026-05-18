@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { usePLMultiPeriod, KNOWN_LINES, type PLPeriodKey, type PLPeriodData } from "@/hooks/usePLData";
+import { usePLStructure, type PLStructureRow } from "@/hooks/usePLStructure";
 import { PLInlineCell } from "@/components/pl/PLInlineCell";
-import { PLAddLineItem } from "@/components/pl/PLAddLineItem";
 import { PLManualInputEditor } from "@/components/pl/PLManualInputEditor";
+import { PLStructureEditor } from "@/components/pl/PLStructureEditor";
 import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/pl/PLPeriodSelector";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
