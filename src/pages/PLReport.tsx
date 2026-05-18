@@ -94,16 +94,6 @@ function buildLines(structure: PLStructureRow[], venueNames: string[]): Line[] {
   return lines;
 }
 
-type LineType = "header" | "subheader" | "item" | "total" | "subtotal" | "ratio" | "blank" | "section" | "editable";
-
-interface Line {
-  label: string;
-  getValue: (d: PLPeriodData) => number | string | undefined;
-  type: LineType;
-  indent?: number;
-  manualKey?: string;
-  bold?: boolean;
-}
 
 
 export default function PLReport() {
