@@ -180,7 +180,8 @@ export default function PLReport() {
     return [...names].sort();
   }, [periodData]);
 
-  const lines = useMemo(() => buildLines(allUnknownNames, allVenueNames), [allUnknownNames, allVenueNames]);
+  const { rows: structure, refetch: refetchStructure } = usePLStructure();
+  const lines = useMemo(() => buildLines(structure, allVenueNames), [structure, allVenueNames]);
 
   const showTotal = groupedData.length > 1;
   const canInlineEdit = viewMode === "monthly" && !hideEditValues;
