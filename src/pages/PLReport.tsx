@@ -232,7 +232,8 @@ export default function PLReport() {
         />
 
         {!hideEditValues && (
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
+            <PLStructureEditor rows={structure} onChanged={() => { refetchStructure(); refetch(); }} />
             <PLManualInputEditor onSave={refetch} />
           </div>
         )}
