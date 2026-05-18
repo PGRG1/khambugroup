@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { usePLMultiPeriod, KNOWN_LINES, type PLPeriodKey, type PLPeriodData } from "@/hooks/usePLData";
+import { usePLStructure, type PLStructureRow } from "@/hooks/usePLStructure";
 import { PLInlineCell } from "@/components/pl/PLInlineCell";
-import { PLAddLineItem } from "@/components/pl/PLAddLineItem";
 import { PLManualInputEditor } from "@/components/pl/PLManualInputEditor";
+import { PLStructureEditor } from "@/components/pl/PLStructureEditor";
 import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/pl/PLPeriodSelector";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
@@ -25,119 +26,75 @@ interface Line {
   bold?: boolean;
 }
 
-function buildLines(allUnknownNames: string[], venueNames: string[]): Line[] {
+function buildLines(structure: PLStructureRow[], venueNames: string[]): Line[] {
   const m = (key: string) => (d: PLPeriodData) => d.manual[key] || 0;
   const lines: Line[] = [];
 
-  // ── Revenue (dynamic per venue) ──
+  // ── Revenue (dynamic per venue, data-derived) ──
   lines.push({ label: "Revenue", type: "header", getValue: () => undefined });
-  
   for (const venueName of venueNames) {
     lines.push({ label: venueName, type: "subheader", indent: 1, getValue: () => undefined });
-    lines.push({ label: "Gross Revenue", type: "item", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.grossRevenue || 0 });
-    lines.push({ label: "Service Charge", type: "item", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.serviceChargeRevenue || 0 });
-    lines.push({ label: "Discounts", type: "item", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.discounts || 0 });
-    lines.push({ label: "Net Sales", type: "subtotal", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.netSales || 0 });
+    lines.push({ label: "Gross Revenue",  type: "item",     indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.grossRevenue || 0 });
+    lines.push({ label: "Service Charge", type: "item",     indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.serviceChargeRevenue || 0 });
+    lines.push({ label: "Discounts",      type: "item",     indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.discounts || 0 });
+    lines.push({ label: "Net Sales",      type: "subtotal", indent: 2, getValue: (d) => d.venues.find(v => v.venue === venueName)?.netSales || 0 });
     lines.push({ label: "", type: "blank", getValue: () => undefined });
   }
-
   lines.push({ label: "Total Revenue", type: "total", getValue: (d) => d.totalRevenue, bold: true });
   lines.push({ label: "", type: "blank", getValue: () => undefined });
 
-  // ── COGS ──
-  lines.push({ label: "Cost of Goods Sold", type: "header", getValue: () => undefined });
-  lines.push({ label: "Beverage Cost", type: "editable", indent: 1, getValue: m("Beverage Cost"), manualKey: "Beverage Cost" });
-  lines.push({ label: "Food Cost", type: "editable", indent: 1, getValue: m("Food Cost"), manualKey: "Food Cost" });
-  const totalCOGS = (d: PLPeriodData) => (d.manual["Beverage Cost"] || 0) + (d.manual["Food Cost"] || 0);
-  lines.push({ label: "Total COGS", type: "total", indent: 1, getValue: (d) => totalCOGS(d) });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  const grossProfit = (d: PLPeriodData) => d.totalRevenue + totalCOGS(d);
-  lines.push({ label: "Gross Profit", type: "total", getValue: (d) => grossProfit(d), bold: true });
-  lines.push({ label: "Gross Margin", type: "ratio", getValue: (d) => pct(grossProfit(d), d.totalRevenue) });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  // ── Operating Expenses ──
-  lines.push({ label: "Operating Expenses", type: "header", getValue: () => undefined });
-
-  lines.push({ label: "Rent & Related", type: "section", indent: 1, getValue: () => undefined });
-  for (const k of ["Base Rental", "Rental Share (-)", "Government Fees", "Management Fees"]) {
-    lines.push({ label: k, type: "editable", indent: 2, getValue: m(k), manualKey: k });
+  // ── Editable middle block (driven by pl_structure_rows) ──
+  // Sum rows auto-total the item rows above them, back to the previous sum/section.
+  // Track running sum of items since last "boundary" (sum/section/start).
+  let runningItems: ((d: PLPeriodData) => number)[] = [];
+  for (const row of structure) {
+    if (row.kind === "section") {
+      lines.push({
+        label: row.label,
+        type: row.indent === 0 ? "header" : "section",
+        indent: row.indent,
+        getValue: () => undefined,
+      });
+      runningItems = []; // boundary
+    } else if (row.kind === "spacer") {
+      lines.push({ label: "", type: "blank", getValue: () => undefined });
+    } else if (row.kind === "item") {
+      const getter = m(row.label);
+      runningItems.push(getter);
+      lines.push({
+        label: row.label,
+        type: "editable",
+        indent: row.indent,
+        getValue: getter,
+        manualKey: row.label,
+      });
+    } else if (row.kind === "sum") {
+      const itemsToSum = [...runningItems];
+      const sumGetter = (d: PLPeriodData) => itemsToSum.reduce((s, g) => s + g(d), 0);
+      lines.push({
+        label: row.label,
+        type: "subtotal",
+        indent: row.indent,
+        bold: row.is_bold,
+        getValue: sumGetter,
+      });
+      runningItems = []; // boundary
+    }
   }
-  const totalRent = (d: PLPeriodData) =>
-    (d.manual["Base Rental"] || 0) + (d.manual["Rental Share (-)"] || 0) +
-    (d.manual["Government Fees"] || 0) + (d.manual["Management Fees"] || 0);
-  lines.push({ label: "Total Rent", type: "subtotal", indent: 2, getValue: (d) => totalRent(d) });
+
+  // ── Computed footer (auto-derived from Revenue + signed sum of every item) ──
+  const totalItems = (d: PLPeriodData) => Object.values(d.manual).reduce((s, v) => s + (v || 0), 0);
+  const grossProfit = (d: PLPeriodData) => d.totalRevenue + totalItems(d);
+  // Keep simple bottom-line: treat items as signed (costs negative). User is responsible for signs.
+
   lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  lines.push({ label: "Salaries", type: "section", indent: 1, getValue: () => undefined });
-  lines.push({ label: "FTE Salary", type: "editable", indent: 2, getValue: m("FTE Salary"), manualKey: "FTE Salary" });
-  lines.push({ label: "FTE MPF", type: "editable", indent: 2, getValue: m("FTE MPF"), manualKey: "FTE MPF" });
-  const totalFTE = (d: PLPeriodData) => (d.manual["FTE Salary"] || 0) + (d.manual["FTE MPF"] || 0);
-  lines.push({ label: "Total FTE", type: "subtotal", indent: 2, getValue: (d) => totalFTE(d) });
-  lines.push({ label: "PTE Salary", type: "editable", indent: 2, getValue: m("PTE Salary"), manualKey: "PTE Salary" });
-  lines.push({ label: "PTE MPF", type: "editable", indent: 2, getValue: m("PTE MPF"), manualKey: "PTE MPF" });
-  const totalPTE = (d: PLPeriodData) => (d.manual["PTE Salary"] || 0) + (d.manual["PTE MPF"] || 0);
-  lines.push({ label: "Total PTE", type: "subtotal", indent: 2, getValue: (d) => totalPTE(d) });
-  const totalSalary = (d: PLPeriodData) => totalFTE(d) + totalPTE(d);
-  lines.push({ label: "Total Salaries", type: "subtotal", indent: 2, getValue: (d) => totalSalary(d) });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  lines.push({ label: "Utilities", type: "section", indent: 1, getValue: () => undefined });
-  for (const k of ["Electricity", "Water", "HKT/PCCW"]) {
-    lines.push({ label: k, type: "editable", indent: 2, getValue: m(k), manualKey: k });
-  }
-  const totalUtilities = (d: PLPeriodData) =>
-    (d.manual["Electricity"] || 0) + (d.manual["Water"] || 0) + (d.manual["HKT/PCCW"] || 0);
-  lines.push({ label: "Total Utilities", type: "subtotal", indent: 2, getValue: (d) => totalUtilities(d) });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  lines.push({ label: "Other Operating Expenses", type: "section", indent: 1, getValue: () => undefined });
-  for (const k of ["Card Processing Fees", "Office Administration Fees", "Other Expenses", "Miscellaneous Expenses"]) {
-    lines.push({ label: k, type: "editable", indent: 2, getValue: m(k), manualKey: k });
-  }
-  for (const name of allUnknownNames) {
-    lines.push({
-      label: name, type: "editable", indent: 2, getValue: (d) => {
-        const found = d.unknownManualLines.find((u) => u.name === name);
-        return found ? found.amount : 0;
-      }, manualKey: name
-    });
-  }
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  const totalOpex = (d: PLPeriodData) => {
-    const otherUnknown = d.unknownManualLines.reduce((s, l) => s + l.amount, 0);
-    return totalCOGS(d) + totalRent(d) + totalSalary(d) + totalUtilities(d) +
-      (d.manual["Card Processing Fees"] || 0) + (d.manual["Office Administration Fees"] || 0) +
-      (d.manual["Other Expenses"] || 0) + (d.manual["Miscellaneous Expenses"] || 0) + otherUnknown;
-  };
-  lines.push({ label: "Total Operating Expenses", type: "total", getValue: (d) => totalOpex(d), bold: true });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  const ebitda = (d: PLPeriodData) => d.totalRevenue + totalOpex(d);
-  const ebit_raw = (d: PLPeriodData) => ebitda(d) + (d.manual["Depreciation"] || 0) + (d.manual["Amortization"] || 0);
-
-  lines.push({ label: "EBITDA", type: "total", getValue: (d) => ebitda(d), bold: true });
-  lines.push({ label: "EBITDA Margin", type: "ratio", getValue: (d) => pct(ebitda(d), d.totalRevenue) });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  lines.push({ label: "Depreciation & Amortization", type: "section", indent: 1, getValue: () => undefined });
-  lines.push({ label: "Depreciation", type: "editable", indent: 2, getValue: m("Depreciation"), manualKey: "Depreciation" });
-  lines.push({ label: "Amortization", type: "editable", indent: 2, getValue: m("Amortization"), manualKey: "Amortization" });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  lines.push({ label: "Operating Income (EBIT)", type: "total", getValue: (d) => ebit_raw(d), bold: true });
-  lines.push({ label: "Net Operating Profit", type: "total", getValue: (d) => ebit_raw(d) });
-  lines.push({ label: "", type: "blank", getValue: () => undefined });
-
-  lines.push({ label: "Key Ratios", type: "header", getValue: () => undefined });
-  lines.push({ label: "COGS %", type: "ratio", indent: 1, getValue: (d) => pct(Math.abs(totalCOGS(d)), d.totalRevenue) });
-  lines.push({ label: "Labor Cost %", type: "ratio", indent: 1, getValue: (d) => pct(Math.abs(totalSalary(d)), d.totalRevenue) });
-  lines.push({ label: "Rent %", type: "ratio", indent: 1, getValue: (d) => pct(Math.abs(totalRent(d)), d.totalRevenue) });
+  lines.push({ label: "Operating Result", type: "total", getValue: (d) => grossProfit(d), bold: true });
+  lines.push({ label: "Operating Margin", type: "ratio", getValue: (d) => pct(grossProfit(d), d.totalRevenue) });
 
   return lines;
 }
+
+
 
 export default function PLReport() {
   const { isActionHidden } = usePagePermissions();
@@ -223,7 +180,8 @@ export default function PLReport() {
     return [...names].sort();
   }, [periodData]);
 
-  const lines = useMemo(() => buildLines(allUnknownNames, allVenueNames), [allUnknownNames, allVenueNames]);
+  const { rows: structure, refetch: refetchStructure } = usePLStructure();
+  const lines = useMemo(() => buildLines(structure, allVenueNames), [structure, allVenueNames]);
 
   const showTotal = groupedData.length > 1;
   const canInlineEdit = viewMode === "monthly" && !hideEditValues;
@@ -274,7 +232,8 @@ export default function PLReport() {
         />
 
         {!hideEditValues && (
-          <div className="ml-auto">
+          <div className="ml-auto flex gap-2">
+            <PLStructureEditor rows={structure} onChanged={() => { refetchStructure(); refetch(); }} />
             <PLManualInputEditor onSave={refetch} />
           </div>
         )}
@@ -405,11 +364,6 @@ export default function PLReport() {
             </tbody>
           </table>
 
-          {!hideAddLineItem && (
-            <div style={{ borderTop: '2px solid hsl(30, 12%, 82%)' }}>
-              <PLAddLineItem year={selectedPeriods[0]?.year || new Date().getFullYear()} months={allMonths} onAdded={refetch} />
-            </div>
-          )}
         </div>
       )}
     </div>

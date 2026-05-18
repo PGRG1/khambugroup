@@ -3197,6 +3197,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pl_structure_rows: {
+        Row: {
+          created_at: string
+          id: string
+          indent: number
+          is_bold: boolean
+          kind: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          indent?: number
+          is_bold?: boolean
+          kind: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          indent?: number
+          is_bold?: boolean
+          kind?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_categories: {
         Row: {
           created_at: string
