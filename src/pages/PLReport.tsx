@@ -363,11 +363,6 @@ export default function PLReport() {
             </tbody>
           </table>
 
-          {!hideAddLineItem && (
-            <div style={{ borderTop: '2px solid hsl(30, 12%, 82%)' }}>
-              <PLAddLineItem year={selectedPeriods[0]?.year || new Date().getFullYear()} months={allMonths} onAdded={refetch} />
-            </div>
-          )}
         </div>
       )}
     </div>
