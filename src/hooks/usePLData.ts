@@ -48,6 +48,7 @@ function periodLabel(p: PLPeriodKey): string {
 function buildPeriodData(
   revenueData: any[],
   manualLines: PLManualLine[],
+  procurementCosts: Record<string, { food: number; beverage: number }>,
   period: PLPeriodKey
 ): PLPeriodData {
   const mm = String(period.month).padStart(2, "0");
@@ -88,6 +89,11 @@ function buildPeriodData(
   for (const k of KNOWN_LINES) {
     if (!(k in manual)) manual[k] = 0;
   }
+
+  // Auto-sync Beverage Cost & Food Cost from procurement invoices
+  const proc = procurementCosts[prefix] || { food: 0, beverage: 0 };
+  manual["Food Cost"] = proc.food;
+  manual["Beverage Cost"] = proc.beverage;
 
   const unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
 
