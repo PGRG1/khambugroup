@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,25 +13,24 @@ import { SettlementDetailsAuditTab } from "@/components/finance/payments/Settlem
 import { MonthlyReconciliationTab } from "@/components/finance/payments/MonthlyReconciliationTab";
 import { SettlementBatchesTab } from "@/components/finance/payments/SettlementBatchesTab";
 
+const ALL = "__all__";
+
 export default function PaymentsSettlements() {
   const { loading, processors, merchants, imports, batches, lines, transactions, reload } = usePaymentSettlements();
   const { accounts: bankAccounts, transactions: bankTxns } = useBankReconciliation();
-  const [processorId, setProcessorId] = useState<string>("");
+  const [processorId, setProcessorId] = useState<string>(ALL);
   const [tab, setTab] = useState("overview");
 
-  useEffect(() => {
-    if (!processorId && processors.length > 0) setProcessorId(processors[0].id);
-  }, [processors, processorId]);
-
-  const processor = useMemo(() => processors.find((p) => p.id === processorId) || null, [processors, processorId]);
+  const isAll = processorId === ALL;
+  const processor = useMemo(() => (isAll ? null : processors.find((p) => p.id === processorId) || null), [processors, processorId, isAll]);
 
   const procBatches = useMemo(
-    () => (processor ? batches.filter((b) => b.processor_id === processor.id) : []),
-    [batches, processor],
+    () => (isAll ? batches : processor ? batches.filter((b) => b.processor_id === processor.id) : []),
+    [batches, processor, isAll],
   );
   const procImports = useMemo(
-    () => (processor ? imports.filter((i) => i.processor_id === processor.id) : []),
-    [imports, processor],
+    () => (isAll ? imports : processor ? imports.filter((i) => i.processor_id === processor.id) : []),
+    [imports, processor, isAll],
   );
   const procBatchIds = useMemo(() => new Set(procBatches.map((b) => b.id)), [procBatches]);
   const procLines = useMemo(() => lines.filter((l) => procBatchIds.has(l.batch_id)), [lines, procBatchIds]);
@@ -41,7 +40,7 @@ export default function PaymentsSettlements() {
   const totalFees = procBatches.reduce((s, b) => s + Math.abs(Number(b.fee_amount || 0)) + Math.abs(Number(b.bank_transfer_fee || 0)), 0);
   const totalNet = procBatches.reduce((s, b) => s + Number(b.net_settlement || 0), 0);
   const unmatched = procBatches.filter((b) => b.status === "unmatched").length;
-  const procMerchants = processor ? merchants.filter((m) => m.processor_id === processor.id) : [];
+  const procMerchants = isAll ? merchants : processor ? merchants.filter((m) => m.processor_id === processor.id) : [];
 
   return (
     <div className="p-6 space-y-6">
@@ -49,13 +48,14 @@ export default function PaymentsSettlements() {
         <div>
           <h1 className="text-2xl font-display font-semibold tracking-tight">Payments & Settlements</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Ingest settlement statements from card processors (KPay, Stripe, PayMe…), reconcile against bank deposits and POS sales.
+            Ingest settlement statements from card processors (KPay, YeahPay, Stripe…), reconcile against bank deposits and POS sales.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={processorId} onValueChange={setProcessorId}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Choose processor" /></SelectTrigger>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Choose processor" /></SelectTrigger>
             <SelectContent>
+              <SelectItem value={ALL}>All processors</SelectItem>
               {processors.map((p) => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
