@@ -40,7 +40,7 @@ export default function PaymentsSettlements() {
   const totalFees = procBatches.reduce((s, b) => s + Math.abs(Number(b.fee_amount || 0)) + Math.abs(Number(b.bank_transfer_fee || 0)), 0);
   const totalNet = procBatches.reduce((s, b) => s + Number(b.net_settlement || 0), 0);
   const unmatched = procBatches.filter((b) => b.status === "unmatched").length;
-  const procMerchants = processor ? merchants.filter((m) => m.processor_id === processor.id) : [];
+  const procMerchants = isAll ? merchants : processor ? merchants.filter((m) => m.processor_id === processor.id) : [];
 
   return (
     <div className="p-6 space-y-6">
@@ -48,13 +48,14 @@ export default function PaymentsSettlements() {
         <div>
           <h1 className="text-2xl font-display font-semibold tracking-tight">Payments & Settlements</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Ingest settlement statements from card processors (KPay, Stripe, PayMe…), reconcile against bank deposits and POS sales.
+            Ingest settlement statements from card processors (KPay, YeahPay, Stripe…), reconcile against bank deposits and POS sales.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={processorId} onValueChange={setProcessorId}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Choose processor" /></SelectTrigger>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Choose processor" /></SelectTrigger>
             <SelectContent>
+              <SelectItem value={ALL}>All processors</SelectItem>
               {processors.map((p) => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
