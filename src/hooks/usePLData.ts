@@ -48,6 +48,7 @@ function periodLabel(p: PLPeriodKey): string {
 function buildPeriodData(
   revenueData: any[],
   manualLines: PLManualLine[],
+  procurementCosts: Record<string, { food: number; beverage: number }>,
   period: PLPeriodKey
 ): PLPeriodData {
   const mm = String(period.month).padStart(2, "0");
@@ -89,6 +90,11 @@ function buildPeriodData(
     if (!(k in manual)) manual[k] = 0;
   }
 
+  // Auto-sync Beverage Cost & Food Cost from procurement invoices
+  const proc = procurementCosts[prefix] || { food: 0, beverage: 0 };
+  manual["Food Cost"] = proc.food;
+  manual["Beverage Cost"] = proc.beverage;
+
   const unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
 
   return {
@@ -105,6 +111,7 @@ function buildPeriodData(
 export function usePLMultiPeriod(periods: PLPeriodKey[]) {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [manualLines, setManualLines] = useState<PLManualLine[]>([]);
+  const [procurementCosts, setProcurementCosts] = useState<Record<string, { food: number; beverage: number }>>({});
   const [loading, setLoading] = useState(true);
 
   // Determine date range across all periods
@@ -129,14 +136,44 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
         .select("venue, subtotal, service_charge, discount, total_sales, date")
         .gte("date", dateRange.gte)
         .lte("date", dateRange.lte),
-      // Fetch manual lines for all relevant years
       supabase
         .from("pl_manual_lines")
         .select("*")
         .in("year", years),
     ]);
+
+    // Pull invoice line items (paged) joined with parent invoice (for date) + product_master (for level1 category)
+    const procRows: any[] = [];
+    const PAGE = 1000;
+    let offset = 0;
+    while (true) {
+      const { data } = await supabase
+        .from("invoice_line_items")
+        .select("total, invoices!inner(invoice_date), product_master(level1_category)")
+        .gte("invoices.invoice_date", dateRange.gte)
+        .lte("invoices.invoice_date", dateRange.lte)
+        .range(offset, offset + PAGE - 1);
+      if (!data || data.length === 0) break;
+      procRows.push(...data);
+      if (data.length < PAGE) break;
+      offset += PAGE;
+    }
     if (salesRes.data) setRevenueData(salesRes.data);
     if (manualRes.data) setManualLines(manualRes.data as PLManualLine[]);
+
+    // Aggregate procurement costs by YYYY-MM and Food/Beverages
+    const agg: Record<string, { food: number; beverage: number }> = {};
+    for (const row of procRows as any[]) {
+      const date: string = row.invoices?.invoice_date;
+      const cat: string = row.product_master?.level1_category || "";
+      if (!date) continue;
+      const key = date.substring(0, 7);
+      if (!agg[key]) agg[key] = { food: 0, beverage: 0 };
+      const amt = Number(row.total) || 0;
+      if (cat === "Food") agg[key].food += amt;
+      else if (cat === "Beverages") agg[key].beverage += amt;
+    }
+    setProcurementCosts(agg);
     setLoading(false);
   }, [dateRange.gte, dateRange.lte, years]);
 
@@ -146,9 +183,9 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
     return periods.map(p => ({
       key: p,
       label: periodLabel(p),
-      data: buildPeriodData(revenueData, manualLines, p),
+      data: buildPeriodData(revenueData, manualLines, procurementCosts, p),
     }));
-  }, [revenueData, manualLines, periods]);
+  }, [revenueData, manualLines, procurementCosts, periods]);
 
   // Compute totals across all periods
   const totals = useMemo<PLPeriodData>(() => {
