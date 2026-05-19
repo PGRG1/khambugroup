@@ -149,7 +149,8 @@ export function SettlementBatchesTab({
     });
   };
 
-  if (!processor) return <Card className="card-glass p-6 text-sm text-muted-foreground">Choose a processor.</Card>;
+  if (batches.length === 0 && !processor)
+    return <Card className="card-glass p-6 text-sm text-muted-foreground text-center">No settlement batches across any processor yet.</Card>;
   if (batches.length === 0)
     return (
       <Card className="card-glass p-6 text-sm text-muted-foreground text-center">
