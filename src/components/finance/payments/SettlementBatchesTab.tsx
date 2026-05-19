@@ -209,7 +209,7 @@ export function SettlementBatchesTab({
             <SelectItem value="pending">Pending</SelectItem>
           </SelectContent>
         </Select>
-        <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" onClick={() => setAiOpen(true)}>
+        <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" onClick={() => setAiOpen(true)} disabled={!processor} title={!processor ? "Select a specific processor to use AI matching" : undefined}>
           <Sparkles className="h-3.5 w-3.5 mr-1.5" /> AI Auto-Match
         </Button>
         <span className="text-[11px] text-muted-foreground">
