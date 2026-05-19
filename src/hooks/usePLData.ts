@@ -130,7 +130,7 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [salesRes, manualRes, procRes] = await Promise.all([
+    const [salesRes, manualRes] = await Promise.all([
       supabase
         .from("sales_records")
         .select("venue, subtotal, service_charge, discount, total_sales, date")
@@ -140,13 +140,24 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
         .from("pl_manual_lines")
         .select("*")
         .in("year", years),
-      // Pull invoice line items joined with parent invoice (for date) + product_master (for level1 category)
-      supabase
+    ]);
+
+    // Pull invoice line items (paged) joined with parent invoice (for date) + product_master (for level1 category)
+    const procRows: any[] = [];
+    const PAGE = 1000;
+    let offset = 0;
+    while (true) {
+      const { data } = await supabase
         .from("invoice_line_items")
         .select("total, invoices!inner(invoice_date), product_master(level1_category)")
         .gte("invoices.invoice_date", dateRange.gte)
-        .lte("invoices.invoice_date", dateRange.lte),
-    ]);
+        .lte("invoices.invoice_date", dateRange.lte)
+        .range(offset, offset + PAGE - 1);
+      if (!data || data.length === 0) break;
+      procRows.push(...data);
+      if (data.length < PAGE) break;
+      offset += PAGE;
+    }
     if (salesRes.data) setRevenueData(salesRes.data);
     if (manualRes.data) setManualLines(manualRes.data as PLManualLine[]);
 
