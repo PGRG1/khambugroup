@@ -76,11 +76,15 @@ function buildPeriodData(
 
   const manual: Record<string, number> = {};
   const unknownMap: Record<string, number> = {};
+  let hasManualFood = false;
+  let hasManualBev = false;
 
   for (const l of filtered) {
     const amt = Number(l.amount) || 0;
     // Store every manual line by name so structure-driven rendering can look it up
     manual[l.line_item_name] = (manual[l.line_item_name] || 0) + amt;
+    if (l.line_item_name === "Food Cost") hasManualFood = true;
+    if (l.line_item_name === "Beverage Cost") hasManualBev = true;
     if (!KNOWN_LINES.includes(l.line_item_name)) {
       unknownMap[l.line_item_name] = (unknownMap[l.line_item_name] || 0) + amt;
     }
@@ -90,10 +94,11 @@ function buildPeriodData(
     if (!(k in manual)) manual[k] = 0;
   }
 
-  // Auto-sync Beverage Cost & Food Cost from procurement invoices (shown as negative costs)
+  // Auto-sync Beverage Cost & Food Cost from procurement invoices (shown as negative costs).
+  // Manual entries take precedence — only override when no manual row exists for the period.
   const proc = procurementCosts[prefix] || { food: 0, beverage: 0 };
-  manual["Food Cost"] = -Math.abs(proc.food);
-  manual["Beverage Cost"] = -Math.abs(proc.beverage);
+  if (!hasManualFood) manual["Food Cost"] = -Math.abs(proc.food);
+  if (!hasManualBev) manual["Beverage Cost"] = -Math.abs(proc.beverage);
 
   const unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
 
