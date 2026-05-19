@@ -13,25 +13,24 @@ import { SettlementDetailsAuditTab } from "@/components/finance/payments/Settlem
 import { MonthlyReconciliationTab } from "@/components/finance/payments/MonthlyReconciliationTab";
 import { SettlementBatchesTab } from "@/components/finance/payments/SettlementBatchesTab";
 
+const ALL = "__all__";
+
 export default function PaymentsSettlements() {
   const { loading, processors, merchants, imports, batches, lines, transactions, reload } = usePaymentSettlements();
   const { accounts: bankAccounts, transactions: bankTxns } = useBankReconciliation();
-  const [processorId, setProcessorId] = useState<string>("");
+  const [processorId, setProcessorId] = useState<string>(ALL);
   const [tab, setTab] = useState("overview");
 
-  useEffect(() => {
-    if (!processorId && processors.length > 0) setProcessorId(processors[0].id);
-  }, [processors, processorId]);
-
-  const processor = useMemo(() => processors.find((p) => p.id === processorId) || null, [processors, processorId]);
+  const isAll = processorId === ALL;
+  const processor = useMemo(() => (isAll ? null : processors.find((p) => p.id === processorId) || null), [processors, processorId, isAll]);
 
   const procBatches = useMemo(
-    () => (processor ? batches.filter((b) => b.processor_id === processor.id) : []),
-    [batches, processor],
+    () => (isAll ? batches : processor ? batches.filter((b) => b.processor_id === processor.id) : []),
+    [batches, processor, isAll],
   );
   const procImports = useMemo(
-    () => (processor ? imports.filter((i) => i.processor_id === processor.id) : []),
-    [imports, processor],
+    () => (isAll ? imports : processor ? imports.filter((i) => i.processor_id === processor.id) : []),
+    [imports, processor, isAll],
   );
   const procBatchIds = useMemo(() => new Set(procBatches.map((b) => b.id)), [procBatches]);
   const procLines = useMemo(() => lines.filter((l) => procBatchIds.has(l.batch_id)), [lines, procBatchIds]);
