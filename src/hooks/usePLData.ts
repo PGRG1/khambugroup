@@ -163,7 +163,7 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
 
     // Aggregate procurement costs by YYYY-MM and Food/Beverages
     const agg: Record<string, { food: number; beverage: number }> = {};
-    for (const row of (procRes.data || []) as any[]) {
+    for (const row of procRows as any[]) {
       const date: string = row.invoices?.invoice_date;
       const cat: string = row.product_master?.level1_category || "";
       if (!date) continue;
