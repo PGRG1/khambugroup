@@ -90,10 +90,10 @@ function buildPeriodData(
     if (!(k in manual)) manual[k] = 0;
   }
 
-  // Auto-sync Beverage Cost & Food Cost from procurement invoices
+  // Auto-sync Beverage Cost & Food Cost from procurement invoices (shown as negative costs)
   const proc = procurementCosts[prefix] || { food: 0, beverage: 0 };
-  manual["Food Cost"] = proc.food;
-  manual["Beverage Cost"] = proc.beverage;
+  manual["Food Cost"] = -Math.abs(proc.food);
+  manual["Beverage Cost"] = -Math.abs(proc.beverage);
 
   const unknownManualLines = Object.entries(unknownMap).map(([name, amount]) => ({ name, amount }));
 
