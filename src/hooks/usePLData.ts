@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PLManualLine {
@@ -118,6 +118,7 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
   const [manualLines, setManualLines] = useState<PLManualLine[]>([]);
   const [procurementCosts, setProcurementCosts] = useState<Record<string, { food: number; beverage: number }>>({});
   const [loading, setLoading] = useState(true);
+  const fetchSeq = useRef(0);
 
   // Determine date range across all periods
   const dateRange = useMemo(() => {
@@ -134,7 +135,17 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
   const years = useMemo(() => [...new Set(periods.map(p => p.year))], [periods]);
 
   const fetchData = useCallback(async () => {
+    const seq = ++fetchSeq.current;
     setLoading(true);
+
+    if (periods.length === 0) {
+      setRevenueData([]);
+      setManualLines([]);
+      setProcurementCosts({});
+      setLoading(false);
+      return;
+    }
+
     const [salesRes, manualRes] = await Promise.all([
       supabase
         .from("sales_records")
@@ -178,9 +189,13 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
       if (cat === "Food") agg[key].food += amt;
       else if (cat === "Beverages") agg[key].beverage += amt;
     }
+
+    if (seq !== fetchSeq.current) return;
+    if (salesRes.data) setRevenueData(salesRes.data);
+    if (manualRes.data) setManualLines(manualRes.data as PLManualLine[]);
     setProcurementCosts(agg);
     setLoading(false);
-  }, [dateRange.gte, dateRange.lte, years]);
+  }, [dateRange.gte, dateRange.lte, years, periods.length]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
