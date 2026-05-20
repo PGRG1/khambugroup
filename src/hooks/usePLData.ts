@@ -119,6 +119,8 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
   const [procurementCosts, setProcurementCosts] = useState<Record<string, { food: number; beverage: number }>>({});
   const [loading, setLoading] = useState(true);
   const fetchSeq = useRef(0);
+  const hasLoaded = useRef(false);
+  const lastFetchKey = useRef("");
 
   // Determine date range across all periods
   const dateRange = useMemo(() => {
@@ -133,15 +135,19 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
   }, [periods]);
 
   const years = useMemo(() => [...new Set(periods.map(p => p.year))], [periods]);
+  const fetchKey = useMemo(() => `${dateRange.gte}|${dateRange.lte}|${years.join(",")}`, [dateRange.gte, dateRange.lte, years]);
 
   const fetchData = useCallback(async () => {
     const seq = ++fetchSeq.current;
-    setLoading(true);
+    const rangeChanged = lastFetchKey.current !== fetchKey;
+    setLoading(!hasLoaded.current || rangeChanged);
 
     if (periods.length === 0) {
       setRevenueData([]);
       setManualLines([]);
       setProcurementCosts({});
+      hasLoaded.current = true;
+      lastFetchKey.current = fetchKey;
       setLoading(false);
       return;
     }
@@ -174,8 +180,6 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
       if (data.length < PAGE) break;
       offset += PAGE;
     }
-    if (salesRes.data) setRevenueData(salesRes.data);
-    if (manualRes.data) setManualLines(manualRes.data as PLManualLine[]);
 
     // Aggregate procurement costs by YYYY-MM and Food/Beverages
     const agg: Record<string, { food: number; beverage: number }> = {};
@@ -194,8 +198,10 @@ export function usePLMultiPeriod(periods: PLPeriodKey[]) {
     if (salesRes.data) setRevenueData(salesRes.data);
     if (manualRes.data) setManualLines(manualRes.data as PLManualLine[]);
     setProcurementCosts(agg);
+    hasLoaded.current = true;
+    lastFetchKey.current = fetchKey;
     setLoading(false);
-  }, [dateRange.gte, dateRange.lte, years, periods.length]);
+  }, [dateRange.gte, dateRange.lte, years, periods.length, fetchKey]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
