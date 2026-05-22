@@ -46,6 +46,7 @@ import DocumentsBills from "./pages/finance/DocumentsBills";
 import PaymentsSettlements from "./pages/finance/PaymentsSettlements";
 
 import HREmployees from "./pages/hr/HREmployees";
+import HROrgChart from "./pages/hr/HROrgChart";
 import HRSchedule from "./pages/hr/HRSchedule";
 import HRLeave from "./pages/hr/HRLeave";
 import HRPayroll from "./pages/hr/HRPayroll";
@@ -147,6 +148,7 @@ function App() {
                 
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
                 <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />
+                <Route path="/hr/org-chart" element={<AdminRoute><HROrgChart /></AdminRoute>} />
                 <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
                 <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
