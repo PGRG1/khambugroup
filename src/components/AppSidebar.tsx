@@ -68,6 +68,7 @@ const procurementItems = [
 
 const hrItems = [
   { title: "Employee Directory", url: "/hr/employees", icon: Users },
+  { title: "Org Chart", url: "/hr/org-chart", icon: Building2 },
   { title: "Schedule", url: "/hr/schedule", icon: Calendar },
   { title: "Leave Management", url: "/hr/leave", icon: FileText },
   { title: "Payroll", url: "/hr/payroll", icon: DollarSign },
