@@ -26,21 +26,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Get initial session first
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setLoading(false);
-    });
+    let cancelled = false;
+
+    const forceSignOut = async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+      try {
+        // Clear any stale supabase auth keys from localStorage
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith("sb-") && k.endsWith("-auth-token"))
+          .forEach((k) => localStorage.removeItem(k));
+      } catch {}
+      if (!cancelled) {
+        setSession(null);
+        setLoading(false);
+      }
+    };
+
+    // Get initial session; if refresh fails, clean up the stale token
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: s }, error }) => {
+        if (cancelled) return;
+        const msg = (error as any)?.message?.toLowerCase?.() ?? "";
+        if (error && (msg.includes("refresh") || msg.includes("token"))) {
+          forceSignOut();
+          return;
+        }
+        setSession(s);
+        setLoading(false);
+      })
+      .catch(() => forceSignOut());
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, s) => {
+      (event, s) => {
+        if (cancelled) return;
+        if ((event === "TOKEN_REFRESHED" || event === "SIGNED_OUT") && !s) {
+          forceSignOut();
+          return;
+        }
         setSession(s);
         setLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Auto-logout after 30 minutes of inactivity
