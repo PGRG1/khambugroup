@@ -1,57 +1,42 @@
-# Fix: Food/Beverage Cost auto-sync wiping manual values
+## What's happening
 
-## Root cause
+The published site loads fine but every page shows empty data. The network log gives the smoking gun:
 
-In `src/hooks/usePLData.ts`, `buildPeriodData` unconditionally overrides Food Cost and Beverage Cost with the procurement total:
-
-```ts
-const proc = procurementCosts[prefix] || { food: 0, beverage: 0 };
-manual["Food Cost"]    = -Math.abs(proc.food);
-manual["Beverage Cost"] = -Math.abs(proc.beverage);
+```
+POST /auth/v1/token?grant_type=refresh_token  →  400
+{"code":"refresh_token_not_found","message":"Invalid Refresh Token: Refresh Token Not Found"}
 ```
 
-When the procurement aggregation returns `0` for a period (e.g. PostgREST embed of `product_master(level1_category)` returns no rows due to RLS, or the join simply yields nothing), the override forces both lines to `0`, **wiping the manual values the user typed in**. This is why April shows `—` on Food/Beverage Cost in the screenshot even though `pl_manual_lines` still has `Food Cost = -64,500` and `Beverage Cost = -73,543.53`.
+Your browser still has a saved session in localStorage, but the refresh token on the server has expired or been rotated out. When the Supabase client tries to refresh it, the call fails — so `auth.uid()` is `null` for every database call, and RLS correctly returns zero rows. The UI thinks you're logged in (there's a stale session object), but the database thinks you're a guest. Result: "venues, sales, all gone."
 
-The complementary symptom ("Base Rental disappears when Food/Beverage shows up") is the inverse perception of the same unconditional override: whenever procurement happens to deliver a non-zero number, the user assumes their typed value is gone; the typed value is actually still in DB but never displayed.
+The current `AuthProvider` does not react to this failure, so the user is left in a broken half-logged-in state with no prompt to log in again.
 
-## Desired behaviour (per user feedback)
+## Immediate workaround (no code needed)
 
-- Auto-sync stays the default for Food Cost / Beverage Cost.
-- Manual entry is treated as an explicit override. If the user has typed a value into Food Cost / Beverage Cost for that period, that value wins.
-- All other lines (Base Rental, Government Fees, etc.) remain pure manual and are never touched by the sync.
+You can unblock yourself right now:
 
-## Changes
+1. Open `https://khambugroup.lovable.app`
+2. Hard refresh + clear site data: open DevTools → Application → Storage → **Clear site data** (or in any browser, log out then log back in)
+3. Log in again — data will reappear
 
-### 1. `src/hooks/usePLData.ts` — fix override logic
+## Permanent fix (one small change)
 
-Track whether a manual `Food Cost` / `Beverage Cost` row exists for the period **before** applying the default `0`:
+Update `src/hooks/useAuth.tsx` so the app recovers automatically when the refresh token is invalid:
 
-- After looping `filtered` lines, capture `hasManualFood` / `hasManualBev` (true if `Food Cost` / `Beverage Cost` appeared in `filtered`).
-- Keep the `KNOWN_LINES` zero-fill loop.
-- Then apply procurement sync only when there is no manual override:
-  - `if (!hasManualFood) manual["Food Cost"] = -Math.abs(proc.food);`
-  - `if (!hasManualBev)  manual["Beverage Cost"] = -Math.abs(proc.beverage);`
+1. After the initial `getSession()`, also check for a refresh failure. If `supabase.auth.getSession()` returns a session whose token is expired and refresh fails, call `supabase.auth.signOut()` and clear local state.
+2. In `onAuthStateChange`, handle the `TOKEN_REFRESHED` failure case: when an event arrives with no session while a session existed before, treat it as a forced sign-out (clear state, send user to `/auth`).
+3. Wrap the existing `user_roles` query in a guard so that if it ever returns an auth error (401), it also triggers `signOut()` instead of silently leaving `isAdmin=false`.
 
-This guarantees:
-- Period with manual entry → manual value shown (negative, as user typed).
-- Period without manual entry → procurement total shown as negative.
-- Period with neither → `0` (renders as `—`).
+Effect: when the server rejects the refresh token, the user is cleanly bounced to the login screen instead of seeing an empty dashboard.
 
-### 2. Inline-edit UX for the two auto-synced rows
+## Files to touch
 
-`PLInlineCell` currently writes whatever the user types into `pl_manual_lines`. With the fix above, that write automatically becomes the override. No code change needed — but verify after the patch that:
-- Clicking Food/Beverage Cost shows the current displayed value, typing a number saves a manual override, and a refetch keeps the manual number on screen.
-- Clearing the cell back to empty (saves as `0`) leaves a zero manual row. That zero row will (correctly under this rule) be treated as an explicit "user said zero" override and suppress procurement.
-  - If we instead want clearing-to-empty to fall back to procurement, delete the row when the user saves `0`. **Open question — see below.**
+- `src/hooks/useAuth.tsx` — add stale-session detection + auto sign-out on refresh failure
 
-### 3. Sanity-check procurement aggregation (no code change unless required)
+That's the entire change. No DB migration, no UI rework.
 
-The PostgREST query `invoice_line_items?select=...,product_master(level1_category)` only returns the embedded product when RLS on `product_master` allows the current user to read it. Quick verification after the fix is deployed: open the report logged in as the affected user and confirm procurement totals match the SQL aggregates (Apr 2026 → Food 64,451.77, Beverages 73,543.53). If they still come back as zero, the next step is to switch the procurement fetch to a server-side aggregate (RPC or view) so it does not rely on the embed.
+## Why this is not an RLS / data problem
 
-## Open question
+I checked: your data is fine in the database, RLS is unchanged, and the preview works for you. The only difference between preview and published is which browser session is being used. The published browser has a stale token; the preview browser has a fresh one. That is exactly the fingerprint of this issue.
 
-When the user clears a Food/Beverage cell (saves blank/0), should the report:
-- (A) Show `0` (treat as an explicit override of zero), or
-- (B) Delete the manual row so it falls back to the procurement auto-sync?
-
-Default in this plan is (A) — simpler and matches the rest of the report. If (B) is preferred, `PLInlineCell` needs a small tweak to delete the row when the saved amount is `0` for `Food Cost` / `Beverage Cost`.
+Approve the plan and I'll apply the `useAuth.tsx` change.
