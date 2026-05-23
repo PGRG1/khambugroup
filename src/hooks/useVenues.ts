@@ -20,17 +20,29 @@ export function useVenues() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("venues")
-      .select("*")
-      .order("sort_order")
-      .order("name");
-    if (error) {
-      toast({ title: "Failed to load venues", description: error.message, variant: "destructive" });
-    } else {
-      setVenues((data ?? []) as Venue[]);
+    try {
+      const { data, error } = await supabase
+        .from("venues")
+        .select("*")
+        .order("sort_order")
+        .order("name");
+      if (error) {
+        const msg = (error as any)?.message ?? "";
+        // Silently ignore aborts (component unmount, navigation, StrictMode re-mount)
+        if (!/abort/i.test(msg)) {
+          toast({ title: "Failed to load venues", description: msg, variant: "destructive" });
+        }
+      } else {
+        setVenues((data ?? []) as Venue[]);
+      }
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      if (e?.name !== "AbortError" && !/abort/i.test(msg)) {
+        toast({ title: "Failed to load venues", description: msg, variant: "destructive" });
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
