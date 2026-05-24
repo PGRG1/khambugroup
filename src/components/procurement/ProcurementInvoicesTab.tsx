@@ -907,6 +907,7 @@ export default function ProcurementInvoicesTab() {
         openAttachmentViewer={openAttachmentViewer}
         setDeletingId={setDeletingId}
         setDeleteOpen={setDeleteOpen}
+        onUpdateField={(id, patch) => updateInvoice(id, patch as any)}
         onUploadClick={() => setScannerOpen(true)}
       />
 
