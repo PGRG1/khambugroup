@@ -55,6 +55,8 @@ export interface Invoice {
   total_amount: number;
   discount: number;
   discount_type?: "discount" | "refund";
+  review_status?: "Approved" | "Rejected" | "Under Review";
+  exception_note?: "Credit Note Issued" | "Voided" | "-";
   notes: string | null;
   entered_by: string;
   created_at: string;
