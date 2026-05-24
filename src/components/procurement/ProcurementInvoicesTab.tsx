@@ -280,13 +280,6 @@ export default function ProcurementInvoicesTab() {
     { key: "review_status", label: "Review Status", w: "w-[120px]" },
     { key: "exception_note", label: "Exception Note", w: "w-[140px]" },
   ];
-    { key: "invoice_number", label: "Invoice #", w: "w-[120px]" },
-    { key: "supplier_name", label: "Supplier & Vendor", w: "min-w-[160px]" },
-    { key: "venue", label: "Venue", w: "w-[90px]" },
-    { key: "due_date", label: "Due Date", w: "w-[100px]" },
-    { key: "total_amount", label: "Total", w: "w-[110px]", align: "right" as const },
-    { key: "status", label: "Status", w: "w-[90px]" },
-  ];
 
   const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
 
