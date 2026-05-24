@@ -895,6 +895,10 @@ export default function ProcurementInvoicesTab() {
         setVenueFilter={setVenueFilter}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
+        reviewStatusFilter={reviewStatusFilter}
+        setReviewStatusFilter={setReviewStatusFilter}
+        exceptionNoteFilter={exceptionNoteFilter}
+        setExceptionNoteFilter={setExceptionNoteFilter}
         monthFilter={monthFilter === "__latest__" ? "all" : monthFilter}
         setMonthFilter={setMonthFilter}
         months={months}
