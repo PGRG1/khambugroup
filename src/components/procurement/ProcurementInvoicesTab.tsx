@@ -1018,6 +1018,7 @@ interface InvoiceTableSectionProps {
   openAttachmentViewer: (fileUrl: string, invoiceNumber: string) => void;
   setDeletingId: (id: string) => void;
   setDeleteOpen: (open: boolean) => void;
+  onUpdateField: (id: string, patch: Partial<Invoice>) => void;
   onUploadClick: () => void;
 }
 
@@ -1026,7 +1027,7 @@ function InvoiceTableSection({
   search, setSearch, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
   reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
-  openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
+  openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
 
