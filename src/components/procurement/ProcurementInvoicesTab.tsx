@@ -24,6 +24,20 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 
 const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
+const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review"] as const;
+const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
+
+const REVIEW_BADGE: Record<string, string> = {
+  "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+  "Rejected": "bg-red-500/15 text-red-300 border border-red-500/30",
+  "Under Review": "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+};
+
+const EXCEPTION_BADGE: Record<string, string> = {
+  "Credit Note Issued": "bg-sky-500/15 text-sky-300 border border-sky-500/30",
+  "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
+  "-": "bg-transparent text-muted-foreground",
+};
 
 const STATUS_BADGE: Record<string, string> = {
   pending: "bg-zinc-500/15 text-zinc-300 border border-zinc-500/30",
@@ -120,6 +134,8 @@ export default function ProcurementInvoicesTab() {
   const [search, setSearch] = useState("");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
+  const [exceptionNoteFilter, setExceptionNoteFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState<string>("__latest__");
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
@@ -241,6 +257,8 @@ export default function ProcurementInvoicesTab() {
     const result = invoices.filter((inv) => {
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+      if (reviewStatusFilter !== "all" && (inv.review_status || "Under Review") !== reviewStatusFilter) return false;
+      if (exceptionNoteFilter !== "all" && (inv.exception_note || "-") !== exceptionNoteFilter) return false;
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
@@ -249,7 +267,7 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, venueFilter, statusFilter, monthFilter, search, sortColumns]);
+  }, [invoices, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },
@@ -259,6 +277,8 @@ export default function ProcurementInvoicesTab() {
     { key: "due_date", label: "Due Date", w: "w-[100px]" },
     { key: "total_amount", label: "Total", w: "w-[110px]", align: "right" as const },
     { key: "status", label: "Status", w: "w-[90px]" },
+    { key: "review_status", label: "Review Status", w: "w-[120px]" },
+    { key: "exception_note", label: "Exception Note", w: "w-[140px]" },
   ];
 
   const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
@@ -875,6 +895,10 @@ export default function ProcurementInvoicesTab() {
         setVenueFilter={setVenueFilter}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
+        reviewStatusFilter={reviewStatusFilter}
+        setReviewStatusFilter={setReviewStatusFilter}
+        exceptionNoteFilter={exceptionNoteFilter}
+        setExceptionNoteFilter={setExceptionNoteFilter}
         monthFilter={monthFilter === "__latest__" ? "all" : monthFilter}
         setMonthFilter={setMonthFilter}
         months={months}
@@ -981,6 +1005,10 @@ interface InvoiceTableSectionProps {
   setVenueFilter: (v: string) => void;
   statusFilter: string;
   setStatusFilter: (v: string) => void;
+  reviewStatusFilter: string;
+  setReviewStatusFilter: (v: string) => void;
+  exceptionNoteFilter: string;
+  setExceptionNoteFilter: (v: string) => void;
   monthFilter: string;
   setMonthFilter: (v: string) => void;
   months: string[];
@@ -995,6 +1023,7 @@ interface InvoiceTableSectionProps {
 function InvoiceTableSection({
   filtered, invoices, totalAmount, columns, sortColumns, toggleSort, SortIcon,
   search, setSearch, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
+  reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
 }: InvoiceTableSectionProps) {
@@ -1007,12 +1036,18 @@ function InvoiceTableSection({
     { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
       options: STATUSES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
       allLabel: "All Statuses" },
+    { type: "select", key: "review_status", label: "Review Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
+      options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
+      allLabel: "All Review Statuses" },
+    { type: "select", key: "exception_note", label: "Exception Note", value: exceptionNoteFilter, onChange: setExceptionNoteFilter,
+      options: EXCEPTION_NOTES.map(s => ({ value: s, label: s })),
+      allLabel: "All Exceptions" },
     { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
       options: months.map(m => ({ value: m, label: fmtMonth(m) })),
       allLabel: "All Months" },
   ];
 
-  const resetFilters = () => { setVenueFilter("all"); setStatusFilter("all"); setMonthFilter("all"); };
+  const resetFilters = () => { setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
 
   const handleDownload = () => downloadCSV(
     filtered.map((inv) => ({
@@ -1023,6 +1058,8 @@ function InvoiceTableSection({
       due_date: fmtDate(inv.due_date || ""),
       total_amount: Number(inv.total_amount).toFixed(2),
       status: inv.status,
+      review_status: inv.review_status || "Under Review",
+      exception_note: inv.exception_note || "-",
     })),
     columns.map((column) => ({ key: column.key, label: column.label })),
     "invoices",
@@ -1092,6 +1129,27 @@ function InvoiceTableSection({
                   ) : (
                     <span className="text-[10px] text-muted-foreground">—</span>
                   )}
+                </TableCell>
+                <TableCell className="py-2">
+                  {(() => {
+                    const rs = inv.review_status || "Under Review";
+                    return (
+                      <Badge className={`px-1.5 py-0 text-[10px] ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
+                        {rs}
+                      </Badge>
+                    );
+                  })()}
+                </TableCell>
+                <TableCell className="py-2">
+                  {(() => {
+                    const en = inv.exception_note || "-";
+                    if (en === "-") return <span className="text-[10px] text-muted-foreground">—</span>;
+                    return (
+                      <Badge className={`px-1.5 py-0 text-[10px] ${EXCEPTION_BADGE[en] || "bg-muted text-muted-foreground"}`}>
+                        {en}
+                      </Badge>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell className="py-2">
                   <div className="flex gap-1">

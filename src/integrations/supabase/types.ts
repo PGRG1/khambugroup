@@ -2259,6 +2259,7 @@ export type Database = {
           dispute_notes: string | null
           due_date: string | null
           entered_by: string
+          exception_note: string
           file_name: string | null
           file_url: string | null
           id: string
@@ -2270,6 +2271,7 @@ export type Database = {
           payment_status: string
           received_date: string | null
           remaining_balance: number
+          review_status: string
           status: string
           subtotal: number
           supplier_id: string
@@ -2291,6 +2293,7 @@ export type Database = {
           dispute_notes?: string | null
           due_date?: string | null
           entered_by: string
+          exception_note?: string
           file_name?: string | null
           file_url?: string | null
           id?: string
@@ -2302,6 +2305,7 @@ export type Database = {
           payment_status?: string
           received_date?: string | null
           remaining_balance?: number
+          review_status?: string
           status?: string
           subtotal?: number
           supplier_id: string
@@ -2323,6 +2327,7 @@ export type Database = {
           dispute_notes?: string | null
           due_date?: string | null
           entered_by?: string
+          exception_note?: string
           file_name?: string | null
           file_url?: string | null
           id?: string
@@ -2334,6 +2339,7 @@ export type Database = {
           payment_status?: string
           received_date?: string | null
           remaining_balance?: number
+          review_status?: string
           status?: string
           subtotal?: number
           supplier_id?: string
