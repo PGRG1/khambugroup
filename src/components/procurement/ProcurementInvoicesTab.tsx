@@ -257,6 +257,8 @@ export default function ProcurementInvoicesTab() {
     const result = invoices.filter((inv) => {
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+      if (reviewStatusFilter !== "all" && (inv.review_status || "Under Review") !== reviewStatusFilter) return false;
+      if (exceptionNoteFilter !== "all" && (inv.exception_note || "-") !== exceptionNoteFilter) return false;
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
@@ -265,10 +267,19 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, venueFilter, statusFilter, monthFilter, search, sortColumns]);
+  }, [invoices, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },
+    { key: "invoice_number", label: "Invoice #", w: "w-[120px]" },
+    { key: "supplier_name", label: "Supplier & Vendor", w: "min-w-[160px]" },
+    { key: "venue", label: "Venue", w: "w-[90px]" },
+    { key: "due_date", label: "Due Date", w: "w-[100px]" },
+    { key: "total_amount", label: "Total", w: "w-[110px]", align: "right" as const },
+    { key: "status", label: "Status", w: "w-[90px]" },
+    { key: "review_status", label: "Review Status", w: "w-[120px]" },
+    { key: "exception_note", label: "Exception Note", w: "w-[140px]" },
+  ];
     { key: "invoice_number", label: "Invoice #", w: "w-[120px]" },
     { key: "supplier_name", label: "Supplier & Vendor", w: "min-w-[160px]" },
     { key: "venue", label: "Venue", w: "w-[90px]" },
