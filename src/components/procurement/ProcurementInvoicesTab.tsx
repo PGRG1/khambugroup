@@ -1058,6 +1058,8 @@ function InvoiceTableSection({
       due_date: fmtDate(inv.due_date || ""),
       total_amount: Number(inv.total_amount).toFixed(2),
       status: inv.status,
+      review_status: inv.review_status || "Under Review",
+      exception_note: inv.exception_note || "-",
     })),
     columns.map((column) => ({ key: column.key, label: column.label })),
     "invoices",
