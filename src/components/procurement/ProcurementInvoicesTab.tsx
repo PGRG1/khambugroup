@@ -1151,6 +1151,7 @@ function InvoiceTableSection({
                     );
                   })()}
                 </TableCell>
+                <TableCell className="py-2">
                   <div className="flex gap-1">
                     {inv.file_url && (
                       <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
