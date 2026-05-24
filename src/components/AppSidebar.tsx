@@ -26,7 +26,7 @@ const navItems = [
 const revenueItems = [
   { title: "Dashboard", url: "/", icon: BarChart3, pageKey: "revenue", end: true },
   { title: "Sales Data", url: "/sales-data", icon: Database, pageKey: "revenue" },
-  { title: "Overview", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
+  { title: "Target Tracking", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
 ];
 
 const financeItems = [
