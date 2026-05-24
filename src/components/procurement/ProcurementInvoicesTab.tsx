@@ -1005,6 +1005,10 @@ interface InvoiceTableSectionProps {
   setVenueFilter: (v: string) => void;
   statusFilter: string;
   setStatusFilter: (v: string) => void;
+  reviewStatusFilter: string;
+  setReviewStatusFilter: (v: string) => void;
+  exceptionNoteFilter: string;
+  setExceptionNoteFilter: (v: string) => void;
   monthFilter: string;
   setMonthFilter: (v: string) => void;
   months: string[];
@@ -1019,6 +1023,7 @@ interface InvoiceTableSectionProps {
 function InvoiceTableSection({
   filtered, invoices, totalAmount, columns, sortColumns, toggleSort, SortIcon,
   search, setSearch, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
+  reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
 }: InvoiceTableSectionProps) {
