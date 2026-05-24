@@ -1131,6 +1131,26 @@ function InvoiceTableSection({
                   )}
                 </TableCell>
                 <TableCell className="py-2">
+                  {(() => {
+                    const rs = inv.review_status || "Under Review";
+                    return (
+                      <Badge className={`px-1.5 py-0 text-[10px] ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
+                        {rs}
+                      </Badge>
+                    );
+                  })()}
+                </TableCell>
+                <TableCell className="py-2">
+                  {(() => {
+                    const en = inv.exception_note || "-";
+                    if (en === "-") return <span className="text-[10px] text-muted-foreground">—</span>;
+                    return (
+                      <Badge className={`px-1.5 py-0 text-[10px] ${EXCEPTION_BADGE[en] || "bg-muted text-muted-foreground"}`}>
+                        {en}
+                      </Badge>
+                    );
+                  })()}
+                </TableCell>
                   <div className="flex gap-1">
                     {inv.file_url && (
                       <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
