@@ -1036,12 +1036,18 @@ function InvoiceTableSection({
     { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
       options: STATUSES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
       allLabel: "All Statuses" },
+    { type: "select", key: "review_status", label: "Review Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
+      options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
+      allLabel: "All Review Statuses" },
+    { type: "select", key: "exception_note", label: "Exception Note", value: exceptionNoteFilter, onChange: setExceptionNoteFilter,
+      options: EXCEPTION_NOTES.map(s => ({ value: s, label: s })),
+      allLabel: "All Exceptions" },
     { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
       options: months.map(m => ({ value: m, label: fmtMonth(m) })),
       allLabel: "All Months" },
   ];
 
-  const resetFilters = () => { setVenueFilter("all"); setStatusFilter("all"); setMonthFilter("all"); };
+  const resetFilters = () => { setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
 
   const handleDownload = () => downloadCSV(
     filtered.map((inv) => ({
