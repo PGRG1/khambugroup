@@ -1132,24 +1132,37 @@ function InvoiceTableSection({
                     <span className="text-[10px] text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell className="py-2">
+                <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   {(() => {
                     const rs = inv.review_status || "Under Review";
                     return (
-                      <Badge className={`px-1.5 py-0 text-[10px] ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
-                        {rs}
-                      </Badge>
+                      <Select value={rs} onValueChange={(v) => onUpdateField(inv.id, { review_status: v as any })}>
+                        <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {REVIEW_STATUSES.map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     );
                   })()}
                 </TableCell>
-                <TableCell className="py-2">
+                <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   {(() => {
                     const en = inv.exception_note || "-";
-                    if (en === "-") return <span className="text-[10px] text-muted-foreground">—</span>;
                     return (
-                      <Badge className={`px-1.5 py-0 text-[10px] ${EXCEPTION_BADGE[en] || "bg-muted text-muted-foreground"}`}>
-                        {en}
-                      </Badge>
+                      <Select value={en} onValueChange={(v) => onUpdateField(inv.id, { exception_note: v as any })}>
+                        <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${en === "-" ? "bg-transparent text-muted-foreground" : (EXCEPTION_BADGE[en] || "bg-muted text-muted-foreground")}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EXCEPTION_NOTES.map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     );
                   })()}
                 </TableCell>
