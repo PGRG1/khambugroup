@@ -24,6 +24,20 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 
 const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
+const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review"] as const;
+const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
+
+const REVIEW_BADGE: Record<string, string> = {
+  "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+  "Rejected": "bg-red-500/15 text-red-300 border border-red-500/30",
+  "Under Review": "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+};
+
+const EXCEPTION_BADGE: Record<string, string> = {
+  "Credit Note Issued": "bg-sky-500/15 text-sky-300 border border-sky-500/30",
+  "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
+  "-": "bg-transparent text-muted-foreground",
+};
 
 const STATUS_BADGE: Record<string, string> = {
   pending: "bg-zinc-500/15 text-zinc-300 border border-zinc-500/30",
