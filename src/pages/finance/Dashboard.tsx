@@ -233,7 +233,7 @@ export default function FinanceDashboard() {
     <div className="p-6 space-y-6 max-w-[1920px] mx-auto">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-display tracking-tight">Finance Dashboard</h1>
+          <h1 className="text-3xl font-display tracking-tight">Finance Overview</h1>
           <p className="text-sm text-muted-foreground mt-1">As of {asOf}</p>
         </div>
       </div>
