@@ -63,7 +63,7 @@ const ResetDataButton = ({ onReset }: ResetDataButtonProps) => {
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                 <li>All uploaded sales data will be removed</li>
                 <li>All manually entered records will be deleted</li>
-                <li>Dashboard charts and KPIs will show no data</li>
+                <li>Overview charts and KPIs will show no data</li>
                 <li>Forecast comparisons will lose actual data references</li>
               </ul>
             </div>

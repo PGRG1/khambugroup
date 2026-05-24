@@ -11,7 +11,7 @@ import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboa
 import DocumentsTab from "@/components/procurement/DocumentsTab";
 
 const tabTitles: Record<string, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Overview",
   suppliers: "Suppliers & Vendors",
   "product-master": "Items Master",
   categories: "Categories",

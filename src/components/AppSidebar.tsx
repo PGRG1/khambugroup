@@ -24,13 +24,13 @@ const navItems = [
 ];
 
 const revenueItems = [
-  { title: "Dashboard", url: "/", icon: BarChart3, pageKey: "revenue", end: true },
+  { title: "Overview", url: "/", icon: BarChart3, pageKey: "revenue", end: true },
   { title: "Sales Data", url: "/sales-data", icon: Database, pageKey: "revenue" },
   { title: "Target Tracking", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
 ];
 
 const financeItems = [
-  { title: "Dashboard", url: "/finance/dashboard", icon: LayoutDashboard },
+  { title: "Overview", url: "/finance/dashboard", icon: LayoutDashboard },
   { title: "Document Centre", url: "/finance/document-centre", icon: FolderOpen },
   { title: "Documents & Bills", url: "/finance/documents-bills", icon: FileStack },
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
@@ -55,7 +55,7 @@ const financeAccountingItems = [
 ];
 
 const procurementItems = [
-  { title: "Dashboard", url: "/procurement/dashboard", icon: LayoutDashboard },
+  { title: "Overview", url: "/procurement/dashboard", icon: LayoutDashboard },
   { title: "Suppliers & Vendors", url: "/procurement/suppliers", icon: Building2 },
   { title: "Items Master", url: "/procurement/products", icon: Package },
   { title: "Categories", url: "/procurement/categories", icon: Tags },
@@ -190,7 +190,7 @@ export function AppSidebar() {
         <h1 className="text-xl font-bold font-display tracking-tight">
           <span className="text-gradient-gold">KHAMBU GROUP</span>
         </h1>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Analytics Dashboard</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Analytics Overview</p>
       </div>
 
       <SidebarContent>
