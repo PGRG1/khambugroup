@@ -184,10 +184,26 @@ ${pmLines}`;
     let extractedData: any = null;
     let lastError = "";
 
+    const safeExtractJSON = (raw: string): any => {
+      let cleaned = (raw || "").trim();
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+        const objStart = cleaned.indexOf("{");
+        const arrStart = cleaned.indexOf("[");
+        const isArr = arrStart !== -1 && (objStart === -1 || arrStart < objStart);
+        const start = isArr ? arrStart : objStart;
+        const end = isArr ? cleaned.lastIndexOf("]") : cleaned.lastIndexOf("}");
+        if (start !== -1 && end > start) cleaned = cleaned.slice(start, end + 1);
+        else throw new Error("No JSON object found in AI response");
+      }
+      return JSON.parse(cleaned);
+    };
+
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 180000); // 3 min timeout for pro model
+        const timeout = setTimeout(() => controller.abort(), 90000); // 90s per attempt
+        const t0 = Date.now();
         const response = await fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -201,6 +217,7 @@ ${pmLines}`;
           }
         );
         clearTimeout(timeout);
+        console.log(`Agent 1 attempt ${attempt + 1} responded in ${Date.now() - t0}ms, status ${response.status}`);
 
         if (!response.ok) {
           const statusCode = response.status;
@@ -220,7 +237,7 @@ ${pmLines}`;
           console.error(`AI gateway error (attempt ${attempt + 1}):`, statusCode, errText);
           lastError = `HTTP ${statusCode}: ${errText}`;
           if (attempt < MAX_RETRIES - 1) {
-            await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+            await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
             continue;
           }
           return new Response(
@@ -234,7 +251,7 @@ ${pmLines}`;
           console.error(`Empty response (attempt ${attempt + 1})`);
           lastError = "Empty response";
           if (attempt < MAX_RETRIES - 1) {
-            await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+            await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
             continue;
           }
           return new Response(
@@ -244,20 +261,18 @@ ${pmLines}`;
         }
 
         const aiData = JSON.parse(responseText);
-        const content = aiData.choices?.[0]?.message?.content || "";
-
-        let cleaned = content.trim();
-        if (cleaned.startsWith("```")) {
-          cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        const finishReason = aiData.choices?.[0]?.finish_reason;
+        if (finishReason === "length") {
+          console.warn(`Agent 1 attempt ${attempt + 1} was truncated (finish_reason=length)`);
         }
-
-        extractedData = JSON.parse(cleaned);
+        const content = aiData.choices?.[0]?.message?.content || "";
+        extractedData = safeExtractJSON(content);
         break;
       } catch (err) {
         console.error(`Parse/fetch error (attempt ${attempt + 1}):`, err);
         lastError = String(err);
         if (attempt < MAX_RETRIES - 1) {
-          await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+          await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
           continue;
         }
       }
@@ -271,74 +286,15 @@ ${pmLines}`;
       );
     }
 
-    // --- SECOND PASS: Verification ---
-    try {
-      const verificationPrompt = `You previously extracted the following invoice data from the document images. Please re-examine the images and VERIFY every number is correct. Focus especially on:
-1. Quantities — are they really what's shown in the QTY column?
-2. Unit prices — are they from the correct PRICE column (not the AMOUNT or DISCOUNT column)?
-3. Line totals — do they match what's in the AMOUNT column?
-4. Invoice total — does it match the grand total shown on the invoice?
-5. Supplier name — is it spelled exactly as printed?
-6. Invoice number — is every character correct?
-
-Here is the extracted data to verify:
-${JSON.stringify(extractedData, null, 2)}
-
-If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same format. If everything is correct, return the data unchanged. Return ONLY the JSON, no explanation.`;
-
-      const verifyContent: any[] = fileEntries.map((entry) => ({
-        type: "image_url",
-        image_url: { url: `data:${entry.mimeType};base64,${entry.base64}` },
-      }));
-      verifyContent.push({ type: "text", text: verificationPrompt });
-
-      const verifyController = new AbortController();
-      const verifyTimeout = setTimeout(() => verifyController.abort(), 180000);
-      const verifyResponse = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            max_tokens: 32000,
-            messages: [
-              { role: "system", content: "You are verifying invoice data extraction accuracy. Return only corrected JSON." },
-              { role: "user", content: verifyContent },
-            ],
-          }),
-          signal: verifyController.signal,
-        }
-      );
-      clearTimeout(verifyTimeout);
-
-      if (verifyResponse.ok) {
-        const verifyText = await verifyResponse.text();
-        if (verifyText) {
-          const verifyAiData = JSON.parse(verifyText);
-          const verifyContent2 = verifyAiData.choices?.[0]?.message?.content || "";
-          let verifyCleaned = verifyContent2.trim();
-          if (verifyCleaned.startsWith("```")) {
-            verifyCleaned = verifyCleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-          }
-          try {
-            const verifiedData = JSON.parse(verifyCleaned);
-            extractedData = verifiedData;
-            console.log("Verification pass completed — using verified data");
-          } catch {
-            console.warn("Verification pass returned invalid JSON — using original extraction");
-          }
-        }
-      } else {
-        const vt = await verifyResponse.text();
-        console.warn("Verification pass failed:", verifyResponse.status, vt);
-      }
-    } catch (verifyErr) {
-      console.warn("Verification pass error (non-fatal):", verifyErr);
-    }
+    // NOTE: The standalone verification pass was removed because three sequential
+    // vision-LLM calls (extract + verify + review) exceeded the edge-function
+    // wall-clock limit, causing the function to be killed before responding
+    // (the client saw a non-2xx FunctionsHttpError). Agent 2 below does
+    // image-based verification AND correction in a single tool-call pass.
+    console.log(
+      "Agent 1 extraction complete. Invoices:",
+      Array.isArray(extractedData?.invoices) ? extractedData.invoices.length : 1
+    );
 
     // Normalize: support both old single-invoice format and new multi-invoice format
     let invoicesArray;
@@ -623,7 +579,8 @@ Return ONLY by calling the report_review function.`;
       };
 
       const reviewerController = new AbortController();
-      const reviewerTimeout = setTimeout(() => reviewerController.abort(), 180000);
+      const reviewerTimeout = setTimeout(() => reviewerController.abort(), 60000);
+      const tRev = Date.now();
       const reviewerResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -634,6 +591,7 @@ Return ONLY by calling the report_review function.`;
         signal: reviewerController.signal,
       });
       clearTimeout(reviewerTimeout);
+      console.log(`Agent 2 review responded in ${Date.now() - tRev}ms, status ${reviewerResp.status}`);
 
       if (reviewerResp.ok) {
         const rText = await reviewerResp.text();
