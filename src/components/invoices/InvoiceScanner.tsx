@@ -1662,6 +1662,115 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           )}
         </div>
       )}
+
+      {/* Line-level Agent 2 details */}
+      <Dialog open={detailsLineIdx !== null} onOpenChange={(o) => !o && setDetailsLineIdx(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Line review details</DialogTitle>
+            <DialogDescription>What the review agent corrected or flagged on this line.</DialogDescription>
+          </DialogHeader>
+          {detailsLineIdx !== null && current?.line_items[detailsLineIdx] && (() => {
+            const l = current.line_items[detailsLineIdx];
+            return (
+              <div className="space-y-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Status:</span>
+                  <span>{l.review_status ? l.review_status.replace("_", " ") : "—"}</span>
+                  {typeof l.review_match_confidence === "number" && (
+                    <span className="text-xs text-muted-foreground">(confidence {Math.round((l.review_match_confidence || 0) * 100)}%)</span>
+                  )}
+                </div>
+                {l.review_match_reason && (
+                  <div><span className="text-muted-foreground">Match reason: </span>{l.review_match_reason}</div>
+                )}
+                {l.review_candidates && l.review_candidates.length > 0 && (
+                  <div><span className="text-muted-foreground">Candidates: </span>{l.review_candidates.join(", ")}</div>
+                )}
+                {l.review_corrections && l.review_corrections.length > 0 && (
+                  <div>
+                    <div className="font-medium mb-1">Auto-corrections</div>
+                    <table className="w-full text-xs border">
+                      <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Original</th><th className="text-left p-1.5">Corrected</th><th className="text-left p-1.5">Reason</th><th className="text-left p-1.5">Conf.</th></tr></thead>
+                      <tbody>
+                        {l.review_corrections.map((c, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-1.5 font-mono">{c.field}</td>
+                            <td className="p-1.5 line-through text-muted-foreground">{c.original}</td>
+                            <td className="p-1.5">{c.corrected}</td>
+                            <td className="p-1.5">{c.reason}</td>
+                            <td className="p-1.5">{Math.round((c.confidence || 0) * 100)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {l.review_warnings && l.review_warnings.length > 0 && (
+                  <div>
+                    <div className="font-medium mb-1 text-amber-700 dark:text-amber-400">Warnings</div>
+                    <ul className="list-disc list-inside text-xs space-y-0.5">{l.review_warnings.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                  </div>
+                )}
+                {l.review_blocking && l.review_blocking.length > 0 && (
+                  <div>
+                    <div className="font-medium mb-1 text-destructive">Blocking issues</div>
+                    <ul className="list-disc list-inside text-xs space-y-0.5">{l.review_blocking.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice header details */}
+      <Dialog open={showInvoiceDetails} onOpenChange={setShowInvoiceDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Invoice header review</DialogTitle>
+            <DialogDescription>Header-level corrections and flags from the review agent.</DialogDescription>
+          </DialogHeader>
+          {current && (
+            <div className="space-y-4 text-sm">
+              {current.review_corrections && current.review_corrections.length > 0 && (
+                <div>
+                  <div className="font-medium mb-1">Auto-corrections</div>
+                  <table className="w-full text-xs border">
+                    <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Original</th><th className="text-left p-1.5">Corrected</th><th className="text-left p-1.5">Reason</th><th className="text-left p-1.5">Conf.</th></tr></thead>
+                    <tbody>
+                      {current.review_corrections.map((c, i) => (
+                        <tr key={i} className="border-t">
+                          <td className="p-1.5 font-mono">{c.field}</td>
+                          <td className="p-1.5 line-through text-muted-foreground">{c.original}</td>
+                          <td className="p-1.5">{c.corrected}</td>
+                          <td className="p-1.5">{c.reason}</td>
+                          <td className="p-1.5">{Math.round((c.confidence || 0) * 100)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {current.review_warnings && current.review_warnings.length > 0 && (
+                <div>
+                  <div className="font-medium mb-1 text-amber-700 dark:text-amber-400">Warnings</div>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">{current.review_warnings.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                </div>
+              )}
+              {current.review_blocking && current.review_blocking.length > 0 && (
+                <div>
+                  <div className="font-medium mb-1 text-destructive">Blocking issues</div>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">{current.review_blocking.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                </div>
+              )}
+              {(!current.review_corrections?.length && !current.review_warnings?.length && !current.review_blocking?.length) && (
+                <div className="text-muted-foreground">No header-level findings.</div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
