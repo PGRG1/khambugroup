@@ -579,7 +579,8 @@ Return ONLY by calling the report_review function.`;
       };
 
       const reviewerController = new AbortController();
-      const reviewerTimeout = setTimeout(() => reviewerController.abort(), 180000);
+      const reviewerTimeout = setTimeout(() => reviewerController.abort(), 60000);
+      const tRev = Date.now();
       const reviewerResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -590,6 +591,7 @@ Return ONLY by calling the report_review function.`;
         signal: reviewerController.signal,
       });
       clearTimeout(reviewerTimeout);
+      console.log(`Agent 2 review responded in ${Date.now() - tRev}ms, status ${reviewerResp.status}`);
 
       if (reviewerResp.ok) {
         const rText = await reviewerResp.text();
