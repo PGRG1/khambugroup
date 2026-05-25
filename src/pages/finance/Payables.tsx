@@ -723,6 +723,15 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
           </table>
         </div>
       </Card>
+
+      <BookCreditNoteDialog
+        open={bookOpen}
+        onOpenChange={setBookOpen}
+        suppliers={suppliers}
+        venues={venues}
+        invoices={invoices}
+        onSaved={onSaved}
+      />
     </>
   );
 }
