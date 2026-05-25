@@ -110,25 +110,8 @@ export default function Payables() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/procurement"><Upload className="h-4 w-4 mr-1" /> Upload Invoice</Link>
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => {
-              const inv = invoices.find((i) => i.outstanding_amount > 0.01 && i.payment_status !== "voided");
-              if (inv) openRecord(inv);
-            }}
-          >
-            <Receipt className="h-4 w-4 mr-1" /> Record Payment
-          </Button>
-          <Button variant="ghost" size="icon" onClick={refresh} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
       </header>
+
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
