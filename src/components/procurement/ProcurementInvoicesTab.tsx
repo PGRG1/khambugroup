@@ -908,6 +908,8 @@ export default function ProcurementInvoicesTab() {
       <InvoiceTableSection
         filtered={filtered}
         invoices={invoices}
+        suppliers={suppliers}
+        kpis={kpis}
         totalAmount={totalAmount}
         columns={columns}
         sortColumns={sortColumns}
@@ -915,6 +917,8 @@ export default function ProcurementInvoicesTab() {
         SortIcon={SortIcon}
         search={search}
         setSearch={setSearch}
+        supplierFilter={supplierFilter}
+        setSupplierFilter={setSupplierFilter}
         venueFilter={venueFilter}
         setVenueFilter={setVenueFilter}
         statusFilter={statusFilter}
