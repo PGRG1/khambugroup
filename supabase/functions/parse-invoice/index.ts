@@ -184,10 +184,26 @@ ${pmLines}`;
     let extractedData: any = null;
     let lastError = "";
 
+    const safeExtractJSON = (raw: string): any => {
+      let cleaned = (raw || "").trim();
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+        const objStart = cleaned.indexOf("{");
+        const arrStart = cleaned.indexOf("[");
+        const isArr = arrStart !== -1 && (objStart === -1 || arrStart < objStart);
+        const start = isArr ? arrStart : objStart;
+        const end = isArr ? cleaned.lastIndexOf("]") : cleaned.lastIndexOf("}");
+        if (start !== -1 && end > start) cleaned = cleaned.slice(start, end + 1);
+        else throw new Error("No JSON object found in AI response");
+      }
+      return JSON.parse(cleaned);
+    };
+
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 180000); // 3 min timeout for pro model
+        const timeout = setTimeout(() => controller.abort(), 90000); // 90s per attempt
+        const t0 = Date.now();
         const response = await fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -201,6 +217,7 @@ ${pmLines}`;
           }
         );
         clearTimeout(timeout);
+        console.log(`Agent 1 attempt ${attempt + 1} responded in ${Date.now() - t0}ms, status ${response.status}`);
 
         if (!response.ok) {
           const statusCode = response.status;
@@ -220,7 +237,7 @@ ${pmLines}`;
           console.error(`AI gateway error (attempt ${attempt + 1}):`, statusCode, errText);
           lastError = `HTTP ${statusCode}: ${errText}`;
           if (attempt < MAX_RETRIES - 1) {
-            await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+            await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
             continue;
           }
           return new Response(
@@ -234,7 +251,7 @@ ${pmLines}`;
           console.error(`Empty response (attempt ${attempt + 1})`);
           lastError = "Empty response";
           if (attempt < MAX_RETRIES - 1) {
-            await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+            await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
             continue;
           }
           return new Response(
@@ -244,20 +261,18 @@ ${pmLines}`;
         }
 
         const aiData = JSON.parse(responseText);
-        const content = aiData.choices?.[0]?.message?.content || "";
-
-        let cleaned = content.trim();
-        if (cleaned.startsWith("```")) {
-          cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        const finishReason = aiData.choices?.[0]?.finish_reason;
+        if (finishReason === "length") {
+          console.warn(`Agent 1 attempt ${attempt + 1} was truncated (finish_reason=length)`);
         }
-
-        extractedData = JSON.parse(cleaned);
+        const content = aiData.choices?.[0]?.message?.content || "";
+        extractedData = safeExtractJSON(content);
         break;
       } catch (err) {
         console.error(`Parse/fetch error (attempt ${attempt + 1}):`, err);
         lastError = String(err);
         if (attempt < MAX_RETRIES - 1) {
-          await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+          await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
           continue;
         }
       }
