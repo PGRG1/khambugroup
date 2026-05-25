@@ -370,6 +370,7 @@ ${pmLines}`;
       .replace(/\s+/g, " ")
       .trim();
     const normalizeSku = (value: any) => String(value || "").trim().toLowerCase();
+    const normalizeDateValue = (value: any) => String(value || "").trim();
     const supplierMatches = (a?: string, b?: string) => {
       const na = normalizeText(a);
       const nb = normalizeText(b);
@@ -479,6 +480,13 @@ IMPORTANT: Do not approve Agent 1's item match just because matched_sku is prese
 For EVERY correction return: field, original, corrected, reason (short), confidence (0-1).
 If unsure, prefer a flag over a correction.
 
+HEADER CHECKS — MANDATORY:
+- Return one header_check for EACH of these fields on EACH invoice: supplier_name, venue, invoice_number, invoice_date, due_date, total_amount.
+- For invoice_date, printed_value must be the exact date text seen on the invoice, normalized_value must be YYYY-MM-DD, and source_text must include the nearby printed label/text (for example "Invoice Date: 03/05/2026").
+- Do NOT mark invoice_date as verified unless the printed source date is clearly visible and normalized_value exactly matches the corrected invoice_date.
+- If invoice_date is missing, ambiguous, swapped with due date/delivery date, or cannot be re-read from the image, return status "uncertain" or "missing" and add a blocking header_flag.
+- Do not treat a field as approved by omission. Missing header_checks will be treated as blocking issues.
+
 Known suppliers: ${supplierListText || "(none)"}
 
 Return ONLY by calling the report_review function.`;
@@ -516,6 +524,22 @@ Return ONLY by calling the report_review function.`;
         required: ["invoice_index", "field", "severity", "message"],
         additionalProperties: false,
       };
+      const headerCheckItem = {
+        type: "object",
+        properties: {
+          invoice_index: { type: "integer" },
+          field: { type: "string", enum: ["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "total_amount"] },
+          extracted: { type: "string" },
+          printed_value: { type: "string" },
+          normalized_value: { type: "string" },
+          source_text: { type: "string" },
+          status: { type: "string", enum: ["verified", "corrected", "uncertain", "missing"] },
+          confidence: { type: "number" },
+          reason: { type: "string" },
+        },
+        required: ["invoice_index", "field", "extracted", "printed_value", "normalized_value", "source_text", "status", "confidence", "reason"],
+        additionalProperties: false,
+      };
 
       const reviewerBody = {
         model: "google/gemini-2.5-flash",
@@ -533,6 +557,7 @@ Return ONLY by calling the report_review function.`;
               parameters: {
                 type: "object",
                 properties: {
+                  header_checks: { type: "array", items: headerCheckItem },
                   header_corrections: { type: "array", items: correctionItem },
                   line_corrections: { type: "array", items: correctionItem },
                   header_flags: { type: "array", items: flagItem },
@@ -569,7 +594,7 @@ Return ONLY by calling the report_review function.`;
                     },
                   },
                 },
-                required: ["header_corrections", "line_corrections", "header_flags", "line_flags", "item_master"],
+                required: ["header_checks", "header_corrections", "line_corrections", "header_flags", "line_flags", "item_master"],
                 additionalProperties: false,
               },
             },
@@ -615,10 +640,30 @@ Return ONLY by calling the report_review function.`;
       console.warn("Reviewer agent error (non-fatal):", reviewErr);
     }
 
+    if (!review || typeof review !== "object") {
+      review = {
+        header_checks: [],
+        header_corrections: [],
+        line_corrections: [],
+        header_flags: [],
+        line_flags: [],
+        item_master: [],
+      };
+      invoicesArray.forEach((inv: any, invoice_index: number) => {
+        review.header_flags.push({ invoice_index, field: "invoice_date", severity: "blocking", message: "Agent 2 review was unavailable, so the invoice date was not verified from the image." });
+        review.header_flags.push({ invoice_index, field: "supplier_name", severity: "blocking", message: "Agent 2 review was unavailable, so the supplier/header was not verified from the image." });
+        (inv.line_items || []).forEach((_line: any, line_index: number) => {
+          review.item_master.push({ invoice_index, line_index, status: "needs_review", matched_sku: "", candidates: [], reason: "Agent 2 review was unavailable; match not verified.", confidence: 0 });
+          review.line_flags.push({ invoice_index, line_index, field: "matched_sku", severity: "blocking", message: "Items Master match was not verified by Agent 2." });
+        });
+      });
+    }
+
     // Apply ALLOWED corrections server-side. Numeric fields are NEVER overwritten.
     const allowedHeaderFields = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "currency"]);
     const allowedLineFields = new Set(["description", "unit", "pack_size", "item_code", "matched_sku"]);
     if (review && typeof review === "object") {
+      review.header_checks = Array.isArray(review.header_checks) ? review.header_checks : [];
       review.header_corrections = Array.isArray(review.header_corrections) ? review.header_corrections : [];
       review.line_corrections = Array.isArray(review.line_corrections) ? review.line_corrections : [];
       review.header_flags = Array.isArray(review.header_flags) ? review.header_flags : [];
@@ -639,11 +684,33 @@ Return ONLY by calling the report_review function.`;
 
       const itemStatusByKey = new Map<string, any>();
       for (const item of review.item_master) itemStatusByKey.set(`${item.invoice_index}:${item.line_index}`, item);
+      const headerCheckByKey = new Map<string, any>();
+      for (const check of review.header_checks) headerCheckByKey.set(`${check.invoice_index}:${check.field}`, check);
 
       invoicesArray.forEach((inv: any, invoice_index: number) => {
         for (const field of ["supplier_name", "invoice_number", "invoice_date"]) {
           if (!String(inv?.[field] || "").trim()) {
             pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `${field.replace(/_/g, " ")} is missing.` });
+          }
+        }
+        for (const field of ["supplier_name", "venue", "invoice_number", "invoice_date", "total_amount"]) {
+          const check = headerCheckByKey.get(`${invoice_index}:${field}`);
+          if (!check) {
+            pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `Agent 2 did not verify ${field.replace(/_/g, " ")} against the invoice image.` });
+            continue;
+          }
+          const status = String(check.status || "").toLowerCase();
+          const confidence = Number(check.confidence || 0);
+          if (status === "missing" || status === "uncertain" || confidence < 0.75) {
+            pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `${field.replace(/_/g, " ")} was not confidently verified from the invoice image.` });
+          }
+        }
+        const dateCheck = headerCheckByKey.get(`${invoice_index}:invoice_date`);
+        if (dateCheck) {
+          const normalizedDate = normalizeDateValue(dateCheck.normalized_value || dateCheck.printed_value);
+          const currentDate = normalizeDateValue(inv?.invoice_date);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(currentDate) || !/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate) || normalizedDate !== currentDate) {
+            pushFlag(review.header_flags, { invoice_index, field: "invoice_date", severity: "blocking", message: "Invoice date does not match Agent 2's verified printed date." });
           }
         }
         if (!knownVenues.includes(inv?.venue)) {
