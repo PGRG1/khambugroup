@@ -248,6 +248,26 @@ export function usePayables() {
         setPayrollPayables([]);
       }
 
+      // Approved credit notes with remaining balance
+      const cns = await fetchAllRows(
+        "credit_notes",
+        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, notes"
+      );
+      setCreditNotes(
+        (cns || [])
+          .filter((c: any) => c.status === "approved" && Number(c.remaining_balance) > 0.01)
+          .map((c: any) => ({
+            id: c.id,
+            supplier_id: c.supplier_id,
+            credit_note_number: c.credit_note_number || "",
+            credit_note_date: c.credit_note_date,
+            original_amount: Number(c.original_amount) || 0,
+            remaining_balance: Number(c.remaining_balance) || 0,
+            status: c.status,
+            notes: c.notes || "",
+          }))
+      );
+
       setLoading(false);
     })();
   }, [refreshKey]);
@@ -260,7 +280,9 @@ export function usePayables() {
     unallocatedPaymentsCount,
     bankAccounts,
     payrollPayables,
+    creditNotes,
     loading,
     refresh,
   };
 }
+
