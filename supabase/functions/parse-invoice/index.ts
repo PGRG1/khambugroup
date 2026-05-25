@@ -658,20 +658,67 @@ Return ONLY by calling the report_review function.`;
     }
 
     // Apply ALLOWED corrections server-side. Numeric fields are NEVER overwritten.
-    const allowedHeaderFields = new Set(["supplier_name", "invoice_date", "due_date", "currency", "venue"]);
+    const allowedHeaderFields = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "currency"]);
     const allowedLineFields = new Set(["description", "unit", "pack_size", "item_code", "matched_sku"]);
     if (review && typeof review === "object") {
+      review.header_corrections = Array.isArray(review.header_corrections) ? review.header_corrections : [];
+      review.line_corrections = Array.isArray(review.line_corrections) ? review.line_corrections : [];
+      review.header_flags = Array.isArray(review.header_flags) ? review.header_flags : [];
+      review.line_flags = Array.isArray(review.line_flags) ? review.line_flags : [];
+      review.item_master = Array.isArray(review.item_master) ? review.item_master : [];
+
       for (const c of review.header_corrections || []) {
         const inv = invoicesArray[c.invoice_index];
-        if (!inv || !allowedHeaderFields.has(c.field)) continue;
+        if (!inv || !allowedHeaderFields.has(c.field) || Number(c.confidence || 0) < 0.7) continue;
         inv[c.field] = c.corrected;
       }
       for (const c of review.line_corrections || []) {
         const inv = invoicesArray[c.invoice_index];
         const line = inv?.line_items?.[c.line_index];
-        if (!line || !allowedLineFields.has(c.field)) continue;
+        if (!line || !allowedLineFields.has(c.field) || Number(c.confidence || 0) < 0.7) continue;
         line[c.field] = c.corrected;
       }
+
+      const itemStatusByKey = new Map<string, any>();
+      for (const item of review.item_master) itemStatusByKey.set(`${item.invoice_index}:${item.line_index}`, item);
+
+      invoicesArray.forEach((inv: any, invoice_index: number) => {
+        for (const field of ["supplier_name", "invoice_number", "invoice_date"]) {
+          if (!String(inv?.[field] || "").trim()) {
+            pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `${field.replace(/_/g, " ")} is missing.` });
+          }
+        }
+        if (!knownVenues.includes(inv?.venue)) {
+          pushFlag(review.header_flags, { invoice_index, field: "venue", severity: "blocking", message: "Venue is missing or not one of Assembly, Caliente, Hanabi." });
+        }
+
+        (inv.line_items || []).forEach((line: any, line_index: number) => {
+          const key = `${invoice_index}:${line_index}`;
+          let item = itemStatusByKey.get(key);
+          if (!item) {
+            item = { invoice_index, line_index, status: "needs_review", reason: "Review agent did not return an Items Master decision.", confidence: 0 };
+            review.item_master.push(item);
+            itemStatusByKey.set(key, item);
+          }
+
+          if (item.status === "matched") {
+            const trusted = findTrustedProductMatch(line, inv.supplier_name || "", item.matched_sku || line.matched_sku);
+            if (!trusted || (item.matched_sku && trusted.row.internal_sku !== item.matched_sku)) {
+              item.status = "needs_review";
+              item.matched_sku = "";
+              item.confidence = Math.min(Number(item.confidence || 0), 0.49);
+              item.reason = "Match was not supported by an exact supplier item code/name match.";
+              line.matched_sku = "";
+              pushFlag(review.line_flags, { invoice_index, line_index, field: "matched_sku", severity: "blocking", message: "Items Master match needs manual review." });
+            } else {
+              item.matched_sku = trusted.row.internal_sku;
+              item.confidence = Math.max(Number(item.confidence || 0), 0.9);
+              item.reason = item.reason || trusted.reason;
+              line.matched_sku = trusted.row.internal_sku;
+            }
+          }
+        });
+      });
     }
 
     return new Response(
