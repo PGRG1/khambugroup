@@ -1,70 +1,89 @@
-## Scope
+## Goal
 
-Extend the existing Accounts Payable Record Payment flow to support **credit notes** alongside cash. Strengthen the **payment record** so it can later be matched to a bank transaction by AI. No redesign of the page or table — only the payment dialog, the supporting hook, and the database get richer.
+Re-skin the existing Accounts Payable page to match the structure in the mockups. No backend changes — same data, same dialogs, just a clearer tabbed control-center layout where each tab carries its own contextual KPIs and filters.
 
-## Assumption (please confirm if wrong)
+## New tab structure
 
-Credit notes will be tracked in a **new `credit_notes` table** (separate from invoices). They are issued by a supplier, can be entered manually or via the existing scanner, and once `status='approved'` they show up as available credit for that supplier. If you'd rather treat credit notes as "negative invoices" inside the existing `invoices` table, say the word and I'll adapt.
+Replace today's tabs (`Invoices`, `By Supplier`, `Aging Summary`) and the always-on KPI strip with:
 
-## Database changes
+1. **Open Payables** — approved invoices with outstanding > 0
+2. **Payment History** — all recorded payments
+3. **Credit Notes** — supplier credit notes
+4. **Aging Summary** — supplier-level aging matrix
 
-**New table `public.credit_notes`**
-- supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status (`draft|approved|fully_applied|voided`), venue, notes, attachment_url, source_invoice_id (optional link to the invoice it relates to)
-- RLS: read = authenticated; write = admin/manager
-- Trigger keeps `remaining_balance` and flips status to `fully_applied` when balance hits 0
+(`By Supplier` and the Payroll Liabilities block fold into Open Payables as a collapsible section so nothing is lost.)
 
-**Extend `public.payment_allocations`**
-- Add nullable `credit_note_id uuid`, `credit_note_amount_applied numeric default 0`
-- Drop the strict `amount_allocated > 0` check; replace with `amount_allocated >= 0 AND (amount_allocated + credit_note_amount_applied) > 0` so a row can be 100% credit-note (zero cash)
-- Update `validate_allocation_vs_payment` trigger to compare only the cash portion against `payments.amount`
-- Update `recompute_invoice_from_allocations` to count both cash and credit toward `amount_paid`
+Page header keeps title + `Upload Invoice` / `Record Payment` buttons in the top-right.
 
-**Extend `public.payments`**
-- Already has all the fields needed for AI bank matching (date, amount, method, paid_from_account, reference, cheque, supplier, match_status). Add an index on `(paid_from_account_id, payment_date)` to speed up future bank-match queries.
-- Allow `amount = 0` (currently `> 0`) for the edge case where an invoice is settled entirely by credit note — we still create a payment record with `amount=0, match_status='not_required'`.
+## Per-tab KPI cards
 
-**New RPC: replace `record_payment_with_allocations`**
-- Inputs: `p_payment` (header), `p_allocations` (array of `{invoice_id, amount_allocated, credit_note_id?, credit_note_amount_applied?}`)
-- In one transaction: insert payment, insert allocations, decrement each used credit_note's `remaining_balance`, recompute invoice balances/status, set `bank_match_status='awaiting_bank_match'` on touched invoices when cash > 0, set `not_required` when settled fully by credit.
+Each tab gets its own KPI grid, computed in `usePayables` / on-page memos. No global KPI strip.
 
-## Record Payment dialog (frontend)
+**Open Payables (6 cards)**
+- Total Outstanding · `HK$` + invoice count
+- Overdue · amount + count (red)
+- Due in 7 Days · amount + count (sky)
+- Paid This Month · amount (emerald)
+- Awaiting Bank Match · count (sky)
+- Credit Notes Available · sum of remaining balances + count (purple)
 
-`src/components/finance/payables/RecordPaymentDialog.tsx` — keep the two-step wizard, enhance Step 2:
+**Payment History (5 cards)**
+- Total Paid This Month · sum + payment count (emerald)
+- Payments Awaiting Match · count (amber)
+- Matched Payments · count (sky)
+- Partial Allocations · count where allocations < payment amount (amber)
+- Unallocated Payments · count with no allocation (red)
 
-- For each open invoice row, add an **"Apply Credit Note"** affordance. Opens a small popover listing the supplier's credit notes with remaining balance. User picks one, enters the amount to apply (defaults to min(credit remaining, invoice outstanding)).
-- Row now shows three numeric columns: **Credit Applied**, **Cash to Pay**, **Remaining** (live recomputed: `outstanding − credit − cash`).
-- Confirmation prompt before applying a credit note ("Apply HK$ X from CN-1234? Remaining credit will be HK$ Y").
-- Footer summary gets a new "Credit Applied" tile next to Payment Amount / Allocated / Unallocated.
-- If every line is fully covered by credit, the Payment Amount field can be 0 and the wizard saves a zero-cash payment record.
-- Validation: `cash_allocated ≤ payment_amount`; `cash + credit ≤ invoice outstanding`; `credit_amount ≤ credit_note remaining_balance`.
+**Credit Notes (5 cards)**
+- Available Credit Notes · sum of remaining + count (purple)
+- Applied This Month · sum from `payment_allocations.credit_note_amount_applied` (emerald)
+- Unused Balance · remaining across non-fully-applied (sky)
+- Fully Applied · count (emerald)
+- Needs Review · count of CNs flagged or with status mismatches (amber)
 
-## Payment History dialog
+**Aging Summary (6 cards)**
+- Total Outstanding
+- Current (0–30) · amount + %
+- 1–30 Days · amount + %
+- 31–60 Days · amount + %
+- 61–90 Days · amount + %
+- 90+ Days · amount + % (red)
 
-`PaymentHistoryDialog.tsx` — each allocation row now shows the credit-note number + amount applied alongside the cash amount, so the audit trail is complete.
+Plus a thin stacked aging bar above the table (5 colored segments proportional to bucket weight) as a quick "Aging Overview".
 
-## Hook + types
+## Per-tab filter bars
 
-- `usePayables.ts` — fetch `credit_notes` with `status='approved' AND remaining_balance > 0` grouped by supplier_id, expose `creditNotesBySupplier`. Pass into the dialog.
-- New shared type `APCreditNote` in the hook.
+Compact filter rows above each table.
 
-## Out of scope (explicitly not in this change)
+- **Open Payables**: Search · Supplier · Venue · Payment Status · Bank Match · Due Range · Paid-From · Clear
+- **Payment History**: Search · Supplier · Payment Method · Paid-From Account · Date Range · Bank Match Status · Clear
+- **Credit Notes**: Search · Supplier · Venue · Date Range · Status · Clear
+- **Aging Summary**: Search · Supplier · Venue · Aging Bucket · Clear
 
-- No new Credit Notes management page yet — they can already be created via scanner / direct insert. I'll surface a minimal "approved credit notes" list inside the dialog only.
-- No bank-matching UI changes. The payment record is now structured correctly so the future AI matcher has all the fields it needs (`paid_from_account_id`, `payment_date`, `amount`, `supplier_id`, invoice numbers via allocations, `reference_number`, `cheque_number`, `payment_method`). Bank-matcher itself is a separate task.
-- No journal-entry / GL posting changes in this pass — credit notes hitting the ledger is a follow-up once you confirm the accounting treatment (contra-AP vs. expense reversal).
+## Tables
 
-## Technical details
+- **Open Payables** — current invoice table (unchanged columns, unchanged row actions: Record Payment, Allocate, View Payment History, Open Invoice)
+- **Payment History** — new table sourced from `payments` + `payment_allocations`:
+  - Columns: Payment Date · Payment Ref · Supplier · Paid From · Method · Total Amount · Allocated · Unallocated · Bank Match · Actions (View Allocation, View Payment, Match)
+- **Credit Notes** — table from `credit_notes`:
+  - Columns: CN Date · CN # · Supplier · Venue · Original · Applied · Remaining · Status · Linked Invoices · Actions (Apply, View)
+  - "Apply" opens existing RecordPaymentDialog pre-scoped to that supplier (no new dialog needed)
+- **Aging Summary** — keep current `AgingMatrix`-style supplier rows with View Supplier / Open Invoices actions
 
-```text
-payments  1───*  payment_allocations  *───1  invoices
-                          │
-                          *───0..1  credit_notes  *───1  suppliers
-```
+## Files to edit
 
-Recompute rule per invoice after save:
-```
-amount_paid       = Σ(amount_allocated) + Σ(credit_note_amount_applied)
-remaining_balance = max(0, total_amount − amount_paid)
-payment_status    = paid | partially_paid | unpaid | credit_note_applied (if 100% via credit)
-bank_match_status = not_required (if cash=0) | awaiting_bank_match (if cash>0)
-```
+- `src/pages/finance/Payables.tsx` — full restructure (tabs, KPI grids, filter bars, new Payment History + Credit Notes table sections)
+- `src/hooks/usePayables.ts` — additionally expose: raw `payments` (with allocations joined), full `creditNotes` list (not just `remaining > 0`), `appliedCreditThisMonth`. Existing fields preserved.
+
+## Out of scope
+
+- No Payment Runs tab/table (skipped per your choice)
+- No new dialogs — reuse `RecordPaymentDialog`, `AllocatePaymentDialog`, `PaymentHistoryDialog`
+- No DB migrations, no schema changes
+- No Upload Invoice action wiring (the button in mockups will link to existing Procurement invoice upload)
+
+## Visual notes
+
+- Use existing `card-glass`, `.chip-*` pills, JetBrains Mono for numbers, project's emerald/sky/amber/red accent tokens.
+- KPI cards: large value, small label above, small sub-line below (count or "%"); icon top-right tinted per accent.
+- Tables: zebra-free, `hover:bg-muted/20`, sticky header, compact `text-xs`.

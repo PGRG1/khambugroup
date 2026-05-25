@@ -50,22 +50,37 @@ export type APBankAccountLite = {
 export type APCreditNote = {
   id: string;
   supplier_id: string;
+  supplier_name: string;
   credit_note_number: string;
   credit_note_date: string;
   original_amount: number;
+  applied_amount: number;
   remaining_balance: number;
-  status: string;
+  status: string; // approved | fully_applied | draft | voided | needs_review
+  venue: string | null;
   notes: string;
+  source_invoice_id: string | null;
+  source_invoice_number: string | null;
 };
 
-export type APKpis = {
-  totalOutstanding: number;
-  dueThisWeek: number;
-  overdue: number;
-  paidThisMonth: number;
-  partiallyPaid: number;
-  awaitingBankMatch: number;
-  unallocatedPayments: number;
+export type APPaymentRow = {
+  id: string;
+  payment_date: string;
+  amount: number;
+  payment_method: string;
+  paid_from_account_id: string | null;
+  paid_from_account_name: string | null;
+  reference_number: string;
+  cheque_number: string;
+  notes: string;
+  supplier_id: string | null;
+  supplier_name: string;
+  match_status: string;
+  allocated_amount: number;
+  credit_applied: number;
+  unallocated_amount: number;
+  allocation_count: number;
+  invoice_numbers: string[];
 };
 
 export function usePayables() {
@@ -77,6 +92,9 @@ export function usePayables() {
   const [bankAccounts, setBankAccounts] = useState<APBankAccountLite[]>([]);
   const [payrollPayables, setPayrollPayables] = useState<APPayrollPayable[]>([]);
   const [creditNotes, setCreditNotes] = useState<APCreditNote[]>([]);
+  const [creditNotesAvailable, setCreditNotesAvailable] = useState<APCreditNote[]>([]);
+  const [appliedCreditThisMonth, setAppliedCreditThisMonth] = useState(0);
+  const [payments, setPayments] = useState<APPaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -91,6 +109,12 @@ export function usePayables() {
         .toISOString()
         .slice(0, 10);
 
+      // Suppliers map (for credit notes & payments)
+      const suppliersRaw = await fetchAllRows("suppliers", "id, name");
+      const supplierName = new Map<string, string>(
+        (suppliersRaw as any[]).map((s) => [s.id, s.name || "(no supplier)"])
+      );
+
       // Approved invoices only
       const rawInvoices = await fetchAllRows(
         "invoices",
@@ -98,6 +122,9 @@ export function usePayables() {
       );
       const approved = (rawInvoices || []).filter(
         (i: any) => i.review_status === "Approved"
+      );
+      const invoiceNumberById = new Map<string, string>(
+        (rawInvoices as any[]).map((i) => [i.id, i.invoice_number || ""])
       );
 
       // Bank accounts
@@ -113,33 +140,92 @@ export function usePayables() {
         account_number_last4: b.account_number_last4 || "",
       })));
       const bankMap = new Map(activeBanks.map((b: any) => [b.id, b]));
+      const bankLabel = (id: string | null) => {
+        if (!id) return null;
+        const b: any = bankMap.get(id);
+        if (!b) return null;
+        return `${b.bank_name || b.account_name}${b.account_number_last4 ? " •••" + b.account_number_last4 : ""}`.trim();
+      };
 
-      // All payments (to derive last payment + paid-this-month + awaiting count)
-      const payments = await fetchAllRows(
+      // Legacy invoice_payments (for back-compat last-payment derivation on invoices)
+      const legacyPayments = await fetchAllRows(
         "invoice_payments",
-        "id, invoice_id, payment_date, amount, payment_method, bank_account_id, bank_transaction_id, match_status"
+        "id, invoice_id, payment_date, amount, payment_method, bank_account_id, match_status"
       );
       const paymentsByInvoice = new Map<string, any[]>();
-      for (const p of payments as any[]) {
+      for (const p of legacyPayments as any[]) {
         const arr = paymentsByInvoice.get(p.invoice_id) || [];
         arr.push(p);
         paymentsByInvoice.set(p.invoice_id, arr);
       }
 
-      setPaidThisMonth(
-        (payments as any[])
-          .filter((p) => p.payment_date && p.payment_date >= monthStart)
-          .reduce((s, p) => s + (Number(p.amount) || 0), 0)
+      // NEW: payments + allocations
+      const paymentRows = await fetchAllRows(
+        "payments",
+        "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status"
       );
-      setAwaitingBankMatchCount(
-        (payments as any[]).filter((p) =>
-          ["awaiting_bank_match", "possible_match", "needs_review"].includes(
-            p.match_status || "awaiting_bank_match"
+      const allocRows = await fetchAllRows(
+        "payment_allocations",
+        "id, payment_id, invoice_id, amount_allocated, credit_note_id, credit_note_amount_applied"
+      );
+      const allocByPayment = new Map<string, any[]>();
+      for (const a of allocRows as any[]) {
+        const arr = allocByPayment.get(a.payment_id) || [];
+        arr.push(a);
+        allocByPayment.set(a.payment_id, arr);
+      }
+
+      const paymentsMapped: APPaymentRow[] = (paymentRows as any[]).map((p) => {
+        const allocs = allocByPayment.get(p.id) || [];
+        const allocated = allocs.reduce((s, a) => s + (Number(a.amount_allocated) || 0), 0);
+        const credit = allocs.reduce((s, a) => s + (Number(a.credit_note_amount_applied) || 0), 0);
+        const amount = Number(p.amount) || 0;
+        const invNums = Array.from(
+          new Set(
+            allocs
+              .map((a) => invoiceNumberById.get(a.invoice_id) || "")
+              .filter(Boolean)
           )
+        );
+        return {
+          id: p.id,
+          payment_date: p.payment_date,
+          amount,
+          payment_method: p.payment_method || "",
+          paid_from_account_id: p.paid_from_account_id || null,
+          paid_from_account_name: bankLabel(p.paid_from_account_id),
+          reference_number: p.reference_number || "",
+          cheque_number: p.cheque_number || "",
+          notes: p.notes || "",
+          supplier_id: p.supplier_id || null,
+          supplier_name: p.supplier_id ? (supplierName.get(p.supplier_id) || "—") : "—",
+          match_status: p.match_status || "awaiting_bank_match",
+          allocated_amount: Math.round(allocated * 100) / 100,
+          credit_applied: Math.round(credit * 100) / 100,
+          unallocated_amount: Math.round(Math.max(0, amount - allocated) * 100) / 100,
+          allocation_count: allocs.length,
+          invoice_numbers: invNums,
+        };
+      });
+      paymentsMapped.sort((a, b) => (b.payment_date || "").localeCompare(a.payment_date || ""));
+      setPayments(paymentsMapped);
+
+      // KPIs derived from new payments where possible, fallback to legacy
+      const newPaidThisMonth = paymentsMapped
+        .filter((p) => p.payment_date && p.payment_date >= monthStart)
+        .reduce((s, p) => s + p.amount, 0);
+      const legacyPaidThisMonth = (legacyPayments as any[])
+        .filter((p) => p.payment_date && p.payment_date >= monthStart)
+        .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+      setPaidThisMonth(newPaidThisMonth || legacyPaidThisMonth);
+
+      setAwaitingBankMatchCount(
+        paymentsMapped.filter((p) =>
+          ["awaiting_bank_match", "possible_match", "needs_review"].includes(p.match_status)
         ).length
       );
       setUnallocatedPaymentsCount(
-        (payments as any[]).filter((p) => !p.invoice_id).length
+        paymentsMapped.filter((p) => p.unallocated_amount > 0.01).length
       );
 
       const list: APInvoice[] = approved.map((i: any) => {
@@ -150,7 +236,6 @@ export function usePayables() {
         const paid = Number(i.amount_paid) || 0;
         const remaining = i.remaining_balance != null ? Number(i.remaining_balance) : Math.max(0, total - paid);
         const raw = (i.payment_status || "unpaid") as string;
-        // Derive overdue
         let derived = raw;
         if (raw === "unpaid" && i.due_date && i.due_date < todayStr) derived = "overdue";
 
@@ -166,7 +251,7 @@ export function usePayables() {
           due_date: i.due_date,
           invoice_number: i.invoice_number || "",
           supplier_id: i.supplier_id,
-          supplier_name: i.suppliers?.name || "(no supplier)",
+          supplier_name: i.suppliers?.name || supplierName.get(i.supplier_id) || "(no supplier)",
           venue: i.venue,
           total_amount: total,
           amount_paid: paid,
@@ -181,7 +266,7 @@ export function usePayables() {
           last_payment_method: lastPay?.payment_method || i.payment_method || null,
           last_paid_from_account_id: lastPay?.bank_account_id || null,
           last_paid_from_account_name: lastBank
-            ? `${lastBank.bank_name} ${lastBank.account_number_last4 ? "•••" + lastBank.account_number_last4 : ""}`.trim()
+            ? `${(lastBank as any).bank_name} ${(lastBank as any).account_number_last4 ? "•••" + (lastBank as any).account_number_last4 : ""}`.trim()
             : null,
           file_url: i.file_url || null,
         };
@@ -248,25 +333,47 @@ export function usePayables() {
         setPayrollPayables([]);
       }
 
-      // Approved credit notes with remaining balance
+      // Credit notes (all)
       const cns = await fetchAllRows(
         "credit_notes",
-        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, notes"
+        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, venue, notes, source_invoice_id"
       );
-      setCreditNotes(
-        (cns || [])
-          .filter((c: any) => c.status === "approved" && Number(c.remaining_balance) > 0.01)
-          .map((c: any) => ({
-            id: c.id,
-            supplier_id: c.supplier_id,
-            credit_note_number: c.credit_note_number || "",
-            credit_note_date: c.credit_note_date,
-            original_amount: Number(c.original_amount) || 0,
-            remaining_balance: Number(c.remaining_balance) || 0,
-            status: c.status,
-            notes: c.notes || "",
-          }))
+      const mappedCNs: APCreditNote[] = (cns || []).map((c: any) => {
+        const orig = Number(c.original_amount) || 0;
+        const rem = Number(c.remaining_balance) || 0;
+        return {
+          id: c.id,
+          supplier_id: c.supplier_id,
+          supplier_name: supplierName.get(c.supplier_id) || "—",
+          credit_note_number: c.credit_note_number || "",
+          credit_note_date: c.credit_note_date,
+          original_amount: orig,
+          applied_amount: Math.max(0, Math.round((orig - rem) * 100) / 100),
+          remaining_balance: rem,
+          status: c.status || "approved",
+          venue: c.venue || null,
+          notes: c.notes || "",
+          source_invoice_id: c.source_invoice_id || null,
+          source_invoice_number: c.source_invoice_id ? (invoiceNumberById.get(c.source_invoice_id) || null) : null,
+        };
+      });
+      setCreditNotes(mappedCNs);
+      setCreditNotesAvailable(
+        mappedCNs.filter((c) => c.status === "approved" && c.remaining_balance > 0.01)
       );
+
+      // Applied credit this month from allocations joined with payments
+      const paymentDateById = new Map<string, string>(
+        (paymentRows as any[]).map((p) => [p.id, p.payment_date])
+      );
+      const appliedCN = (allocRows as any[]).reduce((s, a) => {
+        const pd = paymentDateById.get(a.payment_id);
+        if (pd && pd >= monthStart && Number(a.credit_note_amount_applied) > 0) {
+          return s + Number(a.credit_note_amount_applied);
+        }
+        return s;
+      }, 0);
+      setAppliedCreditThisMonth(Math.round(appliedCN * 100) / 100);
 
       setLoading(false);
     })();
@@ -281,8 +388,10 @@ export function usePayables() {
     bankAccounts,
     payrollPayables,
     creditNotes,
+    creditNotesAvailable,
+    appliedCreditThisMonth,
+    payments,
     loading,
     refresh,
   };
 }
-
