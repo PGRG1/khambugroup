@@ -434,29 +434,54 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const rawInvoices = Array.isArray(data) ? data : Array.isArray(data?.invoices) ? data.invoices : Array.isArray(data?.data?.invoices) ? data.data.invoices : [];
       const review = data?.review || data?.data?.review || null;
 
-      // Build per-invoice/per-line review lookups
-      const lineReviewMap = new Map<string, { issues: string[]; status?: ScannedLineItem["review_status"]; candidates?: string[]; suggested?: ScannedLineItem["suggested_new_item"] }>();
-      const invoiceReviewMap = new Map<number, string[]>();
+      // Build per-invoice/per-line review lookups from new Agent 2 schema
+      type LineReview = {
+        warnings: string[];
+        blocking: string[];
+        corrections: ReviewCorrection[];
+        status?: ScannedLineItem["review_status"];
+        candidates?: string[];
+        matchReason?: string;
+        matchConfidence?: number;
+        suggested?: ScannedLineItem["suggested_new_item"];
+      };
+      type InvoiceReview = { warnings: string[]; blocking: string[]; corrections: ReviewCorrection[] };
+      const lineReviewMap = new Map<string, LineReview>();
+      const invoiceReviewMap = new Map<number, InvoiceReview>();
+      const getLine = (k: string): LineReview => {
+        const e = lineReviewMap.get(k) || { warnings: [], blocking: [], corrections: [] };
+        lineReviewMap.set(k, e);
+        return e;
+      };
+      const getInv = (i: number): InvoiceReview => {
+        const e = invoiceReviewMap.get(i) || { warnings: [], blocking: [], corrections: [] };
+        invoiceReviewMap.set(i, e);
+        return e;
+      };
       if (review && typeof review === "object") {
-        for (const ii of review.invoice_issues || []) {
-          const arr = invoiceReviewMap.get(ii.invoice_index) || [];
-          arr.push(`[${ii.severity || "warning"}] ${ii.field}: ${ii.message}`);
-          invoiceReviewMap.set(ii.invoice_index, arr);
+        for (const c of review.header_corrections || []) {
+          getInv(c.invoice_index).corrections.push(c);
         }
-        for (const li of review.line_issues || []) {
-          const k = `${li.invoice_index}:${li.line_index}`;
-          const entry = lineReviewMap.get(k) || { issues: [] };
-          entry.issues.push(`[${li.type}] ${li.message}`);
-          lineReviewMap.set(k, entry);
+        for (const c of review.line_corrections || []) {
+          getLine(`${c.invoice_index}:${c.line_index}`).corrections.push(c);
+        }
+        for (const f of review.header_flags || []) {
+          const inv = getInv(f.invoice_index);
+          const msg = `${f.field}: ${f.message}`;
+          if (f.severity === "blocking") inv.blocking.push(msg); else inv.warnings.push(msg);
+        }
+        for (const f of review.line_flags || []) {
+          const ln = getLine(`${f.invoice_index}:${f.line_index}`);
+          const msg = `${f.field}: ${f.message}`;
+          if (f.severity === "blocking") ln.blocking.push(msg); else ln.warnings.push(msg);
         }
         for (const im of review.item_master || []) {
-          const k = `${im.invoice_index}:${im.line_index}`;
-          const entry = lineReviewMap.get(k) || { issues: [] };
-          entry.status = im.status;
-          entry.candidates = im.candidates;
-          entry.suggested = im.suggested_new_item;
-          if (im.reason) entry.issues.push(`[match] ${im.reason}`);
-          lineReviewMap.set(k, entry);
+          const ln = getLine(`${im.invoice_index}:${im.line_index}`);
+          ln.status = im.status;
+          ln.candidates = im.candidates;
+          ln.matchReason = im.reason;
+          ln.matchConfidence = im.confidence;
+          ln.suggested = im.suggested_new_item;
         }
       }
 
@@ -470,7 +495,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             const matchedSku = li?.matched_sku || "";
             const itemCode = li?.item_code || "";
             const pmData = resolvePMData(itemCode, matchedSku, productMaster, supplierName);
-            // If resolved by SKU, override description with the authoritative PM name
             const resolvedDesc = pmData.entry
               ? (pmData.entry.supplier_product_name || pmData.entry.internal_product_name || li?.description || "")
               : (li?.description || "");
@@ -495,9 +519,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               matched_stock_uom: pmData.stock_uom,
               matched_purchase_uom: pmData.purchase_uom,
               matched_stock_qty_ratio: pmData.stock_qty_ratio,
-              review_issues: reviewEntry?.issues,
               review_status: reviewEntry?.status,
+              review_warnings: reviewEntry?.warnings,
+              review_blocking: reviewEntry?.blocking,
+              review_corrections: reviewEntry?.corrections,
               review_candidates: reviewEntry?.candidates,
+              review_match_reason: reviewEntry?.matchReason,
+              review_match_confidence: reviewEntry?.matchConfidence,
               suggested_new_item: reviewEntry?.suggested,
             };
           }),
@@ -505,6 +533,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           supplierName
         );
 
+        const ir = invoiceReviewMap.get(invIdx);
         parsedInvoices.push({
           supplier_name: supplierName,
           supplier_id: supplierId,
@@ -519,9 +548,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
-          review_issues: invoiceReviewMap.get(invIdx),
+          review_warnings: ir?.warnings,
+          review_blocking: ir?.blocking,
+          review_corrections: ir?.corrections,
         });
       }
+
 
       setInvoices(parsedInvoices);
       await checkDuplicates(parsedInvoices);
