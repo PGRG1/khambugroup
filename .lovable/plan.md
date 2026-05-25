@@ -1,101 +1,70 @@
+## Scope
 
-## Goal
+Extend the existing Accounts Payable Record Payment flow to support **credit notes** alongside cash. Strengthen the **payment record** so it can later be matched to a bank transaction by AI. No redesign of the page or table — only the payment dialog, the supporting hook, and the database get richer.
 
-Replace the current single-invoice Record Payment dialog with a two-step modal that lets one payment be allocated across one, many, or zero invoices (advance payment), with proper validation and downstream status updates.
+## Assumption (please confirm if wrong)
 
-## Data model changes
+Credit notes will be tracked in a **new `credit_notes` table** (separate from invoices). They are issued by a supplier, can be entered manually or via the existing scanner, and once `status='approved'` they show up as available credit for that supplier. If you'd rather treat credit notes as "negative invoices" inside the existing `invoices` table, say the word and I'll adapt.
 
-The current `invoice_payments` table ties each payment row to exactly one invoice via `invoice_id`. That cannot represent: one payment covering multiple invoices, or unallocated/advance payments. New model:
+## Database changes
+
+**New table `public.credit_notes`**
+- supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status (`draft|approved|fully_applied|voided`), venue, notes, attachment_url, source_invoice_id (optional link to the invoice it relates to)
+- RLS: read = authenticated; write = admin/manager
+- Trigger keeps `remaining_balance` and flips status to `fully_applied` when balance hits 0
+
+**Extend `public.payment_allocations`**
+- Add nullable `credit_note_id uuid`, `credit_note_amount_applied numeric default 0`
+- Drop the strict `amount_allocated > 0` check; replace with `amount_allocated >= 0 AND (amount_allocated + credit_note_amount_applied) > 0` so a row can be 100% credit-note (zero cash)
+- Update `validate_allocation_vs_payment` trigger to compare only the cash portion against `payments.amount`
+- Update `recompute_invoice_from_allocations` to count both cash and credit toward `amount_paid`
+
+**Extend `public.payments`**
+- Already has all the fields needed for AI bank matching (date, amount, method, paid_from_account, reference, cheque, supplier, match_status). Add an index on `(paid_from_account_id, payment_date)` to speed up future bank-match queries.
+- Allow `amount = 0` (currently `> 0`) for the edge case where an invoice is settled entirely by credit note — we still create a payment record with `amount=0, match_status='not_required'`.
+
+**New RPC: replace `record_payment_with_allocations`**
+- Inputs: `p_payment` (header), `p_allocations` (array of `{invoice_id, amount_allocated, credit_note_id?, credit_note_amount_applied?}`)
+- In one transaction: insert payment, insert allocations, decrement each used credit_note's `remaining_balance`, recompute invoice balances/status, set `bank_match_status='awaiting_bank_match'` on touched invoices when cash > 0, set `not_required` when settled fully by credit.
+
+## Record Payment dialog (frontend)
+
+`src/components/finance/payables/RecordPaymentDialog.tsx` — keep the two-step wizard, enhance Step 2:
+
+- For each open invoice row, add an **"Apply Credit Note"** affordance. Opens a small popover listing the supplier's credit notes with remaining balance. User picks one, enters the amount to apply (defaults to min(credit remaining, invoice outstanding)).
+- Row now shows three numeric columns: **Credit Applied**, **Cash to Pay**, **Remaining** (live recomputed: `outstanding − credit − cash`).
+- Confirmation prompt before applying a credit note ("Apply HK$ X from CN-1234? Remaining credit will be HK$ Y").
+- Footer summary gets a new "Credit Applied" tile next to Payment Amount / Allocated / Unallocated.
+- If every line is fully covered by credit, the Payment Amount field can be 0 and the wizard saves a zero-cash payment record.
+- Validation: `cash_allocated ≤ payment_amount`; `cash + credit ≤ invoice outstanding`; `credit_amount ≤ credit_note remaining_balance`.
+
+## Payment History dialog
+
+`PaymentHistoryDialog.tsx` — each allocation row now shows the credit-note number + amount applied alongside the cash amount, so the audit trail is complete.
+
+## Hook + types
+
+- `usePayables.ts` — fetch `credit_notes` with `status='approved' AND remaining_balance > 0` grouped by supplier_id, expose `creditNotesBySupplier`. Pass into the dialog.
+- New shared type `APCreditNote` in the hook.
+
+## Out of scope (explicitly not in this change)
+
+- No new Credit Notes management page yet — they can already be created via scanner / direct insert. I'll surface a minimal "approved credit notes" list inside the dialog only.
+- No bank-matching UI changes. The payment record is now structured correctly so the future AI matcher has all the fields it needs (`paid_from_account_id`, `payment_date`, `amount`, `supplier_id`, invoice numbers via allocations, `reference_number`, `cheque_number`, `payment_method`). Bank-matcher itself is a separate task.
+- No journal-entry / GL posting changes in this pass — credit notes hitting the ledger is a follow-up once you confirm the accounting treatment (contra-AP vs. expense reversal).
+
+## Technical details
 
 ```text
-payments (header — "the money that left the account")
-  id, payment_date, amount, payment_method, paid_from_account_id,
-  reference_number, cheque_number, notes, supplier_id (nullable),
-  bank_transaction_id (nullable), match_status, created_by, created_at
-
-payment_allocations (link — "how that money was applied")
-  id, payment_id, invoice_id, amount_allocated, created_at
+payments  1───*  payment_allocations  *───1  invoices
+                          │
+                          *───0..1  credit_notes  *───1  suppliers
 ```
 
-Derived per payment:
-- `total_allocated` = sum of allocations
-- `unallocated_amount` = `amount - total_allocated` (≥ 0; > 0 means advance/on-account)
-
-The existing `invoice_payments` rows will be migrated 1:1 into `payments` + `payment_allocations` (single allocation each), then `invoice_payments` is kept read-only for one release as a fallback (no UI writes).
-
-Bank matching moves to the `payments` header (not per allocation), matching the user's rule: "bank transaction should match to the payment record, not directly to each invoice."
-
-RLS: same admin/manager write, authenticated read pattern as `invoice_payments`. Validation triggers enforce `amount > 0`, `sum(allocations) <= payment.amount`, and `allocation.amount <= invoice.outstanding`.
-
-## UI: two-step `RecordPaymentDialog`
-
-Entry points unchanged (per-row "Record Payment" button + dropdown). Dialog widens to `max-w-3xl`.
-
-**Step 1 — Payment Details**
-
-Fields, with Payment Method and Paid From Account as separate selects:
-
-- Payment Date (defaults today)
-- Payment Amount (defaults to clicked invoice's outstanding)
-- Payment Method: `FPS`, `Cheque`, `Bank Transfer`, `Cash`, `Credit Card`, `Other`
-- Paid From Account: list of active `bank_accounts` plus cash/till accounts (`Cash Till - Assembly`, `Cash Till - Caliente`, `Petty Cash`) — these will be seeded as `bank_accounts` rows with `account_type = 'cash'` if not present
-- Reference Number
-- Cheque Number — only shown when Method = `Cheque`
-- Notes
-
-Validation: amount > 0, method + paid-from required. "Next" advances to Step 2.
-
-**Step 2 — Allocate Payment**
-
-Loads all open approved invoices for the same supplier (`outstanding_amount > 0`, `payment_status != voided`), pre-selecting the originating invoice with its outstanding amount auto-filled.
-
-Allocation table columns:
-Invoice # · Invoice Date · Due Date · Invoice Amount · Outstanding · **Amount to Pay** (editable) · Remaining Balance (live)
-
-Quick actions per row: "Pay full outstanding", "Clear".
-
-Running allocation summary bar (sticky at bottom of step):
-- Payment Amount
-- Total Allocated
-- Unallocated Amount (highlighted amber if > 0, labelled "Will be saved as Advance / On-Account")
-- Remaining Outstanding (across selected invoices)
-
-Live validation:
-- Total allocated ≤ Payment Amount (block save, red toast)
-- Per-row allocation ≤ that invoice's outstanding (clamp + warning)
-- Allow save with unallocated > 0 (advance payment) — confirm message
-- Allow save with total allocated = 0 (pure advance) — confirm message
-
-**Save**
-
-Single transaction via a Supabase RPC `record_payment_with_allocations(payment jsonb, allocations jsonb[])` that:
-1. Inserts the `payments` row.
-2. Inserts `payment_allocations` rows for non-zero entries.
-3. For each affected invoice, recomputes `amount_paid = sum(allocations)`, `remaining_balance = total_amount - amount_paid`, and sets `payment_status`:
-   - `paid` if remaining ≤ 0.01
-   - `partially_paid` if 0 < remaining < total
-   - leaves `unpaid` otherwise
-4. Sets invoice `bank_match_status = 'awaiting_bank_match'` where an allocation was applied.
-5. Returns the new payment id.
-
-Doing this server-side avoids client race conditions and keeps balances consistent.
-
-## Hook + page updates
-
-- `usePayables.ts`: fetch from `payments` + `payment_allocations` instead of `invoice_payments`. Derive `amount_paid`/`outstanding` per invoice from allocations as authoritative source (fallback to invoice column if no allocations exist post-migration). KPI `unallocatedPayments` becomes count of `payments` with `unallocated_amount > 0.01`.
-- `PaymentHistoryDialog.tsx`: show all payments touching the invoice via its allocations, with payment-level details and the allocated amount; "Reverse" deletes the allocation and recomputes invoice balance (and deletes the parent `payment` if it has no remaining allocations and no unallocated amount).
-- `AllocatePaymentDialog.tsx`: repurposed only for bank-transaction matching against existing `payments` (unchanged scope here).
-- `Payables.tsx`: no structural change; just passes the originating invoice into the new dialog.
-
-## Files touched
-
-- New migration: `payments`, `payment_allocations`, triggers, RPC, backfill from `invoice_payments`.
-- `src/components/finance/payables/RecordPaymentDialog.tsx` — rewritten as two-step.
-- `src/hooks/usePayables.ts` — read from new tables.
-- `src/components/finance/payables/PaymentHistoryDialog.tsx` — read/reverse via allocations.
-
-## Out of scope (Phase 2)
-
-- Re-allocating an existing advance payment to invoices later (UI exists conceptually but separate flow).
-- Multi-currency payments.
-- Posting journal entries from payments (already handled elsewhere if applicable).
+Recompute rule per invoice after save:
+```
+amount_paid       = Σ(amount_allocated) + Σ(credit_note_amount_applied)
+remaining_balance = max(0, total_amount − amount_paid)
+payment_status    = paid | partially_paid | unpaid | credit_note_applied (if 100% via credit)
+bank_match_status = not_required (if cash=0) | awaiting_bank_match (if cash>0)
+```
