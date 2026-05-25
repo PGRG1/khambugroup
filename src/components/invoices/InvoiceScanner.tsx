@@ -319,7 +319,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         workingLine.review_status === "needs_review" ||
         workingLine.review_status === "possible_match" ||
         workingLine.review_status === "new_item" ||
-        (workingLine.review_blocking?.length || 0) > 0;
+        (workingLine.review_blocking || []).some((msg) => msg.toLowerCase().startsWith("matched_sku:"));
 
       if (reviewerRequiresManualAction) {
         return {
