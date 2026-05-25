@@ -370,6 +370,7 @@ ${pmLines}`;
       .replace(/\s+/g, " ")
       .trim();
     const normalizeSku = (value: any) => String(value || "").trim().toLowerCase();
+    const normalizeDateValue = (value: any) => String(value || "").trim();
     const supplierMatches = (a?: string, b?: string) => {
       const na = normalizeText(a);
       const nb = normalizeText(b);
@@ -643,6 +644,7 @@ Return ONLY by calling the report_review function.`;
     const allowedHeaderFields = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "currency"]);
     const allowedLineFields = new Set(["description", "unit", "pack_size", "item_code", "matched_sku"]);
     if (review && typeof review === "object") {
+      review.header_checks = Array.isArray(review.header_checks) ? review.header_checks : [];
       review.header_corrections = Array.isArray(review.header_corrections) ? review.header_corrections : [];
       review.line_corrections = Array.isArray(review.line_corrections) ? review.line_corrections : [];
       review.header_flags = Array.isArray(review.header_flags) ? review.header_flags : [];
@@ -663,11 +665,33 @@ Return ONLY by calling the report_review function.`;
 
       const itemStatusByKey = new Map<string, any>();
       for (const item of review.item_master) itemStatusByKey.set(`${item.invoice_index}:${item.line_index}`, item);
+      const headerCheckByKey = new Map<string, any>();
+      for (const check of review.header_checks) headerCheckByKey.set(`${check.invoice_index}:${check.field}`, check);
 
       invoicesArray.forEach((inv: any, invoice_index: number) => {
         for (const field of ["supplier_name", "invoice_number", "invoice_date"]) {
           if (!String(inv?.[field] || "").trim()) {
             pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `${field.replace(/_/g, " ")} is missing.` });
+          }
+        }
+        for (const field of ["supplier_name", "venue", "invoice_number", "invoice_date", "total_amount"]) {
+          const check = headerCheckByKey.get(`${invoice_index}:${field}`);
+          if (!check) {
+            pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `Agent 2 did not verify ${field.replace(/_/g, " ")} against the invoice image.` });
+            continue;
+          }
+          const status = String(check.status || "").toLowerCase();
+          const confidence = Number(check.confidence || 0);
+          if (status === "missing" || status === "uncertain" || confidence < 0.75) {
+            pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `${field.replace(/_/g, " ")} was not confidently verified from the invoice image.` });
+          }
+        }
+        const dateCheck = headerCheckByKey.get(`${invoice_index}:invoice_date`);
+        if (dateCheck) {
+          const normalizedDate = normalizeDateValue(dateCheck.normalized_value || dateCheck.printed_value);
+          const currentDate = normalizeDateValue(inv?.invoice_date);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(currentDate) || !/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate) || normalizedDate !== currentDate) {
+            pushFlag(review.header_flags, { invoice_index, field: "invoice_date", severity: "blocking", message: "Invoice date does not match Agent 2's verified printed date." });
           }
         }
         if (!knownVenues.includes(inv?.venue)) {
