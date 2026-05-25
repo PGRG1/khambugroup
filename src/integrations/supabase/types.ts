@@ -2762,6 +2762,52 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_allocations: {
+        Row: {
+          amount_allocated: number
+          created_at: string
+          id: string
+          invoice_id: string
+          payment_id: string
+        }
+        Insert: {
+          amount_allocated: number
+          created_at?: string
+          id?: string
+          invoice_id: string
+          payment_id: string
+        }
+        Update: {
+          amount_allocated?: number
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          payment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_allocations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_processor_fee_rates: {
         Row: {
           created_at: string
@@ -3198,6 +3244,72 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "payment_settlement_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          bank_transaction_id: string | null
+          cheque_number: string
+          created_at: string
+          created_by: string | null
+          id: string
+          match_status: string
+          notes: string
+          paid_from_account_id: string | null
+          payment_date: string
+          payment_method: string
+          reference_number: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_transaction_id?: string | null
+          cheque_number?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          match_status?: string
+          notes?: string
+          paid_from_account_id?: string | null
+          payment_date: string
+          payment_method: string
+          reference_number?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_transaction_id?: string | null
+          cheque_number?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          match_status?: string
+          notes?: string
+          paid_from_account_id?: string | null
+          payment_date?: string
+          payment_method?: string
+          reference_number?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_paid_from_account_id_fkey"
+            columns: ["paid_from_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -4469,6 +4581,14 @@ export type Database = {
       rebuild_payroll_accrual: {
         Args: { p_month: number; p_year: number }
         Returns: Json
+      }
+      recompute_invoice_from_allocations: {
+        Args: { p_invoice_id: string }
+        Returns: undefined
+      }
+      record_payment_with_allocations: {
+        Args: { p_allocations: Json; p_payment: Json }
+        Returns: string
       }
       void_payroll_payment_batch: {
         Args: { p_batch_id: string }
