@@ -312,6 +312,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return lines.map(line => {
       let workingLine = { ...line };
 
+      // Agent 2 is the gatekeeper for scan-time matching. If it says the line is
+      // new/ambiguous/needs review, do not let the local fuzzy resolver silently
+      // re-match it and make the row look approved.
+      const reviewerRequiresManualAction =
+        workingLine.review_status === "needs_review" ||
+        workingLine.review_status === "possible_match" ||
+        workingLine.review_status === "new_item" ||
+        (workingLine.review_blocking?.length || 0) > 0;
+
+      if (reviewerRequiresManualAction) {
+        return {
+          ...workingLine,
+          matched_sku: workingLine.review_status === "matched" ? workingLine.matched_sku : "",
+          matched_internal_name: "",
+          matched_stock_uom: "",
+          matched_purchase_uom: "",
+          matched_stock_qty_ratio: 1,
+          sku_mismatch: false,
+          unmatched: true,
+          price_changed: false,
+          pm_unit_price: undefined,
+        };
+      }
+
       // Use shared resolver to find the best match
       const resolved = resolveProductMatch(
         {
@@ -427,6 +451,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         body: {
           files: preparedFiles.map((file) => ({ base64: file.base64, mimeType: file.mimeType })),
           productMaster: productMaster || [],
+          suppliers,
           userId,
         },
       });
