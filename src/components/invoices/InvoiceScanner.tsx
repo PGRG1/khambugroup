@@ -1571,6 +1571,49 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           className="text-xs font-medium h-8 w-full"
                         />
                       </td>
+                      {/* Status */}
+                      <td className="px-1 py-1 align-top">
+                        {(() => {
+                          const s = getLineStatus(line);
+                          return <LineStatusChip variant={s.variant} label={s.label} />;
+                        })()}
+                      </td>
+                      {/* Action */}
+                      <td className="px-1 py-1 align-top">
+                        {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] px-2"
+                            disabled={creatingLineIdx === i}
+                            onClick={() => handleAddSuggestedItem(i)}
+                          >
+                            {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
+                            Add Item
+                          </Button>
+                        ) : (line.review_blocking && line.review_blocking.length > 0) ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 text-[11px] px-2"
+                            onClick={() => setDetailsLineIdx(i)}
+                          >
+                            Resolve
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-[11px] px-2"
+                            onClick={() => setDetailsLineIdx(i)}
+                          >
+                            Details
+                          </Button>
+                        )}
+                      </td>
                       {/* Delete */}
                       <td className="px-1 py-1 align-top">
                         {current.line_items.length > 1 && (
