@@ -312,12 +312,36 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return lines.map(line => {
       let workingLine = { ...line };
 
+      // Agent 2 is the gatekeeper for scan-time matching. If it says the line is
+      // new/ambiguous/needs review, do not let the local fuzzy resolver silently
+      // re-match it and make the row look approved.
+      const reviewerRequiresManualAction =
+        workingLine.review_status === "needs_review" ||
+        workingLine.review_status === "possible_match" ||
+        workingLine.review_status === "new_item" ||
+        (workingLine.review_blocking || []).some((msg) => msg.toLowerCase().startsWith("matched_sku:"));
+
+      if (reviewerRequiresManualAction) {
+        return {
+          ...workingLine,
+          matched_sku: "",
+          matched_internal_name: "",
+          matched_stock_uom: "",
+          matched_purchase_uom: "",
+          matched_stock_qty_ratio: 1,
+          sku_mismatch: false,
+          unmatched: true,
+          price_changed: false,
+          pm_unit_price: undefined,
+        };
+      }
+
       // Use shared resolver to find the best match
-      const resolved = resolveProductMatch(
+      const resolved = resolveExactMatch(
         {
           itemCode: workingLine.item_code,
           description: workingLine.description,
-          internalSku: workingLine.matched_sku || undefined,
+          internalSku: workingLine.review_status === "matched" ? workingLine.matched_sku || undefined : undefined,
         },
         pm,
         supplierName,
@@ -427,6 +451,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         body: {
           files: preparedFiles.map((file) => ({ base64: file.base64, mimeType: file.mimeType })),
           productMaster: productMaster || [],
+          suppliers,
           userId,
         },
       });
@@ -570,7 +595,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
-  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, userId]);
+  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId]);
 
   const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
     if (!invoiceNumber || !supplierId) {
@@ -602,7 +627,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     const targetIdx = currentIdx;
     setInvoices((prev) => {
       const copy = [...prev];
-      copy[targetIdx] = { ...copy[targetIdx], [field]: value };
+      const next = { ...copy[targetIdx], [field]: value };
+      if (["supplier_id", "supplier_name", "venue", "invoice_number", "invoice_date", "due_date"].includes(field as string)) {
+        const fieldAliases = field === "supplier_id" ? ["supplier_id", "supplier_name"] : [field as string];
+        next.review_blocking = (next.review_blocking || []).filter((msg) => !fieldAliases.some((f) => msg.toLowerCase().startsWith(`${f}:`.toLowerCase())));
+        next.review_warnings = (next.review_warnings || []).filter((msg) => !fieldAliases.some((f) => msg.toLowerCase().startsWith(`${f}:`.toLowerCase())));
+      }
+      copy[targetIdx] = next;
       return copy;
     });
     if (field === "invoice_number") {
@@ -629,6 +660,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         ...copy[targetIdx],
         supplier_id: value,
         supplier_name: newSupplierName,
+        review_blocking: (copy[targetIdx].review_blocking || []).filter((msg) => !msg.toLowerCase().startsWith("supplier_name:")),
+        review_warnings: (copy[targetIdx].review_warnings || []).filter((msg) => !msg.toLowerCase().startsWith("supplier_name:")),
         line_items: recomputedLines,
       };
       return copy;
@@ -706,6 +739,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         sku_mismatch: false,
         price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+        review_status: "matched",
+        review_blocking: [],
       };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
@@ -857,11 +892,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return inv.line_items.some(l => l.description.trim() && l.unmatched);
   }, []);
 
+  const hasBlockingForSave = useCallback((inv: ScannedInvoice) => {
+    return (inv.review_blocking?.length || 0) + inv.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) > 0;
+  }, []);
+
   const handleSaveCurrent = async () => {
     if (!current) return;
     if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
+    if (hasBlockingForSave(current)) { toast({ title: "Resolve blocking issues before saving", variant: "destructive" }); return; }
     if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Bills & Invoices", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
     await doSaveCurrent(current, currentIdx);
   };
@@ -930,6 +970,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Bills & Invoices first.`, variant: "destructive" });
       return;
     }
+    const blockingInvoices = invoices.filter((inv) => !inv.saved && !inv.is_duplicate && hasBlockingForSave(inv));
+    if (blockingInvoices.length > 0) {
+      toast({ title: "Cannot save all", description: `${blockingInvoices.length} invoice(s) have unresolved blocking issues.`, variant: "destructive" });
+      return;
+    }
     setSavingAll(true);
     let saved = 0;
     let skippedDuplicates = 0;
@@ -962,7 +1007,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const hasPriceChanges = priceChangedItems.length > 0;
   const blockingCount = (current?.review_blocking?.length || 0)
     + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
-  const hasBlockingIssues = blockingCount > 0;
+  const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);

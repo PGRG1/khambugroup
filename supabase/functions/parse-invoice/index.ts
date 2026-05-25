@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   if (auth.response) return auth.response;
 
   try {
-    const { fileBase64, mimeType, productMaster, files } = await req.json();
+    const { fileBase64, mimeType, productMaster, suppliers, files } = await req.json();
 
     let fileEntries: { base64: string; mimeType: string }[] = [];
     if (files && Array.isArray(files) && files.length > 0) {
@@ -406,6 +406,67 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
       if (inv.notes) inv.notes = translateChinese(inv.notes);
     }
 
+    const normalizeText = (value: any) => String(value || "")
+      .toLowerCase()
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
+      .replace(/\b(limited|ltd|co|company)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const normalizeSku = (value: any) => String(value || "").trim().toLowerCase();
+    const supplierMatches = (a?: string, b?: string) => {
+      const na = normalizeText(a);
+      const nb = normalizeText(b);
+      return !!na && !!nb && (na === nb || na.includes(nb) || nb.includes(na));
+    };
+    const exactSkuSegments = (value: any) => normalizeSku(value)
+      .split("|")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const pmRows = Array.isArray(productMaster) ? productMaster : [];
+    const supplierNames = Array.from(new Set([
+      ...(Array.isArray(suppliers) ? suppliers.map((s: any) => s?.name).filter(Boolean) : []),
+      ...pmRows.map((p: any) => p?.supplier).filter(Boolean),
+    ]));
+    const knownVenues = ["Assembly", "Caliente", "Hanabi"];
+    const findTrustedProductMatch = (line: any, supplierName: string, requestedSku?: string) => {
+      const code = normalizeSku(line?.item_code);
+      const desc = normalizeText(line?.description);
+      const rows = requestedSku ? pmRows.filter((p: any) => p.internal_sku === requestedSku) : pmRows;
+      const supplierScoped = rows.filter((p: any) => supplierMatches(p.supplier, supplierName));
+      const searchRows = supplierScoped.length > 0 ? supplierScoped : rows;
+
+      if (code) {
+        const skuMatches = searchRows.filter((p: any) => exactSkuSegments(p.external_sku).includes(code));
+        if (skuMatches.length === 1) return { row: skuMatches[0], reason: "Exact supplier item code match" };
+        if (skuMatches.length > 1 && requestedSku) {
+          const requested = skuMatches.find((p: any) => p.internal_sku === requestedSku);
+          if (requested) return { row: requested, reason: "Exact item code match" };
+        }
+        if (supplierScoped.length === 0) {
+          const globalSkuMatches = rows.filter((p: any) => exactSkuSegments(p.external_sku).includes(code));
+          if (globalSkuMatches.length === 1) return { row: globalSkuMatches[0], reason: "Unique exact item code match" };
+        }
+        return null;
+      }
+
+      if (desc) {
+        const nameMatches = searchRows.filter((p: any) => {
+          const supplierNameNorm = normalizeText(p.supplier_product_name);
+          const internalNameNorm = normalizeText(p.internal_product_name);
+          return (supplierNameNorm && supplierNameNorm === desc) || (internalNameNorm && internalNameNorm === desc);
+        });
+        if (nameMatches.length === 1) return { row: nameMatches[0], reason: "Exact supplier item name match" };
+      }
+
+      return null;
+    };
+    const pushFlag = (list: any[], flag: any) => {
+      if (!list.some((f) => f.invoice_index === flag.invoice_index && f.line_index === flag.line_index && f.field === flag.field && f.message === flag.message)) {
+        list.push(flag);
+      }
+    };
+
     // --- AGENT 2: Invoice Review & Correction Agent ---
     // Reviews Agent 1 output, applies safe corrections, flags risky values for human review,
     // assigns one Items Master status per line.
@@ -417,22 +478,29 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
           ).join("\n")
         : "(empty)";
 
-      const supplierListText = (productMaster && Array.isArray(productMaster))
-        ? Array.from(new Set(productMaster.map((p: any) => p.supplier).filter(Boolean))).join(" | ")
-        : "";
+      const supplierListText = supplierNames.join(" | ");
 
       const reviewerSystem = `You are the Invoice Review & Correction Agent.
-Agent 1 has extracted invoice data from an image. Your job is to REVIEW and CORRECT it — not to comment on it.
+Agent 1 has extracted invoice data from invoice image(s). Your job is to re-read the source image(s), REVIEW the extraction, and CORRECT the returned data — not to comment on it.
 
 For every field decide: keep as-is, safely correct, or flag for human review.
 
+HEADER FIELDS YOU ARE RESPONSIBLE FOR:
+- supplier_name, venue, invoice_number, invoice_date, due_date, total_amount.
+- For supplier_name, invoice_number, invoice_date, due_date, and venue: compare Agent 1's value to the actual source image.
+- If Agent 1 is wrong and the correct value is visible, return a header_correction. The correction will be applied to the invoice.
+- Venue must be one of: Assembly, Caliente, Hanabi. Use delivery address / customer name. Knutsford Terrace = Caliente.
+- Dates must be corrected from the printed invoice date, not inferred from upload date or current date.
+
 YOU MAY SAFELY CORRECT (return in line_corrections / header_corrections):
-- supplier_name: only if there is a clear match in the known supplier list
-- invoice_date / due_date: normalize to YYYY-MM-DD
+- supplier_name: if the printed supplier is clear, preserving exact printed spelling/Chinese characters when possible
+- venue: if delivery/customer text clearly indicates Assembly, Caliente, or Hanabi
+- invoice_number: if every character is visible or Agent 1 has an obvious OCR error
+- invoice_date / due_date: normalize to YYYY-MM-DD from the printed date
 - currency: normalize codes (HKD, USD, etc.)
 - unit (UOM): normalize formatting (e.g. "btl" -> "Bottle", "pcs" -> "Piece")
 - description: clean obvious OCR noise without changing meaning
-- item_code / matched_sku: set when there is a CLEAR Items Master match
+- item_code / matched_sku: set only when there is a CLEAR Items Master match
 
 YOU MUST NEVER SILENTLY CHANGE (flag only):
 - quantity, unit_price, subtotal, tax, discount, total_amount, line total
@@ -445,10 +513,12 @@ MATH CHECKS (flags only):
 MISSING REQUIRED HEADER FIELDS (header_flags, "blocking"): supplier_name, invoice_number, invoice_date, total_amount.
 
 ITEMS MASTER STATUS — exactly ONE per line:
-- "matched": confident exact/near-exact match. Return matched_sku.
+- "matched": ONLY when the invoice item_code exactly matches an Items Master ExtSKU for the same supplier, OR there is an exact supplier product name match for the same supplier. Return matched_sku and confidence >= 0.90.
 - "possible_match": multiple plausible candidates. Return up to 3 candidate internal_sku values.
 - "new_item": no plausible match. Return a suggested_new_item draft.
-- "needs_review": data too incomplete/ambiguous to decide.
+- "needs_review": data too incomplete/ambiguous to decide, or Agent 1's matched_sku is not supported by exact invoice code/name evidence.
+
+IMPORTANT: Do not approve Agent 1's item match just because matched_sku is present. Verify it against the invoice text and Items Master. If the item description, item code, supplier, pack size, or UOM does not support the match, return needs_review or possible_match, not matched.
 
 For EVERY correction return: field, original, corrected, reason (short), confidence (0-1).
 If unsure, prefer a flag over a correction.
@@ -458,6 +528,11 @@ Known suppliers: ${supplierListText || "(none)"}
 Return ONLY by calling the report_review function.`;
 
       const reviewerUserText = `EXTRACTED INVOICES (from Agent 1):\n${JSON.stringify({ invoices: invoicesArray }, null, 2)}\n\nITEMS MASTER (first 800 rows):\n${pmSummary}`;
+      const reviewerUserContent: any[] = fileEntries.map((entry) => ({
+        type: "image_url",
+        image_url: { url: `data:${entry.mimeType};base64,${entry.base64}` },
+      }));
+      reviewerUserContent.push({ type: "text", text: reviewerUserText });
 
       const correctionItem = {
         type: "object",
@@ -491,7 +566,7 @@ Return ONLY by calling the report_review function.`;
         max_tokens: 16000,
         messages: [
           { role: "system", content: reviewerSystem },
-          { role: "user", content: reviewerUserText },
+          { role: "user", content: reviewerUserContent },
         ],
         tools: [
           {
@@ -583,20 +658,67 @@ Return ONLY by calling the report_review function.`;
     }
 
     // Apply ALLOWED corrections server-side. Numeric fields are NEVER overwritten.
-    const allowedHeaderFields = new Set(["supplier_name", "invoice_date", "due_date", "currency", "venue"]);
+    const allowedHeaderFields = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "currency"]);
     const allowedLineFields = new Set(["description", "unit", "pack_size", "item_code", "matched_sku"]);
     if (review && typeof review === "object") {
+      review.header_corrections = Array.isArray(review.header_corrections) ? review.header_corrections : [];
+      review.line_corrections = Array.isArray(review.line_corrections) ? review.line_corrections : [];
+      review.header_flags = Array.isArray(review.header_flags) ? review.header_flags : [];
+      review.line_flags = Array.isArray(review.line_flags) ? review.line_flags : [];
+      review.item_master = Array.isArray(review.item_master) ? review.item_master : [];
+
       for (const c of review.header_corrections || []) {
         const inv = invoicesArray[c.invoice_index];
-        if (!inv || !allowedHeaderFields.has(c.field)) continue;
+        if (!inv || !allowedHeaderFields.has(c.field) || Number(c.confidence || 0) < 0.7) continue;
         inv[c.field] = c.corrected;
       }
       for (const c of review.line_corrections || []) {
         const inv = invoicesArray[c.invoice_index];
         const line = inv?.line_items?.[c.line_index];
-        if (!line || !allowedLineFields.has(c.field)) continue;
+        if (!line || !allowedLineFields.has(c.field) || Number(c.confidence || 0) < 0.7) continue;
         line[c.field] = c.corrected;
       }
+
+      const itemStatusByKey = new Map<string, any>();
+      for (const item of review.item_master) itemStatusByKey.set(`${item.invoice_index}:${item.line_index}`, item);
+
+      invoicesArray.forEach((inv: any, invoice_index: number) => {
+        for (const field of ["supplier_name", "invoice_number", "invoice_date"]) {
+          if (!String(inv?.[field] || "").trim()) {
+            pushFlag(review.header_flags, { invoice_index, field, severity: "blocking", message: `${field.replace(/_/g, " ")} is missing.` });
+          }
+        }
+        if (!knownVenues.includes(inv?.venue)) {
+          pushFlag(review.header_flags, { invoice_index, field: "venue", severity: "blocking", message: "Venue is missing or not one of Assembly, Caliente, Hanabi." });
+        }
+
+        (inv.line_items || []).forEach((line: any, line_index: number) => {
+          const key = `${invoice_index}:${line_index}`;
+          let item = itemStatusByKey.get(key);
+          if (!item) {
+            item = { invoice_index, line_index, status: "needs_review", reason: "Review agent did not return an Items Master decision.", confidence: 0 };
+            review.item_master.push(item);
+            itemStatusByKey.set(key, item);
+          }
+
+          if (item.status === "matched") {
+            const trusted = findTrustedProductMatch(line, inv.supplier_name || "", item.matched_sku || line.matched_sku);
+            if (!trusted || (item.matched_sku && trusted.row.internal_sku !== item.matched_sku)) {
+              item.status = "needs_review";
+              item.matched_sku = "";
+              item.confidence = Math.min(Number(item.confidence || 0), 0.49);
+              item.reason = "Match was not supported by an exact supplier item code/name match.";
+              line.matched_sku = "";
+              pushFlag(review.line_flags, { invoice_index, line_index, field: "matched_sku", severity: "blocking", message: "Items Master match needs manual review." });
+            } else {
+              item.matched_sku = trusted.row.internal_sku;
+              item.confidence = Math.max(Number(item.confidence || 0), 0.9);
+              item.reason = item.reason || trusted.reason;
+              line.matched_sku = trusted.row.internal_sku;
+            }
+          }
+        });
+      });
     }
 
     return new Response(
