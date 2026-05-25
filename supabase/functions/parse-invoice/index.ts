@@ -271,74 +271,15 @@ ${pmLines}`;
       );
     }
 
-    // --- SECOND PASS: Verification ---
-    try {
-      const verificationPrompt = `You previously extracted the following invoice data from the document images. Please re-examine the images and VERIFY every number is correct. Focus especially on:
-1. Quantities — are they really what's shown in the QTY column?
-2. Unit prices — are they from the correct PRICE column (not the AMOUNT or DISCOUNT column)?
-3. Line totals — do they match what's in the AMOUNT column?
-4. Invoice total — does it match the grand total shown on the invoice?
-5. Supplier name — is it spelled exactly as printed?
-6. Invoice number — is every character correct?
-
-Here is the extracted data to verify:
-${JSON.stringify(extractedData, null, 2)}
-
-If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same format. If everything is correct, return the data unchanged. Return ONLY the JSON, no explanation.`;
-
-      const verifyContent: any[] = fileEntries.map((entry) => ({
-        type: "image_url",
-        image_url: { url: `data:${entry.mimeType};base64,${entry.base64}` },
-      }));
-      verifyContent.push({ type: "text", text: verificationPrompt });
-
-      const verifyController = new AbortController();
-      const verifyTimeout = setTimeout(() => verifyController.abort(), 180000);
-      const verifyResponse = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            max_tokens: 32000,
-            messages: [
-              { role: "system", content: "You are verifying invoice data extraction accuracy. Return only corrected JSON." },
-              { role: "user", content: verifyContent },
-            ],
-          }),
-          signal: verifyController.signal,
-        }
-      );
-      clearTimeout(verifyTimeout);
-
-      if (verifyResponse.ok) {
-        const verifyText = await verifyResponse.text();
-        if (verifyText) {
-          const verifyAiData = JSON.parse(verifyText);
-          const verifyContent2 = verifyAiData.choices?.[0]?.message?.content || "";
-          let verifyCleaned = verifyContent2.trim();
-          if (verifyCleaned.startsWith("```")) {
-            verifyCleaned = verifyCleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-          }
-          try {
-            const verifiedData = JSON.parse(verifyCleaned);
-            extractedData = verifiedData;
-            console.log("Verification pass completed — using verified data");
-          } catch {
-            console.warn("Verification pass returned invalid JSON — using original extraction");
-          }
-        }
-      } else {
-        const vt = await verifyResponse.text();
-        console.warn("Verification pass failed:", verifyResponse.status, vt);
-      }
-    } catch (verifyErr) {
-      console.warn("Verification pass error (non-fatal):", verifyErr);
-    }
+    // NOTE: The standalone verification pass was removed because three sequential
+    // vision-LLM calls (extract + verify + review) exceeded the edge-function
+    // wall-clock limit, causing the function to be killed before responding
+    // (the client saw a non-2xx FunctionsHttpError). Agent 2 below does
+    // image-based verification AND correction in a single tool-call pass.
+    console.log(
+      "Agent 1 extraction complete. Invoices:",
+      Array.isArray(extractedData?.invoices) ? extractedData.invoices.length : 1
+    );
 
     // Normalize: support both old single-invoice format and new multi-invoice format
     let invoicesArray;
