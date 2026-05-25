@@ -234,7 +234,10 @@ export function usePayables() {
         );
         const total = Number(i.total_amount) || 0;
         const paid = Number(i.amount_paid) || 0;
-        const remaining = i.remaining_balance != null ? Number(i.remaining_balance) : Math.max(0, total - paid);
+        // Always compute from total - paid; the stored remaining_balance column can be stale.
+        const computed = Math.max(0, total - paid);
+        const stored = i.remaining_balance != null ? Number(i.remaining_balance) : null;
+        const remaining = stored != null && stored > 0 ? stored : computed;
         const raw = (i.payment_status || "unpaid") as string;
         let derived = raw;
         if (raw === "unpaid" && i.due_date && i.due_date < todayStr) derived = "overdue";
