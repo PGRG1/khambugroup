@@ -660,6 +660,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         ...copy[targetIdx],
         supplier_id: value,
         supplier_name: newSupplierName,
+        review_blocking: (copy[targetIdx].review_blocking || []).filter((msg) => !msg.toLowerCase().startsWith("supplier_name:")),
+        review_warnings: (copy[targetIdx].review_warnings || []).filter((msg) => !msg.toLowerCase().startsWith("supplier_name:")),
         line_items: recomputedLines,
       };
       return copy;
