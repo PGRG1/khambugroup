@@ -406,6 +406,67 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
       if (inv.notes) inv.notes = translateChinese(inv.notes);
     }
 
+    const normalizeText = (value: any) => String(value || "")
+      .toLowerCase()
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
+      .replace(/\b(limited|ltd|co|company)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const normalizeSku = (value: any) => String(value || "").trim().toLowerCase();
+    const supplierMatches = (a?: string, b?: string) => {
+      const na = normalizeText(a);
+      const nb = normalizeText(b);
+      return !!na && !!nb && (na === nb || na.includes(nb) || nb.includes(na));
+    };
+    const exactSkuSegments = (value: any) => normalizeSku(value)
+      .split("|")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const pmRows = Array.isArray(productMaster) ? productMaster : [];
+    const supplierNames = Array.from(new Set([
+      ...(Array.isArray(suppliers) ? suppliers.map((s: any) => s?.name).filter(Boolean) : []),
+      ...pmRows.map((p: any) => p?.supplier).filter(Boolean),
+    ]));
+    const knownVenues = ["Assembly", "Caliente", "Hanabi"];
+    const findTrustedProductMatch = (line: any, supplierName: string, requestedSku?: string) => {
+      const code = normalizeSku(line?.item_code);
+      const desc = normalizeText(line?.description);
+      const rows = requestedSku ? pmRows.filter((p: any) => p.internal_sku === requestedSku) : pmRows;
+      const supplierScoped = rows.filter((p: any) => supplierMatches(p.supplier, supplierName));
+      const searchRows = supplierScoped.length > 0 ? supplierScoped : rows;
+
+      if (code) {
+        const skuMatches = searchRows.filter((p: any) => exactSkuSegments(p.external_sku).includes(code));
+        if (skuMatches.length === 1) return { row: skuMatches[0], reason: "Exact supplier item code match" };
+        if (skuMatches.length > 1 && requestedSku) {
+          const requested = skuMatches.find((p: any) => p.internal_sku === requestedSku);
+          if (requested) return { row: requested, reason: "Exact item code match" };
+        }
+        if (supplierScoped.length === 0) {
+          const globalSkuMatches = rows.filter((p: any) => exactSkuSegments(p.external_sku).includes(code));
+          if (globalSkuMatches.length === 1) return { row: globalSkuMatches[0], reason: "Unique exact item code match" };
+        }
+        return null;
+      }
+
+      if (desc) {
+        const nameMatches = searchRows.filter((p: any) => {
+          const supplierNameNorm = normalizeText(p.supplier_product_name);
+          const internalNameNorm = normalizeText(p.internal_product_name);
+          return (supplierNameNorm && supplierNameNorm === desc) || (internalNameNorm && internalNameNorm === desc);
+        });
+        if (nameMatches.length === 1) return { row: nameMatches[0], reason: "Exact supplier item name match" };
+      }
+
+      return null;
+    };
+    const pushFlag = (list: any[], flag: any) => {
+      if (!list.some((f) => f.invoice_index === flag.invoice_index && f.line_index === flag.line_index && f.field === flag.field && f.message === flag.message)) {
+        list.push(flag);
+      }
+    };
+
     // --- AGENT 2: Invoice Review & Correction Agent ---
     // Reviews Agent 1 output, applies safe corrections, flags risky values for human review,
     // assigns one Items Master status per line.
