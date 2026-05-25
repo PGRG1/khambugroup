@@ -568,7 +568,8 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
 
 /* ============================== CREDIT NOTES ============================== */
 
-function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, loading, onApply }: any) {
+function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invoices, loading, onApply, onSaved }: any) {
+  const [bookOpen, setBookOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [supplierF, setSupplierF] = useState("all");
   const [venueF, setVenueF] = useState("all");
