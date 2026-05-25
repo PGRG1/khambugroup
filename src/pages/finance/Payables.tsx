@@ -32,7 +32,7 @@ type DueRange = "all" | "overdue" | "this_week" | "this_month" | "next_30";
 export default function Payables() {
   const {
     invoices, supplierSummary, paidThisMonth, awaitingBankMatchCount, unallocatedPaymentsCount,
-    bankAccounts, payrollPayables, loading, refresh,
+    bankAccounts, payrollPayables, creditNotes, loading, refresh,
   } = usePayables();
 
   // Filters
