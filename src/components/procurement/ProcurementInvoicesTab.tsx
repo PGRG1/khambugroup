@@ -1094,7 +1094,7 @@ function InvoiceTableSection({
       allLabel: "All Months" },
   ];
 
-  const resetFilters = () => { setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
+  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
 
   const handleDownload = () => downloadCSV(
     filtered.map((inv) => ({
