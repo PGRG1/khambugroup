@@ -627,7 +627,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     const targetIdx = currentIdx;
     setInvoices((prev) => {
       const copy = [...prev];
-      copy[targetIdx] = { ...copy[targetIdx], [field]: value };
+      const next = { ...copy[targetIdx], [field]: value };
+      if (["supplier_id", "supplier_name", "venue", "invoice_number", "invoice_date", "due_date"].includes(field as string)) {
+        const fieldAliases = field === "supplier_id" ? ["supplier_id", "supplier_name"] : [field as string];
+        next.review_blocking = (next.review_blocking || []).filter((msg) => !fieldAliases.some((f) => msg.toLowerCase().startsWith(`${f}:`.toLowerCase())));
+        next.review_warnings = (next.review_warnings || []).filter((msg) => !fieldAliases.some((f) => msg.toLowerCase().startsWith(`${f}:`.toLowerCase())));
+      }
+      copy[targetIdx] = next;
       return copy;
     });
     if (field === "invoice_number") {
@@ -731,6 +737,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         sku_mismatch: false,
         price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+        review_status: "matched",
+        review_blocking: [],
       };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
