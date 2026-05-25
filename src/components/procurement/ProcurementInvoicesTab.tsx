@@ -1112,7 +1112,34 @@ function InvoiceTableSection({
     "invoices",
   );
 
+  const kpiCards: Array<{ label: string; value: string; sub: string; subTone?: string; icon: React.ReactNode; tone: string }> = [
+    { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
+    { label: "Under Review", value: kpis.underReview.toLocaleString(), sub: kpis.pct(kpis.underReview), subTone: "text-amber-400", icon: <Clock className="h-4 w-4" />, tone: "text-amber-400" },
+    { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
+    { label: "Exceptions", value: kpis.exceptions.toLocaleString(), sub: kpis.pct(kpis.exceptions), subTone: "text-red-400", icon: <AlertTriangle className="h-4 w-4" />, tone: "text-red-400" },
+    { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-violet-400", icon: <CopyIcon className="h-4 w-4" />, tone: "text-violet-400" },
+    { label: "Total Value", value: `$${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
+  ];
+
   return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Invoices Database</h2>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {kpiCards.map((k) => (
+          <div key={k.label} className="card-glass rounded-lg p-3 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className={`text-[11px] font-medium ${k.tone}`}>{k.label}</div>
+              <div className="td-num text-xl font-bold mt-1 truncate">{k.value}</div>
+              <div className={`text-[10px] mt-0.5 ${k.subTone || "text-muted-foreground"}`}>{k.sub}</div>
+            </div>
+            <div className={`rounded-full p-2 bg-muted/40 ${k.tone}`}>{k.icon}</div>
+          </div>
+        ))}
+      </div>
+
     <DataTableShell
       search={{ value: search, onChange: setSearch, placeholder: "Search invoice # or supplier..." }}
       filters={{ fields: filterFields, onReset: resetFilters }}
