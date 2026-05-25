@@ -810,6 +810,63 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     await doSaveCurrent(current, currentIdx);
   };
 
+
+  const handleAddSuggestedItem = useCallback(async (lineIdx: number) => {
+    const inv = invoices[currentIdx];
+    const line = inv?.line_items[lineIdx];
+    if (!line || !line.suggested_new_item) return;
+    setCreatingLineIdx(lineIdx);
+    try {
+      const s = line.suggested_new_item;
+      // Generate a basic internal_sku from the suggested supplier + name if not provided
+      const slug = (s.internal_product_name || line.description || "ITEM").toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 10);
+      const internal_sku = `${slug}${Date.now().toString().slice(-4)}`;
+      const ok = await createProduct({
+        internal_sku,
+        external_sku: s.external_sku || line.item_code || "",
+        internal_product_name: s.internal_product_name || line.description || "",
+        supplier_product_name: s.supplier_product_name || line.description || "",
+        level1_category: s.level1_category || "",
+        level2_category: "",
+        level3_category: "",
+        unit: s.purchase_unit || line.unit || "",
+        unit_cost: Number(s.purchase_unit_cost ?? line.unit_price) || 0,
+        supplier: s.supplier || inv.supplier_name || "",
+        status: "active",
+        purchase_unit: s.purchase_unit || line.unit || "",
+        purchase_unit_cost: Number(s.purchase_unit_cost ?? line.unit_price) || 0,
+        stock_uom: s.stock_uom || s.purchase_unit || line.unit || "",
+        stock_qty: 1,
+        cost_per_stock_unit: Number(s.purchase_unit_cost ?? line.unit_price) || 0,
+        base_unit_type: "",
+        base_unit_qty: 0,
+        cost_per_base_unit: 0,
+        notes: "Created from invoice scanner suggestion",
+        financial_treatment: "",
+        default_coa_account_id: null,
+      } as any);
+      if (ok) {
+        await fetchProducts();
+        // Optimistically mark this line matched
+        setInvoices(prev => {
+          const copy = [...prev];
+          const li = { ...copy[currentIdx].line_items[lineIdx] };
+          li.matched_sku = internal_sku;
+          li.matched_internal_name = s.internal_product_name || line.description || "";
+          li.unmatched = false;
+          li.review_status = "matched";
+          copy[currentIdx] = { ...copy[currentIdx], line_items: copy[currentIdx].line_items.map((l, idx) => idx === lineIdx ? li : l) };
+          return copy;
+        });
+        toast({ title: "Added to Items Master", description: internal_sku });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not add item", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setCreatingLineIdx(null);
+    }
+  }, [invoices, currentIdx, createProduct, fetchProducts]);
+
   const handleSaveAll = async () => {
     // Check all unsaved invoices for unmatched items
     const unmatchedInvoices = invoices.filter((inv, i) => !inv.saved && !inv.is_duplicate && hasUnmatchedForSave(inv));
