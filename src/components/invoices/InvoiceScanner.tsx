@@ -1221,83 +1221,58 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             </div>
           )}
 
-          {/* Warning banners */}
-          {current.is_duplicate && !current.saved && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>Cannot be recorded — already exists:</strong> Invoice #{current.invoice_number} from this supplier
-                {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""} is already in the system.
-              </span>
-            </div>
-          )}
-
-          {totalMismatch && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>Total mismatch:</strong> Invoice total from document (${aiTotal?.toFixed(2)}) doesn't match calculated line items total (${calculatedTotal.toFixed(2)}). Please review the numbers.
-              </span>
-            </div>
-          )}
-
-          {hasUnmatchedItems && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Bills & Invoices</strong> — review required.
-              </span>
-            </div>
-          )}
-
-          {hasSkuMismatches && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>SKU mismatch:</strong> Some scanned item codes don't match the Bills & Invoices external SKU. Review highlighted rows.
-              </span>
-            </div>
-          )}
-
-          {hasPriceChanges && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>{priceChangedItems.length} price change{priceChangedItems.length > 1 ? "s" : ""} detected</strong> — invoice prices differ from Bills & Invoices. Review highlighted rows.
-              </span>
-            </div>
-          )}
-
-          {/* Agent 2 review summary banner */}
+          {/* ───── Review header: workflow strip + check cards + KPI strip ───── */}
           {(() => {
-            const lines = current.line_items;
-            const headerCorr = current.review_corrections?.length || 0;
-            const lineCorr = lines.reduce((s, l) => s + (l.review_corrections?.length || 0), 0);
-            const autoCorr = headerCorr + lineCorr;
-            const headerWarn = current.review_warnings?.length || 0;
-            const lineWarn = lines.reduce((s, l) => s + (l.review_warnings?.length || 0), 0);
-            const warnings = headerWarn + lineWarn;
-            const headerBlock = current.review_blocking?.length || 0;
-            const lineBlock = lines.reduce((s, l) => s + (l.review_blocking?.length || 0), 0);
-            const blocking = headerBlock + lineBlock;
-            const matched = lines.filter(l => l.review_status === "matched").length;
-            const newItems = lines.filter(l => l.review_status === "new_item").length;
-            if (autoCorr + warnings + blocking + matched + newItems === 0) return null;
+            const stats = computeReviewStats(current, { totalMismatch });
             return (
-              <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-900 dark:text-purple-200 text-sm">
-                <div className="font-medium">
-                  Invoice Review: {autoCorr} auto-correction{autoCorr !== 1 ? "s" : ""} · {warnings} warning{warnings !== 1 ? "s" : ""} · {blocking} blocking issue{blocking !== 1 ? "s" : ""} · {matched} matched item{matched !== 1 ? "s" : ""} · {newItems} new item{newItems !== 1 ? "s" : ""}
+              <div className="space-y-3">
+                <WorkflowStrip
+                  extractorDone={true}
+                  reviewerDone={(stats.autoCorrections + stats.warnings + stats.blocking + stats.matched + stats.newItems) > 0}
+                  blocking={stats.blocking + (current.is_duplicate ? 1 : 0)}
+                  duplicate={!!current.is_duplicate}
+                />
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <CheckCard title="Header Check" status={stats.headerCheckStatus} message={stats.headerCheckMsg} />
+                  <CheckCard title="Supplier Check" status={stats.supplierCheckStatus} message={stats.supplierCheckMsg} />
+                  <CheckCard title="Math Check" status={stats.mathCheckStatus} message={stats.mathCheckMsg} />
+                  <CheckCard title="Item Mapping" status={stats.itemMappingStatus} message={stats.itemMappingMsg} />
                 </div>
-                {(headerCorr + headerWarn + headerBlock) > 0 && (
-                  <Button size="sm" variant="outline" className="h-7" onClick={() => setShowInvoiceDetails(true)}>
-                    <Info className="h-3 w-3 mr-1" />Header details
-                  </Button>
+
+                <KpiStrip stats={stats} />
+
+                {current.is_duplicate && !current.saved && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>
+                      <strong>Cannot be recorded — already exists:</strong> Invoice #{current.invoice_number} from this supplier
+                      {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""} is already in the system.
+                    </span>
+                  </div>
+                )}
+
+                {(stats.autoCorrections + stats.warnings + stats.blocking) > 0 && (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
+                    <span>
+                      Invoice Review:{" "}
+                      <span className="text-sky-600 dark:text-sky-400 font-medium">{stats.autoCorrections} auto-corrections</span> ·{" "}
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">{stats.warnings} warnings</span> ·{" "}
+                      <span className="text-destructive font-medium">{stats.blocking} blocking</span> ·{" "}
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">{stats.matched} matched</span> ·{" "}
+                      <span className="text-indigo-600 dark:text-indigo-400 font-medium">{stats.newItems} new</span>
+                    </span>
+                    {((current.review_corrections?.length || 0) + (current.review_warnings?.length || 0) + (current.review_blocking?.length || 0)) > 0 && (
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowInvoiceDetails(true)}>
+                        View review summary
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             );
           })()}
 
-          <p className="text-sm text-muted-foreground">Review and correct the extracted data, then save.</p>
 
 
 
