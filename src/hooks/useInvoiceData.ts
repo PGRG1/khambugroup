@@ -229,7 +229,17 @@ export function useInvoiceData() {
     fileName?: string | null
   ) => {
     const { data, error } = await supabase.from("invoices").insert({ ...invoice, file_url: fileUrl || null, file_name: fileName || null } as any).select().single();
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return null; }
+    if (error) {
+      const isDup = (error as any).code === "23505" || /duplicate key|invoices_supplier_invoice_number_uniq/i.test(error.message || "");
+      toast({
+        title: isDup ? "Duplicate invoice blocked" : "Error",
+        description: isDup
+          ? `Invoice #${invoice.invoice_number} already exists for this supplier. Duplicates are not allowed.`
+          : error.message,
+        variant: "destructive",
+      });
+      return null;
+    }
 
     if (lineItems.length > 0) {
       // Match line items against product master
