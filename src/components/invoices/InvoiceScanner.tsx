@@ -1197,28 +1197,37 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             </div>
           )}
 
-          {/* Reviewer agent banner */}
+          {/* Agent 2 review summary banner */}
           {(() => {
-            const lineFlagCount = current.line_items.filter(l => (l.review_issues && l.review_issues.length > 0) || l.review_status === "new_item" || l.review_status === "ambiguous").length;
-            const newItemCount = current.line_items.filter(l => l.review_status === "new_item").length;
-            const invIssues = current.review_issues || [];
-            if (lineFlagCount === 0 && invIssues.length === 0) return null;
+            const lines = current.line_items;
+            const headerCorr = current.review_corrections?.length || 0;
+            const lineCorr = lines.reduce((s, l) => s + (l.review_corrections?.length || 0), 0);
+            const autoCorr = headerCorr + lineCorr;
+            const headerWarn = current.review_warnings?.length || 0;
+            const lineWarn = lines.reduce((s, l) => s + (l.review_warnings?.length || 0), 0);
+            const warnings = headerWarn + lineWarn;
+            const headerBlock = current.review_blocking?.length || 0;
+            const lineBlock = lines.reduce((s, l) => s + (l.review_blocking?.length || 0), 0);
+            const blocking = headerBlock + lineBlock;
+            const matched = lines.filter(l => l.review_status === "matched").length;
+            const newItems = lines.filter(l => l.review_status === "new_item").length;
+            if (autoCorr + warnings + blocking + matched + newItems === 0) return null;
             return (
-              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-800 dark:text-purple-300 text-sm space-y-1">
-                <div className="flex items-center gap-2 font-medium">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  Reviewer agent flagged {lineFlagCount} line{lineFlagCount !== 1 ? "s" : ""}{newItemCount > 0 ? ` · ${newItemCount} new item${newItemCount > 1 ? "s" : ""} suggested` : ""}{invIssues.length > 0 ? ` · ${invIssues.length} invoice issue${invIssues.length > 1 ? "s" : ""}` : ""}
+              <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-900 dark:text-purple-200 text-sm">
+                <div className="font-medium">
+                  Invoice Review: {autoCorr} auto-correction{autoCorr !== 1 ? "s" : ""} · {warnings} warning{warnings !== 1 ? "s" : ""} · {blocking} blocking issue{blocking !== 1 ? "s" : ""} · {matched} matched item{matched !== 1 ? "s" : ""} · {newItems} new item{newItems !== 1 ? "s" : ""}
                 </div>
-                {invIssues.length > 0 && (
-                  <ul className="list-disc list-inside text-xs pl-1">
-                    {invIssues.map((m, i) => <li key={i}>{m}</li>)}
-                  </ul>
+                {(headerCorr + headerWarn + headerBlock) > 0 && (
+                  <Button size="sm" variant="outline" className="h-7" onClick={() => setShowInvoiceDetails(true)}>
+                    <Info className="h-3 w-3 mr-1" />Header details
+                  </Button>
                 )}
               </div>
             );
           })()}
 
           <p className="text-sm text-muted-foreground">Review and correct the extracted data, then save.</p>
+
 
 
           {/* Header fields */}
