@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle } from "lucide-react";
+import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
@@ -132,6 +132,7 @@ export default function ProcurementInvoicesTab() {
 
   const [productMaster, setProductMaster] = useState<ProductMasterEntry[]>([]);
   const [search, setSearch] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("all");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
@@ -255,6 +256,7 @@ export default function ProcurementInvoicesTab() {
 
   const filtered = useMemo(() => {
     const result = invoices.filter((inv) => {
+      if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       if (statusFilter !== "all" && inv.status !== statusFilter) return false;
       if (reviewStatusFilter !== "all" && (inv.review_status || "Under Review") !== reviewStatusFilter) return false;
@@ -267,7 +269,29 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
+  }, [invoices, supplierFilter, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
+
+  // KPI computation across ALL invoices (not filtered) — matches mockup intent
+  const kpis = useMemo(() => {
+    const total = invoices.length;
+    let underReview = 0, approved = 0, exceptions = 0;
+    let totalValue = 0;
+    const dupKey = new Map<string, number>();
+    for (const inv of invoices) {
+      const rs = inv.review_status || "Under Review";
+      if (rs === "Under Review") underReview++;
+      if (rs === "Approved") approved++;
+      const en = inv.exception_note || "-";
+      if (en !== "-" || rs === "Rejected") exceptions++;
+      totalValue += Number(inv.total_amount) || 0;
+      const k = `${inv.supplier_id}::${(inv.invoice_number || "").trim().toLowerCase()}`;
+      if (k.trim() !== "::") dupKey.set(k, (dupKey.get(k) || 0) + 1);
+    }
+    let duplicates = 0;
+    for (const v of dupKey.values()) if (v > 1) duplicates += v;
+    const pct = (n: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "0%";
+    return { total, underReview, approved, exceptions, duplicates, totalValue, pct };
+  }, [invoices]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },
@@ -275,10 +299,10 @@ export default function ProcurementInvoicesTab() {
     { key: "supplier_name", label: "Supplier & Vendor", w: "min-w-[160px]" },
     { key: "venue", label: "Venue", w: "w-[90px]" },
     { key: "due_date", label: "Due Date", w: "w-[100px]" },
-    { key: "total_amount", label: "Total", w: "w-[110px]", align: "right" as const },
-    { key: "status", label: "Status", w: "w-[90px]" },
-    { key: "review_status", label: "Review Status", w: "w-[120px]" },
-    { key: "exception_note", label: "Exception Note", w: "w-[140px]" },
+    { key: "total_amount", label: "Amount", w: "w-[110px]", align: "right" as const },
+    { key: "status", label: "Payment Status", w: "w-[110px]" },
+    { key: "review_status", label: "Review Status", w: "w-[130px]" },
+    { key: "exception_note", label: "Issue / Exception", w: "w-[150px]" },
   ];
 
   const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
@@ -884,6 +908,8 @@ export default function ProcurementInvoicesTab() {
       <InvoiceTableSection
         filtered={filtered}
         invoices={invoices}
+        suppliers={suppliers}
+        kpis={kpis}
         totalAmount={totalAmount}
         columns={columns}
         sortColumns={sortColumns}
@@ -891,6 +917,8 @@ export default function ProcurementInvoicesTab() {
         SortIcon={SortIcon}
         search={search}
         setSearch={setSearch}
+        supplierFilter={supplierFilter}
+        setSupplierFilter={setSupplierFilter}
         venueFilter={venueFilter}
         setVenueFilter={setVenueFilter}
         statusFilter={statusFilter}
@@ -992,9 +1020,21 @@ export default function ProcurementInvoicesTab() {
 }
 
 // ----- Invoice table section with pagination & filters -----------
+interface InvoiceKpis {
+  total: number;
+  underReview: number;
+  approved: number;
+  exceptions: number;
+  duplicates: number;
+  totalValue: number;
+  pct: (n: number) => string;
+}
+
 interface InvoiceTableSectionProps {
   filtered: Invoice[];
   invoices: Invoice[];
+  suppliers: { id: string; name: string }[];
+  kpis: InvoiceKpis;
   totalAmount: number;
   columns: { key: string; label: string; align?: "right" }[];
   sortColumns: SortColumn[];
@@ -1002,6 +1042,8 @@ interface InvoiceTableSectionProps {
   SortIcon: React.FC<{ col: string }>;
   search: string;
   setSearch: (v: string) => void;
+  supplierFilter: string;
+  setSupplierFilter: (v: string) => void;
   venueFilter: string;
   setVenueFilter: (v: string) => void;
   statusFilter: string;
@@ -1023,8 +1065,8 @@ interface InvoiceTableSectionProps {
 }
 
 function InvoiceTableSection({
-  filtered, invoices, totalAmount, columns, sortColumns, toggleSort, SortIcon,
-  search, setSearch, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
+  filtered, invoices, suppliers, kpis, totalAmount, columns, sortColumns, toggleSort, SortIcon,
+  search, setSearch, supplierFilter, setSupplierFilter, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
   reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
@@ -1032,6 +1074,9 @@ function InvoiceTableSection({
   const pag = usePagination(filtered, 25);
 
   const filterFields: FilterField[] = [
+    { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
+      options: suppliers.map(s => ({ value: s.id, label: s.name })),
+      allLabel: "All Suppliers" },
     { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
       options: [{ value: "Assembly", label: "Assembly" }, { value: "Caliente", label: "Caliente" }, { value: "Hanabi", label: "Hanabi" }],
       allLabel: "All Venues" },
@@ -1049,7 +1094,7 @@ function InvoiceTableSection({
       allLabel: "All Months" },
   ];
 
-  const resetFilters = () => { setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
+  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
 
   const handleDownload = () => downloadCSV(
     filtered.map((inv) => ({
@@ -1067,7 +1112,34 @@ function InvoiceTableSection({
     "invoices",
   );
 
+  const kpiCards: Array<{ label: string; value: string; sub: string; subTone?: string; icon: React.ReactNode; tone: string }> = [
+    { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
+    { label: "Under Review", value: kpis.underReview.toLocaleString(), sub: kpis.pct(kpis.underReview), subTone: "text-amber-400", icon: <Clock className="h-4 w-4" />, tone: "text-amber-400" },
+    { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
+    { label: "Exceptions", value: kpis.exceptions.toLocaleString(), sub: kpis.pct(kpis.exceptions), subTone: "text-red-400", icon: <AlertTriangle className="h-4 w-4" />, tone: "text-red-400" },
+    { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-violet-400", icon: <CopyIcon className="h-4 w-4" />, tone: "text-violet-400" },
+    { label: "Total Value", value: `$${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
+  ];
+
   return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Invoices Database</h2>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {kpiCards.map((k) => (
+          <div key={k.label} className="card-glass rounded-lg p-3 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className={`text-[11px] font-medium ${k.tone}`}>{k.label}</div>
+              <div className="td-num text-xl font-bold mt-1 truncate">{k.value}</div>
+              <div className={`text-[10px] mt-0.5 ${k.subTone || "text-muted-foreground"}`}>{k.sub}</div>
+            </div>
+            <div className={`rounded-full p-2 bg-muted/40 ${k.tone}`}>{k.icon}</div>
+          </div>
+        ))}
+      </div>
+
     <DataTableShell
       search={{ value: search, onChange: setSearch, placeholder: "Search invoice # or supplier..." }}
       filters={{ fields: filterFields, onReset: resetFilters }}
@@ -1184,6 +1256,7 @@ function InvoiceTableSection({
         </TableBody>
       </Table>
     </DataTableShell>
+    </div>
   );
 }
 
