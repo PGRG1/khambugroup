@@ -2206,32 +2206,58 @@ export type Database = {
       invoice_payments: {
         Row: {
           amount: number
+          bank_account_id: string | null
+          bank_transaction_id: string | null
           created_at: string
           id: string
           invoice_id: string
+          match_status: string
           notes: string | null
           payment_date: string
           payment_method: string
+          reference: string
         }
         Insert: {
           amount?: number
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
           created_at?: string
           id?: string
           invoice_id: string
+          match_status?: string
           notes?: string | null
           payment_date?: string
           payment_method?: string
+          reference?: string
         }
         Update: {
           amount?: number
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
           created_at?: string
           id?: string
           invoice_id?: string
+          match_status?: string
           notes?: string | null
           payment_date?: string
           payment_method?: string
+          reference?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "invoice_payments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoice_payments_invoice_id_fkey"
             columns: ["invoice_id"]
@@ -2253,6 +2279,7 @@ export type Database = {
           amount_paid: number
           approved_at: string | null
           approved_by: string | null
+          bank_match_status: string
           created_at: string
           discount: number
           discount_type: string
@@ -2272,6 +2299,7 @@ export type Database = {
           received_date: string | null
           remaining_balance: number
           review_status: string
+          scheduled_payment_date: string | null
           status: string
           subtotal: number
           supplier_id: string
@@ -2287,6 +2315,7 @@ export type Database = {
           amount_paid?: number
           approved_at?: string | null
           approved_by?: string | null
+          bank_match_status?: string
           created_at?: string
           discount?: number
           discount_type?: string
@@ -2306,6 +2335,7 @@ export type Database = {
           received_date?: string | null
           remaining_balance?: number
           review_status?: string
+          scheduled_payment_date?: string | null
           status?: string
           subtotal?: number
           supplier_id: string
@@ -2321,6 +2351,7 @@ export type Database = {
           amount_paid?: number
           approved_at?: string | null
           approved_by?: string | null
+          bank_match_status?: string
           created_at?: string
           discount?: number
           discount_type?: string
@@ -2340,6 +2371,7 @@ export type Database = {
           received_date?: string | null
           remaining_balance?: number
           review_status?: string
+          scheduled_payment_date?: string | null
           status?: string
           subtotal?: number
           supplier_id?: string
