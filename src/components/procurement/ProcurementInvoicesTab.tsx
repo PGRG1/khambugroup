@@ -256,6 +256,7 @@ export default function ProcurementInvoicesTab() {
 
   const filtered = useMemo(() => {
     const result = invoices.filter((inv) => {
+      if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       if (statusFilter !== "all" && inv.status !== statusFilter) return false;
       if (reviewStatusFilter !== "all" && (inv.review_status || "Under Review") !== reviewStatusFilter) return false;
@@ -268,7 +269,29 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
+  }, [invoices, supplierFilter, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
+
+  // KPI computation across ALL invoices (not filtered) — matches mockup intent
+  const kpis = useMemo(() => {
+    const total = invoices.length;
+    let underReview = 0, approved = 0, exceptions = 0;
+    let totalValue = 0;
+    const dupKey = new Map<string, number>();
+    for (const inv of invoices) {
+      const rs = inv.review_status || "Under Review";
+      if (rs === "Under Review") underReview++;
+      if (rs === "Approved") approved++;
+      const en = inv.exception_note || "-";
+      if (en !== "-" || rs === "Rejected") exceptions++;
+      totalValue += Number(inv.total_amount) || 0;
+      const k = `${inv.supplier_id}::${(inv.invoice_number || "").trim().toLowerCase()}`;
+      if (k.trim() !== "::") dupKey.set(k, (dupKey.get(k) || 0) + 1);
+    }
+    let duplicates = 0;
+    for (const v of dupKey.values()) if (v > 1) duplicates += v;
+    const pct = (n: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "0%";
+    return { total, underReview, approved, exceptions, duplicates, totalValue, pct };
+  }, [invoices]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },
