@@ -2,73 +2,73 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
 import type { APInvoice } from "@/hooks/usePayables";
 
-type Pay = {
+type AllocRow = {
   id: string;
-  payment_date: string;
-  amount: number;
-  payment_method: string | null;
-  reference: string | null;
-  match_status: string | null;
-  notes: string | null;
+  amount_allocated: number;
+  credit_note_amount_applied: number;
+  credit_note_id: string | null;
+  credit_note_number: string | null;
+  payment: {
+    id: string;
+    payment_date: string;
+    amount: number;
+    payment_method: string;
+    reference_number: string;
+    cheque_number: string;
+    match_status: string;
+    notes: string;
+    paid_from_account_id: string | null;
+  };
 };
+
+const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function PaymentHistoryDialog({
   open,
   onOpenChange,
   invoice,
-  onChanged,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   invoice: APInvoice | null;
-  onChanged: () => void;
+  onChanged?: () => void;
 }) {
-  const [rows, setRows] = useState<Pay[]>([]);
+  const [rows, setRows] = useState<AllocRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const load = async () => {
-    if (!invoice) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from("invoice_payments")
-      .select("id, payment_date, amount, payment_method, reference, match_status, notes")
-      .eq("invoice_id", invoice.id)
-      .order("payment_date", { ascending: false });
-    setRows((data as any) || []);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    if (open) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!open || !invoice) return;
+    (async () => {
+      setLoading(true);
+      const { data } = await (supabase as any)
+        .from("payment_allocations")
+        .select(
+          "id, amount_allocated, credit_note_amount_applied, credit_note_id, " +
+            "payment:payments(id, payment_date, amount, payment_method, reference_number, cheque_number, match_status, notes, paid_from_account_id), " +
+            "credit_note:credit_notes(credit_note_number)"
+        )
+        .eq("invoice_id", invoice.id);
+      const mapped: AllocRow[] = (data || []).map((r: any) => ({
+        id: r.id,
+        amount_allocated: Number(r.amount_allocated) || 0,
+        credit_note_amount_applied: Number(r.credit_note_amount_applied) || 0,
+        credit_note_id: r.credit_note_id,
+        credit_note_number: r.credit_note?.credit_note_number || null,
+        payment: r.payment,
+      }));
+      mapped.sort((a, b) => (b.payment?.payment_date || "").localeCompare(a.payment?.payment_date || ""));
+      setRows(mapped);
+      setLoading(false);
+    })();
   }, [open, invoice?.id]);
 
   if (!invoice) return null;
 
-  const reverse = async (p: Pay) => {
-    if (!confirm(`Reverse payment of HK$ ${Number(p.amount).toFixed(2)} on ${p.payment_date}?`)) return;
-    await supabase.from("invoice_payments").delete().eq("id", p.id);
-    const newPaid = Math.max(0, invoice.amount_paid - Number(p.amount));
-    const newRemaining = Math.max(0, invoice.total_amount - newPaid);
-    const newStatus = newRemaining >= invoice.total_amount - 0.01 ? "unpaid" : newRemaining <= 0.01 ? "paid" : "partially_paid";
-    await supabase.from("invoices").update({
-      amount_paid: newPaid,
-      remaining_balance: newRemaining,
-      payment_status: newStatus,
-      bank_match_status: newStatus === "unpaid" ? "not_ready" : "awaiting_bank_match",
-    } as any).eq("id", invoice.id);
-    toast.success("Payment reversed");
-    await load();
-    onChanged();
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Payment History</DialogTitle>
           <p className="text-xs text-muted-foreground">
@@ -85,25 +85,31 @@ export function PaymentHistoryDialog({
               <thead className="bg-muted/40 text-xs text-muted-foreground">
                 <tr>
                   <th className="text-left px-3 py-2">Date</th>
-                  <th className="text-right px-3 py-2">Amount</th>
+                  <th className="text-right px-3 py-2">Cash Applied</th>
+                  <th className="text-right px-3 py-2">Credit Applied</th>
                   <th className="text-left px-3 py-2">Method</th>
                   <th className="text-left px-3 py-2">Reference</th>
-                  <th className="text-left px-3 py-2">Match</th>
-                  <th className="px-3 py-2"></th>
+                  <th className="text-left px-3 py-2">Credit Note</th>
+                  <th className="text-left px-3 py-2">Bank Match</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {rows.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-3 py-2 text-xs font-mono">{p.payment_date}</td>
-                    <td className="px-3 py-2 text-right font-mono tabular-nums">{Number(p.amount).toFixed(2)}</td>
-                    <td className="px-3 py-2 text-xs">{p.payment_method || "—"}</td>
-                    <td className="px-3 py-2 text-xs">{p.reference || "—"}</td>
-                    <td className="px-3 py-2 text-xs capitalize">{(p.match_status || "").replace(/_/g, " ")}</td>
-                    <td className="px-3 py-2 text-right">
-                      <Button size="sm" variant="ghost" onClick={() => reverse(p)} title="Reverse payment">
-                        <Trash2 className="h-3.5 w-3.5 text-red-400" />
-                      </Button>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td className="px-3 py-2 text-xs font-mono">{r.payment?.payment_date || "—"}</td>
+                    <td className="px-3 py-2 text-right font-mono tabular-nums">
+                      {r.amount_allocated > 0 ? fmt(r.amount_allocated) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono tabular-nums text-emerald-400">
+                      {r.credit_note_amount_applied > 0 ? fmt(r.credit_note_amount_applied) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-xs">{r.payment?.payment_method || "—"}</td>
+                    <td className="px-3 py-2 text-xs">
+                      {r.payment?.reference_number || r.payment?.cheque_number || "—"}
+                    </td>
+                    <td className="px-3 py-2 text-xs">{r.credit_note_number || "—"}</td>
+                    <td className="px-3 py-2 text-xs capitalize">
+                      {(r.payment?.match_status || "").replace(/_/g, " ")}
                     </td>
                   </tr>
                 ))}
