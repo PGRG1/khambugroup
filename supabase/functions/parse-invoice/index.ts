@@ -640,6 +640,25 @@ Return ONLY by calling the report_review function.`;
       console.warn("Reviewer agent error (non-fatal):", reviewErr);
     }
 
+    if (!review || typeof review !== "object") {
+      review = {
+        header_checks: [],
+        header_corrections: [],
+        line_corrections: [],
+        header_flags: [],
+        line_flags: [],
+        item_master: [],
+      };
+      invoicesArray.forEach((inv: any, invoice_index: number) => {
+        review.header_flags.push({ invoice_index, field: "invoice_date", severity: "blocking", message: "Agent 2 review was unavailable, so the invoice date was not verified from the image." });
+        review.header_flags.push({ invoice_index, field: "supplier_name", severity: "blocking", message: "Agent 2 review was unavailable, so the supplier/header was not verified from the image." });
+        (inv.line_items || []).forEach((_line: any, line_index: number) => {
+          review.item_master.push({ invoice_index, line_index, status: "needs_review", matched_sku: "", candidates: [], reason: "Agent 2 review was unavailable; match not verified.", confidence: 0 });
+          review.line_flags.push({ invoice_index, line_index, field: "matched_sku", severity: "blocking", message: "Items Master match was not verified by Agent 2." });
+        });
+      });
+    }
+
     // Apply ALLOWED corrections server-side. Numeric fields are NEVER overwritten.
     const allowedHeaderFields = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "currency"]);
     const allowedLineFields = new Set(["description", "unit", "pack_size", "item_code", "matched_sku"]);
