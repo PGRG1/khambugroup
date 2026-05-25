@@ -271,13 +271,13 @@ export default function ProcurementInvoicesTab() {
     return sortRows(result, sortColumns);
   }, [invoices, supplierFilter, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
 
-  // KPI computation across ALL invoices (not filtered) — matches mockup intent
+  // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
-    const total = invoices.length;
+    const total = filtered.length;
     let underReview = 0, approved = 0, exceptions = 0;
     let totalValue = 0;
     const dupKey = new Map<string, number>();
-    for (const inv of invoices) {
+    for (const inv of filtered) {
       const rs = inv.review_status || "Under Review";
       if (rs === "Under Review") underReview++;
       if (rs === "Approved") approved++;
@@ -291,7 +291,7 @@ export default function ProcurementInvoicesTab() {
     for (const v of dupKey.values()) if (v > 1) duplicates += v;
     const pct = (n: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "0%";
     return { total, underReview, approved, exceptions, duplicates, totalValue, pct };
-  }, [invoices]);
+  }, [filtered]);
 
   const columns = [
     { key: "invoice_date", label: "Date", w: "w-[100px]" },
