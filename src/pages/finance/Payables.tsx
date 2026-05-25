@@ -153,8 +153,10 @@ export default function Payables() {
             appliedThisMonth={appliedCreditThisMonth}
             suppliers={suppliers}
             venues={venues}
+            invoices={invoices}
             loading={loading}
             onApply={applyCreditFromCN}
+            onSaved={refresh}
           />
         </TabsContent>
 
