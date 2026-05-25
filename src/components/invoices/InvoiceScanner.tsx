@@ -1141,7 +1141,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             </div>
           )}
 
+          {/* Reviewer agent banner */}
+          {(() => {
+            const lineFlagCount = current.line_items.filter(l => (l.review_issues && l.review_issues.length > 0) || l.review_status === "new_item" || l.review_status === "ambiguous").length;
+            const newItemCount = current.line_items.filter(l => l.review_status === "new_item").length;
+            const invIssues = current.review_issues || [];
+            if (lineFlagCount === 0 && invIssues.length === 0) return null;
+            return (
+              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-800 dark:text-purple-300 text-sm space-y-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Reviewer agent flagged {lineFlagCount} line{lineFlagCount !== 1 ? "s" : ""}{newItemCount > 0 ? ` · ${newItemCount} new item${newItemCount > 1 ? "s" : ""} suggested` : ""}{invIssues.length > 0 ? ` · ${invIssues.length} invoice issue${invIssues.length > 1 ? "s" : ""}` : ""}
+                </div>
+                {invIssues.length > 0 && (
+                  <ul className="list-disc list-inside text-xs pl-1">
+                    {invIssues.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
+
           <p className="text-sm text-muted-foreground">Review and correct the extracted data, then save.</p>
+
 
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
