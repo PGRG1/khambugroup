@@ -892,11 +892,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return inv.line_items.some(l => l.description.trim() && l.unmatched);
   }, []);
 
+  const hasBlockingForSave = useCallback((inv: ScannedInvoice) => {
+    return (inv.review_blocking?.length || 0) + inv.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) > 0;
+  }, []);
+
   const handleSaveCurrent = async () => {
     if (!current) return;
     if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
+    if (hasBlockingForSave(current)) { toast({ title: "Resolve blocking issues before saving", variant: "destructive" }); return; }
     if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Bills & Invoices", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
     await doSaveCurrent(current, currentIdx);
   };
@@ -965,6 +970,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       toast({ title: "Cannot save all", description: `${unmatchedInvoices.length} invoice(s) have unmatched items. Match all line items to Bills & Invoices first.`, variant: "destructive" });
       return;
     }
+    const blockingInvoices = invoices.filter((inv) => !inv.saved && !inv.is_duplicate && hasBlockingForSave(inv));
+    if (blockingInvoices.length > 0) {
+      toast({ title: "Cannot save all", description: `${blockingInvoices.length} invoice(s) have unresolved blocking issues.`, variant: "destructive" });
+      return;
+    }
     setSavingAll(true);
     let saved = 0;
     let skippedDuplicates = 0;
@@ -997,7 +1007,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const hasPriceChanges = priceChangedItems.length > 0;
   const blockingCount = (current?.review_blocking?.length || 0)
     + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
-  const hasBlockingIssues = blockingCount > 0;
+  const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
