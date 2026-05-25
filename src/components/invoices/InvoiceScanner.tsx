@@ -1483,68 +1483,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       </td>
                       {/* External Name - editable with autocomplete */}
                       <td className="px-1 py-1 align-top">
-                        <div className="relative">
-                          <ProductAutocomplete
-                            value={line.description}
-                            onChange={(v) => updateLine(i, "description", v)}
-                            onSelect={(p) => selectProduct(i, p)}
-                            products={supplierFilteredPM}
-                            searchField="name"
-                            placeholder="Item name"
-                            className="text-xs"
-                            currentSupplier={current?.supplier_name}
-                            multiline
-                          />
-                          {/* Compact status & flag badges (Agent 2) */}
-                          <div className="flex flex-wrap items-center gap-1 mt-1">
-                            {line.review_status === "matched" && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-green-100 text-green-800 border border-green-300">Matched</Badge>
-                            )}
-                            {line.review_status === "possible_match" && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800 border border-amber-300">Possible Match</Badge>
-                            )}
-                            {line.review_status === "new_item" && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-blue-100 text-blue-800 border border-blue-300">New Item</Badge>
-                            )}
-                            {(line.review_status === "needs_review" || (!line.review_status && line.unmatched)) && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-purple-100 text-purple-800 border border-purple-300">Needs Review</Badge>
-                            )}
-                            {(line.review_corrections && line.review_corrections.length > 0) && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-sky-100 text-sky-800 border border-sky-300">Auto-corrected</Badge>
-                            )}
-                            {(line.review_warnings && line.review_warnings.length > 0) && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800 border border-amber-300">Warning</Badge>
-                            )}
-                            {(line.review_blocking && line.review_blocking.length > 0) && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-destructive text-destructive-foreground">Blocking Issue</Badge>
-                            )}
-                            {((line.review_corrections && line.review_corrections.length > 0)
-                              || (line.review_warnings && line.review_warnings.length > 0)
-                              || (line.review_blocking && line.review_blocking.length > 0)
-                              || line.review_status) && (
-                              <button
-                                type="button"
-                                onClick={() => setDetailsLineIdx(i)}
-                                className="text-[10px] underline text-muted-foreground hover:text-foreground"
-                              >
-                                Details
-                              </button>
-                            )}
-                            {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-5 text-[10px] px-1.5"
-                                disabled={creatingLineIdx === i}
-                                onClick={() => handleAddSuggestedItem(i)}
-                              >
-                                {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-0.5" />}
-                                Add to Items Master
-                              </Button>
-                            )}
-                          </div>
-                        </div>
+                        <ProductAutocomplete
+                          value={line.description}
+                          onChange={(v) => updateLine(i, "description", v)}
+                          onSelect={(p) => selectProduct(i, p)}
+                          products={supplierFilteredPM}
+                          searchField="name"
+                          placeholder="Item name"
+                          className="text-xs"
+                          currentSupplier={current?.supplier_name}
+                          multiline
+                        />
                       </td>
 
 
