@@ -337,11 +337,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       }
 
       // Use shared resolver to find the best match
-      const resolved = resolveProductMatch(
+      const resolved = resolveExactMatch(
         {
           itemCode: workingLine.item_code,
           description: workingLine.description,
-          internalSku: workingLine.matched_sku || undefined,
+          internalSku: workingLine.review_status === "matched" ? workingLine.matched_sku || undefined : undefined,
         },
         pm,
         supplierName,
