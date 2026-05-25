@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   if (auth.response) return auth.response;
 
   try {
-    const { fileBase64, mimeType, productMaster, files } = await req.json();
+    const { fileBase64, mimeType, productMaster, suppliers, files } = await req.json();
 
     let fileEntries: { base64: string; mimeType: string }[] = [];
     if (files && Array.isArray(files) && files.length > 0) {
