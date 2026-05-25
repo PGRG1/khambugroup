@@ -586,9 +586,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       await checkDuplicates(parsedInvoices);
     } catch (err: any) {
       console.error("Invoice scan error:", err);
+      let description = err?.message || "Could not scan invoice files.";
+      // supabase-js wraps non-2xx Edge Function responses in FunctionsHttpError
+      // and stashes the original Response on err.context — read the body for a useful message.
+      try {
+        const ctx = err?.context;
+        if (ctx && typeof ctx.json === "function") {
+          const body = await ctx.json();
+          if (body?.error) description = String(body.error);
+        } else if (ctx && typeof ctx.text === "function") {
+          const t = await ctx.text();
+          if (t) description = t;
+        }
+      } catch { /* ignore */ }
       toast({
         title: "Scan failed",
-        description: err?.message || "Could not scan invoice files.",
+        description,
         variant: "destructive",
       });
     } finally {
