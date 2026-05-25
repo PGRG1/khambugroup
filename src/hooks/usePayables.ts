@@ -47,6 +47,17 @@ export type APBankAccountLite = {
   account_number_last4: string;
 };
 
+export type APCreditNote = {
+  id: string;
+  supplier_id: string;
+  credit_note_number: string;
+  credit_note_date: string;
+  original_amount: number;
+  remaining_balance: number;
+  status: string;
+  notes: string;
+};
+
 export type APKpis = {
   totalOutstanding: number;
   dueThisWeek: number;
