@@ -801,7 +801,7 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
               value={`HK$ ${fmt(v)}`}
               sub={`${pct.toFixed(1)}%`}
               accent={BUCKET_ACCENT[b]}
-              tint={`${BUCKET_COLOR[b]}/10`.replace("bg-", "bg-")}
+              tint={BUCKET_TINT[b]}
             />
           );
         })}
