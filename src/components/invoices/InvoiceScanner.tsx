@@ -26,6 +26,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Info } from "lucide-react";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -63,9 +71,13 @@ interface ScannedLineItem {
   price_changed?: boolean;
   pm_unit_price?: number;
   total_override?: boolean;
-  review_issues?: string[];
-  review_status?: "matched" | "ambiguous" | "new_item";
+  review_status?: "matched" | "possible_match" | "new_item" | "needs_review";
+  review_warnings?: string[];
+  review_blocking?: string[];
+  review_corrections?: ReviewCorrection[];
   review_candidates?: string[];
+  review_match_reason?: string;
+  review_match_confidence?: number;
   suggested_new_item?: {
     internal_product_name?: string;
     supplier_product_name?: string;
@@ -77,6 +89,14 @@ interface ScannedLineItem {
     purchase_unit_cost?: number;
     level1_category?: string;
   };
+}
+
+interface ReviewCorrection {
+  field: string;
+  original: string;
+  corrected: string;
+  reason: string;
+  confidence: number;
 }
 
 interface ScannedInvoice {
@@ -96,7 +116,9 @@ interface ScannedInvoice {
   ai_total?: number;
   is_duplicate?: boolean;
   duplicate_date?: string;
-  review_issues?: string[];
+  review_warnings?: string[];
+  review_blocking?: string[];
+  review_corrections?: ReviewCorrection[];
 }
 
 interface InvoiceScannerProps {
@@ -146,6 +168,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const [currentIdx, setCurrentIdx] = useState(0);
   const [saving, setSaving] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
+  const [detailsLineIdx, setDetailsLineIdx] = useState<number | null>(null);
+  const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -412,29 +436,54 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const rawInvoices = Array.isArray(data) ? data : Array.isArray(data?.invoices) ? data.invoices : Array.isArray(data?.data?.invoices) ? data.data.invoices : [];
       const review = data?.review || data?.data?.review || null;
 
-      // Build per-invoice/per-line review lookups
-      const lineReviewMap = new Map<string, { issues: string[]; status?: ScannedLineItem["review_status"]; candidates?: string[]; suggested?: ScannedLineItem["suggested_new_item"] }>();
-      const invoiceReviewMap = new Map<number, string[]>();
+      // Build per-invoice/per-line review lookups from new Agent 2 schema
+      type LineReview = {
+        warnings: string[];
+        blocking: string[];
+        corrections: ReviewCorrection[];
+        status?: ScannedLineItem["review_status"];
+        candidates?: string[];
+        matchReason?: string;
+        matchConfidence?: number;
+        suggested?: ScannedLineItem["suggested_new_item"];
+      };
+      type InvoiceReview = { warnings: string[]; blocking: string[]; corrections: ReviewCorrection[] };
+      const lineReviewMap = new Map<string, LineReview>();
+      const invoiceReviewMap = new Map<number, InvoiceReview>();
+      const getLine = (k: string): LineReview => {
+        const e = lineReviewMap.get(k) || { warnings: [], blocking: [], corrections: [] };
+        lineReviewMap.set(k, e);
+        return e;
+      };
+      const getInv = (i: number): InvoiceReview => {
+        const e = invoiceReviewMap.get(i) || { warnings: [], blocking: [], corrections: [] };
+        invoiceReviewMap.set(i, e);
+        return e;
+      };
       if (review && typeof review === "object") {
-        for (const ii of review.invoice_issues || []) {
-          const arr = invoiceReviewMap.get(ii.invoice_index) || [];
-          arr.push(`[${ii.severity || "warning"}] ${ii.field}: ${ii.message}`);
-          invoiceReviewMap.set(ii.invoice_index, arr);
+        for (const c of review.header_corrections || []) {
+          getInv(c.invoice_index).corrections.push(c);
         }
-        for (const li of review.line_issues || []) {
-          const k = `${li.invoice_index}:${li.line_index}`;
-          const entry = lineReviewMap.get(k) || { issues: [] };
-          entry.issues.push(`[${li.type}] ${li.message}`);
-          lineReviewMap.set(k, entry);
+        for (const c of review.line_corrections || []) {
+          getLine(`${c.invoice_index}:${c.line_index}`).corrections.push(c);
+        }
+        for (const f of review.header_flags || []) {
+          const inv = getInv(f.invoice_index);
+          const msg = `${f.field}: ${f.message}`;
+          if (f.severity === "blocking") inv.blocking.push(msg); else inv.warnings.push(msg);
+        }
+        for (const f of review.line_flags || []) {
+          const ln = getLine(`${f.invoice_index}:${f.line_index}`);
+          const msg = `${f.field}: ${f.message}`;
+          if (f.severity === "blocking") ln.blocking.push(msg); else ln.warnings.push(msg);
         }
         for (const im of review.item_master || []) {
-          const k = `${im.invoice_index}:${im.line_index}`;
-          const entry = lineReviewMap.get(k) || { issues: [] };
-          entry.status = im.status;
-          entry.candidates = im.candidates;
-          entry.suggested = im.suggested_new_item;
-          if (im.reason) entry.issues.push(`[match] ${im.reason}`);
-          lineReviewMap.set(k, entry);
+          const ln = getLine(`${im.invoice_index}:${im.line_index}`);
+          ln.status = im.status;
+          ln.candidates = im.candidates;
+          ln.matchReason = im.reason;
+          ln.matchConfidence = im.confidence;
+          ln.suggested = im.suggested_new_item;
         }
       }
 
@@ -448,7 +497,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             const matchedSku = li?.matched_sku || "";
             const itemCode = li?.item_code || "";
             const pmData = resolvePMData(itemCode, matchedSku, productMaster, supplierName);
-            // If resolved by SKU, override description with the authoritative PM name
             const resolvedDesc = pmData.entry
               ? (pmData.entry.supplier_product_name || pmData.entry.internal_product_name || li?.description || "")
               : (li?.description || "");
@@ -473,9 +521,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               matched_stock_uom: pmData.stock_uom,
               matched_purchase_uom: pmData.purchase_uom,
               matched_stock_qty_ratio: pmData.stock_qty_ratio,
-              review_issues: reviewEntry?.issues,
               review_status: reviewEntry?.status,
+              review_warnings: reviewEntry?.warnings,
+              review_blocking: reviewEntry?.blocking,
+              review_corrections: reviewEntry?.corrections,
               review_candidates: reviewEntry?.candidates,
+              review_match_reason: reviewEntry?.matchReason,
+              review_match_confidence: reviewEntry?.matchConfidence,
               suggested_new_item: reviewEntry?.suggested,
             };
           }),
@@ -483,6 +535,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           supplierName
         );
 
+        const ir = invoiceReviewMap.get(invIdx);
         parsedInvoices.push({
           supplier_name: supplierName,
           supplier_id: supplierId,
@@ -497,9 +550,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
-          review_issues: invoiceReviewMap.get(invIdx),
+          review_warnings: ir?.warnings,
+          review_blocking: ir?.blocking,
+          review_corrections: ir?.corrections,
         });
       }
+
 
       setInvoices(parsedInvoices);
       await checkDuplicates(parsedInvoices);
@@ -904,6 +960,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const hasUnmatchedItems = unmatchedItems.length > 0;
   const priceChangedItems = current?.line_items.filter(l => l.price_changed) || [];
   const hasPriceChanges = priceChangedItems.length > 0;
+  const blockingCount = (current?.review_blocking?.length || 0)
+    + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
+  const hasBlockingIssues = blockingCount > 0;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
@@ -1141,28 +1200,37 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             </div>
           )}
 
-          {/* Reviewer agent banner */}
+          {/* Agent 2 review summary banner */}
           {(() => {
-            const lineFlagCount = current.line_items.filter(l => (l.review_issues && l.review_issues.length > 0) || l.review_status === "new_item" || l.review_status === "ambiguous").length;
-            const newItemCount = current.line_items.filter(l => l.review_status === "new_item").length;
-            const invIssues = current.review_issues || [];
-            if (lineFlagCount === 0 && invIssues.length === 0) return null;
+            const lines = current.line_items;
+            const headerCorr = current.review_corrections?.length || 0;
+            const lineCorr = lines.reduce((s, l) => s + (l.review_corrections?.length || 0), 0);
+            const autoCorr = headerCorr + lineCorr;
+            const headerWarn = current.review_warnings?.length || 0;
+            const lineWarn = lines.reduce((s, l) => s + (l.review_warnings?.length || 0), 0);
+            const warnings = headerWarn + lineWarn;
+            const headerBlock = current.review_blocking?.length || 0;
+            const lineBlock = lines.reduce((s, l) => s + (l.review_blocking?.length || 0), 0);
+            const blocking = headerBlock + lineBlock;
+            const matched = lines.filter(l => l.review_status === "matched").length;
+            const newItems = lines.filter(l => l.review_status === "new_item").length;
+            if (autoCorr + warnings + blocking + matched + newItems === 0) return null;
             return (
-              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-800 dark:text-purple-300 text-sm space-y-1">
-                <div className="flex items-center gap-2 font-medium">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  Reviewer agent flagged {lineFlagCount} line{lineFlagCount !== 1 ? "s" : ""}{newItemCount > 0 ? ` · ${newItemCount} new item${newItemCount > 1 ? "s" : ""} suggested` : ""}{invIssues.length > 0 ? ` · ${invIssues.length} invoice issue${invIssues.length > 1 ? "s" : ""}` : ""}
+              <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-900 dark:text-purple-200 text-sm">
+                <div className="font-medium">
+                  Invoice Review: {autoCorr} auto-correction{autoCorr !== 1 ? "s" : ""} · {warnings} warning{warnings !== 1 ? "s" : ""} · {blocking} blocking issue{blocking !== 1 ? "s" : ""} · {matched} matched item{matched !== 1 ? "s" : ""} · {newItems} new item{newItems !== 1 ? "s" : ""}
                 </div>
-                {invIssues.length > 0 && (
-                  <ul className="list-disc list-inside text-xs pl-1">
-                    {invIssues.map((m, i) => <li key={i}>{m}</li>)}
-                  </ul>
+                {(headerCorr + headerWarn + headerBlock) > 0 && (
+                  <Button size="sm" variant="outline" className="h-7" onClick={() => setShowInvoiceDetails(true)}>
+                    <Info className="h-3 w-3 mr-1" />Header details
+                  </Button>
                 )}
               </div>
             );
           })()}
 
           <p className="text-sm text-muted-foreground">Review and correct the extracted data, then save.</p>
+
 
 
           {/* Header fields */}
@@ -1351,29 +1419,58 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             currentSupplier={current?.supplier_name}
                             multiline
                           />
-                          {line.unmatched && (
-                            <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
-                          )}
-                          {(line.review_issues && line.review_issues.length > 0) && (
-                            <div className="mt-1 text-[10px] text-purple-700 dark:text-purple-300" title={line.review_issues.join("\n")}>
-                              ⚑ Reviewer: {line.review_issues[0]}{line.review_issues.length > 1 ? ` (+${line.review_issues.length - 1} more)` : ""}
-                            </div>
-                          )}
-                          {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="mt-1 h-6 text-[10px] px-2"
-                              disabled={creatingLineIdx === i}
-                              onClick={() => handleAddSuggestedItem(i)}
-                            >
-                              {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
-                              Add to Items Master
-                            </Button>
-                          )}
+                          {/* Compact status & flag badges (Agent 2) */}
+                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                            {line.review_status === "matched" && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-green-100 text-green-800 border border-green-300">Matched</Badge>
+                            )}
+                            {line.review_status === "possible_match" && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800 border border-amber-300">Possible Match</Badge>
+                            )}
+                            {line.review_status === "new_item" && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-blue-100 text-blue-800 border border-blue-300">New Item</Badge>
+                            )}
+                            {(line.review_status === "needs_review" || (!line.review_status && line.unmatched)) && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-purple-100 text-purple-800 border border-purple-300">Needs Review</Badge>
+                            )}
+                            {(line.review_corrections && line.review_corrections.length > 0) && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-sky-100 text-sky-800 border border-sky-300">Auto-corrected</Badge>
+                            )}
+                            {(line.review_warnings && line.review_warnings.length > 0) && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800 border border-amber-300">Warning</Badge>
+                            )}
+                            {(line.review_blocking && line.review_blocking.length > 0) && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-destructive text-destructive-foreground">Blocking Issue</Badge>
+                            )}
+                            {((line.review_corrections && line.review_corrections.length > 0)
+                              || (line.review_warnings && line.review_warnings.length > 0)
+                              || (line.review_blocking && line.review_blocking.length > 0)
+                              || line.review_status) && (
+                              <button
+                                type="button"
+                                onClick={() => setDetailsLineIdx(i)}
+                                className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                              >
+                                Details
+                              </button>
+                            )}
+                            {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-5 text-[10px] px-1.5"
+                                disabled={creatingLineIdx === i}
+                                onClick={() => handleAddSuggestedItem(i)}
+                              >
+                                {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-0.5" />}
+                                Add to Items Master
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </td>
+
 
                       {/* Purchase UOM - read-only from PM */}
                       <td className="px-1 py-1 align-top">
@@ -1525,9 +1622,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             )}
 
             {!current.saved ? (
-              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems}>
+              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {current.is_duplicate ? "Duplicate — Cannot Save" : hasUnmatchedItems ? "Match All Items to Save" : saving ? "Saving..." : "Save This Invoice"}
+                {current.is_duplicate ? "Duplicate — Cannot Save" : hasBlockingIssues ? `Resolve ${blockingCount} Blocking Issue${blockingCount > 1 ? "s" : ""}` : hasUnmatchedItems ? "Match All Items to Save" : saving ? "Saving..." : "Save This Invoice"}
               </Button>
             ) : (
               <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
@@ -1565,6 +1662,115 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           )}
         </div>
       )}
+
+      {/* Line-level Agent 2 details */}
+      <Dialog open={detailsLineIdx !== null} onOpenChange={(o) => !o && setDetailsLineIdx(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Line review details</DialogTitle>
+            <DialogDescription>What the review agent corrected or flagged on this line.</DialogDescription>
+          </DialogHeader>
+          {detailsLineIdx !== null && current?.line_items[detailsLineIdx] && (() => {
+            const l = current.line_items[detailsLineIdx];
+            return (
+              <div className="space-y-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Status:</span>
+                  <span>{l.review_status ? l.review_status.replace("_", " ") : "—"}</span>
+                  {typeof l.review_match_confidence === "number" && (
+                    <span className="text-xs text-muted-foreground">(confidence {Math.round((l.review_match_confidence || 0) * 100)}%)</span>
+                  )}
+                </div>
+                {l.review_match_reason && (
+                  <div><span className="text-muted-foreground">Match reason: </span>{l.review_match_reason}</div>
+                )}
+                {l.review_candidates && l.review_candidates.length > 0 && (
+                  <div><span className="text-muted-foreground">Candidates: </span>{l.review_candidates.join(", ")}</div>
+                )}
+                {l.review_corrections && l.review_corrections.length > 0 && (
+                  <div>
+                    <div className="font-medium mb-1">Auto-corrections</div>
+                    <table className="w-full text-xs border">
+                      <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Original</th><th className="text-left p-1.5">Corrected</th><th className="text-left p-1.5">Reason</th><th className="text-left p-1.5">Conf.</th></tr></thead>
+                      <tbody>
+                        {l.review_corrections.map((c, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="p-1.5 font-mono">{c.field}</td>
+                            <td className="p-1.5 line-through text-muted-foreground">{c.original}</td>
+                            <td className="p-1.5">{c.corrected}</td>
+                            <td className="p-1.5">{c.reason}</td>
+                            <td className="p-1.5">{Math.round((c.confidence || 0) * 100)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {l.review_warnings && l.review_warnings.length > 0 && (
+                  <div>
+                    <div className="font-medium mb-1 text-amber-700 dark:text-amber-400">Warnings</div>
+                    <ul className="list-disc list-inside text-xs space-y-0.5">{l.review_warnings.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                  </div>
+                )}
+                {l.review_blocking && l.review_blocking.length > 0 && (
+                  <div>
+                    <div className="font-medium mb-1 text-destructive">Blocking issues</div>
+                    <ul className="list-disc list-inside text-xs space-y-0.5">{l.review_blocking.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice header details */}
+      <Dialog open={showInvoiceDetails} onOpenChange={setShowInvoiceDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Invoice header review</DialogTitle>
+            <DialogDescription>Header-level corrections and flags from the review agent.</DialogDescription>
+          </DialogHeader>
+          {current && (
+            <div className="space-y-4 text-sm">
+              {current.review_corrections && current.review_corrections.length > 0 && (
+                <div>
+                  <div className="font-medium mb-1">Auto-corrections</div>
+                  <table className="w-full text-xs border">
+                    <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Original</th><th className="text-left p-1.5">Corrected</th><th className="text-left p-1.5">Reason</th><th className="text-left p-1.5">Conf.</th></tr></thead>
+                    <tbody>
+                      {current.review_corrections.map((c, i) => (
+                        <tr key={i} className="border-t">
+                          <td className="p-1.5 font-mono">{c.field}</td>
+                          <td className="p-1.5 line-through text-muted-foreground">{c.original}</td>
+                          <td className="p-1.5">{c.corrected}</td>
+                          <td className="p-1.5">{c.reason}</td>
+                          <td className="p-1.5">{Math.round((c.confidence || 0) * 100)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {current.review_warnings && current.review_warnings.length > 0 && (
+                <div>
+                  <div className="font-medium mb-1 text-amber-700 dark:text-amber-400">Warnings</div>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">{current.review_warnings.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                </div>
+              )}
+              {current.review_blocking && current.review_blocking.length > 0 && (
+                <div>
+                  <div className="font-medium mb-1 text-destructive">Blocking issues</div>
+                  <ul className="list-disc list-inside text-xs space-y-0.5">{current.review_blocking.map((m, i) => <li key={i}>{m}</li>)}</ul>
+                </div>
+              )}
+              {(!current.review_corrections?.length && !current.review_warnings?.length && !current.review_blocking?.length) && (
+                <div className="text-muted-foreground">No header-level findings.</div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

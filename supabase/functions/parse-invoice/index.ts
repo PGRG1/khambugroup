@@ -406,7 +406,9 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
       if (inv.notes) inv.notes = translateChinese(inv.notes);
     }
 
-    // --- AGENT 2: Validator & Items-Master Reviewer ---
+    // --- AGENT 2: Invoice Review & Correction Agent ---
+    // Reviews Agent 1 output, applies safe corrections, flags risky values for human review,
+    // assigns one Items Master status per line.
     let review: any = null;
     try {
       const pmSummary = (productMaster && Array.isArray(productMaster) && productMaster.length > 0)
@@ -415,20 +417,74 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
           ).join("\n")
         : "(empty)";
 
-      const reviewerSystem = `You are the Reviewer agent for an invoice ingestion pipeline.
-You receive (a) invoice data extracted by another agent and (b) the current Items Master list.
-Your job is to:
-1. Sanity-check each invoice header and each line item for missing or inconsistent data.
-   - Required header fields: supplier_name, invoice_number, invoice_date, venue, total_amount.
-   - For each line: quantity, unit_price, total. Flag when quantity * unit_price - discount differs from total by more than 0.05.
-   - Flag when sum of line totals differs from invoice total_amount by more than 1.00.
-2. Reconcile every line to the Items Master.
-   - "matched" if there is a confident match by ExtSKU or by SupplierName/Name within the same supplier scope. Return its internal_sku.
-   - "ambiguous" if 2+ plausible matches. Return up to 3 candidate internal_sku values.
-   - "new_item" if no plausible match. Propose a draft new Items Master entry the operator can accept.
-Return ONLY by calling the report_review function. Do not include text.`;
+      const supplierListText = (productMaster && Array.isArray(productMaster))
+        ? Array.from(new Set(productMaster.map((p: any) => p.supplier).filter(Boolean))).join(" | ")
+        : "";
+
+      const reviewerSystem = `You are the Invoice Review & Correction Agent.
+Agent 1 has extracted invoice data from an image. Your job is to REVIEW and CORRECT it — not to comment on it.
+
+For every field decide: keep as-is, safely correct, or flag for human review.
+
+YOU MAY SAFELY CORRECT (return in line_corrections / header_corrections):
+- supplier_name: only if there is a clear match in the known supplier list
+- invoice_date / due_date: normalize to YYYY-MM-DD
+- currency: normalize codes (HKD, USD, etc.)
+- unit (UOM): normalize formatting (e.g. "btl" -> "Bottle", "pcs" -> "Piece")
+- description: clean obvious OCR noise without changing meaning
+- item_code / matched_sku: set when there is a CLEAR Items Master match
+
+YOU MUST NEVER SILENTLY CHANGE (flag only):
+- quantity, unit_price, subtotal, tax, discount, total_amount, line total
+If these look wrong, raise a flag — severity "warning" for small/rounding diffs, "blocking" for material ones.
+
+MATH CHECKS (flags only):
+- per line: |qty * unit_price - discount - total| > 0.05 -> warning; > 1.00 -> blocking
+- sum of line totals vs invoice total: diff > 1.00 -> warning; > 5.00 -> blocking
+
+MISSING REQUIRED HEADER FIELDS (header_flags, "blocking"): supplier_name, invoice_number, invoice_date, total_amount.
+
+ITEMS MASTER STATUS — exactly ONE per line:
+- "matched": confident exact/near-exact match. Return matched_sku.
+- "possible_match": multiple plausible candidates. Return up to 3 candidate internal_sku values.
+- "new_item": no plausible match. Return a suggested_new_item draft.
+- "needs_review": data too incomplete/ambiguous to decide.
+
+For EVERY correction return: field, original, corrected, reason (short), confidence (0-1).
+If unsure, prefer a flag over a correction.
+
+Known suppliers: ${supplierListText || "(none)"}
+
+Return ONLY by calling the report_review function.`;
 
       const reviewerUserText = `EXTRACTED INVOICES (from Agent 1):\n${JSON.stringify({ invoices: invoicesArray }, null, 2)}\n\nITEMS MASTER (first 800 rows):\n${pmSummary}`;
+
+      const correctionItem = {
+        type: "object",
+        properties: {
+          invoice_index: { type: "integer" },
+          line_index: { type: "integer" },
+          field: { type: "string" },
+          original: { type: "string" },
+          corrected: { type: "string" },
+          reason: { type: "string" },
+          confidence: { type: "number" },
+        },
+        required: ["invoice_index", "field", "original", "corrected", "reason", "confidence"],
+        additionalProperties: false,
+      };
+      const flagItem = {
+        type: "object",
+        properties: {
+          invoice_index: { type: "integer" },
+          line_index: { type: "integer" },
+          field: { type: "string" },
+          severity: { type: "string", enum: ["warning", "blocking"] },
+          message: { type: "string" },
+        },
+        required: ["invoice_index", "field", "severity", "message"],
+        additionalProperties: false,
+      };
 
       const reviewerBody = {
         model: "google/gemini-2.5-flash",
@@ -442,39 +498,14 @@ Return ONLY by calling the report_review function. Do not include text.`;
             type: "function",
             function: {
               name: "report_review",
-              description: "Report the validation and items-master review for the extracted invoices.",
+              description: "Report corrections, flags, and items-master status for each invoice line.",
               parameters: {
                 type: "object",
                 properties: {
-                  invoice_issues: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        invoice_index: { type: "integer" },
-                        field: { type: "string" },
-                        severity: { type: "string", enum: ["warning", "error"] },
-                        message: { type: "string" },
-                      },
-                      required: ["invoice_index", "field", "severity", "message"],
-                      additionalProperties: false,
-                    },
-                  },
-                  line_issues: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        invoice_index: { type: "integer" },
-                        line_index: { type: "integer" },
-                        type: { type: "string", enum: ["math", "missing", "unit", "price", "other"] },
-                        severity: { type: "string", enum: ["warning", "error"] },
-                        message: { type: "string" },
-                      },
-                      required: ["invoice_index", "line_index", "type", "severity", "message"],
-                      additionalProperties: false,
-                    },
-                  },
+                  header_corrections: { type: "array", items: correctionItem },
+                  line_corrections: { type: "array", items: correctionItem },
+                  header_flags: { type: "array", items: flagItem },
+                  line_flags: { type: "array", items: flagItem },
                   item_master: {
                     type: "array",
                     items: {
@@ -482,10 +513,11 @@ Return ONLY by calling the report_review function. Do not include text.`;
                       properties: {
                         invoice_index: { type: "integer" },
                         line_index: { type: "integer" },
-                        status: { type: "string", enum: ["matched", "ambiguous", "new_item"] },
+                        status: { type: "string", enum: ["matched", "possible_match", "new_item", "needs_review"] },
                         matched_sku: { type: "string" },
                         candidates: { type: "array", items: { type: "string" } },
                         reason: { type: "string" },
+                        confidence: { type: "number" },
                         suggested_new_item: {
                           type: "object",
                           properties: {
@@ -506,7 +538,7 @@ Return ONLY by calling the report_review function. Do not include text.`;
                     },
                   },
                 },
-                required: ["invoice_issues", "line_issues", "item_master"],
+                required: ["header_corrections", "line_corrections", "header_flags", "line_flags", "item_master"],
                 additionalProperties: false,
               },
             },
@@ -548,6 +580,23 @@ Return ONLY by calling the report_review function. Do not include text.`;
       }
     } catch (reviewErr) {
       console.warn("Reviewer agent error (non-fatal):", reviewErr);
+    }
+
+    // Apply ALLOWED corrections server-side. Numeric fields are NEVER overwritten.
+    const allowedHeaderFields = new Set(["supplier_name", "invoice_date", "due_date", "currency", "venue"]);
+    const allowedLineFields = new Set(["description", "unit", "pack_size", "item_code", "matched_sku"]);
+    if (review && typeof review === "object") {
+      for (const c of review.header_corrections || []) {
+        const inv = invoicesArray[c.invoice_index];
+        if (!inv || !allowedHeaderFields.has(c.field)) continue;
+        inv[c.field] = c.corrected;
+      }
+      for (const c of review.line_corrections || []) {
+        const inv = invoicesArray[c.invoice_index];
+        const line = inv?.line_items?.[c.line_index];
+        if (!line || !allowedLineFields.has(c.field)) continue;
+        line[c.field] = c.corrected;
+      }
     }
 
     return new Response(
