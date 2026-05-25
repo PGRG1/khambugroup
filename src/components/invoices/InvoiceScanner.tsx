@@ -1288,6 +1288,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   ))}
                 </SelectContent>
               </Select>
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["supplier_name", "supplier"]}
+              />
             </div>
             <div>
               <Label className="text-xs">Venue</Label>
@@ -1299,10 +1305,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <SelectItem value="Hanabi">Hanabi</SelectItem>
                 </SelectContent>
               </Select>
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["venue"]}
+              />
             </div>
             <div>
               <Label className="text-xs">Invoice #</Label>
               <Input value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["invoice_number"]}
+              />
             </div>
             <div>
               <Label className="text-xs">Status</Label>
@@ -1320,16 +1338,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             <div>
               <Label className="text-xs">Invoice Date</Label>
               <Input type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["invoice_date"]}
+              />
             </div>
             <div>
               <Label className="text-xs">Due Date</Label>
               <Input type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["due_date"]}
+              />
             </div>
             <div className="sm:col-span-2">
               <Label className="text-xs">Notes</Label>
               <Textarea value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
             </div>
           </div>
+
 
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
