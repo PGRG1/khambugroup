@@ -1,110 +1,101 @@
+
 ## Goal
 
-Improve the existing `/finance/payables` page (do not rebuild). Only show invoices with `review_status = 'Approved'`, and turn the page into a finance control center with richer KPIs, filters, status badges, and actions. Improve the existing payment recording flow with bank-account linkage and bank-match status.
+Replace the current single-invoice Record Payment dialog with a two-step modal that lets one payment be allocated across one, many, or zero invoices (advance payment), with proper validation and downstream status updates.
 
-## Scope guardrails
+## Data model changes
 
-- Keep `usePayables`, `Payables.tsx`, and the existing Mark Paid path; refactor in place.
-- Procurement invoice review screens are unchanged — they still drive `review_status`.
-- AP becomes the post-approval workspace.
+The current `invoice_payments` table ties each payment row to exactly one invoice via `invoice_id`. That cannot represent: one payment covering multiple invoices, or unallocated/advance payments. New model:
 
-## 1. Approved-only filter
+```text
+payments (header — "the money that left the account")
+  id, payment_date, amount, payment_method, paid_from_account_id,
+  reference_number, cheque_number, notes, supplier_id (nullable),
+  bank_transaction_id (nullable), match_status, created_by, created_at
 
-In `usePayables.ts`, filter invoices to `review_status = 'Approved'` before computing open/summary. Drafts, Under Review, Needs Review, Rejected, Duplicate, and Voided invoices never appear in AP.
+payment_allocations (link — "how that money was applied")
+  id, payment_id, invoice_id, amount_allocated, created_at
+```
 
-## 2. Schema changes (minimal additions)
+Derived per payment:
+- `total_allocated` = sum of allocations
+- `unallocated_amount` = `amount - total_allocated` (≥ 0; > 0 means advance/on-account)
 
-Add to `invoices`:
-- `payment_status` already exists — extend allowed values used in UI: `unpaid`, `scheduled`, `partially_paid`, `paid`, `overdue`, `credit_note_applied`, `voided`. No DB enum; remain text. Add a validation trigger (not CHECK) to restrict values.
-- `scheduled_payment_date date` (nullable) — for "Scheduled".
-- `bank_match_status text default 'not_ready'` — values: `not_ready`, `awaiting_bank_match`, `matched`, `possible_match`, `needs_review`. Validation trigger.
+The existing `invoice_payments` rows will be migrated 1:1 into `payments` + `payment_allocations` (single allocation each), then `invoice_payments` is kept read-only for one release as a fallback (no UI writes).
 
-Add to `invoice_payments`:
-- `bank_account_id uuid` (nullable, references `bank_accounts.id`)
-- `bank_transaction_id uuid` (nullable, references `bank_transactions.id`)
-- `match_status text default 'awaiting_bank_match'` — same vocabulary as above
-- `reference text default ''`
+Bank matching moves to the `payments` header (not per allocation), matching the user's rule: "bank transaction should match to the payment record, not directly to each invoice."
 
-Backfill: existing `paid` invoices → `bank_match_status = 'matched'` if a linked bank_transaction can be found, else `awaiting_bank_match`; unpaid → `not_ready`.
+RLS: same admin/manager write, authenticated read pattern as `invoice_payments`. Validation triggers enforce `amount > 0`, `sum(allocations) <= payment.amount`, and `allocation.amount <= invoice.outstanding`.
 
-RLS: mirror existing `invoice_payments` policies on the two new columns (no policy changes needed; policies are row-level).
+## UI: two-step `RecordPaymentDialog`
 
-## 3. Hook refactor — `usePayables`
+Entry points unchanged (per-row "Record Payment" button + dropdown). Dialog widens to `max-w-3xl`.
 
-Compute and return:
-- `approvedInvoices` (full list incl. paid, for "Paid This Month" and partial logic)
-- `openInvoices` — approved + not fully paid + not voided
-- KPIs:
-  - `totalOutstanding` = Σ `remaining_balance` of open
-  - `dueThisWeek` = Σ outstanding where `due_date` within next 7 days
-  - `overdue` = Σ outstanding where `due_date < today`
-  - `paidThisMonth` = Σ `invoice_payments.amount` in current month (already present)
-  - `partiallyPaid` = count where `amount_paid > 0 AND remaining_balance > 0`
-  - `awaitingBankMatch` = count of payments with `match_status in ('awaiting_bank_match','possible_match','needs_review')`
-  - `unallocatedPayments` = count of `invoice_payments` rows whose invoice is fully paid? Actually: unallocated = payments with `invoice_id IS NULL` once we permit on-account payments. Phase 1 = 0 placeholder + TODO note in UI tooltip.
-- Per-invoice derived fields: `outstanding_amount`, `last_payment_method`, `last_paid_from_account_name`, `bank_match_status`, derived `payment_status` (recompute `overdue` on the fly from due_date when unpaid).
+**Step 1 — Payment Details**
 
-## 4. UI — `src/pages/finance/Payables.tsx`
+Fields, with Payment Method and Paid From Account as separate selects:
 
-### Header
-Keep current header. Add a small "Approved invoices only" hint under the subtitle.
+- Payment Date (defaults today)
+- Payment Amount (defaults to clicked invoice's outstanding)
+- Payment Method: `FPS`, `Cheque`, `Bank Transfer`, `Cash`, `Credit Card`, `Other`
+- Paid From Account: list of active `bank_accounts` plus cash/till accounts (`Cash Till - Assembly`, `Cash Till - Caliente`, `Petty Cash`) — these will be seeded as `bank_accounts` rows with `account_type = 'cash'` if not present
+- Reference Number
+- Cheque Number — only shown when Method = `Cheque`
+- Notes
 
-### KPI strip (7 cards)
-Replace the 4-card grid with a `grid-cols-2 md:grid-cols-4 xl:grid-cols-7` strip using existing `card-glass`:
-Total Outstanding · Due This Week · Overdue · Paid This Month · Partially Paid · Awaiting Bank Match · Unallocated Payments. Each card: icon, label, value, optional accent color (amber/red/emerald). KPIs respond to active filters.
+Validation: amount > 0, method + paid-from required. "Next" advances to Step 2.
 
-### Filter bar
-Single sticky row above the table:
-- Search (supplier/invoice #)
-- Supplier select
-- Venue select
-- Payment Status select (7 values)
-- Bank Match Status select (5 values)
-- Due Date Range (preset + custom)
-- Paid From Account select (bank accounts)
-- Reset filters button
+**Step 2 — Allocate Payment**
 
-### Table (replace "Open Invoices" table; remove By Supplier and Aging tabs OR keep them as secondary tabs)
+Loads all open approved invoices for the same supplier (`outstanding_amount > 0`, `payment_status != voided`), pre-selecting the originating invoice with its outstanding amount auto-filled.
 
-Primary view "Invoices" with columns:
-Supplier · Invoice # · Venue · Invoice Date · Due Date · Invoice Amount · Outstanding Amount · Payment Status · Last Payment Method · Paid From Account · Bank Match Status · Issue · Action
+Allocation table columns:
+Invoice # · Invoice Date · Due Date · Invoice Amount · Outstanding · **Amount to Pay** (editable) · Remaining Balance (live)
 
-- Status cells use a new `<PaymentStatusBadge>` and `<BankMatchBadge>` with semantic color tokens (emerald=paid/matched, amber=partial/possible, red=overdue/needs review, sky=scheduled, zinc=not ready/unpaid, purple=credit note).
-- "Issue" cell shows `exception_note` if present, else a dash.
-- Action cell = dropdown with: Record Payment · Allocate Payment · View Payment History · Open Invoice.
+Quick actions per row: "Pay full outstanding", "Clear".
 
-Keep secondary tabs "By Supplier" and "Aging Summary" as-is (compact).
+Running allocation summary bar (sticky at bottom of step):
+- Payment Amount
+- Total Allocated
+- Unallocated Amount (highlighted amber if > 0, labelled "Will be saved as Advance / On-Account")
+- Remaining Outstanding (across selected invoices)
 
-### Dialogs (new, small, in `src/components/finance/payables/`)
-- `RecordPaymentDialog.tsx` — date, amount (default = remaining_balance), payment method, paid-from bank account select, reference, notes. On save: insert into `invoice_payments`, recompute `amount_paid` + `remaining_balance` + `payment_status` + `bank_match_status='awaiting_bank_match'`.
-- `AllocatePaymentDialog.tsx` — list unmatched bank_transactions for the invoice's window; user picks one → sets `invoice_payments.bank_transaction_id` and flips invoice `bank_match_status='matched'`.
-- `PaymentHistoryDialog.tsx` — read-only list of `invoice_payments` with reverse / void action (admin only).
+Live validation:
+- Total allocated ≤ Payment Amount (block save, red toast)
+- Per-row allocation ≤ that invoice's outstanding (clamp + warning)
+- Allow save with unallocated > 0 (advance payment) — confirm message
+- Allow save with total allocated = 0 (pure advance) — confirm message
 
-## 5. Status badges
+**Save**
 
-Add `src/components/finance/payables/StatusBadges.tsx` with two small components driven by the project's existing `chip-*` classes. Tooltip on hover explains each status.
+Single transaction via a Supabase RPC `record_payment_with_allocations(payment jsonb, allocations jsonb[])` that:
+1. Inserts the `payments` row.
+2. Inserts `payment_allocations` rows for non-zero entries.
+3. For each affected invoice, recomputes `amount_paid = sum(allocations)`, `remaining_balance = total_amount - amount_paid`, and sets `payment_status`:
+   - `paid` if remaining ≤ 0.01
+   - `partially_paid` if 0 < remaining < total
+   - leaves `unpaid` otherwise
+4. Sets invoice `bank_match_status = 'awaiting_bank_match'` where an allocation was applied.
+5. Returns the new payment id.
 
-## 6. Out of scope (call out, don't build)
+Doing this server-side avoids client race conditions and keeps balances consistent.
 
-- True allocation of on-account / unallocated payments (Phase 2).
-- Auto-matching engine for bank transactions (Phase 2 — relies on existing `bank_recon_rules`).
-- Voiding / credit-note generation flow.
+## Hook + page updates
 
-## Files
+- `usePayables.ts`: fetch from `payments` + `payment_allocations` instead of `invoice_payments`. Derive `amount_paid`/`outstanding` per invoice from allocations as authoritative source (fallback to invoice column if no allocations exist post-migration). KPI `unallocatedPayments` becomes count of `payments` with `unallocated_amount > 0.01`.
+- `PaymentHistoryDialog.tsx`: show all payments touching the invoice via its allocations, with payment-level details and the allocated amount; "Reverse" deletes the allocation and recomputes invoice balance (and deletes the parent `payment` if it has no remaining allocations and no unallocated amount).
+- `AllocatePaymentDialog.tsx`: repurposed only for bank-transaction matching against existing `payments` (unchanged scope here).
+- `Payables.tsx`: no structural change; just passes the originating invoice into the new dialog.
 
-Edit:
-- `src/hooks/usePayables.ts`
-- `src/hooks/useInvoiceData.ts` (extend `Invoice` type + status updaters)
-- `src/pages/finance/Payables.tsx`
+## Files touched
 
-Create:
-- `src/components/finance/payables/StatusBadges.tsx`
-- `src/components/finance/payables/RecordPaymentDialog.tsx`
-- `src/components/finance/payables/AllocatePaymentDialog.tsx`
-- `src/components/finance/payables/PaymentHistoryDialog.tsx`
+- New migration: `payments`, `payment_allocations`, triggers, RPC, backfill from `invoice_payments`.
+- `src/components/finance/payables/RecordPaymentDialog.tsx` — rewritten as two-step.
+- `src/hooks/usePayables.ts` — read from new tables.
+- `src/components/finance/payables/PaymentHistoryDialog.tsx` — read/reverse via allocations.
 
-Migration: add columns + validation triggers + backfill described in §2.
+## Out of scope (Phase 2)
 
-## Open question
-
-Do you want me to **remove** the existing "By Supplier" and "Aging Summary" tabs, or keep them as secondary tabs alongside the new "Invoices" view?
+- Re-allocating an existing advance payment to invoices later (UI exists conceptually but separate flow).
+- Multi-currency payments.
+- Posting journal entries from payments (already handled elsewhere if applicable).
