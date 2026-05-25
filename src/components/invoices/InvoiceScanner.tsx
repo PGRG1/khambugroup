@@ -1,5 +1,15 @@
 import React, { useCallback, useState, useEffect, useMemo } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature } from "lucide-react";
+import {
+  WorkflowStrip,
+  CheckCard,
+  KpiStrip,
+  CorrectionChip,
+  LineStatusChip,
+  ReviewDrawer,
+  computeReviewStats,
+  getLineStatus,
+} from "./InvoiceReviewPanels";
 import InvoiceCamera from "./InvoiceCamera";
 import ProductAutocomplete from "./ProductAutocomplete";
 import { supabase } from "@/integrations/supabase/client";
@@ -1211,83 +1221,58 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             </div>
           )}
 
-          {/* Warning banners */}
-          {current.is_duplicate && !current.saved && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>Cannot be recorded — already exists:</strong> Invoice #{current.invoice_number} from this supplier
-                {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""} is already in the system.
-              </span>
-            </div>
-          )}
-
-          {totalMismatch && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>Total mismatch:</strong> Invoice total from document (${aiTotal?.toFixed(2)}) doesn't match calculated line items total (${calculatedTotal.toFixed(2)}). Please review the numbers.
-              </span>
-            </div>
-          )}
-
-          {hasUnmatchedItems && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>{unmatchedItems.length} item{unmatchedItems.length > 1 ? "s" : ""} not matched to Bills & Invoices</strong> — review required.
-              </span>
-            </div>
-          )}
-
-          {hasSkuMismatches && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>SKU mismatch:</strong> Some scanned item codes don't match the Bills & Invoices external SKU. Review highlighted rows.
-              </span>
-            </div>
-          )}
-
-          {hasPriceChanges && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>{priceChangedItems.length} price change{priceChangedItems.length > 1 ? "s" : ""} detected</strong> — invoice prices differ from Bills & Invoices. Review highlighted rows.
-              </span>
-            </div>
-          )}
-
-          {/* Agent 2 review summary banner */}
+          {/* ───── Review header: workflow strip + check cards + KPI strip ───── */}
           {(() => {
-            const lines = current.line_items;
-            const headerCorr = current.review_corrections?.length || 0;
-            const lineCorr = lines.reduce((s, l) => s + (l.review_corrections?.length || 0), 0);
-            const autoCorr = headerCorr + lineCorr;
-            const headerWarn = current.review_warnings?.length || 0;
-            const lineWarn = lines.reduce((s, l) => s + (l.review_warnings?.length || 0), 0);
-            const warnings = headerWarn + lineWarn;
-            const headerBlock = current.review_blocking?.length || 0;
-            const lineBlock = lines.reduce((s, l) => s + (l.review_blocking?.length || 0), 0);
-            const blocking = headerBlock + lineBlock;
-            const matched = lines.filter(l => l.review_status === "matched").length;
-            const newItems = lines.filter(l => l.review_status === "new_item").length;
-            if (autoCorr + warnings + blocking + matched + newItems === 0) return null;
+            const stats = computeReviewStats(current, { totalMismatch });
             return (
-              <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-900 dark:text-purple-200 text-sm">
-                <div className="font-medium">
-                  Invoice Review: {autoCorr} auto-correction{autoCorr !== 1 ? "s" : ""} · {warnings} warning{warnings !== 1 ? "s" : ""} · {blocking} blocking issue{blocking !== 1 ? "s" : ""} · {matched} matched item{matched !== 1 ? "s" : ""} · {newItems} new item{newItems !== 1 ? "s" : ""}
+              <div className="space-y-3">
+                <WorkflowStrip
+                  extractorDone={true}
+                  reviewerDone={(stats.autoCorrections + stats.warnings + stats.blocking + stats.matched + stats.newItems) > 0}
+                  blocking={stats.blocking + (current.is_duplicate ? 1 : 0)}
+                  duplicate={!!current.is_duplicate}
+                />
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <CheckCard title="Header Check" status={stats.headerCheckStatus} message={stats.headerCheckMsg} />
+                  <CheckCard title="Supplier Check" status={stats.supplierCheckStatus} message={stats.supplierCheckMsg} />
+                  <CheckCard title="Math Check" status={stats.mathCheckStatus} message={stats.mathCheckMsg} />
+                  <CheckCard title="Item Mapping" status={stats.itemMappingStatus} message={stats.itemMappingMsg} />
                 </div>
-                {(headerCorr + headerWarn + headerBlock) > 0 && (
-                  <Button size="sm" variant="outline" className="h-7" onClick={() => setShowInvoiceDetails(true)}>
-                    <Info className="h-3 w-3 mr-1" />Header details
-                  </Button>
+
+                <KpiStrip stats={stats} />
+
+                {current.is_duplicate && !current.saved && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>
+                      <strong>Cannot be recorded — already exists:</strong> Invoice #{current.invoice_number} from this supplier
+                      {current.duplicate_date ? ` (dated ${current.duplicate_date})` : ""} is already in the system.
+                    </span>
+                  </div>
+                )}
+
+                {(stats.autoCorrections + stats.warnings + stats.blocking) > 0 && (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
+                    <span>
+                      Invoice Review:{" "}
+                      <span className="text-sky-600 dark:text-sky-400 font-medium">{stats.autoCorrections} auto-corrections</span> ·{" "}
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">{stats.warnings} warnings</span> ·{" "}
+                      <span className="text-destructive font-medium">{stats.blocking} blocking</span> ·{" "}
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">{stats.matched} matched</span> ·{" "}
+                      <span className="text-indigo-600 dark:text-indigo-400 font-medium">{stats.newItems} new</span>
+                    </span>
+                    {((current.review_corrections?.length || 0) + (current.review_warnings?.length || 0) + (current.review_blocking?.length || 0)) > 0 && (
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowInvoiceDetails(true)}>
+                        View review summary
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             );
           })()}
 
-          <p className="text-sm text-muted-foreground">Review and correct the extracted data, then save.</p>
 
 
 
@@ -1303,6 +1288,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   ))}
                 </SelectContent>
               </Select>
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["supplier_name", "supplier"]}
+              />
             </div>
             <div>
               <Label className="text-xs">Venue</Label>
@@ -1314,10 +1305,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <SelectItem value="Hanabi">Hanabi</SelectItem>
                 </SelectContent>
               </Select>
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["venue"]}
+              />
             </div>
             <div>
               <Label className="text-xs">Invoice #</Label>
               <Input value={current.invoice_number} onChange={(e) => updateField("invoice_number", e.target.value)} />
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["invoice_number"]}
+              />
             </div>
             <div>
               <Label className="text-xs">Status</Label>
@@ -1335,16 +1338,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             <div>
               <Label className="text-xs">Invoice Date</Label>
               <Input type="date" value={current.invoice_date} onChange={(e) => updateField("invoice_date", e.target.value)} />
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["invoice_date"]}
+              />
             </div>
             <div>
               <Label className="text-xs">Due Date</Label>
               <Input type="date" value={current.due_date} onChange={(e) => updateField("due_date", e.target.value)} />
+              <CorrectionChip
+                corrections={current.review_corrections}
+                warnings={current.review_warnings}
+                blocking={current.review_blocking}
+                fieldAliases={["due_date"]}
+              />
             </div>
             <div className="sm:col-span-2">
               <Label className="text-xs">Notes</Label>
               <Textarea value={current.notes} onChange={(e) => updateField("notes", e.target.value)} rows={1} />
             </div>
           </div>
+
 
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
@@ -1364,6 +1380,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Status</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Action</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
@@ -1465,68 +1483,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       </td>
                       {/* External Name - editable with autocomplete */}
                       <td className="px-1 py-1 align-top">
-                        <div className="relative">
-                          <ProductAutocomplete
-                            value={line.description}
-                            onChange={(v) => updateLine(i, "description", v)}
-                            onSelect={(p) => selectProduct(i, p)}
-                            products={supplierFilteredPM}
-                            searchField="name"
-                            placeholder="Item name"
-                            className="text-xs"
-                            currentSupplier={current?.supplier_name}
-                            multiline
-                          />
-                          {/* Compact status & flag badges (Agent 2) */}
-                          <div className="flex flex-wrap items-center gap-1 mt-1">
-                            {line.review_status === "matched" && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-green-100 text-green-800 border border-green-300">Matched</Badge>
-                            )}
-                            {line.review_status === "possible_match" && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800 border border-amber-300">Possible Match</Badge>
-                            )}
-                            {line.review_status === "new_item" && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-blue-100 text-blue-800 border border-blue-300">New Item</Badge>
-                            )}
-                            {(line.review_status === "needs_review" || (!line.review_status && line.unmatched)) && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-purple-100 text-purple-800 border border-purple-300">Needs Review</Badge>
-                            )}
-                            {(line.review_corrections && line.review_corrections.length > 0) && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-sky-100 text-sky-800 border border-sky-300">Auto-corrected</Badge>
-                            )}
-                            {(line.review_warnings && line.review_warnings.length > 0) && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800 border border-amber-300">Warning</Badge>
-                            )}
-                            {(line.review_blocking && line.review_blocking.length > 0) && (
-                              <Badge className="text-[9px] px-1.5 py-0 bg-destructive text-destructive-foreground">Blocking Issue</Badge>
-                            )}
-                            {((line.review_corrections && line.review_corrections.length > 0)
-                              || (line.review_warnings && line.review_warnings.length > 0)
-                              || (line.review_blocking && line.review_blocking.length > 0)
-                              || line.review_status) && (
-                              <button
-                                type="button"
-                                onClick={() => setDetailsLineIdx(i)}
-                                className="text-[10px] underline text-muted-foreground hover:text-foreground"
-                              >
-                                Details
-                              </button>
-                            )}
-                            {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-5 text-[10px] px-1.5"
-                                disabled={creatingLineIdx === i}
-                                onClick={() => handleAddSuggestedItem(i)}
-                              >
-                                {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-0.5" />}
-                                Add to Items Master
-                              </Button>
-                            )}
-                          </div>
-                        </div>
+                        <ProductAutocomplete
+                          value={line.description}
+                          onChange={(v) => updateLine(i, "description", v)}
+                          onSelect={(p) => selectProduct(i, p)}
+                          products={supplierFilteredPM}
+                          searchField="name"
+                          placeholder="Item name"
+                          className="text-xs"
+                          currentSupplier={current?.supplier_name}
+                          multiline
+                        />
                       </td>
 
 
@@ -1604,6 +1571,49 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           className="text-xs font-medium h-8 w-full"
                         />
                       </td>
+                      {/* Status */}
+                      <td className="px-1 py-1 align-top">
+                        {(() => {
+                          const s = getLineStatus(line);
+                          return <LineStatusChip variant={s.variant} label={s.label} />;
+                        })()}
+                      </td>
+                      {/* Action */}
+                      <td className="px-1 py-1 align-top">
+                        {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] px-2"
+                            disabled={creatingLineIdx === i}
+                            onClick={() => handleAddSuggestedItem(i)}
+                          >
+                            {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
+                            Add Item
+                          </Button>
+                        ) : (line.review_blocking && line.review_blocking.length > 0) ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 text-[11px] px-2"
+                            onClick={() => setDetailsLineIdx(i)}
+                          >
+                            Resolve
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-[11px] px-2"
+                            onClick={() => setDetailsLineIdx(i)}
+                          >
+                            Details
+                          </Button>
+                        )}
+                      </td>
                       {/* Delete */}
                       <td className="px-1 py-1 align-top">
                         {current.line_items.length > 1 && (
@@ -1670,32 +1680,64 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             )}
           </div>
 
-          {/* Save actions */}
-          <div className="flex items-center gap-3 pt-2 flex-wrap">
-            {totalInvoices > 1 && !allSaved && (
-              <Button onClick={handleSaveAll} disabled={saving || savingAll}>
-                {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices} Invoices`}
+          {/* Save actions — Save Draft + Approve & Save */}
+          <div className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-border flex-wrap">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <ChevronLeft className="h-4 w-4 mr-1" />Back
               </Button>
-            )}
+              {current.saved && (
+                <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">✓ Saved</Badge>
+              )}
+            </div>
 
-            {!current.saved ? (
-              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {current.is_duplicate ? "Duplicate — Cannot Save" : hasBlockingIssues ? `Resolve ${blockingCount} Blocking Issue${blockingCount > 1 ? "s" : ""}` : hasUnmatchedItems ? "Match All Items to Save" : saving ? "Saving..." : "Save This Invoice"}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>
+                Scan Another
               </Button>
-            ) : (
-              <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
-            )}
 
-            {current.invoice_status && (
-              <Badge className={`${statusBadgeClass(current.invoice_status)} py-1 px-2.5`}>
-                {current.invoice_status}
-              </Badge>
-            )}
+              {totalInvoices > 1 && !allSaved && (
+                <Button variant="secondary" onClick={handleSaveAll} disabled={saving || savingAll}>
+                  {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                  {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices}`}
+                </Button>
+              )}
 
-            <Button variant="outline" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>Scan Another</Button>
+              {!current.saved && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => { updateField("invoice_status", "under_review"); handleSaveCurrent(); }}
+                    disabled={saving || savingAll || !!current.is_duplicate}
+                    title="Save as draft (allows blocking issues)"
+                  >
+                    <FileSignature className="h-4 w-4 mr-1" />Save Draft
+                  </Button>
+                  <Button
+                    onClick={handleSaveCurrent}
+                    disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}
+                    title={
+                      current.is_duplicate
+                        ? "Duplicate invoice — cannot save"
+                        : hasBlockingIssues
+                        ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first`
+                        : hasUnmatchedItems
+                        ? "Match all items first"
+                        : "Approve and save invoice"
+                    }
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                    {current.is_duplicate
+                      ? "Duplicate"
+                      : hasBlockingIssues
+                      ? `Resolve ${blockingCount} Blocking`
+                      : "Approve & Save"}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
+
 
           {/* Invoice thumbnails for quick navigation */}
           {totalInvoices > 1 && (
@@ -1721,66 +1763,20 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         </div>
       )}
 
-      {/* Line-level Agent 2 details */}
-      <Dialog open={detailsLineIdx !== null} onOpenChange={(o) => !o && setDetailsLineIdx(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Line review details</DialogTitle>
-            <DialogDescription>What the review agent corrected or flagged on this line.</DialogDescription>
-          </DialogHeader>
-          {detailsLineIdx !== null && current?.line_items[detailsLineIdx] && (() => {
-            const l = current.line_items[detailsLineIdx];
-            return (
-              <div className="space-y-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Status:</span>
-                  <span>{l.review_status ? l.review_status.replace("_", " ") : "—"}</span>
-                  {typeof l.review_match_confidence === "number" && (
-                    <span className="text-xs text-muted-foreground">(confidence {Math.round((l.review_match_confidence || 0) * 100)}%)</span>
-                  )}
-                </div>
-                {l.review_match_reason && (
-                  <div><span className="text-muted-foreground">Match reason: </span>{l.review_match_reason}</div>
-                )}
-                {l.review_candidates && l.review_candidates.length > 0 && (
-                  <div><span className="text-muted-foreground">Candidates: </span>{l.review_candidates.join(", ")}</div>
-                )}
-                {l.review_corrections && l.review_corrections.length > 0 && (
-                  <div>
-                    <div className="font-medium mb-1">Auto-corrections</div>
-                    <table className="w-full text-xs border">
-                      <thead className="bg-muted/50"><tr><th className="text-left p-1.5">Field</th><th className="text-left p-1.5">Original</th><th className="text-left p-1.5">Corrected</th><th className="text-left p-1.5">Reason</th><th className="text-left p-1.5">Conf.</th></tr></thead>
-                      <tbody>
-                        {l.review_corrections.map((c, i) => (
-                          <tr key={i} className="border-t">
-                            <td className="p-1.5 font-mono">{c.field}</td>
-                            <td className="p-1.5 line-through text-muted-foreground">{c.original}</td>
-                            <td className="p-1.5">{c.corrected}</td>
-                            <td className="p-1.5">{c.reason}</td>
-                            <td className="p-1.5">{Math.round((c.confidence || 0) * 100)}%</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {l.review_warnings && l.review_warnings.length > 0 && (
-                  <div>
-                    <div className="font-medium mb-1 text-amber-700 dark:text-amber-400">Warnings</div>
-                    <ul className="list-disc list-inside text-xs space-y-0.5">{l.review_warnings.map((m, i) => <li key={i}>{m}</li>)}</ul>
-                  </div>
-                )}
-                {l.review_blocking && l.review_blocking.length > 0 && (
-                  <div>
-                    <div className="font-medium mb-1 text-destructive">Blocking issues</div>
-                    <ul className="list-disc list-inside text-xs space-y-0.5">{l.review_blocking.map((m, i) => <li key={i}>{m}</li>)}</ul>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      {/* Line-level Agent 2 details — side drawer */}
+      <ReviewDrawer
+        open={detailsLineIdx !== null}
+        onClose={() => setDetailsLineIdx(null)}
+        line={detailsLineIdx !== null ? current?.line_items[detailsLineIdx] ?? null : null}
+        lineNumber={detailsLineIdx !== null ? detailsLineIdx + 1 : null}
+        isAdding={detailsLineIdx !== null && creatingLineIdx === detailsLineIdx}
+        onAddItem={
+          detailsLineIdx !== null && current?.line_items[detailsLineIdx]?.review_status === "new_item"
+            ? () => handleAddSuggestedItem(detailsLineIdx)
+            : undefined
+        }
+      />
+
 
       {/* Invoice header details */}
       <Dialog open={showInvoiceDetails} onOpenChange={setShowInvoiceDetails}>
