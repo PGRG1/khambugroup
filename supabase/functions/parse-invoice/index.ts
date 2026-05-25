@@ -406,8 +406,152 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
       if (inv.notes) inv.notes = translateChinese(inv.notes);
     }
 
+    // --- AGENT 2: Validator & Items-Master Reviewer ---
+    let review: any = null;
+    try {
+      const pmSummary = (productMaster && Array.isArray(productMaster) && productMaster.length > 0)
+        ? productMaster.slice(0, 800).map((pm: any) =>
+            `SKU:${pm.internal_sku} | Name:${pm.internal_product_name} | SupplierName:${pm.supplier_product_name || ""} | ExtSKU:${pm.external_sku || ""} | Supplier:${pm.supplier || ""} | PurchUOM:${pm.purchase_unit || ""} | StockUOM:${pm.stock_uom || ""} | Cost:${pm.purchase_unit_cost ?? ""}`
+          ).join("\n")
+        : "(empty)";
+
+      const reviewerSystem = `You are the Reviewer agent for an invoice ingestion pipeline.
+You receive (a) invoice data extracted by another agent and (b) the current Items Master list.
+Your job is to:
+1. Sanity-check each invoice header and each line item for missing or inconsistent data.
+   - Required header fields: supplier_name, invoice_number, invoice_date, venue, total_amount.
+   - For each line: quantity, unit_price, total. Flag when quantity * unit_price - discount differs from total by more than 0.05.
+   - Flag when sum of line totals differs from invoice total_amount by more than 1.00.
+2. Reconcile every line to the Items Master.
+   - "matched" if there is a confident match by ExtSKU or by SupplierName/Name within the same supplier scope. Return its internal_sku.
+   - "ambiguous" if 2+ plausible matches. Return up to 3 candidate internal_sku values.
+   - "new_item" if no plausible match. Propose a draft new Items Master entry the operator can accept.
+Return ONLY by calling the report_review function. Do not include text.`;
+
+      const reviewerUserText = `EXTRACTED INVOICES (from Agent 1):\n${JSON.stringify({ invoices: invoicesArray }, null, 2)}\n\nITEMS MASTER (first 800 rows):\n${pmSummary}`;
+
+      const reviewerBody = {
+        model: "google/gemini-2.5-flash",
+        max_tokens: 16000,
+        messages: [
+          { role: "system", content: reviewerSystem },
+          { role: "user", content: reviewerUserText },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "report_review",
+              description: "Report the validation and items-master review for the extracted invoices.",
+              parameters: {
+                type: "object",
+                properties: {
+                  invoice_issues: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        invoice_index: { type: "integer" },
+                        field: { type: "string" },
+                        severity: { type: "string", enum: ["warning", "error"] },
+                        message: { type: "string" },
+                      },
+                      required: ["invoice_index", "field", "severity", "message"],
+                      additionalProperties: false,
+                    },
+                  },
+                  line_issues: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        invoice_index: { type: "integer" },
+                        line_index: { type: "integer" },
+                        type: { type: "string", enum: ["math", "missing", "unit", "price", "other"] },
+                        severity: { type: "string", enum: ["warning", "error"] },
+                        message: { type: "string" },
+                      },
+                      required: ["invoice_index", "line_index", "type", "severity", "message"],
+                      additionalProperties: false,
+                    },
+                  },
+                  item_master: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        invoice_index: { type: "integer" },
+                        line_index: { type: "integer" },
+                        status: { type: "string", enum: ["matched", "ambiguous", "new_item"] },
+                        matched_sku: { type: "string" },
+                        candidates: { type: "array", items: { type: "string" } },
+                        reason: { type: "string" },
+                        suggested_new_item: {
+                          type: "object",
+                          properties: {
+                            internal_product_name: { type: "string" },
+                            supplier_product_name: { type: "string" },
+                            external_sku: { type: "string" },
+                            supplier: { type: "string" },
+                            pack_size: { type: "string" },
+                            purchase_unit: { type: "string" },
+                            stock_uom: { type: "string" },
+                            purchase_unit_cost: { type: "number" },
+                            level1_category: { type: "string" },
+                          },
+                        },
+                      },
+                      required: ["invoice_index", "line_index", "status"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["invoice_issues", "line_issues", "item_master"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "report_review" } },
+      };
+
+      const reviewerController = new AbortController();
+      const reviewerTimeout = setTimeout(() => reviewerController.abort(), 180000);
+      const reviewerResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(reviewerBody),
+        signal: reviewerController.signal,
+      });
+      clearTimeout(reviewerTimeout);
+
+      if (reviewerResp.ok) {
+        const rText = await reviewerResp.text();
+        const rData = JSON.parse(rText);
+        const toolCall = rData.choices?.[0]?.message?.tool_calls?.[0];
+        const argsStr = toolCall?.function?.arguments || "";
+        if (argsStr) {
+          try {
+            review = JSON.parse(argsStr);
+          } catch (e) {
+            console.warn("Reviewer returned non-JSON tool args:", e);
+          }
+        } else {
+          console.warn("Reviewer returned no tool call");
+        }
+      } else {
+        const errText = await reviewerResp.text();
+        console.warn("Reviewer agent failed:", reviewerResp.status, errText);
+      }
+    } catch (reviewErr) {
+      console.warn("Reviewer agent error (non-fatal):", reviewErr);
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: { invoices: invoicesArray } }),
+      JSON.stringify({ success: true, data: { invoices: invoicesArray, review } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
