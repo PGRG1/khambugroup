@@ -680,6 +680,7 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
         ]} />
         <Button size="sm" variant="ghost" className="ml-auto" onClick={() => { setSearch(""); setSupplierF("all"); setVenueF("all"); setStatusF("all"); setFrom(""); setTo(""); }}>Clear</Button>
         <Button size="sm" variant="outline" onClick={exportCSV}><Download className="h-4 w-4 mr-1" /> Export</Button>
+        <Button size="sm" variant="default" onClick={() => setBookOpen(true)}><Plus className="h-4 w-4 mr-1" /> Book Credit Note</Button>
       </FilterBar>
 
       <Card className="card-glass overflow-hidden">
