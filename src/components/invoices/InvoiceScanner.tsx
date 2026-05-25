@@ -62,6 +62,20 @@ interface ScannedLineItem {
   price_changed?: boolean;
   pm_unit_price?: number;
   total_override?: boolean;
+  review_issues?: string[];
+  review_status?: "matched" | "ambiguous" | "new_item";
+  review_candidates?: string[];
+  suggested_new_item?: {
+    internal_product_name?: string;
+    supplier_product_name?: string;
+    external_sku?: string;
+    supplier?: string;
+    pack_size?: string;
+    purchase_unit?: string;
+    stock_uom?: string;
+    purchase_unit_cost?: number;
+    level1_category?: string;
+  };
 }
 
 interface ScannedInvoice {
@@ -81,6 +95,7 @@ interface ScannedInvoice {
   ai_total?: number;
   is_duplicate?: boolean;
   duplicate_date?: string;
+  review_issues?: string[];
 }
 
 interface InvoiceScannerProps {
