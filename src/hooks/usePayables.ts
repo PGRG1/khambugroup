@@ -76,6 +76,7 @@ export function usePayables() {
   const [unallocatedPaymentsCount, setUnallocatedPaymentsCount] = useState(0);
   const [bankAccounts, setBankAccounts] = useState<APBankAccountLite[]>([]);
   const [payrollPayables, setPayrollPayables] = useState<APPayrollPayable[]>([]);
+  const [creditNotes, setCreditNotes] = useState<APCreditNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
