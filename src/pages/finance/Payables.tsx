@@ -357,7 +357,8 @@ export default function Payables() {
 
       <RecordPaymentDialog
         open={recordOpen} onOpenChange={setRecordOpen}
-        invoice={active} supplierInvoices={invoices} bankAccounts={bankAccounts} onSaved={refresh}
+        invoice={active} supplierInvoices={invoices} bankAccounts={bankAccounts}
+        creditNotes={creditNotes} onSaved={refresh}
       />
       <AllocatePaymentDialog
         open={allocateOpen} onOpenChange={setAllocateOpen}
