@@ -71,9 +71,13 @@ interface ScannedLineItem {
   price_changed?: boolean;
   pm_unit_price?: number;
   total_override?: boolean;
-  review_issues?: string[];
-  review_status?: "matched" | "ambiguous" | "new_item";
+  review_status?: "matched" | "possible_match" | "new_item" | "needs_review";
+  review_warnings?: string[];
+  review_blocking?: string[];
+  review_corrections?: ReviewCorrection[];
   review_candidates?: string[];
+  review_match_reason?: string;
+  review_match_confidence?: number;
   suggested_new_item?: {
     internal_product_name?: string;
     supplier_product_name?: string;
@@ -85,6 +89,14 @@ interface ScannedLineItem {
     purchase_unit_cost?: number;
     level1_category?: string;
   };
+}
+
+interface ReviewCorrection {
+  field: string;
+  original: string;
+  corrected: string;
+  reason: string;
+  confidence: number;
 }
 
 interface ScannedInvoice {
@@ -104,7 +116,9 @@ interface ScannedInvoice {
   ai_total?: number;
   is_duplicate?: boolean;
   duplicate_date?: string;
-  review_issues?: string[];
+  review_warnings?: string[];
+  review_blocking?: string[];
+  review_corrections?: ReviewCorrection[];
 }
 
 interface InvoiceScannerProps {
