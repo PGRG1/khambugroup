@@ -829,6 +829,79 @@ export type Database = {
           },
         ]
       }
+      credit_notes: {
+        Row: {
+          attachment_url: string | null
+          created_at: string
+          created_by: string | null
+          credit_note_date: string
+          credit_note_number: string
+          id: string
+          notes: string
+          original_amount: number
+          remaining_balance: number
+          source_invoice_id: string | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          attachment_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_note_date?: string
+          credit_note_number?: string
+          id?: string
+          notes?: string
+          original_amount: number
+          remaining_balance?: number
+          source_invoice_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          attachment_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_note_date?: string
+          credit_note_number?: string
+          id?: string
+          notes?: string
+          original_amount?: number
+          remaining_balance?: number
+          source_invoice_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_source_invoice_id_fkey"
+            columns: ["source_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_source_invoice_id_fkey"
+            columns: ["source_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "credit_notes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           actual_guests: number | null
@@ -2766,6 +2839,8 @@ export type Database = {
         Row: {
           amount_allocated: number
           created_at: string
+          credit_note_amount_applied: number
+          credit_note_id: string | null
           id: string
           invoice_id: string
           payment_id: string
@@ -2773,6 +2848,8 @@ export type Database = {
         Insert: {
           amount_allocated: number
           created_at?: string
+          credit_note_amount_applied?: number
+          credit_note_id?: string | null
           id?: string
           invoice_id: string
           payment_id: string
@@ -2780,11 +2857,20 @@ export type Database = {
         Update: {
           amount_allocated?: number
           created_at?: string
+          credit_note_amount_applied?: number
+          credit_note_id?: string | null
           id?: string
           invoice_id?: string
           payment_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_allocations_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payment_allocations_invoice_id_fkey"
             columns: ["invoice_id"]
