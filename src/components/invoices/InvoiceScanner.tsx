@@ -15,6 +15,7 @@ import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
+import { useProductMaster } from "@/hooks/useProductMaster";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +63,20 @@ interface ScannedLineItem {
   price_changed?: boolean;
   pm_unit_price?: number;
   total_override?: boolean;
+  review_issues?: string[];
+  review_status?: "matched" | "ambiguous" | "new_item";
+  review_candidates?: string[];
+  suggested_new_item?: {
+    internal_product_name?: string;
+    supplier_product_name?: string;
+    external_sku?: string;
+    supplier?: string;
+    pack_size?: string;
+    purchase_unit?: string;
+    stock_uom?: string;
+    purchase_unit_cost?: number;
+    level1_category?: string;
+  };
 }
 
 interface ScannedInvoice {
@@ -81,6 +96,7 @@ interface ScannedInvoice {
   ai_total?: number;
   is_duplicate?: boolean;
   duplicate_date?: string;
+  review_issues?: string[];
 }
 
 interface InvoiceScannerProps {
@@ -134,6 +150,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
+  const { createProduct, fetchProducts } = useProductMaster();
+  const [creatingLineIdx, setCreatingLineIdx] = useState<number | null>(null);
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [dragOverPos, setDragOverPos] = useState<"above" | "below" | null>(null);
@@ -392,13 +410,41 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       if (error) throw error;
 
       const rawInvoices = Array.isArray(data) ? data : Array.isArray(data?.invoices) ? data.invoices : Array.isArray(data?.data?.invoices) ? data.data.invoices : [];
+      const review = data?.review || data?.data?.review || null;
+
+      // Build per-invoice/per-line review lookups
+      const lineReviewMap = new Map<string, { issues: string[]; status?: ScannedLineItem["review_status"]; candidates?: string[]; suggested?: ScannedLineItem["suggested_new_item"] }>();
+      const invoiceReviewMap = new Map<number, string[]>();
+      if (review && typeof review === "object") {
+        for (const ii of review.invoice_issues || []) {
+          const arr = invoiceReviewMap.get(ii.invoice_index) || [];
+          arr.push(`[${ii.severity || "warning"}] ${ii.field}: ${ii.message}`);
+          invoiceReviewMap.set(ii.invoice_index, arr);
+        }
+        for (const li of review.line_issues || []) {
+          const k = `${li.invoice_index}:${li.line_index}`;
+          const entry = lineReviewMap.get(k) || { issues: [] };
+          entry.issues.push(`[${li.type}] ${li.message}`);
+          lineReviewMap.set(k, entry);
+        }
+        for (const im of review.item_master || []) {
+          const k = `${im.invoice_index}:${im.line_index}`;
+          const entry = lineReviewMap.get(k) || { issues: [] };
+          entry.status = im.status;
+          entry.candidates = im.candidates;
+          entry.suggested = im.suggested_new_item;
+          if (im.reason) entry.issues.push(`[match] ${im.reason}`);
+          lineReviewMap.set(k, entry);
+        }
+      }
 
       const parsedInvoices: ScannedInvoice[] = [];
-      for (const raw of rawInvoices) {
+      for (let invIdx = 0; invIdx < rawInvoices.length; invIdx++) {
+        const raw = rawInvoices[invIdx];
         const supplierName = raw?.supplier_name || "";
         const supplierId = matchSupplier(supplierName);
         const lineItems = flagLineItemIssues(
-          (raw?.line_items || []).map((li: any) => {
+          (raw?.line_items || []).map((li: any, lineIdx: number) => {
             const matchedSku = li?.matched_sku || "";
             const itemCode = li?.item_code || "";
             const pmData = resolvePMData(itemCode, matchedSku, productMaster, supplierName);
@@ -410,6 +456,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             const mode = getRoundingMode(supplierObj, supplierName);
             const rawTotal = ((Number(li?.quantity) || 0) * (Number(li?.unit_price) || 0)) - (Number(li?.discount) || 0) + (Number(li?.tax_amount) || 0);
             const totalStr = formatLineTotal(rawTotal, mode);
+            const reviewEntry = lineReviewMap.get(`${invIdx}:${lineIdx}`);
             return {
               item_code: itemCode,
               description: itemCode && pmData.entry ? resolvedDesc : (li?.description || ""),
@@ -426,6 +473,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               matched_stock_uom: pmData.stock_uom,
               matched_purchase_uom: pmData.purchase_uom,
               matched_stock_qty_ratio: pmData.stock_qty_ratio,
+              review_issues: reviewEntry?.issues,
+              review_status: reviewEntry?.status,
+              review_candidates: reviewEntry?.candidates,
+              suggested_new_item: reviewEntry?.suggested,
             };
           }),
           productMaster,
@@ -446,6 +497,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
+          review_issues: invoiceReviewMap.get(invIdx),
         });
       }
 
@@ -758,6 +810,63 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     await doSaveCurrent(current, currentIdx);
   };
 
+
+  const handleAddSuggestedItem = useCallback(async (lineIdx: number) => {
+    const inv = invoices[currentIdx];
+    const line = inv?.line_items[lineIdx];
+    if (!line || !line.suggested_new_item) return;
+    setCreatingLineIdx(lineIdx);
+    try {
+      const s = line.suggested_new_item;
+      // Generate a basic internal_sku from the suggested supplier + name if not provided
+      const slug = (s.internal_product_name || line.description || "ITEM").toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 10);
+      const internal_sku = `${slug}${Date.now().toString().slice(-4)}`;
+      const ok = await createProduct({
+        internal_sku,
+        external_sku: s.external_sku || line.item_code || "",
+        internal_product_name: s.internal_product_name || line.description || "",
+        supplier_product_name: s.supplier_product_name || line.description || "",
+        level1_category: s.level1_category || "",
+        level2_category: "",
+        level3_category: "",
+        unit: s.purchase_unit || line.unit || "",
+        unit_cost: Number(s.purchase_unit_cost ?? line.unit_price) || 0,
+        supplier: s.supplier || inv.supplier_name || "",
+        status: "active",
+        purchase_unit: s.purchase_unit || line.unit || "",
+        purchase_unit_cost: Number(s.purchase_unit_cost ?? line.unit_price) || 0,
+        stock_uom: s.stock_uom || s.purchase_unit || line.unit || "",
+        stock_qty: 1,
+        cost_per_stock_unit: Number(s.purchase_unit_cost ?? line.unit_price) || 0,
+        base_unit_type: "",
+        base_unit_qty: 0,
+        cost_per_base_unit: 0,
+        notes: "Created from invoice scanner suggestion",
+        financial_treatment: "",
+        default_coa_account_id: null,
+      } as any);
+      if (ok) {
+        await fetchProducts();
+        // Optimistically mark this line matched
+        setInvoices(prev => {
+          const copy = [...prev];
+          const li = { ...copy[currentIdx].line_items[lineIdx] };
+          li.matched_sku = internal_sku;
+          li.matched_internal_name = s.internal_product_name || line.description || "";
+          li.unmatched = false;
+          li.review_status = "matched";
+          copy[currentIdx] = { ...copy[currentIdx], line_items: copy[currentIdx].line_items.map((l, idx) => idx === lineIdx ? li : l) };
+          return copy;
+        });
+        toast({ title: "Added to Items Master", description: internal_sku });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not add item", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setCreatingLineIdx(null);
+    }
+  }, [invoices, currentIdx, createProduct, fetchProducts]);
+
   const handleSaveAll = async () => {
     // Check all unsaved invoices for unmatched items
     const unmatchedInvoices = invoices.filter((inv, i) => !inv.saved && !inv.is_duplicate && hasUnmatchedForSave(inv));
@@ -1032,7 +1141,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             </div>
           )}
 
+          {/* Reviewer agent banner */}
+          {(() => {
+            const lineFlagCount = current.line_items.filter(l => (l.review_issues && l.review_issues.length > 0) || l.review_status === "new_item" || l.review_status === "ambiguous").length;
+            const newItemCount = current.line_items.filter(l => l.review_status === "new_item").length;
+            const invIssues = current.review_issues || [];
+            if (lineFlagCount === 0 && invIssues.length === 0) return null;
+            return (
+              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-800 dark:text-purple-300 text-sm space-y-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Reviewer agent flagged {lineFlagCount} line{lineFlagCount !== 1 ? "s" : ""}{newItemCount > 0 ? ` · ${newItemCount} new item${newItemCount > 1 ? "s" : ""} suggested` : ""}{invIssues.length > 0 ? ` · ${invIssues.length} invoice issue${invIssues.length > 1 ? "s" : ""}` : ""}
+                </div>
+                {invIssues.length > 0 && (
+                  <ul className="list-disc list-inside text-xs pl-1">
+                    {invIssues.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
+
           <p className="text-sm text-muted-foreground">Review and correct the extracted data, then save.</p>
+
 
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1223,8 +1354,27 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           {line.unmatched && (
                             <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
                           )}
+                          {(line.review_issues && line.review_issues.length > 0) && (
+                            <div className="mt-1 text-[10px] text-purple-700 dark:text-purple-300" title={line.review_issues.join("\n")}>
+                              ⚑ Reviewer: {line.review_issues[0]}{line.review_issues.length > 1 ? ` (+${line.review_issues.length - 1} more)` : ""}
+                            </div>
+                          )}
+                          {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="mt-1 h-6 text-[10px] px-2"
+                              disabled={creatingLineIdx === i}
+                              onClick={() => handleAddSuggestedItem(i)}
+                            >
+                              {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+                              Add to Items Master
+                            </Button>
+                          )}
                         </div>
                       </td>
+
                       {/* Purchase UOM - read-only from PM */}
                       <td className="px-1 py-1 align-top">
                         <Input
