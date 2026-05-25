@@ -132,6 +132,7 @@ export default function ProcurementInvoicesTab() {
 
   const [productMaster, setProductMaster] = useState<ProductMasterEntry[]>([]);
   const [search, setSearch] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("all");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
