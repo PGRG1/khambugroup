@@ -1416,29 +1416,58 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             currentSupplier={current?.supplier_name}
                             multiline
                           />
-                          {line.unmatched && (
-                            <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
-                          )}
-                          {(line.review_issues && line.review_issues.length > 0) && (
-                            <div className="mt-1 text-[10px] text-purple-700 dark:text-purple-300" title={line.review_issues.join("\n")}>
-                              ⚑ Reviewer: {line.review_issues[0]}{line.review_issues.length > 1 ? ` (+${line.review_issues.length - 1} more)` : ""}
-                            </div>
-                          )}
-                          {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="mt-1 h-6 text-[10px] px-2"
-                              disabled={creatingLineIdx === i}
-                              onClick={() => handleAddSuggestedItem(i)}
-                            >
-                              {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
-                              Add to Items Master
-                            </Button>
-                          )}
+                          {/* Compact status & flag badges (Agent 2) */}
+                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                            {line.review_status === "matched" && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-green-100 text-green-800 border border-green-300">Matched</Badge>
+                            )}
+                            {line.review_status === "possible_match" && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800 border border-amber-300">Possible Match</Badge>
+                            )}
+                            {line.review_status === "new_item" && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-blue-100 text-blue-800 border border-blue-300">New Item</Badge>
+                            )}
+                            {(line.review_status === "needs_review" || (!line.review_status && line.unmatched)) && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-purple-100 text-purple-800 border border-purple-300">Needs Review</Badge>
+                            )}
+                            {(line.review_corrections && line.review_corrections.length > 0) && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-sky-100 text-sky-800 border border-sky-300">Auto-corrected</Badge>
+                            )}
+                            {(line.review_warnings && line.review_warnings.length > 0) && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800 border border-amber-300">Warning</Badge>
+                            )}
+                            {(line.review_blocking && line.review_blocking.length > 0) && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-destructive text-destructive-foreground">Blocking Issue</Badge>
+                            )}
+                            {((line.review_corrections && line.review_corrections.length > 0)
+                              || (line.review_warnings && line.review_warnings.length > 0)
+                              || (line.review_blocking && line.review_blocking.length > 0)
+                              || line.review_status) && (
+                              <button
+                                type="button"
+                                onClick={() => setDetailsLineIdx(i)}
+                                className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                              >
+                                Details
+                              </button>
+                            )}
+                            {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-5 text-[10px] px-1.5"
+                                disabled={creatingLineIdx === i}
+                                onClick={() => handleAddSuggestedItem(i)}
+                              >
+                                {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-0.5" />}
+                                Add to Items Master
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </td>
+
 
                       {/* Purchase UOM - read-only from PM */}
                       <td className="px-1 py-1 align-top">
