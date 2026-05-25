@@ -1680,32 +1680,64 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             )}
           </div>
 
-          {/* Save actions */}
-          <div className="flex items-center gap-3 pt-2 flex-wrap">
-            {totalInvoices > 1 && !allSaved && (
-              <Button onClick={handleSaveAll} disabled={saving || savingAll}>
-                {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices} Invoices`}
+          {/* Save actions — Save Draft + Approve & Save */}
+          <div className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-border flex-wrap">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <ChevronLeft className="h-4 w-4 mr-1" />Back
               </Button>
-            )}
+              {current.saved && (
+                <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">✓ Saved</Badge>
+              )}
+            </div>
 
-            {!current.saved ? (
-              <Button variant={totalInvoices > 1 ? "secondary" : "default"} onClick={handleSaveCurrent} disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                {current.is_duplicate ? "Duplicate — Cannot Save" : hasBlockingIssues ? `Resolve ${blockingCount} Blocking Issue${blockingCount > 1 ? "s" : ""}` : hasUnmatchedItems ? "Match All Items to Save" : saving ? "Saving..." : "Save This Invoice"}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>
+                Scan Another
               </Button>
-            ) : (
-              <Badge className="bg-green-100 text-green-800 border-green-300 py-1.5 px-3">✓ Saved</Badge>
-            )}
 
-            {current.invoice_status && (
-              <Badge className={`${statusBadgeClass(current.invoice_status)} py-1 px-2.5`}>
-                {current.invoice_status}
-              </Badge>
-            )}
+              {totalInvoices > 1 && !allSaved && (
+                <Button variant="secondary" onClick={handleSaveAll} disabled={saving || savingAll}>
+                  {savingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                  {savingAll ? `Saving... (${savedCount}/${totalInvoices})` : `Save All ${totalInvoices}`}
+                </Button>
+              )}
 
-            <Button variant="outline" onClick={() => { setInvoices([]); setCurrentIdx(0); setSavedCount(0); }}>Scan Another</Button>
+              {!current.saved && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => { updateField("invoice_status", "under_review"); handleSaveCurrent(); }}
+                    disabled={saving || savingAll || !!current.is_duplicate}
+                    title="Save as draft (allows blocking issues)"
+                  >
+                    <FileSignature className="h-4 w-4 mr-1" />Save Draft
+                  </Button>
+                  <Button
+                    onClick={handleSaveCurrent}
+                    disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}
+                    title={
+                      current.is_duplicate
+                        ? "Duplicate invoice — cannot save"
+                        : hasBlockingIssues
+                        ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first`
+                        : hasUnmatchedItems
+                        ? "Match all items first"
+                        : "Approve and save invoice"
+                    }
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+                    {current.is_duplicate
+                      ? "Duplicate"
+                      : hasBlockingIssues
+                      ? `Resolve ${blockingCount} Blocking`
+                      : "Approve & Save"}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
+
 
           {/* Invoice thumbnails for quick navigation */}
           {totalInvoices > 1 && (
