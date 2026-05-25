@@ -1354,8 +1354,27 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           {line.unmatched && (
                             <Badge className="absolute -top-2 -right-1 text-[8px] px-1 py-0 bg-destructive text-destructive-foreground">Unmatched</Badge>
                           )}
+                          {(line.review_issues && line.review_issues.length > 0) && (
+                            <div className="mt-1 text-[10px] text-purple-700 dark:text-purple-300" title={line.review_issues.join("\n")}>
+                              ⚑ Reviewer: {line.review_issues[0]}{line.review_issues.length > 1 ? ` (+${line.review_issues.length - 1} more)` : ""}
+                            </div>
+                          )}
+                          {line.review_status === "new_item" && line.suggested_new_item && !line.matched_sku && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="mt-1 h-6 text-[10px] px-2"
+                              disabled={creatingLineIdx === i}
+                              onClick={() => handleAddSuggestedItem(i)}
+                            >
+                              {creatingLineIdx === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+                              Add to Items Master
+                            </Button>
+                          )}
                         </div>
                       </td>
+
                       {/* Purchase UOM - read-only from PM */}
                       <td className="px-1 py-1 align-top">
                         <Input
