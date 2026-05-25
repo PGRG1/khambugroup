@@ -479,6 +479,13 @@ IMPORTANT: Do not approve Agent 1's item match just because matched_sku is prese
 For EVERY correction return: field, original, corrected, reason (short), confidence (0-1).
 If unsure, prefer a flag over a correction.
 
+HEADER CHECKS — MANDATORY:
+- Return one header_check for EACH of these fields on EACH invoice: supplier_name, venue, invoice_number, invoice_date, due_date, total_amount.
+- For invoice_date, printed_value must be the exact date text seen on the invoice, normalized_value must be YYYY-MM-DD, and source_text must include the nearby printed label/text (for example "Invoice Date: 03/05/2026").
+- Do NOT mark invoice_date as verified unless the printed source date is clearly visible and normalized_value exactly matches the corrected invoice_date.
+- If invoice_date is missing, ambiguous, swapped with due date/delivery date, or cannot be re-read from the image, return status "uncertain" or "missing" and add a blocking header_flag.
+- Do not treat a field as approved by omission. Missing header_checks will be treated as blocking issues.
+
 Known suppliers: ${supplierListText || "(none)"}
 
 Return ONLY by calling the report_review function.`;
@@ -516,6 +523,22 @@ Return ONLY by calling the report_review function.`;
         required: ["invoice_index", "field", "severity", "message"],
         additionalProperties: false,
       };
+      const headerCheckItem = {
+        type: "object",
+        properties: {
+          invoice_index: { type: "integer" },
+          field: { type: "string", enum: ["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "total_amount"] },
+          extracted: { type: "string" },
+          printed_value: { type: "string" },
+          normalized_value: { type: "string" },
+          source_text: { type: "string" },
+          status: { type: "string", enum: ["verified", "corrected", "uncertain", "missing"] },
+          confidence: { type: "number" },
+          reason: { type: "string" },
+        },
+        required: ["invoice_index", "field", "extracted", "printed_value", "normalized_value", "source_text", "status", "confidence", "reason"],
+        additionalProperties: false,
+      };
 
       const reviewerBody = {
         model: "google/gemini-2.5-flash",
@@ -533,6 +556,7 @@ Return ONLY by calling the report_review function.`;
               parameters: {
                 type: "object",
                 properties: {
+                  header_checks: { type: "array", items: headerCheckItem },
                   header_corrections: { type: "array", items: correctionItem },
                   line_corrections: { type: "array", items: correctionItem },
                   header_flags: { type: "array", items: flagItem },
@@ -569,7 +593,7 @@ Return ONLY by calling the report_review function.`;
                     },
                   },
                 },
-                required: ["header_corrections", "line_corrections", "header_flags", "line_flags", "item_master"],
+                required: ["header_checks", "header_corrections", "line_corrections", "header_flags", "line_flags", "item_master"],
                 additionalProperties: false,
               },
             },
