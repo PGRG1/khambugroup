@@ -10,7 +10,7 @@ import {
 import {
   CreditCard, Download, RefreshCw, Search, ExternalLink, MoreHorizontal,
   Wallet, CalendarClock, AlertTriangle, CheckCircle2, Link2, Coins, Upload,
-  Receipt, FileText, Banknote, History, ListChecks, Hourglass, FileWarning,
+  Receipt, Banknote, ListChecks, Hourglass, FileWarning,
   PieChart, Calendar,
 } from "lucide-react";
 import { Link } from "react-router-dom";
