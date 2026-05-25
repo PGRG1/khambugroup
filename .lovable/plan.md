@@ -1,97 +1,110 @@
 ## Goal
 
-Redesign the **Invoice Scanner review screen** (the panel shown after a scan, inside `src/components/invoices/InvoiceScanner.tsx`) using the uploaded mockup as a structural reference. Keep the existing deep-zinc dark theme, fonts, and chip system — no color rework, no new tables, no procurement-module redesign.
+Improve the existing `/finance/payables` page (do not rebuild). Only show invoices with `review_status = 'Approved'`, and turn the page into a finance control center with richer KPIs, filters, status badges, and actions. Improve the existing payment recording flow with bank-account linkage and bank-match status.
 
-All data needed already exists on each scanned invoice: `review_corrections`, `review_warnings`, `review_blocking`, `review_status` per line, header check flags, matched / new-item counts, and Agent 2 reasoning per row.
+## Scope guardrails
 
-## What the new review screen looks like
+- Keep `usePayables`, `Payables.tsx`, and the existing Mark Paid path; refactor in place.
+- Procurement invoice review screens are unchanged — they still drive `review_status`.
+- AP becomes the post-approval workspace.
 
-```text
-┌─ Workflow strip ──────────────────────────────────────────────────────────┐
-│ ✓ Extractor  →  ✓ Reviewer  →  ◐ Human Approval (Pending)                 │
-└───────────────────────────────────────────────────────────────────────────┘
+## 1. Approved-only filter
 
-┌─ Check cards (4 across) ──────────────────────────────────────────────────┐
-│ Header Check │ Supplier Check │ Math Check │ Item Mapping                 │
-│ Passed       │ Passed         │ 1 Warning  │ 12 Matched · 2 New · 1 Block │
-└───────────────────────────────────────────────────────────────────────────┘
+In `usePayables.ts`, filter invoices to `review_status = 'Approved'` before computing open/summary. Drafts, Under Review, Needs Review, Rejected, Duplicate, and Voided invoices never appear in AP.
 
-┌─ KPI strip (compact) ─────────────────────────────────────────────────────┐
-│ Total Items 16 │ Matched 12 │ Auto-corr 4 │ Warnings 2 │ Blocking 1 │ New 2│
-└───────────────────────────────────────────────────────────────────────────┘
+## 2. Schema changes (minimal additions)
 
-┌─ Summary banner ──────────────────────────────────────────────────────────┐
-│ ⓘ 4 auto-corrections · 2 warnings · 1 blocking · 12 matched · 2 new  ⌄  │
-└───────────────────────────────────────────────────────────────────────────┘
+Add to `invoices`:
+- `payment_status` already exists — extend allowed values used in UI: `unpaid`, `scheduled`, `partially_paid`, `paid`, `overdue`, `credit_note_applied`, `voided`. No DB enum; remain text. Add a validation trigger (not CHECK) to restrict values.
+- `scheduled_payment_date date` (nullable) — for "Scheduled".
+- `bank_match_status text default 'not_ready'` — values: `not_ready`, `awaiting_bank_match`, `matched`, `possible_match`, `needs_review`. Validation trigger.
 
-┌─ Header fields (inline correction chips under each input) ────────────────┐
-│ Supplier ▾   Invoice #   Invoice Date   Venue   …   Subtotal  Tax  Total  │
-│ [Auto-corrected]  [Auto-corrected]  [Auto-corrected]                      │
-└───────────────────────────────────────────────────────────────────────────┘
+Add to `invoice_payments`:
+- `bank_account_id uuid` (nullable, references `bank_accounts.id`)
+- `bank_transaction_id uuid` (nullable, references `bank_transactions.id`)
+- `match_status text default 'awaiting_bank_match'` — same vocabulary as above
+- `reference text default ''`
 
-┌─ Line items table ────────────────────────────────────────────────────────┐
-│ # · Internal SKU · Internal Name · Ext SKU · Ext Name · UOM · Qty · Cost  │
-│ · Disc · Total · Status · Action                                          │
-│  …rows… Status chip = Matched / Auto-corrected / Price Warning / New /    │
-│  Blocking. Action = [Details] or [Add Item] or [Resolve].                 │
-└───────────────────────────────────────────────────────────────────────────┘
+Backfill: existing `paid` invoices → `bank_match_status = 'matched'` if a linked bank_transaction can be found, else `awaiting_bank_match`; unpaid → `not_ready`.
 
-┌─ Footer ──────────────────────────────────────────────────────────────────┐
-│ ← Back            Save Draft       Approve & Save (disabled if blocking)  │
-└───────────────────────────────────────────────────────────────────────────┘
+RLS: mirror existing `invoice_payments` policies on the two new columns (no policy changes needed; policies are row-level).
 
-Side drawer (opens when [Details] / [Resolve] / [Add Item] clicked):
-┌─ Line N  [Status chip]                                              ✕ ──┐
-│ Tabs: Review · History                                                  │
-│ Issue            – plain-English summary                                │
-│ Agent 2 reco     – correction suggestion                               │
-│ Extracted vals   – original AI extraction (read-only)                  │
-│ Reason           – Agent 2 explanation                                 │
-│ Confidence       – progress bar + %                                     │
-│ Action required  – [Add Item] / [Accept correction] / [Resolve]        │
-└───────────────────────────────────────────────────────────────────────┘
-```
+## 3. Hook refactor — `usePayables`
 
-## Build plan
+Compute and return:
+- `approvedInvoices` (full list incl. paid, for "Paid This Month" and partial logic)
+- `openInvoices` — approved + not fully paid + not voided
+- KPIs:
+  - `totalOutstanding` = Σ `remaining_balance` of open
+  - `dueThisWeek` = Σ outstanding where `due_date` within next 7 days
+  - `overdue` = Σ outstanding where `due_date < today`
+  - `paidThisMonth` = Σ `invoice_payments.amount` in current month (already present)
+  - `partiallyPaid` = count where `amount_paid > 0 AND remaining_balance > 0`
+  - `awaitingBankMatch` = count of payments with `match_status in ('awaiting_bank_match','possible_match','needs_review')`
+  - `unallocatedPayments` = count of `invoice_payments` rows whose invoice is fully paid? Actually: unallocated = payments with `invoice_id IS NULL` once we permit on-account payments. Phase 1 = 0 placeholder + TODO note in UI tooltip.
+- Per-invoice derived fields: `outstanding_amount`, `last_payment_method`, `last_paid_from_account_name`, `bank_match_status`, derived `payment_status` (recompute `overdue` on the fly from due_date when unpaid).
 
-1. **Add small presentational subcomponents** inside `src/components/invoices/InvoiceScanner.tsx` (or a sibling file `InvoiceReviewPanels.tsx` to keep the main file shorter):
-   - `WorkflowStrip` — three pill steps with icon + status.
-   - `CheckCard` — icon, title, status line; variant by passed / warn / block.
-   - `KpiStrip` — compact horizontal counters.
-   - `ReviewDrawer` — right-side sheet showing per-line Agent 2 detail (uses existing shadcn `Sheet`).
-   - `CorrectionChip` — small "Auto-corrected" / "Warning" / "Blocking" chip rendered under a header input.
-   All built with existing semantic tokens (`bg-card`, `border-border`, `chip-success/warn/danger/info/neutral`, `text-muted-foreground`, etc.) and Tailwind primitives — no hardcoded colors.
+## 4. UI — `src/pages/finance/Payables.tsx`
 
-2. **Reorganize the review section** (lines ~1200–1700 of `InvoiceScanner.tsx`):
-   - Replace the stack of full-width warning banners with the four `CheckCard`s plus one `KpiStrip` plus the existing "Invoice Review: …" summary, collapsed into a single info banner with a "View review summary" disclosure.
-   - Move per-field Agent 2 corrections from the modal-only view to **small chips directly under each header input**, so users see what changed without opening a dialog.
-   - Keep the existing supplier dropdown, venue select, invoice #, date, due date, totals, discount, and notes fields exactly as they are functionally.
+### Header
+Keep current header. Add a small "Approved invoices only" hint under the subtitle.
 
-3. **Line-items table** — keep current columns and editing behavior; add:
-   - A clean **Status** column rendering one chip per row (Matched, Auto-corrected, Price Warning, New Item, Blocking Issue) driven by existing `review_status` / `review_warnings` / `review_blocking` fields.
-   - A single **Action** column: `Details` (default), `Add Item` (when `review_status === "new_item"`), `Resolve` (when row has blocking issues). Clicking opens the new `ReviewDrawer` for that row.
-   - Remove the inline expandable warning/blocking rows that currently bloat the table — that content lives in the drawer now.
+### KPI strip (7 cards)
+Replace the 4-card grid with a `grid-cols-2 md:grid-cols-4 xl:grid-cols-7` strip using existing `card-glass`:
+Total Outstanding · Due This Week · Overdue · Paid This Month · Partially Paid · Awaiting Bank Match · Unallocated Payments. Each card: icon, label, value, optional accent color (amber/red/emerald). KPIs respond to active filters.
 
-4. **Footer actions** — keep current logic, restyle:
-   - `Save Draft` (secondary) — saves with `status = 'draft'`.
-   - `Approve & Save` (primary) — disabled when blocking issues exist or invoice is duplicate; tooltip explains why. Both buttons reuse the existing save flow in `doSaveCurrent`.
+### Filter bar
+Single sticky row above the table:
+- Search (supplier/invoice #)
+- Supplier select
+- Venue select
+- Payment Status select (7 values)
+- Bank Match Status select (5 values)
+- Due Date Range (preset + custom)
+- Paid From Account select (bank accounts)
+- Reset filters button
 
-5. **Workflow strip** — top-right. Extractor done = success; Reviewer done if Agent 2 returned; Human Approval = pending until user approves. Pure presentational, no new state.
+### Table (replace "Open Invoices" table; remove By Supplier and Aging tabs OR keep them as secondary tabs)
 
-6. **No backend / Edge Function changes.** No schema changes. No changes to `useInvoiceData`, `parse-invoice`, save flow, item creation flow, or Items Master matching.
+Primary view "Invoices" with columns:
+Supplier · Invoice # · Venue · Invoice Date · Due Date · Invoice Amount · Outstanding Amount · Payment Status · Last Payment Method · Paid From Account · Bank Match Status · Issue · Action
 
-## Out of scope
+- Status cells use a new `<PaymentStatusBadge>` and `<BankMatchBadge>` with semantic color tokens (emerald=paid/matched, amber=partial/possible, red=overdue/needs review, sky=scheduled, zinc=not ready/unpaid, purple=credit note).
+- "Issue" cell shows `exception_note` if present, else a dash.
+- Action cell = dropdown with: Record Payment · Allocate Payment · View Payment History · Open Invoice.
 
-- Light theme (project is dark zinc — mockup colors are reference only).
-- The `Invoices Database` list at the bottom of the mockup (already lives on `/procurement/invoices`).
-- Sidebar / page chrome.
-- Any change to AI prompts or Agent 2 behavior.
+Keep secondary tabs "By Supplier" and "Aging Summary" as-is (compact).
 
-## Files touched
+### Dialogs (new, small, in `src/components/finance/payables/`)
+- `RecordPaymentDialog.tsx` — date, amount (default = remaining_balance), payment method, paid-from bank account select, reference, notes. On save: insert into `invoice_payments`, recompute `amount_paid` + `remaining_balance` + `payment_status` + `bank_match_status='awaiting_bank_match'`.
+- `AllocatePaymentDialog.tsx` — list unmatched bank_transactions for the invoice's window; user picks one → sets `invoice_payments.bank_transaction_id` and flips invoice `bank_match_status='matched'`.
+- `PaymentHistoryDialog.tsx` — read-only list of `invoice_payments` with reverse / void action (admin only).
 
-- `src/components/invoices/InvoiceScanner.tsx` — restructure the review section, add subcomponents (or split into a new sibling file).
-- Possibly `src/components/invoices/InvoiceReviewPanels.tsx` (new) — only if the main file would grow too long.
+## 5. Status badges
 
-## Open question before I build
+Add `src/components/finance/payables/StatusBadges.tsx` with two small components driven by the project's existing `chip-*` classes. Tooltip on hover explains each status.
 
-The mockup also shows compact KPI cards labeled `Total Items / Matched / Auto-corrected / Warnings / Blocking / New`. Do you want these as a **second row** in addition to the four Check cards (Header / Supplier / Math / Item Mapping), or **merged into one row** of mixed status + counter cards? I'll default to **two rows** (Check cards on top, KPI strip below) unless you say otherwise.
+## 6. Out of scope (call out, don't build)
+
+- True allocation of on-account / unallocated payments (Phase 2).
+- Auto-matching engine for bank transactions (Phase 2 — relies on existing `bank_recon_rules`).
+- Voiding / credit-note generation flow.
+
+## Files
+
+Edit:
+- `src/hooks/usePayables.ts`
+- `src/hooks/useInvoiceData.ts` (extend `Invoice` type + status updaters)
+- `src/pages/finance/Payables.tsx`
+
+Create:
+- `src/components/finance/payables/StatusBadges.tsx`
+- `src/components/finance/payables/RecordPaymentDialog.tsx`
+- `src/components/finance/payables/AllocatePaymentDialog.tsx`
+- `src/components/finance/payables/PaymentHistoryDialog.tsx`
+
+Migration: add columns + validation triggers + backfill described in §2.
+
+## Open question
+
+Do you want me to **remove** the existing "By Supplier" and "Aging Summary" tabs, or keep them as secondary tabs alongside the new "Invoices" view?
