@@ -8,12 +8,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  CreditCard, Download, RefreshCw, Search, ExternalLink, MoreHorizontal,
-  Wallet, CalendarClock, AlertTriangle, CheckCircle2, Link2, Coins, Upload,
-  Receipt, Banknote, ListChecks, Hourglass, FileWarning,
+  CreditCard, Download, Search, ExternalLink, MoreHorizontal,
+  Wallet, CalendarClock, AlertTriangle, CheckCircle2, Link2, Coins,
+  Banknote, ListChecks, Hourglass, FileWarning, Plus,
   PieChart, Calendar,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNoteDialog";
 import { usePayables, type APInvoice, type APCreditNote } from "@/hooks/usePayables";
 import { AGE_BUCKETS } from "@/hooks/useReceivables";
 import { downloadCSV } from "@/utils/csvDownload";
