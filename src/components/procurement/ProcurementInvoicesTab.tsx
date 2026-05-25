@@ -1256,6 +1256,7 @@ function InvoiceTableSection({
         </TableBody>
       </Table>
     </DataTableShell>
+    </div>
   );
 }
 
