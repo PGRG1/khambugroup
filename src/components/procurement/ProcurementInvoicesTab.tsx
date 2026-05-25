@@ -1020,9 +1020,21 @@ export default function ProcurementInvoicesTab() {
 }
 
 // ----- Invoice table section with pagination & filters -----------
+interface InvoiceKpis {
+  total: number;
+  underReview: number;
+  approved: number;
+  exceptions: number;
+  duplicates: number;
+  totalValue: number;
+  pct: (n: number) => string;
+}
+
 interface InvoiceTableSectionProps {
   filtered: Invoice[];
   invoices: Invoice[];
+  suppliers: { id: string; name: string }[];
+  kpis: InvoiceKpis;
   totalAmount: number;
   columns: { key: string; label: string; align?: "right" }[];
   sortColumns: SortColumn[];
@@ -1030,6 +1042,8 @@ interface InvoiceTableSectionProps {
   SortIcon: React.FC<{ col: string }>;
   search: string;
   setSearch: (v: string) => void;
+  supplierFilter: string;
+  setSupplierFilter: (v: string) => void;
   venueFilter: string;
   setVenueFilter: (v: string) => void;
   statusFilter: string;
@@ -1051,8 +1065,8 @@ interface InvoiceTableSectionProps {
 }
 
 function InvoiceTableSection({
-  filtered, invoices, totalAmount, columns, sortColumns, toggleSort, SortIcon,
-  search, setSearch, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
+  filtered, invoices, suppliers, kpis, totalAmount, columns, sortColumns, toggleSort, SortIcon,
+  search, setSearch, supplierFilter, setSupplierFilter, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
   reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
@@ -1060,6 +1074,9 @@ function InvoiceTableSection({
   const pag = usePagination(filtered, 25);
 
   const filterFields: FilterField[] = [
+    { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
+      options: suppliers.map(s => ({ value: s.id, label: s.name })),
+      allLabel: "All Suppliers" },
     { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
       options: [{ value: "Assembly", label: "Assembly" }, { value: "Caliente", label: "Caliente" }, { value: "Hanabi", label: "Hanabi" }],
       allLabel: "All Venues" },
