@@ -324,7 +324,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       if (reviewerRequiresManualAction) {
         return {
           ...workingLine,
-          matched_sku: workingLine.review_status === "matched" ? workingLine.matched_sku : "",
+          matched_sku: "",
           matched_internal_name: "",
           matched_stock_uom: "",
           matched_purchase_uom: "",
@@ -595,7 +595,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       setScanning(false);
       setScanProgress({ current: 0, total: 0 });
     }
-  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, userId]);
+  }, [checkDuplicates, flagLineItemIssues, matchSupplier, processFile, productMaster, resolvePMData, suppliers, userId]);
 
   const recheckDuplicate = useCallback(async (idx: number, invoiceNumber: string, supplierId: string) => {
     if (!invoiceNumber || !supplierId) {
