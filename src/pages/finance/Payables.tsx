@@ -8,12 +8,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  CreditCard, Download, RefreshCw, Search, ExternalLink, MoreHorizontal,
-  Wallet, CalendarClock, AlertTriangle, CheckCircle2, Link2, Coins, Upload,
-  Receipt, Banknote, ListChecks, Hourglass, FileWarning,
+  CreditCard, Download, Search, ExternalLink, MoreHorizontal,
+  Wallet, CalendarClock, AlertTriangle, CheckCircle2, Link2, Coins,
+  Banknote, ListChecks, Hourglass, FileWarning, Plus,
   PieChart, Calendar,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNoteDialog";
 import { usePayables, type APInvoice, type APCreditNote } from "@/hooks/usePayables";
 import { AGE_BUCKETS } from "@/hooks/useReceivables";
 import { downloadCSV } from "@/utils/csvDownload";
@@ -109,25 +110,8 @@ export default function Payables() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/procurement"><Upload className="h-4 w-4 mr-1" /> Upload Invoice</Link>
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => {
-              const inv = invoices.find((i) => i.outstanding_amount > 0.01 && i.payment_status !== "voided");
-              if (inv) openRecord(inv);
-            }}
-          >
-            <Receipt className="h-4 w-4 mr-1" /> Record Payment
-          </Button>
-          <Button variant="ghost" size="icon" onClick={refresh} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
       </header>
+
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -169,8 +153,10 @@ export default function Payables() {
             appliedThisMonth={appliedCreditThisMonth}
             suppliers={suppliers}
             venues={venues}
+            invoices={invoices}
             loading={loading}
             onApply={applyCreditFromCN}
+            onSaved={refresh}
           />
         </TabsContent>
 
@@ -582,7 +568,8 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
 
 /* ============================== CREDIT NOTES ============================== */
 
-function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, loading, onApply }: any) {
+function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invoices, loading, onApply, onSaved }: any) {
+  const [bookOpen, setBookOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [supplierF, setSupplierF] = useState("all");
   const [venueF, setVenueF] = useState("all");
@@ -693,6 +680,7 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, load
         ]} />
         <Button size="sm" variant="ghost" className="ml-auto" onClick={() => { setSearch(""); setSupplierF("all"); setVenueF("all"); setStatusF("all"); setFrom(""); setTo(""); }}>Clear</Button>
         <Button size="sm" variant="outline" onClick={exportCSV}><Download className="h-4 w-4 mr-1" /> Export</Button>
+        <Button size="sm" variant="default" onClick={() => setBookOpen(true)}><Plus className="h-4 w-4 mr-1" /> Book Credit Note</Button>
       </FilterBar>
 
       <Card className="card-glass overflow-hidden">
@@ -735,6 +723,15 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, load
           </table>
         </div>
       </Card>
+
+      <BookCreditNoteDialog
+        open={bookOpen}
+        onOpenChange={setBookOpen}
+        suppliers={suppliers}
+        venues={venues}
+        invoices={invoices}
+        onSaved={onSaved}
+      />
     </>
   );
 }
