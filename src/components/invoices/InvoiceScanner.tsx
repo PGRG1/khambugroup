@@ -960,6 +960,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const hasUnmatchedItems = unmatchedItems.length > 0;
   const priceChangedItems = current?.line_items.filter(l => l.price_changed) || [];
   const hasPriceChanges = priceChangedItems.length > 0;
+  const blockingCount = (current?.review_blocking?.length || 0)
+    + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
+  const hasBlockingIssues = blockingCount > 0;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
