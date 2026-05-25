@@ -32,17 +32,24 @@ type DueRange = "all" | "overdue" | "this_week" | "this_month" | "next_30";
 
 const BUCKET_COLOR: Record<string, string> = {
   "Current": "bg-emerald-500",
-  "1-30": "bg-sky-500",
-  "31-60": "bg-amber-500",
-  "61-90": "bg-purple-500",
+  "1–30": "bg-sky-500",
+  "31–60": "bg-amber-500",
+  "61–90": "bg-purple-500",
   "90+": "bg-red-500",
 };
 const BUCKET_ACCENT: Record<string, string> = {
   "Current": "text-emerald-400",
-  "1-30": "text-sky-400",
-  "31-60": "text-amber-400",
-  "61-90": "text-purple-400",
+  "1–30": "text-sky-400",
+  "31–60": "text-amber-400",
+  "61–90": "text-purple-400",
   "90+": "text-red-400",
+};
+const BUCKET_TINT: Record<string, string> = {
+  "Current": "bg-emerald-500/10",
+  "1–30": "bg-sky-500/10",
+  "31–60": "bg-amber-500/10",
+  "61–90": "bg-purple-500/10",
+  "90+": "bg-red-500/10",
 };
 
 export default function Payables() {
