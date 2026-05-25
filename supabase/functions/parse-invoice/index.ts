@@ -478,22 +478,29 @@ If ANY numbers are wrong, return the CORRECTED complete JSON in the exact same f
           ).join("\n")
         : "(empty)";
 
-      const supplierListText = (productMaster && Array.isArray(productMaster))
-        ? Array.from(new Set(productMaster.map((p: any) => p.supplier).filter(Boolean))).join(" | ")
-        : "";
+      const supplierListText = supplierNames.join(" | ");
 
       const reviewerSystem = `You are the Invoice Review & Correction Agent.
-Agent 1 has extracted invoice data from an image. Your job is to REVIEW and CORRECT it — not to comment on it.
+Agent 1 has extracted invoice data from invoice image(s). Your job is to re-read the source image(s), REVIEW the extraction, and CORRECT the returned data — not to comment on it.
 
 For every field decide: keep as-is, safely correct, or flag for human review.
 
+HEADER FIELDS YOU ARE RESPONSIBLE FOR:
+- supplier_name, venue, invoice_number, invoice_date, due_date, total_amount.
+- For supplier_name, invoice_number, invoice_date, due_date, and venue: compare Agent 1's value to the actual source image.
+- If Agent 1 is wrong and the correct value is visible, return a header_correction. The correction will be applied to the invoice.
+- Venue must be one of: Assembly, Caliente, Hanabi. Use delivery address / customer name. Knutsford Terrace = Caliente.
+- Dates must be corrected from the printed invoice date, not inferred from upload date or current date.
+
 YOU MAY SAFELY CORRECT (return in line_corrections / header_corrections):
-- supplier_name: only if there is a clear match in the known supplier list
-- invoice_date / due_date: normalize to YYYY-MM-DD
+- supplier_name: if the printed supplier is clear, preserving exact printed spelling/Chinese characters when possible
+- venue: if delivery/customer text clearly indicates Assembly, Caliente, or Hanabi
+- invoice_number: if every character is visible or Agent 1 has an obvious OCR error
+- invoice_date / due_date: normalize to YYYY-MM-DD from the printed date
 - currency: normalize codes (HKD, USD, etc.)
 - unit (UOM): normalize formatting (e.g. "btl" -> "Bottle", "pcs" -> "Piece")
 - description: clean obvious OCR noise without changing meaning
-- item_code / matched_sku: set when there is a CLEAR Items Master match
+- item_code / matched_sku: set only when there is a CLEAR Items Master match
 
 YOU MUST NEVER SILENTLY CHANGE (flag only):
 - quantity, unit_price, subtotal, tax, discount, total_amount, line total
@@ -506,10 +513,12 @@ MATH CHECKS (flags only):
 MISSING REQUIRED HEADER FIELDS (header_flags, "blocking"): supplier_name, invoice_number, invoice_date, total_amount.
 
 ITEMS MASTER STATUS — exactly ONE per line:
-- "matched": confident exact/near-exact match. Return matched_sku.
+- "matched": ONLY when the invoice item_code exactly matches an Items Master ExtSKU for the same supplier, OR there is an exact supplier product name match for the same supplier. Return matched_sku and confidence >= 0.90.
 - "possible_match": multiple plausible candidates. Return up to 3 candidate internal_sku values.
 - "new_item": no plausible match. Return a suggested_new_item draft.
-- "needs_review": data too incomplete/ambiguous to decide.
+- "needs_review": data too incomplete/ambiguous to decide, or Agent 1's matched_sku is not supported by exact invoice code/name evidence.
+
+IMPORTANT: Do not approve Agent 1's item match just because matched_sku is present. Verify it against the invoice text and Items Master. If the item description, item code, supplier, pack size, or UOM does not support the match, return needs_review or possible_match, not matched.
 
 For EVERY correction return: field, original, corrected, reason (short), confidence (0-1).
 If unsure, prefer a flag over a correction.
@@ -519,6 +528,11 @@ Known suppliers: ${supplierListText || "(none)"}
 Return ONLY by calling the report_review function.`;
 
       const reviewerUserText = `EXTRACTED INVOICES (from Agent 1):\n${JSON.stringify({ invoices: invoicesArray }, null, 2)}\n\nITEMS MASTER (first 800 rows):\n${pmSummary}`;
+      const reviewerUserContent: any[] = fileEntries.map((entry) => ({
+        type: "image_url",
+        image_url: { url: `data:${entry.mimeType};base64,${entry.base64}` },
+      }));
+      reviewerUserContent.push({ type: "text", text: reviewerUserText });
 
       const correctionItem = {
         type: "object",
@@ -552,7 +566,7 @@ Return ONLY by calling the report_review function.`;
         max_tokens: 16000,
         messages: [
           { role: "system", content: reviewerSystem },
-          { role: "user", content: reviewerUserText },
+          { role: "user", content: reviewerUserContent },
         ],
         tools: [
           {
