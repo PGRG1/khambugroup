@@ -85,11 +85,11 @@ export async function runBaniScan(opts: BaniRunOptions): Promise<{ ok: boolean; 
       { data: coa },
       { data: venues },
     ] = await Promise.all([
-      supabase.from("suppliers").select("id, name").eq("is_active", true).limit(2000),
-      supabase.from("expense_categories").select("id, name").limit(2000),
-      supabase.from("product_master").select("id, internal_sku, internal_product_name, supplier_product_name, external_sku, supplier"),
-      supabase.from("chart_of_accounts").select("id, code, name").limit(2000),
-      supabase.from("venues").select("name").eq("active", true).limit(50),
+      (supabase as any).from("suppliers").select("id, name").eq("is_active", true).limit(2000),
+      (supabase as any).from("expense_categories").select("id, name").limit(2000),
+      (supabase as any).from("product_master").select("id, internal_sku, internal_product_name, supplier_product_name, external_sku, supplier"),
+      (supabase as any).from("chart_of_accounts").select("id, code, name").limit(2000),
+      (supabase as any).from("venues").select("name").eq("active", true).limit(50),
     ]);
 
     const supplierName = (suppliers ?? []).find((s: any) => s.id === invoice.supplier_id)?.name ?? null;
