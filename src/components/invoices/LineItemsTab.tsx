@@ -238,7 +238,32 @@ export default function LineItemsTab({ suppliers }: Props) {
                     <div className="px-3 font-medium text-foreground truncate">{row.supplier_name}</div>
                     <div className="px-3 tabular-nums truncate">{row.invoice_number}</div>
                     <div className="px-3 font-mono text-[11px] text-muted-foreground truncate">{row.item_code}</div>
-                    <div className="px-3 text-foreground truncate">{row.master_name}</div>
+                    <div className="px-3 text-foreground truncate flex items-center gap-1.5">
+                      <span className="truncate">{row.master_name}</span>
+                      {(() => {
+                        const s = row.ai_suggestion;
+                        if (!s) return null;
+                        const needs = s.needs_review_reason;
+                        const prodName = s.product?.internal_product_name ?? s.product?.product_master_id;
+                        const conf = typeof s.confidence === "number" ? Math.round(s.confidence * 100) : null;
+                        const Icon = needs ? AlertTriangle : Sparkles;
+                        const tone = needs ? "text-amber-400" : "text-emerald-400";
+                        return (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className={`shrink-0 ${tone}`}><Icon className="h-3 w-3" /></span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs">
+                                <div className="font-medium mb-0.5">Bani suggestion{conf !== null ? ` (${conf}%)` : ""}</div>
+                                {prodName && <div>→ {prodName}</div>}
+                                {needs && <div className="text-amber-300 mt-1">Needs review: {needs}</div>}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })()}
+                    </div>
                     <div className="px-3 truncate text-muted-foreground">{row.description}</div>
                     <div className="px-3 text-right tabular-nums text-foreground">{row.quantity}</div>
                     <div className="px-3 text-muted-foreground">{row.unit}</div>
