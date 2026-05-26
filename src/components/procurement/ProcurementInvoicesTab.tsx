@@ -967,6 +967,9 @@ export default function ProcurementInvoicesTab() {
                 <Button size="sm" variant="outline" onClick={startEditing}>
                   <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
                 </Button>
+
+                <BaniScanSummary invoiceId={selectedInvoice.id} />
+
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div><span className="text-muted-foreground">Supplier:</span> <span className="font-medium">{selectedInvoice.supplier_name}</span></div>
                   <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
