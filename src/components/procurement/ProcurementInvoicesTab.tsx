@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign } from "lucide-react";
+import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
@@ -22,6 +22,10 @@ import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort"
 import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { BaniScanSummary } from "@/components/invoices/ai/BaniScanSummary";
+import { runBaniScan } from "@/lib/baniRunScan";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
 const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review"] as const;
