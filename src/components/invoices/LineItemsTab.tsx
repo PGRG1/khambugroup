@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Eye } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Eye, Sparkles, AlertTriangle } from "lucide-react";
 import { Supplier } from "@/hooks/useInvoiceData";
 import AttachmentViewerDialog from "./AttachmentViewerDialog";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LineItemRow {
   id: string;
@@ -20,6 +21,7 @@ interface LineItemRow {
   unit_price: number;
   net_amount: number;
   file_url: string;
+  ai_suggestion: any;
   // pre-lowered for fast search
   _s: string;
 }
@@ -46,7 +48,7 @@ export default function LineItemsTab({ suppliers }: Props) {
     (async () => {
       setLoading(true);
       const [items, invoices, products] = await Promise.all([
-        fetchAllRows("invoice_line_items", "id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
+        fetchAllRows("invoice_line_items", "id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id, ai_suggestion"),
         fetchAllRows("invoices", "id, invoice_number, supplier_id, invoice_date, file_url"),
         fetchAllRows("standard_products", "id, name"),
       ]);
@@ -77,6 +79,7 @@ export default function LineItemsTab({ suppliers }: Props) {
           unit_price: li.unit_price || 0,
           net_amount: li.total || 0,
           file_url: inv?.file_url || "",
+          ai_suggestion: li.ai_suggestion ?? null,
           _s: `${supplier_name} ${invoice_number} ${item_code} ${master_name} ${description}`.toLowerCase(),
         };
       });
@@ -235,7 +238,32 @@ export default function LineItemsTab({ suppliers }: Props) {
                     <div className="px-3 font-medium text-foreground truncate">{row.supplier_name}</div>
                     <div className="px-3 tabular-nums truncate">{row.invoice_number}</div>
                     <div className="px-3 font-mono text-[11px] text-muted-foreground truncate">{row.item_code}</div>
-                    <div className="px-3 text-foreground truncate">{row.master_name}</div>
+                    <div className="px-3 text-foreground truncate flex items-center gap-1.5">
+                      <span className="truncate">{row.master_name}</span>
+                      {(() => {
+                        const s = row.ai_suggestion;
+                        if (!s) return null;
+                        const needs = s.needs_review_reason;
+                        const prodName = s.product?.internal_product_name ?? s.product?.product_master_id;
+                        const conf = typeof s.confidence === "number" ? Math.round(s.confidence * 100) : null;
+                        const Icon = needs ? AlertTriangle : Sparkles;
+                        const tone = needs ? "text-amber-400" : "text-emerald-400";
+                        return (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className={`shrink-0 ${tone}`}><Icon className="h-3 w-3" /></span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs">
+                                <div className="font-medium mb-0.5">Bani suggestion{conf !== null ? ` (${conf}%)` : ""}</div>
+                                {prodName && <div>→ {prodName}</div>}
+                                {needs && <div className="text-amber-300 mt-1">Needs review: {needs}</div>}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })()}
+                    </div>
                     <div className="px-3 truncate text-muted-foreground">{row.description}</div>
                     <div className="px-3 text-right tabular-nums text-foreground">{row.quantity}</div>
                     <div className="px-3 text-muted-foreground">{row.unit}</div>

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign } from "lucide-react";
+import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
@@ -22,6 +22,10 @@ import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort"
 import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { BaniScanSummary } from "@/components/invoices/ai/BaniScanSummary";
+import { runBaniScan } from "@/lib/baniRunScan";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
 const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review"] as const;
@@ -129,6 +133,8 @@ const emptyEditLine: EditableInvoiceLine = {
 export default function ProcurementInvoicesTab() {
   const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } = useInvoiceData();
   const { user } = useAuth();
+  const { tenantId } = useActiveTenant();
+
 
   const [productMaster, setProductMaster] = useState<ProductMasterEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -881,7 +887,7 @@ export default function ProcurementInvoicesTab() {
               }
             }
 
-            await createInvoice(
+            const created = await createInvoice(
               {
                 ...inv,
                 discount: inv.discount ?? 0,
@@ -896,6 +902,12 @@ export default function ProcurementInvoicesTab() {
               fileUrl,
               fileName
             );
+            // Auto-trigger Bani's post-scan analysis (non-blocking).
+            if (created?.id && tenantId) {
+              runBaniScan({ invoiceId: created.id, tenantId, force: true }).catch((e) =>
+                console.warn("Bani auto-scan failed", e)
+              );
+            }
           }}
           onClose={() => {
             setScannerOpen(false);
@@ -955,6 +967,9 @@ export default function ProcurementInvoicesTab() {
                 <Button size="sm" variant="outline" onClick={startEditing}>
                   <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
                 </Button>
+
+                <BaniScanSummary invoiceId={selectedInvoice.id} />
+
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div><span className="text-muted-foreground">Supplier:</span> <span className="font-medium">{selectedInvoice.supplier_name}</span></div>
                   <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
@@ -1190,7 +1205,35 @@ function InvoiceTableSection({
             pag.pageItems.map((inv) => (
               <TableRow key={inv.id} onClick={() => openDetail(inv)} className="cursor-pointer text-[12px]">
                 <TableCell className="whitespace-nowrap text-muted-foreground py-2">{fmtDate(inv.invoice_date)}</TableCell>
-                <TableCell className="py-2 font-mono font-medium text-primary">{inv.invoice_number}</TableCell>
+                <TableCell className="py-2 font-mono font-medium text-primary">
+                  <span className="inline-flex items-center gap-1.5">
+                    {(() => {
+                      const anomaly = (inv as any).ai_anomaly;
+                      const flags: any[] = anomaly?.flags ?? [];
+                      if (flags.length === 0) return null;
+                      const summary = flags.map((f) => `${f.type}${f.reason ? ` — ${f.reason}` : ""}`).join("\n");
+                      return (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center text-amber-400" onClick={(e) => e.stopPropagation()}>
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs whitespace-pre-line text-xs">
+                              <div className="font-medium mb-0.5 flex items-center gap-1">
+                                <Sparkles className="h-3 w-3" /> Bani flagged {flags.length} issue{flags.length === 1 ? "" : "s"}
+                              </div>
+                              {summary}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
+                    {inv.invoice_number}
+                  </span>
+                </TableCell>
+
                 <TableCell className="py-2 font-medium text-foreground">{inv.supplier_name}</TableCell>
                 <TableCell className="py-2">{inv.venue}</TableCell>
                 <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
