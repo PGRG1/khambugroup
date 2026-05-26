@@ -48,7 +48,7 @@ export default function LineItemsTab({ suppliers }: Props) {
     (async () => {
       setLoading(true);
       const [items, invoices, products] = await Promise.all([
-        fetchAllRows("invoice_line_items", "id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id"),
+        fetchAllRows("invoice_line_items", "id, item_code, description, pack_size, quantity, unit, unit_price, tax_amount, total, invoice_id, standard_product_id, ai_suggestion"),
         fetchAllRows("invoices", "id, invoice_number, supplier_id, invoice_date, file_url"),
         fetchAllRows("standard_products", "id, name"),
       ]);
