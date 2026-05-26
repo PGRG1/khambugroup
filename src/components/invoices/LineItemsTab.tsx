@@ -79,6 +79,7 @@ export default function LineItemsTab({ suppliers }: Props) {
           unit_price: li.unit_price || 0,
           net_amount: li.total || 0,
           file_url: inv?.file_url || "",
+          ai_suggestion: li.ai_suggestion ?? null,
           _s: `${supplier_name} ${invoice_number} ${item_code} ${master_name} ${description}`.toLowerCase(),
         };
       });
