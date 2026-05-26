@@ -2175,6 +2175,7 @@ export type Database = {
       }
       invoice_line_items: {
         Row: {
+          ai_suggestion: Json | null
           category_id: string | null
           created_at: string
           description: string
@@ -2182,18 +2183,22 @@ export type Database = {
           id: string
           invoice_id: string
           item_code: string | null
+          normalized_unit_cost: number | null
           notes: string | null
           pack_size: string | null
+          pack_size_norm: string | null
           product_master_id: string | null
           quantity: number
           standard_product_id: string | null
           tax_amount: number
           total: number
           unit: string | null
+          unit_norm: string | null
           unit_price: number
           weight: number | null
         }
         Insert: {
+          ai_suggestion?: Json | null
           category_id?: string | null
           created_at?: string
           description: string
@@ -2201,18 +2206,22 @@ export type Database = {
           id?: string
           invoice_id: string
           item_code?: string | null
+          normalized_unit_cost?: number | null
           notes?: string | null
           pack_size?: string | null
+          pack_size_norm?: string | null
           product_master_id?: string | null
           quantity?: number
           standard_product_id?: string | null
           tax_amount?: number
           total?: number
           unit?: string | null
+          unit_norm?: string | null
           unit_price?: number
           weight?: number | null
         }
         Update: {
+          ai_suggestion?: Json | null
           category_id?: string | null
           created_at?: string
           description?: string
@@ -2220,14 +2229,17 @@ export type Database = {
           id?: string
           invoice_id?: string
           item_code?: string | null
+          normalized_unit_cost?: number | null
           notes?: string | null
           pack_size?: string | null
+          pack_size_norm?: string | null
           product_master_id?: string | null
           quantity?: number
           standard_product_id?: string | null
           tax_amount?: number
           total?: number
           unit?: string | null
+          unit_norm?: string | null
           unit_price?: number
           weight?: number | null
         }
@@ -2349,6 +2361,9 @@ export type Database = {
       }
       invoices: {
         Row: {
+          ai_anomaly: Json | null
+          ai_extract_meta: Json | null
+          ai_suggestions: Json | null
           amount_paid: number
           approved_at: string | null
           approved_by: string | null
@@ -2385,6 +2400,9 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          ai_anomaly?: Json | null
+          ai_extract_meta?: Json | null
+          ai_suggestions?: Json | null
           amount_paid?: number
           approved_at?: string | null
           approved_by?: string | null
@@ -2421,6 +2439,9 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          ai_anomaly?: Json | null
+          ai_extract_meta?: Json | null
+          ai_suggestions?: Json | null
           amount_paid?: number
           approved_at?: string | null
           approved_by?: string | null
