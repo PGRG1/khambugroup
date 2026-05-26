@@ -21,6 +21,7 @@ interface LineItemRow {
   unit_price: number;
   net_amount: number;
   file_url: string;
+  ai_suggestion: any;
   // pre-lowered for fast search
   _s: string;
 }
