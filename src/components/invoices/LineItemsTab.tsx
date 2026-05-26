@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Eye } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Eye, Sparkles, AlertTriangle } from "lucide-react";
 import { Supplier } from "@/hooks/useInvoiceData";
 import AttachmentViewerDialog from "./AttachmentViewerDialog";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LineItemRow {
   id: string;
