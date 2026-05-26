@@ -1205,7 +1205,35 @@ function InvoiceTableSection({
             pag.pageItems.map((inv) => (
               <TableRow key={inv.id} onClick={() => openDetail(inv)} className="cursor-pointer text-[12px]">
                 <TableCell className="whitespace-nowrap text-muted-foreground py-2">{fmtDate(inv.invoice_date)}</TableCell>
-                <TableCell className="py-2 font-mono font-medium text-primary">{inv.invoice_number}</TableCell>
+                <TableCell className="py-2 font-mono font-medium text-primary">
+                  <span className="inline-flex items-center gap-1.5">
+                    {(() => {
+                      const anomaly = (inv as any).ai_anomaly;
+                      const flags: any[] = anomaly?.flags ?? [];
+                      if (flags.length === 0) return null;
+                      const summary = flags.map((f) => `${f.type}${f.reason ? ` — ${f.reason}` : ""}`).join("\n");
+                      return (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center text-amber-400" onClick={(e) => e.stopPropagation()}>
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs whitespace-pre-line text-xs">
+                              <div className="font-medium mb-0.5 flex items-center gap-1">
+                                <Sparkles className="h-3 w-3" /> Bani flagged {flags.length} issue{flags.length === 1 ? "" : "s"}
+                              </div>
+                              {summary}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
+                    {inv.invoice_number}
+                  </span>
+                </TableCell>
+
                 <TableCell className="py-2 font-medium text-foreground">{inv.supplier_name}</TableCell>
                 <TableCell className="py-2">{inv.venue}</TableCell>
                 <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
