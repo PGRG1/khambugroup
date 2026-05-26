@@ -887,7 +887,7 @@ export default function ProcurementInvoicesTab() {
               }
             }
 
-            await createInvoice(
+            const created = await createInvoice(
               {
                 ...inv,
                 discount: inv.discount ?? 0,
@@ -902,6 +902,12 @@ export default function ProcurementInvoicesTab() {
               fileUrl,
               fileName
             );
+            // Auto-trigger Bani's post-scan analysis (non-blocking).
+            if (created?.id && tenantId) {
+              runBaniScan({ invoiceId: created.id, tenantId, force: true }).catch((e) =>
+                console.warn("Bani auto-scan failed", e)
+              );
+            }
           }}
           onClose={() => {
             setScannerOpen(false);
