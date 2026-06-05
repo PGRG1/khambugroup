@@ -1846,6 +1846,62 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Override blocking confirmation */}
+      <AlertDialog open={showOverrideDialog} onOpenChange={(o) => { setShowOverrideDialog(o); if (!o) setOverrideReason(""); }}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-destructive" />
+              Override blocking issues?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You're approving this invoice despite unresolved AI Reviewer blocks. The reason will be appended to the invoice notes for audit.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {current && (
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 max-h-40 overflow-auto">
+                <div className="font-medium text-destructive mb-1 text-xs uppercase tracking-wide">Blocking issues</div>
+                <ul className="list-disc list-inside text-xs space-y-0.5">
+                  {(current.review_blocking || []).map((m, i) => <li key={`h-${i}`}>{m}</li>)}
+                  {current.line_items.flatMap((l, li) =>
+                    (l.review_blocking || []).map((m, mi) => (
+                      <li key={`l-${li}-${mi}`}>Line {li + 1}: {m}</li>
+                    ))
+                  )}
+                </ul>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="override-reason" className="text-xs">Reason for override <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="override-reason"
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  placeholder="e.g. Credit note — totals correct as printed, verified against PDF."
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={overrideReason.trim().length < 5 || saving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                const reason = overrideReason.trim();
+                setShowOverrideDialog(false);
+                await handleSaveCurrent({ forceOverride: true, overrideReason: reason });
+                setOverrideReason("");
+              }}
+            >
+              Confirm Override & Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
