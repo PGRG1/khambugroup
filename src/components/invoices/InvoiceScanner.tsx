@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert } from "lucide-react";
 import {
   WorkflowStrip,
   CheckCard,
@@ -180,6 +180,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const [savingAll, setSavingAll] = useState(false);
   const [detailsLineIdx, setDetailsLineIdx] = useState<number | null>(null);
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
+  const [showOverrideDialog, setShowOverrideDialog] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
   const [savedCount, setSavedCount] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -919,14 +921,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return (inv.review_blocking?.length || 0) + inv.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) > 0;
   }, []);
 
-  const handleSaveCurrent = async () => {
+  const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string } = {}) => {
     if (!current) return;
     if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
     if (!current.invoice_date) { toast({ title: "Invoice date required", variant: "destructive" }); return; }
-    if (hasBlockingForSave(current)) { toast({ title: "Resolve blocking issues before saving", variant: "destructive" }); return; }
+    if (!opts.forceOverride && hasBlockingForSave(current)) { toast({ title: "Resolve blocking issues before saving", variant: "destructive" }); return; }
     if (hasUnmatchedForSave(current)) { toast({ title: "All items must be matched to Bills & Invoices", description: "Match all External SKU / External Name fields before saving.", variant: "destructive" }); return; }
-    await doSaveCurrent(current, currentIdx);
+    let toSave = current;
+    if (opts.forceOverride && opts.overrideReason) {
+      const stamp = new Date().toISOString();
+      const overrideNote = `[Blocking Override @ ${stamp}] ${opts.overrideReason}`;
+      const mergedNotes = current.notes ? `${current.notes}\n${overrideNote}` : overrideNote;
+      toSave = { ...current, notes: mergedNotes };
+      setInvoices(prev => prev.map((inv, i) => i === currentIdx ? toSave : inv));
+    }
+    await doSaveCurrent(toSave, currentIdx);
   };
 
 
@@ -1713,14 +1723,25 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   >
                     <FileSignature className="h-4 w-4 mr-1" />Save Draft
                   </Button>
+                  {hasBlockingIssues && !current.is_duplicate && !hasUnmatchedItems && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowOverrideDialog(true)}
+                      disabled={saving || savingAll}
+                      className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                      title="Override blocking issues and approve anyway"
+                    >
+                      <ShieldAlert className="h-4 w-4 mr-1" />Override & Approve
+                    </Button>
+                  )}
                   <Button
-                    onClick={handleSaveCurrent}
+                    onClick={() => handleSaveCurrent()}
                     disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}
                     title={
                       current.is_duplicate
                         ? "Duplicate invoice — cannot save"
                         : hasBlockingIssues
-                        ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first`
+                        ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first (or use Override)`
                         : hasUnmatchedItems
                         ? "Match all items first"
                         : "Approve and save invoice"
@@ -1825,6 +1846,62 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Override blocking confirmation */}
+      <AlertDialog open={showOverrideDialog} onOpenChange={(o) => { setShowOverrideDialog(o); if (!o) setOverrideReason(""); }}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-destructive" />
+              Override blocking issues?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You're approving this invoice despite unresolved AI Reviewer blocks. The reason will be appended to the invoice notes for audit.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {current && (
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 max-h-40 overflow-auto">
+                <div className="font-medium text-destructive mb-1 text-xs uppercase tracking-wide">Blocking issues</div>
+                <ul className="list-disc list-inside text-xs space-y-0.5">
+                  {(current.review_blocking || []).map((m, i) => <li key={`h-${i}`}>{m}</li>)}
+                  {current.line_items.flatMap((l, li) =>
+                    (l.review_blocking || []).map((m, mi) => (
+                      <li key={`l-${li}-${mi}`}>Line {li + 1}: {m}</li>
+                    ))
+                  )}
+                </ul>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="override-reason" className="text-xs">Reason for override <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="override-reason"
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  placeholder="e.g. Credit note — totals correct as printed, verified against PDF."
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={overrideReason.trim().length < 5 || saving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                const reason = overrideReason.trim();
+                setShowOverrideDialog(false);
+                await handleSaveCurrent({ forceOverride: true, overrideReason: reason });
+                setOverrideReason("");
+              }}
+            >
+              Confirm Override & Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
