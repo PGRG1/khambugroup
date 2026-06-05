@@ -1721,14 +1721,25 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   >
                     <FileSignature className="h-4 w-4 mr-1" />Save Draft
                   </Button>
+                  {hasBlockingIssues && !current.is_duplicate && !hasUnmatchedItems && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowOverrideDialog(true)}
+                      disabled={saving || savingAll}
+                      className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                      title="Override blocking issues and approve anyway"
+                    >
+                      <ShieldAlert className="h-4 w-4 mr-1" />Override & Approve
+                    </Button>
+                  )}
                   <Button
-                    onClick={handleSaveCurrent}
+                    onClick={() => handleSaveCurrent()}
                     disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}
                     title={
                       current.is_duplicate
                         ? "Duplicate invoice — cannot save"
                         : hasBlockingIssues
-                        ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first`
+                        ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first (or use Override)`
                         : hasUnmatchedItems
                         ? "Match all items first"
                         : "Approve and save invoice"
