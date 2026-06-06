@@ -272,6 +272,95 @@ export type Database = {
           },
         ]
       }
+      alert_events: {
+        Row: {
+          created_at: string
+          fired_for_date: string
+          id: string
+          metric_value: number | null
+          payload: Json
+          rule_id: string
+          sent_count: number
+          severity: string | null
+          threshold: number | null
+        }
+        Insert: {
+          created_at?: string
+          fired_for_date: string
+          id?: string
+          metric_value?: number | null
+          payload?: Json
+          rule_id: string
+          sent_count?: number
+          severity?: string | null
+          threshold?: number | null
+        }
+        Update: {
+          created_at?: string
+          fired_for_date?: string
+          id?: string
+          metric_value?: number | null
+          payload?: Json
+          rule_id?: string
+          sent_count?: number
+          severity?: string | null
+          threshold?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_events_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "alert_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_rules: {
+        Row: {
+          audience_roles: string[]
+          created_at: string
+          enabled: boolean
+          id: string
+          metric: string
+          name: string
+          operator: string
+          severity: string
+          threshold: number
+          updated_at: string
+          user_id: string | null
+          venue: string | null
+        }
+        Insert: {
+          audience_roles?: string[]
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          metric: string
+          name: string
+          operator: string
+          severity?: string
+          threshold: number
+          updated_at?: string
+          user_id?: string | null
+          venue?: string | null
+        }
+        Update: {
+          audience_roles?: string[]
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          metric?: string
+          name?: string
+          operator?: string
+          severity?: string
+          threshold?: number
+          updated_at?: string
+          user_id?: string | null
+          venue?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -3777,6 +3866,42 @@ export type Database = {
           preferences?: Json | null
           theme_preference?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          enabled_daily_pulse: boolean
+          endpoint: string
+          id: string
+          last_seen_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          enabled_daily_pulse?: boolean
+          endpoint: string
+          id?: string
+          last_seen_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          enabled_daily_pulse?: boolean
+          endpoint?: string
+          id?: string
+          last_seen_at?: string
+          p256dh?: string
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
