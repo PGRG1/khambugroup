@@ -289,6 +289,7 @@ export function AppSidebar() {
             onOpenChange={(o) => setGroup("admin", o)}
           >
             <SidebarMenu>
+              {renderLink({ title: "Notifications", url: "/notifications", icon: Bell })}
               {renderLink({ title: "User Access", url: "/user-access", icon: UserCog })}
               {renderLink({ title: "System Configuration", url: "/admin/system-configuration", icon: SlidersHorizontal })}
               {renderLink({ title: "AI Learned Rules", url: "/admin/ai-rules", icon: Sparkles })}

@@ -13,6 +13,7 @@ import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
 import DataPage from "./pages/DataPage";
+import Notifications from "./pages/Notifications";
 
 import ForecastInput from "./pages/ForecastInput";
 import AuditLog from "./pages/AuditLog";
@@ -153,6 +154,7 @@ function App() {
                 <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
+                <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
