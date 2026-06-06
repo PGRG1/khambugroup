@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -289,6 +289,7 @@ export function AppSidebar() {
             onOpenChange={(o) => setGroup("admin", o)}
           >
             <SidebarMenu>
+              {renderLink({ title: "Notifications", url: "/notifications", icon: Bell })}
               {renderLink({ title: "User Access", url: "/user-access", icon: UserCog })}
               {renderLink({ title: "System Configuration", url: "/admin/system-configuration", icon: SlidersHorizontal })}
               {renderLink({ title: "AI Learned Rules", url: "/admin/ai-rules", icon: Sparkles })}
