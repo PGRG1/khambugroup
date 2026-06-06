@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     // ---- Aggregate MTD sales per venue ----
     const { data: sales } = await admin
       .from("sales_records")
-      .select("date,venue,subtotal,service_charge,discount,guest_count")
+      .select("date,venue,subtotal,service_charge,discount,guests")
       .gte("date", monthStart)
       .lte("date", today);
 
@@ -77,14 +77,14 @@ Deno.serve(async (req) => {
       const rev = (Number(r.subtotal) || 0) + (Number(r.service_charge) || 0) + (Number(r.discount) || 0);
       const venue = r.venue || "(unknown)";
       const cur = mtdByVenue.get(venue) || { revenue: 0, covers: 0 };
-      cur.revenue += rev; cur.covers += Number(r.guest_count) || 0;
+      cur.revenue += rev; cur.covers += Number(r.guests) || 0;
       mtdByVenue.set(venue, cur);
       mtdRevenueAll += rev;
       if (r.date === today) {
         const t = todayByVenue.get(venue) || { revenue: 0, covers: 0 };
-        t.revenue += rev; t.covers += Number(r.guest_count) || 0;
+        t.revenue += rev; t.covers += Number(r.guests) || 0;
         todayByVenue.set(venue, t);
-        todayRevenueAll += rev; todayCoversAll += Number(r.guest_count) || 0;
+        todayRevenueAll += rev; todayCoversAll += Number(r.guests) || 0;
       }
     }
 
@@ -107,17 +107,20 @@ Deno.serve(async (req) => {
     // ---- MTD goals (sum revenue_targets for this month per venue) ----
     const { data: targets } = await admin
       .from("revenue_targets")
-      .select("venue,month,year,target_amount");
+      .select("year,month,target_amount,venues");
     const yyyy = Number(today.slice(0, 4));
     const mm = Number(today.slice(5, 7));
     const goalByVenue = new Map<string, number>();
     let goalAll = 0;
     for (const t of targets || []) {
       if (Number(t.year) === yyyy && Number(t.month) === mm) {
-        const v = t.venue || "(unknown)";
         const amt = Number(t.target_amount) || 0;
-        goalByVenue.set(v, (goalByVenue.get(v) || 0) + amt);
-        goalAll += amt;
+        const vs = Array.isArray(t.venues) ? t.venues : [];
+        if (vs.length === 0) { goalAll += amt; }
+        else {
+          for (const v of vs) goalByVenue.set(String(v), (goalByVenue.get(String(v)) || 0) + amt / vs.length);
+          goalAll += amt;
+        }
       }
     }
 
