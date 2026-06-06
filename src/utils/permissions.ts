@@ -55,6 +55,10 @@ export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
     { key: "inventory.edit_counts", label: "Edit Counts" },
     { key: "inventory.close_period", label: "Close Period" },
   ],
+  notifications: [
+    { key: "notifications.manage_rules", label: "Manage Alert Rules" },
+    { key: "notifications.enable_device", label: "Enable Push on Device" },
+  ],
 };
 
 export type Authority = "view_only" | "edit" | "admin";
