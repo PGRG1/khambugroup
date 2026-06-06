@@ -7,6 +7,7 @@ export const ALL_PAGES = [
   { key: "pl-report", label: "P&L Report" },
   { key: "invoices", label: "Invoices" },
   { key: "inventory", label: "Inventory" },
+  { key: "notifications", label: "Notifications" },
 ] as const;
 
 export type PageKey = (typeof ALL_PAGES)[number]["key"];
