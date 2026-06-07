@@ -2762,6 +2762,282 @@ export type Database = {
           },
         ]
       }
+      kpi_actions: {
+        Row: {
+          action_required: string
+          action_status: string
+          assigned_user_id: string | null
+          completed_date: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          kpi_card_id: string
+          notes: string | null
+          period_date: string | null
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          action_required?: string
+          action_status?: string
+          assigned_user_id?: string | null
+          completed_date?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          kpi_card_id: string
+          notes?: string | null
+          period_date?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          action_required?: string
+          action_status?: string
+          assigned_user_id?: string | null
+          completed_date?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          kpi_card_id?: string
+          notes?: string | null
+          period_date?: string | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_actions_kpi_card_id_fkey"
+            columns: ["kpi_card_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_actions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kpi_actuals: {
+        Row: {
+          actual_source: string
+          actual_value: number
+          created_at: string
+          id: string
+          kpi_card_id: string
+          notes: string | null
+          period_date: string
+          updated_at: string
+          updated_by: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          actual_source?: string
+          actual_value?: number
+          created_at?: string
+          id?: string
+          kpi_card_id: string
+          notes?: string | null
+          period_date: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          actual_source?: string
+          actual_value?: number
+          created_at?: string
+          id?: string
+          kpi_card_id?: string
+          notes?: string | null
+          period_date?: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_actuals_kpi_card_id_fkey"
+            columns: ["kpi_card_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_actuals_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kpi_assignments: {
+        Row: {
+          active: boolean
+          assigned_at: string
+          assigned_by: string | null
+          assigned_role: string | null
+          assigned_user_id: string | null
+          created_at: string
+          id: string
+          kpi_card_id: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          assigned_at?: string
+          assigned_by?: string | null
+          assigned_role?: string | null
+          assigned_user_id?: string | null
+          created_at?: string
+          id?: string
+          kpi_card_id: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          assigned_at?: string
+          assigned_by?: string | null
+          assigned_role?: string | null
+          assigned_user_id?: string | null
+          created_at?: string
+          id?: string
+          kpi_card_id?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_assignments_kpi_card_id_fkey"
+            columns: ["kpi_card_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_assignments_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kpi_cards: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          kpi_category: string
+          kpi_name: string
+          kpi_type: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          kpi_category?: string
+          kpi_name: string
+          kpi_type?: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          kpi_category?: string
+          kpi_name?: string
+          kpi_type?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      kpi_targets: {
+        Row: {
+          active: boolean
+          assigned_role: string | null
+          assigned_user_id: string | null
+          calculation_method: string
+          created_at: string
+          critical_threshold_pct: number
+          day_of_week: number | null
+          id: string
+          kpi_card_id: string
+          period_end_date: string | null
+          period_start_date: string | null
+          target_period: string
+          target_value: number
+          updated_at: string
+          venue_id: string | null
+          warning_threshold_pct: number
+        }
+        Insert: {
+          active?: boolean
+          assigned_role?: string | null
+          assigned_user_id?: string | null
+          calculation_method?: string
+          created_at?: string
+          critical_threshold_pct?: number
+          day_of_week?: number | null
+          id?: string
+          kpi_card_id: string
+          period_end_date?: string | null
+          period_start_date?: string | null
+          target_period?: string
+          target_value?: number
+          updated_at?: string
+          venue_id?: string | null
+          warning_threshold_pct?: number
+        }
+        Update: {
+          active?: boolean
+          assigned_role?: string | null
+          assigned_user_id?: string | null
+          calculation_method?: string
+          created_at?: string
+          critical_threshold_pct?: number
+          day_of_week?: number | null
+          id?: string
+          kpi_card_id?: string
+          period_end_date?: string | null
+          period_start_date?: string | null
+          target_period?: string
+          target_value?: number
+          updated_at?: string
+          venue_id?: string | null
+          warning_threshold_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_targets_kpi_card_id_fkey"
+            columns: ["kpi_card_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_targets_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ledger_audit_log: {
         Row: {
           amount: number | null
@@ -4839,6 +5115,10 @@ export type Database = {
       record_payment_with_allocations: {
         Args: { p_allocations: Json; p_payment: Json }
         Returns: string
+      }
+      user_owns_kpi: {
+        Args: { _kpi_card_id: string; _user_id: string }
+        Returns: boolean
       }
       void_payroll_payment_batch: {
         Args: { p_batch_id: string }
