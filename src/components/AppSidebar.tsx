@@ -74,16 +74,24 @@ const hrItems = [
   { title: "Payroll", url: "/hr/payroll", icon: DollarSign },
 ];
 
+const kpiItems = [
+  { title: "My KPI Cards", url: "/kpis/my-cards", icon: Target, pageKey: "kpis" },
+];
+const kpiAdminItems = [
+  { title: "KPI Assignment", url: "/kpis/assignments", icon: UserCog },
+  { title: "KPI Targets", url: "/kpis/targets", icon: Target },
+];
+
 const STORAGE_KEY = "khambu.sidebar.groups";
 
-type GroupKey = "revenue" | "finance" | "procurement" | "hr" | "admin";
+type GroupKey = "revenue" | "kpi" | "finance" | "procurement" | "hr" | "admin";
 
 function loadGroupState(): Record<GroupKey, boolean> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { revenue: false, finance: false, procurement: false, hr: false, admin: false };
+  return { revenue: false, kpi: false, finance: false, procurement: false, hr: false, admin: false };
 }
 
 function CollapsibleNavGroup({
@@ -138,6 +146,7 @@ export function AppSidebar() {
   // All nav groups start collapsed by default; user toggles persist for the session only
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>({
     revenue: false,
+    kpi: false,
     finance: false,
     procurement: false,
     hr: false,
@@ -211,6 +220,18 @@ export function AppSidebar() {
             <SidebarMenu>{visibleRevenueItems.map(renderLink)}</SidebarMenu>
           </CollapsibleNavGroup>
         )}
+
+        <CollapsibleNavGroup
+          groupKey="kpi"
+          label="KPI Management"
+          defaultOpen={groupState.kpi}
+          onOpenChange={(o) => setGroup("kpi", o)}
+        >
+          <SidebarMenu>
+            {kpiItems.map(renderLink)}
+            {isAdmin && !isPreviewActive && kpiAdminItems.map(renderLink)}
+          </SidebarMenu>
+        </CollapsibleNavGroup>
 
         {showFinance && (
           <CollapsibleNavGroup

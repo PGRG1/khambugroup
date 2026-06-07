@@ -8,6 +8,8 @@ export const ALL_PAGES = [
   { key: "invoices", label: "Invoices" },
   { key: "inventory", label: "Inventory" },
   { key: "notifications", label: "Notifications" },
+  { key: "kpis", label: "My KPI Cards" },
+  { key: "kpi-management", label: "KPI Management (Admin)" },
 ] as const;
 
 export type PageKey = (typeof ALL_PAGES)[number]["key"];
@@ -58,6 +60,14 @@ export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
   notifications: [
     { key: "notifications.manage_rules", label: "Manage Alert Rules" },
     { key: "notifications.enable_device", label: "Enable Push on Device" },
+  ],
+  kpis: [
+    { key: "kpis.update_actual", label: "Update Actual Value" },
+  ],
+  "kpi-management": [
+    { key: "kpi-management.create_card", label: "Create KPI Card" },
+    { key: "kpi-management.assign", label: "Assign KPI Card" },
+    { key: "kpi-management.set_target", label: "Set / Edit Targets" },
   ],
 };
 
