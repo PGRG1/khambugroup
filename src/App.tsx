@@ -14,6 +14,9 @@ import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
 import DataPage from "./pages/DataPage";
 import Notifications from "./pages/Notifications";
+import MyKpis from "./pages/kpis/MyKpis";
+import KpiAssignments from "./pages/kpis/KpiAssignments";
+import KpiTargets from "./pages/kpis/KpiTargets";
 
 import ForecastInput from "./pages/ForecastInput";
 import AuditLog from "./pages/AuditLog";
@@ -155,6 +158,9 @@ function App() {
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
+                <Route path="/kpis/my-cards" element={<ProtectedRoute pageKey="kpis"><MyKpis /></ProtectedRoute>} />
+                <Route path="/kpis/assignments" element={<AdminRoute><KpiAssignments /></AdminRoute>} />
+                <Route path="/kpis/targets" element={<AdminRoute><KpiTargets /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

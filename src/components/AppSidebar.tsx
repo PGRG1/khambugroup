@@ -74,6 +74,14 @@ const hrItems = [
   { title: "Payroll", url: "/hr/payroll", icon: DollarSign },
 ];
 
+const kpiItems = [
+  { title: "My KPI Cards", url: "/kpis/my-cards", icon: Target, pageKey: "kpis" },
+];
+const kpiAdminItems = [
+  { title: "KPI Assignment", url: "/kpis/assignments", icon: UserCog },
+  { title: "KPI Targets", url: "/kpis/targets", icon: Target },
+];
+
 const STORAGE_KEY = "khambu.sidebar.groups";
 
 type GroupKey = "revenue" | "finance" | "procurement" | "hr" | "admin";
