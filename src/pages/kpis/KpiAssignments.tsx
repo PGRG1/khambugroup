@@ -28,7 +28,7 @@ export default function KpiAssignments() {
   });
 
   useEffect(() => {
-    supabase.from("profiles").select("user_id, display_name, email").then(({ data }) => setProfiles((data ?? []) as Profile[]));
+    supabase.from("profiles").select("user_id, display_name").then(({ data }) => setProfiles((data ?? []) as Profile[]));
   }, []);
 
   const profileName = (uid: string | null) => {
