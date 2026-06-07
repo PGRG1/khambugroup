@@ -221,6 +221,18 @@ export function AppSidebar() {
           </CollapsibleNavGroup>
         )}
 
+        <CollapsibleNavGroup
+          groupKey="kpi"
+          label="KPI Management"
+          defaultOpen={groupState.kpi}
+          onOpenChange={(o) => setGroup("kpi", o)}
+        >
+          <SidebarMenu>
+            {kpiItems.map(renderLink)}
+            {isAdmin && !isPreviewActive && kpiAdminItems.map(renderLink)}
+          </SidebarMenu>
+        </CollapsibleNavGroup>
+
         {showFinance && (
           <CollapsibleNavGroup
             groupKey="finance"
