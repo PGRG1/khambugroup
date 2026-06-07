@@ -8,6 +8,8 @@ export const ALL_PAGES = [
   { key: "invoices", label: "Invoices" },
   { key: "inventory", label: "Inventory" },
   { key: "notifications", label: "Notifications" },
+  { key: "kpis", label: "My KPI Cards" },
+  { key: "kpi-management", label: "KPI Management (Admin)" },
 ] as const;
 
 export type PageKey = (typeof ALL_PAGES)[number]["key"];
