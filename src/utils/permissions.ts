@@ -61,6 +61,14 @@ export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
     { key: "notifications.manage_rules", label: "Manage Alert Rules" },
     { key: "notifications.enable_device", label: "Enable Push on Device" },
   ],
+  kpis: [
+    { key: "kpis.update_actual", label: "Update Actual Value" },
+  ],
+  "kpi-management": [
+    { key: "kpi-management.create_card", label: "Create KPI Card" },
+    { key: "kpi-management.assign", label: "Assign KPI Card" },
+    { key: "kpi-management.set_target", label: "Set / Edit Targets" },
+  ],
 };
 
 export type Authority = "view_only" | "edit" | "admin";
