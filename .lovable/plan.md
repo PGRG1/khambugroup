@@ -1,89 +1,119 @@
-## Goal
+# KPI Management — v1 Plan
 
-Enable installable PWA + Web Push so Khambu users get a once-daily "Business Pulse" notification on their phone home-screen app when self-defined KPIs (MTD revenue vs goal, MTD COGS, daily revenue, labour %, etc.) cross thresholds they configured themselves.
+A new ownership-driven module where admins/managers define KPI cards + targets, assign them to users/roles/venues, and each user logs in to see only the KPIs they own. Actuals are entered manually (POS-live integration left as future work via an `actual_source` field).
 
-## 1. PWA installability (home-screen)
+## 1. Pages & navigation
 
-- Add `public/manifest.webmanifest` (name "Khambu", short name "Khambu", `display: standalone`, theme `#0F0F12`, background `#0F0F12`, icons 192/512 + maskable).
-- Generate app icons into `public/icons/` (emerald "K" mark on near-black).
-- Add manifest + apple-touch-icon + theme-color tags to `index.html` head.
-- No app-shell service worker, no `vite-plugin-pwa` — manifest-only, per Lovable PWA skill.
+New sidebar group **KPI Management** with three pages:
 
-## 2. Web Push service worker (separate from app-shell)
+1. `/kpis/my-cards` — **My KPI Cards** (default landing for non-admins)
+2. `/kpis/assignments` — **KPI Assignment** (admin only)
+3. `/kpis/targets` — **KPI Targets** (admin only)
 
-- Add `public/push-sw.js` — handles `push` and `notificationclick` events only. No caching, no fetch handler. Safe under the "messaging worker" carve-out.
-- Register it only on the published app (skip in Lovable preview/iframe/dev), scoped to `/`.
+Wiring:
+- Add `kpi-management` (admin pages) and `kpis` (my cards) page keys in `src/utils/permissions.ts` + `handle_new_user_access()` trigger.
+- Sidebar entry in `src/components/AppSidebar.tsx` between Revenue and Procurement, using a `Target` lucide icon. Group collapses for standard users to just "My KPIs".
+- After login, if the user is non-admin and has any active assignment, redirect `/` → `/kpis/my-cards`. Admins keep Revenue as landing.
 
-## 3. VAPID keys + secrets
+## 2. Data model (one migration)
 
-- Generate VAPID public/private keypair once via an edge function (`vapid-init`) run on demand by an admin; persist into Lovable secrets (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:alerts@khambu`). Public key also exposed to client via a tiny `get-vapid-public-key` edge function (so we don't need to bake it in code).
+All tables in `public`, with GRANTs + RLS, `updated_at` trigger.
 
-## 4. Database (one migration)
+### `kpi_cards`
+Master definition of a KPI (template).
+- `id`, `kpi_name`, `kpi_category` (`revenue` | `procurement` | `custom`), `kpi_type` (`mtd_revenue` | `daily_revenue` | `daily_guests` | `daily_per_guest_spend` | `custom`), `unit` (`currency`|`count`|`percent`), `description`, `active`, timestamps.
 
-Tables (all with proper GRANTs + RLS):
+### `kpi_targets`
+A target row scoped by venue + (optional) day-of-week + (optional) period.
+- `id`, `kpi_card_id`, `venue_id` (nullable = all venues), `assigned_user_id` (nullable), `assigned_role` (nullable text, e.g. `manager`), `target_value numeric`, `target_period` (`day`|`week`|`month`), `period_start_date`, `period_end_date` (nullable for recurring), `calculation_method` (`manual`|`venue_specific`|`day_of_week`|`mtd`), `day_of_week smallint` (0–6, nullable), `warning_threshold_pct numeric default 10`, `critical_threshold_pct numeric default 20`, `active`, timestamps.
 
-- `push_subscriptions` — `id`, `user_id`, `endpoint UNIQUE`, `p256dh`, `auth`, `user_agent`, `created_at`, `last_seen_at`. RLS: user can CRUD their own rows; admin can read all.
-- `alert_rules` — user-defined thresholds:
-  - `id`, `user_id` (owner; null = global rule, admin only)
-  - `name` (e.g. "MTD Revenue below goal")
-  - `metric` enum: `mtd_revenue`, `mtd_cogs`, `mtd_cogs_ratio`, `mtd_labour_ratio`, `today_revenue`, `today_covers`, `mtd_revenue_vs_goal_pct`
-  - `venue` (nullable = group-wide)
-  - `operator` enum: `lt`, `lte`, `gt`, `gte`
-  - `threshold` numeric
-  - `severity` enum: `info`, `warning`, `critical`
-  - `audience_roles` text[] (default `{admin,manager}`) — which roles receive it
-  - `enabled` bool, timestamps
-- `alert_events` — fired alerts (for dedupe + history): `id`, `rule_id`, `fired_for_date`, `metric_value`, `goal_value`, `payload jsonb`, `sent_count`, `created_at`. Unique `(rule_id, fired_for_date)` so the daily job doesn't double-fire.
+### `kpi_assignments`
+Who is responsible for which KPI card, scoped to venue(s).
+- `id`, `kpi_card_id`, `assigned_user_id` (nullable), `assigned_role` (nullable), `venue_id` (nullable = all), `assigned_by`, `assigned_at`, `active`.
+- Supports multi-venue by inserting multiple rows; UI presents as a multi-select.
 
-## 5. Daily evaluator edge function (`evaluate-alerts`)
+### `kpi_actuals`
+Manual actuals snapshots.
+- `id`, `kpi_card_id`, `venue_id`, `period_date` (the date the actual belongs to — for MTD this is the first of month), `actual_value numeric`, `notes`, `actual_source text default 'manual'` (future: `pos_live`|`imported`|`calculated`), `updated_by`, `updated_at`.
+- Unique on (`kpi_card_id`, `venue_id`, `period_date`).
 
-- Runs at 21:00 HKT daily via pg_cron + pg_net (scheduled by `supabase--insert`, not migration, since it carries project URL + anon key).
-- Computes today's metric values from `sales_records`, `invoices`, `hr_payroll`, and active `revenue_targets` / `forecasts` (for the "vs goal" metrics).
-- For each enabled `alert_rule`: evaluate `operator threshold`, skip if already fired today (`alert_events` unique), otherwise insert event and call `send-push` for every `push_subscriptions` row whose owning user has a matching role in `user_roles` ∩ `audience_roles` and permission on the venue.
-- Also fires one always-on "Daily Business Pulse" notification per user (compact summary: Revenue, COGS, vs goal) regardless of thresholds — toggle per user in settings.
+### `kpi_actions` (lightweight follow-up log)
+- `id`, `kpi_card_id`, `venue_id`, `period_date`, `assigned_user_id`, `action_required text`, `action_status` (`open`|`in_progress`|`done`), `due_date`, `completed_date`, `notes`, timestamps.
 
-## 6. Push sender edge function (`send-push`)
+### RLS
+- Admins (`has_role admin`): full CRUD on all tables.
+- Standard users: SELECT on `kpi_cards` (active only) and on `kpi_targets`/`kpi_assignments`/`kpi_actuals`/`kpi_actions` where they appear in any active `kpi_assignments` row for that card (helper SQL function `user_owns_kpi(uid, card_id)`). INSERT/UPDATE on `kpi_actuals` + `kpi_actions` for cards they own.
 
-- Uses `npm:web-push` with VAPID secrets.
-- Body: `{ subscription, payload }`. On `410 Gone` / `404`, deletes the subscription row.
-- Called from `evaluate-alerts` and from a "Send test notification" button on the new page.
+## 3. Status logic (shared util)
 
-## 7. New page: `/notifications` (Business Pulse Center)
+`src/utils/kpiStatus.ts`:
 
-Linked from sidebar under Admin (visible per `usePagePermissions` rule key `notifications`).
+```text
+if no kpi_actuals row for the period → Pending Actual Update
+else:
+  variance% = (actual - target) / target * 100   (sign-aware per KPI direction)
+  for "higher is better" (revenue, guests, spend):
+     >= 0          → On Track
+     within -warn% → Watch
+     within -crit% → Behind
+     beyond -crit% → Critical
+  Action Required flag is set manually via kpi_actions
+```
 
-Three sections using existing `PageHeader`, `card-glass`, `KpiGrid`, chips, `format` utils, Inter/Space Grotesk:
+Render with existing `<StatusBadge>` chips (`success/info/warn/danger/neutral`).
 
-a) **This device** card
-- "Enable push on this device" button — requests permission, subscribes with VAPID public key, stores in `push_subscriptions`.
-- Status chip: `.chip-success` Enabled / `.chip-warn` Blocked / `.chip-neutral` Off.
-- "Send test notification" button.
-- iOS note: "Add to Home Screen first, then open the installed app to enable."
+## 4. My KPI Cards page
 
-b) **My alert rules** table
-- Columns: Name, Metric, Venue, Condition (`< HK$ 80,000`), Severity chip, Enabled toggle, Edit, Delete.
-- "+ New rule" opens a dialog: name, metric dropdown (with friendly labels + units), venue picker (incl. "All"), operator, threshold (numeric input, currency-formatted preview), severity, audience roles (multi-select), enabled.
-- Preview block at the bottom of the dialog shows: "Right now this rule **would / would not** fire — current value: HK$ 72,140".
+- Header: greeting + count of cards owned.
+- Grid of cards (`card-glass`, `KpiCard` primitive), each shows:
+  - KPI name + venue chip + period label
+  - **Target** (big number, JetBrains Mono `.td-num`)
+  - **Actual** (or "Not updated yet")
+  - Variance value + % with arrow icon
+  - Status chip
+  - Required action (latest open `kpi_actions` row, if any)
+  - "Last updated 3h ago by Jane" footer
+  - "Update Actual" button → modal: actual_value, notes → writes to `kpi_actuals`
+- Filter chips: venue, period (Today / This Month), status.
 
-c) **Recent alerts** list (last 30 days from `alert_events`) — date, rule name, metric value vs threshold, severity chip.
+## 5. KPI Assignment page (admin)
 
-## 8. Wiring
+Table view of all active assignments grouped by KPI card. Toolbar: "+ New Assignment".
+Dialog fields:
+- KPI Card (Select from active cards)
+- Assign to: tabs `User` / `Role` / `Venue-wide`
+- Venues: multi-select chips
+- Active toggle
+Row actions: edit, reassign, deactivate. Inline status chip.
 
-- New `usePushSubscription` hook (subscribe/unsubscribe/test).
-- New `useAlertRules` hook (CRUD).
-- Add `notifications` page key to `user_page_permissions` defaults in `handle_new_user_access` (admin/manager view).
-- Add sidebar entry in the Admin section (`mem://layout/sidebar-navigation/main-structure`).
+## 6. KPI Targets page (admin)
 
-## Technical notes
+Spreadsheet-style table. Toolbar: "+ New Target" + filters (KPI, Venue, Active).
+Dialog fields match the schema, with conditional inputs:
+- If `calculation_method = day_of_week`, show 7 weekday rows in one dialog so the admin sets Mon–Sun targets per venue at once.
+- Warning/critical thresholds default 10% / 20%.
+- Active toggle.
 
-- Push works on installed iOS PWAs (iOS 16.4+) only — surfaced as inline help on the page.
-- All currency in the dialog/preview uses `@/utils/format`; all status pills use existing `.chip` classes; tables use `card-glass`.
-- `web-push` runs in Deno via `npm:web-push@3`.
-- Cron is scheduled via `supabase--insert` after deploy (per project rules), not via the migration tool.
-- No edits to `src/integrations/supabase/*`.
+## 7. Seed data (insert tool after migration)
 
-## Out of scope
+Four `kpi_cards`:
+- "Month-to-Date Revenue Target" — `mtd_revenue`, currency
+- "Daily Revenue Target" — `daily_revenue`, currency
+- "Daily Guest Count Target" — `daily_guests`, count
+- "Daily Per Guest Spend Target" — `daily_per_guest_spend`, currency
 
-- Real-time / on-data-entry triggers (only daily run at 21:00 HKT).
-- Email/SMS fallback.
-- Native (Capacitor) push.
+(Roles, venues, and users already exist — no extra sample users created.)
+
+## 8. Out of scope (deferred)
+
+- KPI Rules page + historical day-of-week auto-computation from `sales_records`.
+- Procurement KPI cards (Invoice Upload Delay, Missing Invoices, Supplier Follow-up).
+- Auto-pulling actuals from POS/sales tables.
+- Push notifications when a KPI flips to Critical.
+
+## Technical summary
+
+- 1 migration: 5 new tables + helper `user_owns_kpi` + GRANT/RLS + update_at trigger.
+- 1 insert call: seed 4 KPI cards.
+- New files: `src/pages/kpis/MyKpis.tsx`, `KpiAssignments.tsx`, `KpiTargets.tsx`; `src/hooks/useKpiCards.ts`, `useKpiAssignments.ts`, `useKpiTargets.ts`, `useKpiActuals.ts`; `src/utils/kpiStatus.ts`; `src/components/kpi/KpiCardTile.tsx`, `UpdateActualDialog.tsx`, `AssignmentDialog.tsx`, `TargetDialog.tsx`.
+- Edits: `src/App.tsx` (routes + post-login redirect), `src/components/AppSidebar.tsx`, `src/utils/permissions.ts`, `handle_new_user_access` trigger (add `kpis`, `kpi-management` keys).
