@@ -1547,13 +1547,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Purchase Cost - editable */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[6ch] min-w-[6ch] max-w-[6ch] shrink-0 whitespace-nowrap">
                         <div className="relative">
                           <Input
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""}`}
+                            className={`text-xs h-8 w-full max-w-full ${line.price_changed ? "border-blue-500" : ""}`}
                           />
                           {line.price_changed && line.pm_unit_price !== undefined && (
                             <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
@@ -1563,22 +1563,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </div>
                       </td>
                       {/* Discount */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[6ch] min-w-[6ch] max-w-[6ch] shrink-0 whitespace-nowrap">
                         <Input
                           type="number"
                           value={line.discount}
                           onChange={(e) => updateLine(i, "discount", e.target.value)}
-                          className="text-xs h-8 w-full"
+                          className="text-xs h-8 w-full max-w-full"
                           placeholder="0"
                         />
                       </td>
                       {/* Total */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[6ch] min-w-[6ch] max-w-[6ch] shrink-0 whitespace-nowrap">
                         <Input
                           type="number"
                           value={line.total}
                           onChange={(e) => updateLine(i, "total", e.target.value)}
-                          className="text-xs font-medium h-8 w-full"
+                          className="text-xs font-medium h-8 w-full max-w-full"
                         />
                       </td>
                       {/* Status */}
