@@ -1580,7 +1580,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Total */}
-                      <td className="px-1 py-1 align-top min-w-[calc(6ch+1.75rem)]">
+                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
                         <Input
                           type="number"
                           value={line.total}
