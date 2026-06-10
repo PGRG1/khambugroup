@@ -579,6 +579,119 @@ export default function ProcurementDashboardTab() {
         ))}
       </div>
 
+      {/* ─── MTD Procurement Performance ─── */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-base font-semibold font-display">MTD Procurement Performance</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{mtdSubtitle}</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Cumulative Spend MTD</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={mtdDaily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
+                    <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip
+                      contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        const d = payload[0].payload as typeof mtdDaily[number];
+                        return (
+                          <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                            <div style={tooltipLabelStyle as React.CSSProperties}>{label}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Daily spend: {fmt(d.dailySpend)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Cumulative MTD: {fmt(d.cumulativeSpend)}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Line type="monotone" dataKey="cumulativeSpend" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 2 }} name="Cumulative Spend" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Spend as % of Revenue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={mtdDaily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
+                    <YAxis tickFormatter={v => `${Number(v).toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        const d = payload[0].payload as typeof mtdDaily[number];
+                        return (
+                          <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                            <div style={tooltipLabelStyle as React.CSSProperties}>{label}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Daily spend: {fmt(d.dailySpend)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Daily revenue: {d.dailyRevenue === null ? "—" : fmt(d.dailyRevenue)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Spend % of revenue: {d.spendPctRevenue === null ? "—" : `${d.spendPctRevenue.toFixed(1)}%`}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Line type="monotone" dataKey="spendPctRevenue" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={{ r: 2 }} name="Spend % of Revenue" connectNulls={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">MTD Spend vs Last Month</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={mtdVsLastMonth} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                      const d = payload[0].payload as typeof mtdVsLastMonth[number];
+                      const cur = d.currentCum;
+                      const prev = d.prevCum;
+                      const diff = cur !== null && prev !== null ? cur - prev : null;
+                      const diffPct = cur !== null && prev !== null && prev > 0 ? ((cur - prev) / prev) * 100 : null;
+                      return (
+                        <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                          <div style={tooltipLabelStyle as React.CSSProperties}>Day {label}</div>
+                          <div style={tooltipItemStyle as React.CSSProperties}>Current: {cur === null ? "—" : fmt(cur)}</div>
+                          <div style={tooltipItemStyle as React.CSSProperties}>Previous: {prev === null ? "—" : fmt(prev)}</div>
+                          <div style={tooltipItemStyle as React.CSSProperties}>Δ $: {diff === null ? "—" : fmt(diff)}</div>
+                          <div style={tooltipItemStyle as React.CSSProperties}>Δ %: {diffPct === null ? "—" : `${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%`}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="currentCum" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 2 }} name="Current Month" connectNulls={false} />
+                  <Line type="monotone" dataKey="prevCum" stroke="hsl(258, 50%, 55%)" strokeWidth={2} dot={{ r: 2 }} name="Previous Month" connectNulls={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* ─── Spend Trend: Monthly (all) OR Daily + Cumulative (single month/custom) ─── */}
       <Card>
         <CardHeader className="pb-2">
