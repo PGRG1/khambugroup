@@ -1382,15 +1382,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
 
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(10ch+1.75rem)]">External SKU</th>
+                  <th style={{ minWidth: 96 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">External SKU</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[200px]">External Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Purch. UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(7ch+1.75rem)]">Purch. Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Stock UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(7ch+1.75rem)]">Stock Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Purch. Cost</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Discount</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Total</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. UOM</th>
+                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock UOM</th>
+                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock Qty</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
+
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Status</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Action</th>
                   <th className="w-8"></th>
