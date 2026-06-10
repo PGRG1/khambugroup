@@ -355,40 +355,59 @@ export default function ProcurementDashboardTab() {
     return out;
   }, [invoices, mtdMonth]);
 
-  // All-months comparison (used in All Time view) — one cumulative line per month, x = day-of-month
+  // All-months series (used in All Time view) — one cumulative line per month, x = day-of-month
   const allMonthsComparison = useMemo(() => {
-    // Group invoices by month-key and day-of-month
-    const byMonth = new Map<string, Map<number, number>>();
+    const spendByMonth = new Map<string, Map<number, number>>();
+    const revByMonth = new Map<string, Map<number, number>>();
+    const monthKeySet = new Set<string>();
+
     invoices.forEach(inv => {
       const d = new Date(inv.invoice_date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const day = d.getDate();
-      if (!byMonth.has(key)) byMonth.set(key, new Map());
-      const m = byMonth.get(key)!;
+      monthKeySet.add(key);
+      if (!spendByMonth.has(key)) spendByMonth.set(key, new Map());
+      const m = spendByMonth.get(key)!;
       m.set(day, (m.get(day) || 0) + Number(inv.total_amount));
     });
-    const monthKeys = Array.from(byMonth.keys()).sort();
-    // Build rows for day 1..31
+    salesRecords.forEach(s => {
+      const d = new Date(s.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const day = d.getDate();
+      monthKeySet.add(key);
+      if (!revByMonth.has(key)) revByMonth.set(key, new Map());
+      const m = revByMonth.get(key)!;
+      m.set(day, (m.get(day) || 0) + Number(s.total_sales));
+    });
+
+    const monthKeys = Array.from(monthKeySet).sort();
     const rows: Array<Record<string, number | null> & { day: number }> = [];
-    const cumByMonth = new Map<string, number>(monthKeys.map(k => [k, 0]));
+    const cumSpend = new Map<string, number>(monthKeys.map(k => [k, 0]));
+    const cumRev = new Map<string, number>(monthKeys.map(k => [k, 0]));
+
     for (let day = 1; day <= 31; day++) {
       const row: Record<string, number | null> & { day: number } = { day };
       monthKeys.forEach(key => {
         const [y, m] = key.split("-").map(Number);
         const daysInMonth = new Date(y, m, 0).getDate();
         if (day > daysInMonth) {
-          row[key] = null;
-        } else {
-          const add = byMonth.get(key)!.get(day) || 0;
-          const cum = (cumByMonth.get(key) || 0) + add;
-          cumByMonth.set(key, cum);
-          row[key] = cum;
+          row[`spend_${key}`] = null;
+          row[`pct_${key}`] = null;
+          return;
         }
+        const addSpend = spendByMonth.get(key)?.get(day) || 0;
+        const addRev = revByMonth.get(key)?.get(day) || 0;
+        const cs = (cumSpend.get(key) || 0) + addSpend;
+        const cr = (cumRev.get(key) || 0) + addRev;
+        cumSpend.set(key, cs);
+        cumRev.set(key, cr);
+        row[`spend_${key}`] = cs;
+        row[`pct_${key}`] = cr > 0 ? (cs / cr) * 100 : null;
       });
       rows.push(row);
     }
     return { rows, monthKeys };
-  }, [invoices]);
+  }, [invoices, salesRecords]);
 
   const isAllTime = selectedMonth === "all";
 
