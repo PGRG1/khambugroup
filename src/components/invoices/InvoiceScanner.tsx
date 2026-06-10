@@ -1379,17 +1379,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(9ch+1.75rem)]">Internal SKU</th>
+                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
+
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(10ch+1.75rem)]">External SKU</th>
+                  <th style={{ minWidth: 96 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">External SKU</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[200px]">External Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Purch. UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(7ch+1.75rem)]">Purch. Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Stock UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(7ch+1.75rem)]">Stock Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Purch. Cost</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Discount</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(6ch+1.75rem)]">Total</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. UOM</th>
+                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock UOM</th>
+                  <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock Qty</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
+                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
+
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Status</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Action</th>
                   <th className="w-8"></th>
@@ -1458,7 +1460,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </span>
                       </td>
                       {/* Internal SKU - read-only */}
-                      <td className="px-1 py-1 align-top min-w-[calc(9ch+1.75rem)]">
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
                         <Input
                           value={line.matched_sku}
                           readOnly
@@ -1474,7 +1476,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </div>
                       </td>
                       {/* External SKU - editable with autocomplete */}
-                      <td className="px-1 py-1 align-top min-w-[calc(10ch+1.75rem)]">
+                      <td style={{ minWidth: 96 }} className="px-1 py-1 align-top">
                         <div className="relative">
                           <ProductAutocomplete
                             value={line.item_code}
@@ -1508,7 +1510,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
 
                       {/* Purchase UOM - read-only from PM */}
-                      <td className="px-1 py-1 align-top min-w-[calc(6ch+1.75rem)]">
+                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
+
                         <Input
                           value={line.matched_purchase_uom}
                           readOnly
@@ -1518,7 +1521,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Purchase Qty - editable */}
-                      <td className="px-1 py-1 align-top min-w-[calc(7ch+1.75rem)]">
+                      <td style={{ minWidth: 75 }} className="px-1 py-1 align-top">
+
                         <Input
                           type="number"
                           value={line.quantity}
@@ -1527,7 +1531,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Stock UOM - read-only from PM */}
-                      <td className="px-1 py-1 align-top min-w-[calc(6ch+1.75rem)]">
+                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
+
                         <Input
                           value={line.matched_stock_uom}
                           readOnly
@@ -1537,7 +1542,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Stock Qty - auto-calculated: Purchase Qty × PM stock_qty */}
-                      <td className="px-1 py-1 align-top min-w-[calc(7ch+1.75rem)]">
+                      <td style={{ minWidth: 75 }} className="px-1 py-1 align-top">
                         <Input
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
@@ -1547,7 +1552,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Purchase Cost - editable */}
-                      <td className="px-1 py-1 align-top min-w-[calc(6ch+1.75rem)]">
+                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
+
                         <div className="relative">
                           <Input
                             type="number"
@@ -1563,7 +1569,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </div>
                       </td>
                       {/* Discount */}
-                      <td className="px-1 py-1 align-top min-w-[calc(6ch+1.75rem)]">
+                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
+
                         <Input
                           type="number"
                           value={line.discount}
@@ -1573,7 +1580,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Total */}
-                      <td className="px-1 py-1 align-top min-w-[calc(6ch+1.75rem)]">
+                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
                         <Input
                           type="number"
                           value={line.total}
