@@ -674,7 +674,7 @@ export default function ProcurementDashboardTab() {
                         formatter={(v: any, name: string) => [v === null || v === undefined ? "—" : fmt(Number(v)), formatMonthLabel(name.replace(/^spend_/, ""))]}
                         labelFormatter={(l: any) => `Day ${l}`}
                       />
-                      <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value: string) => formatMonthLabel(value.replace(/^spend_/, ""))} />
+                      <Legend wrapperStyle={{ fontSize: 11, cursor: "pointer" }} onClick={(e: any) => toggleMonth(String(e?.dataKey || e?.value || "").replace(/^spend_/, ""))} formatter={(value: string) => { const key = value.replace(/^spend_/, ""); const hidden = hiddenMonths.has(key); return <span style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.5 : 1 }}>{formatMonthLabel(key)}</span>; }} />
                       {allMonthsComparison.monthKeys.map((key, i) => (
                         <Line
                           key={key}
@@ -685,6 +685,7 @@ export default function ProcurementDashboardTab() {
                           dot={false}
                           name={`spend_${key}`}
                           connectNulls={false}
+                          hide={hiddenMonths.has(key)}
                         />
                       ))}
                     </LineChart>
@@ -734,7 +735,7 @@ export default function ProcurementDashboardTab() {
                         formatter={(v: any, name: string) => [v === null || v === undefined ? "—" : `${Number(v).toFixed(1)}%`, formatMonthLabel(name.replace(/^pct_/, ""))]}
                         labelFormatter={(l: any) => `Day ${l}`}
                       />
-                      <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value: string) => formatMonthLabel(value.replace(/^pct_/, ""))} />
+                      <Legend wrapperStyle={{ fontSize: 11, cursor: "pointer" }} onClick={(e: any) => toggleMonth(String(e?.dataKey || e?.value || "").replace(/^pct_/, ""))} formatter={(value: string) => { const key = value.replace(/^pct_/, ""); const hidden = hiddenMonths.has(key); return <span style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.5 : 1 }}>{formatMonthLabel(key)}</span>; }} />
                       {allMonthsComparison.monthKeys.map((key, i) => (
                         <Line
                           key={key}
@@ -745,6 +746,7 @@ export default function ProcurementDashboardTab() {
                           dot={false}
                           name={`pct_${key}`}
                           connectNulls={false}
+                          hide={hiddenMonths.has(key)}
                         />
                       ))}
                     </LineChart>
@@ -795,7 +797,7 @@ export default function ProcurementDashboardTab() {
                       formatter={(v: any, name: string) => [v === null || v === undefined ? "—" : fmt(Number(v)), formatMonthLabel(name.replace(/^spend_/, ""))]}
                       labelFormatter={(l: any) => `Day ${l}`}
                     />
-                    <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value: string) => formatMonthLabel(value.replace(/^spend_/, ""))} />
+                    <Legend wrapperStyle={{ fontSize: 11, cursor: "pointer" }} onClick={(e: any) => toggleMonth(String(e?.dataKey || e?.value || "").replace(/^spend_/, ""))} formatter={(value: string) => { const key = value.replace(/^spend_/, ""); const hidden = hiddenMonths.has(key); return <span style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.5 : 1 }}>{formatMonthLabel(key)}</span>; }} />
                     {allMonthsComparison.monthKeys.map((key, i) => (
                       <Line
                         key={key}
@@ -806,6 +808,7 @@ export default function ProcurementDashboardTab() {
                         dot={false}
                         name={`spend_${key}`}
                         connectNulls={false}
+                        hide={hiddenMonths.has(key)}
                       />
                     ))}
                   </LineChart>
