@@ -1474,7 +1474,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </div>
                       </td>
                       {/* External SKU - editable with autocomplete */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top min-w-[8ch] shrink-0 whitespace-nowrap">
                         <div className="relative">
                           <ProductAutocomplete
                             value={line.item_code}
