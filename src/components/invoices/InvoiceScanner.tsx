@@ -1508,41 +1508,41 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
 
                       {/* Purchase UOM - read-only from PM */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[5ch] min-w-[5ch] max-w-[5ch] shrink-0 whitespace-nowrap">
                         <Input
                           value={line.matched_purchase_uom}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8"
+                          className="text-xs bg-muted/50 cursor-default h-8 w-full max-w-full"
                           placeholder="—"
                         />
                       </td>
                       {/* Purchase Qty - editable */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[4ch] min-w-[4ch] max-w-[4ch] shrink-0 whitespace-nowrap">
                         <Input
                           type="number"
                           value={line.quantity}
                           onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                          className="text-xs h-8 w-full"
+                          className="text-xs h-8 w-full max-w-full"
                         />
                       </td>
                       {/* Stock UOM - read-only from PM */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[4ch] min-w-[4ch] max-w-[4ch] shrink-0 whitespace-nowrap">
                         <Input
                           value={line.matched_stock_uom}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8"
+                          className="text-xs bg-muted/50 cursor-default h-8 w-full max-w-full"
                           placeholder="—"
                         />
                       </td>
                       {/* Stock Qty - auto-calculated: Purchase Qty × PM stock_qty */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[4ch] min-w-[4ch] max-w-[4ch] shrink-0 whitespace-nowrap">
                         <Input
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default h-8 font-mono w-full"
+                          className="text-xs bg-muted/50 cursor-default h-8 font-mono w-full max-w-full"
                           placeholder="—"
                         />
                       </td>
