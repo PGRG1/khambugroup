@@ -1542,7 +1542,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Stock Qty - auto-calculated: Purchase Qty × PM stock_qty */}
-                      <td className="px-1 py-1 align-top min-w-[calc(7ch+1.75rem)]">
+                      <td style={{ minWidth: 75 }} className="px-1 py-1 align-top">
                         <Input
                           value={line.matched_sku ? String(((parseFloat(line.quantity) || 0) * (line.matched_stock_qty_ratio || 1)).toFixed(2).replace(/\.00$/, "")) : "—"}
                           readOnly
