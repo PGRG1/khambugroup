@@ -1521,7 +1521,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         />
                       </td>
                       {/* Purchase Qty - editable */}
-                      <td className="px-1 py-1 align-top min-w-[calc(7ch+1.75rem)]">
+                      <td style={{ minWidth: 75 }} className="px-1 py-1 align-top">
+
                         <Input
                           type="number"
                           value={line.quantity}
