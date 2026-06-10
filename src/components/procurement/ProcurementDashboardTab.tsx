@@ -411,9 +411,11 @@ export default function ProcurementDashboardTab() {
 
   const isAllTime = selectedMonth === "all";
 
-  const mtdSubtitle = mtdMonth.isSelected
-    ? `Selected month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`
-    : `Current month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`;
+  const mtdSubtitle = isAllTime
+    ? `All months comparison — day-of-month basis`
+    : mtdMonth.isSelected
+      ? `Selected month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`
+      : `Current month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`;
 
 
   // ─── Supplier Spend (horizontal bar) ───
