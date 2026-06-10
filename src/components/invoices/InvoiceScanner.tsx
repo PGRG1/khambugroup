@@ -1379,7 +1379,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(9ch+1.75rem)]">Internal SKU</th>
+                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
+
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap min-w-[calc(10ch+1.75rem)]">External SKU</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[200px]">External Name</th>
