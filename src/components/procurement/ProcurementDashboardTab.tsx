@@ -255,6 +255,108 @@ export default function ProcurementDashboardTab() {
 
   const showDailyView = (isSingleMonth || isCustomPeriod) && dailySpendData.length > 0;
 
+  // ─── MTD Procurement Performance datasets ───
+  const mtdMonth = useMemo(() => {
+    if (isSingleMonth) {
+      const [y, m] = selectedMonth.split("-").map(Number);
+      return { year: y, month: m, isSelected: true };
+    }
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1, isSelected: false };
+  }, [isSingleMonth, selectedMonth]);
+
+  const mtdDaily = useMemo(() => {
+    const { year, month } = mtdMonth;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const spendByDay = new Map<number, number>();
+    invoices.forEach(inv => {
+      const d = new Date(inv.invoice_date);
+      if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+        const day = d.getDate();
+        spendByDay.set(day, (spendByDay.get(day) || 0) + Number(inv.total_amount));
+      }
+    });
+    const revenueByDay = new Map<number, number>();
+    const revenueHasDay = new Set<number>();
+    salesRecords.forEach(s => {
+      const d = new Date(s.date);
+      if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+        const day = d.getDate();
+        revenueByDay.set(day, (revenueByDay.get(day) || 0) + Number(s.total_sales));
+        revenueHasDay.add(day);
+      }
+    });
+    let cum = 0;
+    const out: {
+      day: number;
+      label: string;
+      dailySpend: number;
+      cumulativeSpend: number;
+      dailyRevenue: number | null;
+      spendPctRevenue: number | null;
+    }[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dailySpend = spendByDay.get(day) || 0;
+      cum += dailySpend;
+      const dailyRevenue = revenueHasDay.has(day) ? (revenueByDay.get(day) || 0) : null;
+      const spendPctRevenue =
+        dailyRevenue !== null && dailyRevenue > 0 ? (dailySpend / dailyRevenue) * 100 : null;
+      const labelDate = new Date(year, month - 1, day);
+      out.push({
+        day,
+        label: format(labelDate, "d MMM"),
+        dailySpend,
+        cumulativeSpend: cum,
+        dailyRevenue,
+        spendPctRevenue,
+      });
+    }
+    return out;
+  }, [invoices, salesRecords, mtdMonth]);
+
+  const mtdVsLastMonth = useMemo(() => {
+    const { year, month } = mtdMonth;
+    const prevDate = new Date(year, month - 2, 1);
+    const prevYear = prevDate.getFullYear();
+    const prevMonth = prevDate.getMonth() + 1;
+    const daysCurrent = new Date(year, month, 0).getDate();
+    const daysPrev = new Date(prevYear, prevMonth, 0).getDate();
+
+    const sumByDay = (y: number, m: number) => {
+      const map = new Map<number, number>();
+      invoices.forEach(inv => {
+        const d = new Date(inv.invoice_date);
+        if (d.getFullYear() === y && d.getMonth() + 1 === m) {
+          const day = d.getDate();
+          map.set(day, (map.get(day) || 0) + Number(inv.total_amount));
+        }
+      });
+      return map;
+    };
+    const curSpend = sumByDay(year, month);
+    const prevSpend = sumByDay(prevYear, prevMonth);
+
+    const maxDays = Math.max(daysCurrent, daysPrev);
+    let curCum = 0;
+    let prevCum = 0;
+    const out: { day: number; currentCum: number | null; prevCum: number | null }[] = [];
+    for (let day = 1; day <= maxDays; day++) {
+      if (day <= daysCurrent) curCum += curSpend.get(day) || 0;
+      if (day <= daysPrev) prevCum += prevSpend.get(day) || 0;
+      out.push({
+        day,
+        currentCum: day <= daysCurrent ? curCum : null,
+        prevCum: day <= daysPrev ? prevCum : null,
+      });
+    }
+    return out;
+  }, [invoices, mtdMonth]);
+
+  const mtdSubtitle = mtdMonth.isSelected
+    ? `Selected month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`
+    : `Current month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`;
+
+
   // ─── Supplier Spend (horizontal bar) ───
   const supplierSpendData = useMemo(() => {
     const map = new Map<string, number>();
