@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, DollarSign, FileText, Users, BarChart3, CalendarIcon } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, ComposedChart, Line, Legend,
+  PieChart, Pie, Cell, ComposedChart, Line, LineChart, Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -255,6 +255,108 @@ export default function ProcurementDashboardTab() {
 
   const showDailyView = (isSingleMonth || isCustomPeriod) && dailySpendData.length > 0;
 
+  // ─── MTD Procurement Performance datasets ───
+  const mtdMonth = useMemo(() => {
+    if (isSingleMonth) {
+      const [y, m] = selectedMonth.split("-").map(Number);
+      return { year: y, month: m, isSelected: true };
+    }
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1, isSelected: false };
+  }, [isSingleMonth, selectedMonth]);
+
+  const mtdDaily = useMemo(() => {
+    const { year, month } = mtdMonth;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const spendByDay = new Map<number, number>();
+    invoices.forEach(inv => {
+      const d = new Date(inv.invoice_date);
+      if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+        const day = d.getDate();
+        spendByDay.set(day, (spendByDay.get(day) || 0) + Number(inv.total_amount));
+      }
+    });
+    const revenueByDay = new Map<number, number>();
+    const revenueHasDay = new Set<number>();
+    salesRecords.forEach(s => {
+      const d = new Date(s.date);
+      if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+        const day = d.getDate();
+        revenueByDay.set(day, (revenueByDay.get(day) || 0) + Number(s.total_sales));
+        revenueHasDay.add(day);
+      }
+    });
+    let cum = 0;
+    const out: {
+      day: number;
+      label: string;
+      dailySpend: number;
+      cumulativeSpend: number;
+      dailyRevenue: number | null;
+      spendPctRevenue: number | null;
+    }[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dailySpend = spendByDay.get(day) || 0;
+      cum += dailySpend;
+      const dailyRevenue = revenueHasDay.has(day) ? (revenueByDay.get(day) || 0) : null;
+      const spendPctRevenue =
+        dailyRevenue !== null && dailyRevenue > 0 ? (dailySpend / dailyRevenue) * 100 : null;
+      const labelDate = new Date(year, month - 1, day);
+      out.push({
+        day,
+        label: format(labelDate, "d MMM"),
+        dailySpend,
+        cumulativeSpend: cum,
+        dailyRevenue,
+        spendPctRevenue,
+      });
+    }
+    return out;
+  }, [invoices, salesRecords, mtdMonth]);
+
+  const mtdVsLastMonth = useMemo(() => {
+    const { year, month } = mtdMonth;
+    const prevDate = new Date(year, month - 2, 1);
+    const prevYear = prevDate.getFullYear();
+    const prevMonth = prevDate.getMonth() + 1;
+    const daysCurrent = new Date(year, month, 0).getDate();
+    const daysPrev = new Date(prevYear, prevMonth, 0).getDate();
+
+    const sumByDay = (y: number, m: number) => {
+      const map = new Map<number, number>();
+      invoices.forEach(inv => {
+        const d = new Date(inv.invoice_date);
+        if (d.getFullYear() === y && d.getMonth() + 1 === m) {
+          const day = d.getDate();
+          map.set(day, (map.get(day) || 0) + Number(inv.total_amount));
+        }
+      });
+      return map;
+    };
+    const curSpend = sumByDay(year, month);
+    const prevSpend = sumByDay(prevYear, prevMonth);
+
+    const maxDays = Math.max(daysCurrent, daysPrev);
+    let curCum = 0;
+    let prevCum = 0;
+    const out: { day: number; currentCum: number | null; prevCum: number | null }[] = [];
+    for (let day = 1; day <= maxDays; day++) {
+      if (day <= daysCurrent) curCum += curSpend.get(day) || 0;
+      if (day <= daysPrev) prevCum += prevSpend.get(day) || 0;
+      out.push({
+        day,
+        currentCum: day <= daysCurrent ? curCum : null,
+        prevCum: day <= daysPrev ? prevCum : null,
+      });
+    }
+    return out;
+  }, [invoices, mtdMonth]);
+
+  const mtdSubtitle = mtdMonth.isSelected
+    ? `Selected month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`
+    : `Current month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`;
+
+
   // ─── Supplier Spend (horizontal bar) ───
   const supplierSpendData = useMemo(() => {
     const map = new Map<string, number>();
@@ -475,6 +577,119 @@ export default function ProcurementDashboardTab() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* ─── MTD Procurement Performance ─── */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-base font-semibold font-display">MTD Procurement Performance</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{mtdSubtitle}</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Cumulative Spend MTD</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={mtdDaily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
+                    <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip
+                      contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        const d = payload[0].payload as typeof mtdDaily[number];
+                        return (
+                          <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                            <div style={tooltipLabelStyle as React.CSSProperties}>{label}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Daily spend: {fmt(d.dailySpend)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Cumulative MTD: {fmt(d.cumulativeSpend)}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Line type="monotone" dataKey="cumulativeSpend" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 2 }} name="Cumulative Spend" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Spend as % of Revenue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={mtdDaily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
+                    <YAxis tickFormatter={v => `${Number(v).toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        const d = payload[0].payload as typeof mtdDaily[number];
+                        return (
+                          <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                            <div style={tooltipLabelStyle as React.CSSProperties}>{label}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Daily spend: {fmt(d.dailySpend)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Daily revenue: {d.dailyRevenue === null ? "—" : fmt(d.dailyRevenue)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Spend % of revenue: {d.spendPctRevenue === null ? "—" : `${d.spendPctRevenue.toFixed(1)}%`}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Line type="monotone" dataKey="spendPctRevenue" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={{ r: 2 }} name="Spend % of Revenue" connectNulls={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">MTD Spend vs Last Month</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={mtdVsLastMonth} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || !payload.length) return null;
+                      const d = payload[0].payload as typeof mtdVsLastMonth[number];
+                      const cur = d.currentCum;
+                      const prev = d.prevCum;
+                      const diff = cur !== null && prev !== null ? cur - prev : null;
+                      const diffPct = cur !== null && prev !== null && prev > 0 ? ((cur - prev) / prev) * 100 : null;
+                      return (
+                        <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                          <div style={tooltipLabelStyle as React.CSSProperties}>Day {label}</div>
+                          <div style={tooltipItemStyle as React.CSSProperties}>Current: {cur === null ? "—" : fmt(cur)}</div>
+                          <div style={tooltipItemStyle as React.CSSProperties}>Previous: {prev === null ? "—" : fmt(prev)}</div>
+                          <div style={tooltipItemStyle as React.CSSProperties}>Δ $: {diff === null ? "—" : fmt(diff)}</div>
+                          <div style={tooltipItemStyle as React.CSSProperties}>Δ %: {diffPct === null ? "—" : `${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%`}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="currentCum" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 2 }} name="Current Month" connectNulls={false} />
+                  <Line type="monotone" dataKey="prevCum" stroke="hsl(258, 50%, 55%)" strokeWidth={2} dot={{ r: 2 }} name="Previous Month" connectNulls={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ─── Spend Trend: Monthly (all) OR Daily + Cumulative (single month/custom) ─── */}
