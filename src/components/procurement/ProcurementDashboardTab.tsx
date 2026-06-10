@@ -287,20 +287,22 @@ export default function ProcurementDashboardTab() {
       }
     });
     let cum = 0;
+    let cumRev = 0;
     const out: {
       day: number;
       label: string;
       dailySpend: number;
       cumulativeSpend: number;
       dailyRevenue: number | null;
+      cumulativeRevenue: number;
       spendPctRevenue: number | null;
     }[] = [];
     for (let day = 1; day <= daysInMonth; day++) {
       const dailySpend = spendByDay.get(day) || 0;
       cum += dailySpend;
       const dailyRevenue = revenueHasDay.has(day) ? (revenueByDay.get(day) || 0) : null;
-      const spendPctRevenue =
-        dailyRevenue !== null && dailyRevenue > 0 ? (dailySpend / dailyRevenue) * 100 : null;
+      cumRev += dailyRevenue || 0;
+      const spendPctRevenue = cumRev > 0 ? (cum / cumRev) * 100 : null;
       const labelDate = new Date(year, month - 1, day);
       out.push({
         day,
@@ -308,6 +310,7 @@ export default function ProcurementDashboardTab() {
         dailySpend,
         cumulativeSpend: cum,
         dailyRevenue,
+        cumulativeRevenue: cumRev,
         spendPctRevenue,
       });
     }
