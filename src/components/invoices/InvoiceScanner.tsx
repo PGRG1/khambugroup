@@ -1374,22 +1374,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
-          <div className="overflow-x-auto -mx-2">
-            <table className="w-full text-xs border-collapse min-w-full table-auto">
+          <div className="overflow-x-auto w-full -mx-2">
+            <table className="min-w-max text-xs border-collapse table-auto">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Internal SKU</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[9ch] min-w-[9ch] max-w-[9ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">Internal SKU</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[180px]">Internal Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">External SKU</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[8ch] min-w-[8ch] max-w-[8ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">External SKU</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium min-w-[200px]">External Name</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Purch. UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[85px]">Stock UOM</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[90px]">Stock Qty</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
-                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[5ch] min-w-[5ch] max-w-[5ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">Purch. UOM</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[4ch] min-w-[4ch] max-w-[4ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">Purch. Qty</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[4ch] min-w-[4ch] max-w-[4ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">Stock UOM</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[4ch] min-w-[4ch] max-w-[4ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">Stock Qty</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[6ch] min-w-[6ch] max-w-[6ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">Purch. Cost</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[6ch] min-w-[6ch] max-w-[6ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">Discount</th>
+                  <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-[6ch] min-w-[6ch] max-w-[6ch] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">Total</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Status</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Action</th>
                   <th className="w-8"></th>
@@ -1458,12 +1458,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </span>
                       </td>
                       {/* Internal SKU - read-only */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[9ch] min-w-[9ch] max-w-[9ch] shrink-0 whitespace-nowrap">
                         <Input
                           value={line.matched_sku}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default font-mono h-8"
+                          className="text-xs bg-muted/50 cursor-default font-mono h-8 w-full max-w-full min-w-0 box-border"
                           placeholder="—"
                         />
                       </td>
@@ -1474,8 +1474,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </div>
                       </td>
                       {/* External SKU - editable with autocomplete */}
-                      <td className="px-1 py-1 align-top">
-                        <div className="relative">
+                      <td className="px-1 py-1 align-top w-[8ch] min-w-[8ch] max-w-[8ch] shrink-0 whitespace-nowrap">
+                        <div className="relative w-full max-w-full min-w-0">
                           <ProductAutocomplete
                             value={line.item_code}
                             onChange={(v) => updateLine(i, "item_code", v)}
@@ -1483,7 +1483,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             products={supplierFilteredPM}
                             searchField="code"
                             placeholder="Code"
-                            className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
+                            className={`text-xs h-8 w-full max-w-full min-w-0 box-border ${line.sku_mismatch ? "border-amber-500" : ""}`}
                             currentSupplier={current?.supplier_name}
                           />
                           {line.sku_mismatch && (
