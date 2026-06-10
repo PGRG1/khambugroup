@@ -1458,12 +1458,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </span>
                       </td>
                       {/* Internal SKU - read-only */}
-                      <td className="px-1 py-1 align-top">
+                      <td className="px-1 py-1 align-top w-[9ch] min-w-[9ch] max-w-[9ch] shrink-0 whitespace-nowrap">
                         <Input
                           value={line.matched_sku}
                           readOnly
                           tabIndex={-1}
-                          className="text-xs bg-muted/50 cursor-default font-mono h-8"
+                          className="text-xs bg-muted/50 cursor-default font-mono h-8 w-full max-w-full min-w-0 box-border"
                           placeholder="—"
                         />
                       </td>
