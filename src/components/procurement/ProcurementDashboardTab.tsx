@@ -352,6 +352,43 @@ export default function ProcurementDashboardTab() {
     return out;
   }, [invoices, mtdMonth]);
 
+  // All-months comparison (used in All Time view) — one cumulative line per month, x = day-of-month
+  const allMonthsComparison = useMemo(() => {
+    // Group invoices by month-key and day-of-month
+    const byMonth = new Map<string, Map<number, number>>();
+    invoices.forEach(inv => {
+      const d = new Date(inv.invoice_date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const day = d.getDate();
+      if (!byMonth.has(key)) byMonth.set(key, new Map());
+      const m = byMonth.get(key)!;
+      m.set(day, (m.get(day) || 0) + Number(inv.total_amount));
+    });
+    const monthKeys = Array.from(byMonth.keys()).sort();
+    // Build rows for day 1..31
+    const rows: Array<Record<string, number | null> & { day: number }> = [];
+    const cumByMonth = new Map<string, number>(monthKeys.map(k => [k, 0]));
+    for (let day = 1; day <= 31; day++) {
+      const row: Record<string, number | null> & { day: number } = { day };
+      monthKeys.forEach(key => {
+        const [y, m] = key.split("-").map(Number);
+        const daysInMonth = new Date(y, m, 0).getDate();
+        if (day > daysInMonth) {
+          row[key] = null;
+        } else {
+          const add = byMonth.get(key)!.get(day) || 0;
+          const cum = (cumByMonth.get(key) || 0) + add;
+          cumByMonth.set(key, cum);
+          row[key] = cum;
+        }
+      });
+      rows.push(row);
+    }
+    return { rows, monthKeys };
+  }, [invoices]);
+
+  const isAllTime = selectedMonth === "all";
+
   const mtdSubtitle = mtdMonth.isSelected
     ? `Selected month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`
     : `Current month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`;
@@ -654,42 +691,71 @@ export default function ProcurementDashboardTab() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">MTD Spend vs Last Month</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {isAllTime ? "Cumulative Spend by Month (All Months)" : "MTD Spend vs Last Month"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mtdVsLastMonth} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                  <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload || !payload.length) return null;
-                      const d = payload[0].payload as typeof mtdVsLastMonth[number];
-                      const cur = d.currentCum;
-                      const prev = d.prevCum;
-                      const diff = cur !== null && prev !== null ? cur - prev : null;
-                      const diffPct = cur !== null && prev !== null && prev > 0 ? ((cur - prev) / prev) * 100 : null;
-                      return (
-                        <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
-                          <div style={tooltipLabelStyle as React.CSSProperties}>Day {label}</div>
-                          <div style={tooltipItemStyle as React.CSSProperties}>Current: {cur === null ? "—" : fmt(cur)}</div>
-                          <div style={tooltipItemStyle as React.CSSProperties}>Previous: {prev === null ? "—" : fmt(prev)}</div>
-                          <div style={tooltipItemStyle as React.CSSProperties}>Δ $: {diff === null ? "—" : fmt(diff)}</div>
-                          <div style={tooltipItemStyle as React.CSSProperties}>Δ %: {diffPct === null ? "—" : `${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%`}</div>
-                        </div>
-                      );
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey="currentCum" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 2 }} name="Current Month" connectNulls={false} />
-                  <Line type="monotone" dataKey="prevCum" stroke="hsl(258, 50%, 55%)" strokeWidth={2} dot={{ r: 2 }} name="Previous Month" connectNulls={false} />
-                </LineChart>
+                {isAllTime ? (
+                  <LineChart data={allMonthsComparison.rows} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip
+                      contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                      formatter={(v: any, name: string) => [v === null || v === undefined ? "—" : fmt(Number(v)), formatMonthLabel(name)]}
+                      labelFormatter={(l: any) => `Day ${l}`}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value: string) => formatMonthLabel(value)} />
+                    {allMonthsComparison.monthKeys.map((key, i) => (
+                      <Line
+                        key={key}
+                        type="monotone"
+                        dataKey={key}
+                        stroke={PALETTE[i % PALETTE.length]}
+                        strokeWidth={2}
+                        dot={false}
+                        name={key}
+                        connectNulls={false}
+                      />
+                    ))}
+                  </LineChart>
+                ) : (
+                  <LineChart data={mtdVsLastMonth} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || !payload.length) return null;
+                        const d = payload[0].payload as typeof mtdVsLastMonth[number];
+                        const cur = d.currentCum;
+                        const prev = d.prevCum;
+                        const diff = cur !== null && prev !== null ? cur - prev : null;
+                        const diffPct = cur !== null && prev !== null && prev > 0 ? ((cur - prev) / prev) * 100 : null;
+                        return (
+                          <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                            <div style={tooltipLabelStyle as React.CSSProperties}>Day {label}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Current: {cur === null ? "—" : fmt(cur)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Previous: {prev === null ? "—" : fmt(prev)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Δ $: {diff === null ? "—" : fmt(diff)}</div>
+                            <div style={tooltipItemStyle as React.CSSProperties}>Δ %: {diffPct === null ? "—" : `${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(1)}%`}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" dataKey="currentCum" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 2 }} name="Current Month" connectNulls={false} />
+                    <Line type="monotone" dataKey="prevCum" stroke="hsl(258, 50%, 55%)" strokeWidth={2} dot={{ r: 2 }} name="Previous Month" connectNulls={false} />
+                  </LineChart>
+                )}
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
+
       </div>
 
       {/* ─── Spend Trend: Monthly (all) OR Daily + Cumulative (single month/custom) ─── */}
