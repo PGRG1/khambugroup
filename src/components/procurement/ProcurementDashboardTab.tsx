@@ -111,6 +111,13 @@ export default function ProcurementDashboardTab() {
   const [customTo, setCustomTo] = useState<Date | undefined>();
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
+  const [hiddenMonths, setHiddenMonths] = useState<Set<string>>(new Set());
+  const toggleMonth = (key: string) =>
+    setHiddenMonths(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
 
   useEffect(() => {
     (async () => {
