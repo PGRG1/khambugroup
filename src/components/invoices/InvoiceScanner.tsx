@@ -1375,7 +1375,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
           <div className="overflow-x-auto w-full -mx-2">
-            <table className="w-max min-w-full text-xs border-collapse table-auto">
+            <table className="w-full text-xs border-collapse table-auto">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium w-7">#</th>
