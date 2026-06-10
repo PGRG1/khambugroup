@@ -287,20 +287,22 @@ export default function ProcurementDashboardTab() {
       }
     });
     let cum = 0;
+    let cumRev = 0;
     const out: {
       day: number;
       label: string;
       dailySpend: number;
       cumulativeSpend: number;
       dailyRevenue: number | null;
+      cumulativeRevenue: number;
       spendPctRevenue: number | null;
     }[] = [];
     for (let day = 1; day <= daysInMonth; day++) {
       const dailySpend = spendByDay.get(day) || 0;
       cum += dailySpend;
       const dailyRevenue = revenueHasDay.has(day) ? (revenueByDay.get(day) || 0) : null;
-      const spendPctRevenue =
-        dailyRevenue !== null && dailyRevenue > 0 ? (dailySpend / dailyRevenue) * 100 : null;
+      cumRev += dailyRevenue || 0;
+      const spendPctRevenue = cumRev > 0 ? (cum / cumRev) * 100 : null;
       const labelDate = new Date(year, month - 1, day);
       out.push({
         day,
@@ -308,6 +310,7 @@ export default function ProcurementDashboardTab() {
         dailySpend,
         cumulativeSpend: cum,
         dailyRevenue,
+        cumulativeRevenue: cumRev,
         spendPctRevenue,
       });
     }
@@ -352,46 +355,67 @@ export default function ProcurementDashboardTab() {
     return out;
   }, [invoices, mtdMonth]);
 
-  // All-months comparison (used in All Time view) — one cumulative line per month, x = day-of-month
+  // All-months series (used in All Time view) — one cumulative line per month, x = day-of-month
   const allMonthsComparison = useMemo(() => {
-    // Group invoices by month-key and day-of-month
-    const byMonth = new Map<string, Map<number, number>>();
+    const spendByMonth = new Map<string, Map<number, number>>();
+    const revByMonth = new Map<string, Map<number, number>>();
+    const monthKeySet = new Set<string>();
+
     invoices.forEach(inv => {
       const d = new Date(inv.invoice_date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const day = d.getDate();
-      if (!byMonth.has(key)) byMonth.set(key, new Map());
-      const m = byMonth.get(key)!;
+      monthKeySet.add(key);
+      if (!spendByMonth.has(key)) spendByMonth.set(key, new Map());
+      const m = spendByMonth.get(key)!;
       m.set(day, (m.get(day) || 0) + Number(inv.total_amount));
     });
-    const monthKeys = Array.from(byMonth.keys()).sort();
-    // Build rows for day 1..31
+    salesRecords.forEach(s => {
+      const d = new Date(s.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const day = d.getDate();
+      monthKeySet.add(key);
+      if (!revByMonth.has(key)) revByMonth.set(key, new Map());
+      const m = revByMonth.get(key)!;
+      m.set(day, (m.get(day) || 0) + Number(s.total_sales));
+    });
+
+    const monthKeys = Array.from(monthKeySet).sort();
     const rows: Array<Record<string, number | null> & { day: number }> = [];
-    const cumByMonth = new Map<string, number>(monthKeys.map(k => [k, 0]));
+    const cumSpend = new Map<string, number>(monthKeys.map(k => [k, 0]));
+    const cumRev = new Map<string, number>(monthKeys.map(k => [k, 0]));
+
     for (let day = 1; day <= 31; day++) {
       const row: Record<string, number | null> & { day: number } = { day };
       monthKeys.forEach(key => {
         const [y, m] = key.split("-").map(Number);
         const daysInMonth = new Date(y, m, 0).getDate();
         if (day > daysInMonth) {
-          row[key] = null;
-        } else {
-          const add = byMonth.get(key)!.get(day) || 0;
-          const cum = (cumByMonth.get(key) || 0) + add;
-          cumByMonth.set(key, cum);
-          row[key] = cum;
+          row[`spend_${key}`] = null;
+          row[`pct_${key}`] = null;
+          return;
         }
+        const addSpend = spendByMonth.get(key)?.get(day) || 0;
+        const addRev = revByMonth.get(key)?.get(day) || 0;
+        const cs = (cumSpend.get(key) || 0) + addSpend;
+        const cr = (cumRev.get(key) || 0) + addRev;
+        cumSpend.set(key, cs);
+        cumRev.set(key, cr);
+        row[`spend_${key}`] = cs;
+        row[`pct_${key}`] = cr > 0 ? (cs / cr) * 100 : null;
       });
       rows.push(row);
     }
     return { rows, monthKeys };
-  }, [invoices]);
+  }, [invoices, salesRecords]);
 
   const isAllTime = selectedMonth === "all";
 
-  const mtdSubtitle = mtdMonth.isSelected
-    ? `Selected month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`
-    : `Current month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`;
+  const mtdSubtitle = isAllTime
+    ? `All months comparison — day-of-month basis`
+    : mtdMonth.isSelected
+      ? `Selected month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`
+      : `Current month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`;
 
 
   // ─── Supplier Spend (horizontal bar) ───
@@ -626,31 +650,59 @@ export default function ProcurementDashboardTab() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Cumulative Spend MTD</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {isAllTime ? "Cumulative Spend — All Months" : "Cumulative Spend MTD"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={mtdDaily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
-                    <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                    <Tooltip
-                      contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload || !payload.length) return null;
-                        const d = payload[0].payload as typeof mtdDaily[number];
-                        return (
-                          <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
-                            <div style={tooltipLabelStyle as React.CSSProperties}>{label}</div>
-                            <div style={tooltipItemStyle as React.CSSProperties}>Daily spend: {fmt(d.dailySpend)}</div>
-                            <div style={tooltipItemStyle as React.CSSProperties}>Cumulative MTD: {fmt(d.cumulativeSpend)}</div>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Line type="monotone" dataKey="cumulativeSpend" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 2 }} name="Cumulative Spend" />
-                  </LineChart>
+                  {isAllTime ? (
+                    <LineChart data={allMonthsComparison.rows} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                      <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                      <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                      <Tooltip
+                        contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                        formatter={(v: any, name: string) => [v === null || v === undefined ? "—" : fmt(Number(v)), formatMonthLabel(name.replace(/^spend_/, ""))]}
+                        labelFormatter={(l: any) => `Day ${l}`}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value: string) => formatMonthLabel(value.replace(/^spend_/, ""))} />
+                      {allMonthsComparison.monthKeys.map((key, i) => (
+                        <Line
+                          key={key}
+                          type="monotone"
+                          dataKey={`spend_${key}`}
+                          stroke={PALETTE[i % PALETTE.length]}
+                          strokeWidth={2}
+                          dot={false}
+                          name={`spend_${key}`}
+                          connectNulls={false}
+                        />
+                      ))}
+                    </LineChart>
+                  ) : (
+                    <LineChart data={mtdDaily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
+                      <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                      <Tooltip
+                        contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload || !payload.length) return null;
+                          const d = payload[0].payload as typeof mtdDaily[number];
+                          return (
+                            <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                              <div style={tooltipLabelStyle as React.CSSProperties}>{label}</div>
+                              <div style={tooltipItemStyle as React.CSSProperties}>Daily spend: {fmt(d.dailySpend)}</div>
+                              <div style={tooltipItemStyle as React.CSSProperties}>Cumulative MTD: {fmt(d.cumulativeSpend)}</div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Line type="monotone" dataKey="cumulativeSpend" stroke="hsl(24, 80%, 50%)" strokeWidth={2} dot={{ r: 2 }} name="Cumulative Spend" />
+                    </LineChart>
+                  )}
                 </ResponsiveContainer>
               </div>
             </CardContent>
@@ -658,31 +710,59 @@ export default function ProcurementDashboardTab() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Spend as % of Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {isAllTime ? "Spend as % of Revenue — All Months" : "Spend as % of Revenue"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[260px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={mtdDaily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
-                    <YAxis tickFormatter={v => `${Number(v).toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload || !payload.length) return null;
-                        const d = payload[0].payload as typeof mtdDaily[number];
-                        return (
-                          <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
-                            <div style={tooltipLabelStyle as React.CSSProperties}>{label}</div>
-                            <div style={tooltipItemStyle as React.CSSProperties}>Daily spend: {fmt(d.dailySpend)}</div>
-                            <div style={tooltipItemStyle as React.CSSProperties}>Daily revenue: {d.dailyRevenue === null ? "—" : fmt(d.dailyRevenue)}</div>
-                            <div style={tooltipItemStyle as React.CSSProperties}>Spend % of revenue: {d.spendPctRevenue === null ? "—" : `${d.spendPctRevenue.toFixed(1)}%`}</div>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Line type="monotone" dataKey="spendPctRevenue" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={{ r: 2 }} name="Spend % of Revenue" connectNulls={false} />
-                  </LineChart>
+                  {isAllTime ? (
+                    <LineChart data={allMonthsComparison.rows} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                      <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                      <YAxis tickFormatter={v => `${Number(v).toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                      <Tooltip
+                        contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                        formatter={(v: any, name: string) => [v === null || v === undefined ? "—" : `${Number(v).toFixed(1)}%`, formatMonthLabel(name.replace(/^pct_/, ""))]}
+                        labelFormatter={(l: any) => `Day ${l}`}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value: string) => formatMonthLabel(value.replace(/^pct_/, ""))} />
+                      {allMonthsComparison.monthKeys.map((key, i) => (
+                        <Line
+                          key={key}
+                          type="monotone"
+                          dataKey={`pct_${key}`}
+                          stroke={PALETTE[i % PALETTE.length]}
+                          strokeWidth={2}
+                          dot={false}
+                          name={`pct_${key}`}
+                          connectNulls={false}
+                        />
+                      ))}
+                    </LineChart>
+                  ) : (
+                    <LineChart data={mtdDaily} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval="preserveStartEnd" />
+                      <YAxis tickFormatter={v => `${Number(v).toFixed(0)}%`} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload || !payload.length) return null;
+                          const d = payload[0].payload as typeof mtdDaily[number];
+                          return (
+                            <div style={tooltipStyle as React.CSSProperties} className="px-2.5 py-2">
+                              <div style={tooltipLabelStyle as React.CSSProperties}>{label}</div>
+                              <div style={tooltipItemStyle as React.CSSProperties}>Cumulative spend: {fmt(d.cumulativeSpend)}</div>
+                              <div style={tooltipItemStyle as React.CSSProperties}>Cumulative revenue: {fmt(d.cumulativeRevenue)}</div>
+                              <div style={tooltipItemStyle as React.CSSProperties}>Cum. spend % of revenue: {d.spendPctRevenue === null ? "—" : `${d.spendPctRevenue.toFixed(1)}%`}</div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Line type="monotone" dataKey="spendPctRevenue" stroke="hsl(175, 55%, 42%)" strokeWidth={2} dot={{ r: 2 }} name="Cum. Spend % of Revenue" connectNulls={false} />
+                    </LineChart>
+                  )}
                 </ResponsiveContainer>
               </div>
             </CardContent>
@@ -705,19 +785,19 @@ export default function ProcurementDashboardTab() {
                     <YAxis tickFormatter={v => fmtShort(v)} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
                     <Tooltip
                       contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
-                      formatter={(v: any, name: string) => [v === null || v === undefined ? "—" : fmt(Number(v)), formatMonthLabel(name)]}
+                      formatter={(v: any, name: string) => [v === null || v === undefined ? "—" : fmt(Number(v)), formatMonthLabel(name.replace(/^spend_/, ""))]}
                       labelFormatter={(l: any) => `Day ${l}`}
                     />
-                    <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value: string) => formatMonthLabel(value)} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} formatter={(value: string) => formatMonthLabel(value.replace(/^spend_/, ""))} />
                     {allMonthsComparison.monthKeys.map((key, i) => (
                       <Line
                         key={key}
                         type="monotone"
-                        dataKey={key}
+                        dataKey={`spend_${key}`}
                         stroke={PALETTE[i % PALETTE.length]}
                         strokeWidth={2}
                         dot={false}
-                        name={key}
+                        name={`spend_${key}`}
                         connectNulls={false}
                       />
                     ))}
@@ -755,6 +835,8 @@ export default function ProcurementDashboardTab() {
             </div>
           </CardContent>
         </Card>
+
+
 
       </div>
 
