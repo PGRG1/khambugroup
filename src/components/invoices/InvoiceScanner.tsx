@@ -1474,8 +1474,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </div>
                       </td>
                       {/* External SKU - editable with autocomplete */}
-                      <td className="px-1 py-1 align-top">
-                        <div className="relative">
+                      <td className="px-1 py-1 align-top w-[8ch] min-w-[8ch] max-w-[8ch] shrink-0 whitespace-nowrap">
+                        <div className="relative w-full max-w-full min-w-0">
                           <ProductAutocomplete
                             value={line.item_code}
                             onChange={(v) => updateLine(i, "item_code", v)}
@@ -1483,7 +1483,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             products={supplierFilteredPM}
                             searchField="code"
                             placeholder="Code"
-                            className={`text-xs h-8 ${line.sku_mismatch ? "border-amber-500" : ""}`}
+                            className={`text-xs h-8 w-full max-w-full min-w-0 box-border ${line.sku_mismatch ? "border-amber-500" : ""}`}
                             currentSupplier={current?.supplier_name}
                           />
                           {line.sku_mismatch && (
