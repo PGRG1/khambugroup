@@ -352,6 +352,43 @@ export default function ProcurementDashboardTab() {
     return out;
   }, [invoices, mtdMonth]);
 
+  // All-months comparison (used in All Time view) — one cumulative line per month, x = day-of-month
+  const allMonthsComparison = useMemo(() => {
+    // Group invoices by month-key and day-of-month
+    const byMonth = new Map<string, Map<number, number>>();
+    invoices.forEach(inv => {
+      const d = new Date(inv.invoice_date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const day = d.getDate();
+      if (!byMonth.has(key)) byMonth.set(key, new Map());
+      const m = byMonth.get(key)!;
+      m.set(day, (m.get(day) || 0) + Number(inv.total_amount));
+    });
+    const monthKeys = Array.from(byMonth.keys()).sort();
+    // Build rows for day 1..31
+    const rows: Array<Record<string, number | null> & { day: number }> = [];
+    const cumByMonth = new Map<string, number>(monthKeys.map(k => [k, 0]));
+    for (let day = 1; day <= 31; day++) {
+      const row: Record<string, number | null> & { day: number } = { day };
+      monthKeys.forEach(key => {
+        const [y, m] = key.split("-").map(Number);
+        const daysInMonth = new Date(y, m, 0).getDate();
+        if (day > daysInMonth) {
+          row[key] = null;
+        } else {
+          const add = byMonth.get(key)!.get(day) || 0;
+          const cum = (cumByMonth.get(key) || 0) + add;
+          cumByMonth.set(key, cum);
+          row[key] = cum;
+        }
+      });
+      rows.push(row);
+    }
+    return { rows, monthKeys };
+  }, [invoices]);
+
+  const isAllTime = selectedMonth === "all";
+
   const mtdSubtitle = mtdMonth.isSelected
     ? `Selected month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`
     : `Current month view — ${formatMonthLabel(`${mtdMonth.year}-${String(mtdMonth.month).padStart(2, "0")}`)}`;
