@@ -1460,7 +1460,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         </span>
                       </td>
                       {/* Internal SKU - read-only */}
-                      <td className="px-1 py-1 align-top min-w-[calc(9ch+1.75rem)]">
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
                         <Input
                           value={line.matched_sku}
                           readOnly
