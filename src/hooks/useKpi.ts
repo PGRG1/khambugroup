@@ -29,6 +29,7 @@ export interface KpiTarget {
   warning_threshold_pct: number;
   critical_threshold_pct: number;
   active: boolean;
+  target_mode?: "absolute" | "ratio_of_revenue";
 }
 
 export interface KpiAssignment {
@@ -129,7 +130,8 @@ export function useKpiTargets() {
       warning_threshold_pct: p.warning_threshold_pct ?? 10,
       critical_threshold_pct: p.critical_threshold_pct ?? 20,
       active: p.active ?? true,
-    });
+      target_mode: p.target_mode ?? "absolute",
+    } as any);
     if (error) return showError("Create target failed", error), false;
     await load(); return true;
   };

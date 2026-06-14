@@ -3045,6 +3045,7 @@ export type Database = {
           kpi_card_id: string
           period_end_date: string | null
           period_start_date: string | null
+          target_mode: string
           target_period: string
           target_value: number
           updated_at: string
@@ -3063,6 +3064,7 @@ export type Database = {
           kpi_card_id: string
           period_end_date?: string | null
           period_start_date?: string | null
+          target_mode?: string
           target_period?: string
           target_value?: number
           updated_at?: string
@@ -3081,6 +3083,7 @@ export type Database = {
           kpi_card_id?: string
           period_end_date?: string | null
           period_start_date?: string | null
+          target_mode?: string
           target_period?: string
           target_value?: number
           updated_at?: string
