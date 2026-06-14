@@ -15,13 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Clock, RefreshCw } from "lucide-react";
 
-const TONE_CLASS: Record<string, string> = {
-  success: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  info: "bg-sky-500/15 text-sky-400 border-sky-500/30",
-  warn: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  danger: "bg-rose-500/15 text-rose-400 border-rose-500/30",
-  neutral: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
-};
 
 function fmt(v: number | null, unit: string) {
   if (v === null || v === undefined || Number.isNaN(v)) return "—";
