@@ -230,7 +230,7 @@ export default function MyKpis() {
                 key={`${cardId}-${venueId ?? "all"}`}
                 venue={venueName(venueId)}
                 title={card.kpi_name}
-                periodLabel={new Date(start).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+                periodLabel={`as of ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
                 autoLabel="auto · invoices"
                 statusTone={tone}
                 statusLabel={label}
