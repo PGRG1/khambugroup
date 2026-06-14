@@ -139,7 +139,7 @@ export default function MyKpis() {
       setMtdAutoMap(next);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tiles.length, cards.length, monthBounds.start]);
+  }, [tiles.length, cards.length, venues.length, monthBounds.start]);
 
   // ---- Cost actuals cache: per (cardId, venueId) → { mtdCost, mtdRevenue } ----
   const [costMap, setCostMap] = useState<Record<string, { mtdCost: number; mtdRevenue: number }>>({});
