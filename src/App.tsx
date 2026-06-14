@@ -162,6 +162,7 @@ function App() {
                 <Route path="/kpis/my-cards" element={<ProtectedRoute pageKey="kpis"><MyKpis /></ProtectedRoute>} />
                 <Route path="/kpis/assignments" element={<AdminRoute><KpiAssignmentBoard /></AdminRoute>} />
                 <Route path="/kpis/targets" element={<AdminRoute><KpiTargets /></AdminRoute>} />
+                <Route path="/kpis/manage" element={<AdminRoute><KpiManage /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
