@@ -1,17 +1,23 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export const AUTO_KPI_TYPES = ["daily_revenue", "daily_guests", "daily_cheques"] as const;
+export const AUTO_KPI_TYPES = ["daily_revenue", "daily_guests", "daily_cheques", "mtd_revenue"] as const;
 export type AutoKpiType = (typeof AUTO_KPI_TYPES)[number];
 
 export function isAutoKpiType(t: string): t is AutoKpiType {
   return (AUTO_KPI_TYPES as readonly string[]).includes(t);
 }
 
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /**
  * Compute today's (or any day's) actual for an auto-pulled KPI by reading sales_records.
- * - daily_revenue → SUM(subtotal + service_charge)
- * - daily_guests  → SUM(guests)
- * - daily_cheques → SUM(orders)
+ * - daily_revenue → SUM(subtotal + service_charge) for the given date
+ * - daily_guests  → SUM(guests) for the given date
+ * - daily_cheques → SUM(orders) for the given date
+ * - mtd_revenue   → SUM(subtotal + service_charge) from `date` (month start) through today
  *
  * `venueName` is the canonical venue string stored in sales_records (e.g. "Assembly").
  * Pass `null` to aggregate across all venues.
@@ -21,6 +27,20 @@ export async function computeAutoActual(
   venueName: string | null,
   date: string,
 ): Promise<number> {
+  if (kpiType === "mtd_revenue") {
+    let q = supabase
+      .from("sales_records")
+      .select("subtotal,service_charge,date,venue")
+      .gte("date", date)
+      .lte("date", todayStr());
+    if (venueName) q = q.eq("venue", venueName);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []).reduce(
+      (s, r: any) => s + Number(r.subtotal ?? 0) + Number(r.service_charge ?? 0),
+      0,
+    );
+  }
   let q = supabase.from("sales_records").select("subtotal,service_charge,guests,orders,date,venue").eq("date", date);
   if (venueName) q = q.eq("venue", venueName);
   const { data, error } = await q;
