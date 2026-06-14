@@ -1,55 +1,81 @@
-# Plan: Add MTD Procurement Performance section
+## Daily Revenue KPI + Drag-and-Drop Assignment Board
 
-Update only `src/components/procurement/ProcurementDashboardTab.tsx`. Insert a new section right after the KPI card grid (after line 478) and before the existing Monthly/Daily Spend vs Revenue chart (line 480). Reuse all existing data (`invoices`, `salesRecords`), the existing `Card`, `recharts`, palette, tooltip styles, and the `fmt`/`fmtShort` helpers — no new libraries, no new data fetches.
+Build on the existing `kpi_cards` / `kpi_targets` / `kpi_assignments` / `kpi_actuals` schema. Three separate cards grouped into a "Daily Trading" bundle, assigned via a drag-and-drop board, with actuals auto-pulled from `sales_data`.
 
-## Target month resolution
+### 1. Seed the three KPI cards
 
-Derive a single `mtdMonth = { year, month }`:
-- If `selectedMonth` matches `YYYY-MM` (single-month filter) → use it.
-- Otherwise (`all` or `custom`) → use the **current** calendar month (`new Date()`).
+Insert (idempotent) three rows into `kpi_cards`:
 
-Subtitle inside the section: `Selected month view` when single-month; otherwise `Current month view`.
+| kpi_name | kpi_type | unit |
+|---|---|---|
+| Daily Revenue | `daily_revenue` | currency |
+| Daily Guests | `daily_guests` | number |
+| Daily Cheques | `daily_cheques` | number |
 
-## Computed datasets (useMemo)
+`kpi_category = "daily_trading"` on all three so they render as one bundle in the UI.
 
-Build using full `invoices` + `salesRecords` (not `filteredInvoices`, since this section has its own month).
+### 2. KPI bundles (lightweight grouping)
 
-1. `mtdDaily`: array of every calendar day of `mtdMonth` (1..daysInMonth) with:
-   - `day` (number, 1..N) and `label` (e.g. `5 Jun`)
-   - `dailySpend` (sum of `invoices.total_amount` where `invoice_date` is that day, else 0)
-   - `cumulativeSpend` (running sum)
-   - `dailyRevenue` (sum of `sales_records.total_sales` for that day; `null` if no record exists for the day)
-   - `spendPctRevenue` = `dailyRevenue > 0 ? dailySpend/dailyRevenue*100 : null` (no fake values)
+New table `public.kpi_bundles`:
+- `name` (e.g. "Daily Trading")
+- `description`
 
-2. `mtdVsLastMonth`: array indexed by day-of-month 1..max(daysInThisMonth, daysInPrevMonth) with:
-   - `day`
-   - `currentCum` (cumulative spend up to that day in current month, or `null` past month length)
-   - `prevCum` (cumulative spend up to that day in previous month, or `null` past prev month length)
+New table `public.kpi_bundle_cards`:
+- `bundle_id`, `kpi_card_id`, `sort_order`
 
-## Layout
+Seed one bundle "Daily Trading" with the three cards above. Bundles let admins drag a whole bundle onto a user in one drop (assigns all 3 cards at once), and keep the door open for future bundles (e.g. "Weekly Cost Control").
 
-Wrap in a `space-y-4` block placed between the KPI grid and the Monthly/Daily chart:
+### 3. Auto-fill actuals from sales_data
+
+Extend `useKpiActuals` with a `computeAutoActual(card, venueId, date)` helper that reads `sales_data`:
+- `daily_revenue` → `SUM(subtotal + service_charge)` for that venue/day
+- `daily_guests` → `SUM(guests)`
+- `daily_cheques` → `SUM(orders)` (the project already treats "orders" as cheques)
+
+On the My KPIs page, when a tile's `kpi_type` is one of those three, skip the manual input dialog and show the live auto value next to the target. A small "↻ Refresh" button writes the latest value into `kpi_actuals` (so history is preserved). Targets are still set in KPI Targets.
+
+### 4. Drag-and-drop Assignment Board
+
+Replace `src/pages/kpis/KpiAssignments.tsx` table with a board (`KpiAssignmentBoard.tsx`):
 
 ```text
-┌─ MTD Procurement Performance ────────────────┐
-│ subtitle                                     │
-│ ┌───── Cumul. Spend ─┐ ┌── Spend % Rev ────┐ │
-│ │  LineChart         │ │  LineChart        │ │
-│ └────────────────────┘ └───────────────────┘ │
-│ ┌────────── MTD Spend vs Last Month ───────┐ │
-│ │  LineChart (2 lines)                     │ │
-│ └──────────────────────────────────────────┘ │
-└──────────────────────────────────────────────┘
+┌──────────────────────┬────────────────────────────────────────────┐
+│  LIBRARY (left)      │  USERS (right, one column per user)        │
+│                      │  ┌──────────┐ ┌──────────┐ ┌──────────┐    │
+│  Bundles             │  │ Alice    │ │ Bob      │ │ Carol    │    │
+│  ▢ Daily Trading     │  │ Manager  │ │ GM       │ │ Finance  │    │
+│                      │  │──────────│ │──────────│ │──────────│    │
+│  Individual cards    │  │ Daily Rev│ │ MTD Rev  │ │          │    │
+│  ▢ Daily Revenue     │  │ Daily Gst│ │          │ │          │    │
+│  ▢ Daily Guests      │  │ Daily Chq│ │          │ │          │    │
+│  ▢ Daily Cheques     │  │  × ×  ×  │ │  ×       │ │          │    │
+│  ▢ MTD Revenue       │  └──────────┘ └──────────┘ └──────────┘    │
+└──────────────────────┴────────────────────────────────────────────┘
 ```
 
-Grid: `grid grid-cols-1 lg:grid-cols-2 gap-4` for the first two; full-width `Card` underneath. Each chart in an existing-style `Card` with `CardHeader pb-2` + `CardTitle text-sm font-medium`, body `<div className="h-[260px]">` with `ResponsiveContainer`.
+- Library lists bundles (top) and individual cards (bottom). Each item is `draggable`.
+- Each user column lists their active assignments as chips. Drop target = the user column.
+- On drop: open a small venue picker (multi-select chips for Assembly / Caliente / Hanabi / Events / All Venues). Confirm → bulk insert into `kpi_assignments` (one row per card × venue). If a bundle was dropped, expand to all member cards.
+- Click `×` on a chip removes that assignment (delete row).
+- Search box at the top of the user column filters users; admin can also toggle "show by role" to group by role instead of individual users.
+- Library cards already assigned to a user are still draggable (re-drop = pick more venues).
 
-## Chart specs (recharts, reuse palette + tooltipStyle)
+Use native HTML5 drag-and-drop (no new dependency). The existing `KpiAssignments.tsx` "table" view stays accessible behind a toggle for keyboard users.
 
-- **Cumulative Spend MTD**: `LineChart` with X `label`, Y `fmtShort`, line on `cumulativeSpend` (`hsl(24, 80%, 50%)`). Tooltip formatter shows Date / Daily spend (`fmt(dailySpend)`) / Cumulative (`fmt(cumulativeSpend)`).
-- **Spend as % of Revenue**: `LineChart` on `spendPctRevenue` (`hsl(175, 55%, 42%)`), Y tick `${v.toFixed(0)}%`, `connectNulls={false}`. Tooltip: Date, Daily spend, Daily revenue (or `—` if null), Spend %.
-- **MTD Spend vs Last Month**: `LineChart` with two `Line`s — `currentCum` (`hsl(24, 80%, 50%)`) and `prevCum` (`hsl(258, 50%, 55%)`), `connectNulls={false}`, `Legend`. Custom tooltip content (use Recharts `content` prop) showing: Day N, Current `fmt`, Previous `fmt`, Δ$ `fmt(current-prev)`, Δ% `((current-prev)/prev*100).toFixed(1)%` (skip Δ% if prev is 0/null).
+### 5. Sidebar / routing
 
-## Non-changes (explicit)
+The KPI section already has "KPI Assignment" — rename the route content to the new board, keep URL `/kpis/assignments`.
 
-KPI cards, Monthly/Daily Spend vs Revenue chart, Supplier sections, Category section, Bill/Invoice chart, Price Changes, Supplier Detail, date filter UI, palette, fonts, spacing, business logic — all untouched.
+### Files to add / change
+
+- `supabase/migrations/...` — `kpi_bundles`, `kpi_bundle_cards` with GRANTs + RLS (admin/manager write, authenticated read); seed Daily Trading bundle + three cards.
+- `src/hooks/useKpiBundles.ts` — new.
+- `src/hooks/useKpi.ts` — add `computeAutoActual` + helper to fetch sales_data per (venue, date).
+- `src/pages/kpis/KpiAssignmentBoard.tsx` — new board UI (replaces page body of `KpiAssignments.tsx`).
+- `src/pages/kpis/MyKpis.tsx` — auto-fill branch for the three daily cards, "Refresh from sales" button.
+
+### Out of scope
+
+- Composite single-card UI (rejected — going with grouped separate cards).
+- Manual entry for the three daily cards (rejected — auto from sales_data).
+- Role-based auto-assign rules (could come later; today's board still supports drag-onto-role via the toggle).
