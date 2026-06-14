@@ -34,3 +34,33 @@ export async function computeAutoActual(
   }
   return rows.reduce((s, r) => s + Number(r.orders ?? 0), 0);
 }
+
+/**
+ * Compute per-day actuals across a date range (inclusive) for an auto KPI.
+ * Returns { 'YYYY-MM-DD': value } map. Dates with no sales are absent.
+ */
+export async function computeAutoActualRange(
+  kpiType: AutoKpiType,
+  venueName: string | null,
+  fromDate: string,
+  toDate: string,
+): Promise<Record<string, number>> {
+  let q = supabase
+    .from("sales_records")
+    .select("subtotal,service_charge,guests,orders,date,venue")
+    .gte("date", fromDate)
+    .lte("date", toDate);
+  if (venueName) q = q.eq("venue", venueName);
+  const { data, error } = await q;
+  if (error) throw error;
+  const acc: Record<string, number> = {};
+  for (const r of (data ?? []) as any[]) {
+    const d = r.date as string;
+    let v = 0;
+    if (kpiType === "daily_revenue") v = Number(r.subtotal ?? 0) + Number(r.service_charge ?? 0);
+    else if (kpiType === "daily_guests") v = Number(r.guests ?? 0);
+    else v = Number(r.orders ?? 0);
+    acc[d] = (acc[d] ?? 0) + v;
+  }
+  return acc;
+}
