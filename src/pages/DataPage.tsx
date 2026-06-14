@@ -6,7 +6,7 @@ import DataUpload from "@/components/dashboard/DataUpload";
 import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DataTable from "@/components/dashboard/DataTable";
-import ResetDataButton from "@/components/dashboard/ResetDataButton";
+
 import AccountingMappingSummary from "@/components/dashboard/AccountingMappingSummary";
 import { Upload, PenLine, ScanLine } from "lucide-react";
 
@@ -23,7 +23,7 @@ const DataPage = () => {
   const hideManualEntry = isActionHidden("data.manual_entry");
   const hideEditRows = isActionHidden("data.edit_rows");
   const hideDeleteRows = isActionHidden("data.delete_rows");
-  const hideReset = isActionHidden("data.reset");
+  
 
   const handleUpdateRecord = async (index: number, record: typeof data[0]) => {
     const oldRecord = data[index];
@@ -90,7 +90,6 @@ const DataPage = () => {
                 Manual Entry
               </button>
             )}
-            {!hideReset && <ResetDataButton onReset={refetch} />}
           </div>
         )}
       </div>
