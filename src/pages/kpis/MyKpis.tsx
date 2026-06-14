@@ -95,6 +95,41 @@ export default function MyKpis() {
     }
   };
 
+  const refreshAutoActual = async (cardId: string, venueId: string | null, periodDate: string) => {
+    const card = cardById(cardId);
+    if (!card || !isAutoKpiType(card.kpi_type)) return;
+    const vName = venueId ? venues.find((v) => v.id === venueId)?.name ?? null : null;
+    try {
+      const val = await computeAutoActual(card.kpi_type, vName, periodDate);
+      await upsert({
+        kpi_card_id: cardId,
+        venue_id: venueId,
+        period_date: periodDate,
+        actual_value: val,
+        actual_source: "sales_data_auto",
+      });
+    } catch (e) {
+      // silently skip — surfaced via toast inside upsert if it fails
+    }
+  };
+
+  // Auto-pull on first render for any tiles backed by sales_data
+  useEffect(() => {
+    if (!tiles.length || !cards.length) return;
+    tiles.forEach(({ cardId, venueId }) => {
+      const card = cardById(cardId);
+      if (!card || !isAutoKpiType(card.kpi_type)) return;
+      const periodDate = currentPeriodDate(card.kpi_type);
+      const existing = actuals.find(
+        (a) => a.kpi_card_id === cardId && (a.venue_id ?? null) === venueId && a.period_date === periodDate,
+      );
+      // Refresh if missing, or if last update is older than 30 min
+      const stale = !existing || (Date.now() - new Date(existing.updated_at).getTime() > 30 * 60 * 1000);
+      if (stale) refreshAutoActual(cardId, venueId, periodDate);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiles.length, cards.length]);
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <header>
