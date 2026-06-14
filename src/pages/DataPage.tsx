@@ -23,7 +23,7 @@ const DataPage = () => {
   const hideManualEntry = isActionHidden("data.manual_entry");
   const hideEditRows = isActionHidden("data.edit_rows");
   const hideDeleteRows = isActionHidden("data.delete_rows");
-  const hideReset = isActionHidden("data.reset");
+  
 
   const handleUpdateRecord = async (index: number, record: typeof data[0]) => {
     const oldRecord = data[index];
