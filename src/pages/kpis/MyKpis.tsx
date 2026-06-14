@@ -463,17 +463,17 @@ function CleanCard(props: {
     <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 overflow-hidden shadow-sm">
       <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 flex items-center gap-1.5 truncate">
+          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 flex items-center gap-1.5">
             <span className="truncate">{props.venue}</span>
             <span className="text-zinc-700">·</span>
-            <span className="normal-case tracking-normal truncate">{props.periodLabel}</span>
+            <span className="normal-case tracking-normal">{props.periodLabel}</span>
             {props.autoLabel && (
               <span className="ml-1 px-1.5 py-[1px] rounded-full text-[9px] bg-sky-500/10 text-sky-300/90 ring-1 ring-sky-500/20 normal-case tracking-normal">
                 {props.autoLabel}
               </span>
             )}
           </div>
-          <h3 className="mt-1 text-[15px] font-semibold text-zinc-100 truncate font-display">{props.title}</h3>
+          <h3 className="mt-1 text-[15px] font-semibold text-zinc-100 font-display">{props.title}</h3>
         </div>
         <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ring-1 ${pillClass[tone] ?? pillClass.neutral}`}>
           {props.statusLabel}
@@ -500,8 +500,8 @@ function CleanCard(props: {
         <div className="px-5 pb-4 grid grid-cols-2 gap-x-6 gap-y-3">
           {props.rows.map((r, i) => (
             <div key={i} className="min-w-0">
-              <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 truncate">{r.label}</div>
-              <div className={`mt-0.5 text-sm font-mono truncate ${r.highlight ? "text-amber-300" : "text-zinc-200"}`}>{r.value}</div>
+              <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{r.label}</div>
+              <div className={`mt-0.5 text-sm font-mono ${r.highlight ? "text-amber-300" : "text-zinc-200"}`}>{r.value}</div>
             </div>
           ))}
         </div>
