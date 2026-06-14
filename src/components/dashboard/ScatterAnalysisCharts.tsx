@@ -321,9 +321,9 @@ export default function ScatterAnalysisCharts({ data }: Props) {
             <XAxis
               dataKey="dayOfMonth"
               type="number"
-              domain={[1, 31]}
+              domain={[0, 31]}
+              ticks={[0, 5, 10, 15, 20, 25, 30]}
               tick={axisStyle}
-              tickFormatter={(v) => String(Number(v) - 1)}
               label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
             />
             <YAxis
