@@ -139,7 +139,7 @@ export default function MyKpis() {
       setMtdAutoMap(next);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tiles.length, cards.length, monthBounds.start]);
+  }, [tiles.length, cards.length, venues.length, monthBounds.start]);
 
   // ---- Cost actuals cache: per (cardId, venueId) → { mtdCost, mtdRevenue } ----
   const [costMap, setCostMap] = useState<Record<string, { mtdCost: number; mtdRevenue: number }>>({});
@@ -163,7 +163,7 @@ export default function MyKpis() {
       loadCostFor(cardId, venueId, card.kpi_type as CostKpiType);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tiles.length, cards.length, monthBounds.start]);
+  }, [tiles.length, cards.length, venues.length, monthBounds.start]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -230,7 +230,7 @@ export default function MyKpis() {
                 key={`${cardId}-${venueId ?? "all"}`}
                 venue={venueName(venueId)}
                 title={card.kpi_name}
-                periodLabel={new Date(start).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+                periodLabel={`as of ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
                 autoLabel="auto · invoices"
                 statusTone={tone}
                 statusLabel={label}
