@@ -264,6 +264,7 @@ export default function ScatterAnalysisCharts({ data }: Props) {
               type="number"
               domain={[1, 31]}
               tick={axisStyle}
+              tickFormatter={(v) => String(v).padStart(2, "0")}
               label={{ value: "Day of Month", position: "insideBottom", offset: -5, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
             />
             <YAxis
