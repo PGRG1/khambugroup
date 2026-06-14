@@ -182,7 +182,16 @@ export default function MyKpis() {
             <Card key={`${cardId}-${venueId ?? "all"}`} className="p-5 space-y-4 border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">{venueName(venueId)}</div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <span>{venueName(venueId)}</span>
+                    <span className="text-muted-foreground/50">·</span>
+                    <span className="normal-case tracking-normal">
+                      {new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                    {isAutoKpiType(card.kpi_type) && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30 normal-case tracking-normal">auto</span>
+                    )}
+                  </div>
                   <h3 className="text-base font-semibold truncate">{card.kpi_name}</h3>
                 </div>
                 <Badge variant="outline" className={TONE_CLASS[status.tone]}>{status.label}</Badge>
