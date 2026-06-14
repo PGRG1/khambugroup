@@ -13,8 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Clock, RefreshCw } from "lucide-react";
+import { Clock, RefreshCw } from "lucide-react";
 
 const TONE_CLASS: Record<string, string> = {
   success: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
