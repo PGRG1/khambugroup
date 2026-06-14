@@ -17,7 +17,6 @@ import Notifications from "./pages/Notifications";
 import MyKpis from "./pages/kpis/MyKpis";
 import KpiAssignmentBoard from "./pages/kpis/KpiAssignmentBoard";
 import KpiTargets from "./pages/kpis/KpiTargets";
-import KpiManage from "./pages/kpis/KpiManage";
 
 import ForecastInput from "./pages/ForecastInput";
 import AuditLog from "./pages/AuditLog";
@@ -162,7 +161,6 @@ function App() {
                 <Route path="/kpis/my-cards" element={<ProtectedRoute pageKey="kpis"><MyKpis /></ProtectedRoute>} />
                 <Route path="/kpis/assignments" element={<AdminRoute><KpiAssignmentBoard /></AdminRoute>} />
                 <Route path="/kpis/targets" element={<AdminRoute><KpiTargets /></AdminRoute>} />
-                <Route path="/kpis/manage" element={<AdminRoute><KpiManage /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

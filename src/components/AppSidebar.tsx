@@ -78,7 +78,8 @@ const kpiItems = [
   { title: "My KPI Cards", url: "/kpis/my-cards", icon: Target, pageKey: "kpis" },
 ];
 const kpiAdminItems = [
-  { title: "Manage KPIs", url: "/kpis/manage", icon: UserCog },
+  { title: "KPI Assignment", url: "/kpis/assignments", icon: UserCog },
+  { title: "KPI Targets", url: "/kpis/targets", icon: Target },
 ];
 
 const STORAGE_KEY = "khambu.sidebar.groups";
