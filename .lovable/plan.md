@@ -1,81 +1,58 @@
-## Daily Revenue KPI + Drag-and-Drop Assignment Board
+## Goal
 
-Build on the existing `kpi_cards` / `kpi_targets` / `kpi_assignments` / `kpi_actuals` schema. Three separate cards grouped into a "Daily Trading" bundle, assigned via a drag-and-drop board, with actuals auto-pulled from `sales_data`.
+Layer an **asymmetric recovery engine** on top of the existing KPI module so monthly targets drive daily *minimums* that **rise when behind** but **never fall below the original daily expectation** when ahead.
 
-### 1. Seed the three KPI cards
+Original monthly target and original daily expectations stay intact — recovery is computed on the fly, never written back over the baseline.
 
-Insert (idempotent) three rows into `kpi_cards`:
+## Concepts
 
-| kpi_name | kpi_type | unit |
-|---|---|---|
-| Daily Revenue | `daily_revenue` | currency |
-| Daily Guests | `daily_guests` | number |
-| Daily Cheques | `daily_cheques` | number |
+- **Monthly Target** — `kpi_targets` row with `target_period='month'` (the minimum to hit).
+- **Daily Baseline** — `kpi_targets` rows with `target_period='day'`. One per DOW (Sun–Sat) when you want different weekday/weekend expectations, otherwise a single any-day row.
+- **DOW Weights** — derived from the daily baselines. If only one baseline exists it's used as a flat weight; if per-DOW baselines exist, Friday/Saturday naturally carry more recovery weight because their baseline is larger.
 
-`kpi_category = "daily_trading"` on all three so they render as one bundle in the UI.
-
-### 2. KPI bundles (lightweight grouping)
-
-New table `public.kpi_bundles`:
-- `name` (e.g. "Daily Trading")
-- `description`
-
-New table `public.kpi_bundle_cards`:
-- `bundle_id`, `kpi_card_id`, `sort_order`
-
-Seed one bundle "Daily Trading" with the three cards above. Bundles let admins drag a whole bundle onto a user in one drop (assigns all 3 cards at once), and keep the door open for future bundles (e.g. "Weekly Cost Control").
-
-### 3. Auto-fill actuals from sales_data
-
-Extend `useKpiActuals` with a `computeAutoActual(card, venueId, date)` helper that reads `sales_data`:
-- `daily_revenue` → `SUM(subtotal + service_charge)` for that venue/day
-- `daily_guests` → `SUM(guests)`
-- `daily_cheques` → `SUM(orders)` (the project already treats "orders" as cheques)
-
-On the My KPIs page, when a tile's `kpi_type` is one of those three, skip the manual input dialog and show the live auto value next to the target. A small "↻ Refresh" button writes the latest value into `kpi_actuals` (so history is preserved). Targets are still set in KPI Targets.
-
-### 4. Drag-and-drop Assignment Board
-
-Replace `src/pages/kpis/KpiAssignments.tsx` table with a board (`KpiAssignmentBoard.tsx`):
+## Math (pure, no DB writes)
 
 ```text
-┌──────────────────────┬────────────────────────────────────────────┐
-│  LIBRARY (left)      │  USERS (right, one column per user)        │
-│                      │  ┌──────────┐ ┌──────────┐ ┌──────────┐    │
-│  Bundles             │  │ Alice    │ │ Bob      │ │ Carol    │    │
-│  ▢ Daily Trading     │  │ Manager  │ │ GM       │ │ Finance  │    │
-│                      │  │──────────│ │──────────│ │──────────│    │
-│  Individual cards    │  │ Daily Rev│ │ MTD Rev  │ │          │    │
-│  ▢ Daily Revenue     │  │ Daily Gst│ │          │ │          │    │
-│  ▢ Daily Guests      │  │ Daily Chq│ │          │ │          │    │
-│  ▢ Daily Cheques     │  │  × ×  ×  │ │  ×       │ │          │    │
-│  ▢ MTD Revenue       │  └──────────┘ └──────────┘ └──────────┘    │
-└──────────────────────┴────────────────────────────────────────────┘
+weight(d)        = baseline for the day-of-week of date d
+MTD weight       = Σ weight(d) for completed days (1 .. today-1)
+total weight     = Σ weight(d) for full month
+MTD target       = monthlyTarget × MTD weight / total weight
+MTD actual       = Σ kpi_actuals.actual_value (1 .. today-1)
+MTD gap          = MTD target − MTD actual           (positive = behind)
+remaining target = monthlyTarget − MTD actual
+remaining weight = Σ weight(d) for today .. month end
+required today   = remaining target × weight(today) / remaining weight   (only if behind)
+adjusted minimum = max(baseline today, required today)
+recovery add-on  = adjusted minimum − baseline today
 ```
 
-- Library lists bundles (top) and individual cards (bottom). Each item is `draggable`.
-- Each user column lists their active assignments as chips. Drop target = the user column.
-- On drop: open a small venue picker (multi-select chips for Assembly / Caliente / Hanabi / Events / All Venues). Confirm → bulk insert into `kpi_assignments` (one row per card × venue). If a bundle was dropped, expand to all member cards.
-- Click `×` on a chip removes that assignment (delete row).
-- Search box at the top of the user column filters users; admin can also toggle "show by role" to group by role instead of individual users.
-- Library cards already assigned to a user are still draggable (re-drop = pick more venues).
+When `MTD gap ≤ 0` → ahead → `required today = baseline today` (no relaxation).
 
-Use native HTML5 drag-and-drop (no new dependency). The existing `KpiAssignments.tsx` "table" view stays accessible behind a toggle for keyboard users.
+## Status labels
 
-### 5. Sidebar / routing
+- `Plan Protected` — ahead of MTD target, today's actual ≥ baseline.
+- `Maintain Standard` — on track, no recovery needed.
+- `Stretch Still Open` — ahead, today's actual not in yet (encourage further upside).
+- `Recovery Required` — behind, adjusted minimum > baseline.
+- `Critical Recovery` — behind by more than the critical threshold.
 
-The KPI section already has "KPI Assignment" — rename the route content to the new board, keep URL `/kpis/assignments`.
+## Files
 
-### Files to add / change
+**New**
+- `src/utils/kpiRecovery.ts` — pure calculator (inputs above, outputs all derived fields + status).
+- `src/pages/kpis/KpiPlanner.tsx` — admin/operator view: pick KPI + venue + month, see per-day baseline / actual / MTD progress / adjusted minimum table, plus headline panel with the calculation breakdown.
 
-- `supabase/migrations/...` — `kpi_bundles`, `kpi_bundle_cards` with GRANTs + RLS (admin/manager write, authenticated read); seed Daily Trading bundle + three cards.
-- `src/hooks/useKpiBundles.ts` — new.
-- `src/hooks/useKpi.ts` — add `computeAutoActual` + helper to fetch sales_data per (venue, date).
-- `src/pages/kpis/KpiAssignmentBoard.tsx` — new board UI (replaces page body of `KpiAssignments.tsx`).
-- `src/pages/kpis/MyKpis.tsx` — auto-fill branch for the three daily cards, "Refresh from sales" button.
+**Updated**
+- `src/utils/kpiAutoActual.ts` — add `computeAutoActualRange(kpiType, venueName, fromDate, toDate)` for MTD aggregation in one query.
+- `src/pages/kpis/MyKpis.tsx` — for any auto-KPI tile that has a monthly target, render the simplified owner panel: Original today · Minimum today · Recovery add-on · Actual today · MTD target · MTD actual · MTD gap/surplus · status badge · Update Actual button. Tiles without a monthly target keep the current simple view.
+- `src/App.tsx` — route `/kpis/planner` → `KpiPlanner` (admin/manager only).
+- `src/components/AppSidebar.tsx` — add "KPI Planner" link under KPI Management.
 
-### Out of scope
+## Out of scope (kept as-is)
+- KPI Targets page (entry of monthly + per-DOW baselines already works).
+- Assignment board, actions, alerts.
 
-- Composite single-card UI (rejected — going with grouped separate cards).
-- Manual entry for the three daily cards (rejected — auto from sales_data).
-- Role-based auto-assign rules (could come later; today's board still supports drag-onto-role via the toggle).
+## Technical notes
+- All calculations live in `kpiRecovery.ts` and are unit-testable.
+- DB schema unchanged — recovery math is derived at render time.
+- Trading days = every calendar day in the month by default; a future enhancement can subtract `hr_holidays` if you want closed-day handling.
