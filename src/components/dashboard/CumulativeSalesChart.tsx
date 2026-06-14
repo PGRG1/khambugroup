@@ -159,6 +159,12 @@ export default function CumulativeSalesChart({ data }: Props) {
 
     const rows: Record<string, number | string | undefined>[] = [];
 
+    // Anchor all lines at day 0 with cumulative 0
+    const zeroRow: Record<string, number | string | undefined> = { day: 0 };
+    sortedMonths.forEach((mk) => { zeroRow[mk] = 0; });
+    rows.push(zeroRow);
+
+
     for (let d = 1; d <= maxDay; d++) {
       const row: Record<string, number | string | undefined> = { day: d };
       sortedMonths.forEach((mk) => {
