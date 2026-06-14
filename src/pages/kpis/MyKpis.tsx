@@ -163,7 +163,7 @@ export default function MyKpis() {
       loadCostFor(cardId, venueId, card.kpi_type as CostKpiType);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tiles.length, cards.length, monthBounds.start]);
+  }, [tiles.length, cards.length, venues.length, monthBounds.start]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
