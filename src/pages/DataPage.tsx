@@ -90,7 +90,6 @@ const DataPage = () => {
                 Manual Entry
               </button>
             )}
-            {!hideReset && <ResetDataButton onReset={refetch} />}
           </div>
         )}
       </div>
