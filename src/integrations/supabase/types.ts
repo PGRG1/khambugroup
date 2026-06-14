@@ -4958,6 +4958,143 @@ export type Database = {
       }
     }
     Views: {
+      sales_data: {
+        Row: {
+          alipay: number | null
+          amex: number | null
+          card_tips: number | null
+          cash: number | null
+          created_at: string | null
+          date: string | null
+          day: string | null
+          discount: number | null
+          event_id: string | null
+          event_name: string | null
+          external_location: string | null
+          guests: number | null
+          id: string | null
+          jcb: number | null
+          legacy_venue_name: string | null
+          mastercard: number | null
+          orders: number | null
+          payme: number | null
+          receipt_file_name: string | null
+          receipt_file_url: string | null
+          report_number: string | null
+          revenue_source_id: string | null
+          sales_channel: string | null
+          service_charge: number | null
+          service_period: string | null
+          service_period_id: string | null
+          subtotal: number | null
+          total_sales: number | null
+          union_pay: number | null
+          venue: string | null
+          venue_id: string | null
+          visa: number | null
+          wechat: number | null
+        }
+        Insert: {
+          alipay?: number | null
+          amex?: number | null
+          card_tips?: number | null
+          cash?: number | null
+          created_at?: string | null
+          date?: string | null
+          day?: string | null
+          discount?: number | null
+          event_id?: string | null
+          event_name?: string | null
+          external_location?: string | null
+          guests?: number | null
+          id?: string | null
+          jcb?: number | null
+          legacy_venue_name?: string | null
+          mastercard?: number | null
+          orders?: number | null
+          payme?: number | null
+          receipt_file_name?: string | null
+          receipt_file_url?: string | null
+          report_number?: string | null
+          revenue_source_id?: string | null
+          sales_channel?: string | null
+          service_charge?: number | null
+          service_period?: string | null
+          service_period_id?: string | null
+          subtotal?: number | null
+          total_sales?: number | null
+          union_pay?: number | null
+          venue?: string | null
+          venue_id?: string | null
+          visa?: number | null
+          wechat?: number | null
+        }
+        Update: {
+          alipay?: number | null
+          amex?: number | null
+          card_tips?: number | null
+          cash?: number | null
+          created_at?: string | null
+          date?: string | null
+          day?: string | null
+          discount?: number | null
+          event_id?: string | null
+          event_name?: string | null
+          external_location?: string | null
+          guests?: number | null
+          id?: string | null
+          jcb?: number | null
+          legacy_venue_name?: string | null
+          mastercard?: number | null
+          orders?: number | null
+          payme?: number | null
+          receipt_file_name?: string | null
+          receipt_file_url?: string | null
+          report_number?: string | null
+          revenue_source_id?: string | null
+          sales_channel?: string | null
+          service_charge?: number | null
+          service_period?: string | null
+          service_period_id?: string | null
+          subtotal?: number | null
+          total_sales?: number | null
+          union_pay?: number | null
+          venue?: string | null
+          venue_id?: string | null
+          visa?: number | null
+          wechat?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_records_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_records_revenue_source_id_fkey"
+            columns: ["revenue_source_id"]
+            isOneToOne: false
+            referencedRelation: "revenue_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_records_service_period_id_fkey"
+            columns: ["service_period_id"]
+            isOneToOne: false
+            referencedRelation: "service_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_records_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_balance_sheet: {
         Row: {
           account_id: string | null
