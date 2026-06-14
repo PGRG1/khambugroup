@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useKpiCards, useKpiTargets, useKpiAssignments, useKpiActuals, useKpiActions } from "@/hooks/useKpi";
 import { useVenues } from "@/hooks/useVenues";
 import { computeKpiStatus } from "@/utils/kpiStatus";
+import { computeAutoActual, isAutoKpiType } from "@/utils/kpiAutoActual";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Clock } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Clock, RefreshCw } from "lucide-react";
 
 const TONE_CLASS: Record<string, string> = {
   success: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -93,6 +94,41 @@ export default function MyKpis() {
       setNotes("");
     }
   };
+
+  const refreshAutoActual = async (cardId: string, venueId: string | null, periodDate: string) => {
+    const card = cardById(cardId);
+    if (!card || !isAutoKpiType(card.kpi_type)) return;
+    const vName = venueId ? venues.find((v) => v.id === venueId)?.name ?? null : null;
+    try {
+      const val = await computeAutoActual(card.kpi_type, vName, periodDate);
+      await upsert({
+        kpi_card_id: cardId,
+        venue_id: venueId,
+        period_date: periodDate,
+        actual_value: val,
+        actual_source: "sales_data_auto",
+      });
+    } catch (e) {
+      // silently skip — surfaced via toast inside upsert if it fails
+    }
+  };
+
+  // Auto-pull on first render for any tiles backed by sales_data
+  useEffect(() => {
+    if (!tiles.length || !cards.length) return;
+    tiles.forEach(({ cardId, venueId }) => {
+      const card = cardById(cardId);
+      if (!card || !isAutoKpiType(card.kpi_type)) return;
+      const periodDate = currentPeriodDate(card.kpi_type);
+      const existing = actuals.find(
+        (a) => a.kpi_card_id === cardId && (a.venue_id ?? null) === venueId && a.period_date === periodDate,
+      );
+      // Refresh if missing, or if last update is older than 30 min
+      const stale = !existing || (Date.now() - new Date(existing.updated_at).getTime() > 30 * 60 * 1000);
+      if (stale) refreshAutoActual(cardId, venueId, periodDate);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiles.length, cards.length]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -201,17 +237,27 @@ export default function MyKpis() {
                   <Clock className="h-3 w-3" />
                   {actual ? `Updated ${relTime(actual.updated_at)}` : "Awaiting first update"}
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
-                    setActualInput(actual ? String(actual.actual_value) : "");
-                    setNotes(actual?.notes ?? "");
-                  }}
-                >
-                  Update Actual
-                </Button>
+                {isAutoKpiType(card.kpi_type) ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => refreshAutoActual(cardId, venueId, periodDate)}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh from Sales
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
+                      setActualInput(actual ? String(actual.actual_value) : "");
+                      setNotes(actual?.notes ?? "");
+                    }}
+                  >
+                    Update Actual
+                  </Button>
+                )}
               </div>
             </Card>
           );

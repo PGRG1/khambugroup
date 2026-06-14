@@ -2930,6 +2930,72 @@ export type Database = {
           },
         ]
       }
+      kpi_bundle_cards: {
+        Row: {
+          bundle_id: string
+          created_at: string
+          id: string
+          kpi_card_id: string
+          sort_order: number
+        }
+        Insert: {
+          bundle_id: string
+          created_at?: string
+          id?: string
+          kpi_card_id: string
+          sort_order?: number
+        }
+        Update: {
+          bundle_id?: string
+          created_at?: string
+          id?: string
+          kpi_card_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_bundle_cards_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_bundle_cards_kpi_card_id_fkey"
+            columns: ["kpi_card_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kpi_bundles: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       kpi_cards: {
         Row: {
           active: boolean
