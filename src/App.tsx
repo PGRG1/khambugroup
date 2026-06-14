@@ -159,7 +159,7 @@ function App() {
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
                 <Route path="/kpis/my-cards" element={<ProtectedRoute pageKey="kpis"><MyKpis /></ProtectedRoute>} />
-                <Route path="/kpis/assignments" element={<AdminRoute><KpiAssignments /></AdminRoute>} />
+                <Route path="/kpis/assignments" element={<AdminRoute><KpiAssignmentBoard /></AdminRoute>} />
                 <Route path="/kpis/targets" element={<AdminRoute><KpiTargets /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
