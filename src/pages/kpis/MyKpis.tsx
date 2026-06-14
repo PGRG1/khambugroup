@@ -6,6 +6,7 @@ import { useVenues } from "@/hooks/useVenues";
 import { computeKpiStatus } from "@/utils/kpiStatus";
 import { computeAutoActual, computeAutoActualRange, isAutoKpiType, type AutoKpiType } from "@/utils/kpiAutoActual";
 import { computeRecovery, RECOVERY_STATUS_TONE, type DowBaselines } from "@/utils/kpiRecovery";
+import { computeMonthlyCostActual, computeMonthlyRevenue, costCategoryFor, isCostKpiType, monthRange, type CostKpiType } from "@/utils/kpiCostActual";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
