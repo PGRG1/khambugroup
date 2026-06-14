@@ -1,58 +1,100 @@
-## Goal
+## What is actually broken
 
-Layer an **asymmetric recovery engine** on top of the existing KPI module so monthly targets drive daily *minimums* that **rise when behind** but **never fall below the original daily expectation** when ahead.
-
-Original monthly target and original daily expectations stay intact — recovery is computed on the fly, never written back over the baseline.
-
-## Concepts
-
-- **Monthly Target** — `kpi_targets` row with `target_period='month'` (the minimum to hit).
-- **Daily Baseline** — `kpi_targets` rows with `target_period='day'`. One per DOW (Sun–Sat) when you want different weekday/weekend expectations, otherwise a single any-day row.
-- **DOW Weights** — derived from the daily baselines. If only one baseline exists it's used as a flat weight; if per-DOW baselines exist, Friday/Saturday naturally carry more recovery weight because their baseline is larger.
-
-## Math (pure, no DB writes)
+The journal rebuild is now failing at the sales-payment stage with:
 
 ```text
-weight(d)        = baseline for the day-of-week of date d
-MTD weight       = Σ weight(d) for completed days (1 .. today-1)
-total weight     = Σ weight(d) for full month
-MTD target       = monthlyTarget × MTD weight / total weight
-MTD actual       = Σ kpi_actuals.actual_value (1 .. today-1)
-MTD gap          = MTD target − MTD actual           (positive = behind)
-remaining target = monthlyTarget − MTD actual
-remaining weight = Σ weight(d) for today .. month end
-required today   = remaining target × weight(today) / remaining weight   (only if behind)
-adjusted minimum = max(baseline today, required today)
-recovery add-on  = adjusted minimum − baseline today
+could not identify column "visa" in record data type
 ```
 
-When `MTD gap ≤ 0` → ahead → `required today = baseline today` (no relaxation).
+This is not because `visa` is missing from `sales_records` or `sales_data`; both have the column. The problem is inside `public.rebuild_journal_from_operations()`.
 
-## Status labels
+The current live function dynamically runs a statement like:
 
-- `Plan Protected` — ahead of MTD target, today's actual ≥ baseline.
-- `Maintain Standard` — on track, no recovery needed.
-- `Stretch Still Open` — ahead, today's actual not in yet (encourage further upside).
-- `Recovery Required` — behind, adjusted minimum > baseline.
-- `Critical Recovery` — behind by more than the critical threshold.
+```sql
+EXECUTE format('SELECT $1.%I', v_method) INTO v_amt USING r;
+```
 
-## Files
+where `r` is an anonymous PL/pgSQL `record`. Postgres cannot dynamically resolve fields on an anonymous `record` inside SQL execution, so it throws the `record data type` error. The fix is to remove that dynamic field lookup and use explicit/static field access for each payment method.
 
-**New**
-- `src/utils/kpiRecovery.ts` — pure calculator (inputs above, outputs all derived fields + status).
-- `src/pages/kpis/KpiPlanner.tsx` — admin/operator view: pick KPI + venue + month, see per-day baseline / actual / MTD progress / adjusted minimum table, plus headline panel with the calculation breakdown.
+## Plan
 
-**Updated**
-- `src/utils/kpiAutoActual.ts` — add `computeAutoActualRange(kpiType, venueName, fromDate, toDate)` for MTD aggregation in one query.
-- `src/pages/kpis/MyKpis.tsx` — for any auto-KPI tile that has a monthly target, render the simplified owner panel: Original today · Minimum today · Recovery add-on · Actual today · MTD target · MTD actual · MTD gap/surplus · status badge · Update Actual button. Tiles without a monthly target keep the current simple view.
-- `src/App.tsx` — route `/kpis/planner` → `KpiPlanner` (admin/manager only).
-- `src/components/AppSidebar.tsx` — add "KPI Planner" link under KPI Management.
+1. **Replace the live journal rebuild function with a clean, audited version**
+   - Keep the same RPC name: `public.rebuild_journal_from_operations()`.
+   - Keep the same admin-only permission check.
+   - Keep preserving `manual` and `manually_adjusted` journal entries.
+   - Remove dynamic `EXECUTE ... $1.%I` record access entirely.
+   - Use explicit payment fields: `visa`, `mastercard`, `amex`, `union_pay`, `jcb`, `alipay`, `wechat`, `payme`.
 
-## Out of scope (kept as-is)
-- KPI Targets page (entry of monthly + per-DOW baselines already works).
-- Assignment board, actions, alerts.
+2. **Normalize the sales rebuild section**
+   - Read from the existing `public.sales_data` view, which aliases `sales_records`.
+   - Aggregate by trading date and venue.
+   - Create balanced journal entries for:
+     - cash receipts
+     - card / wallet receipts
+     - sales discounts
+     - subtotal revenue
+     - service charge revenue
+     - card tips payable
+     - suspense line only when required for balancing
 
-## Technical notes
-- All calculations live in `kpiRecovery.ts` and are unit-testable.
-- DB schema unchanged — recovery math is derived at render time.
-- Trading days = every calendar day in the month by default; a future enhancement can subtract `hr_holidays` if you want closed-day handling.
+3. **Audit every journal source type used by the rebuild**
+   - Ensure `journal_entries.source_type` allows all source types the function creates or deletes, including:
+     - `sales`
+     - `sales_summary`
+     - `invoice`
+     - `invoice_payment`
+     - `settlement_fee`
+     - `settlement_clearing`
+     - `bank_fee`
+     - `bank_txn`
+     - payroll-related types
+     - `manual`, `adjustment`, `opening`
+   - Keep this as a schema constraint fix only; no workflow or auth changes.
+
+4. **Audit the non-sales rebuild sections**
+   - Invoices: verify AP and expense lines balance.
+   - Invoice payments: verify AP debit and cash/bank credit balance.
+   - Payroll accrual/payment/MPF: verify generated entries use allowed source types and skip invalid/missing mapping safely.
+   - Settlement/bank fee sections: verify source types and required accounts are consistent.
+
+5. **Add safer failure handling inside the function**
+   - Use audit log rows for rebuild start/finish/failure where possible.
+   - Avoid deleting protected/manual entries.
+   - Keep the rebuild atomic so failed runs do not leave half-built journal entries.
+
+6. **Validate after migration**
+   - Confirm the live function no longer contains dynamic `EXECUTE` record-field access.
+   - Confirm `sales_data` exposes every payment column.
+   - Confirm the source type constraint matches the function.
+   - Run a read-only audit query to check generated journal entries balance by entry.
+
+## Files / areas involved
+
+- Database function: `public.rebuild_journal_from_operations()`
+- Tables/views involved:
+  - `sales_records`
+  - `sales_data`
+  - `journal_entries`
+  - `journal_lines`
+  - `account_mapping_rules`
+  - `chart_of_accounts`
+  - invoices/payment/payroll/settlement tables used by the rebuild
+- Frontend trigger only, no UI redesign:
+  - `src/hooks/useJournal.ts`
+  - `src/pages/finance/Journal.tsx`
+
+## What will not change
+
+- No auth changes.
+- No user workflow changes.
+- No table redesign.
+- No frontend redesign.
+- No changes to sales import logic.
+
+<presentation-actions>
+  <presentation-open-history>View History</presentation-open-history>
+</presentation-actions>
+
+<presentation-actions>
+<presentation-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</presentation-link>
+</presentation-actions>
