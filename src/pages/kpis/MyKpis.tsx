@@ -180,7 +180,7 @@ export default function MyKpis() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {tiles.map(({ cardId, venueId }) => {
           const card = cardById(cardId);
           if (!card) return null;
@@ -460,35 +460,45 @@ function CleanCard(props: {
     neutral: "bg-zinc-500/[0.06] text-zinc-300/90",
   };
   return (
-    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 overflow-hidden shadow-sm">
-      <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 flex items-center gap-1.5">
-            <span className="truncate">{props.venue}</span>
-            <span className="text-zinc-700">·</span>
-            <span className="normal-case tracking-normal">{props.periodLabel}</span>
+    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 overflow-hidden shadow-sm flex flex-col">
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-zinc-100 font-display leading-snug break-words">
+            {props.title}
+          </h3>
+          <div className="mt-0.5 text-[11px] text-zinc-500 break-words">
+            {props.venue} · {props.periodLabel}
             {props.autoLabel && (
-              <span className="ml-1 px-1.5 py-[1px] rounded-full text-[9px] bg-sky-500/10 text-sky-300/90 ring-1 ring-sky-500/20 normal-case tracking-normal">
+              <span className="ml-1.5 inline-block px-1.5 py-[1px] rounded text-[9px] bg-sky-500/10 text-sky-300/90 ring-1 ring-sky-500/20">
                 {props.autoLabel}
               </span>
             )}
           </div>
-          <h3 className="mt-1 text-[15px] font-semibold text-zinc-100 font-display">{props.title}</h3>
         </div>
-        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ring-1 ${pillClass[tone] ?? pillClass.neutral}`}>
+        <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ring-1 whitespace-nowrap ${pillClass[tone] ?? pillClass.neutral}`}>
           {props.statusLabel}
         </span>
       </div>
 
-      <div className="px-5 pb-4">
-        <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{props.heroLabel}</div>
-        <div className="mt-1 flex items-baseline gap-2">
-          <span className="text-3xl font-bold tracking-tight text-zinc-50 font-mono">{props.heroValue}</span>
+      {/* Hero row — label left, value right */}
+      <div className="px-4 py-2 flex items-end justify-between gap-2 border-t border-zinc-800/40">
+        <div className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 break-words">
+          {props.heroLabel}
         </div>
-        {props.heroSub && (
-          <div className="mt-0.5 text-xs text-zinc-500">{props.heroSub}</div>
-        )}
-        <div className="mt-3 h-1.5 w-full bg-zinc-800/80 rounded-full overflow-hidden">
+        <div className="text-2xl font-bold tracking-tight text-zinc-50 font-mono whitespace-nowrap">
+          {props.heroValue}
+        </div>
+      </div>
+      {props.heroSub && (
+        <div className="px-4 -mt-1 pb-2 text-[11px] text-zinc-500 break-words">
+          {props.heroSub}
+        </div>
+      )}
+
+      {/* Slim progress bar */}
+      <div className="px-4">
+        <div className="h-1 w-full bg-zinc-800/80 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${props.progressColor}`}
             style={{ width: `${Math.max(2, Math.min(100, props.progressPct))}%` }}
@@ -496,29 +506,30 @@ function CleanCard(props: {
         </div>
       </div>
 
+      {/* Metric rows */}
       {props.rows.length > 0 && (
-        <div className="px-5 pb-4 grid grid-cols-2 gap-x-6 gap-y-3">
+        <div className="px-4 pt-3 pb-2 space-y-1.5">
           {props.rows.map((r, i) => (
-            <div key={i} className="min-w-0">
-              <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{r.label}</div>
-              <div className={`mt-0.5 text-sm font-mono ${r.highlight ? "text-amber-300" : "text-zinc-200"}`}>{r.value}</div>
+            <div key={i} className="flex items-baseline justify-between gap-3 text-[12px]">
+              <span className="text-zinc-500 break-words">{r.label}</span>
+              <span className={`font-mono whitespace-nowrap ${r.highlight ? "text-amber-300" : "text-zinc-200"}`}>{r.value}</span>
             </div>
           ))}
         </div>
       )}
 
       {props.notice && (
-        <div className={`mx-5 mb-4 rounded-lg px-3 py-2 text-[11px] ${noticeClass[props.notice.tone]}`}>
+        <div className={`mx-4 mb-3 rounded px-2.5 py-1.5 text-[11px] leading-snug break-words ${noticeClass[props.notice.tone]}`}>
           {props.notice.text}
         </div>
       )}
 
-      <div className="px-5 py-3 bg-zinc-900/40 border-t border-zinc-800/60 flex items-center justify-between">
-        <div className="text-[11px] text-zinc-500 flex items-center gap-1.5">
-          <Clock className="h-3 w-3" />
-          {props.footerLeft}
+      <div className="mt-auto px-4 py-2 bg-zinc-900/40 border-t border-zinc-800/60 flex items-center justify-between gap-2">
+        <div className="text-[10px] text-zinc-500 flex items-center gap-1 min-w-0 break-words">
+          <Clock className="h-3 w-3 shrink-0" />
+          <span>{props.footerLeft}</span>
         </div>
-        {props.footerAction}
+        <div className="shrink-0">{props.footerAction}</div>
       </div>
     </div>
   );
