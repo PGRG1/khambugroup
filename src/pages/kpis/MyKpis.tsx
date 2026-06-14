@@ -237,17 +237,27 @@ export default function MyKpis() {
                   <Clock className="h-3 w-3" />
                   {actual ? `Updated ${relTime(actual.updated_at)}` : "Awaiting first update"}
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
-                    setActualInput(actual ? String(actual.actual_value) : "");
-                    setNotes(actual?.notes ?? "");
-                  }}
-                >
-                  Update Actual
-                </Button>
+                {isAutoKpiType(card.kpi_type) ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => refreshAutoActual(cardId, venueId, periodDate)}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh from Sales
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
+                      setActualInput(actual ? String(actual.actual_value) : "");
+                      setNotes(actual?.notes ?? "");
+                    }}
+                  >
+                    Update Actual
+                  </Button>
+                )}
               </div>
             </Card>
           );
