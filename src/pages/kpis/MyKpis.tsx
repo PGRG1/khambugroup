@@ -13,16 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Clock, RefreshCw } from "lucide-react";
+import { Clock, RefreshCw } from "lucide-react";
 
-const TONE_CLASS: Record<string, string> = {
-  success: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  info: "bg-sky-500/15 text-sky-400 border-sky-500/30",
-  warn: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  danger: "bg-rose-500/15 text-rose-400 border-rose-500/30",
-  neutral: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
-};
 
 function fmt(v: number | null, unit: string) {
   if (v === null || v === undefined || Number.isNaN(v)) return "—";
@@ -231,67 +223,41 @@ export default function MyKpis() {
             }
             const ratioPct = cstate.mtdRevenue > 0 ? (cstate.mtdCost / cstate.mtdRevenue) * 100 : null;
 
+            const spendPct = ceiling && ceiling > 0 ? Math.min(100, (cstate.mtdCost / ceiling) * 100) : 0;
+            const barColor = tone === "danger" ? "bg-rose-500" : tone === "warn" ? "bg-amber-500" : tone === "info" ? "bg-sky-500" : "bg-emerald-500";
             return (
-              <Card key={`${cardId}-${venueId ?? "all"}`} className="p-5 space-y-4 border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <span>{venueName(venueId)}</span>
-                      <span className="text-muted-foreground/50">·</span>
-                      <span className="normal-case tracking-normal">
-                        {new Date(start).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30 normal-case tracking-normal">auto · invoices</span>
-                    </div>
-                    <h3 className="text-base font-semibold truncate">{card.kpi_name}</h3>
-                  </div>
-                  <Badge variant="outline" className={TONE_CLASS[tone]}>{label}</Badge>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <MiniStat label="MTD Spend" value={fmt(cstate.mtdCost, "currency")} />
-                  <MiniStat
-                    label={mode === "ratio_of_revenue" ? "Projected Ceiling" : "Monthly Ceiling"}
-                    value={ceiling !== null ? fmt(ceiling, "currency") : "—"}
-                  />
-                  <MiniStat
-                    label="MTD Pace"
-                    value={mtdCeiling !== null ? fmt(mtdCeiling, "currency") : "—"}
-                    tone={mtdCeiling !== null && cstate.mtdCost > mtdCeiling ? "warn" : "neutral"}
-                  />
-                  <MiniStat label="MTD Revenue" value={fmt(cstate.mtdRevenue, "currency")} />
-                  <MiniStat
-                    label="Cost Ratio"
-                    value={ratioPct !== null ? `${ratioPct.toFixed(1)}%` : "—"}
-                  />
-                  <MiniStat
-                    label={`Daily Budget (${daysLeft}d left)`}
-                    value={dailyBudgetRemaining !== null ? fmt(dailyBudgetRemaining, "currency") : "—"}
-                  />
-                </div>
-
-                {!monthlyT && (
-                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
-                    No monthly target set. Add one in <strong>KPI Targets</strong> (period = Month).
-                  </div>
-                )}
-                {monthlyT && mode === "ratio_of_revenue" && (
-                  <div className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-[11px] text-muted-foreground">
-                    Target: keep cost ≤ <span className="font-mono text-foreground">{monthlyT.target_value}%</span> of revenue.
-                    Ceiling re-projects daily from MTD revenue trend.
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Day {dayOfMonth} of {daysInMonth}
-                  </div>
-                  <Button size="sm" variant="outline" onClick={() => loadCostFor(cardId, venueId, card.kpi_type as CostKpiType)}>
-                    <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+              <CleanCard
+                key={`${cardId}-${venueId ?? "all"}`}
+                venue={venueName(venueId)}
+                title={card.kpi_name}
+                periodLabel={new Date(start).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+                autoLabel="auto · invoices"
+                statusTone={tone}
+                statusLabel={label}
+                heroLabel="MTD Spend"
+                heroValue={fmt(cstate.mtdCost, "currency")}
+                heroSub={ceiling !== null ? `of ${fmt(ceiling, "currency")} ceiling` : "no ceiling set"}
+                progressPct={spendPct}
+                progressColor={barColor}
+                rows={[
+                  { label: mode === "ratio_of_revenue" ? "Projected Ceiling" : "Monthly Ceiling", value: ceiling !== null ? fmt(ceiling, "currency") : "—" },
+                  { label: `Daily Budget · ${daysLeft}d left`, value: dailyBudgetRemaining !== null ? fmt(dailyBudgetRemaining, "currency") : "—" },
+                  { label: "MTD Revenue", value: fmt(cstate.mtdRevenue, "currency") },
+                  { label: "Cost Ratio", value: ratioPct !== null ? `${ratioPct.toFixed(1)}%` : "—" },
+                ]}
+                footerLeft={`Day ${dayOfMonth} of ${daysInMonth}`}
+                footerAction={
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => loadCostFor(cardId, venueId, card.kpi_type as CostKpiType)}>
+                    <RefreshCw className="h-3 w-3 mr-1" /> Refresh
                   </Button>
-                </div>
-              </Card>
+                }
+                notice={!monthlyT
+                  ? { tone: "warn", text: "No monthly target set. Add one in KPI Targets." }
+                  : mode === "ratio_of_revenue"
+                    ? { tone: "info", text: `Target: keep cost ≤ ${monthlyT.target_value}% of revenue.` }
+                    : null
+                }
+              />
             );
           }
 
@@ -327,70 +293,49 @@ export default function MyKpis() {
 
             const auto = isAutoKpiType(card.kpi_type);
             const actualRow = actuals.find(a => a.kpi_card_id === cardId && (a.venue_id ?? null) === venueId && a.period_date === periodDate);
+            const heroVal = recovery.actualToday !== null ? recovery.actualToday : 0;
+            const minVal = recovery.adjustedMinimum || 1;
+            const heroPct = Math.min(100, (heroVal / minVal) * 100);
+            const tone = RECOVERY_STATUS_TONE[recovery.status];
+            const barColor = tone === "danger" ? "bg-rose-500" : tone === "warn" ? "bg-amber-500" : tone === "info" ? "bg-sky-500" : "bg-emerald-500";
 
             return (
-              <Card key={`${cardId}-${venueId ?? "all"}`} className="p-5 space-y-4 border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <span>{venueName(venueId)}</span>
-                      <span className="text-muted-foreground/50">·</span>
-                      <span className="normal-case tracking-normal">
-                        {new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                      </span>
-                      {auto && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30 normal-case tracking-normal">auto</span>
-                      )}
-                    </div>
-                    <h3 className="text-base font-semibold truncate">{card.kpi_name}</h3>
-                  </div>
-                  <Badge variant="outline" className={TONE_CLASS[RECOVERY_STATUS_TONE[recovery.status]]}>
-                    {recovery.statusLabel}
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <MiniStat label="Original" value={fmt(recovery.baselineToday, card.unit)} />
-                  <MiniStat
-                    label="Minimum"
-                    value={fmt(recovery.adjustedMinimum, card.unit)}
-                    tone={recovery.recoveryAddOn > 0 ? "warn" : "neutral"}
-                  />
-                  <MiniStat
-                    label="Recovery"
-                    value={recovery.recoveryAddOn > 0 ? `+${fmt(recovery.recoveryAddOn, card.unit)}` : "—"}
-                    tone={recovery.recoveryAddOn > 0 ? "warn" : "neutral"}
-                  />
-                  <MiniStat label="Actual today" value={recovery.actualToday !== null ? fmt(recovery.actualToday, card.unit) : "—"} />
-                  <MiniStat label="MTD Target" value={fmt(recovery.mtdTarget, card.unit)} />
-                  <MiniStat label="MTD Actual" value={fmt(recovery.mtdActual, card.unit)} />
-                </div>
-
-                <div className={`rounded-md border px-3 py-2 text-xs ${recovery.mtdGap > 0 ? "border-rose-500/30 bg-rose-500/5 text-rose-300" : "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"}`}>
-                  {recovery.mtdGap > 0
-                    ? <>Behind by <span className="font-mono">{fmt(recovery.mtdGap, card.unit)}</span> — minimum lifted to recover by month end.</>
-                    : <>Ahead by <span className="font-mono">{fmt(-recovery.mtdGap, card.unit)}</span> — original minimum protected.</>
-                  }
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {actualRow ? `Updated ${relTime(actualRow.updated_at)}` : "Awaiting today's update"}
-                  </div>
-                  {auto ? (
-                    <Button size="sm" variant="outline" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
-                      <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setEditing({ cardId, venueId, periodDate, current: actualRow?.actual_value });
-                      setActualInput(actualRow ? String(actualRow.actual_value) : "");
-                      setNotes(actualRow?.notes ?? "");
-                    }}>Update Actual</Button>
-                  )}
-                </div>
-              </Card>
+              <CleanCard
+                key={`${cardId}-${venueId ?? "all"}`}
+                venue={venueName(venueId)}
+                title={card.kpi_name}
+                periodLabel={new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                autoLabel={auto ? "auto" : undefined}
+                statusTone={tone}
+                statusLabel={recovery.statusLabel}
+                heroLabel="Actual today"
+                heroValue={recovery.actualToday !== null ? fmt(recovery.actualToday, card.unit) : "—"}
+                heroSub={`Minimum ${fmt(recovery.adjustedMinimum, card.unit)}${recovery.recoveryAddOn > 0 ? `  ·  +${fmt(recovery.recoveryAddOn, card.unit)} recovery` : ""}`}
+                progressPct={heroPct}
+                progressColor={barColor}
+                rows={[
+                  { label: "Original Expectation", value: fmt(recovery.baselineToday, card.unit) },
+                  { label: "Minimum Required", value: fmt(recovery.adjustedMinimum, card.unit), highlight: recovery.recoveryAddOn > 0 },
+                  { label: "MTD Target", value: fmt(recovery.mtdTarget, card.unit) },
+                  { label: "MTD Actual", value: fmt(recovery.mtdActual, card.unit) },
+                ]}
+                notice={recovery.mtdGap > 0
+                  ? { tone: "danger", text: `Behind by ${fmt(recovery.mtdGap, card.unit)} — minimum lifted to recover by month end.` }
+                  : { tone: "success", text: `Ahead by ${fmt(-recovery.mtdGap, card.unit)} — original minimum protected.` }
+                }
+                footerLeft={actualRow ? `Updated ${relTime(actualRow.updated_at)}` : "Awaiting today's update"}
+                footerAction={auto ? (
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
+                    <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+                  </Button>
+                ) : (
+                  <Button size="sm" className="h-7 px-3 text-xs" onClick={() => {
+                    setEditing({ cardId, venueId, periodDate, current: actualRow?.actual_value });
+                    setActualInput(actualRow ? String(actualRow.actual_value) : "");
+                    setNotes(actualRow?.notes ?? "");
+                  }}>Update</Button>
+                )}
+              />
             );
           }
 
@@ -415,87 +360,39 @@ export default function MyKpis() {
           const remaining = actual && targetValue > 0 ? Math.max(0, targetValue - actual.actual_value) : null;
           const progressPct = actual && targetValue > 0 ? Math.min(100, (actual.actual_value / targetValue) * 100) : 0;
 
+          const auto = isAutoKpiType(card.kpi_type);
           return (
-            <Card key={`${cardId}-${venueId ?? "all"}`} className="p-5 space-y-4 border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <span>{venueName(venueId)}</span>
-                    <span className="text-muted-foreground/50">·</span>
-                    <span className="normal-case tracking-normal">
-                      {new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                    </span>
-                    {isAutoKpiType(card.kpi_type) && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30 normal-case tracking-normal">auto</span>
-                    )}
-                  </div>
-                  <h3 className="text-base font-semibold truncate">{card.kpi_name}</h3>
-                </div>
-                <Badge variant="outline" className={TONE_CLASS[status.tone]}>{status.label}</Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Target</div>
-                  <div className="text-lg font-mono">{fmt(targetValue, card.unit)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Actual</div>
-                  <div className="text-lg font-mono">
-                    {actual ? fmt(actual.actual_value, card.unit) : <span className="text-muted-foreground italic text-sm">Not updated yet</span>}
-                  </div>
-                </div>
-              </div>
-
-              {actual && targetValue > 0 && (
-                <div className="space-y-1">
-                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
-                  </div>
-                  <div className="flex justify-between text-[11px] text-muted-foreground">
-                    <span>{progressPct.toFixed(0)}% of target</span>
-                    {remaining !== null && remaining > 0 && <span>{fmt(remaining, card.unit)} to go</span>}
-                  </div>
-                </div>
+            <CleanCard
+              key={`${cardId}-${venueId ?? "all"}`}
+              venue={venueName(venueId)}
+              title={card.kpi_name}
+              periodLabel={new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              autoLabel={auto ? "auto" : undefined}
+              statusTone={status.tone}
+              statusLabel={status.label}
+              heroLabel="Actual"
+              heroValue={actual ? fmt(actual.actual_value, card.unit) : "—"}
+              heroSub={`Target ${fmt(targetValue, card.unit)}`}
+              progressPct={progressPct}
+              progressColor="bg-emerald-500"
+              rows={[
+                { label: "Target", value: fmt(targetValue, card.unit) },
+                { label: "Remaining", value: remaining !== null && remaining > 0 ? fmt(remaining, card.unit) : "—" },
+              ]}
+              notice={openAction ? { tone: "warn", text: `Action: ${openAction.action_required}` } : null}
+              footerLeft={actual ? `Updated ${relTime(actual.updated_at)}` : "Awaiting first update"}
+              footerAction={auto ? (
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+                </Button>
+              ) : (
+                <Button size="sm" className="h-7 px-3 text-xs" onClick={() => {
+                  setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
+                  setActualInput(actual ? String(actual.actual_value) : "");
+                  setNotes(actual?.notes ?? "");
+                }}>Update</Button>
               )}
-
-              {status.variance !== null && (
-                <div className="flex items-center gap-2 text-sm">
-                  {status.variance > 0 ? <TrendingUp className="h-4 w-4 text-emerald-400" /> :
-                    status.variance < 0 ? <TrendingDown className="h-4 w-4 text-rose-400" /> :
-                    <Minus className="h-4 w-4 text-muted-foreground" />}
-                  <span className={status.variance >= 0 ? "text-emerald-400" : "text-rose-400"}>
-                    {status.variance >= 0 ? "+" : ""}{fmt(status.variance, card.unit)}
-                    {status.variancePct !== null && ` (${status.variancePct >= 0 ? "+" : ""}${status.variancePct.toFixed(1)}%)`}
-                  </span>
-                </div>
-              )}
-
-              {openAction && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs">
-                  <div className="font-semibold text-amber-400">Action required</div>
-                  <div className="text-muted-foreground mt-0.5">{openAction.action_required}</div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-                <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {actual ? `Updated ${relTime(actual.updated_at)}` : "Awaiting first update"}
-                </div>
-                {isAutoKpiType(card.kpi_type) ? (
-                  <Button size="sm" variant="outline" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
-                    <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh from Sales
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
-                    setActualInput(actual ? String(actual.actual_value) : "");
-                    setNotes(actual?.notes ?? "");
-                  }}>Update Actual</Button>
-                )}
-              </div>
-            </Card>
+            />
           );
         })}
       </div>
@@ -528,11 +425,101 @@ export default function MyKpis() {
   );
 }
 
-function MiniStat({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "success" | "info" | "warn" | "danger" | "neutral" }) {
+type Tone = "success" | "info" | "warn" | "danger" | "neutral";
+
+function CleanCard(props: {
+  venue: string;
+  title: string;
+  periodLabel: string;
+  autoLabel?: string;
+  statusTone: Tone | string;
+  statusLabel: string;
+  heroLabel: string;
+  heroValue: string;
+  heroSub?: string;
+  progressPct: number;
+  progressColor: string;
+  rows: { label: string; value: string; highlight?: boolean }[];
+  notice?: { tone: Tone; text: string } | null;
+  footerLeft: string;
+  footerAction: React.ReactNode;
+}) {
+  const tone = (props.statusTone as Tone) ?? "neutral";
+  const pillClass: Record<Tone, string> = {
+    success: "bg-emerald-500/10 text-emerald-300 ring-emerald-500/25",
+    info: "bg-sky-500/10 text-sky-300 ring-sky-500/25",
+    warn: "bg-amber-500/10 text-amber-300 ring-amber-500/25",
+    danger: "bg-rose-500/10 text-rose-300 ring-rose-500/25",
+    neutral: "bg-zinc-500/10 text-zinc-300 ring-zinc-500/25",
+  };
+  const noticeClass: Record<Tone, string> = {
+    success: "bg-emerald-500/[0.06] text-emerald-300/90",
+    info: "bg-sky-500/[0.06] text-sky-300/90",
+    warn: "bg-amber-500/[0.06] text-amber-300/90",
+    danger: "bg-rose-500/[0.06] text-rose-300/90",
+    neutral: "bg-zinc-500/[0.06] text-zinc-300/90",
+  };
   return (
-    <div className={`rounded border px-2 py-1.5 ${TONE_CLASS[tone]}`}>
-      <div className="text-[9px] uppercase tracking-wider opacity-80">{label}</div>
-      <div className="text-sm font-mono mt-0.5">{value}</div>
+    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 overflow-hidden shadow-sm">
+      <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 flex items-center gap-1.5 truncate">
+            <span className="truncate">{props.venue}</span>
+            <span className="text-zinc-700">·</span>
+            <span className="normal-case tracking-normal truncate">{props.periodLabel}</span>
+            {props.autoLabel && (
+              <span className="ml-1 px-1.5 py-[1px] rounded-full text-[9px] bg-sky-500/10 text-sky-300/90 ring-1 ring-sky-500/20 normal-case tracking-normal">
+                {props.autoLabel}
+              </span>
+            )}
+          </div>
+          <h3 className="mt-1 text-[15px] font-semibold text-zinc-100 truncate font-display">{props.title}</h3>
+        </div>
+        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ring-1 ${pillClass[tone] ?? pillClass.neutral}`}>
+          {props.statusLabel}
+        </span>
+      </div>
+
+      <div className="px-5 pb-4">
+        <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{props.heroLabel}</div>
+        <div className="mt-1 flex items-baseline gap-2">
+          <span className="text-3xl font-bold tracking-tight text-zinc-50 font-mono">{props.heroValue}</span>
+        </div>
+        {props.heroSub && (
+          <div className="mt-0.5 text-xs text-zinc-500">{props.heroSub}</div>
+        )}
+        <div className="mt-3 h-1.5 w-full bg-zinc-800/80 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${props.progressColor}`}
+            style={{ width: `${Math.max(2, Math.min(100, props.progressPct))}%` }}
+          />
+        </div>
+      </div>
+
+      {props.rows.length > 0 && (
+        <div className="px-5 pb-4 grid grid-cols-2 gap-x-6 gap-y-3">
+          {props.rows.map((r, i) => (
+            <div key={i} className="min-w-0">
+              <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 truncate">{r.label}</div>
+              <div className={`mt-0.5 text-sm font-mono truncate ${r.highlight ? "text-amber-300" : "text-zinc-200"}`}>{r.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {props.notice && (
+        <div className={`mx-5 mb-4 rounded-lg px-3 py-2 text-[11px] ${noticeClass[props.notice.tone]}`}>
+          {props.notice.text}
+        </div>
+      )}
+
+      <div className="px-5 py-3 bg-zinc-900/40 border-t border-zinc-800/60 flex items-center justify-between">
+        <div className="text-[11px] text-zinc-500 flex items-center gap-1.5">
+          <Clock className="h-3 w-3" />
+          {props.footerLeft}
+        </div>
+        {props.footerAction}
+      </div>
     </div>
   );
 }
