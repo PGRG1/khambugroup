@@ -368,87 +368,39 @@ export default function MyKpis() {
           const remaining = actual && targetValue > 0 ? Math.max(0, targetValue - actual.actual_value) : null;
           const progressPct = actual && targetValue > 0 ? Math.min(100, (actual.actual_value / targetValue) * 100) : 0;
 
+          const auto = isAutoKpiType(card.kpi_type);
           return (
-            <Card key={`${cardId}-${venueId ?? "all"}`} className="p-5 space-y-4 border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <span>{venueName(venueId)}</span>
-                    <span className="text-muted-foreground/50">·</span>
-                    <span className="normal-case tracking-normal">
-                      {new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                    </span>
-                    {isAutoKpiType(card.kpi_type) && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30 normal-case tracking-normal">auto</span>
-                    )}
-                  </div>
-                  <h3 className="text-base font-semibold truncate">{card.kpi_name}</h3>
-                </div>
-                <Badge variant="outline" className={TONE_CLASS[status.tone]}>{status.label}</Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Target</div>
-                  <div className="text-lg font-mono">{fmt(targetValue, card.unit)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Actual</div>
-                  <div className="text-lg font-mono">
-                    {actual ? fmt(actual.actual_value, card.unit) : <span className="text-muted-foreground italic text-sm">Not updated yet</span>}
-                  </div>
-                </div>
-              </div>
-
-              {actual && targetValue > 0 && (
-                <div className="space-y-1">
-                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
-                  </div>
-                  <div className="flex justify-between text-[11px] text-muted-foreground">
-                    <span>{progressPct.toFixed(0)}% of target</span>
-                    {remaining !== null && remaining > 0 && <span>{fmt(remaining, card.unit)} to go</span>}
-                  </div>
-                </div>
+            <CleanCard
+              key={`${cardId}-${venueId ?? "all"}`}
+              venue={venueName(venueId)}
+              title={card.kpi_name}
+              periodLabel={new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              autoLabel={auto ? "auto" : undefined}
+              statusTone={status.tone}
+              statusLabel={status.label}
+              heroLabel="Actual"
+              heroValue={actual ? fmt(actual.actual_value, card.unit) : "—"}
+              heroSub={`Target ${fmt(targetValue, card.unit)}`}
+              progressPct={progressPct}
+              progressColor="bg-emerald-500"
+              rows={[
+                { label: "Target", value: fmt(targetValue, card.unit) },
+                { label: "Remaining", value: remaining !== null && remaining > 0 ? fmt(remaining, card.unit) : "—" },
+              ]}
+              notice={openAction ? { tone: "warn", text: `Action: ${openAction.action_required}` } : null}
+              footerLeft={actual ? `Updated ${relTime(actual.updated_at)}` : "Awaiting first update"}
+              footerAction={auto ? (
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+                </Button>
+              ) : (
+                <Button size="sm" className="h-7 px-3 text-xs" onClick={() => {
+                  setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
+                  setActualInput(actual ? String(actual.actual_value) : "");
+                  setNotes(actual?.notes ?? "");
+                }}>Update</Button>
               )}
-
-              {status.variance !== null && (
-                <div className="flex items-center gap-2 text-sm">
-                  {status.variance > 0 ? <TrendingUp className="h-4 w-4 text-emerald-400" /> :
-                    status.variance < 0 ? <TrendingDown className="h-4 w-4 text-rose-400" /> :
-                    <Minus className="h-4 w-4 text-muted-foreground" />}
-                  <span className={status.variance >= 0 ? "text-emerald-400" : "text-rose-400"}>
-                    {status.variance >= 0 ? "+" : ""}{fmt(status.variance, card.unit)}
-                    {status.variancePct !== null && ` (${status.variancePct >= 0 ? "+" : ""}${status.variancePct.toFixed(1)}%)`}
-                  </span>
-                </div>
-              )}
-
-              {openAction && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs">
-                  <div className="font-semibold text-amber-400">Action required</div>
-                  <div className="text-muted-foreground mt-0.5">{openAction.action_required}</div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-                <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {actual ? `Updated ${relTime(actual.updated_at)}` : "Awaiting first update"}
-                </div>
-                {isAutoKpiType(card.kpi_type) ? (
-                  <Button size="sm" variant="outline" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
-                    <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh from Sales
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
-                    setActualInput(actual ? String(actual.actual_value) : "");
-                    setNotes(actual?.notes ?? "");
-                  }}>Update Actual</Button>
-                )}
-              </div>
-            </Card>
+            />
           );
         })}
       </div>
