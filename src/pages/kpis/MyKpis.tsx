@@ -301,70 +301,49 @@ export default function MyKpis() {
 
             const auto = isAutoKpiType(card.kpi_type);
             const actualRow = actuals.find(a => a.kpi_card_id === cardId && (a.venue_id ?? null) === venueId && a.period_date === periodDate);
+            const heroVal = recovery.actualToday !== null ? recovery.actualToday : 0;
+            const minVal = recovery.adjustedMinimum || 1;
+            const heroPct = Math.min(100, (heroVal / minVal) * 100);
+            const tone = RECOVERY_STATUS_TONE[recovery.status];
+            const barColor = tone === "danger" ? "bg-rose-500" : tone === "warn" ? "bg-amber-500" : tone === "info" ? "bg-sky-500" : "bg-emerald-500";
 
             return (
-              <Card key={`${cardId}-${venueId ?? "all"}`} className="p-5 space-y-4 border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <span>{venueName(venueId)}</span>
-                      <span className="text-muted-foreground/50">·</span>
-                      <span className="normal-case tracking-normal">
-                        {new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                      </span>
-                      {auto && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30 normal-case tracking-normal">auto</span>
-                      )}
-                    </div>
-                    <h3 className="text-base font-semibold truncate">{card.kpi_name}</h3>
-                  </div>
-                  <Badge variant="outline" className={TONE_CLASS[RECOVERY_STATUS_TONE[recovery.status]]}>
-                    {recovery.statusLabel}
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <MiniStat label="Original" value={fmt(recovery.baselineToday, card.unit)} />
-                  <MiniStat
-                    label="Minimum"
-                    value={fmt(recovery.adjustedMinimum, card.unit)}
-                    tone={recovery.recoveryAddOn > 0 ? "warn" : "neutral"}
-                  />
-                  <MiniStat
-                    label="Recovery"
-                    value={recovery.recoveryAddOn > 0 ? `+${fmt(recovery.recoveryAddOn, card.unit)}` : "—"}
-                    tone={recovery.recoveryAddOn > 0 ? "warn" : "neutral"}
-                  />
-                  <MiniStat label="Actual today" value={recovery.actualToday !== null ? fmt(recovery.actualToday, card.unit) : "—"} />
-                  <MiniStat label="MTD Target" value={fmt(recovery.mtdTarget, card.unit)} />
-                  <MiniStat label="MTD Actual" value={fmt(recovery.mtdActual, card.unit)} />
-                </div>
-
-                <div className={`rounded-md border px-3 py-2 text-xs ${recovery.mtdGap > 0 ? "border-rose-500/30 bg-rose-500/5 text-rose-300" : "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"}`}>
-                  {recovery.mtdGap > 0
-                    ? <>Behind by <span className="font-mono">{fmt(recovery.mtdGap, card.unit)}</span> — minimum lifted to recover by month end.</>
-                    : <>Ahead by <span className="font-mono">{fmt(-recovery.mtdGap, card.unit)}</span> — original minimum protected.</>
-                  }
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {actualRow ? `Updated ${relTime(actualRow.updated_at)}` : "Awaiting today's update"}
-                  </div>
-                  {auto ? (
-                    <Button size="sm" variant="outline" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
-                      <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setEditing({ cardId, venueId, periodDate, current: actualRow?.actual_value });
-                      setActualInput(actualRow ? String(actualRow.actual_value) : "");
-                      setNotes(actualRow?.notes ?? "");
-                    }}>Update Actual</Button>
-                  )}
-                </div>
-              </Card>
+              <CleanCard
+                key={`${cardId}-${venueId ?? "all"}`}
+                venue={venueName(venueId)}
+                title={card.kpi_name}
+                periodLabel={new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                autoLabel={auto ? "auto" : undefined}
+                statusTone={tone}
+                statusLabel={recovery.statusLabel}
+                heroLabel="Actual today"
+                heroValue={recovery.actualToday !== null ? fmt(recovery.actualToday, card.unit) : "—"}
+                heroSub={`Minimum ${fmt(recovery.adjustedMinimum, card.unit)}${recovery.recoveryAddOn > 0 ? `  ·  +${fmt(recovery.recoveryAddOn, card.unit)} recovery` : ""}`}
+                progressPct={heroPct}
+                progressColor={barColor}
+                rows={[
+                  { label: "Original Expectation", value: fmt(recovery.baselineToday, card.unit) },
+                  { label: "Minimum Required", value: fmt(recovery.adjustedMinimum, card.unit), highlight: recovery.recoveryAddOn > 0 },
+                  { label: "MTD Target", value: fmt(recovery.mtdTarget, card.unit) },
+                  { label: "MTD Actual", value: fmt(recovery.mtdActual, card.unit) },
+                ]}
+                notice={recovery.mtdGap > 0
+                  ? { tone: "danger", text: `Behind by ${fmt(recovery.mtdGap, card.unit)} — minimum lifted to recover by month end.` }
+                  : { tone: "success", text: `Ahead by ${fmt(-recovery.mtdGap, card.unit)} — original minimum protected.` }
+                }
+                footerLeft={actualRow ? `Updated ${relTime(actualRow.updated_at)}` : "Awaiting today's update"}
+                footerAction={auto ? (
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
+                    <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+                  </Button>
+                ) : (
+                  <Button size="sm" className="h-7 px-3 text-xs" onClick={() => {
+                    setEditing({ cardId, venueId, periodDate, current: actualRow?.actual_value });
+                    setActualInput(actualRow ? String(actualRow.actual_value) : "");
+                    setNotes(actualRow?.notes ?? "");
+                  }}>Update</Button>
+                )}
+              />
             );
           }
 
