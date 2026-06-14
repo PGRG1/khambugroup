@@ -4,7 +4,8 @@ import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useKpiCards, useKpiTargets, useKpiAssignments, useKpiActuals, useKpiActions } from "@/hooks/useKpi";
 import { useVenues } from "@/hooks/useVenues";
 import { computeKpiStatus } from "@/utils/kpiStatus";
-import { computeAutoActual, isAutoKpiType } from "@/utils/kpiAutoActual";
+import { computeAutoActual, computeAutoActualRange, isAutoKpiType, type AutoKpiType } from "@/utils/kpiAutoActual";
+import { computeRecovery, RECOVERY_STATUS_TONE, type DowBaselines } from "@/utils/kpiRecovery";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -37,12 +38,17 @@ function relTime(iso: string) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function currentPeriodDate(kpi_type: string): string {
   const now = new Date();
   if (kpi_type === "mtd_revenue") {
     return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   }
-  return now.toISOString().slice(0, 10);
+  return todayStr();
 }
 
 export default function MyKpis() {
@@ -64,7 +70,6 @@ export default function MyKpis() {
   const venueName = (id: string | null) => venues.find((v) => v.id === id)?.name ?? "All Venues";
   const cardById = (id: string) => cards.find((c) => c.id === id);
 
-  // Determine which (card, venue) tiles to render for this user
   const tiles = useMemo(() => {
     const myAssignments = isAdmin && !isPreviewActive
       ? assignments.filter((a) => a.active)
@@ -88,11 +93,7 @@ export default function MyKpis() {
       actual_value: val,
       notes,
     });
-    if (ok) {
-      setEditing(null);
-      setActualInput("");
-      setNotes("");
-    }
+    if (ok) { setEditing(null); setActualInput(""); setNotes(""); }
   };
 
   const refreshAutoActual = async (cardId: string, venueId: string | null, periodDate: string) => {
@@ -101,19 +102,10 @@ export default function MyKpis() {
     const vName = venueId ? venues.find((v) => v.id === venueId)?.name ?? null : null;
     try {
       const val = await computeAutoActual(card.kpi_type, vName, periodDate);
-      await upsert({
-        kpi_card_id: cardId,
-        venue_id: venueId,
-        period_date: periodDate,
-        actual_value: val,
-        actual_source: "sales_data_auto",
-      });
-    } catch (e) {
-      // silently skip — surfaced via toast inside upsert if it fails
-    }
+      await upsert({ kpi_card_id: cardId, venue_id: venueId, period_date: periodDate, actual_value: val, actual_source: "sales_data_auto" });
+    } catch {}
   };
 
-  // Auto-pull on first render for any tiles backed by sales_data
   useEffect(() => {
     if (!tiles.length || !cards.length) return;
     tiles.forEach(({ cardId, venueId }) => {
@@ -123,12 +115,38 @@ export default function MyKpis() {
       const existing = actuals.find(
         (a) => a.kpi_card_id === cardId && (a.venue_id ?? null) === venueId && a.period_date === periodDate,
       );
-      // Refresh if missing, or if last update is older than 30 min
       const stale = !existing || (Date.now() - new Date(existing.updated_at).getTime() > 30 * 60 * 1000);
       if (stale) refreshAutoActual(cardId, venueId, periodDate);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tiles.length, cards.length]);
+
+  // ---- MTD auto-actuals cache: per (cardId, venueId) → date→value map ----
+  const [mtdAutoMap, setMtdAutoMap] = useState<Record<string, Record<string, number>>>({});
+  const monthBounds = useMemo(() => {
+    const d = new Date();
+    const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const end = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    return { start, end };
+  }, []);
+  useEffect(() => {
+    if (!tiles.length || !cards.length) return;
+    (async () => {
+      const next: Record<string, Record<string, number>> = {};
+      await Promise.all(tiles.map(async ({ cardId, venueId }) => {
+        const card = cardById(cardId);
+        if (!card || !isAutoKpiType(card.kpi_type)) return;
+        const vName = venueId ? venues.find(v => v.id === venueId)?.name ?? null : null;
+        try {
+          const map = await computeAutoActualRange(card.kpi_type as AutoKpiType, vName, monthBounds.start, monthBounds.end);
+          next[`${cardId}__${venueId ?? ""}`] = map;
+        } catch {}
+      }));
+      setMtdAutoMap(next);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiles.length, cards.length, monthBounds.start]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -151,13 +169,119 @@ export default function MyKpis() {
           if (!card) return null;
           const periodDate = currentPeriodDate(card.kpi_type);
 
-          // Find best matching target
+          // Collect this card's targets
           const cardTargets = targets.filter(
             (t) => t.active && t.kpi_card_id === cardId && (t.venue_id === venueId || t.venue_id === null),
           );
+
+          // Monthly target + DOW baselines (preferring venue-specific over null-venue)
+          const pickV = <T extends { venue_id: string | null }>(arr: T[]) =>
+            arr.find(t => t.venue_id === venueId) ?? arr.find(t => t.venue_id === null);
+          const monthlyT = pickV(cardTargets.filter(t => t.target_period === "month"));
+          const dayTargets = cardTargets.filter(t => t.target_period === "day");
+          const dowBaselines: DowBaselines = {};
+          let defaultBaseline = 0;
+          for (const t of dayTargets) {
+            if (t.day_of_week !== null && t.day_of_week !== undefined) dowBaselines[t.day_of_week] = t.target_value;
+            else if ((t.venue_id ?? null) === venueId || defaultBaseline === 0) defaultBaseline = t.target_value;
+          }
+
+          // Build actuals map merged from store + auto map
+          const monthActuals: Record<string, number> = {};
+          const autoKey = `${cardId}__${venueId ?? ""}`;
+          if (mtdAutoMap[autoKey]) Object.assign(monthActuals, mtdAutoMap[autoKey]);
+          for (const a of actuals) {
+            if (a.kpi_card_id !== cardId || (a.venue_id ?? null) !== venueId) continue;
+            if (a.period_date < monthBounds.start || a.period_date > monthBounds.end) continue;
+            monthActuals[a.period_date] = a.actual_value;
+          }
+
+          const useRecovery = !!monthlyT && (defaultBaseline > 0 || Object.keys(dowBaselines).length > 0);
+
+          if (useRecovery) {
+            const recovery = computeRecovery({
+              monthlyTarget: monthlyT!.target_value,
+              dowBaselines,
+              defaultBaseline,
+              actualsByDate: monthActuals,
+              today: todayStr(),
+              criticalPct: monthlyT!.critical_threshold_pct ?? 20,
+            });
+
+            const auto = isAutoKpiType(card.kpi_type);
+            const actualRow = actuals.find(a => a.kpi_card_id === cardId && (a.venue_id ?? null) === venueId && a.period_date === periodDate);
+
+            return (
+              <Card key={`${cardId}-${venueId ?? "all"}`} className="p-5 space-y-4 border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <span>{venueName(venueId)}</span>
+                      <span className="text-muted-foreground/50">·</span>
+                      <span className="normal-case tracking-normal">
+                        {new Date(periodDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                      </span>
+                      {auto && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30 normal-case tracking-normal">auto</span>
+                      )}
+                    </div>
+                    <h3 className="text-base font-semibold truncate">{card.kpi_name}</h3>
+                  </div>
+                  <Badge variant="outline" className={TONE_CLASS[RECOVERY_STATUS_TONE[recovery.status]]}>
+                    {recovery.statusLabel}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <MiniStat label="Original" value={fmt(recovery.baselineToday, card.unit)} />
+                  <MiniStat
+                    label="Minimum"
+                    value={fmt(recovery.adjustedMinimum, card.unit)}
+                    tone={recovery.recoveryAddOn > 0 ? "warn" : "neutral"}
+                  />
+                  <MiniStat
+                    label="Recovery"
+                    value={recovery.recoveryAddOn > 0 ? `+${fmt(recovery.recoveryAddOn, card.unit)}` : "—"}
+                    tone={recovery.recoveryAddOn > 0 ? "warn" : "neutral"}
+                  />
+                  <MiniStat label="Actual today" value={recovery.actualToday !== null ? fmt(recovery.actualToday, card.unit) : "—"} />
+                  <MiniStat label="MTD Target" value={fmt(recovery.mtdTarget, card.unit)} />
+                  <MiniStat label="MTD Actual" value={fmt(recovery.mtdActual, card.unit)} />
+                </div>
+
+                <div className={`rounded-md border px-3 py-2 text-xs ${recovery.mtdGap > 0 ? "border-rose-500/30 bg-rose-500/5 text-rose-300" : "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"}`}>
+                  {recovery.mtdGap > 0
+                    ? <>Behind by <span className="font-mono">{fmt(recovery.mtdGap, card.unit)}</span> — minimum lifted to recover by month end.</>
+                    : <>Ahead by <span className="font-mono">{fmt(-recovery.mtdGap, card.unit)}</span> — original minimum protected.</>
+                  }
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {actualRow ? `Updated ${relTime(actualRow.updated_at)}` : "Awaiting today's update"}
+                  </div>
+                  {auto ? (
+                    <Button size="sm" variant="outline" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
+                      <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setEditing({ cardId, venueId, periodDate, current: actualRow?.actual_value });
+                      setActualInput(actualRow ? String(actualRow.actual_value) : "");
+                      setNotes(actualRow?.notes ?? "");
+                    }}>Update Actual</Button>
+                  )}
+                </div>
+              </Card>
+            );
+          }
+
+          // ----- Fallback: legacy single-target tile -----
           const today = new Date();
           const dow = today.getDay();
-          let target = cardTargets.find((t) => t.calculation_method === "day_of_week" && t.day_of_week === dow && t.venue_id === venueId)
+          const target =
+            cardTargets.find((t) => t.calculation_method === "day_of_week" && t.day_of_week === dow && t.venue_id === venueId)
             ?? cardTargets.find((t) => t.venue_id === venueId)
             ?? cardTargets[0];
 
@@ -170,11 +294,7 @@ export default function MyKpis() {
             criticalPct: target?.critical_threshold_pct ?? 20,
             higherIsBetter: true,
           });
-
-          const openAction = actions.find(
-            (ac) => ac.kpi_card_id === cardId && (ac.venue_id ?? null) === venueId && ac.action_status !== "done",
-          );
-
+          const openAction = actions.find((ac) => ac.kpi_card_id === cardId && (ac.venue_id ?? null) === venueId && ac.action_status !== "done");
           const remaining = actual && targetValue > 0 ? Math.max(0, targetValue - actual.actual_value) : null;
           const progressPct = actual && targetValue > 0 ? Math.min(100, (actual.actual_value / targetValue) * 100) : 0;
 
@@ -247,25 +367,15 @@ export default function MyKpis() {
                   {actual ? `Updated ${relTime(actual.updated_at)}` : "Awaiting first update"}
                 </div>
                 {isAutoKpiType(card.kpi_type) ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => refreshAutoActual(cardId, venueId, periodDate)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => refreshAutoActual(cardId, venueId, periodDate)}>
                     <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh from Sales
                   </Button>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
-                      setActualInput(actual ? String(actual.actual_value) : "");
-                      setNotes(actual?.notes ?? "");
-                    }}
-                  >
-                    Update Actual
-                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setEditing({ cardId, venueId, periodDate, current: actual?.actual_value });
+                    setActualInput(actual ? String(actual.actual_value) : "");
+                    setNotes(actual?.notes ?? "");
+                  }}>Update Actual</Button>
                 )}
               </div>
             </Card>
@@ -275,9 +385,7 @@ export default function MyKpis() {
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Actual Value</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Update Actual Value</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
@@ -299,6 +407,15 @@ export default function MyKpis() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "success" | "info" | "warn" | "danger" | "neutral" }) {
+  return (
+    <div className={`rounded border px-2 py-1.5 ${TONE_CLASS[tone]}`}>
+      <div className="text-[9px] uppercase tracking-wider opacity-80">{label}</div>
+      <div className="text-sm font-mono mt-0.5">{value}</div>
     </div>
   );
 }
