@@ -203,6 +203,98 @@ export default function MyKpis() {
           const pickV = <T extends { venue_id: string | null }>(arr: T[]) =>
             arr.find(t => t.venue_id === venueId) ?? arr.find(t => t.venue_id === null);
           const monthlyT = pickV(cardTargets.filter(t => t.target_period === "month"));
+
+          // ----- Cost KPI branch (Food / Beverage / Supplies) -----
+          if (isCostKpiType(card.kpi_type)) {
+            const cKey = `${cardId}__${venueId ?? ""}`;
+            const cstate = costMap[cKey] ?? { mtdCost: 0, mtdRevenue: 0 };
+            const { start, daysInMonth, dayOfMonth } = monthRange();
+            const daysLeft = Math.max(0, daysInMonth - dayOfMonth);
+            const mode = (monthlyT?.target_mode ?? "absolute");
+            // Project monthly revenue to derive ceiling when ratio mode
+            const projectedMonthRev = dayOfMonth > 0 ? cstate.mtdRevenue / dayOfMonth * daysInMonth : 0;
+            const ceiling = !monthlyT
+              ? null
+              : mode === "ratio_of_revenue"
+                ? (monthlyT.target_value / 100) * projectedMonthRev
+                : monthlyT.target_value;
+            const mtdCeiling = ceiling !== null ? ceiling * (dayOfMonth / daysInMonth) : null;
+            const dailyBudgetRemaining = ceiling !== null && daysLeft > 0
+              ? Math.max(0, (ceiling - cstate.mtdCost) / daysLeft)
+              : null;
+            let tone = "neutral", label = "No Target";
+            if (ceiling !== null) {
+              if (cstate.mtdCost > ceiling) { tone = "danger"; label = "Over Budget"; }
+              else if (mtdCeiling !== null && cstate.mtdCost > mtdCeiling * 1.1) { tone = "warn"; label = "Pacing Hot"; }
+              else if (mtdCeiling !== null && cstate.mtdCost > mtdCeiling) { tone = "info"; label = "Slightly Over Pace"; }
+              else { tone = "success"; label = "On Budget"; }
+            }
+            const ratioPct = cstate.mtdRevenue > 0 ? (cstate.mtdCost / cstate.mtdRevenue) * 100 : null;
+
+            return (
+              <Card key={`${cardId}-${venueId ?? "all"}`} className="p-5 space-y-4 border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950/80">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <span>{venueName(venueId)}</span>
+                      <span className="text-muted-foreground/50">·</span>
+                      <span className="normal-case tracking-normal">
+                        {new Date(start).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30 normal-case tracking-normal">auto · invoices</span>
+                    </div>
+                    <h3 className="text-base font-semibold truncate">{card.kpi_name}</h3>
+                  </div>
+                  <Badge variant="outline" className={TONE_CLASS[tone]}>{label}</Badge>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <MiniStat label="MTD Spend" value={fmt(cstate.mtdCost, "currency")} />
+                  <MiniStat
+                    label={mode === "ratio_of_revenue" ? "Projected Ceiling" : "Monthly Ceiling"}
+                    value={ceiling !== null ? fmt(ceiling, "currency") : "—"}
+                  />
+                  <MiniStat
+                    label="MTD Pace"
+                    value={mtdCeiling !== null ? fmt(mtdCeiling, "currency") : "—"}
+                    tone={mtdCeiling !== null && cstate.mtdCost > mtdCeiling ? "warn" : "neutral"}
+                  />
+                  <MiniStat label="MTD Revenue" value={fmt(cstate.mtdRevenue, "currency")} />
+                  <MiniStat
+                    label="Cost Ratio"
+                    value={ratioPct !== null ? `${ratioPct.toFixed(1)}%` : "—"}
+                  />
+                  <MiniStat
+                    label={`Daily Budget (${daysLeft}d left)`}
+                    value={dailyBudgetRemaining !== null ? fmt(dailyBudgetRemaining, "currency") : "—"}
+                  />
+                </div>
+
+                {!monthlyT && (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
+                    No monthly target set. Add one in <strong>KPI Targets</strong> (period = Month).
+                  </div>
+                )}
+                {monthlyT && mode === "ratio_of_revenue" && (
+                  <div className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-[11px] text-muted-foreground">
+                    Target: keep cost ≤ <span className="font-mono text-foreground">{monthlyT.target_value}%</span> of revenue.
+                    Ceiling re-projects daily from MTD revenue trend.
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Day {dayOfMonth} of {daysInMonth}
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => loadCostFor(cardId, venueId, card.kpi_type as CostKpiType)}>
+                    <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+                  </Button>
+                </div>
+              </Card>
+            );
+          }
+
           const dayTargets = cardTargets.filter(t => t.target_period === "day");
           const dowBaselines: DowBaselines = {};
           let defaultBaseline = 0;
