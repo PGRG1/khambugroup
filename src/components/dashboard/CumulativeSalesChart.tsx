@@ -159,6 +159,12 @@ export default function CumulativeSalesChart({ data }: Props) {
 
     const rows: Record<string, number | string | undefined>[] = [];
 
+    // Anchor all lines at day 0 with cumulative 0
+    const zeroRow: Record<string, number | string | undefined> = { day: 0 };
+    sortedMonths.forEach((mk) => { zeroRow[mk] = 0; });
+    rows.push(zeroRow);
+
+
     for (let d = 1; d <= maxDay; d++) {
       const row: Record<string, number | string | undefined> = { day: d };
       sortedMonths.forEach((mk) => {
@@ -208,6 +214,9 @@ export default function CumulativeSalesChart({ data }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
               <XAxis
                 dataKey="day"
+                type="number"
+                domain={[0, 31]}
+                ticks={[0, 5, 10, 15, 20, 25, 30]}
                 tick={axisStyle}
                 label={{ value: "Day of Month", position: "insideBottom", offset: -2, style: { fontSize: 10, fill: "hsl(25, 10%, 50%)" } }}
               />
