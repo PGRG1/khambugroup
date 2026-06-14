@@ -15,7 +15,7 @@ import Index from "./pages/Index";
 import DataPage from "./pages/DataPage";
 import Notifications from "./pages/Notifications";
 import MyKpis from "./pages/kpis/MyKpis";
-import KpiAssignments from "./pages/kpis/KpiAssignments";
+import KpiAssignmentBoard from "./pages/kpis/KpiAssignmentBoard";
 import KpiTargets from "./pages/kpis/KpiTargets";
 
 import ForecastInput from "./pages/ForecastInput";
