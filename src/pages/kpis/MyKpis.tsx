@@ -433,11 +433,101 @@ export default function MyKpis() {
   );
 }
 
-function MiniStat({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "success" | "info" | "warn" | "danger" | "neutral" }) {
+type Tone = "success" | "info" | "warn" | "danger" | "neutral";
+
+function CleanCard(props: {
+  venue: string;
+  title: string;
+  periodLabel: string;
+  autoLabel?: string;
+  statusTone: Tone | string;
+  statusLabel: string;
+  heroLabel: string;
+  heroValue: string;
+  heroSub?: string;
+  progressPct: number;
+  progressColor: string;
+  rows: { label: string; value: string; highlight?: boolean }[];
+  notice?: { tone: Tone; text: string } | null;
+  footerLeft: string;
+  footerAction: React.ReactNode;
+}) {
+  const tone = (props.statusTone as Tone) ?? "neutral";
+  const pillClass: Record<Tone, string> = {
+    success: "bg-emerald-500/10 text-emerald-300 ring-emerald-500/25",
+    info: "bg-sky-500/10 text-sky-300 ring-sky-500/25",
+    warn: "bg-amber-500/10 text-amber-300 ring-amber-500/25",
+    danger: "bg-rose-500/10 text-rose-300 ring-rose-500/25",
+    neutral: "bg-zinc-500/10 text-zinc-300 ring-zinc-500/25",
+  };
+  const noticeClass: Record<Tone, string> = {
+    success: "bg-emerald-500/[0.06] text-emerald-300/90",
+    info: "bg-sky-500/[0.06] text-sky-300/90",
+    warn: "bg-amber-500/[0.06] text-amber-300/90",
+    danger: "bg-rose-500/[0.06] text-rose-300/90",
+    neutral: "bg-zinc-500/[0.06] text-zinc-300/90",
+  };
   return (
-    <div className={`rounded border px-2 py-1.5 ${TONE_CLASS[tone]}`}>
-      <div className="text-[9px] uppercase tracking-wider opacity-80">{label}</div>
-      <div className="text-sm font-mono mt-0.5">{value}</div>
+    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 overflow-hidden shadow-sm">
+      <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 flex items-center gap-1.5 truncate">
+            <span className="truncate">{props.venue}</span>
+            <span className="text-zinc-700">·</span>
+            <span className="normal-case tracking-normal truncate">{props.periodLabel}</span>
+            {props.autoLabel && (
+              <span className="ml-1 px-1.5 py-[1px] rounded-full text-[9px] bg-sky-500/10 text-sky-300/90 ring-1 ring-sky-500/20 normal-case tracking-normal">
+                {props.autoLabel}
+              </span>
+            )}
+          </div>
+          <h3 className="mt-1 text-[15px] font-semibold text-zinc-100 truncate font-display">{props.title}</h3>
+        </div>
+        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ring-1 ${pillClass[tone] ?? pillClass.neutral}`}>
+          {props.statusLabel}
+        </span>
+      </div>
+
+      <div className="px-5 pb-4">
+        <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{props.heroLabel}</div>
+        <div className="mt-1 flex items-baseline gap-2">
+          <span className="text-3xl font-bold tracking-tight text-zinc-50 font-mono">{props.heroValue}</span>
+        </div>
+        {props.heroSub && (
+          <div className="mt-0.5 text-xs text-zinc-500">{props.heroSub}</div>
+        )}
+        <div className="mt-3 h-1.5 w-full bg-zinc-800/80 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${props.progressColor}`}
+            style={{ width: `${Math.max(2, Math.min(100, props.progressPct))}%` }}
+          />
+        </div>
+      </div>
+
+      {props.rows.length > 0 && (
+        <div className="px-5 pb-4 grid grid-cols-2 gap-x-6 gap-y-3">
+          {props.rows.map((r, i) => (
+            <div key={i} className="min-w-0">
+              <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 truncate">{r.label}</div>
+              <div className={`mt-0.5 text-sm font-mono truncate ${r.highlight ? "text-amber-300" : "text-zinc-200"}`}>{r.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {props.notice && (
+        <div className={`mx-5 mb-4 rounded-lg px-3 py-2 text-[11px] ${noticeClass[props.notice.tone]}`}>
+          {props.notice.text}
+        </div>
+      )}
+
+      <div className="px-5 py-3 bg-zinc-900/40 border-t border-zinc-800/60 flex items-center justify-between">
+        <div className="text-[11px] text-zinc-500 flex items-center gap-1.5">
+          <Clock className="h-3 w-3" />
+          {props.footerLeft}
+        </div>
+        {props.footerAction}
+      </div>
     </div>
   );
 }
