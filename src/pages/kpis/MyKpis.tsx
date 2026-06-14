@@ -149,6 +149,30 @@ export default function MyKpis() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tiles.length, cards.length, monthBounds.start]);
 
+  // ---- Cost actuals cache: per (cardId, venueId) → { mtdCost, mtdRevenue } ----
+  const [costMap, setCostMap] = useState<Record<string, { mtdCost: number; mtdRevenue: number }>>({});
+  const loadCostFor = async (cardId: string, venueId: string | null, kpiType: CostKpiType) => {
+    const vName = venueId ? venues.find(v => v.id === venueId)?.name ?? null : null;
+    const today = todayStr();
+    const cat = costCategoryFor(kpiType);
+    try {
+      const [mtdCost, mtdRevenue] = await Promise.all([
+        computeMonthlyCostActual(cat, vName, monthBounds.start, today),
+        computeMonthlyRevenue(vName, monthBounds.start, today),
+      ]);
+      setCostMap(m => ({ ...m, [`${cardId}__${venueId ?? ""}`]: { mtdCost, mtdRevenue } }));
+    } catch {}
+  };
+  useEffect(() => {
+    if (!tiles.length || !cards.length) return;
+    tiles.forEach(({ cardId, venueId }) => {
+      const card = cardById(cardId);
+      if (!card || !isCostKpiType(card.kpi_type)) return;
+      loadCostFor(cardId, venueId, card.kpi_type as CostKpiType);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiles.length, cards.length, monthBounds.start]);
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <header>
