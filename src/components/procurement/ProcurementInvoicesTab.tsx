@@ -1042,6 +1042,7 @@ interface InvoiceKpis {
   underReview: number;
   approved: number;
   exceptions: number;
+  disputed: number;
   duplicates: number;
   totalValue: number;
   pct: (n: number) => string;
