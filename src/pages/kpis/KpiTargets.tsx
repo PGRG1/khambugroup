@@ -33,13 +33,15 @@ export default function KpiTargets() {
   const rows = useMemo(() => {
     const venueId = venueFilter === ALL ? null : venueFilter;
     return activeCards.map(card => {
+      // Cost KPIs (food/beverage/supplies) are always monthly, regardless of the period filter.
+      const effectivePeriod = card.kpi_category === "cost" ? "month" : period;
       const existing = targets.find(t =>
         t.kpi_card_id === card.id &&
         (t.venue_id ?? null) === venueId &&
-        t.target_period === period &&
+        t.target_period === effectivePeriod &&
         t.day_of_week === null
       );
-      return { card, venueId, existing };
+      return { card, venueId, existing, effectivePeriod };
     });
   }, [activeCards, targets, venueFilter, period]);
 
