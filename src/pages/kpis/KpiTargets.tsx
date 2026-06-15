@@ -125,8 +125,8 @@ export default function KpiTargets() {
             {rows.length === 0 && (
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No active KPI cards.</TableCell></TableRow>
             )}
-            {rows.map(({ card, venueId, existing }) => {
-              const key = keyFor(card.id, venueId);
+            {rows.map(({ card, venueId, existing, effectivePeriod }) => {
+              const key = keyFor(card.id, venueId, effectivePeriod);
               const draft = drafts[key];
               const display = draft ?? (existing ? String(existing.target_value) : "");
               const isCost = card.kpi_category === "cost";
