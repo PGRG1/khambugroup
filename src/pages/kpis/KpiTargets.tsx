@@ -33,20 +33,22 @@ export default function KpiTargets() {
   const rows = useMemo(() => {
     const venueId = venueFilter === ALL ? null : venueFilter;
     return activeCards.map(card => {
+      // Cost KPIs (food/beverage/supplies) are always monthly, regardless of the period filter.
+      const effectivePeriod = card.kpi_category === "cost" ? "month" : period;
       const existing = targets.find(t =>
         t.kpi_card_id === card.id &&
         (t.venue_id ?? null) === venueId &&
-        t.target_period === period &&
+        t.target_period === effectivePeriod &&
         t.day_of_week === null
       );
-      return { card, venueId, existing };
+      return { card, venueId, existing, effectivePeriod };
     });
   }, [activeCards, targets, venueFilter, period]);
 
-  const keyFor = (cardId: string, venueId: string | null) => `${cardId}::${venueId ?? "all"}::${period}`;
+  const keyFor = (cardId: string, venueId: string | null, effectivePeriod: string) => `${cardId}::${venueId ?? "all"}::${effectivePeriod}`;
 
-  const saveValue = async (cardId: string, venueId: string | null, raw: string, existing?: KpiTarget) => {
-    const key = keyFor(cardId, venueId);
+  const saveValue = async (cardId: string, venueId: string | null, raw: string, effectivePeriod: string, existing?: KpiTarget) => {
+    const key = keyFor(cardId, venueId, effectivePeriod);
     const value = parseFloat(raw);
     if (raw === "" || !Number.isFinite(value)) {
       toast({ title: "Enter a number", variant: "destructive" });
@@ -60,7 +62,7 @@ export default function KpiTargets() {
         kpi_card_id: cardId,
         venue_id: venueId,
         target_value: value,
-        target_period: period,
+        target_period: effectivePeriod,
         calculation_method: "manual",
         warning_threshold_pct: 10,
         critical_threshold_pct: 20,
@@ -123,8 +125,8 @@ export default function KpiTargets() {
             {rows.length === 0 && (
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No active KPI cards.</TableCell></TableRow>
             )}
-            {rows.map(({ card, venueId, existing }) => {
-              const key = keyFor(card.id, venueId);
+            {rows.map(({ card, venueId, existing, effectivePeriod }) => {
+              const key = keyFor(card.id, venueId, effectivePeriod);
               const draft = drafts[key];
               const display = draft ?? (existing ? String(existing.target_value) : "");
               const isCost = card.kpi_category === "cost";
@@ -150,7 +152,7 @@ export default function KpiTargets() {
                         onBlur={(e) => {
                           const v = e.target.value;
                           if (v === "" || v === (existing ? String(existing.target_value) : "")) return;
-                          saveValue(card.id, venueId, v, existing);
+                          saveValue(card.id, venueId, v, effectivePeriod, existing);
                         }}
                         className="max-w-40 font-mono"
                         disabled={savingKey === key}
