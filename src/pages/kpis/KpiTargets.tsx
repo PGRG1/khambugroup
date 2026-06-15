@@ -45,10 +45,10 @@ export default function KpiTargets() {
     });
   }, [activeCards, targets, venueFilter, period]);
 
-  const keyFor = (cardId: string, venueId: string | null) => `${cardId}::${venueId ?? "all"}::${period}`;
+  const keyFor = (cardId: string, venueId: string | null, effectivePeriod: string) => `${cardId}::${venueId ?? "all"}::${effectivePeriod}`;
 
-  const saveValue = async (cardId: string, venueId: string | null, raw: string, existing?: KpiTarget) => {
-    const key = keyFor(cardId, venueId);
+  const saveValue = async (cardId: string, venueId: string | null, raw: string, effectivePeriod: string, existing?: KpiTarget) => {
+    const key = keyFor(cardId, venueId, effectivePeriod);
     const value = parseFloat(raw);
     if (raw === "" || !Number.isFinite(value)) {
       toast({ title: "Enter a number", variant: "destructive" });
@@ -62,7 +62,7 @@ export default function KpiTargets() {
         kpi_card_id: cardId,
         venue_id: venueId,
         target_value: value,
-        target_period: period,
+        target_period: effectivePeriod,
         calculation_method: "manual",
         warning_threshold_pct: 10,
         critical_threshold_pct: 20,
