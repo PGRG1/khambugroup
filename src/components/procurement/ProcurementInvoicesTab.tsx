@@ -28,13 +28,14 @@ import { runBaniScan } from "@/lib/baniRunScan";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
-const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review"] as const;
+const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review", "Disputed"] as const;
 const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
 
 const REVIEW_BADGE: Record<string, string> = {
   "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
   "Rejected": "bg-red-500/15 text-red-300 border border-red-500/30",
   "Under Review": "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+  "Disputed": "bg-orange-500/15 text-orange-300 border border-orange-500/30",
 };
 
 const EXCEPTION_BADGE: Record<string, string> = {
