@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles } from "lucide-react";
+import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles, MessageSquareWarning } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
@@ -281,13 +281,14 @@ export default function ProcurementInvoicesTab() {
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
     const total = filtered.length;
-    let underReview = 0, approved = 0, exceptions = 0;
+    let underReview = 0, approved = 0, exceptions = 0, disputed = 0;
     let totalValue = 0;
     const dupKey = new Map<string, number>();
     for (const inv of filtered) {
       const rs = inv.review_status || "Under Review";
       if (rs === "Under Review") underReview++;
       if (rs === "Approved") approved++;
+      if (rs === "Disputed") disputed++;
       const en = inv.exception_note || "-";
       if (en !== "-" || rs === "Rejected") exceptions++;
       totalValue += Number(inv.total_amount) || 0;
@@ -297,7 +298,7 @@ export default function ProcurementInvoicesTab() {
     let duplicates = 0;
     for (const v of dupKey.values()) if (v > 1) duplicates += v;
     const pct = (n: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "0%";
-    return { total, underReview, approved, exceptions, duplicates, totalValue, pct };
+    return { total, underReview, approved, exceptions, disputed, duplicates, totalValue, pct };
   }, [filtered]);
 
   const columns = [
@@ -1133,6 +1134,7 @@ function InvoiceTableSection({
     { label: "Under Review", value: kpis.underReview.toLocaleString(), sub: kpis.pct(kpis.underReview), subTone: "text-amber-400", icon: <Clock className="h-4 w-4" />, tone: "text-amber-400" },
     { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
     { label: "Exceptions", value: kpis.exceptions.toLocaleString(), sub: kpis.pct(kpis.exceptions), subTone: "text-red-400", icon: <AlertTriangle className="h-4 w-4" />, tone: "text-red-400" },
+    { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-orange-400", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-orange-400" },
     { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-violet-400", icon: <CopyIcon className="h-4 w-4" />, tone: "text-violet-400" },
     { label: "Total Value", value: `$${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
   ];
@@ -1143,7 +1145,7 @@ function InvoiceTableSection({
         <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Invoices Database</h2>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3">
         {kpiCards.map((k) => (
           <div key={k.label} className="card-glass rounded-lg p-3 flex items-start justify-between gap-2">
             <div className="min-w-0">
