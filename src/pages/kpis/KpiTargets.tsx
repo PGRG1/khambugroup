@@ -152,7 +152,7 @@ export default function KpiTargets() {
                         onBlur={(e) => {
                           const v = e.target.value;
                           if (v === "" || v === (existing ? String(existing.target_value) : "")) return;
-                          saveValue(card.id, venueId, v, existing);
+                          saveValue(card.id, venueId, v, effectivePeriod, existing);
                         }}
                         className="max-w-40 font-mono"
                         disabled={savingKey === key}
