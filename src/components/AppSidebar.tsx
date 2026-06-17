@@ -96,14 +96,14 @@ const kpiAdminItems = [
 
 const STORAGE_KEY = "khambu.sidebar.groups";
 
-type GroupKey = "revenue" | "kpi" | "finance" | "procurement" | "hr" | "admin";
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "hr" | "admin";
 
 function loadGroupState(): Record<GroupKey, boolean> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { revenue: false, kpi: false, finance: false, procurement: false, hr: false, admin: false };
+  return { revenue: false, kpi: false, finance: false, expenses: false, procurement: false, hr: false, admin: false };
 }
 
 function CollapsibleNavGroup({
@@ -160,6 +160,7 @@ export function AppSidebar() {
     revenue: false,
     kpi: false,
     finance: false,
+    expenses: false,
     procurement: false,
     hr: false,
     admin: false,
