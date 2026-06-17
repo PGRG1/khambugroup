@@ -1102,6 +1102,395 @@ export type Database = {
           },
         ]
       }
+      expense_bill_allocations: {
+        Row: {
+          account_id: string | null
+          amount: number
+          bill_id: string
+          created_at: string
+          department: string | null
+          expense_category: string | null
+          id: string
+          line_no: number
+          notes: string | null
+          tax_amount: number
+          tax_treatment: string
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          amount?: number
+          bill_id: string
+          created_at?: string
+          department?: string | null
+          expense_category?: string | null
+          id?: string
+          line_no?: number
+          notes?: string | null
+          tax_amount?: number
+          tax_treatment?: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          bill_id?: string
+          created_at?: string
+          department?: string | null
+          expense_category?: string | null
+          id?: string
+          line_no?: number
+          notes?: string | null
+          tax_amount?: number
+          tax_treatment?: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_bill_allocations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_allocations_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_bill_audit: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          bill_id: string
+          created_at: string
+          details: Json | null
+          event_type: string
+          id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          bill_id: string
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          id?: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          bill_id?: string
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_bill_audit_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_bill_links: {
+        Row: {
+          child_bill_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          link_type: string
+          notes: string | null
+          parent_bill_id: string
+        }
+        Insert: {
+          child_bill_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link_type?: string
+          notes?: string | null
+          parent_bill_id: string
+        }
+        Update: {
+          child_bill_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link_type?: string
+          notes?: string | null
+          parent_bill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_bill_links_child_bill_id_fkey"
+            columns: ["child_bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_links_parent_bill_id_fkey"
+            columns: ["parent_bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_bill_payments: {
+        Row: {
+          amount: number
+          bank_account_id: string | null
+          bill_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_account_id?: string | null
+          bill_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          payment_date: string
+          payment_method?: string
+          reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string | null
+          bill_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_bill_payments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_payments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_payments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bill_payments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_bill_payments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+        ]
+      }
+      expense_bills: {
+        Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          attachment_path: string | null
+          attachment_url: string | null
+          bill_date: string
+          bill_number: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          department: string | null
+          document_type: string | null
+          due_date: string | null
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          paid_amount: number
+          payment_status: string
+          posted_at: string | null
+          posted_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          service_period_end: string | null
+          service_period_start: string | null
+          subtotal: number
+          supplier_id: string | null
+          tax_amount: number
+          total_amount: number
+          updated_at: string
+          vendor_name: string | null
+          venue: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          attachment_path?: string | null
+          attachment_url?: string | null
+          bill_date: string
+          bill_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          department?: string | null
+          document_type?: string | null
+          due_date?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          paid_amount?: number
+          payment_status?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_period_end?: string | null
+          service_period_start?: string | null
+          subtotal?: number
+          supplier_id?: string | null
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+          vendor_name?: string | null
+          venue?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          attachment_path?: string | null
+          attachment_url?: string | null
+          bill_date?: string
+          bill_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          department?: string | null
+          document_type?: string | null
+          due_date?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          paid_amount?: number
+          payment_status?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_period_end?: string | null
+          service_period_start?: string | null
+          subtotal?: number
+          supplier_id?: string | null
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+          vendor_name?: string | null
+          venue?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_bills_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bills_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_bills_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_bills_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bills_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           created_at: string
@@ -5300,6 +5689,11 @@ export type Database = {
       is_tenant_member: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
+      }
+      post_expense_bill: { Args: { p_bill_id: string }; Returns: Json }
+      post_expense_bill_payment: {
+        Args: { p_payment_id: string }
+        Returns: Json
       }
       post_payroll_accrual: {
         Args: { p_month: number; p_year: number }
