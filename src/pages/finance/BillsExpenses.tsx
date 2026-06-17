@@ -165,6 +165,48 @@ export default function BillsExpenses() {
     setAllocations((rows) => rows.filter((_, i) => i !== idx));
   };
 
+  const handleScanned = (s: ScannedBill) => {
+    // Try to match supplier by name (case-insensitive)
+    const matched = suppliers.find((sp) => sp.name.toLowerCase() === s.vendor_name.toLowerCase());
+    const ven = venues.find((v) => v.name.toLowerCase() === (s.venue || "").toLowerCase());
+    setEditing(null);
+    setHeader({
+      supplier_id: matched?.id || null,
+      vendor_name: s.vendor_name || null,
+      bill_number: s.bill_number || null,
+      bill_date: s.bill_date || new Date().toISOString().slice(0, 10),
+      due_date: s.due_date || null,
+      service_period_start: s.service_period_start || null,
+      service_period_end: s.service_period_end || null,
+      venue: ven?.name || s.venue || null,
+      venue_id: ven?.id || null,
+      currency: s.currency || "HKD",
+      subtotal: s.subtotal || 0,
+      tax_amount: s.tax_amount || 0,
+      total_amount: s.total_amount || (s.subtotal + s.tax_amount),
+      notes: s.notes || null,
+      attachment_url: s.attachment_url || null,
+      attachment_path: s.attachment_path || null,
+      approval_status: "draft",
+    });
+    setAllocations(
+      (s.allocations.length ? s.allocations : [{ expense_category: "Other Operating Expenses", amount: s.subtotal || s.total_amount, notes: "" }]).map((a, i) => ({
+        line_no: i + 1,
+        expense_category: a.expense_category,
+        account_id: null,
+        venue: ven?.name || s.venue || null,
+        department: null,
+        amount: a.amount,
+        tax_treatment: "none",
+        tax_amount: 0,
+        notes: a.notes || null,
+      }))
+    );
+    setAudit([]);
+    setPayments([]);
+    setEditorOpen(true);
+  };
+
   const allocTotal = allocations.reduce((s, a) => s + Number(a.amount || 0), 0);
   const expectedAllocTotal = Number(header.subtotal || 0) || (Number(header.total_amount || 0) - Number(header.tax_amount || 0));
   const balanced = Math.abs(allocTotal - expectedAllocTotal) < 0.01;
