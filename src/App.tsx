@@ -57,6 +57,15 @@ import HRSchedule from "./pages/hr/HRSchedule";
 import HRLeave from "./pages/hr/HRLeave";
 import HRPayroll from "./pages/hr/HRPayroll";
 
+import ExpensesOverview from "./pages/expenses/Overview";
+import ExpenseBillsPage from "./pages/expenses/ExpenseBills";
+import VendorStatementsPage from "./pages/expenses/VendorStatements";
+import BankDetectedExpensesPage from "./pages/expenses/BankDetectedExpenses";
+import RecurringExpensesPage from "./pages/expenses/RecurringExpenses";
+import ExpenseCategoriesPage from "./pages/expenses/Categories";
+import ExpenseApprovalsPage from "./pages/expenses/Approvals";
+import ExpenseAnalyticsPage from "./pages/expenses/Analytics";
+
 const queryClient = new QueryClient();
 
 const pageKeyMap: Record<string, string> = {
@@ -159,6 +168,15 @@ function App() {
                 <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
                 <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
+
+                <Route path="/expenses" element={<AdminRoute><ExpensesOverview /></AdminRoute>} />
+                <Route path="/expenses/bills" element={<AdminRoute><ExpenseBillsPage /></AdminRoute>} />
+                <Route path="/expenses/statements" element={<AdminRoute><VendorStatementsPage /></AdminRoute>} />
+                <Route path="/expenses/bank-detected" element={<AdminRoute><BankDetectedExpensesPage /></AdminRoute>} />
+                <Route path="/expenses/recurring" element={<AdminRoute><RecurringExpensesPage /></AdminRoute>} />
+                <Route path="/expenses/categories" element={<AdminRoute><ExpenseCategoriesPage /></AdminRoute>} />
+                <Route path="/expenses/approvals" element={<AdminRoute><ExpenseApprovalsPage /></AdminRoute>} />
+                <Route path="/expenses/analytics" element={<AdminRoute><ExpenseAnalyticsPage /></AdminRoute>} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
                 <Route path="/kpis/my-cards" element={<ProtectedRoute pageKey="kpis"><MyKpis /></ProtectedRoute>} />
