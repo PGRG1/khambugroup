@@ -48,6 +48,7 @@ import FinanceDashboard from "./pages/finance/Dashboard";
 import BankReconciliation from "./pages/finance/BankReconciliation";
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
+import BillsExpenses from "./pages/finance/BillsExpenses";
 import PaymentsSettlements from "./pages/finance/PaymentsSettlements";
 
 import HREmployees from "./pages/hr/HREmployees";
