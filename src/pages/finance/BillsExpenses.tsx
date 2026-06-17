@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, FileText, Search, Eye, ExternalLink } from "lucide-react";
+import { Plus, Trash2, FileText, Search, Eye, ExternalLink, ScanLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import BillScanner, { ScannedBill } from "@/components/finance/bills/BillScanner";
 import {
   useExpenseBills,
   ExpenseBill,
