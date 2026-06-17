@@ -178,9 +178,11 @@ export function AppSidebar() {
   }, []);
 
   const visibleItems = navItems.filter(item => {
+    if (item.pageKey === "home") return true;
     if (isAdmin && !isPreviewActive) return true;
     return showInSidebar(item.pageKey);
   });
+
 
   const visibleRevenueItems = revenueItems.filter(item => {
     if (isAdmin && !isPreviewActive) return true;
