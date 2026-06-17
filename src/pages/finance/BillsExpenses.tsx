@@ -1,0 +1,614 @@
+import { useEffect, useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Plus, Trash2, FileText, Search, Eye, ExternalLink } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  useExpenseBills,
+  ExpenseBill,
+  ExpenseBillAllocation,
+  ExpenseBillAuditRow,
+  ExpenseBillPayment,
+  BillApprovalStatus,
+} from "@/hooks/useExpenseBills";
+import { useAuth } from "@/hooks/useAuth";
+
+const fmt = (n: number) =>
+  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const APPROVAL_COLORS: Record<string, string> = {
+  draft: "bg-muted text-muted-foreground",
+  pending_review: "bg-yellow-100 text-yellow-800 border-yellow-300",
+  approved: "bg-blue-100 text-blue-800 border-blue-300",
+  rejected: "bg-red-100 text-red-800 border-red-300",
+  posted: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  void: "bg-zinc-200 text-zinc-700 line-through",
+};
+
+const PAYMENT_COLORS: Record<string, string> = {
+  unpaid: "bg-orange-100 text-orange-800 border-orange-300",
+  partial: "bg-blue-100 text-blue-800 border-blue-300",
+  paid: "bg-green-100 text-green-800 border-green-300",
+};
+
+interface Supplier { id: string; name: string }
+interface Account { id: string; code: string; name: string; account_type?: string }
+interface Venue { id: string; name: string }
+interface BankAccount { id: string; account_name: string }
+
+export default function BillsExpenses() {
+  const { isAdmin } = useAuth();
+  const { bills, loading, refresh, saveBill, setStatus, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState<ExpenseBill | null>(null);
+  const [header, setHeader] = useState<Partial<ExpenseBill>>({});
+  const [allocations, setAllocations] = useState<ExpenseBillAllocation[]>([]);
+  const [audit, setAudit] = useState<ExpenseBillAuditRow[]>([]);
+  const [payments, setPayments] = useState<ExpenseBillPayment[]>([]);
+
+  const [payDialogOpen, setPayDialogOpen] = useState(false);
+  const [payForm, setPayForm] = useState<{ amount: string; payment_date: string; payment_method: string; bank_account_id: string; reference: string }>({
+    amount: "",
+    payment_date: new Date().toISOString().slice(0, 10),
+    payment_method: "bank_transfer",
+    bank_account_id: "",
+    reference: "",
+  });
+
+  useEffect(() => {
+    (async () => {
+      const [s, a, v, b] = await Promise.all([
+        supabase.from("suppliers").select("id,name").order("name"),
+        supabase.from("chart_of_accounts").select("id,code,name,account_type").order("code"),
+        supabase.from("venues").select("id,name").order("name"),
+        supabase.from("bank_accounts").select("id,account_name").order("account_name"),
+      ]);
+      setSuppliers((s.data || []) as Supplier[]);
+      setAccounts((a.data || []) as Account[]);
+      setVenues((v.data || []) as Venue[]);
+      setBankAccounts((b.data || []) as BankAccount[]);
+    })();
+  }, []);
+
+  const supplierName = (id: string | null) =>
+    suppliers.find((s) => s.id === id)?.name || "—";
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return bills.filter((b) => {
+      if (statusFilter !== "all" && b.approval_status !== statusFilter) return false;
+      if (paymentFilter !== "all" && b.payment_status !== paymentFilter) return false;
+      if (!q) return true;
+      const v = supplierName(b.supplier_id) + " " + (b.vendor_name || "") + " " + (b.bill_number || "") + " " + (b.notes || "");
+      return v.toLowerCase().includes(q);
+    });
+  }, [bills, search, statusFilter, paymentFilter, suppliers]);
+
+  // KPIs
+  const kpis = useMemo(() => {
+    const today = new Date();
+    const in7 = new Date(today.getTime() + 7 * 86400000);
+    let outstanding = 0, overdue = 0, dueSoon = 0, postedMtd = 0;
+    const mtd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    bills.forEach((b) => {
+      const owed = b.total_amount - b.paid_amount;
+      if (b.payment_status !== "paid" && b.approval_status !== "void") {
+        outstanding += owed;
+        if (b.due_date) {
+          const d = new Date(b.due_date);
+          if (d < today) overdue += owed;
+          else if (d <= in7) dueSoon += owed;
+        }
+      }
+      if (b.approval_status === "posted" && (b.posted_at || b.bill_date).startsWith(mtd)) postedMtd += b.total_amount;
+    });
+    return { outstanding, overdue, dueSoon, postedMtd };
+  }, [bills]);
+
+  const openEditor = async (bill: ExpenseBill | null) => {
+    setEditing(bill);
+    if (bill) {
+      setHeader({ ...bill });
+      const [allocs, aud, pay] = await Promise.all([
+        fetchAllocations(bill.id),
+        fetchAudit(bill.id),
+        fetchPayments(bill.id),
+      ]);
+      setAllocations(allocs.length ? allocs : []);
+      setAudit(aud);
+      setPayments(pay);
+    } else {
+      setHeader({
+        bill_date: new Date().toISOString().slice(0, 10),
+        currency: "HKD",
+        subtotal: 0,
+        tax_amount: 0,
+        total_amount: 0,
+        approval_status: "draft",
+      });
+      setAllocations([{ line_no: 1, expense_category: "", account_id: null, venue: null, department: null, amount: 0, tax_treatment: "none", tax_amount: 0, notes: null }]);
+      setAudit([]);
+      setPayments([]);
+    }
+    setEditorOpen(true);
+  };
+
+  const addAllocation = () => {
+    setAllocations((rows) => [...rows, { line_no: rows.length + 1, expense_category: "", account_id: null, venue: header.venue || null, department: header.department || null, amount: 0, tax_treatment: "none", tax_amount: 0, notes: null }]);
+  };
+
+  const updateAlloc = (idx: number, patch: Partial<ExpenseBillAllocation>) => {
+    setAllocations((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+
+  const removeAlloc = (idx: number) => {
+    setAllocations((rows) => rows.filter((_, i) => i !== idx));
+  };
+
+  const allocTotal = allocations.reduce((s, a) => s + Number(a.amount || 0), 0);
+  const expectedAllocTotal = Number(header.subtotal || 0) || (Number(header.total_amount || 0) - Number(header.tax_amount || 0));
+  const balanced = Math.abs(allocTotal - expectedAllocTotal) < 0.01;
+
+  const handleSave = async (newStatus?: BillApprovalStatus) => {
+    const payload: Partial<ExpenseBill> = { ...header };
+    if (newStatus) payload.approval_status = newStatus;
+    const id = await saveBill(payload, allocations);
+    if (id && !editing) {
+      setEditorOpen(false);
+    } else if (id) {
+      const [aud, pay] = await Promise.all([fetchAudit(id), fetchPayments(id)]);
+      setAudit(aud);
+      setPayments(pay);
+    }
+  };
+
+  const handlePost = async () => {
+    if (!editing) return;
+    if (!balanced) return;
+    const ok = await postBill(editing.id);
+    if (ok) {
+      const aud = await fetchAudit(editing.id);
+      setAudit(aud);
+      setEditing({ ...editing, approval_status: "posted" });
+      setHeader((h) => ({ ...h, approval_status: "posted" }));
+    }
+  };
+
+  const handleRecordPayment = async () => {
+    if (!editing) return;
+    const amt = parseFloat(payForm.amount);
+    if (!amt || amt <= 0) return;
+    const ok = await recordPayment({
+      bill_id: editing.id,
+      payment_date: payForm.payment_date,
+      amount: amt,
+      payment_method: payForm.payment_method,
+      bank_account_id: payForm.bank_account_id || null,
+      reference: payForm.reference || null,
+      notes: null,
+    });
+    if (ok) {
+      setPayDialogOpen(false);
+      setPayForm({ ...payForm, amount: "", reference: "" });
+      const [aud, pay] = await Promise.all([fetchAudit(editing.id), fetchPayments(editing.id)]);
+      setAudit(aud);
+      setPayments(pay);
+    }
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Bills & Expenses</h1>
+          <p className="text-sm text-muted-foreground">
+            Non-inventory supplier bills — utilities, rent, services, professional fees, late charges.
+          </p>
+        </div>
+        <Button onClick={() => openEditor(null)}>
+          <Plus className="h-4 w-4 mr-2" /> New Bill
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Total Outstanding</div>
+          <div className="text-xl font-semibold mt-1">{fmt(kpis.outstanding)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Overdue</div>
+          <div className="text-xl font-semibold mt-1 text-red-600">{fmt(kpis.overdue)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Due in 7 Days</div>
+          <div className="text-xl font-semibold mt-1 text-amber-600">{fmt(kpis.dueSoon)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Posted MTD</div>
+          <div className="text-xl font-semibold mt-1">{fmt(kpis.postedMtd)}</div>
+        </Card>
+      </div>
+
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-3 mb-4">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search vendor, bill #, notes…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Approval status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All approval</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="pending_review">Pending review</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="posted">Posted</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="void">Void</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+            <SelectTrigger className="w-40"><SelectValue placeholder="Payment" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All payment</SelectItem>
+              <SelectItem value="unpaid">Unpaid</SelectItem>
+              <SelectItem value="partial">Partial</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Bill #</TableHead>
+                <TableHead>Bill date</TableHead>
+                <TableHead>Due</TableHead>
+                <TableHead>Venue</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Paid</TableHead>
+                <TableHead>Approval</TableHead>
+                <TableHead>Payment</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading && (
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
+              )}
+              {!loading && filtered.length === 0 && (
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No bills yet. Click "New Bill" to add one.</TableCell></TableRow>
+              )}
+              {filtered.map((b) => (
+                <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openEditor(b)}>
+                  <TableCell>{supplierName(b.supplier_id) !== "—" ? supplierName(b.supplier_id) : b.vendor_name || "—"}</TableCell>
+                  <TableCell>{b.bill_number || "—"}</TableCell>
+                  <TableCell>{b.bill_date}</TableCell>
+                  <TableCell>{b.due_date || "—"}</TableCell>
+                  <TableCell>{b.venue || "—"}</TableCell>
+                  <TableCell>{b.department || "—"}</TableCell>
+                  <TableCell className="text-right font-mono">{fmt(b.total_amount)}</TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground">{fmt(b.paid_amount)}</TableCell>
+                  <TableCell><Badge variant="outline" className={APPROVAL_COLORS[b.approval_status]}>{b.approval_status}</Badge></TableCell>
+                  <TableCell><Badge variant="outline" className={PAYMENT_COLORS[b.payment_status]}>{b.payment_status}</Badge></TableCell>
+                  <TableCell><Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
+        <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{editing ? `Bill ${editing.bill_number || ""}` : "New Bill"}</SheetTitle>
+          </SheetHeader>
+
+          <div className="space-y-6 mt-4">
+            {/* Header form */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div>
+                <Label>Vendor</Label>
+                <Select value={header.supplier_id || ""} onValueChange={(v) => setHeader({ ...header, supplier_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
+                  <SelectContent>
+                    {suppliers.filter(s => s.id).map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Vendor name (override)</Label>
+                <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
+              </div>
+              <div>
+                <Label>Bill / Invoice #</Label>
+                <Input value={header.bill_number || ""} onChange={(e) => setHeader({ ...header, bill_number: e.target.value })} />
+              </div>
+              <div>
+                <Label>Bill date</Label>
+                <Input type="date" value={header.bill_date || ""} onChange={(e) => setHeader({ ...header, bill_date: e.target.value })} />
+              </div>
+              <div>
+                <Label>Due date</Label>
+                <Input type="date" value={header.due_date || ""} onChange={(e) => setHeader({ ...header, due_date: e.target.value })} />
+              </div>
+              <div>
+                <Label>Currency</Label>
+                <Input value={header.currency || "HKD"} onChange={(e) => setHeader({ ...header, currency: e.target.value })} />
+              </div>
+              <div>
+                <Label>Service period start</Label>
+                <Input type="date" value={header.service_period_start || ""} onChange={(e) => setHeader({ ...header, service_period_start: e.target.value })} />
+              </div>
+              <div>
+                <Label>Service period end</Label>
+                <Input type="date" value={header.service_period_end || ""} onChange={(e) => setHeader({ ...header, service_period_end: e.target.value })} />
+              </div>
+              <div>
+                <Label>Venue / Outlet</Label>
+                <Select value={header.venue || ""} onValueChange={(v) => {
+                  const ven = venues.find(x => x.name === v);
+                  setHeader({ ...header, venue: v, venue_id: ven?.id || null });
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    {venues.filter(v => v.name).map((v) => (<SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Department</Label>
+                <Input value={header.department || ""} onChange={(e) => setHeader({ ...header, department: e.target.value })} />
+              </div>
+              <div>
+                <Label>Subtotal</Label>
+                <Input type="number" step="0.01" value={header.subtotal ?? 0} onChange={(e) => {
+                  const sub = parseFloat(e.target.value) || 0;
+                  const tax = Number(header.tax_amount || 0);
+                  setHeader({ ...header, subtotal: sub, total_amount: sub + tax });
+                }} />
+              </div>
+              <div>
+                <Label>Tax amount</Label>
+                <Input type="number" step="0.01" value={header.tax_amount ?? 0} onChange={(e) => {
+                  const tax = parseFloat(e.target.value) || 0;
+                  const sub = Number(header.subtotal || 0);
+                  setHeader({ ...header, tax_amount: tax, total_amount: sub + tax });
+                }} />
+              </div>
+              <div>
+                <Label>Total amount</Label>
+                <Input type="number" step="0.01" value={header.total_amount ?? 0} onChange={(e) => setHeader({ ...header, total_amount: parseFloat(e.target.value) || 0 })} />
+              </div>
+            </div>
+
+            <div>
+              <Label>Notes</Label>
+              <Textarea value={header.notes || ""} onChange={(e) => setHeader({ ...header, notes: e.target.value })} rows={2} />
+            </div>
+
+            {header.attachment_url && (
+              <div className="text-sm">
+                <a href={header.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                  <ExternalLink className="h-3 w-3" /> View attachment
+                </a>
+              </div>
+            )}
+
+            {/* Allocations */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium">Expense Allocation</h3>
+                <Button size="sm" variant="outline" onClick={addAllocation}><Plus className="h-3 w-3 mr-1" /> Add row</Button>
+              </div>
+              <div className="border rounded-md overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-44">Category</TableHead>
+                      <TableHead className="w-56">Account</TableHead>
+                      <TableHead className="w-32">Venue</TableHead>
+                      <TableHead className="w-32">Department</TableHead>
+                      <TableHead className="w-28 text-right">Amount</TableHead>
+                      <TableHead className="w-28">Tax</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allocations.map((a, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          <Input value={a.expense_category || ""} onChange={(e) => updateAlloc(idx, { expense_category: e.target.value })} placeholder="e.g. Utilities" />
+                        </TableCell>
+                        <TableCell>
+                          <Select value={a.account_id || ""} onValueChange={(v) => updateAlloc(idx, { account_id: v })}>
+                            <SelectTrigger><SelectValue placeholder="GL account" /></SelectTrigger>
+                            <SelectContent>
+                              {accounts.filter(ac => ac.id).map((ac) => (
+                                <SelectItem key={ac.id} value={ac.id}>{ac.code} — {ac.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Select value={a.venue || ""} onValueChange={(v) => updateAlloc(idx, { venue: v })}>
+                            <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                            <SelectContent>
+                              {venues.filter(v => v.name).map(v => (<SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input value={a.department || ""} onChange={(e) => updateAlloc(idx, { department: e.target.value })} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input type="number" step="0.01" value={a.amount} onChange={(e) => updateAlloc(idx, { amount: parseFloat(e.target.value) || 0 })} className="text-right font-mono" />
+                        </TableCell>
+                        <TableCell>
+                          <Select value={a.tax_treatment} onValueChange={(v: any) => updateAlloc(idx, { tax_treatment: v })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="inclusive">Inclusive</SelectItem>
+                              <SelectItem value="exclusive">Exclusive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input value={a.notes || ""} onChange={(e) => updateAlloc(idx, { notes: e.target.value })} placeholder="Optional" />
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" onClick={() => removeAlloc(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className={`mt-2 flex justify-end text-sm font-mono ${balanced ? "text-emerald-600" : "text-red-600"}`}>
+                Allocation total: {fmt(allocTotal)} / Expected: {fmt(expectedAllocTotal)}
+                {!balanced && <span className="ml-2">⚠ unbalanced</span>}
+              </div>
+            </div>
+
+            {/* Payments */}
+            {editing && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium">Payments</h3>
+                  {editing.approval_status === "posted" && editing.payment_status !== "paid" && isAdmin && (
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setPayForm({ ...payForm, amount: String(editing.total_amount - editing.paid_amount) });
+                      setPayDialogOpen(true);
+                    }}>Record Payment</Button>
+                  )}
+                </div>
+                {payments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No payments yet.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow><TableHead>Date</TableHead><TableHead>Method</TableHead><TableHead>Reference</TableHead><TableHead className="text-right">Amount</TableHead></TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map((p) => (
+                        <TableRow key={p.id}><TableCell>{p.payment_date}</TableCell><TableCell>{p.payment_method}</TableCell><TableCell>{p.reference || "—"}</TableCell><TableCell className="text-right font-mono">{fmt(p.amount)}</TableCell></TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+
+            {/* Audit trail */}
+            {editing && audit.length > 0 && (
+              <div>
+                <h3 className="font-medium mb-2">Audit trail</h3>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  {audit.map((row) => (
+                    <div key={row.id} className="flex gap-2">
+                      <span className="font-mono">{new Date(row.created_at).toLocaleString()}</span>
+                      <Badge variant="outline">{row.event_type}</Badge>
+                      <span>{row.actor_name || row.actor_id?.slice(0, 8) || "system"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => handleSave()}>Save Draft</Button>
+              {header.approval_status === "draft" && (
+                <Button variant="outline" onClick={() => handleSave("pending_review")}>Submit for Review</Button>
+              )}
+              {header.approval_status === "pending_review" && isAdmin && (
+                <>
+                  <Button variant="outline" onClick={() => handleSave("approved")}>Approve</Button>
+                  <Button variant="outline" onClick={() => handleSave("rejected")}>Reject</Button>
+                </>
+              )}
+              {(header.approval_status === "approved" || header.approval_status === "pending_review") && isAdmin && editing && (
+                <Button onClick={handlePost} disabled={!balanced}>Approve & Post to GL</Button>
+              )}
+              {editing && editing.approval_status !== "void" && isAdmin && (
+                <Button variant="ghost" className="text-destructive ml-auto" onClick={() => handleSave("void")}>Void</Button>
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Payment dialog */}
+      <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Payment date</Label>
+              <Input type="date" value={payForm.payment_date} onChange={(e) => setPayForm({ ...payForm, payment_date: e.target.value })} />
+            </div>
+            <div>
+              <Label>Amount</Label>
+              <Input type="number" step="0.01" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
+            </div>
+            <div>
+              <Label>Method</Label>
+              <Select value={payForm.payment_method} onValueChange={(v) => setPayForm({ ...payForm, payment_method: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bank_transfer">Bank transfer</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="autopay">Autopay</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {payForm.payment_method !== "cash" && (
+              <div>
+                <Label>Bank account</Label>
+                <Select value={payForm.bank_account_id} onValueChange={(v) => setPayForm({ ...payForm, bank_account_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts.filter(b => b.id).map((b) => (<SelectItem key={b.id} value={b.id}>{b.account_name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label>Reference</Label>
+              <Input value={payForm.reference} onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleRecordPayment}>Record</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
