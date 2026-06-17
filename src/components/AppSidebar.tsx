@@ -33,6 +33,7 @@ const financeItems = [
   { title: "Overview", url: "/finance/dashboard", icon: LayoutDashboard },
   { title: "Document Centre", url: "/finance/document-centre", icon: FolderOpen },
   { title: "Documents & Bills", url: "/finance/documents-bills", icon: FileStack },
+  { title: "Bills & Expenses", url: "/finance/bills-expenses", icon: Receipt },
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
   { title: "Payments & Settlements", url: "/finance/payments-settlements", icon: TrendingUp },

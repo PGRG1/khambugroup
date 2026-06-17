@@ -1,100 +1,91 @@
-## What is actually broken
+## Goal
 
-The journal rebuild is now failing at the sales-payment stage with:
+Add a dedicated **Bills & Expenses** workflow under Finance for non-inventory supplier bills (utilities, rent, licenses, professional fees, late charges, etc.), keep Procurement focused on stock/inventory purchases, and auto-post GL entries on approval. No changes to the existing procurement table behaviour.
 
-```text
-could not identify column "visa" in record data type
-```
+## 1. New data model (migration)
 
-This is not because `visa` is missing from `sales_records` or `sales_data`; both have the column. The problem is inside `public.rebuild_journal_from_operations()`.
+New tables:
 
-The current live function dynamically runs a statement like:
+- `expense_bills` — header
+  - vendor (supplier_id FK to `suppliers`), bill_number, bill_date, due_date, service_period_start, service_period_end, venue_id/venue, department, currency (default HKD), subtotal, tax_amount, total_amount, payment_status (`unpaid|partial|paid`), approval_status (`draft|pending_review|approved|rejected|posted|void`), notes, attachment_url, attachment_path, created_by, reviewed_by, approved_by, posted_by, posted_at, journal_entry_id, paid_amount
+- `expense_bill_allocations` — child rows
+  - bill_id FK, line_no, expense_category_id (FK `accounting_categories` or new `expense_categories` lookup), account_id FK `chart_of_accounts`, venue, department, amount, tax_treatment (`inclusive|exclusive|none`), tax_amount, notes
+- `expense_bill_audit` — append-only event log (event_type, actor, at, details jsonb) for upload/review/approve/post/pay/void
+- Link table `expense_bill_links` (optional) — `parent_bill_id`, `child_bill_id`, `link_type` (`late_fee|credit_note|correction`) so a separately-issued late-fee bill can reference the original.
 
-```sql
-EXECUTE format('SELECT $1.%I', v_method) INTO v_amt USING r;
-```
+RLS: authenticated read/write; service_role full. GRANTs included in same migration. `updated_at` triggers. Validation trigger that enforces `SUM(allocations.amount) = bills.subtotal` (or `total_amount - tax_amount`).
 
-where `r` is an anonymous PL/pgSQL `record`. Postgres cannot dynamically resolve fields on an anonymous `record` inside SQL execution, so it throws the `record data type` error. The fix is to remove that dynamic field lookup and use explicit/static field access for each payment method.
+## 2. Auto-posting to GL
 
-## Plan
+Extend `rebuild_journal_from_operations` (or a new RPC `post_expense_bill(bill_id)` called on approval):
 
-1. **Replace the live journal rebuild function with a clean, audited version**
-   - Keep the same RPC name: `public.rebuild_journal_from_operations()`.
-   - Keep the same admin-only permission check.
-   - Keep preserving `manual` and `manually_adjusted` journal entries.
-   - Remove dynamic `EXECUTE ... $1.%I` record access entirely.
-   - Use explicit payment fields: `visa`, `mastercard`, `amex`, `union_pay`, `jcb`, `alipay`, `wechat`, `payme`.
+- On **approve → post**:
+  - For each allocation: `Dr account_id : amount` (venue/department tagged)
+  - Tax line if any: `Dr Tax Input account : tax_amount`
+  - `Cr Accounts Payable : total_amount` (vendor subledger via `source_id = bill_id`)
+- On **payment** (reuse existing `invoice_payments` pattern, but on `expense_bill_payments`):
+  - `Dr AP : amount`, `Cr Bank/Cash : amount`
+- Set `journal_entry_id` on bill; ledger audit log entry.
+- Late-fee allocation rows just map to `Late Payment Charges / Finance Costs` account in the same bill — no special logic needed beyond category choice.
 
-2. **Normalize the sales rebuild section**
-   - Read from the existing `public.sales_data` view, which aliases `sales_records`.
-   - Aggregate by trading date and venue.
-   - Create balanced journal entries for:
-     - cash receipts
-     - card / wallet receipts
-     - sales discounts
-     - subtotal revenue
-     - service charge revenue
-     - card tips payable
-     - suspense line only when required for balancing
+Payables and Payments & Settlements views: extend the existing AP query to UNION `invoices` + `expense_bills` so a single payables list shows both. Bank Reconciliation matches against AP entries unchanged.
 
-3. **Audit every journal source type used by the rebuild**
-   - Ensure `journal_entries.source_type` allows all source types the function creates or deletes, including:
-     - `sales`
-     - `sales_summary`
-     - `invoice`
-     - `invoice_payment`
-     - `settlement_fee`
-     - `settlement_clearing`
-     - `bank_fee`
-     - `bank_txn`
-     - payroll-related types
-     - `manual`, `adjustment`, `opening`
-   - Keep this as a schema constraint fix only; no workflow or auth changes.
+## 3. UI — `/finance/bills-expenses`
 
-4. **Audit the non-sales rebuild sections**
-   - Invoices: verify AP and expense lines balance.
-   - Invoice payments: verify AP debit and cash/bank credit balance.
-   - Payroll accrual/payment/MPF: verify generated entries use allowed source types and skip invalid/missing mapping safely.
-   - Settlement/bank fee sections: verify source types and required accounts are consistent.
+New page `src/pages/finance/BillsExpenses.tsx` plus components in `src/components/finance/bills/`:
 
-5. **Add safer failure handling inside the function**
-   - Use audit log rows for rebuild start/finish/failure where possible.
-   - Avoid deleting protected/manual entries.
-   - Keep the rebuild atomic so failed runs do not leave half-built journal entries.
+- **List view**: high-density table — Vendor, Bill #, Bill date, Due date, Venue, Department, Total, Tax, Payment status, Approval status, Attachment icon. Filters: status, vendor, venue, date range, YYYY-MM. Excel-style column filters. CSV export with UTF-8 BOM.
+- **Bill editor (Sheet/Dialog)** — two panes:
+  - Left: form fields (vendor, bill #, dates, service period, venue, department, currency, total, tax, payment status, notes) + **Allocations table** (add/remove rows; columns: Category, Account, Venue, Department, Amount, Tax treatment, Notes). Live running total vs. bill total with red highlight if mismatch.
+  - Right: attachment preview (reuse `AttachmentViewerDialog` logic).
+  - Action bar: Save Draft · Submit for Review · Approve & Post · Record Payment · Void · "Link as Late Fee to…" (opens picker of prior bills from same vendor).
+- **Audit trail panel** at bottom of editor, reading `expense_bill_audit`.
+- Reuse design primitives: `PageHeader`, `KpiCard`, `StatusBadge`, `@/utils/format`.
 
-6. **Validate after migration**
-   - Confirm the live function no longer contains dynamic `EXECUTE` record-field access.
-   - Confirm `sales_data` exposes every payment column.
-   - Confirm the source type constraint matches the function.
-   - Run a read-only audit query to check generated journal entries balance by entry.
+KPI strip at top of list: Total Outstanding, Overdue, Due in 7 days, Posted MTD.
 
-## Files / areas involved
+## 4. Document routing
 
-- Database function: `public.rebuild_journal_from_operations()`
-- Tables/views involved:
-  - `sales_records`
-  - `sales_data`
-  - `journal_entries`
-  - `journal_lines`
-  - `account_mapping_rules`
-  - `chart_of_accounts`
-  - invoices/payment/payroll/settlement tables used by the rebuild
-- Frontend trigger only, no UI redesign:
-  - `src/hooks/useJournal.ts`
-  - `src/pages/finance/Journal.tsx`
+Extend the upload classifier (currently routes everything through `parse-invoice`). Add a router step in `supabase/functions/parse-invoice/index.ts` (or new `classify-document` function) that returns a `document_type`:
 
-## What will not change
+- `procurement_invoice` — inventory/ingredients/beverages/packaging → existing flow
+- `bill_expense` — utilities, rent, licences, services → create `expense_bills` row
+- `asset_purchase` — equipment → flag for Fixed Asset register (stub for now: route to bills with `financial_treatment='Asset - Fixed Asset'`)
+- `payroll_document` → HR (stub: surface in Document Centre with tag)
+- `bank_payment_document` → Bank Reconciliation upload
+- `manual_journal` → Journal
 
-- No auth changes.
-- No user workflow changes.
-- No table redesign.
-- No frontend redesign.
-- No changes to sales import logic.
+Classification uses AI (existing Gemini path) with prompt listing the six buckets and keyword hints; user can override via dropdown in Document Centre before commit. Document Centre gets a "Route to" picker on each pending document.
 
-<presentation-actions>
-  <presentation-open-history>View History</presentation-open-history>
-</presentation-actions>
+Procurement's invoice scanner stays as-is for inventory bills; on the Document Centre the AI suggestion drives routing.
 
-<presentation-actions>
-<presentation-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</presentation-link>
-</presentation-actions>
+## 5. Sidebar & routes
+
+`src/components/AppSidebar.tsx`: add `{ title: "Bills & Expenses", url: "/finance/bills-expenses", icon: Receipt }` to `financeItems` after "Documents & Bills" (or replace "Documents & Bills" with the new page if user prefers — see open question). `src/App.tsx`: register route. Add page permission key `bills-expenses` to `handle_new_user_access` trigger and `usePagePermissions`.
+
+## 6. Audit trail & permissions
+
+- Every state change writes `expense_bill_audit` (uploaded, reviewed, approved, posted, paid, voided, linked).
+- `usePagePermissions('bills-expenses')` gates view/edit/admin actions.
+- Approval requires `edit`; posting + payment require `admin`.
+
+## 7. Procurement — no breaking changes
+
+- Procurement invoices table, scanner, line items, item master, menu costing, price variance — untouched.
+- Document Centre's "Send to Procurement" stays the default for inventory documents.
+- Existing `invoices` rows are not migrated automatically. Optional admin tool "Reclassify as Expense Bill" can move a single procurement invoice (with confirmation) — out of scope unless requested.
+
+## Technical notes
+
+- New migration creates `expense_bills`, `expense_bill_allocations`, `expense_bill_payments`, `expense_bill_audit`, `expense_bill_links` + GRANTs + RLS + triggers.
+- New RPC `post_expense_bill(p_bill_id uuid)` (SECURITY DEFINER) handles GL posting and audit.
+- New hook `src/hooks/useExpenseBills.ts` (uses `fetchAllRows`).
+- New components under `src/components/finance/bills/`.
+- Payables hook extended to union expense bills.
+- All money formatting via `@/utils/format`; status via `StatusBadge`.
+
+## Open questions (will ask before building)
+
+1. Replace the existing "Documents & Bills" page or keep both?
+2. Should approval require a second user (maker/checker) or single-step?
+3. Default tax treatment for HK (no VAT) — assume `none` unless overridden?

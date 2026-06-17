@@ -48,6 +48,7 @@ import FinanceDashboard from "./pages/finance/Dashboard";
 import BankReconciliation from "./pages/finance/BankReconciliation";
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
+import BillsExpenses from "./pages/finance/BillsExpenses";
 import PaymentsSettlements from "./pages/finance/PaymentsSettlements";
 
 import HREmployees from "./pages/hr/HREmployees";
@@ -134,6 +135,7 @@ function App() {
                 <Route path="/finance/bank-reconciliation" element={<AdminRoute><BankReconciliation /></AdminRoute>} />
                 <Route path="/finance/document-centre" element={<AdminRoute><DocumentCentre /></AdminRoute>} />
                 <Route path="/finance/documents-bills" element={<AdminRoute><DocumentsBills /></AdminRoute>} />
+                <Route path="/finance/bills-expenses" element={<AdminRoute><BillsExpenses /></AdminRoute>} />
                 <Route path="/finance/payments-settlements" element={<AdminRoute><PaymentsSettlements /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
