@@ -51,6 +51,7 @@ export default function BillScanner({ open, onOpenChange, onParsed }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const reset = () => {
     setFiles([]);
@@ -154,30 +155,54 @@ export default function BillScanner({ open, onOpenChange, onParsed }: Props) {
             The AI will extract vendor, dates, totals, and suggest expense allocations.
           </p>
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => inputRef.current?.click()} disabled={scanning}>
-              <Upload className="h-4 w-4 mr-2" /> Choose files
-            </Button>
-            <Button variant="outline" onClick={() => cameraRef.current?.click()} disabled={scanning}>
-              <Camera className="h-4 w-4 mr-2" /> Camera
-            </Button>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
-            />
-            <input
-              ref={cameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
-            />
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!scanning) setDragging(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              setDragging(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              if (scanning) return;
+              handleFiles(e.dataTransfer.files);
+            }}
+            className={`rounded-lg border-2 border-dashed p-4 transition-colors ${
+              dragging ? "border-emerald-500 bg-emerald-500/5" : "border-border bg-muted/20"
+            }`}
+          >
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => inputRef.current?.click()} disabled={scanning}>
+                <Upload className="h-4 w-4 mr-2" /> Choose files
+              </Button>
+              <Button variant="outline" onClick={() => cameraRef.current?.click()} disabled={scanning}>
+                <Camera className="h-4 w-4 mr-2" /> Camera
+              </Button>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              or drag and drop files here (images or PDF, max 15 MB each)
+            </p>
           </div>
+
 
           {files.length > 0 && (
             <div className="grid grid-cols-3 gap-2 max-h-72 overflow-auto">
