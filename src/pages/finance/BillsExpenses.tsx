@@ -64,6 +64,7 @@ export default function BillsExpenses() {
   const [allocations, setAllocations] = useState<ExpenseBillAllocation[]>([]);
   const [audit, setAudit] = useState<ExpenseBillAuditRow[]>([]);
   const [payments, setPayments] = useState<ExpenseBillPayment[]>([]);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [payForm, setPayForm] = useState<{ amount: string; payment_date: string; payment_method: string; bank_account_id: string; reference: string }>({
