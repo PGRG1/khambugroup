@@ -12,6 +12,8 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
 import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
+import Home from "./pages/Home";
+
 import DataPage from "./pages/DataPage";
 import Notifications from "./pages/Notifications";
 import MyKpis from "./pages/kpis/MyKpis";
@@ -120,8 +122,10 @@ function App() {
               <BrowserRouter>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
+                <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+                <Route path="/revenue" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
                 <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
+
                 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
