@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2 } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -19,15 +19,17 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const navItems = [
+  { title: "Home", url: "/", icon: Home, pageKey: "home", end: true },
   { title: "AI Analyst", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
 ];
 
 const revenueItems = [
-  { title: "Overview", url: "/", icon: BarChart3, pageKey: "revenue", end: true },
+  { title: "Overview", url: "/revenue", icon: BarChart3, pageKey: "revenue" },
   { title: "Sales Data", url: "/sales-data", icon: Database, pageKey: "revenue" },
   { title: "Target Tracking", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
 ];
+
 
 const financeItems = [
   { title: "Overview", url: "/finance/dashboard", icon: LayoutDashboard },
@@ -176,9 +178,11 @@ export function AppSidebar() {
   }, []);
 
   const visibleItems = navItems.filter(item => {
+    if (item.pageKey === "home") return true;
     if (isAdmin && !isPreviewActive) return true;
     return showInSidebar(item.pageKey);
   });
+
 
   const visibleRevenueItems = revenueItems.filter(item => {
     if (isAdmin && !isPreviewActive) return true;
