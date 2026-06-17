@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,16 +27,8 @@ import {
   Area,
 } from "recharts";
 import {
-  TrendingUp,
-  Wallet,
-  Receipt,
-  PiggyBank,
-  Users,
-  UtensilsCrossed,
   ArrowRight,
-  AlertTriangle,
   Sparkles,
-  FileText,
   ChevronRight,
   Plus,
   ChevronDown,
@@ -44,7 +36,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useVenues } from "@/hooks/useVenues";
-import { useNavigate } from "react-router-dom";
 
 const fmtMoney = (n: number) =>
   `HK$ ${Math.round(n).toLocaleString("en-HK")}`;
@@ -64,50 +55,49 @@ const fmtTime = (iso: string) => {
   }
 };
 
-type DateRangeKey = "today" | "wtd" | "mtd" | "qtd" | "ytd";
+type CompareKey = "prev_month" | "last_year" | "target";
 
-function getRange(key: DateRangeKey): { from: string; to: string; label: string } {
+const pad = (n: number) => String(n).padStart(2, "0");
+const ymKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+const ymLabel = (key: string) => {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleString("en-HK", {
+    month: "long",
+    year: "numeric",
+  });
+};
+
+function monthRange(ymStr: string, mtdOnly: boolean): { from: string; to: string } {
+  const [y, m] = ymStr.split("-").map(Number);
+  const first = new Date(y, m - 1, 1);
+  const last = new Date(y, m, 0);
   const now = new Date();
-  const to = now.toISOString().slice(0, 10);
-  let from = to;
-  switch (key) {
-    case "today":
-      from = to;
-      break;
-    case "wtd": {
-      const d = new Date(now);
-      const day = d.getDay() || 7;
-      d.setDate(d.getDate() - (day - 1));
-      from = d.toISOString().slice(0, 10);
-      break;
-    }
-    case "mtd":
-      from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-      break;
-    case "qtd": {
-      const q = Math.floor(now.getMonth() / 3) * 3;
-      from = `${now.getFullYear()}-${String(q + 1).padStart(2, "0")}-01`;
-      break;
-    }
-    case "ytd":
-      from = `${now.getFullYear()}-01-01`;
-      break;
-  }
-  return { from, to, label: key.toUpperCase() };
+  const isCurrent = ymKey(now) === ymStr;
+  const to = mtdOnly && isCurrent ? now : last;
+  return {
+    from: `${y}-${pad(m)}-01`,
+    to: `${to.getFullYear()}-${pad(to.getMonth() + 1)}-${pad(to.getDate())}`,
+  };
 }
 
-function previousRange(from: string, to: string): { from: string; to: string } {
-  const f = new Date(from);
-  const t = new Date(to);
-  const days = Math.max(1, Math.round((t.getTime() - f.getTime()) / 86_400_000) + 1);
-  const prevTo = new Date(f);
-  prevTo.setDate(prevTo.getDate() - 1);
-  const prevFrom = new Date(prevTo);
-  prevFrom.setDate(prevFrom.getDate() - (days - 1));
-  return {
-    from: prevFrom.toISOString().slice(0, 10),
-    to: prevTo.toISOString().slice(0, 10),
-  };
+function compareRange(ymStr: string, mtdOnly: boolean, compare: CompareKey) {
+  const [y, m] = ymStr.split("-").map(Number);
+  if (compare === "last_year") {
+    return monthRange(`${y - 1}-${pad(m)}`, mtdOnly);
+  }
+  // prev_month (also used as proxy for "target" baseline)
+  const prevDate = new Date(y, m - 2, 1);
+  return monthRange(ymKey(prevDate), mtdOnly);
+}
+
+function monthOptions(count = 12): string[] {
+  const out: string[] = [];
+  const now = new Date();
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push(ymKey(d));
+  }
+  return out;
 }
 
 // ----- Sparkline -----
@@ -208,7 +198,6 @@ function KpiCard({
   );
 }
 
-// ----- Page -----
 type Priority = {
   id: string;
   title: string;
@@ -222,9 +211,25 @@ export default function Home() {
   const navigate = useNavigate();
   const { venues } = useVenues();
   const [venueId, setVenueId] = useState<string>("all");
-  const [rangeKey, setRangeKey] = useState<DateRangeKey>("mtd");
-  const range = useMemo(() => getRange(rangeKey), [rangeKey]);
-  const prev = useMemo(() => previousRange(range.from, range.to), [range]);
+  const months = useMemo(() => monthOptions(12), []);
+  const [month, setMonth] = useState<string>(months[0]);
+  const [compareKey, setCompareKey] = useState<CompareKey>("prev_month");
+
+  const isCurrentMonth = month === months[0];
+  const range = useMemo(() => {
+    const r = monthRange(month, isCurrentMonth);
+    return { ...r, label: isCurrentMonth ? "MTD" : ymLabel(month) };
+  }, [month, isCurrentMonth]);
+  const prev = useMemo(
+    () => compareRange(month, isCurrentMonth, compareKey),
+    [month, isCurrentMonth, compareKey]
+  );
+  const compareLabel =
+    compareKey === "prev_month"
+      ? "vs prev month"
+      : compareKey === "last_year"
+      ? "vs last year"
+      : "vs target";
 
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<any[]>([]);
@@ -234,22 +239,20 @@ export default function Home() {
   const [pl, setPl] = useState<any[]>([]);
   const [activity, setActivity] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [statements, setStatements] = useState<any[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const last60 = new Date();
-      last60.setDate(last60.getDate() - 60);
-      const last60Str = last60.toISOString().slice(0, 10);
       try {
-        const [salesRows, billsRows, bankRows, coaRes, plRows, auditRes, invRes] = await Promise.all([
+        const [salesRows, billsRows, bankRows, coaRes, plRows, auditRes, invRes, stmtRes] = await Promise.all([
           fetchAllRows("sales_records", "id,date,venue,total_sales,subtotal,service_charge,discounts", {
             col: "date",
             asc: false,
           }).catch(() => []),
           fetchAllRows("expense_bills", "*", { col: "bill_date", asc: false }).catch(() => []),
-          fetchAllRows("bank_transactions", "id,txn_date,amount,direction,description,account_id,classification", {
+          fetchAllRows("bank_transactions", "id,txn_date,amount,direction,description,account_id,classification,expense_posted_bill_id", {
             col: "txn_date",
             asc: false,
           }).catch(() => []),
@@ -267,6 +270,11 @@ export default function Home() {
             .from("invoices")
             .select("id,invoice_number,supplier_name,total_amount,status,invoice_date")
             .order("invoice_date", { ascending: false })
+            .limit(100),
+          supabase
+            .from("expense_vendor_statements" as any)
+            .select("id,vendor_name,status,statement_date,closing_balance")
+            .order("statement_date", { ascending: false })
             .limit(50),
         ]);
         if (cancelled) return;
@@ -277,6 +285,7 @@ export default function Home() {
         setPl(plRows as any[]);
         setActivity(((auditRes.data as any[]) || []) as any[]);
         setInvoices(((invRes.data as any[]) || []) as any[]);
+        setStatements(((stmtRes.data as any[]) || []) as any[]);
       } catch (e) {
         console.error("Home load error", e);
       } finally {
@@ -288,13 +297,11 @@ export default function Home() {
     };
   }, []);
 
-  // ----- Sales / Revenue
-  const venueFilter = (v: string | null | undefined) =>
-    venueId === "all" || (v && v.toLowerCase() === venueNameOf(venueId).toLowerCase());
-
   function venueNameOf(id: string) {
     return venues.find((v) => v.id === id)?.name || "";
   }
+  const venueFilter = (v: string | null | undefined) =>
+    venueId === "all" || (v && v.toLowerCase() === venueNameOf(venueId).toLowerCase());
 
   const salesInRange = useMemo(
     () =>
@@ -314,25 +321,30 @@ export default function Home() {
   const revenueCurrent = salesInRange.reduce((a, s) => a + (Number(s.total_sales) || 0), 0);
   const revenuePrev = salesPrev.reduce((a, s) => a + (Number(s.total_sales) || 0), 0);
   const revenueDelta = revenuePrev ? ((revenueCurrent - revenuePrev) / revenuePrev) * 100 : 0;
+  // Target ≈ prior comparable revenue (placeholder until targets module wired in)
+  const revenueTarget = revenuePrev || revenueCurrent;
+  const targetVariance = revenueTarget ? ((revenueCurrent - revenueTarget) / revenueTarget) * 100 : 0;
 
-  // Revenue trend (daily within range)
   const revenueTrend = useMemo(() => {
     const map = new Map<string, number>();
     salesInRange.forEach((s) => {
       map.set(s.date, (map.get(s.date) || 0) + (Number(s.total_sales) || 0));
     });
-    const out: { date: string; revenue: number; target: number }[] = [];
     const start = new Date(range.from);
     const end = new Date(range.to);
-    // Estimate a flat target based on prev-month daily avg
     const dayCount = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
-    const target = (revenuePrev || revenueCurrent) / Math.max(1, dayCount);
+    const dailyTarget = revenueTarget / Math.max(1, dayCount);
+    const out: { date: string; revenue: number; target: number }[] = [];
+    let cumActual = 0;
+    let cumTarget = 0;
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const k = d.toISOString().slice(0, 10);
-      out.push({ date: k.slice(5), revenue: map.get(k) || 0, target });
+      cumActual += map.get(k) || 0;
+      cumTarget += dailyTarget;
+      out.push({ date: k.slice(5), revenue: cumActual, target: cumTarget });
     }
     return out;
-  }, [salesInRange, range, revenuePrev, revenueCurrent]);
+  }, [salesInRange, range, revenueTarget]);
 
   const revenueSpark = useMemo(
     () => revenueTrend.slice(-14).map((d) => ({ v: d.revenue })),
@@ -366,12 +378,13 @@ export default function Home() {
   const gmCur = plCur.revenue ? (plCur.gross / plCur.revenue) * 100 : 0;
   const gmPrv = plPrv.revenue ? (plPrv.gross / plPrv.revenue) * 100 : 0;
   const omCur = plCur.revenue ? (plCur.op / plCur.revenue) * 100 : 0;
+  const grossTarget = revenueTarget * 0.65;
+  const grossVariance = grossTarget ? ((plCur.gross - grossTarget) / grossTarget) * 100 : 0;
 
   // ----- Cash
   const cashIds = new Set(coa.filter((c) => c.is_cash).map((c) => c.id));
   const bankAccountsCount = cashIds.size;
   const cashInBank = useMemo(() => {
-    // Use bank_transactions running sum as proxy
     let total = 0;
     bankTxns.forEach((t) => {
       const amt = Number(t.amount) || 0;
@@ -398,6 +411,20 @@ export default function Home() {
   );
   const totalDue = unpaidBills.reduce((a, b) => a + (Number(b.total_amount) || 0), 0);
   const overdue = unpaidBills.filter((b) => b.due_date && b.due_date < today);
+  const dueThisMonth = unpaidBills.filter(
+    (b) => b.due_date && b.due_date >= range.from && b.due_date <= range.to
+  );
+  const dueThisMonthTotal = dueThisMonth.reduce(
+    (a, b) => a + (Number(b.total_amount) || 0),
+    0
+  );
+  const paidBillsMtd = bills.filter(
+    (b) => b.status === "paid" && b.bill_date >= range.from && b.bill_date <= range.to
+  );
+  const paidBillsMtdTotal = paidBillsMtd.reduce(
+    (a, b) => a + (Number(b.total_amount) || 0),
+    0
+  );
   const nextPayable = unpaidBills
     .filter((b) => b.due_date && b.due_date >= today)
     .sort((a, b) => (a.due_date < b.due_date ? -1 : 1))[0];
@@ -410,6 +437,8 @@ export default function Home() {
     (a, b) => a + (Number(b.total_amount) || 0),
     0
   );
+  const opexPctOfRevenue = revenueCurrent ? (expensesTotal / revenueCurrent) * 100 : 0;
+
   const bankDetectedExpenses = useMemo(
     () =>
       bankTxns.filter(
@@ -417,6 +446,7 @@ export default function Home() {
           t.txn_date >= range.from &&
           t.txn_date <= range.to &&
           t.direction === "out" &&
+          !t.expense_posted_bill_id &&
           (t.classification === "expense" || /(fee|charge|penalty|interest)/i.test(t.description || ""))
       ),
     [bankTxns, range]
@@ -429,7 +459,11 @@ export default function Home() {
     .filter((t) => /(late|penalty|fee|charge|interest)/i.test(t.description || ""))
     .reduce((a, t) => a + Math.abs(Number(t.amount) || 0), 0);
 
-  // ----- Labour cost / food cost (rough proxies from PL)
+  const statementsToReview = statements.filter(
+    (s) => (s.status || "").toLowerCase() === "pending" || (s.status || "").toLowerCase() === "review"
+  );
+
+  // ----- Labour cost / food cost
   const labourCurrent = useMemo(() => {
     return plInRange
       .filter((r) => /(payroll|salary|wage|labor|labour)/i.test(r.name || ""))
@@ -440,7 +474,7 @@ export default function Home() {
   const foodCostPct = plCur.revenue ? (plCur.cogs / plCur.revenue) * 100 : 0;
   const foodTarget = 32;
 
-  // ----- Today's Priorities
+  // ----- MTD Priorities
   const priorities = useMemo<Priority[]>(() => {
     const list: Priority[] = [];
     invoices
@@ -456,6 +490,16 @@ export default function Home() {
           to: "/procurement/invoices",
         })
       );
+    statementsToReview.slice(0, 2).forEach((s) =>
+      list.push({
+        id: `stmt-${s.id}`,
+        title: `Vendor statement needs review — ${s.vendor_name || "Vendor"}`,
+        context: `Statement ${s.statement_date || ""}`,
+        amount: Number(s.closing_balance) || 0,
+        severity: "med",
+        to: "/expenses/statements",
+      })
+    );
     overdue.slice(0, 4).forEach((b) =>
       list.push({
         id: `bill-${b.id}`,
@@ -469,14 +513,24 @@ export default function Home() {
     if (bankDetectedExpenses.length) {
       list.push({
         id: "bank-detected",
-        title: `${bankDetectedExpenses.length} bank-detected expenses`,
+        title: `${bankDetectedExpenses.length} bank-detected expenses need classification`,
         context: "Review and post to expense",
         amount: bankDetectedTotal,
         severity: "med",
         to: "/expenses/bank-detected",
       });
     }
-    if (labourPct > labourTarget + 2) {
+    if (avoidableCost > 0) {
+      list.push({
+        id: "avoidable",
+        title: "Late fees / penalties detected this month",
+        context: "Investigate avoidable charges",
+        amount: avoidableCost,
+        severity: "high",
+        to: "/expenses/bank-detected",
+      });
+    }
+    if (labourPct > labourTarget + 1) {
       list.push({
         id: "labour",
         title: "Labour cost above target",
@@ -485,7 +539,7 @@ export default function Home() {
         to: "/hr/payroll",
       });
     }
-    if (foodCostPct > foodTarget + 2) {
+    if (foodCostPct > foodTarget + 1) {
       list.push({
         id: "food",
         title: "Food cost above target",
@@ -494,17 +548,20 @@ export default function Home() {
         to: "/procurement/inventory",
       });
     }
-    return list.slice(0, 8);
-  }, [invoices, overdue, bankDetectedExpenses, bankDetectedTotal, labourPct, foodCostPct]);
+    return list.slice(0, 10);
+  }, [invoices, overdue, bankDetectedExpenses, bankDetectedTotal, avoidableCost, labourPct, foodCostPct, statementsToReview]);
 
   // ----- AI Insights
   const insights = useMemo(() => {
     const out: string[] = [];
+    if (revenueTarget) {
+      out.push(
+        `Revenue is tracking ${fmtPct(targetVariance)} ${
+          targetVariance >= 0 ? "above" : "below"
+        } target this month.`
+      );
+    }
     if (plCur.revenue) {
-      if (revenueDelta !== 0)
-        out.push(
-          `Revenue is tracking ${fmtPct(revenueDelta)} vs the previous comparable period.`
-        );
       const gmDelta = gmCur - gmPrv;
       if (Math.abs(gmDelta) >= 0.5)
         out.push(
@@ -517,15 +574,18 @@ export default function Home() {
       out.push(
         `Labour cost is ${(labourPct - labourTarget).toFixed(1)}pp above target.`
       );
+    if (foodCostPct && foodCostPct < foodTarget)
+      out.push(`Food cost is ${(foodTarget - foodCostPct).toFixed(1)}pp below target.`);
     if (avoidableCost > 0)
-      out.push(`Avoidable charges of ${fmtMoney(avoidableCost)} detected this period.`);
+      out.push(`Avoidable charges of ${fmtMoney(avoidableCost)} detected this month.`);
+    if (bankDetectedExpenses.length)
+      out.push(`${bankDetectedExpenses.length} bank charges auto-detected and need review.`);
     if (overdue.length)
       out.push(`${overdue.length} bills are overdue — ${fmtMoney(overdue.reduce((a, b) => a + (Number(b.total_amount) || 0), 0))} total.`);
     if (!out.length) out.push("No critical signals detected. Operations look healthy.");
-    return out.slice(0, 5);
-  }, [revenueDelta, gmCur, gmPrv, labourPct, avoidableCost, overdue, plCur]);
+    return out.slice(0, 6);
+  }, [targetVariance, revenueTarget, gmCur, gmPrv, labourPct, foodCostPct, avoidableCost, bankDetectedExpenses, overdue, plCur]);
 
-  // ----- Activity normalized
   const recentActivity = useMemo(() => {
     return activity.slice(0, 8).map((a) => ({
       id: a.id,
@@ -542,7 +602,7 @@ export default function Home() {
         <div>
           <h1 className="text-3xl font-display tracking-tight text-foreground">Bani Home</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            This is what's happening in your business today.
+            Month-to-date view of performance, costs, cash, and actions.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -561,16 +621,26 @@ export default function Home() {
                 ))}
             </SelectContent>
           </Select>
-          <Select value={rangeKey} onValueChange={(v) => setRangeKey(v as DateRangeKey)}>
-            <SelectTrigger className="w-[140px] h-9">
+          <Select value={month} onValueChange={setMonth}>
+            <SelectTrigger className="w-[170px] h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="wtd">Week to date</SelectItem>
-              <SelectItem value="mtd">Month to date</SelectItem>
-              <SelectItem value="qtd">Quarter to date</SelectItem>
-              <SelectItem value="ytd">Year to date</SelectItem>
+              {months.map((m, i) => (
+                <SelectItem key={m} value={m}>
+                  {ymLabel(m)} {i === 0 ? "· MTD" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={compareKey} onValueChange={(v) => setCompareKey(v as CompareKey)}>
+            <SelectTrigger className="w-[170px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="prev_month">Compare: Prev month</SelectItem>
+              <SelectItem value="last_year">Compare: Last year</SelectItem>
+              <SelectItem value="target">Compare: Target</SelectItem>
             </SelectContent>
           </Select>
           <DropdownMenu>
@@ -606,20 +676,22 @@ export default function Home() {
       {/* KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <KpiCard
-          label="Revenue"
+          label="Revenue MTD"
           value={fmtMoney(revenueCurrent)}
-          delta={{ value: revenueDelta, label: "vs prev" }}
-          sub={`Target ~ ${fmtMoney((revenuePrev || revenueCurrent) || 0)}`}
+          delta={{ value: targetVariance, label: "vs target" }}
+          sub={`Target ${fmtMoney(revenueTarget)} · ${fmtPct(revenueDelta)} ${compareLabel}`}
           spark={revenueSpark}
           to="/revenue"
           accent="primary"
         />
         <KpiCard
-          label="Gross Profit"
+          label="Gross Profit MTD"
           value={fmtMoney(plCur.gross)}
           delta={
-            plPrv.gross
-              ? { value: ((plCur.gross - plPrv.gross) / Math.abs(plPrv.gross)) * 100 }
+            grossTarget
+              ? { value: grossVariance, label: "vs target" }
+              : plPrv.gross
+              ? { value: ((plCur.gross - plPrv.gross) / Math.abs(plPrv.gross)) * 100, label: compareLabel }
               : null
           }
           sub={`Margin ${gmCur.toFixed(1)}%`}
@@ -627,43 +699,43 @@ export default function Home() {
           accent="success"
         />
         <KpiCard
-          label="Labour Cost %"
+          label="Labour Cost % MTD"
           value={`${labourPct.toFixed(1)}%`}
-          delta={{ value: labourPct - labourTarget, label: "vs target" }}
-          sub={`Target ${labourTarget}%`}
+          delta={{ value: labourPct - labourTarget, label: "pp vs target" }}
+          sub={`Target ${labourTarget}%${labourPct > labourTarget ? " · above" : ""}`}
           to="/hr/payroll"
           accent={labourPct > labourTarget ? "warning" : "success"}
         />
         <KpiCard
-          label="Food Cost %"
+          label="Food Cost % MTD"
           value={`${foodCostPct.toFixed(1)}%`}
-          delta={{ value: foodCostPct - foodTarget, label: "vs target" }}
-          sub={`Target ${foodTarget}%`}
+          delta={{ value: foodCostPct - foodTarget, label: "pp vs target" }}
+          sub={`Target ${foodTarget}%${foodCostPct > foodTarget ? " · above" : ""}`}
           to="/procurement/inventory"
           accent={foodCostPct > foodTarget ? "warning" : "success"}
         />
         <KpiCard
-          label="Cash in Bank"
-          value={fmtMoney(cashInBank)}
-          sub={lastBankUpdate ? `Updated ${lastBankUpdate}` : "No bank data"}
-          to="/finance/cashflow-report"
-          accent="info"
+          label="Operating Expenses MTD"
+          value={fmtMoney(expensesTotal)}
+          sub={`${opexPctOfRevenue.toFixed(1)}% of revenue · ${bankDetectedExpenses.length} bank-detected · ${fmtMoney(avoidableCost)} avoidable`}
+          to="/expenses"
+          accent={avoidableCost > 0 ? "warning" : "info"}
         />
         <KpiCard
-          label="Bills Due"
-          value={fmtMoney(totalDue)}
-          sub={`${overdue.length} overdue${nextPayable ? ` · Next ${fmtMoney(Number(nextPayable.total_amount) || 0)}` : ""}`}
-          to="/expenses/bills"
-          accent={overdue.length ? "destructive" : "primary"}
+          label="Cash Position"
+          value={fmtMoney(cashInBank)}
+          sub={`Net ${fmtMoney(operatingCashMtd)} MTD · ${dueThisMonth.length} due · ${overdue.length} overdue`}
+          to="/finance/cashflow-report"
+          accent={overdue.length ? "destructive" : "info"}
         />
       </div>
 
-      {/* Today's Priorities */}
+      {/* MTD Priorities */}
       <Card className="p-5 bg-card border-border/60">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="font-display text-lg text-foreground">Today's Priorities</h2>
-            <p className="text-xs text-muted-foreground">Actions across the business that need your attention.</p>
+            <h2 className="font-display text-lg text-foreground">MTD Priorities</h2>
+            <p className="text-xs text-muted-foreground">Actions to clear before month-end.</p>
           </div>
           <span className="text-xs text-muted-foreground">{priorities.length} items</span>
         </div>
@@ -721,9 +793,9 @@ export default function Home() {
         <Card className="p-5 bg-card border-border/60 lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="font-display text-lg text-foreground">Revenue Trend</h3>
+              <h3 className="font-display text-lg text-foreground">Revenue vs Target MTD</h3>
               <p className="text-xs text-muted-foreground">
-                Actual vs an estimated daily target for {range.label}.
+                Daily cumulative revenue vs MTD target — {range.label}.
               </p>
             </div>
             <Link to="/revenue" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
@@ -752,7 +824,7 @@ export default function Home() {
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  name="Actual"
+                  name="Cumulative Actual"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   dot={false}
@@ -760,7 +832,7 @@ export default function Home() {
                 <Line
                   type="monotone"
                   dataKey="target"
-                  name="Target"
+                  name="Cumulative Target"
                   stroke="hsl(var(--muted-foreground))"
                   strokeWidth={1.5}
                   strokeDasharray="4 4"
@@ -773,7 +845,7 @@ export default function Home() {
 
         <Card className="p-5 bg-card border-border/60">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display text-lg text-foreground">Profit & Margin</h3>
+            <h3 className="font-display text-lg text-foreground">Profit & Margin MTD</h3>
             <Link to="/finance/pl-ledger" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
               P&L <ArrowRight className="h-3 w-3" />
             </Link>
@@ -817,50 +889,35 @@ export default function Home() {
         </Card>
       </div>
 
-      {/* Three small section cards */}
+      {/* Expenses / Procurement / Cash & Payables MTD */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="p-5 bg-card border-border/60">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-display text-lg text-foreground">Cash Position</h3>
-            <Link to="/finance/cashflow-report" className="text-xs text-primary hover:underline">
-              Open
-            </Link>
-          </div>
-          <div className="space-y-2.5 text-sm">
-            <Row label="Total cash" value={fmtMoney(cashInBank)} />
-            <Row label="Net cash flow (period)" value={fmtMoney(operatingCashMtd)} />
-            <Row label="Bank accounts" value={String(bankAccountsCount)} />
-            {lastBankUpdate && (
-              <Row label="Last bank update" value={lastBankUpdate} muted />
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-5 bg-card border-border/60">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-display text-lg text-foreground">Expenses</h3>
+            <h3 className="font-display text-lg text-foreground">Expense Overview MTD</h3>
             <Link to="/expenses" className="text-xs text-primary hover:underline">
               Open
             </Link>
           </div>
           <div className="space-y-2.5 text-sm">
-            <Row label="Total expenses (period)" value={fmtMoney(expensesTotal)} />
+            <Row label="Total expenses" value={fmtMoney(expensesTotal)} />
+            <Row label="Expense bills" value={`${expensesInRange.length} · ${fmtMoney(expensesTotal)}`} />
+            <Row label="Vendor statements to review" value={String(statementsToReview.length)} />
             <Row
               label="Bank-detected"
               value={`${bankDetectedExpenses.length} · ${fmtMoney(bankDetectedTotal)}`}
             />
+            <Row label="Recurring expenses" value="—" muted />
             <Row
-              label="Avoidable costs"
+              label="Avoidable (late fees, charges)"
               value={fmtMoney(avoidableCost)}
               accent={avoidableCost > 0 ? "warning" : undefined}
             />
-            <Row label="Unpaid bills" value={`${unpaidBills.length} · ${fmtMoney(totalDue)}`} />
           </div>
         </Card>
 
         <Card className="p-5 bg-card border-border/60">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-display text-lg text-foreground">Procurement & Inventory</h3>
+            <h3 className="font-display text-lg text-foreground">Procurement & Inventory MTD</h3>
             <Link to="/procurement/dashboard" className="text-xs text-primary hover:underline">
               Open
             </Link>
@@ -871,17 +928,46 @@ export default function Home() {
               value={String(invoices.filter((i) => i.status === "pending_review").length)}
             />
             <Row
-              label="Invoices last 30 days"
+              label="Invoices this month"
               value={String(
-                invoices.filter((i) => {
-                  const d = new Date();
-                  d.setDate(d.getDate() - 30);
-                  return i.invoice_date && i.invoice_date >= d.toISOString().slice(0, 10);
-                }).length
+                invoices.filter(
+                  (i) => i.invoice_date && i.invoice_date >= range.from && i.invoice_date <= range.to
+                ).length
               )}
             />
-            <Row label="Suppliers active" value="—" muted />
+            <Row label="Supplier price increases" value="—" muted />
+            <Row label="Inventory variances" value="—" muted />
+            <Row label="Wastage signals" value="—" muted />
             <Row label="Low stock alerts" value="—" muted />
+          </div>
+        </Card>
+
+        <Card className="p-5 bg-card border-border/60">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-display text-lg text-foreground">Cash & Payables MTD</h3>
+            <Link to="/finance/payables" className="text-xs text-primary hover:underline">
+              Open
+            </Link>
+          </div>
+          <div className="space-y-2.5 text-sm">
+            <Row label="Cash in bank" value={fmtMoney(cashInBank)} />
+            <Row label="Net cash movement" value={fmtMoney(operatingCashMtd)} />
+            <Row
+              label="Bills due this month"
+              value={`${dueThisMonth.length} · ${fmtMoney(dueThisMonthTotal)}`}
+            />
+            <Row
+              label="Overdue bills"
+              value={`${overdue.length} · ${fmtMoney(overdue.reduce((a, b) => a + (Number(b.total_amount) || 0), 0))}`}
+              accent={overdue.length ? "destructive" : undefined}
+            />
+            <Row label="Paid bills MTD" value={`${paidBillsMtd.length} · ${fmtMoney(paidBillsMtdTotal)}`} />
+            <Row
+              label="Upcoming payment"
+              value={nextPayable ? `${nextPayable.due_date} · ${fmtMoney(Number(nextPayable.total_amount) || 0)}` : "—"}
+              muted={!nextPayable}
+            />
+            <Row label="Bank accounts" value={String(bankAccountsCount)} muted />
           </div>
         </Card>
       </div>
@@ -891,7 +977,7 @@ export default function Home() {
         <Card className="p-5 bg-card border-border/60">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-primary" />
-            <h3 className="font-display text-lg text-foreground">AI Insights</h3>
+            <h3 className="font-display text-lg text-foreground">AI Insights MTD</h3>
           </div>
           <ul className="space-y-2.5">
             {insights.map((line, i) => (
