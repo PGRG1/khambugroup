@@ -293,6 +293,17 @@ export function AppSidebar() {
           </CollapsibleNavGroup>
         )}
 
+        {showFinance && (
+          <CollapsibleNavGroup
+            groupKey="expenses"
+            label="Expenses"
+            defaultOpen={groupState.expenses}
+            onOpenChange={(o) => setGroup("expenses", o)}
+          >
+            <SidebarMenu>{expensesItems.map(renderLink)}</SidebarMenu>
+          </CollapsibleNavGroup>
+        )}
+
         {showProcurement && (
           <CollapsibleNavGroup
             groupKey="procurement"
