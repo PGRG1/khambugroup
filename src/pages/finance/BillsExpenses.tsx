@@ -225,9 +225,14 @@ export default function BillsExpenses() {
             Non-inventory supplier bills — utilities, rent, services, professional fees, late charges.
           </p>
         </div>
-        <Button onClick={() => openEditor(null)}>
-          <Plus className="h-4 w-4 mr-2" /> New Bill
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setScannerOpen(true)}>
+            <ScanLine className="h-4 w-4 mr-2" /> Scan Bill
+          </Button>
+          <Button onClick={() => openEditor(null)}>
+            <Plus className="h-4 w-4 mr-2" /> New Bill
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
