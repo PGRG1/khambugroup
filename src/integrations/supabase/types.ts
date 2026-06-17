@@ -745,6 +745,7 @@ export type Database = {
           counterparty: string
           created_at: string
           description: string
+          expense_posted_bill_id: string | null
           extraction_confidence: number | null
           id: string
           import_id: string | null
@@ -771,6 +772,7 @@ export type Database = {
           counterparty?: string
           created_at?: string
           description?: string
+          expense_posted_bill_id?: string | null
           extraction_confidence?: number | null
           id?: string
           import_id?: string | null
@@ -797,6 +799,7 @@ export type Database = {
           counterparty?: string
           created_at?: string
           description?: string
+          expense_posted_bill_id?: string | null
           extraction_confidence?: number | null
           id?: string
           import_id?: string | null
@@ -824,6 +827,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_expense_posted_bill_id_fkey"
+            columns: ["expense_posted_bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
             referencedColumns: ["id"]
           },
           {
@@ -1514,6 +1524,319 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      expense_recurring_rules: {
+        Row: {
+          account_id: string | null
+          active: boolean
+          cadence: string
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          day_of_month: number | null
+          department: string | null
+          expected_amount: number
+          id: string
+          last_generated_at: string | null
+          name: string
+          next_due_date: string | null
+          notes: string | null
+          supplier_id: string | null
+          updated_at: string
+          vendor_name: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          active?: boolean
+          cadence?: string
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          day_of_month?: number | null
+          department?: string | null
+          expected_amount?: number
+          id?: string
+          last_generated_at?: string | null
+          name: string
+          next_due_date?: string | null
+          notes?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          active?: boolean
+          cadence?: string
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          day_of_month?: number | null
+          department?: string | null
+          expected_amount?: number
+          id?: string
+          last_generated_at?: string | null
+          name?: string
+          next_due_date?: string | null
+          notes?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_recurring_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_vendor_statement_lines: {
+        Row: {
+          account_id: string | null
+          amount: number
+          category_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          line_date: string | null
+          line_type: string
+          notes: string | null
+          statement_id: string
+          venue_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          line_date?: string | null
+          line_type?: string
+          notes?: string | null
+          statement_id: string
+          venue_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          line_date?: string | null
+          line_type?: string
+          notes?: string | null
+          statement_id?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_vendor_statement_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_vendor_statement_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_vendor_statement_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_vendor_statement_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_vendor_statement_lines_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_vendor_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "expense_vendor_statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_vendor_statement_lines_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_vendor_statements: {
+        Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          attachment_url: string | null
+          closing_balance: number
+          created_at: string
+          currency: string
+          current_period_charges: number
+          department: string | null
+          id: string
+          late_fees: number
+          notes: string | null
+          opening_balance: number
+          payment_status: string
+          payments_credits: number
+          period_end: string | null
+          period_start: string | null
+          posted_journal_entry_id: string | null
+          reviewed_by: string | null
+          statement_date: string
+          statement_number: string | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+          uploaded_by: string | null
+          vendor_name: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          attachment_url?: string | null
+          closing_balance?: number
+          created_at?: string
+          currency?: string
+          current_period_charges?: number
+          department?: string | null
+          id?: string
+          late_fees?: number
+          notes?: string | null
+          opening_balance?: number
+          payment_status?: string
+          payments_credits?: number
+          period_end?: string | null
+          period_start?: string | null
+          posted_journal_entry_id?: string | null
+          reviewed_by?: string | null
+          statement_date: string
+          statement_number?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          vendor_name?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          attachment_url?: string | null
+          closing_balance?: number
+          created_at?: string
+          currency?: string
+          current_period_charges?: number
+          department?: string | null
+          id?: string
+          late_fees?: number
+          notes?: string | null
+          opening_balance?: number
+          payment_status?: string
+          payments_credits?: number
+          period_end?: string | null
+          period_start?: string | null
+          posted_journal_entry_id?: string | null
+          reviewed_by?: string | null
+          statement_date?: string
+          statement_number?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          vendor_name?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_vendor_statements_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_vendor_statements_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       forecast_approvers: {
         Row: {

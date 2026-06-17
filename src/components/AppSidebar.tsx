@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -33,11 +33,21 @@ const financeItems = [
   { title: "Overview", url: "/finance/dashboard", icon: LayoutDashboard },
   { title: "Document Centre", url: "/finance/document-centre", icon: FolderOpen },
   { title: "Documents & Bills", url: "/finance/documents-bills", icon: FileStack },
-  { title: "Bills & Expenses", url: "/finance/bills-expenses", icon: Receipt },
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
   { title: "Payments & Settlements", url: "/finance/payments-settlements", icon: TrendingUp },
   { title: "Bank Reconciliation", url: "/finance/bank-reconciliation", icon: Landmark },
+];
+
+const expensesItems = [
+  { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true },
+  { title: "Expense Bills", url: "/expenses/bills", icon: Receipt },
+  { title: "Vendor Statements", url: "/expenses/statements", icon: FileStack },
+  { title: "Bank-Detected", url: "/expenses/bank-detected", icon: Landmark },
+  { title: "Recurring Expenses", url: "/expenses/recurring", icon: Repeat },
+  { title: "Categories", url: "/expenses/categories", icon: Tags },
+  { title: "Approvals", url: "/expenses/approvals", icon: CheckCircle2 },
+  { title: "Analytics", url: "/expenses/analytics", icon: BarChart3 },
 ];
 
 const financeReportsItems = [
@@ -86,14 +96,14 @@ const kpiAdminItems = [
 
 const STORAGE_KEY = "khambu.sidebar.groups";
 
-type GroupKey = "revenue" | "kpi" | "finance" | "procurement" | "hr" | "admin";
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "hr" | "admin";
 
 function loadGroupState(): Record<GroupKey, boolean> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { revenue: false, kpi: false, finance: false, procurement: false, hr: false, admin: false };
+  return { revenue: false, kpi: false, finance: false, expenses: false, procurement: false, hr: false, admin: false };
 }
 
 function CollapsibleNavGroup({
@@ -150,6 +160,7 @@ export function AppSidebar() {
     revenue: false,
     kpi: false,
     finance: false,
+    expenses: false,
     procurement: false,
     hr: false,
     admin: false,
@@ -279,6 +290,17 @@ export function AppSidebar() {
                 </div>
               </CollapsibleContent>
             </Collapsible>
+          </CollapsibleNavGroup>
+        )}
+
+        {showFinance && (
+          <CollapsibleNavGroup
+            groupKey="expenses"
+            label="Expenses"
+            defaultOpen={groupState.expenses}
+            onOpenChange={(o) => setGroup("expenses", o)}
+          >
+            <SidebarMenu>{expensesItems.map(renderLink)}</SidebarMenu>
           </CollapsibleNavGroup>
         )}
 
