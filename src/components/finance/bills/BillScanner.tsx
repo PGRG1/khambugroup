@@ -51,6 +51,7 @@ export default function BillScanner({ open, onOpenChange, onParsed }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const reset = () => {
     setFiles([]);
