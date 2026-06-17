@@ -83,10 +83,8 @@ export function useExpenseBills() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await fetchAllRows<ExpenseBill>("expense_bills", (q) =>
-        q.order("bill_date", { ascending: false })
-      );
-      setBills(rows);
+      const rows = await fetchAllRows("expense_bills", "*", { col: "bill_date", asc: false });
+      setBills(rows as ExpenseBill[]);
     } catch (e: any) {
       toast.error("Failed to load bills: " + e.message);
     } finally {
