@@ -1,0 +1,1 @@
+ALTER TABLE public.expense_categories ADD COLUMN IF NOT EXISTS default_account_id uuid REFERENCES public.chart_of_accounts(id) ON DELETE SET NULL;

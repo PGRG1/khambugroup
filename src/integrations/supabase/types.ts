@@ -1504,6 +1504,7 @@ export type Database = {
       expense_categories: {
         Row: {
           created_at: string
+          default_account_id: string | null
           description: string | null
           id: string
           name: string
@@ -1511,6 +1512,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_account_id?: string | null
           description?: string | null
           id?: string
           name: string
@@ -1518,12 +1520,42 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_account_id?: string | null
           description?: string | null
           id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_default_account_id_fkey"
+            columns: ["default_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_categories_default_account_id_fkey"
+            columns: ["default_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_categories_default_account_id_fkey"
+            columns: ["default_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_categories_default_account_id_fkey"
+            columns: ["default_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+        ]
       }
       expense_recurring_rules: {
         Row: {
