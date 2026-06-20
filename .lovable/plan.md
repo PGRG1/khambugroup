@@ -1,107 +1,82 @@
+# Revenue Journal Rebuild
 
-# Bani Home — Business Command Centre
+Replace the per-payment-method receivable mapping with a single per-venue **Payment Settlement Clearing** account. Cash still goes to Cash on Hand. Each payment method stays as a separate line (memo = method label). Revenue-side accounting is unchanged. Posted journals are preserved.
 
-A new top-level page that sits above all modules and answers: *"What's happening in my business today?"* It surfaces priorities, financial signals, and quick links — not a static dashboard.
+## 1. Database — migration
 
-## Route & navigation
+### Schema additions
+- Extend `account_mapping_rules.rule_type` CHECK to allow `'payment_settlement_clearing'` and `'cash_on_hand'` (per-venue, `match_key = venue name`).
+- Add to `public.journal_lines`:
+  - `payment_method text` — e.g. `visa`, `cash`, `alipay`, or NULL for non-payment lines.
+  - `source_amount numeric` — original POS amount before any rounding.
+  - `mapping_rule_type text`, `mapping_match_key text` — which mapping rule produced this line.
+  - `mapping_status text` — `'mapped' | 'missing'` (used when a journal is forced into `draft` because a required mapping is missing).
 
-- Route: `/` (Home button in sidebar). Replace the current landing component with the new `Home` page.
-- Keep `src/pages/Index.tsx` available but route `/` to the new `src/pages/Home.tsx`.
-- Sidebar Home entry stays as is (no changes needed beyond label confirmation).
+### COA / mapping seeding (idempotent, never overwrites posted history)
+- **Rename in place** the two existing accounts so historical journal_lines keep their FKs:
+  - `1290 Merchant Receivable – KPAY (Assembly)` → `1290 Payment Settlement Clearing – Assembly`
+  - `1295 Merchant Receivable – KPAY (Caliente)` → `1295 Payment Settlement Clearing – Caliente`
+- **Insert if missing** equivalent accounts for every other active venue (Hanabi, Arca, Off-Site / Stall, Events) — `account_type='asset'`, `is_cash=false`, codes `1296+`.
+- **Seed `payment_settlement_clearing` mappings** for each active venue pointing at the matching account above (only when no row exists — never overwrite).
+- **Seed `cash_on_hand` mappings** for each active venue pointing at `1020 Cash on Hand` (only when missing).
+- Existing per-method `sales_payment_method` rules are **left in place** but no longer used by the new generator (kept so the old generator can be diffed and so user can clean them up later from the UI).
 
-## Page shell
+### `rebuild_journal_from_operations()` — sales-summary loop rewrite
+For each `(date, venue)` group from `sales_records`:
+1. Skip if a journal entry exists for that key and **(`manually_adjusted=true` OR `status='posted'`)**.
+2. Resolve venue-scoped accounts:
+   - `acc_cash` ← `cash_on_hand|venue` → fallback `payment_method_cash|venue` → fallback `1020 Cash on Hand`.
+   - `acc_clearing` ← `payment_settlement_clearing|venue` (no fallback — if missing, mark journal `draft` + `mapping_status='missing'` and continue with the lines we can write).
+   - `acc_sales`, `acc_svc`, `acc_disc`, `acc_tips` ← existing per-venue rules (unchanged).
+3. Emit lines in this exact order:
+   - **Cash** (if non-zero): Dr `acc_cash`, memo `Cash`, `payment_method='cash'`.
+   - **Each non-cash method** (`visa, mastercard, amex, union_pay, jcb, alipay, wechat, payme`, plus any other column in `sales_records` resolved generically — see Sales schema in memory) with non-zero amount: Dr `acc_clearing`, memo = method label (`Visa`, `Mastercard`, …), `payment_method = method key`. All four+ method lines share the same `account_id`.
+   - **Discount** (if any): Dr `acc_disc`.
+   - **Sales (subtotal)**: Cr `acc_sales`.
+   - **Service charge**: Cr `acc_svc`.
+   - **Card tips**: Cr `acc_tips` (unchanged).
+4. After insert, compute `sum(debit)` vs `sum(credit)`; if non-zero, route the residue to the configured suspense account (existing behaviour) and stamp `mapping_status='missing'` on the entry's audit row.
+5. Insert one `ledger_audit_log` row per rebuilt entry recording `source_type='sales_summary'`, `entry_id`, `mapping_rule_type` map used, and rebuild trigger.
 
-- `PageHeader` with title **Bani Home** and subtitle *"This is what's happening in your business today."*
-- Top filter bar (sticky on desktop):
-  - Venue / outlet multi-select (reuses `useVenues`)
-  - Date range selector (defaults to MTD, presets: Today / WTD / MTD / QTD / YTD / Custom)
-  - Primary button: **New Report** (opens existing report generator route)
-  - Quick actions dropdown: Upload Bill, Upload Statement, New Expense, Upload Invoice, Record Payment
+The invoices / settlements / bank-txn portions of `rebuild_journal_from_operations` are left untouched.
 
-## Layout (responsive)
+### Posted-journal safety
+- The new generator never deletes or rewrites entries where `status='posted'` OR `manually_adjusted=true` (the existing code only checked `manually_adjusted`). Drafts are regenerated as before. Adjustment / reverse-and-regenerate are surfaced in the UI (next section); the backend exposes a separate `reverse_and_regenerate_sales_journal(entry_id uuid)` SECURITY DEFINER helper that:
+  1. Marks the original entry `status='void'` and copies it into a new entry with all `debit/credit` swapped (`source_type='adjustment'`).
+  2. Calls the sales-summary loop for just that `(date, venue)` to insert a fresh draft.
+  3. Writes both actions into `ledger_audit_log`.
 
-```text
-┌──────────────────────────── Filters ────────────────────────────┐
-├─ KPI row (6 cards, 3-col on tablet, 1-col on mobile) ───────────┤
-├─ Today's Priorities (full width, scrollable list, max 8) ───────┤
-├─ Revenue Trend MTD (2/3) │ Profit & Margin Snapshot (1/3) ──────┤
-├─ Cash Position (1/3) │ Expense Overview (1/3) │ Procurement (1/3)┤
-├─ AI Insights (1/2) │ Recent Activity (1/2) ──────────────────────┤
-└─────────────────────────────────────────────────────────────────┘
-```
+## 2. Frontend
 
-All cards use existing `card-glass`, rounded, minimal — no decorative icons, accent colours only for status dots, deltas, and the primary button.
+### `src/components/finance/RevenueMappingMatrix.tsx`
+- **Payment side rewrite**: replace the 9-method × 4-venue grid with a 2-row × N-venue grid:
+  - Row 1: **Cash on Hand** (`cash_on_hand|<venue>`), asset accounts.
+  - Row 2: **Payment Settlement Clearing** (`payment_settlement_clearing|<venue>`), asset accounts.
+  - Caption: "All non-cash methods (Visa, Mastercard, Amex, UnionPay, JCB, Alipay, WeChat, PayMe, Octopus, …) post to this single per-venue account. Each method remains a separate journal line for reconciliation."
+- Venue list reads from `useVenues()` (active only) instead of the hard-coded `["Assembly","Caliente","Hanabi","Events"]`.
+- Posting-preview block updated to show the new journal shape (Cash → Cash on Hand; Visa → Payment Settlement Clearing; etc.).
 
-## KPI cards (top row)
+### `src/pages/finance/Journal.tsx`
+- Show new columns when present: `payment_method`, `source_amount`, `mapping_status` badge (green `Mapped` / amber `Missing mapping → Set mapping`). "Set mapping" deep-links to `/finance/chart-of-accounts?tab=mappings`.
+- Add a per-entry action menu for posted entries: **Create adjustment**, **Reverse & regenerate**, **Skip** — each calls the matching RPC.
 
-Each uses `KpiCard` extended with an inline sparkline (recharts `<Line>` no axes). Click → deep link.
+### `src/hooks/useJournal.ts` / `src/hooks/useSalesData.ts`
+- Already trigger `rebuild_journal_from_operations`; no signature change. Add a toast when the RPC returns entries with `mapping_status='missing'`.
 
-1. **Revenue MTD** — current, % vs last month, target, sparkline. → `/revenue`
-2. **Gross Profit** — amount, GM%, Δ vs last month, sparkline. → `/finance/ledger-pl`
-3. **Labour Cost %** — current %, target %, variance, sparkline. → `/hr/payroll`
-4. **Food Cost %** — current %, target %, variance, sparkline. → `/procurement` (inventory tab)
-5. **Cash in Bank** — total, last updated timestamp, sparkline. → `/finance/cashflow`
-6. **Bills Due** — total due, # overdue, next payable amount. → `/expenses` + `/finance/payables`
+### Memory update
+- Add a short core line: "Revenue Journal: non-cash payments debit one per-venue Payment Settlement Clearing account; each method stays as its own line. Cash debits Cash on Hand."
 
-## Today's Priorities
+## 3. What stays untouched
+- `sales_records` schema, the procurement / payroll / settlements journal logic, AR/AP, bank reconciliation, settlement-clearing workflow, P&L and balance-sheet views.
+- Existing `Merchant Receivable – <network>` accounts (1220–1280) — no longer used by the new generator but kept so historical journals remain readable. The mapping UI no longer offers them.
 
-Unified action list aggregated from existing hooks. Each row: title, short context, amount/metric, `StatusBadge`, chevron → module.
-
-Sources:
-- `useInvoiceData` — invoices in `pending_review`
-- `useExpenseBills` + `usePayables` — overdue bills
-- `useHRData` payroll vs revenue → labour cost variance flag
-- `useBankReconciliation` → bank charges detected, unmatched txns
-- `useProductMaster` / inventory — variances, low stock
-- Supplier price increase signal (from `invoice_line_items` last-30d delta)
-- `useVendorStatements` — statements awaiting review
-- Missing invoice upload — bills with no attachment
-
-Ranking: severity (overdue > variance > review) then amount desc, capped at 8 with "View all" footer.
-
-## Section cards
-
-- **Revenue Trend MTD** — line chart: actual vs target, MTD total, % vs target. Data via `useSalesData` + `useRevenueTargets`.
-- **Profit & Margin Snapshot MTD** — horizontal waterfall (Revenue → COGS → GP → Opex → OP) with GM% and OM% chips. Data via `useLedgerPL` (current period).
-- **Cash Position** — total cash, operating cash MTD, net cash flow MTD, bank account count. Data via `useCashflowData` / `bank_accounts`. Link → `/finance/cashflow`.
-- **Expense Overview MTD** — total expenses, bank-detected count + sum, avoidable costs (late fees + penalties + bank charges from `expense_categories` tagged set). Link → `/expenses`.
-- **Procurement & Inventory Health** — low stock count, supplier price increase count, invoice upload delay count, wastage signals, inventory variances. Link → `/procurement`.
-- **AI Insights** — 3–5 plain-English bullets generated client-side from the same numbers (no new edge function). Template-driven: revenue vs target, labour vs target, GM delta vs last month, avoidable cost detection, supplier price increases.
-- **Recent Activity** — last 10 entries from `audit_log` + `expense_bill_audit` + `ledger_audit_log`, normalized to {actor, action, target, time, link}.
-
-## Data layer
-
-New aggregator hook `src/hooks/useHomeData.ts` that:
-- Accepts `{ venueIds, dateRange }`
-- Calls existing hooks in parallel and returns a single `HomeSnapshot` object
-- Memoizes sparkline series (last 30 days) per KPI
-
-No new tables, no new edge functions, no schema changes. All values come from existing hooks/views.
-
-## Files to create
-
-- `src/pages/Home.tsx`
-- `src/components/home/HomeFilters.tsx`
-- `src/components/home/HomeKpiRow.tsx` (uses existing `KpiCard` + new tiny `Sparkline.tsx`)
-- `src/components/home/Sparkline.tsx`
-- `src/components/home/TodaysPriorities.tsx`
-- `src/components/home/RevenueTrendCard.tsx`
-- `src/components/home/ProfitSnapshotCard.tsx`
-- `src/components/home/CashPositionCard.tsx`
-- `src/components/home/ExpenseOverviewCard.tsx`
-- `src/components/home/ProcurementHealthCard.tsx`
-- `src/components/home/AiInsightsCard.tsx`
-- `src/components/home/RecentActivityCard.tsx`
-- `src/hooks/useHomeData.ts`
-- `src/lib/homeInsights.ts` (insight template generator)
-
-## Files to edit
-
-- `src/App.tsx` — point `/` to new `Home` page (keep `Index` reachable at `/legacy` if useful, otherwise drop).
-- `src/components/AppSidebar.tsx` — confirm Home item label/icon; no structural change.
+## 4. Acceptance
+- A fresh rebuild on Assembly produces (in order): Dr Cash on Hand, Dr Payment Settlement Clearing – Assembly (×N for each method), Dr Sales Discounts, Cr Sales, Cr Service Charge, Cr Tips Payable. Total debits = total credits.
+- The non-cash debit lines all share `account_id` = the venue's Payment Settlement Clearing account, but each has a distinct `payment_method` and memo.
+- No COA name contains "KPAY" after the migration.
+- Posted entries from before the migration are untouched. Drafts are regenerated under the new logic.
+- A venue with no `payment_settlement_clearing` mapping yields a draft entry stamped `mapping_status='missing'` with a "Set mapping" CTA in the Journal page.
 
 ## Out of scope
-
-- No new DB tables, RLS, or edge functions.
-- No changes to Revenue, Expenses, Procurement, Finance, Accounting, or Reports modules.
-- No AI/LLM call — insights are deterministic templates over existing numbers.
+- Importing settlement files / clearing the new account from bank statements (the settlement workflow already exists and continues to credit clearing accounts — it will be re-pointed to the renamed 1290/1295 automatically because account IDs are preserved).
+- Backfilling a `payment_method` column onto historical posted lines.

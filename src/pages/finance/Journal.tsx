@@ -132,16 +132,33 @@ export default function Journal() {
                       </div>
                     </TableCell>
                   </TableRow>
-                  {isOpen && els.map((l) => (
-                    <TableRow key={l.id} className="bg-muted/20">
-                      <TableCell></TableCell>
-                      <TableCell colSpan={2} className="pl-12 text-sm">{accName(l.account_id)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{l.memo}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{Number(l.debit) ? fmt(Number(l.debit)) : ""}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{Number(l.credit) ? fmt(Number(l.credit)) : ""}</TableCell>
-                      <TableCell colSpan={2}></TableCell>
-                    </TableRow>
-                  ))}
+                  {isOpen && els.map((l) => {
+                    const pm = (l as any).payment_method as string | null | undefined;
+                    const ms = (l as any).mapping_status as string | null | undefined;
+                    return (
+                      <TableRow key={l.id} className="bg-muted/20">
+                        <TableCell></TableCell>
+                        <TableCell colSpan={2} className="pl-12 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span>{accName(l.account_id)}</span>
+                            {ms === "missing" && (
+                              <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700" title="Account mapping missing — set a mapping in Chart of Accounts → Mappings">
+                                Missing mapping
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {l.memo}
+                          {pm && <span className="ml-2 text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{pm.replace(/_/g, " ")}</span>}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">{Number(l.debit) ? fmt(Number(l.debit)) : ""}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{Number(l.credit) ? fmt(Number(l.credit)) : ""}</TableCell>
+                        <TableCell colSpan={2}></TableCell>
+                      </TableRow>
+                    );
+                  })}
+
                 </>
               );
             })}

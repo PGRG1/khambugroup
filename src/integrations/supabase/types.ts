@@ -3383,7 +3383,12 @@ export type Database = {
           id: string
           legacy_venue_name: string | null
           line_no: number
+          mapping_match_key: string | null
+          mapping_rule_type: string | null
+          mapping_status: string | null
           memo: string | null
+          payment_method: string | null
+          source_amount: number | null
           venue: string | null
           venue_id: string | null
         }
@@ -3397,7 +3402,12 @@ export type Database = {
           id?: string
           legacy_venue_name?: string | null
           line_no?: number
+          mapping_match_key?: string | null
+          mapping_rule_type?: string | null
+          mapping_status?: string | null
           memo?: string | null
+          payment_method?: string | null
+          source_amount?: number | null
           venue?: string | null
           venue_id?: string | null
         }
@@ -3411,7 +3421,12 @@ export type Database = {
           id?: string
           legacy_venue_name?: string | null
           line_no?: number
+          mapping_match_key?: string | null
+          mapping_rule_type?: string | null
+          mapping_status?: string | null
           memo?: string | null
+          payment_method?: string | null
+          source_amount?: number | null
           venue?: string | null
           venue_id?: string | null
         }
@@ -6038,6 +6053,10 @@ export type Database = {
       record_payment_with_allocations: {
         Args: { p_allocations: Json; p_payment: Json }
         Returns: string
+      }
+      reverse_and_regenerate_sales_journal: {
+        Args: { p_entry_id: string }
+        Returns: Json
       }
       user_owns_kpi: {
         Args: { _kpi_card_id: string; _user_id: string }
