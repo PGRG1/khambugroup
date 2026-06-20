@@ -1,61 +1,10 @@
-import {
-  BarChart3,
-  ClipboardList,
-  LogOut,
-  Settings,
-  FileText,
-  Receipt,
-  Users,
-  FileSpreadsheet,
-  Package,
-  UserCog,
-  Calendar,
-  DollarSign,
-  LayoutDashboard,
-  Building2,
-  UtensilsCrossed,
-  FolderDown,
-  BrainCircuit,
-  SlidersHorizontal,
-  Tags,
-  TrendingUp,
-  Scale,
-  BookOpen,
-  NotebookPen,
-  Database,
-  ListTree,
-  BookText,
-  Wallet,
-  CreditCard,
-  History,
-  Landmark,
-  ChevronDown,
-  ChevronUp,
-  FolderOpen,
-  FileStack,
-  Sparkles,
-  Target,
-  Bell,
-  Repeat,
-  CheckCircle2,
-  Home,
-  Inbox,
-  ArrowLeftRight,
-  Coins,
-  Banknote,
-  LineChart,
-  PieChart,
-  CalendarClock,
-  GitBranch,
-  FileMinus,
-  HandCoins,
-  ScrollText,
-} from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -69,62 +18,30 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-type NavItem = {
-  title: string;
-  url: string;
-  icon: any;
-  pageKey?: string;
-  end?: boolean;
-  isNew?: boolean;
-};
-
-// ===== HOME =====
-const homeItems: NavItem[] = [
+const navItems = [
   { title: "Home", url: "/", icon: Home, pageKey: "home", end: true },
-  { title: "Work Queue", url: "/work-queue", icon: Inbox, isNew: true },
   { title: "AI Analyst", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
 ];
 
-// ===== PERFORMANCE =====
-const performanceRevenueItems: NavItem[] = [
-  { title: "Revenue Overview", url: "/revenue", icon: BarChart3, pageKey: "revenue" },
+const revenueItems = [
+  { title: "Overview", url: "/revenue", icon: BarChart3, pageKey: "revenue" },
   { title: "Sales Data", url: "/sales-data", icon: Database, pageKey: "revenue" },
   { title: "Target Tracking", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
 ];
-const performanceKpiItems: NavItem[] = [
-  { title: "My KPI Cards", url: "/kpis/my-cards", icon: Target, pageKey: "kpis" },
-  { title: "KPI Assignment", url: "/kpis/assignments", icon: UserCog },
-  { title: "KPI Targets", url: "/kpis/targets", icon: Target },
-  { title: "KPI Planner", url: "/kpis/planner", icon: Target },
+
+
+const financeItems = [
+  { title: "Overview", url: "/finance/dashboard", icon: LayoutDashboard },
+  { title: "Document Centre", url: "/finance/document-centre", icon: FolderOpen },
+  { title: "Documents & Bills", url: "/finance/documents-bills", icon: FileStack },
+  { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
+  { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
+  { title: "Payments & Settlements", url: "/finance/payments-settlements", icon: TrendingUp },
+  { title: "Bank Reconciliation", url: "/finance/bank-reconciliation", icon: Landmark },
 ];
 
-// ===== PLANNING (FP&A) =====
-const planningItems: NavItem[] = [
-  { title: "Overview", url: "/planning", icon: LayoutDashboard, isNew: true },
-  { title: "Budget vs Actual", url: "/planning/budget-vs-actual", icon: BarChart3, isNew: true },
-  { title: "Forecasts", url: "/planning/forecasts", icon: LineChart, isNew: true },
-  { title: "Scenario Planning", url: "/planning/scenarios", icon: GitBranch, isNew: true },
-  { title: "Cash Forecast", url: "/planning/cash-forecast", icon: CalendarClock, isNew: true },
-  { title: "Cost Planning", url: "/planning/cost-planning", icon: PieChart, isNew: true },
-  { title: "Target Setting", url: "/planning/target-setting", icon: Target, isNew: true },
-];
-
-// ===== OPERATIONS =====
-const procurementItems: NavItem[] = [
-  { title: "Overview", url: "/procurement/dashboard", icon: LayoutDashboard },
-  { title: "Suppliers & Vendors", url: "/procurement/suppliers", icon: Building2 },
-  { title: "Items Master", url: "/procurement/products", icon: Package },
-  { title: "Categories", url: "/procurement/categories", icon: Tags },
-  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
-  { title: "Credit Notes", url: "/procurement/credit-notes", icon: FileMinus, isNew: true },
-  { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
-  { title: "Supplier Statements", url: "/procurement/supplier-statements", icon: FileStack, isNew: true },
-  { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
-  { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
-  { title: "Documents", url: "/procurement/documents", icon: FolderDown },
-];
-const expensesItems: NavItem[] = [
+const expensesItems = [
   { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true },
   { title: "Expense Bills", url: "/expenses/bills", icon: Receipt },
   { title: "Vendor Statements", url: "/expenses/statements", icon: FileStack },
@@ -134,7 +51,35 @@ const expensesItems: NavItem[] = [
   { title: "Approvals", url: "/expenses/approvals", icon: CheckCircle2 },
   { title: "Analytics", url: "/expenses/analytics", icon: BarChart3 },
 ];
-const peopleItems: NavItem[] = [
+
+const financeReportsItems = [
+  { title: "Profit & Loss", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
+  { title: "Profit & Loss", url: "/finance/pl-ledger", icon: Receipt },
+  { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
+  { title: "Cash Flow", url: "/finance/cashflow-report", icon: TrendingUp },
+  { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
+];
+
+const financeAccountingItems = [
+  { title: "Journal", url: "/finance/journal", icon: NotebookPen },
+  { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
+  { title: "Chart of Accounts", url: "/finance/chart-of-accounts", icon: ListTree },
+  { title: "Ledger Audit Log", url: "/finance/ledger-audit", icon: History },
+];
+
+const procurementItems = [
+  { title: "Overview", url: "/procurement/dashboard", icon: LayoutDashboard },
+  { title: "Suppliers & Vendors", url: "/procurement/suppliers", icon: Building2 },
+  { title: "Items Master", url: "/procurement/products", icon: Package },
+  { title: "Categories", url: "/procurement/categories", icon: Tags },
+  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
+  { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
+  { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
+  { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
+  { title: "Documents", url: "/procurement/documents", icon: FolderDown },
+];
+
+const hrItems = [
   { title: "Employee Directory", url: "/hr/employees", icon: Users },
   { title: "Org Chart", url: "/hr/org-chart", icon: Building2 },
   { title: "Schedule", url: "/hr/schedule", icon: Calendar },
@@ -142,79 +87,52 @@ const peopleItems: NavItem[] = [
   { title: "Payroll", url: "/hr/payroll", icon: DollarSign },
 ];
 
-// ===== FINANCE =====
-const financeItems: NavItem[] = [
-  { title: "Overview", url: "/finance/dashboard", icon: LayoutDashboard },
-  { title: "Document Centre", url: "/finance/document-centre", icon: FolderOpen },
-  { title: "Documents & Bills", url: "/finance/documents-bills", icon: FileStack },
-  { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
-  { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
+const kpiItems = [
+  { title: "My KPI Cards", url: "/kpis/my-cards", icon: Target, pageKey: "kpis" },
 ];
-const paymentsSettlementsItems: NavItem[] = [
-  { title: "Overview", url: "/finance/payments-settlements", icon: LayoutDashboard },
-  { title: "Supplier Payments", url: "/finance/supplier-payments", icon: HandCoins },
-  { title: "Payment Allocations", url: "/finance/payment-allocations", icon: ArrowLeftRight, isNew: true },
-  { title: "Processor Settlements", url: "/finance/processor-settlements", icon: TrendingUp },
-  { title: "Supplier Refunds", url: "/finance/supplier-refunds", icon: FileMinus, isNew: true },
-];
-const bankingItems: NavItem[] = [
-  { title: "Bank Accounts", url: "/finance/bank-accounts", icon: Landmark, isNew: true },
-  { title: "Bank Transactions", url: "/finance/bank-transactions", icon: ScrollText, isNew: true },
-  { title: "Bank Reconciliation", url: "/finance/bank-reconciliation", icon: Landmark },
-  { title: "Transfers", url: "/finance/transfers", icon: ArrowLeftRight, isNew: true },
-  { title: "Cash & Petty Cash", url: "/finance/cash-petty-cash", icon: Coins, isNew: true },
+const kpiAdminItems = [
+  { title: "KPI Assignment", url: "/kpis/assignments", icon: UserCog },
+  { title: "KPI Targets", url: "/kpis/targets", icon: Target },
+  { title: "KPI Planner", url: "/kpis/planner", icon: Target },
 ];
 
-// ===== ACCOUNTING & REPORTS =====
-const reportsItems: NavItem[] = [
-  { title: "Profit & Loss", url: "/finance/pl-ledger", icon: Receipt },
-  { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
-  { title: "Cash Flow", url: "/finance/cashflow-report", icon: TrendingUp },
-  { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
-];
-const accountingItems: NavItem[] = [
-  { title: "Journal Entries", url: "/finance/journal", icon: NotebookPen },
-  { title: "General Ledger", url: "/finance/ledger", icon: BookOpen },
-  { title: "Chart of Accounts", url: "/finance/chart-of-accounts", icon: ListTree },
-  { title: "Ledger Audit Log", url: "/finance/ledger-audit", icon: History },
-];
+const STORAGE_KEY = "khambu.sidebar.groups";
 
-// ===== ADMIN =====
-const adminItems: NavItem[] = [
-  { title: "Notifications", url: "/notifications", icon: Bell },
-  { title: "User Access", url: "/user-access", icon: UserCog },
-  { title: "System Configuration", url: "/admin/system-configuration", icon: SlidersHorizontal },
-  { title: "AI Learned Rules", url: "/admin/ai-rules", icon: Sparkles },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "hr" | "admin";
 
-type GroupKey =
-  | "home"
-  | "performance"
-  | "planning"
-  | "operations"
-  | "finance"
-  | "accounting"
-  | "admin";
-
-const STORAGE_KEY = "khambu.sidebar.groups.v2";
+function loadGroupState(): Record<GroupKey, boolean> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { revenue: false, kpi: false, finance: false, expenses: false, procurement: false, hr: false, admin: false };
+}
 
 function CollapsibleNavGroup({
+  groupKey,
   label,
-  open,
+  defaultOpen,
   onOpenChange,
   children,
 }: {
+  groupKey: GroupKey;
   label: string;
-  open: boolean;
+  defaultOpen: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <Collapsible open={open} onOpenChange={onOpenChange}>
+    <Collapsible
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        onOpenChange(o);
+      }}
+    >
       <SidebarGroup>
         <CollapsibleTrigger asChild>
-          <SidebarGroupLabel className="flex items-center justify-between cursor-pointer hover:text-sidebar-foreground transition-colors">
+          <SidebarGroupLabel className="flex items-center justify-between cursor-pointer hover:text-sidebar-foreground transition-colors group/label">
             <span className="text-base font-normal">{label}</span>
             {open ? (
               <ChevronUp className="h-3.5 w-3.5 transition-transform duration-200" />
@@ -231,41 +149,22 @@ function CollapsibleNavGroup({
   );
 }
 
-function SubGroup({ label, items, renderLink }: { label: string; items: NavItem[]; renderLink: (i: NavItem) => JSX.Element }) {
-  return (
-    <Collapsible defaultOpen>
-      <CollapsibleTrigger asChild>
-        <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
-          <span className="flex items-center gap-2">
-            <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
-            {label}
-          </span>
-          <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
-        </div>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="ml-4 pl-2 border-l border-sidebar-border/60">
-          <SidebarMenu>{items.map(renderLink)}</SidebarMenu>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
 export function AppSidebar() {
   const { user, isAdmin, signOut } = useAuth();
   const { previewUserId, isPreviewActive } = usePreviewMode();
+  const location = useLocation();
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
 
+  // All nav groups start collapsed by default; user toggles persist for the session only
   const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>({
-    home: true,
-    performance: false,
-    planning: false,
-    operations: false,
+    revenue: false,
+    kpi: false,
     finance: false,
-    accounting: false,
+    expenses: false,
+    procurement: false,
+    hr: false,
     admin: false,
   });
 
@@ -273,45 +172,42 @@ export function AppSidebar() {
     setGroupState((prev) => ({ ...prev, [key]: open }));
   };
 
+  // Clear any previously persisted sidebar state so collapsed-by-default truly applies
   useEffect(() => {
-    try {
-      localStorage.removeItem("khambu.sidebar.groups");
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }, []);
 
-  const adminFull = isAdmin && !isPreviewActive;
+  const visibleItems = navItems.filter(item => {
+    if (item.pageKey === "home") return true;
+    if (isAdmin && !isPreviewActive) return true;
+    return showInSidebar(item.pageKey);
+  });
 
-  const renderLink = (item: NavItem) => (
-    <SidebarMenuItem key={item.title + item.url}>
+
+  const visibleRevenueItems = revenueItems.filter(item => {
+    if (isAdmin && !isPreviewActive) return true;
+    return showInSidebar(item.pageKey);
+  });
+
+  const showFinance = isAdmin && !isPreviewActive;
+  const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
+  const showHR = isAdmin && !isPreviewActive;
+  const showAdmin = isAdmin && !isPreviewActive;
+
+  const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (
+    <SidebarMenuItem key={item.title}>
       <SidebarMenuButton asChild>
         <NavLink
           to={item.url}
           end={item.end ?? item.url === "/"}
-          className="flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
           activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
         >
-          <span className="flex items-center gap-2 min-w-0">
-            <item.icon className="h-4 w-4 shrink-0" />
-            <span className="truncate">{item.title}</span>
-          </span>
-          {item.isNew && (
-            <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              NEW
-            </span>
-          )}
+          <item.icon className="h-4 w-4" />
+          <span>{item.title}</span>
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
-  );
-
-  const visibleHome = homeItems.filter((i) => {
-    if (i.pageKey === "home" || !i.pageKey) return true;
-    if (adminFull) return true;
-    return showInSidebar(i.pageKey);
-  });
-  const visibleRevenue = performanceRevenueItems.filter((i) =>
-    adminFull || !i.pageKey ? true : showInSidebar(i.pageKey)
   );
 
   return (
@@ -324,87 +220,130 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent>
-        {/* HOME */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-base font-normal">Home</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-base font-normal">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>{visibleHome.map(renderLink)}</SidebarMenu>
+            <SidebarMenu>{visibleItems.map(renderLink)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* PERFORMANCE */}
-        {(visibleRevenue.length > 0 || adminFull) && (
+        {visibleRevenueItems.length > 0 && (
           <CollapsibleNavGroup
-            label="Performance"
-            open={groupState.performance}
-            onOpenChange={(o) => setGroup("performance", o)}
+            groupKey="revenue"
+            label="Revenue"
+            defaultOpen={groupState.revenue}
+            onOpenChange={(o) => setGroup("revenue", o)}
           >
-            <SubGroup label="Revenue" items={visibleRevenue} renderLink={renderLink} />
-            <SubGroup
-              label="KPI Management"
-              items={adminFull ? performanceKpiItems : performanceKpiItems.filter((i) => i.pageKey === "kpis")}
-              renderLink={renderLink}
-            />
+            <SidebarMenu>{visibleRevenueItems.map(renderLink)}</SidebarMenu>
           </CollapsibleNavGroup>
         )}
 
-        {/* PLANNING */}
-        {adminFull && (
-          <CollapsibleNavGroup
-            label="Planning (FP&A)"
-            open={groupState.planning}
-            onOpenChange={(o) => setGroup("planning", o)}
-          >
-            <SidebarMenu>{planningItems.map(renderLink)}</SidebarMenu>
-          </CollapsibleNavGroup>
-        )}
+        <CollapsibleNavGroup
+          groupKey="kpi"
+          label="KPI Management"
+          defaultOpen={groupState.kpi}
+          onOpenChange={(o) => setGroup("kpi", o)}
+        >
+          <SidebarMenu>
+            {kpiItems.map(renderLink)}
+            {isAdmin && !isPreviewActive && kpiAdminItems.map(renderLink)}
+          </SidebarMenu>
+        </CollapsibleNavGroup>
 
-        {/* OPERATIONS */}
-        {(adminFull || showInSidebar("invoices")) && (
+        {showFinance && (
           <CollapsibleNavGroup
-            label="Operations"
-            open={groupState.operations}
-            onOpenChange={(o) => setGroup("operations", o)}
-          >
-            <SubGroup label="Procurement" items={procurementItems} renderLink={renderLink} />
-            {adminFull && <SubGroup label="Expenses" items={expensesItems} renderLink={renderLink} />}
-            {adminFull && <SubGroup label="People" items={peopleItems} renderLink={renderLink} />}
-          </CollapsibleNavGroup>
-        )}
-
-        {/* FINANCE */}
-        {adminFull && (
-          <CollapsibleNavGroup
+            groupKey="finance"
             label="Finance"
-            open={groupState.finance}
+            defaultOpen={groupState.finance}
             onOpenChange={(o) => setGroup("finance", o)}
           >
             <SidebarMenu>{financeItems.map(renderLink)}</SidebarMenu>
-            <SubGroup label="Payments & Settlements" items={paymentsSettlementsItems} renderLink={renderLink} />
-            <SubGroup label="Banking" items={bankingItems} renderLink={renderLink} />
+
+            <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
+
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                  <span className="flex items-center gap-2">
+                    <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                    Reports
+                  </span>
+                  <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                  <SidebarMenu>{financeReportsItems.map(renderLink)}</SidebarMenu>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                  <span className="flex items-center gap-2">
+                    <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                    Accounting
+                  </span>
+                  <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                  <SidebarMenu>{financeAccountingItems.map(renderLink)}</SidebarMenu>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </CollapsibleNavGroup>
         )}
 
-        {/* ACCOUNTING & REPORTS */}
-        {adminFull && (
+        {showFinance && (
           <CollapsibleNavGroup
-            label="Accounting & Reports"
-            open={groupState.accounting}
-            onOpenChange={(o) => setGroup("accounting", o)}
+            groupKey="expenses"
+            label="Expenses"
+            defaultOpen={groupState.expenses}
+            onOpenChange={(o) => setGroup("expenses", o)}
           >
-            <SubGroup label="Reports" items={reportsItems} renderLink={renderLink} />
-            <SubGroup label="Accounting" items={accountingItems} renderLink={renderLink} />
+            <SidebarMenu>{expensesItems.map(renderLink)}</SidebarMenu>
           </CollapsibleNavGroup>
         )}
 
-        {/* ADMIN */}
-        {adminFull && (
+        {showProcurement && (
           <CollapsibleNavGroup
+            groupKey="procurement"
+            label="Procurement"
+            defaultOpen={groupState.procurement}
+            onOpenChange={(o) => setGroup("procurement", o)}
+          >
+            <SidebarMenu>{procurementItems.map(renderLink)}</SidebarMenu>
+          </CollapsibleNavGroup>
+        )}
+
+        {showHR && (
+          <CollapsibleNavGroup
+            groupKey="hr"
+            label="People"
+            defaultOpen={groupState.hr}
+            onOpenChange={(o) => setGroup("hr", o)}
+          >
+            <SidebarMenu>{hrItems.map(renderLink)}</SidebarMenu>
+          </CollapsibleNavGroup>
+        )}
+
+        {showAdmin && (
+          <CollapsibleNavGroup
+            groupKey="admin"
             label="Admin"
-            open={groupState.admin}
+            defaultOpen={groupState.admin}
             onOpenChange={(o) => setGroup("admin", o)}
           >
-            <SidebarMenu>{adminItems.map(renderLink)}</SidebarMenu>
+            <SidebarMenu>
+              {renderLink({ title: "Notifications", url: "/notifications", icon: Bell })}
+              {renderLink({ title: "User Access", url: "/user-access", icon: UserCog })}
+              {renderLink({ title: "System Configuration", url: "/admin/system-configuration", icon: SlidersHorizontal })}
+              {renderLink({ title: "AI Learned Rules", url: "/admin/ai-rules", icon: Sparkles })}
+              {renderLink({ title: "Settings", url: "/settings", icon: Settings })}
+            </SidebarMenu>
           </CollapsibleNavGroup>
         )}
       </SidebarContent>
