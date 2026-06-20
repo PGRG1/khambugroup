@@ -9,68 +9,71 @@
      LIGHT — Dusty Blue + Copper
      ========================================================= */
   :root {
-    /* Dusty lavender canvas, crisp white cards (Twisty-inspired) */
-    --background: 225 22% 86%;
-    --foreground: 222 39% 14%;
+    /* App surfaces */
+    --background: 214 32% 97%;          /* #F6F8FB */
+    --foreground: 213 62% 16%;          /* #102A43 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 39% 14%;
+    --card: 0 0% 100%;                   /* #FFFFFF */
+    --card-foreground: 213 62% 16%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 39% 14%;
+    --popover-foreground: 213 62% 16%;
 
-    /* Brand — warm coral */
-    --primary: 14 86% 58%;
+    /* Brand — Copper */
+    --primary: 27 60% 46%;               /* #B87333 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 22% 95%;
-    --secondary-foreground: 222 39% 14%;
+    --secondary: 213 30% 93%;
+    --secondary-foreground: 213 62% 16%;
 
-    --muted: 220 20% 96%;
-    --muted-foreground: 220 12% 48%;
+    --muted: 214 32% 94%;                /* #F1F5F9-ish */
+    --muted-foreground: 210 17% 49%;     /* #627D98 */
 
-    --accent: 222 39% 14%;
+    --accent: 32 39% 36%;                /* #7C5C3B secondary copper */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 56%;
+    --destructive: 0 62% 48%;            /* #C53030 */
     --destructive-foreground: 0 0% 100%;
 
-    --success: 145 47% 38%;
-    --warning: 32 95% 50%;
-    --info: 217 91% 60%;
+    --success: 145 47% 35%;              /* #2F855A */
+    --warning: 32 95% 44%;               /* #D97706 */
+    --info: 217 91% 60%;                 /* #2563EB */
 
-    --border: 220 20% 90%;
-    --input: 220 20% 90%;
-    --ring: 14 86% 58%;
+    --border: 213 32% 88%;               /* #D9E2EC */
+    --input: 213 32% 88%;
+    --ring: 27 60% 46%;
 
-    --radius: 1.25rem;
+    --radius: 0.75rem;
 
+    /* Surfaces */
     --surface-panel: 0 0% 100%;
-    --surface-muted: 220 22% 95%;
+    --surface-muted: 214 32% 94%;
 
-    --chart-1: 14 86% 58%;
-    --chart-2: 222 39% 14%;
-    --chart-3: 217 91% 60%;
-    --chart-4: 145 47% 38%;
-    --chart-5: 262 60% 60%;
-    --chart-6: 0 72% 56%;
-    --chart-7: 38 95% 55%;
-    --chart-8: 220 12% 55%;
-    --chart-grid: 220 20% 90%;
+    /* Charts */
+    --chart-1: 27 60% 46%;   /* copper */
+    --chart-2: 217 91% 51%;  /* blue   #2563EB */
+    --chart-3: 175 64% 26%;  /* teal   #0F766E */
+    --chart-4: 145 47% 35%;  /* green  #2F855A */
+    --chart-5: 262 78% 58%;  /* purple #7C3AED */
+    --chart-6: 0 62% 48%;    /* rose   #C53030 */
+    --chart-7: 32 95% 44%;   /* gold   #D97706 */
+    --chart-8: 215 16% 47%;  /* slate  #64748B */
+    --chart-grid: 213 32% 88%;
 
-    --sidebar-background: 222 39% 12%;
-    --sidebar-foreground: 220 15% 80%;
-    --sidebar-primary: 14 86% 58%;
+    /* Sidebar — Dusty navy with light text */
+    --sidebar-background: 213 62% 16%;       /* #102A43 */
+    --sidebar-foreground: 213 30% 88%;
+    --sidebar-primary: 27 60% 56%;           /* copper accent */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 30% 20%;
+    --sidebar-accent: 211 37% 23%;           /* #243B53 */
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 222 30% 20%;
-    --sidebar-ring: 14 86% 58%;
+    --sidebar-border: 211 37% 23%;
+    --sidebar-ring: 27 60% 56%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(14 86% 58%), hsl(22 90% 62%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 100%));
-    --shadow-glow: 0 10px 30px -10px hsl(14 86% 58% / 0.35);
-    --shadow-card: 0 12px 40px -18px hsl(222 39% 14% / 0.18), 0 2px 6px -2px hsl(222 39% 14% / 0.06);
+    --gradient-gold: linear-gradient(135deg, hsl(27 60% 46%), hsl(32 39% 36%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(214 32% 97%));
+    --shadow-glow: 0 0 20px -5px hsl(27 60% 46% / 0.18);
+    --shadow-card: 0 4px 24px -8px hsl(213 62% 16% / 0.08);
   }
 
   /* =========================================================
