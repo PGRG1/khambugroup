@@ -159,8 +159,65 @@ export default function InventoryOnHandTab() {
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading inventory…</div>;
 
+  const reorderRows = rows.filter((r) => r.min_stock_qty != null && r.qty_on_hand < (r.min_stock_qty as number));
+
   return (
     <div className="space-y-4">
+      {/* Reorder Alerts */}
+      <Collapsible open={alertsOpen} onOpenChange={setAlertsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition">
+              <div className="flex items-center gap-2">
+                {reorderRows.length > 0 ? (
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                )}
+                <span className="text-sm font-semibold">
+                  {reorderRows.length > 0 ? `Reorder Alerts (${reorderRows.length})` : "All stock levels OK"}
+                </span>
+              </div>
+              {reorderRows.length > 0 && <ChevronDown className={`h-4 w-4 transition ${alertsOpen ? "rotate-180" : ""}`} />}
+            </button>
+          </CollapsibleTrigger>
+          {reorderRows.length > 0 && (
+            <CollapsibleContent>
+              <div className="border-t">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-amber-500/5">
+                      <TableHead className="text-xs">SKU</TableHead>
+                      <TableHead className="text-xs">Item Name</TableHead>
+                      <TableHead className="text-xs">Category</TableHead>
+                      <TableHead className="text-xs text-right">On Hand</TableHead>
+                      <TableHead className="text-xs text-right">Min Stock</TableHead>
+                      <TableHead className="text-xs text-right">Reorder Qty</TableHead>
+                      <TableHead className="text-xs" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reorderRows.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-xs font-mono">{r.internal_sku}</TableCell>
+                        <TableCell className="text-xs font-medium">{r.internal_product_name}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{r.level1_category || "—"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums text-amber-500 font-medium">{fmt(r.qty_on_hand)}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{fmt(r.min_stock_qty as number)}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{r.reorder_qty != null ? fmt(r.reorder_qty as number) : "—"}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" onClick={() => navigate("/procurement/purchase-orders")}>Create PO</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CollapsibleContent>
+          )}
+        </Card>
+      </Collapsible>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
