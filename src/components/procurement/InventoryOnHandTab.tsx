@@ -39,11 +39,13 @@ interface InventoryRow extends ProductRow {
 type SortKey = "internal_sku" | "internal_product_name" | "level1_category" | "qty_on_hand" | "avg_cost" | "cost_value" | "unit_cost" | "supplier_value";
 
 export default function InventoryOnHandTab() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [lineAgg, setLineAgg] = useState<AggregatedLineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [alertsOpen, setAlertsOpen] = useState(true);
   const [sortColumns, setSortColumns] = useState<Array<{key: SortKey, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
 
   const fetchData = useCallback(async () => {
