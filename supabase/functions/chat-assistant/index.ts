@@ -1,6 +1,7 @@
 // Data-aware AI analyst for KHAMBU dashboard.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -15,16 +16,21 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
 // ---------- helpers ----------
-async function fetchAll<T = any>(
+async function fetchAllRaw<T = any>(
   table: string,
-  cols = "*",
+  cols: string,
+  tenantId: string,
   filters?: (q: any) => any,
 ): Promise<T[]> {
   const pageSize = 1000;
   let from = 0;
   const out: T[] = [];
   while (true) {
-    let q = admin.from(table).select(cols).range(from, from + pageSize - 1);
+    let q = admin
+      .from(table)
+      .select(cols)
+      .eq("tenant_id", tenantId)
+      .range(from, from + pageSize - 1);
     if (filters) q = filters(q);
     const { data, error } = await q;
     if (error) throw new Error(error.message);
@@ -291,7 +297,14 @@ const tools = [
 ];
 
 // ---------- tool handlers ----------
-async function runTool(name: string, args: any): Promise<any> {
+async function runTool(name: string, args: any, tenantId: string): Promise<any> {
+  // Tenant-scoped fetchAll shortcut so we don't have to thread tenantId through every call site.
+  const fetchAll = <T = any>(
+    table: string,
+    cols = "*",
+    filters?: (q: any) => any,
+  ): Promise<T[]> => fetchAllRaw<T>(table, cols, tenantId, filters);
+
   switch (name) {
     case "get_sales_summary": {
       const sales = await fetchAll<any>("sales_records", "date,venue,subtotal,service_charge,discount,orders,guests");
@@ -575,7 +588,10 @@ async function runTool(name: string, args: any): Promise<any> {
 
     case "get_database_overview": {
       const counts = async (t: string) => {
-        const { count } = await admin.from(t).select("*", { count: "exact", head: true });
+        const { count } = await admin
+          .from(t)
+          .select("*", { count: "exact", head: true })
+          .eq("tenant_id", tenantId);
         return count || 0;
       };
       const [inv, lines, sales, sup, prod, emp] = await Promise.all([
@@ -971,30 +987,28 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   // Auth check
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const token = authHeader.replace("Bearer ", "");
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
-  if (userErr || !userData.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  const { user, response: authResp } = await requireAuth(req, corsHeaders);
+  if (authResp) return authResp;
 
   try {
-    const { messages } = await req.json();
+    const body = await req.json();
+    const { messages, tenant_id: requestedTenantId } = body ?? {};
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Resolve tenant scope — every DB tool below is filtered by this tenant_id.
+    const resolved = await resolveTenant(admin, user!.id, requestedTenantId ?? null);
+    if (!resolved) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: no tenant access" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const tenantId = resolved.tenant_id;
 
     const conversation: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
     const chartSpecs: any[] = [];
@@ -1110,7 +1124,7 @@ Deno.serve(async (req) => {
           result = { ok: true, rendered: args.title || "chart" };
         } else {
           try {
-            result = await runTool(tc.function.name, args);
+            result = await runTool(tc.function.name, args, tenantId);
           } catch (e) {
             result = { error: e instanceof Error ? e.message : String(e) };
           }
