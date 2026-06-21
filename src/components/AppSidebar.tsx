@@ -168,6 +168,8 @@ export function AppSidebar() {
     procurement: false,
     hr: false,
     admin: false,
+    platform: false,
+
   });
 
   const setGroup = (key: GroupKey, open: boolean) => {
