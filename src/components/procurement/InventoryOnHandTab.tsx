@@ -49,7 +49,7 @@ export default function InventoryOnHandTab() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [prodData, lineRes] = await Promise.all([
-      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status", { col: "internal_sku", asc: true }),
+      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty", { col: "internal_sku", asc: true }),
       supabase.rpc("get_inventory_aggregates" as any),
     ]);
 
