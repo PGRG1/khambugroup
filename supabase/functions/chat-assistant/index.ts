@@ -16,7 +16,7 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
 // ---------- helpers ----------
-async function fetchAll<T = any>(
+async function fetchAllRaw<T = any>(
   table: string,
   cols: string,
   tenantId: string,
