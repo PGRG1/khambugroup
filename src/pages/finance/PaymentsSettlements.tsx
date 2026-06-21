@@ -163,7 +163,7 @@ export default function PaymentsSettlements() {
         </TabsContent>
 
         <TabsContent value="fee-rates" className="mt-4">
-          <FeeRatesTab processor={processor} merchants={procMerchants} />
+          <FeeRatesTab processor={processor} merchants={procMerchants} allProcessors={processors} allMerchants={merchants} allFeeRates={feeRates} onReload={reload} />
         </TabsContent>
       </Tabs>
     </div>
