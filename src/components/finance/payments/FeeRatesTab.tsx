@@ -117,7 +117,23 @@ const formatMethodLabel = (method: string, wallet: string | null) => {
   return base;
 };
 
-export function FeeRatesTab({ processor, merchants }: { processor: { id: string; name: string } | null; merchants: Merchant[] }) {
+type ProcessorRef = { id: string; name: string };
+
+export function FeeRatesTab({
+  processor,
+  merchants,
+  allProcessors,
+  allMerchants,
+  allFeeRates,
+  onReload,
+}: {
+  processor: ProcessorRef | null;
+  merchants: Merchant[];
+  allProcessors?: ProcessorRef[];
+  allMerchants?: Merchant[];
+  allFeeRates?: FeeRate[];
+  onReload?: () => void | Promise<void>;
+}) {
   const [rates, setRates] = useState<FeeRate[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
