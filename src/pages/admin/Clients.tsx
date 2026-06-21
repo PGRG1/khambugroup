@@ -11,7 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { fmtDate } from "@/utils/format";
+
+const fmtDate = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  } catch { return iso; }
+};
+
 
 type ClientRow = { id: string; name: string; slug: string; status: string; created_at: string };
 
