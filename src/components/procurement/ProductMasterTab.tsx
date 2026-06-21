@@ -888,6 +888,12 @@ export default function ProductMasterTab() {
                   <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-16" />
                 </div>
 
+                <div className="col-span-2 border-t pt-3 mt-1">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">Reorder settings</p>
+                </div>
+                <div><Label className="text-xs">Min stock qty</Label><Input type="number" step="0.01" value={form.min_stock_qty} onChange={e => setForm({ ...form, min_stock_qty: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">Reorder qty</Label><Input type="number" step="0.01" value={form.reorder_qty} onChange={e => setForm({ ...form, reorder_qty: e.target.value })} className="h-9 text-sm" /></div>
+
                 <div>
                   <Label className="text-xs">Status</Label>
                   <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
