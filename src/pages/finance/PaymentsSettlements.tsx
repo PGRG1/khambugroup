@@ -68,12 +68,17 @@ export default function PaymentsSettlements() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={processorId} onValueChange={setProcessorId}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Choose processor" /></SelectTrigger>
+            <SelectTrigger className="w-[240px]"><SelectValue placeholder="Choose processor" /></SelectTrigger>
             <SelectContent>
+              {processors.map((p) => {
+                const n = feeRateCountByProcessor.get(p.id) || 0;
+                return (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} <span className="text-muted-foreground">· {n} {n === 1 ? "rule" : "rules"}</span>
+                  </SelectItem>
+                );
+              })}
               <SelectItem value={ALL}>All processors</SelectItem>
-              {processors.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
             </SelectContent>
           </Select>
         </div>
