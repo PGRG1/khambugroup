@@ -100,7 +100,7 @@ const kpiAdminItems = [
 
 const STORAGE_KEY = "khambu.sidebar.groups";
 
-type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "hr" | "admin";
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "hr" | "admin" | "platform";
 
 function loadGroupState(): Record<GroupKey, boolean> {
   try {
