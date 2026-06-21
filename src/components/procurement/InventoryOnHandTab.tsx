@@ -19,6 +19,8 @@ interface ProductRow {
   unit: string;
   unit_cost: number; // supplier-marked price
   status: string;
+  min_stock_qty?: number | null;
+  reorder_qty?: number | null;
 }
 
 interface AggregatedLineItem {
