@@ -1208,6 +1208,7 @@ interface InvoiceTableSectionProps {
   setDeleteOpen: (open: boolean) => void;
   onUpdateField: (id: string, patch: Partial<Invoice>) => void;
   onUploadClick: () => void;
+  invoiceVarianceMap: Record<string, boolean>;
 }
 
 function InvoiceTableSection({
@@ -1216,6 +1217,7 @@ function InvoiceTableSection({
   reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
+  invoiceVarianceMap,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
 
