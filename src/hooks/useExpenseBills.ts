@@ -289,6 +289,22 @@ export function useExpenseBills() {
     return (data || []) as ExpenseBillPayment[];
   }, []);
 
+  const setDocumentRequirement = useCallback(
+    async (billId: string, requirement: "not_required" | "pending" | "received") => {
+      const { error } = await supabase
+        .from("expense_bills")
+        .update({ document_requirement: requirement } as any)
+        .eq("id", billId);
+      if (error) {
+        toast.error("Update failed: " + error.message);
+        return false;
+      }
+      await refresh();
+      return true;
+    },
+    [refresh]
+  );
+
   return {
     bills,
     loading,
@@ -300,5 +316,7 @@ export function useExpenseBills() {
     fetchAllocations,
     fetchAudit,
     fetchPayments,
+    setDocumentRequirement,
   };
 }
+
