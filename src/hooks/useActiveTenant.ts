@@ -49,7 +49,10 @@ export function useActiveTenant() {
     setTenantIdState(id);
   };
 
-  const isSuperAdmin = memberships.some((m) => m.role === "super_admin");
+  const isSuperAdmin = memberships.some(
+    (m) => m.role === "super_admin" || m.role === "platform_admin",
+  );
 
   return { tenantId, setTenantId, memberships, loading, isSuperAdmin };
 }
+
