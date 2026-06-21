@@ -297,7 +297,14 @@ const tools = [
 ];
 
 // ---------- tool handlers ----------
-async function runTool(name: string, args: any): Promise<any> {
+async function runTool(name: string, args: any, tenantId: string): Promise<any> {
+  // Tenant-scoped fetchAll shortcut so we don't have to thread tenantId through every call site.
+  const fetchAll = <T = any>(
+    table: string,
+    cols = "*",
+    filters?: (q: any) => any,
+  ): Promise<T[]> => fetchAllRaw<T>(table, cols, tenantId, filters);
+
   switch (name) {
     case "get_sales_summary": {
       const sales = await fetchAll<any>("sales_records", "date,venue,subtotal,service_charge,discount,orders,guests");
