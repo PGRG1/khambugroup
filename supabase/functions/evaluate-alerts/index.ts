@@ -62,10 +62,22 @@ Deno.serve(async (req) => {
     const today = todayHKT();
     const monthStart = monthStartHKT(today);
 
+    // Iterate every active tenant. Each tenant evaluates its own rules/alerts.
+    const { data: tenants } = await admin.from("tenants").select("id, name").eq("status", "active");
+    const tenantList = (tenants && tenants.length > 0) ? tenants : [{ id: "00000000-0000-0000-0000-00000000beef", name: "KHAMBU" }];
+
+    let totalFired = 0;
+    let totalPulseSent = 0;
+    const perTenant: Array<Record<string, unknown>> = [];
+
+    for (const tenantRow of tenantList) {
+      const tenantId = String(tenantRow.id);
+
     // ---- Aggregate MTD sales per venue ----
     const { data: sales } = await admin
       .from("sales_records")
       .select("date,venue,subtotal,service_charge,discount,guests")
+      .eq("tenant_id", tenantId)
       .gte("date", monthStart)
       .lte("date", today);
 
@@ -92,6 +104,7 @@ Deno.serve(async (req) => {
     const { data: invs } = await admin
       .from("invoices")
       .select("invoice_date,venue,total_amount,status")
+      .eq("tenant_id", tenantId)
       .gte("invoice_date", monthStart)
       .lte("invoice_date", today)
       .in("status", ["paid", "unpaid"]);
@@ -107,7 +120,8 @@ Deno.serve(async (req) => {
     // ---- MTD goals (sum revenue_targets for this month per venue) ----
     const { data: targets } = await admin
       .from("revenue_targets")
-      .select("year,month,target_amount,venues");
+      .select("year,month,target_amount,venues")
+      .eq("tenant_id", tenantId);
     const yyyy = Number(today.slice(0, 4));
     const mm = Number(today.slice(5, 7));
     const goalByVenue = new Map<string, number>();
@@ -144,10 +158,23 @@ Deno.serve(async (req) => {
     }
 
     // ---- Evaluate rules ----
-    const { data: rules } = await admin.from("alert_rules").select("*").eq("enabled", true);
+    const { data: rules } = await admin
+      .from("alert_rules")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("enabled", true);
+
+    // Only users who belong to THIS tenant are notified.
+    const { data: tenantMembers } = await admin
+      .from("tenant_members")
+      .select("user_id, role")
+      .eq("tenant_id", tenantId);
+    const tenantUserIds = new Set((tenantMembers || []).map((m: any) => m.user_id));
+
     const { data: roleRows } = await admin.from("user_roles").select("user_id,role");
     const rolesByUser = new Map<string, Set<string>>();
     for (const r of roleRows || []) {
+      if (!tenantUserIds.has(r.user_id)) continue;
       const s = rolesByUser.get(r.user_id) || new Set();
       s.add(String(r.role));
       rolesByUser.set(r.user_id, s);
@@ -199,6 +226,7 @@ Deno.serve(async (req) => {
       });
 
       await admin.from("alert_events").insert({
+        tenant_id: tenantId,
         rule_id: rule.id,
         fired_for_date: today,
         metric_value: val,
@@ -210,10 +238,11 @@ Deno.serve(async (req) => {
       fired++;
     }
 
-    // ---- Daily Business Pulse to every subscribed user (toggle per device) ----
+    // ---- Daily Business Pulse to every subscribed user in THIS tenant ----
     const { data: pulseSubs } = await admin
       .from("push_subscriptions")
       .select("id,user_id")
+      .eq("tenant_id", tenantId)
       .eq("enabled_daily_pulse", true);
     const pulseUserIds = Array.from(new Set((pulseSubs || []).map((s) => s.user_id)));
 
@@ -225,12 +254,21 @@ Deno.serve(async (req) => {
         title: "Daily Business Pulse",
         body: pulseBody,
         url: "/",
-        tag: `pulse-${today}`,
+        tag: `pulse-${today}-${tenantId}`,
       });
     }
 
+    totalFired += fired;
+    totalPulseSent += pulseSent;
+    perTenant.push({
+      tenant_id: tenantId, tenant_name: (tenantRow as any).name,
+      mtd_revenue: mtdRevenueAll, mtd_cogs: cogsAll, mtd_goal: goalAll,
+      today_revenue: todayRevenueAll, rules_fired: fired, pulse_sent: pulseSent,
+    });
+    } // end per-tenant loop
+
     return new Response(
-      JSON.stringify({ today, mtd_revenue: mtdRevenueAll, mtd_cogs: cogsAll, mtd_goal: goalAll, today_revenue: todayRevenueAll, rules_fired: fired, pulse_sent: pulseSent }),
+      JSON.stringify({ today, tenants: perTenant.length, rules_fired: totalFired, pulse_sent: totalPulseSent, per_tenant: perTenant }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {

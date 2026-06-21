@@ -7,7 +7,7 @@
 //   4. Return suggestions; the client decides which to apply.
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
-import { requireAuth } from "../_shared/auth.ts";
+import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,10 +44,15 @@ Deno.serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    const { processor_id, batch_ids, day_window = 5, apply = false, suggestions: incoming } =
+    const { processor_id, batch_ids, day_window = 5, apply = false, suggestions: incoming, tenant_id: requestedTenantId } =
       await req.json().catch(() => ({}));
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Resolve which tenant the caller is operating on.
+    const tenant = await resolveTenant(sb, (auth.user as any).id, requestedTenantId);
+    if (!tenant) return json({ error: "No tenant access" }, 403);
+    const tenantId = tenant.tenant_id;
 
     // ---------- APPLY mode ----------
     if (apply && Array.isArray(incoming) && incoming.length > 0) {
@@ -57,7 +62,8 @@ Deno.serve(async (req) => {
         const { error: e1 } = await sb
           .from("payment_settlement_batches")
           .update({ bank_transaction_id: s.bank_transaction_id, status: "matched" })
-          .eq("id", s.batch_id);
+          .eq("id", s.batch_id)
+          .eq("tenant_id", tenantId);
         if (e1) continue;
         await sb
           .from("bank_transactions")
@@ -67,7 +73,8 @@ Deno.serve(async (req) => {
             status: "matched",
             match_confidence: s.confidence,
           })
-          .eq("id", s.bank_transaction_id);
+          .eq("id", s.bank_transaction_id)
+          .eq("tenant_id", tenantId);
         applied += 1;
       }
       return json({ applied });
@@ -80,6 +87,7 @@ Deno.serve(async (req) => {
     let q = sb
       .from("payment_settlement_batches")
       .select("id, merchant_id, settlement_date, transaction_date, net_settlement, status, bank_transaction_id")
+      .eq("tenant_id", tenantId)
       .eq("processor_id", processor_id)
       .is("bank_transaction_id", null);
     if (Array.isArray(batch_ids) && batch_ids.length > 0) q = q.in("id", batch_ids);
@@ -91,6 +99,7 @@ Deno.serve(async (req) => {
     const { data: merchants } = await sb
       .from("payment_processor_merchants")
       .select("id, display_name, default_bank_account_id, merchant_number")
+      .eq("tenant_id", tenantId)
       .in("id", merchantIds);
     const merchantById = new Map((merchants || []).map((m) => [m.id, m]));
 
@@ -113,6 +122,7 @@ Deno.serve(async (req) => {
     const { data: txns } = await sb
       .from("bank_transactions")
       .select("id, bank_account_id, txn_date, money_in, money_out, description, reference, status, matched_record_id")
+      .eq("tenant_id", tenantId)
       .in("bank_account_id", bankAcctIds)
       .gte("txn_date", minDate)
       .lte("txn_date", maxDate)

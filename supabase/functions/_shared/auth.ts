@@ -1,5 +1,4 @@
-// Shared JWT auth guard for edge functions.
-// Returns { user } when authenticated, or a Response (401) to send back.
+// Shared JWT auth + tenant resolver for edge functions.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 export async function requireAuth(req: Request, corsHeaders: Record<string, string>) {
@@ -19,7 +18,6 @@ export async function requireAuth(req: Request, corsHeaders: Record<string, stri
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
     );
-    // Prefer getClaims (works with signing-keys / asymmetric JWTs); fall back to getUser.
     const anySb = supabase.auth as any;
     if (typeof anySb.getClaims === "function") {
       const { data, error } = await anySb.getClaims(token);
@@ -54,4 +52,36 @@ export async function requireAuth(req: Request, corsHeaders: Record<string, stri
       ),
     };
   }
+}
+
+export type ResolvedTenant = { tenant_id: string; role: string; isSuper: boolean };
+
+/**
+ * Resolve which tenant a caller is acting on.
+ *  - If requestedTenantId is provided, verifies the caller is a member (or super_admin).
+ *  - Otherwise returns the caller's first tenant.
+ * Returns null when the caller has no membership or is not authorized for the requested tenant.
+ */
+export async function resolveTenant(
+  adminClient: ReturnType<typeof createClient>,
+  userId: string,
+  requestedTenantId?: string | null,
+): Promise<ResolvedTenant | null> {
+  const { data: memberships } = await adminClient
+    .from("tenant_members")
+    .select("tenant_id, role")
+    .eq("user_id", userId);
+  if (!memberships || memberships.length === 0) return null;
+
+  const isSuper = memberships.some((m: any) => m.role === "super_admin");
+  let tenantId = requestedTenantId || null;
+  if (tenantId) {
+    const allowed = isSuper || memberships.some((m: any) => m.tenant_id === tenantId);
+    if (!allowed) return null;
+  } else {
+    tenantId = memberships[0].tenant_id as string;
+  }
+  const role = memberships.find((m: any) => m.tenant_id === tenantId)?.role
+    || (isSuper ? "super_admin" : "member");
+  return { tenant_id: tenantId!, role, isSuper };
 }
