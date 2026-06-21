@@ -285,7 +285,8 @@ Deno.serve(async (req) => {
     }
     {
       const rows = DEFAULT_DOC_CATEGORIES.map((n) => ({
-        tenant_id: tenantId, name: n, is_active: true, color: null,
+        tenant_id: tenantId, name: n,
+
       }));
       const { error } = await admin.from("expense_categories").insert(rows);
       // If color column is non-nullable we'll retry without it; the seed is best-effort.
