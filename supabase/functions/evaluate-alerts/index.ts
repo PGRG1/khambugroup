@@ -158,10 +158,23 @@ Deno.serve(async (req) => {
     }
 
     // ---- Evaluate rules ----
-    const { data: rules } = await admin.from("alert_rules").select("*").eq("enabled", true);
+    const { data: rules } = await admin
+      .from("alert_rules")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("enabled", true);
+
+    // Only users who belong to THIS tenant are notified.
+    const { data: tenantMembers } = await admin
+      .from("tenant_members")
+      .select("user_id, role")
+      .eq("tenant_id", tenantId);
+    const tenantUserIds = new Set((tenantMembers || []).map((m: any) => m.user_id));
+
     const { data: roleRows } = await admin.from("user_roles").select("user_id,role");
     const rolesByUser = new Map<string, Set<string>>();
     for (const r of roleRows || []) {
+      if (!tenantUserIds.has(r.user_id)) continue;
       const s = rolesByUser.get(r.user_id) || new Set();
       s.add(String(r.role));
       rolesByUser.set(r.user_id, s);
