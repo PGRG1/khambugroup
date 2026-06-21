@@ -16,6 +16,8 @@ export interface RecurringRule {
   currency: string;
   cadence: string;
   day_of_month: number | null;
+  recognition_day: string | null;
+  combined_venues: boolean;
   next_due_date: string | null;
   last_generated_at: string | null;
   active: boolean;
