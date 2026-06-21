@@ -1124,7 +1124,7 @@ Deno.serve(async (req) => {
           result = { ok: true, rendered: args.title || "chart" };
         } else {
           try {
-            result = await runTool(tc.function.name, args);
+            result = await runTool(tc.function.name, args, tenantId);
           } catch (e) {
             result = { error: e instanceof Error ? e.message : String(e) };
           }
