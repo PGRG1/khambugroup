@@ -226,6 +226,7 @@ Deno.serve(async (req) => {
       });
 
       await admin.from("alert_events").insert({
+        tenant_id: tenantId,
         rule_id: rule.id,
         fired_for_date: today,
         metric_value: val,
@@ -237,10 +238,11 @@ Deno.serve(async (req) => {
       fired++;
     }
 
-    // ---- Daily Business Pulse to every subscribed user (toggle per device) ----
+    // ---- Daily Business Pulse to every subscribed user in THIS tenant ----
     const { data: pulseSubs } = await admin
       .from("push_subscriptions")
       .select("id,user_id")
+      .eq("tenant_id", tenantId)
       .eq("enabled_daily_pulse", true);
     const pulseUserIds = Array.from(new Set((pulseSubs || []).map((s) => s.user_id)));
 
@@ -252,12 +254,21 @@ Deno.serve(async (req) => {
         title: "Daily Business Pulse",
         body: pulseBody,
         url: "/",
-        tag: `pulse-${today}`,
+        tag: `pulse-${today}-${tenantId}`,
       });
     }
 
+    totalFired += fired;
+    totalPulseSent += pulseSent;
+    perTenant.push({
+      tenant_id: tenantId, tenant_name: (tenantRow as any).name,
+      mtd_revenue: mtdRevenueAll, mtd_cogs: cogsAll, mtd_goal: goalAll,
+      today_revenue: todayRevenueAll, rules_fired: fired, pulse_sent: pulseSent,
+    });
+    } // end per-tenant loop
+
     return new Response(
-      JSON.stringify({ today, mtd_revenue: mtdRevenueAll, mtd_cogs: cogsAll, mtd_goal: goalAll, today_revenue: todayRevenueAll, rules_fired: fired, pulse_sent: pulseSent }),
+      JSON.stringify({ today, tenants: perTenant.length, rules_fired: totalFired, pulse_sent: totalPulseSent, per_tenant: perTenant }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {
