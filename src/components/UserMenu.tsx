@@ -55,6 +55,11 @@ export const UserMenu = () => {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Workspace
+        </DropdownMenuLabel>
+        <TenantSwitcher />
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Appearance
         </DropdownMenuLabel>
         <div className="px-1 pb-1 space-y-0.5">
