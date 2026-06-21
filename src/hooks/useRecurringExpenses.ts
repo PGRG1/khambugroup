@@ -149,10 +149,36 @@ export function useRecurringExpenses() {
     const result: any = data;
     const created = result?.created ?? 0;
     const skipped = result?.skipped_duplicate ?? 0;
-    toast.success(`Generated ${created} bill(s)${skipped ? ` · ${skipped} skipped (duplicates)` : ""}`);
+
+    // Auto-approve & post bills generated from rules with auto_approve=true
+    const { data: autoBills } = await supabase
+      .from("expense_bills")
+      .select("id, recurring_rule_id")
+      .eq("approval_status", "pending_review")
+      .eq("source_type", "recurring_rule")
+      .not("recurring_rule_id", "is", null);
+    const autoRuleIds = new Set(
+      (await supabase.from("expense_recurring_rules").select("id").eq("auto_approve", true)).data?.map((r: any) => r.id) || []
+    );
+    let autoPosted = 0;
+    for (const b of autoBills || []) {
+      if (b.recurring_rule_id && autoRuleIds.has(b.recurring_rule_id)) {
+        await supabase.from("expense_bills").update({
+          approval_status: "approved",
+          approved_at: new Date().toISOString(),
+        }).eq("id", b.id);
+        const { error: postErr } = await supabase.rpc("post_expense_bill" as any, { p_bill_id: b.id });
+        if (!postErr) autoPosted++;
+      }
+    }
+
+    toast.success(
+      `Generated ${created} bill(s)${skipped ? ` · ${skipped} skipped` : ""}${autoPosted ? ` · ${autoPosted} auto-posted` : ""}`
+    );
     await refresh();
     return result;
   }, [refresh]);
+
 
   return { rules, loading, refresh, save, remove, setStatus, generateNow };
 }
