@@ -33,6 +33,7 @@ const EMPTY_FORM = {
   stock_uom: "", stock_qty: "1", cost_per_stock_unit: "0",
   base_unit_type: "g", base_unit_qty: "1", cost_per_base_unit: "0",
   notes: "",
+  min_stock_qty: "", reorder_qty: "",
 };
 
 interface FlatRow {
