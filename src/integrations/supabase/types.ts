@@ -2367,6 +2367,164 @@ export type Database = {
           },
         ]
       }
+      goods_received_notes: {
+        Row: {
+          created_at: string
+          grn_number: string
+          id: string
+          invoice_id: string | null
+          notes: string | null
+          po_id: string | null
+          received_by: string
+          received_date: string
+          status: string
+          supplier_id: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          created_at?: string
+          grn_number?: string
+          id?: string
+          invoice_id?: string | null
+          notes?: string | null
+          po_id?: string | null
+          received_by: string
+          received_date?: string
+          status?: string
+          supplier_id: string
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          created_at?: string
+          grn_number?: string
+          id?: string
+          invoice_id?: string | null
+          notes?: string | null
+          po_id?: string | null
+          received_by?: string
+          received_date?: string
+          status?: string
+          supplier_id?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goods_received_notes_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_received_notes_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoices_postable"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "goods_received_notes_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goods_received_notes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grn_items: {
+        Row: {
+          created_at: string
+          description: string
+          grn_id: string
+          id: string
+          invoice_line_item_id: string | null
+          po_item_id: string | null
+          product_master_id: string | null
+          quantity_invoiced: number | null
+          quantity_ordered: number | null
+          quantity_received: number
+          total: number | null
+          unit: string
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          grn_id: string
+          id?: string
+          invoice_line_item_id?: string | null
+          po_item_id?: string | null
+          product_master_id?: string | null
+          quantity_invoiced?: number | null
+          quantity_ordered?: number | null
+          quantity_received?: number
+          total?: number | null
+          unit?: string
+          unit_cost?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          grn_id?: string
+          id?: string
+          invoice_line_item_id?: string | null
+          po_item_id?: string | null
+          product_master_id?: string | null
+          quantity_invoiced?: number | null
+          quantity_ordered?: number | null
+          quantity_received?: number
+          total?: number | null
+          unit?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grn_items_grn_id_fkey"
+            columns: ["grn_id"]
+            isOneToOne: false
+            referencedRelation: "goods_received_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_items_invoice_line_item_id_fkey"
+            columns: ["invoice_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_items_po_item_id_fkey"
+            columns: ["po_item_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_attendance: {
         Row: {
           clock_in: string | null

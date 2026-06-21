@@ -10,6 +10,7 @@ import MenuCostingTab from "@/components/procurement/MenuCostingTab";
 import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboardTab";
 import DocumentsTab from "@/components/procurement/DocumentsTab";
 import PurchaseOrdersTab from "@/components/procurement/PurchaseOrdersTab";
+import ReceivingTab from "@/components/procurement/ReceivingTab";
 
 const tabTitles: Record<string, string> = {
   dashboard: "Overview",
@@ -18,6 +19,7 @@ const tabTitles: Record<string, string> = {
   categories: "Categories",
   invoices: "Invoices",
   "purchase-orders": "Purchase Orders",
+  receiving: "Receiving",
   "line-items": "Invoice Line Items",
   inventory: "Inventory",
   "menu-costing": "Menu Costing",
@@ -48,6 +50,7 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
         <TabsContent value="categories"><CategoriesTab /></TabsContent>
         <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
         <TabsContent value="purchase-orders"><PurchaseOrdersTab /></TabsContent>
+        <TabsContent value="receiving"><ReceivingTab /></TabsContent>
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
         <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
         <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>

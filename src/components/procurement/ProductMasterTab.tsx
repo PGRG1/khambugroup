@@ -33,6 +33,7 @@ const EMPTY_FORM = {
   stock_uom: "", stock_qty: "1", cost_per_stock_unit: "0",
   base_unit_type: "g", base_unit_qty: "1", cost_per_base_unit: "0",
   notes: "",
+  min_stock_qty: "", reorder_qty: "",
 };
 
 interface FlatRow {
@@ -271,6 +272,8 @@ export default function ProductMasterTab() {
       base_unit_type: row.base_unit_type, base_unit_qty: String(row.base_unit_qty),
       cost_per_base_unit: String(row.cost_per_base_unit),
       notes: row.notes,
+      min_stock_qty: (row.product as any).min_stock_qty != null ? String((row.product as any).min_stock_qty) : "",
+      reorder_qty: (row.product as any).reorder_qty != null ? String((row.product as any).reorder_qty) : "",
     });
     setDragPos(null);
     setDialogOpen(true);
@@ -319,7 +322,7 @@ export default function ProductMasterTab() {
     const costPerRecipeUnit = recipeQty > 0 ? purchaseUnitCost / recipeQty : 0;
 
     if (editingProductId) {
-      const pmUpdates = {
+      const pmUpdates: any = {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
         accounting_category: form.accounting_category,
@@ -327,6 +330,8 @@ export default function ProductMasterTab() {
         default_coa_account_id: form.default_coa_account_id || null,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         notes: form.notes,
+        min_stock_qty: form.min_stock_qty === "" ? null : parseFloat(form.min_stock_qty),
+        reorder_qty: form.reorder_qty === "" ? null : parseFloat(form.reorder_qty),
       };
 
       const supplierLevelFields = {
@@ -882,6 +887,12 @@ export default function ProductMasterTab() {
                   <Label className="text-xs">Notes</Label>
                   <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-16" />
                 </div>
+
+                <div className="col-span-2 border-t pt-3 mt-1">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">Reorder settings</p>
+                </div>
+                <div><Label className="text-xs">Min stock qty</Label><Input type="number" step="0.01" value={form.min_stock_qty} onChange={e => setForm({ ...form, min_stock_qty: e.target.value })} className="h-9 text-sm" /></div>
+                <div><Label className="text-xs">Reorder qty</Label><Input type="number" step="0.01" value={form.reorder_qty} onChange={e => setForm({ ...form, reorder_qty: e.target.value })} className="h-9 text-sm" /></div>
 
                 <div>
                   <Label className="text-xs">Status</Label>

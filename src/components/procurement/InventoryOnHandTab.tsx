@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, Download, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +19,8 @@ interface ProductRow {
   unit: string;
   unit_cost: number; // supplier-marked price
   status: string;
+  min_stock_qty?: number | null;
+  reorder_qty?: number | null;
 }
 
 interface AggregatedLineItem {
@@ -35,17 +39,19 @@ interface InventoryRow extends ProductRow {
 type SortKey = "internal_sku" | "internal_product_name" | "level1_category" | "qty_on_hand" | "avg_cost" | "cost_value" | "unit_cost" | "supplier_value";
 
 export default function InventoryOnHandTab() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [lineAgg, setLineAgg] = useState<AggregatedLineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [alertsOpen, setAlertsOpen] = useState(true);
   const [sortColumns, setSortColumns] = useState<Array<{key: SortKey, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [prodData, lineRes] = await Promise.all([
-      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status", { col: "internal_sku", asc: true }),
+      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty", { col: "internal_sku", asc: true }),
       supabase.rpc("get_inventory_aggregates" as any),
     ]);
 
@@ -153,8 +159,65 @@ export default function InventoryOnHandTab() {
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading inventory…</div>;
 
+  const reorderRows = rows.filter((r) => r.min_stock_qty != null && r.qty_on_hand < (r.min_stock_qty as number));
+
   return (
     <div className="space-y-4">
+      {/* Reorder Alerts */}
+      <Collapsible open={alertsOpen} onOpenChange={setAlertsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition">
+              <div className="flex items-center gap-2">
+                {reorderRows.length > 0 ? (
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                )}
+                <span className="text-sm font-semibold">
+                  {reorderRows.length > 0 ? `Reorder Alerts (${reorderRows.length})` : "All stock levels OK"}
+                </span>
+              </div>
+              {reorderRows.length > 0 && <ChevronDown className={`h-4 w-4 transition ${alertsOpen ? "rotate-180" : ""}`} />}
+            </button>
+          </CollapsibleTrigger>
+          {reorderRows.length > 0 && (
+            <CollapsibleContent>
+              <div className="border-t">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-amber-500/5">
+                      <TableHead className="text-xs">SKU</TableHead>
+                      <TableHead className="text-xs">Item Name</TableHead>
+                      <TableHead className="text-xs">Category</TableHead>
+                      <TableHead className="text-xs text-right">On Hand</TableHead>
+                      <TableHead className="text-xs text-right">Min Stock</TableHead>
+                      <TableHead className="text-xs text-right">Reorder Qty</TableHead>
+                      <TableHead className="text-xs" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reorderRows.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-xs font-mono">{r.internal_sku}</TableCell>
+                        <TableCell className="text-xs font-medium">{r.internal_product_name}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{r.level1_category || "—"}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums text-amber-500 font-medium">{fmt(r.qty_on_hand)}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{fmt(r.min_stock_qty as number)}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{r.reorder_qty != null ? fmt(r.reorder_qty as number) : "—"}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" onClick={() => navigate("/procurement/purchase-orders")}>Create PO</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CollapsibleContent>
+          )}
+        </Card>
+      </Collapsible>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>

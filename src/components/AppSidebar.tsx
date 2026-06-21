@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -76,6 +76,7 @@ const procurementItems = [
   { title: "Categories", url: "/procurement/categories", icon: Tags },
   { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
   { title: "Purchase Orders", url: "/procurement/purchase-orders", icon: ShoppingCart },
+  { title: "Receiving", url: "/procurement/receiving", icon: PackageCheck },
   { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
   { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
   { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },

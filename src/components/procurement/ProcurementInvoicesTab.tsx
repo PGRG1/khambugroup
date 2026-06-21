@@ -167,6 +167,8 @@ export default function ProcurementInvoicesTab() {
   const [editForm, setEditForm] = useState<Partial<Invoice>>({});
   const [editLines, setEditLines] = useState<EditableInvoiceLine[]>([]);
   const [saving, setSaving] = useState(false);
+  const [grnItemsForInvoice, setGrnItemsForInvoice] = useState<any[]>([]);
+  const [invoiceVarianceMap, setInvoiceVarianceMap] = useState<Record<string, boolean>>({});
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
@@ -417,9 +419,65 @@ export default function ProcurementInvoicesTab() {
     setSelectedInvoice(inv);
     const items = await fetchLineItems(inv.id);
     setLineItems(items);
+    // Load GRN items linked to this invoice (from confirmed GRNs only)
+    const { data: grnRows } = await supabase
+      .from("goods_received_notes" as any)
+      .select("id, status")
+      .eq("invoice_id", inv.id)
+      .eq("status", "confirmed");
+    const grnIds = ((grnRows ?? []) as any[]).map((g) => g.id);
+    if (grnIds.length > 0) {
+      const { data: giData } = await supabase
+        .from("grn_items" as any)
+        .select("*")
+        .in("grn_id", grnIds);
+      setGrnItemsForInvoice((giData ?? []) as any[]);
+    } else {
+      setGrnItemsForInvoice([]);
+    }
     setEditing(false);
     setDrawerOpen(true);
   };
+
+  // Load variance map for invoice list badges
+  useEffect(() => {
+    (async () => {
+      const { data: grnRows } = await supabase
+        .from("goods_received_notes" as any)
+        .select("id, invoice_id")
+        .eq("status", "confirmed")
+        .not("invoice_id", "is", null);
+      const rows = (grnRows ?? []) as any[];
+      if (rows.length === 0) { setInvoiceVarianceMap({}); return; }
+      const grnIdToInv: Record<string, string> = {};
+      for (const r of rows) grnIdToInv[r.id] = r.invoice_id;
+      const { data: gi } = await supabase
+        .from("grn_items" as any)
+        .select("grn_id, invoice_line_item_id, quantity_received")
+        .in("grn_id", Object.keys(grnIdToInv));
+      const grnItems = (gi ?? []) as any[];
+      // Need invoice line item quantities
+      const lineIds = grnItems.map((x) => x.invoice_line_item_id).filter(Boolean);
+      if (lineIds.length === 0) { setInvoiceVarianceMap({}); return; }
+      const { data: lines } = await supabase
+        .from("invoice_line_items")
+        .select("id, quantity")
+        .in("id", lineIds);
+      const qtyMap = new Map<string, number>();
+      for (const l of (lines ?? []) as any[]) qtyMap.set(l.id, Number(l.quantity));
+      const variance: Record<string, boolean> = {};
+      for (const item of grnItems) {
+        if (!item.invoice_line_item_id) continue;
+        const invQty = qtyMap.get(item.invoice_line_item_id);
+        if (invQty == null) continue;
+        if (Math.abs(Number(item.quantity_received) - invQty) > 0.001) {
+          const invId = grnIdToInv[item.grn_id];
+          if (invId) variance[invId] = true;
+        }
+      }
+      setInvoiceVarianceMap(variance);
+    })();
+  }, [invoices.length]);
 
   const startEditing = () => {
     if (!selectedInvoice) return;
@@ -951,6 +1009,7 @@ export default function ProcurementInvoicesTab() {
         setDeleteOpen={setDeleteOpen}
         onUpdateField={(id, patch) => updateInvoice(id, patch as any)}
         onUploadClick={() => setScannerOpen(true)}
+        invoiceVarianceMap={invoiceVarianceMap}
       />
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -1024,6 +1083,75 @@ export default function ProcurementInvoicesTab() {
                     </div>
                   ))}
                 </div>
+
+                {grnItemsForInvoice.length > 0 && (() => {
+                  const giByLine = new Map<string, any>();
+                  for (const gi of grnItemsForInvoice) {
+                    if (gi.invoice_line_item_id) giByLine.set(gi.invoice_line_item_id, gi);
+                  }
+                  let totalInv = 0, totalRecv = 0;
+                  const rows = lineItems.map((line) => {
+                    const gi = giByLine.get(line.id);
+                    const recvQty = gi ? Number(gi.quantity_received) : null;
+                    const invQty = Number(line.quantity);
+                    const variance = recvQty != null ? recvQty - invQty : null;
+                    totalInv += invQty * Number(line.unit_price);
+                    if (recvQty != null) totalRecv += recvQty * Number(line.unit_price);
+                    return { line, gi, recvQty, invQty, variance };
+                  });
+                  const hasVariance = rows.some((r) => r.variance != null && Math.abs(r.variance) > 0.001);
+                  return (
+                    <div className="pt-2 space-y-2">
+                      <h4 className="text-sm font-semibold">GRN Match</h4>
+                      {hasVariance && (
+                        <div className="text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30 rounded p-2">
+                          Quantity discrepancy — review before approving payment.
+                        </div>
+                      )}
+                      <div className="border border-border rounded overflow-hidden text-xs">
+                        <table className="w-full">
+                          <thead className="bg-muted/40">
+                            <tr className="text-left">
+                              <th className="p-1.5">Item</th>
+                              <th className="p-1.5 text-right">Inv Qty</th>
+                              <th className="p-1.5 text-right">Recv Qty</th>
+                              <th className="p-1.5 text-right">Variance</th>
+                              <th className="p-1.5 text-right">Unit Cost</th>
+                              <th className="p-1.5 text-right">Inv Total</th>
+                              <th className="p-1.5 text-right">Recv Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(({ line, recvQty, invQty, variance }) => (
+                              <tr key={line.id} className="border-t border-border">
+                                <td className="p-1.5">{line.description}</td>
+                                <td className="p-1.5 text-right tabular-nums">{invQty}</td>
+                                <td className="p-1.5 text-right tabular-nums">{recvQty ?? "—"}</td>
+                                <td className="p-1.5 text-right">
+                                  {variance == null ? "" : Math.abs(variance) < 0.001 ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 inline" />
+                                  ) : variance < 0 ? (
+                                    <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px]">{variance.toFixed(2)}</Badge>
+                                  ) : (
+                                    <Badge className="bg-red-500/20 text-red-300 border border-red-500/40 text-[10px]">+{variance.toFixed(2)}</Badge>
+                                  )}
+                                </td>
+                                <td className="p-1.5 text-right tabular-nums">{fmt(line.unit_price)}</td>
+                                <td className="p-1.5 text-right tabular-nums">{fmt(invQty * line.unit_price)}</td>
+                                <td className="p-1.5 text-right tabular-nums">{recvQty != null ? fmt(recvQty * line.unit_price) : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-muted/30 font-medium">
+                            <tr><td colSpan={5} className="p-1.5 text-right">Invoiced total</td><td className="p-1.5 text-right tabular-nums">{fmt(totalInv)}</td><td /></tr>
+                            <tr><td colSpan={5} className="p-1.5 text-right">Received total</td><td /><td className="p-1.5 text-right tabular-nums">{fmt(totalRecv)}</td></tr>
+                            <tr><td colSpan={5} className="p-1.5 text-right">Difference</td><td colSpan={2} className="p-1.5 text-right tabular-nums">{fmt(totalRecv - totalInv)}</td></tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </>
           )}
@@ -1080,6 +1208,7 @@ interface InvoiceTableSectionProps {
   setDeleteOpen: (open: boolean) => void;
   onUpdateField: (id: string, patch: Partial<Invoice>) => void;
   onUploadClick: () => void;
+  invoiceVarianceMap: Record<string, boolean>;
 }
 
 function InvoiceTableSection({
@@ -1088,6 +1217,7 @@ function InvoiceTableSection({
   reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
+  invoiceVarianceMap,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
 
@@ -1243,13 +1373,18 @@ function InvoiceTableSection({
                 <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
                 <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
                 <TableCell className="py-2">
-                  {inv.status ? (
-                    <Badge className={`capitalize px-1.5 py-0 text-[10px] ${STATUS_BADGE[inv.status] || "bg-muted text-muted-foreground"}`}>
-                      {inv.status}
-                    </Badge>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">—</span>
-                  )}
+                  <span className="inline-flex items-center gap-1">
+                    {inv.status ? (
+                      <Badge className={`capitalize px-1.5 py-0 text-[10px] ${STATUS_BADGE[inv.status] || "bg-muted text-muted-foreground"}`}>
+                        {inv.status}
+                      </Badge>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">—</span>
+                    )}
+                    {invoiceVarianceMap[inv.id] && (
+                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
+                    )}
+                  </span>
                 </TableCell>
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   {(() => {
