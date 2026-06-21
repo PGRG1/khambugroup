@@ -23,7 +23,7 @@ export default function PaymentsSettlements() {
 
   // Default to the first processor (prefer KPay) once loaded so its fee rules are immediately visible.
   const [didInit, setDidInit] = useState(false);
-  useMemo(() => {
+  useEffect(() => {
     if (didInit || !processors.length) return;
     const kpay = processors.find((p) => /kpay/i.test(p.name)) || processors[0];
     if (kpay) setProcessorId(kpay.id);
