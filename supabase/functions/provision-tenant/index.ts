@@ -193,9 +193,11 @@ Deno.serve(async (req) => {
         user_metadata: { display_name: body.admin_name },
       });
       if (cErr || !created?.user) {
-        console.error("createUser failed", JSON.stringify(cErr), cErr);
-        throw new Error("create admin user failed: " + (cErr?.message || cErr?.code || JSON.stringify(cErr) || "unknown"));
+        const detail = cErr ? `${cErr.name ?? ""} ${cErr.message ?? ""} status=${(cErr as any).status ?? ""} code=${(cErr as any).code ?? ""}`.trim() : "no user returned";
+        console.error("createUser failed", detail, cErr);
+        throw new Error("create admin user failed: " + detail);
       }
+
       adminUserId = created.user.id;
       createdNewUser = true;
       rollback.push(async () => { if (createdNewUser && adminUserId) await admin.auth.admin.deleteUser(adminUserId); });
