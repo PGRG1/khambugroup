@@ -419,9 +419,65 @@ export default function ProcurementInvoicesTab() {
     setSelectedInvoice(inv);
     const items = await fetchLineItems(inv.id);
     setLineItems(items);
+    // Load GRN items linked to this invoice (from confirmed GRNs only)
+    const { data: grnRows } = await supabase
+      .from("goods_received_notes" as any)
+      .select("id, status")
+      .eq("invoice_id", inv.id)
+      .eq("status", "confirmed");
+    const grnIds = ((grnRows ?? []) as any[]).map((g) => g.id);
+    if (grnIds.length > 0) {
+      const { data: giData } = await supabase
+        .from("grn_items" as any)
+        .select("*")
+        .in("grn_id", grnIds);
+      setGrnItemsForInvoice((giData ?? []) as any[]);
+    } else {
+      setGrnItemsForInvoice([]);
+    }
     setEditing(false);
     setDrawerOpen(true);
   };
+
+  // Load variance map for invoice list badges
+  useEffect(() => {
+    (async () => {
+      const { data: grnRows } = await supabase
+        .from("goods_received_notes" as any)
+        .select("id, invoice_id")
+        .eq("status", "confirmed")
+        .not("invoice_id", "is", null);
+      const rows = (grnRows ?? []) as any[];
+      if (rows.length === 0) { setInvoiceVarianceMap({}); return; }
+      const grnIdToInv: Record<string, string> = {};
+      for (const r of rows) grnIdToInv[r.id] = r.invoice_id;
+      const { data: gi } = await supabase
+        .from("grn_items" as any)
+        .select("grn_id, invoice_line_item_id, quantity_received")
+        .in("grn_id", Object.keys(grnIdToInv));
+      const grnItems = (gi ?? []) as any[];
+      // Need invoice line item quantities
+      const lineIds = grnItems.map((x) => x.invoice_line_item_id).filter(Boolean);
+      if (lineIds.length === 0) { setInvoiceVarianceMap({}); return; }
+      const { data: lines } = await supabase
+        .from("invoice_line_items")
+        .select("id, quantity")
+        .in("id", lineIds);
+      const qtyMap = new Map<string, number>();
+      for (const l of (lines ?? []) as any[]) qtyMap.set(l.id, Number(l.quantity));
+      const variance: Record<string, boolean> = {};
+      for (const item of grnItems) {
+        if (!item.invoice_line_item_id) continue;
+        const invQty = qtyMap.get(item.invoice_line_item_id);
+        if (invQty == null) continue;
+        if (Math.abs(Number(item.quantity_received) - invQty) > 0.001) {
+          const invId = grnIdToInv[item.grn_id];
+          if (invId) variance[invId] = true;
+        }
+      }
+      setInvoiceVarianceMap(variance);
+    })();
+  }, [invoices.length]);
 
   const startEditing = () => {
     if (!selectedInvoice) return;
