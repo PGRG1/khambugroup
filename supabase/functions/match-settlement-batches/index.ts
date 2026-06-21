@@ -73,7 +73,8 @@ Deno.serve(async (req) => {
             status: "matched",
             match_confidence: s.confidence,
           })
-          .eq("id", s.bank_transaction_id);
+          .eq("id", s.bank_transaction_id)
+          .eq("tenant_id", tenantId);
         applied += 1;
       }
       return json({ applied });
