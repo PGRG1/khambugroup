@@ -588,7 +588,10 @@ async function runTool(name: string, args: any, tenantId: string): Promise<any> 
 
     case "get_database_overview": {
       const counts = async (t: string) => {
-        const { count } = await admin.from(t).select("*", { count: "exact", head: true });
+        const { count } = await admin
+          .from(t)
+          .select("*", { count: "exact", head: true })
+          .eq("tenant_id", tenantId);
         return count || 0;
       };
       const [inv, lines, sales, sup, prod, emp] = await Promise.all([
