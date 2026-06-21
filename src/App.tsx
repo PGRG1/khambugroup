@@ -155,6 +155,8 @@ function App() {
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
+                <Route path="/admin/clients" element={<AdminRoute><Clients /></AdminRoute>} />
+
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 
                 <Route path="/procurement" element={<Navigate to="/procurement/dashboard" replace />} />
