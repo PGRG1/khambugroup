@@ -44,10 +44,15 @@ Deno.serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    const { processor_id, batch_ids, day_window = 5, apply = false, suggestions: incoming } =
+    const { processor_id, batch_ids, day_window = 5, apply = false, suggestions: incoming, tenant_id: requestedTenantId } =
       await req.json().catch(() => ({}));
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Resolve which tenant the caller is operating on.
+    const tenant = await resolveTenant(sb, (auth.user as any).id, requestedTenantId);
+    if (!tenant) return json({ error: "No tenant access" }, 403);
+    const tenantId = tenant.tenant_id;
 
     // ---------- APPLY mode ----------
     if (apply && Array.isArray(incoming) && incoming.length > 0) {
@@ -57,7 +62,8 @@ Deno.serve(async (req) => {
         const { error: e1 } = await sb
           .from("payment_settlement_batches")
           .update({ bank_transaction_id: s.bank_transaction_id, status: "matched" })
-          .eq("id", s.batch_id);
+          .eq("id", s.batch_id)
+          .eq("tenant_id", tenantId);
         if (e1) continue;
         await sb
           .from("bank_transactions")
