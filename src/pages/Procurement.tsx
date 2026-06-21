@@ -10,6 +10,7 @@ import MenuCostingTab from "@/components/procurement/MenuCostingTab";
 import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboardTab";
 import DocumentsTab from "@/components/procurement/DocumentsTab";
 import PurchaseOrdersTab from "@/components/procurement/PurchaseOrdersTab";
+import ReceivingTab from "@/components/procurement/ReceivingTab";
 
 const tabTitles: Record<string, string> = {
   dashboard: "Overview",
@@ -18,6 +19,7 @@ const tabTitles: Record<string, string> = {
   categories: "Categories",
   invoices: "Invoices",
   "purchase-orders": "Purchase Orders",
+  receiving: "Receiving",
   "line-items": "Invoice Line Items",
   inventory: "Inventory",
   "menu-costing": "Menu Costing",
