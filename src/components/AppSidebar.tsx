@@ -351,6 +351,20 @@ export function AppSidebar() {
             </SidebarMenu>
           </CollapsibleNavGroup>
         )}
+
+        {showPlatform && (
+          <CollapsibleNavGroup
+            groupKey="platform"
+            label="Platform Admin"
+            defaultOpen={false}
+            onOpenChange={() => {}}
+          >
+            <SidebarMenu>
+              {renderLink({ title: "Clients", url: "/admin/clients", icon: Building2 })}
+            </SidebarMenu>
+          </CollapsibleNavGroup>
+        )}
+
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
