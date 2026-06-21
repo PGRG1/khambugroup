@@ -1,6 +1,6 @@
 // Bani platform admin: provision a brand new client (tenant).
 // Performs all steps with the service role and rolls back created rows on failure.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
