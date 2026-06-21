@@ -122,6 +122,7 @@ Deno.serve(async (req) => {
     const { data: txns } = await sb
       .from("bank_transactions")
       .select("id, bank_account_id, txn_date, money_in, money_out, description, reference, status, matched_record_id")
+      .eq("tenant_id", tenantId)
       .in("bank_account_id", bankAcctIds)
       .gte("txn_date", minDate)
       .lte("txn_date", maxDate)
