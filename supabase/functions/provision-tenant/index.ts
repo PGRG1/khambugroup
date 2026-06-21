@@ -261,6 +261,12 @@ Deno.serve(async (req) => {
       });
       if (error && !`${error.code}`.includes("23505")) throw new Error("membership insert failed: " + error.message);
     }
+    // Ensure user_access_control row for the new tenant_admin, scoped to this tenant.
+    await admin.from("user_access_control").upsert(
+      { user_id: adminUserId, tenant_id: tenantId, position: "owner", status: "active" },
+      { onConflict: "user_id" },
+    );
+
     rollback.push(async () => {
       await admin.from("tenant_members").delete()
         .eq("tenant_id", tenantId!).eq("user_id", adminUserId!).eq("role","tenant_admin");
