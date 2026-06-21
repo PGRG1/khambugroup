@@ -1082,6 +1082,75 @@ export default function ProcurementInvoicesTab() {
                     </div>
                   ))}
                 </div>
+
+                {grnItemsForInvoice.length > 0 && (() => {
+                  const giByLine = new Map<string, any>();
+                  for (const gi of grnItemsForInvoice) {
+                    if (gi.invoice_line_item_id) giByLine.set(gi.invoice_line_item_id, gi);
+                  }
+                  let totalInv = 0, totalRecv = 0;
+                  const rows = lineItems.map((line) => {
+                    const gi = giByLine.get(line.id);
+                    const recvQty = gi ? Number(gi.quantity_received) : null;
+                    const invQty = Number(line.quantity);
+                    const variance = recvQty != null ? recvQty - invQty : null;
+                    totalInv += invQty * Number(line.unit_price);
+                    if (recvQty != null) totalRecv += recvQty * Number(line.unit_price);
+                    return { line, gi, recvQty, invQty, variance };
+                  });
+                  const hasVariance = rows.some((r) => r.variance != null && Math.abs(r.variance) > 0.001);
+                  return (
+                    <div className="pt-2 space-y-2">
+                      <h4 className="text-sm font-semibold">GRN Match</h4>
+                      {hasVariance && (
+                        <div className="text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30 rounded p-2">
+                          Quantity discrepancy — review before approving payment.
+                        </div>
+                      )}
+                      <div className="border border-border rounded overflow-hidden text-xs">
+                        <table className="w-full">
+                          <thead className="bg-muted/40">
+                            <tr className="text-left">
+                              <th className="p-1.5">Item</th>
+                              <th className="p-1.5 text-right">Inv Qty</th>
+                              <th className="p-1.5 text-right">Recv Qty</th>
+                              <th className="p-1.5 text-right">Variance</th>
+                              <th className="p-1.5 text-right">Unit Cost</th>
+                              <th className="p-1.5 text-right">Inv Total</th>
+                              <th className="p-1.5 text-right">Recv Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(({ line, recvQty, invQty, variance }) => (
+                              <tr key={line.id} className="border-t border-border">
+                                <td className="p-1.5">{line.description}</td>
+                                <td className="p-1.5 text-right tabular-nums">{invQty}</td>
+                                <td className="p-1.5 text-right tabular-nums">{recvQty ?? "—"}</td>
+                                <td className="p-1.5 text-right">
+                                  {variance == null ? "" : Math.abs(variance) < 0.001 ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 inline" />
+                                  ) : variance < 0 ? (
+                                    <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px]">{variance.toFixed(2)}</Badge>
+                                  ) : (
+                                    <Badge className="bg-red-500/20 text-red-300 border border-red-500/40 text-[10px]">+{variance.toFixed(2)}</Badge>
+                                  )}
+                                </td>
+                                <td className="p-1.5 text-right tabular-nums">{fmt(line.unit_price)}</td>
+                                <td className="p-1.5 text-right tabular-nums">{fmt(invQty * line.unit_price)}</td>
+                                <td className="p-1.5 text-right tabular-nums">{recvQty != null ? fmt(recvQty * line.unit_price) : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-muted/30 font-medium">
+                            <tr><td colSpan={5} className="p-1.5 text-right">Invoiced total</td><td className="p-1.5 text-right tabular-nums">{fmt(totalInv)}</td><td /></tr>
+                            <tr><td colSpan={5} className="p-1.5 text-right">Received total</td><td /><td className="p-1.5 text-right tabular-nums">{fmt(totalRecv)}</td></tr>
+                            <tr><td colSpan={5} className="p-1.5 text-right">Difference</td><td colSpan={2} className="p-1.5 text-right tabular-nums">{fmt(totalRecv - totalInv)}</td></tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </>
           )}
