@@ -96,6 +96,19 @@ export type SettlementTransaction = {
   reference: string;
 };
 
+export type FeeRateRow = {
+  id: string;
+  processor_id: string;
+  payment_method: string;
+  locality: string;
+  merchant_number: string | null;
+  wallet_type: string | null;
+  rate: number;
+  rounding_dp: number;
+  rounding_method: string;
+  notes: string | null;
+};
+
 export function usePaymentSettlements() {
   const [loading, setLoading] = useState(true);
   const [processors, setProcessors] = useState<PaymentProcessor[]>([]);
@@ -104,16 +117,18 @@ export function usePaymentSettlements() {
   const [batches, setBatches] = useState<SettlementBatch[]>([]);
   const [lines, setLines] = useState<SettlementLine[]>([]);
   const [transactions, setTransactions] = useState<SettlementTransaction[]>([]);
+  const [feeRates, setFeeRates] = useState<FeeRateRow[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [p, m, i, b, l, t] = await Promise.all([
+    const [p, m, i, b, l, t, fr] = await Promise.all([
       fetchAllRows("payment_processors", "*", { col: "sort_order", asc: true }),
       fetchAllRows("payment_processor_merchants", "*", { col: "sort_order", asc: true }),
       fetchAllRows("payment_settlement_imports", "*", { col: "uploaded_at", asc: false }),
       fetchAllRows("payment_settlement_batches", "*", { col: "settlement_date", asc: false }),
       fetchAllRows("payment_settlement_lines", "*"),
       fetchAllRows("payment_settlement_transactions", "*", { col: "transaction_time", asc: false }),
+      fetchAllRows("payment_processor_fee_rates", "*"),
     ]);
     setProcessors(p as PaymentProcessor[]);
     setMerchants(m as ProcessorMerchant[]);
@@ -121,10 +136,11 @@ export function usePaymentSettlements() {
     setBatches(b as SettlementBatch[]);
     setLines(l as SettlementLine[]);
     setTransactions(t as SettlementTransaction[]);
+    setFeeRates(fr as FeeRateRow[]);
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  return { loading, processors, merchants, imports, batches, lines, transactions, reload: load, supabase };
+  return { loading, processors, merchants, imports, batches, lines, transactions, feeRates, reload: load, supabase };
 }
