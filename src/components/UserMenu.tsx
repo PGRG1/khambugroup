@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sun, Moon, Monitor, LogOut, User as UserIcon, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TenantSwitcher } from "@/components/TenantSwitcher";
 
 export const UserMenu = () => {
   const { user, signOut } = useAuth();
