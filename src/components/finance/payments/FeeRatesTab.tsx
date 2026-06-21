@@ -269,8 +269,60 @@ export function FeeRatesTab({
   };
 
   if (!processor) {
-    return <Card className="card-glass p-6 text-sm text-muted-foreground">Select a processor to view fee rates.</Card>;
+    const procs = allProcessors || [];
+    const groups = procs
+      .map((p) => ({
+        proc: p,
+        items: (allFeeRates || []).filter((r) => r.processor_id === p.id),
+      }))
+      .filter((g) => g.items.length > 0);
+    return (
+      <Card className="card-glass p-6 space-y-6">
+        <div>
+          <h3 className="text-sm font-medium">Contracted fee rates — all processors</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Read-only overview. Pick a processor in the header to add, edit or delete rates.
+          </p>
+        </div>
+        {groups.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No fee rates configured for any processor.</p>
+        ) : (
+          groups.map((g) => (
+            <div key={g.proc.id}>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                {g.proc.name} <span className="text-muted-foreground/70">· {g.items.length} {g.items.length === 1 ? "rule" : "rules"}</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border/40">
+                      <th className="py-2 pr-2 font-medium">Terminal</th>
+                      <th className="py-2 pr-2 font-medium">Payment Method</th>
+                      <th className="py-2 pr-2 font-medium">Locality</th>
+                      <th className="py-2 pr-2 font-medium text-right">Fee Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...g.items]
+                      .sort((a, b) => formatMethodLabel(a.payment_method, a.wallet_type).localeCompare(formatMethodLabel(b.payment_method, b.wallet_type)))
+                      .map((r) => (
+                        <tr key={r.id} className="border-b border-border/20 last:border-0">
+                          <td className="py-2 pr-2 font-mono text-xs">{r.merchant_number || "All"}</td>
+                          <td className="py-2 pr-2">{formatMethodLabel(r.payment_method, r.wallet_type)}</td>
+                          <td className="py-2 pr-2 text-muted-foreground">{LOCALITY_LABEL[r.locality] || r.locality}</td>
+                          <td className="py-2 pr-2 text-right td-num">{(Number(r.rate) * 100).toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))
+        )}
+      </Card>
+    );
   }
+
 
   const sorted = [...rates].sort((a, b) => {
     const la = formatMethodLabel(a.payment_method, a.wallet_type);
