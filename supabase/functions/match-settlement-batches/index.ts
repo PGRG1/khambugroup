@@ -7,7 +7,7 @@
 //   4. Return suggestions; the client decides which to apply.
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
-import { requireAuth } from "../_shared/auth.ts";
+import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
