@@ -30,6 +30,8 @@ export interface RecurringRule {
   status: RecurringRuleStatus;
   auto_approve: boolean;
   notes: string | null;
+  document_source: string | null;
+  document_notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +83,8 @@ export function useRecurringExpenses() {
         active: status === "active",
         auto_approve: r.auto_approve ?? false,
         notes: r.notes || null,
+        document_source: r.document_source || null,
+        document_notes: r.document_notes || null,
       };
       try {
         if (r.id) {

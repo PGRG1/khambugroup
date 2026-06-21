@@ -315,6 +315,30 @@ export default function RecurringExpenses() {
                 </div>
               </div>
             </div>
+            <div className="rounded-lg border border-dashed border-muted-foreground/25 p-4 space-y-3">
+              <h4 className="text-sm font-semibold text-foreground">Supporting Documents</h4>
+              <div>
+                <Label>Document Source</Label>
+                <Select value={editing.document_source || ""} onValueChange={(v) => setField("document_source", v)}>
+                  <SelectTrigger><SelectValue placeholder="Select document type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contract_lease">Contract / Lease</SelectItem>
+                    <SelectItem value="supplier_invoice">Supplier Invoice</SelectItem>
+                    <SelectItem value="supplier_statement">Supplier Statement</SelectItem>
+                    <SelectItem value="bank_record">Bank Record</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Document Notes</Label>
+                <Textarea
+                  value={editing.document_notes || ""}
+                  onChange={(e) => setField("document_notes", e.target.value)}
+                  placeholder="Reference numbers, file locations, or other details about the supporting document"
+                />
+              </div>
+            </div>
             <div>
               <Label>Notes</Label>
               <Textarea value={editing.notes || ""} onChange={(e) => setField("notes", e.target.value)} />
