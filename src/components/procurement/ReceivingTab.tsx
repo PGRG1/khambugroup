@@ -106,7 +106,7 @@ export default function ReceivingTab() {
       supabase.from("suppliers").select("id,name,is_active").order("name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").order("internal_product_name"),
       supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
-      supabase.from("invoices").select("id, invoice_number, supplier_id, supplier_name, venue").order("created_at", { ascending: false }).limit(500),
+      supabase.from("invoices").select("id, invoice_number, supplier_id, venue").order("created_at", { ascending: false }).limit(500),
     ]);
     if (grnRes.error) toast.error(grnRes.error.message);
     setGrns((grnRes.data ?? []) as any);
@@ -115,10 +115,15 @@ export default function ReceivingTab() {
       totals[r.grn_id] = (totals[r.grn_id] || 0) + Number(r.total || 0);
     }
     setGrnTotals(totals);
-    setSuppliers((supRes.data ?? []) as Supplier[]);
+    const sups = (supRes.data ?? []) as Supplier[];
+    setSuppliers(sups);
     setProducts((prodRes.data ?? []) as Product[]);
-    setPos((poRes.data ?? []) as PORow[]);
-    setInvoices((invRes.data ?? []) as InvoiceRow[]);
+    setPos((poRes.data ?? []) as unknown as PORow[]);
+    const supMap = new Map(sups.map((s) => [s.id, s.name]));
+    setInvoices(((invRes.data ?? []) as any[]).map((i) => ({
+      id: i.id, invoice_number: i.invoice_number, supplier_id: i.supplier_id,
+      supplier_name: supMap.get(i.supplier_id) || "—", venue: i.venue,
+    })));
     setLoading(false);
   };
 
