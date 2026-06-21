@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
         tenant_id: tenantId,
         name: body.initial_venue_name.trim(),
         display_label: body.initial_venue_name.trim(),
-        venue_type: "outlet",
+        venue_type: "physical",
         is_active: true,
         include_in_dashboard: true,
         include_in_forecasting: true,
