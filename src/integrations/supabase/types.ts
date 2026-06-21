@@ -1369,10 +1369,12 @@ export type Database = {
           attachment_url: string | null
           bill_date: string
           bill_number: string | null
+          combined_venues: boolean
           created_at: string
           created_by: string | null
           currency: string
           department: string | null
+          document_requirement: string
           document_type: string | null
           due_date: string | null
           id: string
@@ -1380,12 +1382,16 @@ export type Database = {
           notes: string | null
           paid_amount: number
           payment_status: string
+          period_end: string | null
+          period_start: string | null
           posted_at: string | null
           posted_by: string | null
+          recurring_rule_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           service_period_end: string | null
           service_period_start: string | null
+          source_type: string
           subtotal: number
           supplier_id: string | null
           tax_amount: number
@@ -1403,10 +1409,12 @@ export type Database = {
           attachment_url?: string | null
           bill_date: string
           bill_number?: string | null
+          combined_venues?: boolean
           created_at?: string
           created_by?: string | null
           currency?: string
           department?: string | null
+          document_requirement?: string
           document_type?: string | null
           due_date?: string | null
           id?: string
@@ -1414,12 +1422,16 @@ export type Database = {
           notes?: string | null
           paid_amount?: number
           payment_status?: string
+          period_end?: string | null
+          period_start?: string | null
           posted_at?: string | null
           posted_by?: string | null
+          recurring_rule_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           service_period_end?: string | null
           service_period_start?: string | null
+          source_type?: string
           subtotal?: number
           supplier_id?: string | null
           tax_amount?: number
@@ -1437,10 +1449,12 @@ export type Database = {
           attachment_url?: string | null
           bill_date?: string
           bill_number?: string | null
+          combined_venues?: boolean
           created_at?: string
           created_by?: string | null
           currency?: string
           department?: string | null
+          document_requirement?: string
           document_type?: string | null
           due_date?: string | null
           id?: string
@@ -1448,12 +1462,16 @@ export type Database = {
           notes?: string | null
           paid_amount?: number
           payment_status?: string
+          period_end?: string | null
+          period_start?: string | null
           posted_at?: string | null
           posted_by?: string | null
+          recurring_rule_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           service_period_end?: string | null
           service_period_start?: string | null
+          source_type?: string
           subtotal?: number
           supplier_id?: string | null
           tax_amount?: number
@@ -1484,6 +1502,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_general_ledger"
             referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "expense_bills_recurring_rule_id_fkey"
+            columns: ["recurring_rule_id"]
+            isOneToOne: false
+            referencedRelation: "expense_recurring_rules"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "expense_bills_supplier_id_fkey"
@@ -1561,21 +1586,27 @@ export type Database = {
         Row: {
           account_id: string | null
           active: boolean
+          auto_approve: boolean
           cadence: string
           category_id: string | null
           combined_venues: boolean
           created_at: string
           created_by: string | null
+          credit_account_id: string | null
           currency: string
           day_of_month: number | null
           department: string | null
+          effective_from: string | null
           expected_amount: number
           id: string
           last_generated_at: string | null
           name: string
           next_due_date: string | null
+          next_generation_date: string | null
           notes: string | null
+          payment_due_day: number | null
           recognition_day: string | null
+          status: string
           supplier_id: string | null
           updated_at: string
           vendor_name: string | null
@@ -1584,21 +1615,27 @@ export type Database = {
         Insert: {
           account_id?: string | null
           active?: boolean
+          auto_approve?: boolean
           cadence?: string
           category_id?: string | null
           combined_venues?: boolean
           created_at?: string
           created_by?: string | null
+          credit_account_id?: string | null
           currency?: string
           day_of_month?: number | null
           department?: string | null
+          effective_from?: string | null
           expected_amount?: number
           id?: string
           last_generated_at?: string | null
           name: string
           next_due_date?: string | null
+          next_generation_date?: string | null
           notes?: string | null
+          payment_due_day?: number | null
           recognition_day?: string | null
+          status?: string
           supplier_id?: string | null
           updated_at?: string
           vendor_name?: string | null
@@ -1607,21 +1644,27 @@ export type Database = {
         Update: {
           account_id?: string | null
           active?: boolean
+          auto_approve?: boolean
           cadence?: string
           category_id?: string | null
           combined_venues?: boolean
           created_at?: string
           created_by?: string | null
+          credit_account_id?: string | null
           currency?: string
           day_of_month?: number | null
           department?: string | null
+          effective_from?: string | null
           expected_amount?: number
           id?: string
           last_generated_at?: string | null
           name?: string
           next_due_date?: string | null
+          next_generation_date?: string | null
           notes?: string | null
+          payment_due_day?: number | null
           recognition_day?: string | null
+          status?: string
           supplier_id?: string | null
           updated_at?: string
           vendor_name?: string | null
@@ -1662,6 +1705,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "expense_categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_credit_account_id_fkey"
+            columns: ["credit_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_credit_account_id_fkey"
+            columns: ["credit_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_credit_account_id_fkey"
+            columns: ["credit_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "expense_recurring_rules_credit_account_id_fkey"
+            columns: ["credit_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "expense_recurring_rules_supplier_id_fkey"
@@ -6049,7 +6120,18 @@ export type Database = {
         Args: { _action: Json; _pattern: Json }
         Returns: string
       }
+      compute_next_generation_date: {
+        Args: {
+          p_cadence: string
+          p_day_of_month: number
+          p_effective_from: string
+          p_from?: string
+          p_recognition_day: string
+        }
+        Returns: string
+      }
       current_user_tenant_id: { Args: never; Returns: string }
+      generate_recurring_expense_bills: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
