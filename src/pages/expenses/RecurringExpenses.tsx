@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
-import { useRecurringExpenses, RecurringRule } from "@/hooks/useRecurringExpenses";
+import { Plus, Trash2, PlayCircle } from "lucide-react";
+import { useRecurringExpenses, RecurringRule, RecurringRuleStatus } from "@/hooks/useRecurringExpenses";
 import { supabase } from "@/integrations/supabase/client";
 
 const fmt = (n: number) =>
@@ -18,8 +18,39 @@ const fmt = (n: number) =>
 const dt = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
+const STATUS_VARIANT: Record<RecurringRuleStatus, "secondary" | "default" | "outline" | "destructive"> = {
+  draft: "outline",
+  active: "default",
+  paused: "secondary",
+  ended: "destructive",
+};
+
+function computeNextGeneration(r: Partial<RecurringRule>): string | null {
+  if (!r.effective_from) return null;
+  const eff = new Date(r.effective_from + "T00:00:00");
+  let monthStart = new Date(eff.getFullYear(), eff.getMonth(), 1);
+  for (let i = 0; i < 60; i++) {
+    let candidate: Date;
+    const lastDay = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+    if (r.recognition_day === "last") {
+      candidate = new Date(monthStart.getFullYear(), monthStart.getMonth(), lastDay);
+    } else {
+      const day = Math.min(Number(r.recognition_day || r.day_of_month || 1), lastDay);
+      candidate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
+    }
+    if (candidate >= eff) {
+      return candidate.toISOString().slice(0, 10);
+    }
+    if (r.cadence === "weekly") monthStart = new Date(monthStart.getTime() + 7 * 86400000);
+    else if (r.cadence === "quarterly") monthStart = new Date(monthStart.getFullYear(), monthStart.getMonth() + 3, 1);
+    else if (r.cadence === "yearly") monthStart = new Date(monthStart.getFullYear() + 1, monthStart.getMonth(), 1);
+    else monthStart = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
+  }
+  return null;
+}
+
 export default function RecurringExpenses() {
-  const { rules, save, remove, toggleActive, loading } = useRecurringExpenses();
+  const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
@@ -43,11 +74,21 @@ export default function RecurringExpenses() {
   }, []);
 
   const openNew = () => {
-    setEditing({ cadence: "monthly", currency: "HKD", active: true, expected_amount: 0 });
+    setEditing({
+      cadence: "monthly",
+      currency: "HKD",
+      status: "draft",
+      active: false,
+      auto_approve: false,
+      expected_amount: 0,
+      effective_from: new Date().toISOString().slice(0, 10),
+    });
     setOpen(true);
   };
 
   const setField = (k: keyof RecurringRule, v: any) => setEditing((p) => ({ ...p, [k]: v }));
+
+  const previewNextGen = useMemo(() => computeNextGeneration(editing), [editing]);
 
   const handleSave = async () => {
     if (!editing.name) return;
@@ -61,10 +102,15 @@ export default function RecurringExpenses() {
         <div>
           <h1 className="text-2xl font-display font-semibold">Recurring Expenses</h1>
           <p className="text-sm text-muted-foreground">
-            Rules for rent, service charge, subscriptions, insurance, cleaning, pest control, equipment rental.
+            Rules act as templates. Active rules generate a pending-approval bill in Expenses → Approvals each period.
           </p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> New Rule</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={generateNow}>
+            <PlayCircle className="h-4 w-4 mr-1" /> Generate Due Now
+          </Button>
+          <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> New Rule</Button>
+        </div>
       </div>
 
       <Card className="p-0">
@@ -74,9 +120,9 @@ export default function RecurringExpenses() {
               <TableHead>Name</TableHead>
               <TableHead>Vendor</TableHead>
               <TableHead>Cadence</TableHead>
-              <TableHead>Next Due</TableHead>
+              <TableHead>Next Generation</TableHead>
               <TableHead className="text-right">Expected</TableHead>
-              <TableHead>Active</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -86,10 +132,20 @@ export default function RecurringExpenses() {
                 <TableCell className="font-medium">{r.name}</TableCell>
                 <TableCell>{r.vendor_name || "—"}</TableCell>
                 <TableCell><Badge variant="outline">{r.cadence}</Badge></TableCell>
-                <TableCell>{dt(r.next_due_date)}</TableCell>
+                <TableCell>{dt(r.next_generation_date)}</TableCell>
                 <TableCell className="text-right td-num">{fmt(r.expected_amount)}</TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Switch checked={r.active} onCheckedChange={(v) => toggleActive(r.id, v)} />
+                  <Select value={r.status || "draft"} onValueChange={(v) => setStatus(r.id, v as RecurringRuleStatus)}>
+                    <SelectTrigger className="h-7 w-[110px]">
+                      <Badge variant={STATUS_VARIANT[r.status || "draft"]}>{r.status || "draft"}</Badge>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="ended">Ended</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete rule?")) remove(r.id); }}>
@@ -113,6 +169,9 @@ export default function RecurringExpenses() {
         <SheetContent className="w-[560px] sm:max-w-[560px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{editing.id ? "Edit Rule" : "New Recurring Rule"}</SheetTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              This rule is a template. Edits only affect future generated bills — approved or posted bills are untouched.
+            </p>
           </SheetHeader>
           <div className="space-y-3 mt-4">
             <div>
@@ -150,9 +209,16 @@ export default function RecurringExpenses() {
                 </Select>
               </div>
               <div>
-                <Label>Account</Label>
+                <Label>Account (Debit)</Label>
                 <Select value={editing.account_id || ""} onValueChange={(v) => setField("account_id", v)}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>{accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Label>Credit Account (optional override)</Label>
+                <Select value={editing.credit_account_id || ""} onValueChange={(v) => setField("credit_account_id", v)}>
+                  <SelectTrigger><SelectValue placeholder="Defaults to Accounts Payable" /></SelectTrigger>
                   <SelectContent>{accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
@@ -184,8 +250,8 @@ export default function RecurringExpenses() {
                 <Input type="number" step="0.01" value={editing.expected_amount ?? 0} onChange={(e) => setField("expected_amount", e.target.value)} />
               </div>
               <div>
-                <Label>Next Due Date</Label>
-                <Input type="date" value={editing.next_due_date || ""} onChange={(e) => setField("next_due_date", e.target.value)} />
+                <Label>Effective From</Label>
+                <Input type="date" value={editing.effective_from || ""} onChange={(e) => setField("effective_from", e.target.value)} />
               </div>
               <div>
                 <Label>Recognition Day</Label>
@@ -206,9 +272,47 @@ export default function RecurringExpenses() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2 pt-6">
-                <Switch checked={editing.active ?? true} onCheckedChange={(v) => setField("active", v)} />
-                <Label>Active</Label>
+              <div>
+                <Label>Payment Due Day (optional)</Label>
+                <Select
+                  value={editing.payment_due_day ? String(editing.payment_due_day) : "__none__"}
+                  onValueChange={(v) => setField("payment_due_day", v === "__none__" ? null : Number(v))}
+                >
+                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">—</SelectItem>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>{`Day ${d}`}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">For cash-flow forecasts only.</p>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select
+                  value={editing.status || "draft"}
+                  onValueChange={(v) => setField("status", v as RecurringRuleStatus)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="ended">Ended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2 rounded-md border bg-muted/30 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">Next Generation Date (auto): </span>
+                <span className="font-mono">{dt(editing.next_generation_date || previewNextGen)}</span>
+              </div>
+              <div className="col-span-2 flex items-center gap-2">
+                <Switch checked={editing.auto_approve ?? false} onCheckedChange={(v) => setField("auto_approve", v)} />
+                <div>
+                  <Label>Auto-approve generated bills</Label>
+                  <p className="text-[10px] text-muted-foreground">Off by default. When on, generated bills skip approval and post immediately.</p>
+                </div>
               </div>
             </div>
             <div>
