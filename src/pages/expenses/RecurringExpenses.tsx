@@ -158,9 +158,21 @@ export default function RecurringExpenses() {
               </div>
               <div>
                 <Label>Venue</Label>
-                <Select value={editing.venue_id || ""} onValueChange={(v) => setField("venue_id", v)}>
+                <Select
+                  value={editing.combined_venues ? "__combined__" : (editing.venue_id || "")}
+                  onValueChange={(v) => {
+                    if (v === "__combined__") {
+                      setEditing((p) => ({ ...p, combined_venues: true, venue_id: null }));
+                    } else {
+                      setEditing((p) => ({ ...p, combined_venues: false, venue_id: v }));
+                    }
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>{venues.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectItem value="__combined__">All Venues / Combined</SelectItem>
+                    {venues.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div>
@@ -176,8 +188,23 @@ export default function RecurringExpenses() {
                 <Input type="date" value={editing.next_due_date || ""} onChange={(e) => setField("next_due_date", e.target.value)} />
               </div>
               <div>
-                <Label>Day of Month</Label>
-                <Input type="number" min={1} max={31} value={editing.day_of_month ?? ""} onChange={(e) => setField("day_of_month", e.target.value ? Number(e.target.value) : null)} />
+                <Label>Recognition Day</Label>
+                <Select
+                  value={editing.recognition_day ?? (editing.day_of_month ? String(Math.min(editing.day_of_month, 28)) : "")}
+                  onValueChange={(v) => setEditing((p) => ({
+                    ...p,
+                    recognition_day: v,
+                    day_of_month: v === "last" ? null : Number(v),
+                  }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>{`Day ${d}`}</SelectItem>
+                    ))}
+                    <SelectItem value="last">Last day of month</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-center gap-2 pt-6">
                 <Switch checked={editing.active ?? true} onCheckedChange={(v) => setField("active", v)} />
