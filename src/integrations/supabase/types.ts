@@ -5587,9 +5587,11 @@ export type Database = {
           level1_category: string
           level2_category: string
           level3_category: string
+          min_stock_qty: number | null
           notes: string | null
           purchase_unit: string
           purchase_unit_cost: number
+          reorder_qty: number | null
           status: string
           stock_qty: number
           stock_uom: string
@@ -5616,9 +5618,11 @@ export type Database = {
           level1_category?: string
           level2_category?: string
           level3_category?: string
+          min_stock_qty?: number | null
           notes?: string | null
           purchase_unit?: string
           purchase_unit_cost?: number
+          reorder_qty?: number | null
           status?: string
           stock_qty?: number
           stock_uom?: string
@@ -5645,9 +5649,11 @@ export type Database = {
           level1_category?: string
           level2_category?: string
           level3_category?: string
+          min_stock_qty?: number | null
           notes?: string | null
           purchase_unit?: string
           purchase_unit_cost?: number
+          reorder_qty?: number | null
           status?: string
           stock_qty?: number
           stock_uom?: string
@@ -5852,6 +5858,117 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      purchase_order_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          po_id: string
+          product_master_id: string
+          quantity_ordered: number
+          total: number | null
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          po_id: string
+          product_master_id: string
+          quantity_ordered?: number
+          total?: number | null
+          unit?: string
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          po_id?: string
+          product_master_id?: string
+          quantity_ordered?: number
+          total?: number | null
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          created_by: string
+          expected_date: string | null
+          id: string
+          notes: string | null
+          po_number: string
+          requested_date: string | null
+          status: string
+          supplier_id: string
+          total_amount: number
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expected_date?: string | null
+          id?: string
+          notes?: string | null
+          po_number?: string
+          requested_date?: string | null
+          status?: string
+          supplier_id: string
+          total_amount?: number
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expected_date?: string | null
+          id?: string
+          notes?: string | null
+          po_number?: string
+          requested_date?: string | null
+          status?: string
+          supplier_id?: string
+          total_amount?: number
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -7107,6 +7224,7 @@ export type Database = {
         Returns: string
       }
       current_user_tenant_id: { Args: never; Returns: string }
+      generate_po_number: { Args: never; Returns: string }
       generate_recurring_expense_bills: { Args: never; Returns: Json }
       has_role: {
         Args: {
