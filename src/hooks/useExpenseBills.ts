@@ -38,7 +38,14 @@ export interface ExpenseBill {
   posted_at: string | null;
   created_at: string;
   updated_at: string;
+  source_type?: "manual" | "recurring_rule" | "bank_match" | string;
+  recurring_rule_id?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  document_requirement?: "not_required" | "pending" | "received" | string;
+  combined_venues?: boolean;
 }
+
 
 export interface ExpenseBillAllocation {
   id?: string;
@@ -282,6 +289,22 @@ export function useExpenseBills() {
     return (data || []) as ExpenseBillPayment[];
   }, []);
 
+  const setDocumentRequirement = useCallback(
+    async (billId: string, requirement: "not_required" | "pending" | "received") => {
+      const { error } = await supabase
+        .from("expense_bills")
+        .update({ document_requirement: requirement } as any)
+        .eq("id", billId);
+      if (error) {
+        toast.error("Update failed: " + error.message);
+        return false;
+      }
+      await refresh();
+      return true;
+    },
+    [refresh]
+  );
+
   return {
     bills,
     loading,
@@ -293,5 +316,7 @@ export function useExpenseBills() {
     fetchAllocations,
     fetchAudit,
     fetchPayments,
+    setDocumentRequirement,
   };
 }
+
