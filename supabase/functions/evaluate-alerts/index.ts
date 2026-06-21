@@ -62,10 +62,22 @@ Deno.serve(async (req) => {
     const today = todayHKT();
     const monthStart = monthStartHKT(today);
 
+    // Iterate every active tenant. Each tenant evaluates its own rules/alerts.
+    const { data: tenants } = await admin.from("tenants").select("id, name").eq("status", "active");
+    const tenantList = (tenants && tenants.length > 0) ? tenants : [{ id: "00000000-0000-0000-0000-00000000beef", name: "KHAMBU" }];
+
+    let totalFired = 0;
+    let totalPulseSent = 0;
+    const perTenant: Array<Record<string, unknown>> = [];
+
+    for (const tenantRow of tenantList) {
+      const tenantId = String(tenantRow.id);
+
     // ---- Aggregate MTD sales per venue ----
     const { data: sales } = await admin
       .from("sales_records")
       .select("date,venue,subtotal,service_charge,discount,guests")
+      .eq("tenant_id", tenantId)
       .gte("date", monthStart)
       .lte("date", today);
 
