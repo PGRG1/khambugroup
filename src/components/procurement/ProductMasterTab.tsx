@@ -272,6 +272,8 @@ export default function ProductMasterTab() {
       base_unit_type: row.base_unit_type, base_unit_qty: String(row.base_unit_qty),
       cost_per_base_unit: String(row.cost_per_base_unit),
       notes: row.notes,
+      min_stock_qty: (row.product as any).min_stock_qty != null ? String((row.product as any).min_stock_qty) : "",
+      reorder_qty: (row.product as any).reorder_qty != null ? String((row.product as any).reorder_qty) : "",
     });
     setDragPos(null);
     setDialogOpen(true);
