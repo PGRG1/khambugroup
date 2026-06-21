@@ -99,6 +99,7 @@ Deno.serve(async (req) => {
     const { data: merchants } = await sb
       .from("payment_processor_merchants")
       .select("id, display_name, default_bank_account_id, merchant_number")
+      .eq("tenant_id", tenantId)
       .in("id", merchantIds);
     const merchantById = new Map((merchants || []).map((m) => [m.id, m]));
 
