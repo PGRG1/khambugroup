@@ -1596,6 +1596,8 @@ export type Database = {
           currency: string
           day_of_month: number | null
           department: string | null
+          document_notes: string | null
+          document_source: string | null
           effective_from: string | null
           expected_amount: number
           id: string
@@ -1625,6 +1627,8 @@ export type Database = {
           currency?: string
           day_of_month?: number | null
           department?: string | null
+          document_notes?: string | null
+          document_source?: string | null
           effective_from?: string | null
           expected_amount?: number
           id?: string
@@ -1654,6 +1658,8 @@ export type Database = {
           currency?: string
           day_of_month?: number | null
           department?: string | null
+          document_notes?: string | null
+          document_source?: string | null
           effective_from?: string | null
           expected_amount?: number
           id?: string
