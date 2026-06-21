@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { toast } from "sonner";
 
+export type RecurringRuleStatus = "draft" | "active" | "paused" | "ended";
+
 export interface RecurringRule {
   id: string;
   name: string;
@@ -10,6 +12,7 @@ export interface RecurringRule {
   vendor_name: string | null;
   category_id: string | null;
   account_id: string | null;
+  credit_account_id: string | null;
   venue_id: string | null;
   department: string | null;
   expected_amount: number;
@@ -18,9 +21,14 @@ export interface RecurringRule {
   day_of_month: number | null;
   recognition_day: string | null;
   combined_venues: boolean;
+  effective_from: string | null;
+  next_generation_date: string | null;
   next_due_date: string | null;
+  payment_due_day: number | null;
   last_generated_at: string | null;
   active: boolean;
+  status: RecurringRuleStatus;
+  auto_approve: boolean;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -34,7 +42,7 @@ export function useRecurringExpenses() {
     setLoading(true);
     try {
       const rows = await fetchAllRows("expense_recurring_rules", "*", {
-        col: "next_due_date",
+        col: "next_generation_date",
         asc: true,
       });
       setRules(rows as RecurringRule[]);
@@ -51,12 +59,14 @@ export function useRecurringExpenses() {
 
   const save = useCallback(
     async (r: Partial<RecurringRule>) => {
+      const status: RecurringRuleStatus = (r.status as RecurringRuleStatus) || "draft";
       const payload: any = {
         name: r.name,
         supplier_id: r.supplier_id || null,
         vendor_name: r.vendor_name || null,
         category_id: r.category_id || null,
         account_id: r.account_id || null,
+        credit_account_id: r.credit_account_id || null,
         venue_id: r.combined_venues ? null : (r.venue_id || null),
         department: r.department || null,
         expected_amount: Number(r.expected_amount || 0),
@@ -65,8 +75,11 @@ export function useRecurringExpenses() {
         day_of_month: r.day_of_month ?? null,
         recognition_day: r.recognition_day ?? null,
         combined_venues: r.combined_venues ?? false,
-        next_due_date: r.next_due_date || null,
-        active: r.active ?? true,
+        effective_from: r.effective_from || null,
+        payment_due_day: r.payment_due_day ?? null,
+        status,
+        active: status === "active",
+        auto_approve: r.auto_approve ?? false,
         notes: r.notes || null,
       };
       try {
@@ -111,14 +124,14 @@ export function useRecurringExpenses() {
     [refresh]
   );
 
-  const toggleActive = useCallback(
-    async (id: string, active: boolean) => {
+  const setStatus = useCallback(
+    async (id: string, status: RecurringRuleStatus) => {
       const { error } = await supabase
         .from("expense_recurring_rules")
-        .update({ active })
+        .update({ status, active: status === "active" })
         .eq("id", id);
       if (error) {
-        toast.error("Toggle failed: " + error.message);
+        toast.error("Status update failed: " + error.message);
         return false;
       }
       await refresh();
@@ -127,5 +140,19 @@ export function useRecurringExpenses() {
     [refresh]
   );
 
-  return { rules, loading, refresh, save, remove, toggleActive };
+  const generateNow = useCallback(async () => {
+    const { data, error } = await supabase.rpc("generate_recurring_expense_bills" as any);
+    if (error) {
+      toast.error("Generation failed: " + error.message);
+      return null;
+    }
+    const result: any = data;
+    const created = result?.created ?? 0;
+    const skipped = result?.skipped_duplicate ?? 0;
+    toast.success(`Generated ${created} bill(s)${skipped ? ` · ${skipped} skipped (duplicates)` : ""}`);
+    await refresh();
+    return result;
+  }, [refresh]);
+
+  return { rules, loading, refresh, save, remove, setStatus, generateNow };
 }
