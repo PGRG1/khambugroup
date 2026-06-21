@@ -76,6 +76,7 @@ const procurementItems = [
   { title: "Categories", url: "/procurement/categories", icon: Tags },
   { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
   { title: "Purchase Orders", url: "/procurement/purchase-orders", icon: ShoppingCart },
+  { title: "Receiving", url: "/procurement/receiving", icon: PackageCheck },
   { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
   { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
   { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
