@@ -322,7 +322,7 @@ export default function ProductMasterTab() {
     const costPerRecipeUnit = recipeQty > 0 ? purchaseUnitCost / recipeQty : 0;
 
     if (editingProductId) {
-      const pmUpdates = {
+      const pmUpdates: any = {
         internal_sku: form.internal_sku, internal_product_name: form.internal_product_name,
         level1_category: form.level1_category, level2_category: form.level2_category, level3_category: form.level3_category,
         accounting_category: form.accounting_category,
@@ -330,6 +330,8 @@ export default function ProductMasterTab() {
         default_coa_account_id: form.default_coa_account_id || null,
         unit: form.unit, unit_cost: parseFloat(form.unit_cost) || 0, status: form.status,
         notes: form.notes,
+        min_stock_qty: form.min_stock_qty === "" ? null : parseFloat(form.min_stock_qty),
+        reorder_qty: form.reorder_qty === "" ? null : parseFloat(form.reorder_qty),
       };
 
       const supplierLevelFields = {
