@@ -232,6 +232,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 3b. If a new auth user was created, the legacy `on_auth_user_created_tenant`
+    //     trigger auto-attaches them to KHAMBU Group as a member. The new client
+    //     admin must see ONLY their own tenant — strip any other memberships.
+    if (createdNewUser && adminUserId) {
+      await admin.from("tenant_members")
+        .delete()
+        .eq("user_id", adminUserId)
+        .neq("tenant_id", tenantId);
+      await admin.from("user_access_control")
+        .delete()
+        .eq("user_id", adminUserId)
+        .neq("tenant_id", tenantId);
+      await admin.from("user_page_permissions")
+        .delete()
+        .eq("user_id", adminUserId)
+        .neq("tenant_id", tenantId);
+    }
+
+
 
 
 
