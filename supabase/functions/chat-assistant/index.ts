@@ -1,6 +1,7 @@
 // Data-aware AI analyst for KHAMBU dashboard.
 // Streams SSE responses from Lovable AI Gateway with read-only DB tools.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireAuth, resolveTenant } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -17,14 +18,19 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 // ---------- helpers ----------
 async function fetchAll<T = any>(
   table: string,
-  cols = "*",
+  cols: string,
+  tenantId: string,
   filters?: (q: any) => any,
 ): Promise<T[]> {
   const pageSize = 1000;
   let from = 0;
   const out: T[] = [];
   while (true) {
-    let q = admin.from(table).select(cols).range(from, from + pageSize - 1);
+    let q = admin
+      .from(table)
+      .select(cols)
+      .eq("tenant_id", tenantId)
+      .range(from, from + pageSize - 1);
     if (filters) q = filters(q);
     const { data, error } = await q;
     if (error) throw new Error(error.message);
