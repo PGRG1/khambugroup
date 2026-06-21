@@ -172,8 +172,16 @@ Deno.serve(async (req) => {
     rollback.push(async () => { await admin.from("venues").delete().eq("id", venueId!); });
 
     // 3. Client administrator — invite or reuse
-    const { data: existingList } = await admin.auth.admin.listUsers();
-    const existingUser = existingList.users.find((u: any) => (u.email ?? "").toLowerCase() === body.admin_email.toLowerCase());
+    let existingUser: any = null;
+    {
+      // Page through users (admin.listUsers is paginated, default perPage=50)
+      for (let page = 1; page <= 20 && !existingUser; page++) {
+        const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+        if (error) { console.error("listUsers error", error); break; }
+        existingUser = data.users.find((u: any) => (u.email ?? "").toLowerCase() === body.admin_email.toLowerCase());
+        if (!data.users.length || data.users.length < 200) break;
+      }
+    }
     if (existingUser) {
       adminUserId = existingUser.id;
     } else {
@@ -184,7 +192,10 @@ Deno.serve(async (req) => {
         email_confirm: true,
         user_metadata: { display_name: body.admin_name },
       });
-      if (cErr || !created?.user) throw new Error("create admin user failed: " + (cErr?.message ?? ""));
+      if (cErr || !created?.user) {
+        console.error("createUser failed", JSON.stringify(cErr), cErr);
+        throw new Error("create admin user failed: " + (cErr?.message || cErr?.code || JSON.stringify(cErr) || "unknown"));
+      }
       adminUserId = created.user.id;
       createdNewUser = true;
       rollback.push(async () => { if (createdNewUser && adminUserId) await admin.auth.admin.deleteUser(adminUserId); });
@@ -192,6 +203,7 @@ Deno.serve(async (req) => {
       // Best-effort: send a recovery link so the new admin sets their password.
       try { await admin.auth.admin.generateLink({ type: "recovery", email: body.admin_email }); } catch { /* ignore */ }
     }
+
 
     // 4. tenant_admin membership (idempotent thanks to unique key)
     {
