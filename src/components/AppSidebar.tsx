@@ -3,6 +3,8 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -98,14 +100,14 @@ const kpiAdminItems = [
 
 const STORAGE_KEY = "khambu.sidebar.groups";
 
-type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "hr" | "admin";
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "hr" | "admin" | "platform";
 
 function loadGroupState(): Record<GroupKey, boolean> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { revenue: false, kpi: false, finance: false, expenses: false, procurement: false, hr: false, admin: false };
+  return { revenue: false, kpi: false, finance: false, expenses: false, procurement: false, hr: false, admin: false, platform: false };
 }
 
 function CollapsibleNavGroup({
@@ -166,6 +168,8 @@ export function AppSidebar() {
     procurement: false,
     hr: false,
     admin: false,
+    platform: false,
+
   });
 
   const setGroup = (key: GroupKey, open: boolean) => {
@@ -193,6 +197,9 @@ export function AppSidebar() {
   const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
   const showHR = isAdmin && !isPreviewActive;
   const showAdmin = isAdmin && !isPreviewActive;
+  const { isPlatformAdmin } = usePlatformAdmin();
+  const showPlatform = isPlatformAdmin && !isPreviewActive;
+
 
   const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (
     <SidebarMenuItem key={item.title}>
@@ -346,6 +353,20 @@ export function AppSidebar() {
             </SidebarMenu>
           </CollapsibleNavGroup>
         )}
+
+        {showPlatform && (
+          <CollapsibleNavGroup
+            groupKey="platform"
+            label="Platform Admin"
+            defaultOpen={false}
+            onOpenChange={() => {}}
+          >
+            <SidebarMenu>
+              {renderLink({ title: "Clients", url: "/admin/clients", icon: Building2 })}
+            </SidebarMenu>
+          </CollapsibleNavGroup>
+        )}
+
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
