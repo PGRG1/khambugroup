@@ -987,30 +987,28 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   // Auth check
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const token = authHeader.replace("Bearer ", "");
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
-  if (userErr || !userData.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  const { user, response: authResp } = await requireAuth(req, corsHeaders);
+  if (authResp) return authResp;
 
   try {
-    const { messages } = await req.json();
+    const body = await req.json();
+    const { messages, tenant_id: requestedTenantId } = body ?? {};
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Resolve tenant scope — every DB tool below is filtered by this tenant_id.
+    const resolved = await resolveTenant(admin, user!.id, requestedTenantId ?? null);
+    if (!resolved) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: no tenant access" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const tenantId = resolved.tenant_id;
 
     const conversation: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
     const chartSpecs: any[] = [];
