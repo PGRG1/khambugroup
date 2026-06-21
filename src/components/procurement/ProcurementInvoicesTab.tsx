@@ -167,6 +167,8 @@ export default function ProcurementInvoicesTab() {
   const [editForm, setEditForm] = useState<Partial<Invoice>>({});
   const [editLines, setEditLines] = useState<EditableInvoiceLine[]>([]);
   const [saving, setSaving] = useState(false);
+  const [grnItemsForInvoice, setGrnItemsForInvoice] = useState<any[]>([]);
+  const [invoiceVarianceMap, setInvoiceVarianceMap] = useState<Record<string, boolean>>({});
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
