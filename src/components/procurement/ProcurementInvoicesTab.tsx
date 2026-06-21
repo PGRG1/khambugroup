@@ -1009,6 +1009,7 @@ export default function ProcurementInvoicesTab() {
         setDeleteOpen={setDeleteOpen}
         onUpdateField={(id, patch) => updateInvoice(id, patch as any)}
         onUploadClick={() => setScannerOpen(true)}
+        invoiceVarianceMap={invoiceVarianceMap}
       />
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
