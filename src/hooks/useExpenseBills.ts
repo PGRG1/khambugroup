@@ -38,7 +38,14 @@ export interface ExpenseBill {
   posted_at: string | null;
   created_at: string;
   updated_at: string;
+  source_type?: "manual" | "recurring_rule" | "bank_match" | string;
+  recurring_rule_id?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  document_requirement?: "not_required" | "pending" | "received" | string;
+  combined_venues?: boolean;
 }
+
 
 export interface ExpenseBillAllocation {
   id?: string;
