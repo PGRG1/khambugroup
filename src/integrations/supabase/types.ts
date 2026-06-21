@@ -5584,21 +5584,27 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          plan: string
           slug: string
+          status: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          plan?: string
           slug: string
+          status?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          plan?: string
           slug?: string
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -5717,6 +5723,41 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_memberships: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_memberships_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venues: {
         Row: {
           created_at: string
@@ -5727,6 +5768,7 @@ export type Database = {
           notes: string
           seats: number | null
           sort_order: number
+          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -5738,6 +5780,7 @@ export type Database = {
           notes?: string
           seats?: number | null
           sort_order?: number
+          tenant_id?: string
           updated_at?: string
         }
         Update: {
@@ -5749,9 +5792,18 @@ export type Database = {
           notes?: string
           seats?: number | null
           sort_order?: number
+          tenant_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "venues_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       venues_config: {
         Row: {
@@ -6184,9 +6236,22 @@ export type Database = {
         Args: { p_entry_id: string }
         Returns: Json
       }
+      user_has_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_has_venue: {
+        Args: { _user_id: string; _venue_id: string }
+        Returns: boolean
+      }
       user_owns_kpi: {
         Args: { _kpi_card_id: string; _user_id: string }
         Returns: boolean
+      }
+      user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
+      user_venue_ids: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: string[]
       }
       void_payroll_payment_batch: {
         Args: { p_batch_id: string }
