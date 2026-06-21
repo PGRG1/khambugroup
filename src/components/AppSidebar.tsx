@@ -195,6 +195,9 @@ export function AppSidebar() {
   const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
   const showHR = isAdmin && !isPreviewActive;
   const showAdmin = isAdmin && !isPreviewActive;
+  const { isPlatformAdmin } = usePlatformAdmin();
+  const showPlatform = isPlatformAdmin && !isPreviewActive;
+
 
   const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (
     <SidebarMenuItem key={item.title}>
