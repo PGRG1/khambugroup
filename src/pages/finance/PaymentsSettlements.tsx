@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,10 +16,25 @@ import { SettlementBatchesTab } from "@/components/finance/payments/SettlementBa
 const ALL = "__all__";
 
 export default function PaymentsSettlements() {
-  const { loading, processors, merchants, imports, batches, lines, transactions, reload } = usePaymentSettlements();
+  const { loading, processors, merchants, imports, batches, lines, transactions, feeRates, reload } = usePaymentSettlements();
   const { accounts: bankAccounts, transactions: bankTxns } = useBankReconciliation();
   const [processorId, setProcessorId] = useState<string>(ALL);
   const [tab, setTab] = useState("overview");
+
+  // Default to the first processor (prefer KPay) once loaded so its fee rules are immediately visible.
+  const [didInit, setDidInit] = useState(false);
+  useEffect(() => {
+    if (didInit || !processors.length) return;
+    const kpay = processors.find((p) => /kpay/i.test(p.name)) || processors[0];
+    if (kpay) setProcessorId(kpay.id);
+    setDidInit(true);
+  }, [processors, didInit]);
+
+  const feeRateCountByProcessor = useMemo(() => {
+    const m = new Map<string, number>();
+    feeRates.forEach((r) => m.set(r.processor_id, (m.get(r.processor_id) || 0) + 1));
+    return m;
+  }, [feeRates]);
 
   const isAll = processorId === ALL;
   const processor = useMemo(() => (isAll ? null : processors.find((p) => p.id === processorId) || null), [processors, processorId, isAll]);
@@ -53,12 +68,17 @@ export default function PaymentsSettlements() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={processorId} onValueChange={setProcessorId}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Choose processor" /></SelectTrigger>
+            <SelectTrigger className="w-[240px]"><SelectValue placeholder="Choose processor" /></SelectTrigger>
             <SelectContent>
+              {processors.map((p) => {
+                const n = feeRateCountByProcessor.get(p.id) || 0;
+                return (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} <span className="text-muted-foreground">· {n} {n === 1 ? "rule" : "rules"}</span>
+                  </SelectItem>
+                );
+              })}
               <SelectItem value={ALL}>All processors</SelectItem>
-              {processors.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
             </SelectContent>
           </Select>
         </div>
@@ -143,7 +163,7 @@ export default function PaymentsSettlements() {
         </TabsContent>
 
         <TabsContent value="fee-rates" className="mt-4">
-          <FeeRatesTab processor={processor} merchants={procMerchants} />
+          <FeeRatesTab processor={processor} merchants={procMerchants} allProcessors={processors} allMerchants={merchants} allFeeRates={feeRates} onReload={reload} />
         </TabsContent>
       </Tabs>
     </div>
