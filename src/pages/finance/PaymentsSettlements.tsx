@@ -16,10 +16,25 @@ import { SettlementBatchesTab } from "@/components/finance/payments/SettlementBa
 const ALL = "__all__";
 
 export default function PaymentsSettlements() {
-  const { loading, processors, merchants, imports, batches, lines, transactions, reload } = usePaymentSettlements();
+  const { loading, processors, merchants, imports, batches, lines, transactions, feeRates, reload } = usePaymentSettlements();
   const { accounts: bankAccounts, transactions: bankTxns } = useBankReconciliation();
   const [processorId, setProcessorId] = useState<string>(ALL);
   const [tab, setTab] = useState("overview");
+
+  // Default to the first processor (prefer KPay) once loaded so its fee rules are immediately visible.
+  const [didInit, setDidInit] = useState(false);
+  useMemo(() => {
+    if (didInit || !processors.length) return;
+    const kpay = processors.find((p) => /kpay/i.test(p.name)) || processors[0];
+    if (kpay) setProcessorId(kpay.id);
+    setDidInit(true);
+  }, [processors, didInit]);
+
+  const feeRateCountByProcessor = useMemo(() => {
+    const m = new Map<string, number>();
+    feeRates.forEach((r) => m.set(r.processor_id, (m.get(r.processor_id) || 0) + 1));
+    return m;
+  }, [feeRates]);
 
   const isAll = processorId === ALL;
   const processor = useMemo(() => (isAll ? null : processors.find((p) => p.id === processorId) || null), [processors, processorId, isAll]);
