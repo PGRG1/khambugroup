@@ -451,6 +451,7 @@ export type Database = {
           opening_balance: number
           opening_date: string
           sort_order: number
+          tenant_id: string
           updated_at: string
           venue: string | null
           venue_id: string | null
@@ -472,6 +473,7 @@ export type Database = {
           opening_balance?: number
           opening_date?: string
           sort_order?: number
+          tenant_id?: string
           updated_at?: string
           venue?: string | null
           venue_id?: string | null
@@ -493,6 +495,7 @@ export type Database = {
           opening_balance?: number
           opening_date?: string
           sort_order?: number
+          tenant_id?: string
           updated_at?: string
           venue?: string | null
           venue_id?: string | null
@@ -527,6 +530,13 @@ export type Database = {
             referencedColumns: ["account_id"]
           },
           {
+            foreignKeyName: "bank_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bank_accounts_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
@@ -544,6 +554,7 @@ export type Database = {
           new_status: string | null
           notes: Json
           old_status: string | null
+          tenant_id: string
           ts: string
           user_display_name: string | null
           user_id: string | null
@@ -556,6 +567,7 @@ export type Database = {
           new_status?: string | null
           notes?: Json
           old_status?: string | null
+          tenant_id?: string
           ts?: string
           user_display_name?: string | null
           user_id?: string | null
@@ -568,6 +580,7 @@ export type Database = {
           new_status?: string | null
           notes?: Json
           old_status?: string | null
+          tenant_id?: string
           ts?: string
           user_display_name?: string | null
           user_id?: string | null
@@ -587,6 +600,13 @@ export type Database = {
             referencedRelation: "bank_transactions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bank_audit_trail_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       bank_recon_rules: {
@@ -599,6 +619,7 @@ export type Database = {
           sort_order: number
           suggested_category: string | null
           suggested_type: string
+          tenant_id: string
         }
         Insert: {
           created_at?: string
@@ -609,6 +630,7 @@ export type Database = {
           sort_order?: number
           suggested_category?: string | null
           suggested_type: string
+          tenant_id?: string
         }
         Update: {
           created_at?: string
@@ -619,8 +641,17 @@ export type Database = {
           sort_order?: number
           suggested_category?: string | null
           suggested_type?: string
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bank_recon_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bank_reconciliation_periods: {
         Row: {
@@ -636,6 +667,7 @@ export type Database = {
           period_start: string
           statement_balance: number
           status: string
+          tenant_id: string
         }
         Insert: {
           bank_account_id: string
@@ -650,6 +682,7 @@ export type Database = {
           period_start: string
           statement_balance?: number
           status?: string
+          tenant_id?: string
         }
         Update: {
           bank_account_id?: string
@@ -664,6 +697,7 @@ export type Database = {
           period_start?: string
           statement_balance?: number
           status?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -671,6 +705,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_reconciliation_periods_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -682,6 +723,7 @@ export type Database = {
           bank_name: string
           created_at: string
           id: string
+          tenant_id: string
         }
         Insert: {
           account_number_last4: string
@@ -689,6 +731,7 @@ export type Database = {
           bank_name: string
           created_at?: string
           id?: string
+          tenant_id?: string
         }
         Update: {
           account_number_last4?: string
@@ -696,6 +739,7 @@ export type Database = {
           bank_name?: string
           created_at?: string
           id?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -703,6 +747,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_account_mappings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -719,6 +770,7 @@ export type Database = {
           period_end: string
           period_start: string
           status: string
+          tenant_id: string
           uploaded_at: string
           uploaded_by: string | null
         }
@@ -733,6 +785,7 @@ export type Database = {
           period_end: string
           period_start: string
           status?: string
+          tenant_id?: string
           uploaded_at?: string
           uploaded_by?: string | null
         }
@@ -747,6 +800,7 @@ export type Database = {
           period_end?: string
           period_start?: string
           status?: string
+          tenant_id?: string
           uploaded_at?: string
           uploaded_by?: string | null
         }
@@ -756,6 +810,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_imports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -784,6 +845,7 @@ export type Database = {
           suggested_category: string | null
           suggested_match_id: string | null
           suggested_type: string | null
+          tenant_id: string
           txn_date: string
           updated_at: string
           value_date: string | null
@@ -811,6 +873,7 @@ export type Database = {
           suggested_category?: string | null
           suggested_match_id?: string | null
           suggested_type?: string | null
+          tenant_id?: string
           txn_date: string
           updated_at?: string
           value_date?: string | null
@@ -838,6 +901,7 @@ export type Database = {
           suggested_category?: string | null
           suggested_match_id?: string | null
           suggested_type?: string | null
+          tenant_id?: string
           txn_date?: string
           updated_at?: string
           value_date?: string | null
@@ -862,6 +926,13 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "bank_statement_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1002,6 +1073,7 @@ export type Database = {
           source_invoice_id: string | null
           status: string
           supplier_id: string | null
+          tenant_id: string
           updated_at: string
           venue: string | null
         }
@@ -1018,6 +1090,7 @@ export type Database = {
           source_invoice_id?: string | null
           status?: string
           supplier_id?: string | null
+          tenant_id?: string
           updated_at?: string
           venue?: string | null
         }
@@ -1034,6 +1107,7 @@ export type Database = {
           source_invoice_id?: string | null
           status?: string
           supplier_id?: string | null
+          tenant_id?: string
           updated_at?: string
           venue?: string | null
         }
@@ -1057,6 +1131,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3367,6 +3448,7 @@ export type Database = {
           payment_date: string
           payment_method: string
           reference: string
+          tenant_id: string
         }
         Insert: {
           amount?: number
@@ -3380,6 +3462,7 @@ export type Database = {
           payment_date?: string
           payment_method?: string
           reference?: string
+          tenant_id?: string
         }
         Update: {
           amount?: number
@@ -3393,6 +3476,7 @@ export type Database = {
           payment_date?: string
           payment_method?: string
           reference?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -3422,6 +3506,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_invoices_postable"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4322,6 +4413,7 @@ export type Database = {
           id: string
           invoice_id: string
           payment_id: string
+          tenant_id: string
         }
         Insert: {
           amount_allocated: number
@@ -4331,6 +4423,7 @@ export type Database = {
           id?: string
           invoice_id: string
           payment_id: string
+          tenant_id?: string
         }
         Update: {
           amount_allocated?: number
@@ -4340,6 +4433,7 @@ export type Database = {
           id?: string
           invoice_id?: string
           payment_id?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -4370,6 +4464,13 @@ export type Database = {
             referencedRelation: "payments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payment_allocations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payment_processor_fee_rates: {
@@ -4385,6 +4486,7 @@ export type Database = {
           rate: number
           rounding_dp: number
           rounding_method: string
+          tenant_id: string
           updated_at: string
           wallet_type: string | null
         }
@@ -4400,6 +4502,7 @@ export type Database = {
           rate: number
           rounding_dp?: number
           rounding_method?: string
+          tenant_id?: string
           updated_at?: string
           wallet_type?: string | null
         }
@@ -4415,6 +4518,7 @@ export type Database = {
           rate?: number
           rounding_dp?: number
           rounding_method?: string
+          tenant_id?: string
           updated_at?: string
           wallet_type?: string | null
         }
@@ -4424,6 +4528,13 @@ export type Database = {
             columns: ["processor_id"]
             isOneToOne: false
             referencedRelation: "payment_processors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_processor_fee_rates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4442,6 +4553,7 @@ export type Database = {
           shared_venues: string[]
           sort_order: number
           store_address: string
+          tenant_id: string
           updated_at: string
           venue: string | null
         }
@@ -4458,6 +4570,7 @@ export type Database = {
           shared_venues?: string[]
           sort_order?: number
           store_address?: string
+          tenant_id?: string
           updated_at?: string
           venue?: string | null
         }
@@ -4474,6 +4587,7 @@ export type Database = {
           shared_venues?: string[]
           sort_order?: number
           store_address?: string
+          tenant_id?: string
           updated_at?: string
           venue?: string | null
         }
@@ -4483,6 +4597,13 @@ export type Database = {
             columns: ["processor_id"]
             isOneToOne: false
             referencedRelation: "payment_processors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_processor_merchants_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4495,6 +4616,7 @@ export type Database = {
           name: string
           notes: string
           sort_order: number
+          tenant_id: string
           type: string
           updated_at: string
         }
@@ -4505,6 +4627,7 @@ export type Database = {
           name: string
           notes?: string
           sort_order?: number
+          tenant_id?: string
           type?: string
           updated_at?: string
         }
@@ -4515,10 +4638,19 @@ export type Database = {
           name?: string
           notes?: string
           sort_order?: number
+          tenant_id?: string
           type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payment_processors_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_settlement_batches: {
         Row: {
@@ -4542,6 +4674,7 @@ export type Database = {
           processor_id: string
           settlement_date: string
           status: string
+          tenant_id: string
           transaction_date: string
           transactions_flagged: number
           updated_at: string
@@ -4567,6 +4700,7 @@ export type Database = {
           processor_id: string
           settlement_date: string
           status?: string
+          tenant_id?: string
           transaction_date: string
           transactions_flagged?: number
           updated_at?: string
@@ -4592,6 +4726,7 @@ export type Database = {
           processor_id?: string
           settlement_date?: string
           status?: string
+          tenant_id?: string
           transaction_date?: string
           transactions_flagged?: number
           updated_at?: string
@@ -4639,6 +4774,13 @@ export type Database = {
             referencedRelation: "payment_processors"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payment_settlement_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payment_settlement_imports: {
@@ -4652,6 +4794,7 @@ export type Database = {
           period_start: string
           processor_id: string
           status: string
+          tenant_id: string
           uploaded_at: string
           uploaded_by: string | null
         }
@@ -4665,6 +4808,7 @@ export type Database = {
           period_start: string
           processor_id: string
           status?: string
+          tenant_id?: string
           uploaded_at?: string
           uploaded_by?: string | null
         }
@@ -4678,6 +4822,7 @@ export type Database = {
           period_start?: string
           processor_id?: string
           status?: string
+          tenant_id?: string
           uploaded_at?: string
           uploaded_by?: string | null
         }
@@ -4687,6 +4832,13 @@ export type Database = {
             columns: ["processor_id"]
             isOneToOne: false
             referencedRelation: "payment_processors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_settlement_imports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4706,6 +4858,7 @@ export type Database = {
           net_amount: number
           payment_type: string
           payment_type_label: string
+          tenant_id: string
         }
         Insert: {
           audit_note?: string
@@ -4721,6 +4874,7 @@ export type Database = {
           net_amount?: number
           payment_type: string
           payment_type_label?: string
+          tenant_id?: string
         }
         Update: {
           audit_note?: string
@@ -4736,6 +4890,7 @@ export type Database = {
           net_amount?: number
           payment_type?: string
           payment_type_label?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -4743,6 +4898,13 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "payment_settlement_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_settlement_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4763,6 +4925,7 @@ export type Database = {
           payment_method_key: string
           payment_method_raw: string
           reference: string
+          tenant_id: string
           transaction_time: string
           wallet_type: string | null
         }
@@ -4781,6 +4944,7 @@ export type Database = {
           payment_method_key?: string
           payment_method_raw?: string
           reference?: string
+          tenant_id?: string
           transaction_time: string
           wallet_type?: string | null
         }
@@ -4799,6 +4963,7 @@ export type Database = {
           payment_method_key?: string
           payment_method_raw?: string
           reference?: string
+          tenant_id?: string
           transaction_time?: string
           wallet_type?: string | null
         }
@@ -4808,6 +4973,13 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "payment_settlement_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_settlement_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4827,6 +4999,7 @@ export type Database = {
           payment_method: string
           reference_number: string
           supplier_id: string | null
+          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -4843,6 +5016,7 @@ export type Database = {
           payment_method: string
           reference_number?: string
           supplier_id?: string | null
+          tenant_id?: string
           updated_at?: string
         }
         Update: {
@@ -4859,6 +5033,7 @@ export type Database = {
           payment_method?: string
           reference_number?: string
           supplier_id?: string | null
+          tenant_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -4874,6 +5049,13 @@ export type Database = {
             columns: ["paid_from_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
