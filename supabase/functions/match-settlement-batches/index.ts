@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
     let q = sb
       .from("payment_settlement_batches")
       .select("id, merchant_id, settlement_date, transaction_date, net_settlement, status, bank_transaction_id")
+      .eq("tenant_id", tenantId)
       .eq("processor_id", processor_id)
       .is("bank_transaction_id", null);
     if (Array.isArray(batch_ids) && batch_ids.length > 0) q = q.in("id", batch_ids);
