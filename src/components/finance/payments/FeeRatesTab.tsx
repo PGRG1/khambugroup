@@ -131,7 +131,7 @@ export function FeeRatesTab({
   merchants: Merchant[];
   allProcessors?: ProcessorRef[];
   allMerchants?: Merchant[];
-  allFeeRates?: FeeRate[];
+  allFeeRates?: Array<Omit<FeeRate, "rounding_method"> & { rounding_method: string }>;
   onReload?: () => void | Promise<void>;
 }) {
   const [rates, setRates] = useState<FeeRate[]>([]);
