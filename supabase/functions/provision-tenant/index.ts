@@ -158,7 +158,20 @@ Deno.serve(async (req) => {
     }).select("id").single();
     if (tErr || !tenant) throw new Error(tErr?.message || "tenant insert failed");
     tenantId = tenant.id as string;
-    rollback.push(async () => { await admin.from("tenants").delete().eq("id", tenantId!); });
+    // Comprehensive rollback: wipe every row stamped with this tenant_id, then
+    // the tenant itself. Order matters because of ON DELETE RESTRICT FKs.
+    rollback.push(async () => {
+      const tables = [
+        "audit_log","user_page_permissions","user_access_control",
+        "expense_categories","hr_departments","app_config","page_visibility",
+        "venues_config","chart_of_accounts","tenant_members","venues",
+      ];
+      for (const t of tables) {
+        await admin.from(t).delete().eq("tenant_id", tenantId!);
+      }
+      await admin.from("tenants").delete().eq("id", tenantId!);
+    });
+
 
     // 2. First venue
     const { data: venue, error: vErr } = await admin.from("venues").insert({
