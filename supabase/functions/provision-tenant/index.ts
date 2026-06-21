@@ -185,26 +185,22 @@ Deno.serve(async (req) => {
     if (existingUser) {
       adminUserId = existingUser.id;
     } else {
-      const tempPwd = crypto.randomUUID() + "Aa1!";
-      const { data: created, error: cErr } = await admin.auth.admin.createUser({
-        email: body.admin_email,
-        password: tempPwd,
-        email_confirm: true,
-        user_metadata: { display_name: body.admin_name },
-      });
-      if (cErr || !created?.user) {
-        const detail = cErr ? `${cErr.name ?? ""} ${cErr.message ?? ""} status=${(cErr as any).status ?? ""} code=${(cErr as any).code ?? ""}`.trim() : "no user returned";
-        console.error("createUser failed", detail, cErr);
+      // Prefer inviteUserByEmail — admin.createUser can return 500 on Lovable Cloud
+      // when the auth email validator service is unavailable.
+      const { data: invited, error: iErr } = await admin.auth.admin.inviteUserByEmail(
+        body.admin_email,
+        { data: { display_name: body.admin_name } },
+      );
+      if (iErr || !invited?.user) {
+        const detail = iErr ? `${iErr.name ?? ""} ${iErr.message ?? ""} status=${(iErr as any).status ?? ""}`.trim() : "no user returned";
+        console.error("inviteUserByEmail failed", detail, iErr);
         throw new Error("create admin user failed: " + detail);
       }
-
-      adminUserId = created.user.id;
+      adminUserId = invited.user.id;
       createdNewUser = true;
       rollback.push(async () => { if (createdNewUser && adminUserId) await admin.auth.admin.deleteUser(adminUserId); });
-
-      // Best-effort: send a recovery link so the new admin sets their password.
-      try { await admin.auth.admin.generateLink({ type: "recovery", email: body.admin_email }); } catch { /* ignore */ }
     }
+
 
 
     // 4. tenant_admin membership (idempotent thanks to unique key)
