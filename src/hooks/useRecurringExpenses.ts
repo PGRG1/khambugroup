@@ -16,6 +16,8 @@ export interface RecurringRule {
   currency: string;
   cadence: string;
   day_of_month: number | null;
+  recognition_day: string | null;
+  combined_venues: boolean;
   next_due_date: string | null;
   last_generated_at: string | null;
   active: boolean;
@@ -55,12 +57,14 @@ export function useRecurringExpenses() {
         vendor_name: r.vendor_name || null,
         category_id: r.category_id || null,
         account_id: r.account_id || null,
-        venue_id: r.venue_id || null,
+        venue_id: r.combined_venues ? null : (r.venue_id || null),
         department: r.department || null,
         expected_amount: Number(r.expected_amount || 0),
         currency: r.currency || "HKD",
         cadence: r.cadence || "monthly",
         day_of_month: r.day_of_month ?? null,
+        recognition_day: r.recognition_day ?? null,
+        combined_venues: r.combined_venues ?? false,
         next_due_date: r.next_due_date || null,
         active: r.active ?? true,
         notes: r.notes || null,

@@ -1563,6 +1563,7 @@ export type Database = {
           active: boolean
           cadence: string
           category_id: string | null
+          combined_venues: boolean
           created_at: string
           created_by: string | null
           currency: string
@@ -1574,6 +1575,7 @@ export type Database = {
           name: string
           next_due_date: string | null
           notes: string | null
+          recognition_day: string | null
           supplier_id: string | null
           updated_at: string
           vendor_name: string | null
@@ -1584,6 +1586,7 @@ export type Database = {
           active?: boolean
           cadence?: string
           category_id?: string | null
+          combined_venues?: boolean
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -1595,6 +1598,7 @@ export type Database = {
           name: string
           next_due_date?: string | null
           notes?: string | null
+          recognition_day?: string | null
           supplier_id?: string | null
           updated_at?: string
           vendor_name?: string | null
@@ -1605,6 +1609,7 @@ export type Database = {
           active?: boolean
           cadence?: string
           category_id?: string | null
+          combined_venues?: boolean
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -1616,6 +1621,7 @@ export type Database = {
           name?: string
           next_due_date?: string | null
           notes?: string | null
+          recognition_day?: string | null
           supplier_id?: string | null
           updated_at?: string
           vendor_name?: string | null
