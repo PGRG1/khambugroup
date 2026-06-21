@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
     const { data: invs } = await admin
       .from("invoices")
       .select("invoice_date,venue,total_amount,status")
+      .eq("tenant_id", tenantId)
       .gte("invoice_date", monthStart)
       .lte("invoice_date", today)
       .in("status", ["paid", "unpaid"]);
@@ -119,7 +120,8 @@ Deno.serve(async (req) => {
     // ---- MTD goals (sum revenue_targets for this month per venue) ----
     const { data: targets } = await admin
       .from("revenue_targets")
-      .select("year,month,target_amount,venues");
+      .select("year,month,target_amount,venues")
+      .eq("tenant_id", tenantId);
     const yyyy = Number(today.slice(0, 4));
     const mm = Number(today.slice(5, 7));
     const goalByVenue = new Map<string, number>();
