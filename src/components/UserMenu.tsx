@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sun, Moon, Monitor, LogOut, User as UserIcon, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TenantSwitcher } from "@/components/TenantSwitcher";
 
 export const UserMenu = () => {
   const { user, signOut } = useAuth();
@@ -52,6 +53,11 @@ export const UserMenu = () => {
           <UserIcon className="h-4 w-4 text-muted-foreground" />
           <span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Workspace
+        </DropdownMenuLabel>
+        <TenantSwitcher />
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Appearance
