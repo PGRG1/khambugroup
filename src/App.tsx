@@ -27,6 +27,8 @@ import PLReport from "./pages/PLReport";
 import Settings from "./pages/Settings";
 import SystemConfiguration from "./pages/admin/SystemConfiguration";
 import AiRules from "./pages/admin/AiRules";
+import Clients from "./pages/admin/Clients";
+
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
