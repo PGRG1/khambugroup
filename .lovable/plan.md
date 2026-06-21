@@ -1,91 +1,103 @@
-# Recurring Expenses → Auto-generated Approval Workflow
+# Multi-Tenant Conversion Plan
 
-Turn `expense_recurring_rules` into pure templates. Each period, the system generates a separate `expense_bills` row that flows through the existing Approvals → Posting → Bank-matching pipeline. No accounting impact until approved.
+Convert BANI Portal into a secure multi-tenant app **without removing or rebuilding existing functionality**. Current data becomes one tenant: **KHAMBU Group**, with venues Assembly, Caliente, Hanabi, Off-Site/Stall, and Arca (already in DB — note "Arca", not "ARKA").
 
-## 1. Schema changes (`expense_recurring_rules`)
+We will ship this in **8 small, reversible stages**, one approval per stage, so the app keeps working between stages.
 
-Add:
-- `status` text — `draft | active | paused | ended` (default `draft`). Backfill: `active=true` → `active`, else `paused`. Drop reliance on the boolean `active` for gating generation (keep column for back-compat read, but generator uses `status`).
-- `effective_from` date — first period the rule is live. Backfill from `next_due_date`.
-- `next_generation_date` date — system-calculated, read-only in UI.
-- `payment_due_day` int (nullable, 1–31) — forecasting only, never drives recognition.
-- `credit_account_id` uuid → `chart_of_accounts(id)` — optional override for the AP/Accrued credit side. Falls back to supplier default, then the global `accounts_payable` mapping rule.
-- `auto_approve` boolean default `false` — explicit opt-in for bypassing approval.
+---
 
-Keep `next_due_date` column but stop using it; UI replaces the field with "Effective From".
+## Hierarchy
 
-Add to `expense_bills`:
-- `source_type` text default `manual` (values: `manual | recurring_rule | bank_match`).
-- `recurring_rule_id` uuid → `expense_recurring_rules(id)` ON DELETE SET NULL.
-- `period_start` date, `period_end` date — accounting period covered (already have `service_period_*`; reuse those + add an index).
-- `document_requirement` text default `not_required` (`not_required | pending | received`).
-- Unique partial index: `(recurring_rule_id, period_start)` WHERE `recurring_rule_id IS NOT NULL` — duplicate prevention.
+```
+Bani Platform
+  └─ Tenant (e.g. KHAMBU Group)
+       └─ Venues (Assembly, Caliente, Hanabi, Arca, Off-Site/Stall)
+            └─ Users, Departments, Data
+```
 
-Approval statuses already exist (`draft|pending_review|approved|rejected|posted|void`); generator inserts `pending_review`.
+- Caliente / Assembly / Arca are **venues**, not tenants.
+- A user belongs to one or more tenants via `tenant_members`, and is optionally scoped to specific venues via a new `venue_memberships` table.
+- A super admin (Bani platform staff) can see all tenants; tenant admins only see their own.
 
-## 2. Generation logic (Postgres function `generate_recurring_expense_bills()`)
+---
 
-For each rule where `status='active'` AND `next_generation_date <= today`:
-1. Compute `period_start` / `period_end` from cadence anchored at `effective_from`.
-2. Compute `bill_date` = the recognition day for that period (resolve `recognition_day='last'` → month-end; else day N capped to month length).
-3. Insert one `expense_bills` row (`approval_status='pending_review'`, `source_type='recurring_rule'`, `recurring_rule_id`, venue from rule (NULL if `combined_venues`), department, vendor, total = `expected_amount`, currency, `document_requirement='not_required'`, notes prefixed with "Auto-generated from rule: {name}").
-4. Insert matching `expense_bill_allocations` row using `rule.account_id` + venue + department + amount.
-5. ON CONFLICT on the unique index → skip (idempotent).
-6. Advance `next_generation_date` using cadence; clear nothing on `last_generated_at` (set to now()).
-7. If `auto_approve=true`, immediately call the existing approve+post path.
+## Stage 0 — Foundation (this round)
 
-Schedule via `pg_cron` daily at 02:00 HKT. Also expose a "Generate now" button on the Recurring Expenses page that calls the same function for admins (catch-up safe due to unique index).
+Schema:
+- `tenants`: add `slug`, `status`, `plan` (keep existing row, rename display to "KHAMBU Group").
+- `venues`: add `tenant_id uuid` (nullable → backfill to KHAMBU → NOT NULL + FK).
+- New `venue_memberships(user_id, venue_id, role)` with RLS.
+- Helper SQL functions (SECURITY DEFINER, search_path=public):
+  - `user_tenant_ids(uuid) → uuid[]`
+  - `user_has_tenant(uuid, uuid) → bool`
+  - `user_venue_ids(uuid, uuid) → uuid[]`
+  - `user_has_venue(uuid, uuid) → bool`
+  - Keep existing `current_user_tenant_id`, `is_tenant_admin`, `is_super_admin`, `has_role`.
 
-## 3. Posting on approval
+Frontend: no UI redesign. `useActiveTenant` keeps working unchanged.
 
-Existing approval already posts a journal entry. Confirm the entry uses:
-- DR: allocation `account_id` (e.g. 6150 Rental Expense) per allocation row.
-- CR: `rule.credit_account_id` if set, else supplier default, else `account_mapping_rules.accounts_payable`.
+## Stage 1 — Expenses & Recurring Expenses
 
-Update the approval-posting routine to read this credit override when the bill has `recurring_rule_id`.
+Tables: `expense_bills`, `expense_bill_allocations`, `expense_bill_audit`, `expense_bill_links`, `expense_bill_payments`, `expense_recurring_rules`, `expense_categories`, `expense_vendor_statements`, `expense_vendor_statement_lines`.
 
-## 4. Bank matching
+For each:
+1. `ADD COLUMN tenant_id uuid` (nullable, default KHAMBU id).
+2. Backfill all rows → KHAMBU.
+3. `DO $$ ... RAISE EXCEPTION` guard if any row is still NULL.
+4. `SET NOT NULL` + FK to `tenants(id)`.
+5. Add `venue_id uuid NULL` FK where the table is venue-scoped (bills, allocations, rules).
+6. Replace RLS policies with tenant + venue scoping using `user_has_tenant` / `user_has_venue`. Keep a `*_legacy_admin` policy for `service_role` to make rollback safe.
+7. Stamp `tenant_id` automatically via `BEFORE INSERT` trigger if client omits it (uses `current_user_tenant_id()`).
 
-Bank reconciliation already supports matching to `expense_bills` (FK `bank_transactions.expense_posted_bill_id` exists). Confirm/ensure:
-- Matching a bank outflow to an approved recurring bill posts: DR AP/Accrued · CR Bank, and updates `paid_amount` + `payment_status` (`unpaid|partial|paid`). It does NOT create a new bill.
-- Suggestion logic: when a bank txn references a vendor or amount matching an unpaid recurring bill, prefer that match.
+## Stages 2–6 (same pattern, one per round)
 
-## 5. UI changes
+- **Stage 2 — Accounting & journals**: `journal_entries`, `journal_lines`, `chart_of_accounts`, `account_mapping_rules`, `reconciliation_mapping_rules`, `ledger_audit_log`, `pl_structure_rows`, `pl_manual_lines`, `cashflow_settings`, `accounting_categories`. Update `rebuild_journal_from_operations`, `post_payroll_accrual`, etc. to filter by `current_user_tenant_id()`.
+- **Stage 3 — Bank & payments**: all `bank_*`, `payment_*`, `payments`, `payment_allocations`, `credit_notes`, `invoice_payments`.
+- **Stage 4 — Procurement & inventory**: `suppliers`, `supplier_item_mappings`, `product_master`, `product_suppliers`, `product_categories`, `product_pack_conversions`, `standard_products`, `uom_options`, `invoices`, `invoice_line_items`, `inventory_*`, `menu_*`.
+- **Stage 5 — Revenue, forecasts & KPIs**: `sales_records`, `revenue_sources`, `service_periods`, `revenue_targets`, `forecasts`, `forecast_approvers`, `events`, `kpi_*`.
+- **Stage 6 — People, payroll & platform**: `hr_*`, `alert_*`, `audit_log`, `push_subscriptions`, `app_config`, `venues_config`, `page_visibility`, `user_access_control`, `user_page_permissions` (re-keyed to `(user_id, tenant_id, page_key)`).
 
-### Recurring Expenses page (`src/pages/expenses/RecurringExpenses.tsx`)
-- Replace "Next Due Date" input → **Effective From** date.
-- Show **Next Generation Date** as read-only (computed preview while editing).
-- Add **Payment Due Day** (optional 1–31 select).
-- Add **Status** select (`Draft / Active / Paused / Ended`) replacing the on/off toggle (toggle becomes Active↔Paused shortcut).
-- Add **Credit Account** select (optional).
-- Add **Auto-approve** switch (default off, with helper text).
-- Table: new column "Next Generation" + status badge. Row action: "Generate now".
-- Sheet helper text clarifies rule is a template.
+## Stage 7 — Edge function & AI hardening
 
-### Approvals page (`src/pages/expenses/Approvals.tsx`)
-- Extend the bill row to show: Expense name (from notes/rule name), Period, Recognition date, Venue, Department, Category, GL account, Source (`Recurring Rule` chip linking back to rule), Document status badge (`No document required` / `Document pending` / `Received`), Notes preview.
-- Action buttons: Approve · Reject · **Edit & approve** (opens existing bill editor pre-filled) · **Request documents** (sets `document_requirement='pending'`, leaves status as `pending_review`) · **Mark N/A for period** (sets `approval_status='void'` with audit reason; unique index still blocks duplicates).
+Every edge function (`create-user`, `list-users`, `parse-bill`, `parse-invoice`, `parse-receipt`, `ai-classify`, `match-settlement-batches`, `evaluate-alerts`, `chat-assistant`, `classify-bank-txn`, etc.):
+- Validate JWT via `getClaims`.
+- Resolve allowed `tenant_id` via `tenant_members` using the service-role client.
+- Add `.eq('tenant_id', tid)` on every read and stamp `tenant_id` on every write.
+- `create-user`: require caller is `tenant_admin` of the target tenant.
 
-### Expense Bills list
-- Add filter chip "Source: Recurring" and show source/rule link on each row.
+## Stage 8 — Isolation tests
 
-## 6. Editing rule vs. generated bills
+Vitest suite with 4 personas seeded into a second test tenant "Acme":
+- `owner@khambu.test` (tenant_admin)
+- `manager.caliente@khambu.test` (venue-scoped)
+- `owner@acme.test` (different tenant)
+- `platform@bani.test` (super_admin)
 
-Editing an `expense_recurring_rules` row never cascades to existing `expense_bills`. Only future generations use the new values. Already true given separate-row design — add a small confirmation note in the edit sheet.
+For each stage's tables, assert: Acme user cannot SELECT/INSERT/UPDATE/DELETE KHAMBU rows; venue-scoped user only sees their venue; super_admin sees both.
 
-## 7. Combined-venue rule
+---
 
-Generator writes `venue_id=NULL`, `combined_venues=true` flag carried via a new boolean column on `expense_bills` (`combined_venues`, default false). Any later allocation between Caliente/Assembly remains a separate workflow (not in scope here).
+## Safety rules applied to every stage
 
-## 8. Out of scope
+- All `tenant_id` columns added **nullable + defaulted to KHAMBU first**, backfilled, verified, then `SET NOT NULL`.
+- FKs added only after `NOT NULL` succeeds.
+- **No `DELETE`, `TRUNCATE`, or `DROP TABLE` against business data.**
+- Each stage keeps a `*_legacy_admin` RLS policy for `service_role` so rollback is one migration.
+- No UI redesign, no new modules, no new business rules during this work.
 
-- Allocation engine to split combined expenses between venues.
-- Redesign of the existing approval UI beyond the new fields/buttons listed.
-- Cash-flow forecast surface for `payment_due_day` (data captured; UI later).
+## Technical details (for review)
 
-## Technical summary
+- Helper functions are `SECURITY DEFINER` with `SET search_path = public` to avoid RLS recursion (see existing `has_role`, `current_user_tenant_id`).
+- `user_page_permissions` PK changes from `(user_id, page_key)` to `(user_id, tenant_id, page_key)` in Stage 6 — `handle_new_user_access()` trigger updated to insert one row per tenant the user joins.
+- Storage buckets are not partitioned yet; Stage 3 adds a `tenant_id` prefix convention (`{tenant_id}/...`) and an RLS policy on `storage.objects` using `user_has_tenant`. Existing files stay readable via a legacy policy until backfilled.
+- Frontend reads continue to use `useActiveTenant().tenantId` (already implemented); no component changes required for Stages 0–6 because RLS does the filtering. Inserts will automatically be stamped server-side by triggers, so existing `supabase.from(...).insert(...)` calls keep working.
 
-- **Migration**: alter `expense_recurring_rules` (+6 cols), alter `expense_bills` (+4 cols + unique partial index + `combined_venues` bool), create `generate_recurring_expense_bills()` SECURITY DEFINER function, schedule pg_cron job, extend approval-post function to honor `credit_account_id`.
-- **Hooks**: update `useRecurringExpenses` types + save payload; add `generateNow(ruleId)` RPC wrapper. Update `useExpenseBills` to surface source fields.
-- **UI**: refactor RecurringExpenses sheet/table; extend Approvals card with new metadata and 5 action buttons.
-- **No changes** to: bank reconciliation core, journal balancer triggers, sales/payroll rebuild logic.
+---
+
+## Questions before I start
+
+1. **Venue naming** — DB currently has **"Arca"**. Your brief says **"ARKA"**. Rename to "ARKA", or keep "Arca"?
+2. **Hanabi & Off-Site/Stall** — keep both as KHAMBU Group venues (status quo), or exclude either from the tenant?
+3. **Stage cadence** — ship one stage per approval (8 migrations, safer, slower), or batch Stages 1–6 schema changes into one big migration + one big policy migration (2 migrations, faster, higher blast radius)?
+
+Once you answer, I'll execute **Stage 0 + Stage 1** in the next round.
