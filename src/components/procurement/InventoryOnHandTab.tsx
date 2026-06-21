@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, Download, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
 
