@@ -185,21 +185,40 @@ Deno.serve(async (req) => {
     if (existingUser) {
       adminUserId = existingUser.id;
     } else {
-      // Prefer inviteUserByEmail — admin.createUser can return 500 on Lovable Cloud
-      // when the auth email validator service is unavailable.
-      const { data: invited, error: iErr } = await admin.auth.admin.inviteUserByEmail(
-        body.admin_email,
-        { data: { display_name: body.admin_name } },
-      );
-      if (iErr || !invited?.user) {
-        const detail = iErr ? `${iErr.name ?? ""} ${iErr.message ?? ""} status=${(iErr as any).status ?? ""}`.trim() : "no user returned";
-        console.error("inviteUserByEmail failed", detail, iErr);
-        throw new Error("create admin user failed: " + detail);
+      // Call GoTrue admin endpoint directly — the JS SDK swallows the real
+      // error body and retries with a generic 500 message on Lovable Cloud.
+      const resp = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`,
+          "apikey": serviceKey,
+        },
+        body: JSON.stringify({
+          email: body.admin_email,
+          email_confirm: true,
+          user_metadata: { display_name: body.admin_name },
+        }),
+      });
+      const raw = await resp.text();
+      if (!resp.ok) {
+        console.error("createUser HTTP", resp.status, raw);
+        throw new Error(`create admin user failed: HTTP ${resp.status} ${raw.slice(0,400)}`);
       }
-      adminUserId = invited.user.id;
+      const created = JSON.parse(raw);
+      adminUserId = created.id || created.user?.id;
+      if (!adminUserId) throw new Error("create admin user failed: missing id in response");
       createdNewUser = true;
-      rollback.push(async () => { if (createdNewUser && adminUserId) await admin.auth.admin.deleteUser(adminUserId); });
+      rollback.push(async () => {
+        if (createdNewUser && adminUserId) {
+          await fetch(`${supabaseUrl}/auth/v1/admin/users/${adminUserId}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${serviceKey}`, "apikey": serviceKey },
+          }).catch(() => {});
+        }
+      });
     }
+
 
 
 
