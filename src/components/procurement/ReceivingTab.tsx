@@ -167,7 +167,7 @@ export default function ReceivingTab() {
     setSupplierId(po.supplier_id);
     if (VENUES.includes(po.venue as Venue)) setVenue(po.venue as Venue);
     const { data } = await supabase.from("purchase_order_items" as any).select("*").eq("po_id", poId);
-    const lines = ((data ?? []) as POItem[]).map((it) => ({
+    const lines = ((data ?? []) as unknown as POItem[]).map((it) => ({
       key: crypto.randomUUID(),
       po_item_id: it.id,
       invoice_line_item_id: null,
