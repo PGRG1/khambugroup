@@ -40,6 +40,10 @@ export interface InvoiceLineItem {
   total: number;
   notes: string | null;
   product_master_id: string | null;
+  accepted_qty?: number | null;
+  qty_difference?: number | null;
+  receiving_reason?: string | null;
+  receiving_note?: string | null;
 }
 
 export interface Invoice {

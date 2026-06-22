@@ -108,6 +108,10 @@ interface EditableInvoiceLine {
   unmatched: boolean;
   price_changed: boolean;
   pm_unit_price?: number;
+  accepted_qty: string;
+  accepted_qty_touched: boolean;
+  receiving_reason: string;
+  receiving_note: string;
 }
 
 const emptyEditLine: EditableInvoiceLine = {
@@ -129,7 +133,48 @@ const emptyEditLine: EditableInvoiceLine = {
   matched_stock_qty_ratio: 1,
   unmatched: false,
   price_changed: false,
+  accepted_qty: "1",
+  accepted_qty_touched: false,
+  receiving_reason: "matched",
+  receiving_note: "",
 };
+
+const RECEIVING_REASONS: { value: string; label: string }[] = [
+  { value: "short_delivery", label: "Short delivery" },
+  { value: "partial_delivery", label: "Partial delivery" },
+  { value: "not_received", label: "Not received" },
+  { value: "damaged", label: "Damaged" },
+  { value: "broken", label: "Broken" },
+  { value: "poor_quality", label: "Poor quality" },
+  { value: "rejected", label: "Rejected" },
+  { value: "extra_quantity_received", label: "Extra quantity received" },
+  { value: "free_promotional_quantity", label: "Free promotional quantity" },
+  { value: "supplier_over_delivery", label: "Supplier over-delivery" },
+  { value: "substitution_accepted", label: "Substitution accepted" },
+  { value: "wrong_item_received", label: "Wrong item received" },
+  { value: "new_item_received", label: "New item received" },
+  { value: "other", label: "Other" },
+];
+
+const NEGATIVE_AMBER_REASONS = new Set(["short_delivery", "partial_delivery", "not_received"]);
+const NEGATIVE_RED_REASONS = new Set(["damaged", "broken", "poor_quality", "rejected", "wrong_item_received"]);
+const POSITIVE_GREEN_REASONS = new Set(["extra_quantity_received", "free_promotional_quantity", "supplier_over_delivery"]);
+
+function computeEditReceivingTint(line: EditableInvoiceLine): { bg: string; border: string } | null {
+  const qty = parseFloat(line.quantity) || 0;
+  const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
+  const diff = acc - qty;
+  if (diff === 0) return null;
+  const reason = line.receiving_reason || "";
+  if (diff < 0 && NEGATIVE_RED_REASONS.has(reason)) {
+    return { bg: "rgba(239, 68, 68, 0.10)", border: "rgba(239, 68, 68, 0.35)" };
+  }
+  if (diff > 0 && POSITIVE_GREEN_REASONS.has(reason)) {
+    return { bg: "rgba(34, 197, 94, 0.10)", border: "rgba(34, 197, 94, 0.35)" };
+  }
+  return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
+}
+
 
 export default function ProcurementInvoicesTab() {
   const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } = useInvoiceData();
@@ -389,6 +434,17 @@ export default function ProcurementInvoicesTab() {
       ? (matchedProduct.external_sku ?? "")
       : (line.item_code || "");
 
+    const qtyNum = parseFloat(qtyStr) || 0;
+    const savedAccepted = (line as any).accepted_qty;
+    const acceptedStr = savedAccepted != null && savedAccepted !== ""
+      ? String(savedAccepted)
+      : qtyStr;
+    const acceptedNum = parseFloat(acceptedStr) || 0;
+    const diff = acceptedNum - qtyNum;
+    const savedReason = (line as any).receiving_reason as string | null | undefined;
+    const receivingReason = savedReason || (diff === 0 ? "matched" : "");
+    const receivingNote = ((line as any).receiving_note as string | null | undefined) || "";
+
     return {
       id: "id" in line ? line.id : undefined,
       item_code: resolvedItemCode,
@@ -412,6 +468,10 @@ export default function ProcurementInvoicesTab() {
       unmatched: !matchedProduct && Boolean((line.description || "").trim()),
       price_changed: typeof pmPrice === "number" && pmPrice > 0 ? Math.abs(currentPrice - pmPrice) > 0.01 : false,
       pm_unit_price: typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : undefined,
+      accepted_qty: acceptedStr,
+      accepted_qty_touched: savedAccepted != null,
+      receiving_reason: receivingReason,
+      receiving_note: receivingNote,
     };
   };
 
@@ -510,21 +570,33 @@ export default function ProcurementInvoicesTab() {
     setSaving(true);
     const mappedLines = editLines
       .filter((line) => line.description.trim())
-      .map((line) => ({
-        item_code: line.item_code || "",
-        description: line.description,
-        pack_size: line.pack_size || "",
-        category_id: null,
-        quantity: parseFloat(line.quantity) || 0,
-        unit: line.unit || null,
-        weight: line.weight ? parseFloat(line.weight) || 0 : null,
-        unit_price: parseFloat(line.unit_price) || 0,
-        discount: parseFloat(line.discount) || 0,
-        tax_amount: parseFloat(line.tax_amount) || 0,
-        total: parseFloat(line.total) || 0,
-        notes: null,
-        product_master_id: line.product_master_id,
-      }));
+      .map((line) => {
+        const qty = parseFloat(line.quantity) || 0;
+        const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
+        const qtyDiff = acc - qty;
+        const recvReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || null);
+        const recvNote = (line.receiving_note || "").trim() || null;
+        return {
+          item_code: line.item_code || "",
+          description: line.description,
+          pack_size: line.pack_size || "",
+          category_id: null,
+          quantity: qty,
+          unit: line.unit || null,
+          weight: line.weight ? parseFloat(line.weight) || 0 : null,
+          unit_price: parseFloat(line.unit_price) || 0,
+          discount: parseFloat(line.discount) || 0,
+          tax_amount: parseFloat(line.tax_amount) || 0,
+          total: parseFloat(line.total) || 0,
+          notes: null,
+          product_master_id: line.product_master_id,
+          accepted_qty: acc,
+          qty_difference: qtyDiff,
+          receiving_reason: recvReason,
+          receiving_note: recvNote,
+        } as any;
+      });
+
 
     // Subtotal/total are computed using the supplier's invoice rounding rule
     // (see Suppliers & Vendors → Invoice rounding rule).
@@ -575,6 +647,19 @@ export default function ProcurementInvoicesTab() {
         nextLine.total = calculateEditLineTotal(nextLine, supplierName, supplierId);
       }
 
+      if (field === "quantity") {
+        if (!nextLine.accepted_qty_touched) {
+          nextLine.accepted_qty = value;
+        }
+        const q = parseFloat(value) || 0;
+        const a = parseFloat(nextLine.accepted_qty ?? value) || 0;
+        if (a - q === 0) {
+          nextLine.receiving_reason = "matched";
+        } else if (nextLine.receiving_reason === "matched" || !nextLine.receiving_reason) {
+          nextLine.receiving_reason = "";
+        }
+      }
+
       if (field === "unit_price" && nextLine.pm_unit_price) {
         nextLine.price_changed = Math.abs((parseFloat(value) || 0) - nextLine.pm_unit_price) > 0.01;
       }
@@ -597,6 +682,31 @@ export default function ProcurementInvoicesTab() {
       return updated;
     });
   };
+
+  const updateEditLineReceiving = (idx: number, field: "accepted_qty" | "receiving_reason" | "receiving_note", value: string) => {
+    setEditLines((prev) => {
+      const updated = [...prev];
+      const line = { ...updated[idx] };
+      if (field === "accepted_qty") {
+        line.accepted_qty = value;
+        line.accepted_qty_touched = true;
+        const q = parseFloat(line.quantity) || 0;
+        const a = parseFloat(value) || 0;
+        if (a - q === 0) {
+          line.receiving_reason = "matched";
+        } else if (line.receiving_reason === "matched" || !line.receiving_reason) {
+          line.receiving_reason = "";
+        }
+      } else if (field === "receiving_reason") {
+        line.receiving_reason = value;
+      } else {
+        line.receiving_note = value;
+      }
+      updated[idx] = line;
+      return updated;
+    });
+  };
+
 
   const selectEditProduct = (idx: number, product: ProductMasterEntry) => {
     setEditLines((prev) => {
@@ -687,6 +797,39 @@ export default function ProcurementInvoicesTab() {
   const unmatchedCount = editLines.filter((line) => line.unmatched && line.description.trim()).length;
   const priceChangedCount = editLines.filter((line) => line.price_changed).length;
 
+  // GRN dispute stats: any line whose accepted_qty differs from quantity is disputed.
+  const editDisputeStats = useMemo(() => {
+    let disputedLines = 0;
+    let missingReason = 0;
+    let missingNote = 0;
+    for (const l of editLines) {
+      const q = parseFloat(l.quantity) || 0;
+      const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+      if (a - q !== 0) {
+        disputedLines += 1;
+        if (!l.receiving_reason) missingReason += 1;
+        if (l.receiving_reason === "other" && !(l.receiving_note || "").trim()) missingNote += 1;
+      }
+    }
+    return { disputedLines, missingReason, missingNote, hasDispute: disputedLines > 0 };
+  }, [editLines]);
+
+  const previousStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editing) return;
+    if (editDisputeStats.hasDispute) {
+      if (editForm.status !== "disputed") {
+        previousStatusRef.current = (editForm.status as string) || null;
+        setEditForm((f) => ({ ...f, status: "disputed" }));
+      }
+    } else if (editForm.status === "disputed") {
+      const restore = previousStatusRef.current || "unpaid";
+      previousStatusRef.current = null;
+      setEditForm((f) => ({ ...f, status: restore }));
+    }
+  }, [editing, editDisputeStats.hasDispute]);
+
+
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading invoices...</div>;
 
   if (editing && selectedInvoice) {
@@ -701,7 +844,17 @@ export default function ProcurementInvoicesTab() {
             <Button variant="outline" onClick={() => setEditing(false)}>
               <X className="h-4 w-4 mr-1" />Close
             </Button>
-            <Button onClick={handleSaveEdit} disabled={saving || !editForm.supplier_id || !editForm.invoice_number || !editForm.invoice_date}>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={
+                saving ||
+                !editForm.supplier_id ||
+                !editForm.invoice_number ||
+                !editForm.invoice_date ||
+                editDisputeStats.missingReason > 0 ||
+                editDisputeStats.missingNote > 0
+              }
+            >
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
@@ -763,9 +916,16 @@ export default function ProcurementInvoicesTab() {
             </div>
           )}
 
+          {editDisputeStats.hasDispute && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Invoice disputed — quantity differences must be resolved before saving.</span>
+            </div>
+          )}
+
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full min-w-[1350px] border-collapse text-xs">
+            <table className="w-full min-w-[1700px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border">
                   <th className="w-7 px-1 py-1.5 text-left font-medium text-muted-foreground">#</th>
@@ -777,6 +937,10 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[85px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Qty</th>
                   <th className="w-[75px] px-1 py-1.5 text-left font-medium text-muted-foreground">Stock UOM</th>
                   <th className="w-[85px] px-1 py-1.5 text-left font-medium text-muted-foreground">Stock Qty</th>
+                  <th className="w-[90px] px-1 py-1.5 text-left font-medium text-muted-foreground">Accepted Qty</th>
+                  <th className="w-[80px] px-1 py-1.5 text-left font-medium text-muted-foreground">Difference</th>
+                  <th className="w-[160px] px-1 py-1.5 text-left font-medium text-muted-foreground">Reason</th>
+                  <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Note</th>
                   <th className="w-[95px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Cost</th>
                   <th className="w-[90px] px-1 py-1.5 text-left font-medium text-muted-foreground">Total</th>
                   <th className="w-8"></th>
@@ -784,14 +948,23 @@ export default function ProcurementInvoicesTab() {
               </thead>
               <tbody>
                 {editLines.map((line, index) => {
-                  const rowClass = line.unmatched && line.description.trim()
+                  const tint = computeEditReceivingTint(line);
+                  const rowClass = !tint && line.unmatched && line.description.trim()
                     ? "bg-destructive/10 border-l-2 border-l-destructive"
-                    : line.price_changed
+                    : !tint && line.price_changed
                     ? "bg-accent/40 border-l-2 border-l-primary"
                     : "";
+                  const rowStyle: React.CSSProperties | undefined = tint
+                    ? { backgroundColor: tint.bg, borderLeft: `2px solid ${tint.border}` }
+                    : undefined;
+                  const qtyNum = parseFloat(line.quantity) || 0;
+                  const accNum = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+                  const diff = accNum - qtyNum;
+                  const effReason = diff === 0 ? "matched" : (line.receiving_reason || "");
+                  const noteRequired = effReason === "other" && !(line.receiving_note || "").trim();
 
                   return (
-                    <tr key={line.id || index} className={`border-b border-border/50 ${rowClass}`}>
+                    <tr key={line.id || index} className={`border-b border-border/50 ${rowClass}`} style={rowStyle}>
                       <td className="px-1 py-1 pt-2.5 align-top font-medium text-muted-foreground">{index + 1}</td>
                       <td className="px-1 py-1 align-top">
                         <Input value={line.matched_sku} readOnly tabIndex={-1} className="h-8 cursor-default bg-muted/50 font-mono text-xs" placeholder="—" />
@@ -845,6 +1018,66 @@ export default function ProcurementInvoicesTab() {
                            className="h-8 cursor-default bg-muted/50 font-mono text-xs min-w-[75px]"
                           placeholder="—"
                         />
+                      </td>
+                      <td className="px-1 py-1 align-top">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={line.accepted_qty ?? ""}
+                          onChange={(e) => updateEditLineReceiving(index, "accepted_qty", e.target.value)}
+                          className="h-8 text-xs min-w-[90px]"
+                        />
+                      </td>
+                      <td className="px-1 py-1 align-top">
+                        <div
+                          className={`h-8 flex items-center justify-end px-2 font-mono text-xs rounded-md border border-input bg-muted/50 ${
+                            diff === 0
+                              ? "text-muted-foreground"
+                              : diff < 0
+                              ? "text-red-400"
+                              : "text-emerald-400"
+                          }`}
+                        >
+                          {diff > 0 ? `+${diff}` : String(diff)}
+                        </div>
+                      </td>
+                      <td className="px-1 py-1 align-top">
+                        {diff === 0 ? (
+                          <div className="h-8 flex items-center px-2 text-xs rounded-md border border-input bg-muted/50 text-muted-foreground">
+                            Matched
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <select
+                              value={line.receiving_reason || ""}
+                              onChange={(e) => updateEditLineReceiving(index, "receiving_reason", e.target.value)}
+                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                            >
+                              <option value="">Select reason…</option>
+                              {RECEIVING_REASONS.map((r) => (
+                                <option key={r.value} value={r.value}>{r.label}</option>
+                              ))}
+                            </select>
+                            {!line.receiving_reason && (
+                              <span className="absolute top-1 right-6 h-1.5 w-1.5 rounded-full bg-red-500" />
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-1 py-1 align-top">
+                        <div className="relative">
+                          <Input
+                            value={line.receiving_note || ""}
+                            onChange={(e) => updateEditLineReceiving(index, "receiving_note", e.target.value)}
+                            maxLength={500}
+                            placeholder={effReason === "other" ? "Required" : "Optional"}
+                            className="h-8 text-xs min-w-[140px]"
+                          />
+                          {noteRequired && (
+                            <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-red-500" />
+                          )}
+                        </div>
                       </td>
                       <td className="px-1 py-1 align-top">
                         <div className="relative">
