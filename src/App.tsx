@@ -37,6 +37,7 @@ import AccessDenied from "./pages/AccessDenied";
 import Procurement from "./pages/Procurement";
 import CreditNotes from "./pages/procurement/CreditNotes";
 import StockCounts from "./pages/procurement/StockCounts";
+import Transfers from "./pages/procurement/Transfers";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
@@ -176,6 +177,7 @@ function App() {
                 <Route path="/procurement/documents" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="documents" /></ProtectedRoute>} />
                 <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
                 <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
+                <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
 
                 
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
