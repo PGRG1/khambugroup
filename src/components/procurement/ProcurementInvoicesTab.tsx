@@ -1137,10 +1137,6 @@ export default function ProcurementInvoicesTab() {
           </Button>
 
           <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
-            <div>
-              <span className="text-muted-foreground">Subtotal: </span>
-              <span className="font-mono font-medium">{editSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">Discount:</span>
               <Select
