@@ -811,12 +811,21 @@ function CountTab({
       .sort((a, b) => a.sort_order - b.sort_order);
   }, [locQtys, locations, multiMode]);
 
-  // Legacy single-zone column items (only relevant when not multiMode)
-  const hasZones = !multiMode && items.some((i) => i.location_id);
+  // Initialize draft from server snapshot once loaded
+  useEffect(() => {
+    if (!locQtysLoaded) return;
+    const d = new Map<string, string>();
+    locQtys.forEach((m, itemId) => {
+      m.forEach((v, locId) => {
+        d.set(`${itemId}|${locId}`, v == null ? "" : String(v));
+      });
+    });
+    setDraft(d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locQtysLoaded]);
 
   const visibleItems = items.filter((it) => {
     if (filter === "uncounted" && it.counted_qty != null) return false;
-    if (!multiMode && zoneFilter !== "all" && it.location_id !== zoneFilter) return false;
     return true;
   });
 
