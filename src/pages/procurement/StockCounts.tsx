@@ -756,12 +756,11 @@ function CountTab({
   const [savedCellKeys, setSavedCellKeys] = useState<Set<string>>(new Set());
   const [locQtys, setLocQtys] = useState<Map<string, Map<string, number | null>>>(new Map());
   const [locQtysLoaded, setLocQtysLoaded] = useState(false);
+  const [draft, setDraft] = useState<Map<string, string>>(new Map());
 
   const refMode = session.reference_mode;
   const showRef = refMode !== "none";
   const refLabel = refMode === "expected" ? "Expected" : "Last count";
-
-  const DOT_COLORS = ["bg-teal-500", "bg-blue-500", "bg-purple-500", "bg-orange-500"];
 
   const locById = useMemo(() => {
     const m = new Map<string, StockLocation>();
@@ -812,12 +811,21 @@ function CountTab({
       .sort((a, b) => a.sort_order - b.sort_order);
   }, [locQtys, locations, multiMode]);
 
-  // Legacy single-zone column items (only relevant when not multiMode)
-  const hasZones = !multiMode && items.some((i) => i.location_id);
+  // Initialize draft from server snapshot once loaded
+  useEffect(() => {
+    if (!locQtysLoaded) return;
+    const d = new Map<string, string>();
+    locQtys.forEach((m, itemId) => {
+      m.forEach((v, locId) => {
+        d.set(`${itemId}|${locId}`, v == null ? "" : String(v));
+      });
+    });
+    setDraft(d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locQtysLoaded]);
 
   const visibleItems = items.filter((it) => {
     if (filter === "uncounted" && it.counted_qty != null) return false;
-    if (!multiMode && zoneFilter !== "all" && it.location_id !== zoneFilter) return false;
     return true;
   });
 
@@ -932,12 +940,12 @@ function CountTab({
     }, 1500);
   };
 
-  // Single-mode grid cols
+  // Single-mode (no per-location) grid cols: SKU | Item | Unit | [Last count] | Counted | Notes
   const gridCols = showRef
-    ? "65px 1fr 55px 100px 80px 85px 28px"
-    : "65px 1fr 55px 100px 85px 28px";
+    ? "80px 1fr 55px 75px 85px 32px"
+    : "80px 1fr 55px 85px 32px";
 
-  const tableMinWidth = 600 + activeLocations.length * 90;
+  const tableMinWidth = 680 + activeLocations.length * 85;
 
   return (
     <div>
@@ -970,44 +978,22 @@ function CountTab({
         </button>
       </div>
 
-      {/* Pills: locations in multi mode, legacy zones otherwise */}
-      {multiMode ? (
-        activeLocations.length > 0 && (
-          <div className="flex gap-2 mb-4 flex-wrap">
-            <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
-              All zones
+      {/* Location focus pills (multi-mode only) — column focus, not row filter */}
+      {multiMode && activeLocations.length > 0 && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
+            All zones
+          </ZonePill>
+          {activeLocations.map((l) => (
+            <ZonePill
+              key={l.id}
+              active={zoneFilter === l.id}
+              onClick={() => setZoneFilter(l.id)}
+            >
+              {l.name}
             </ZonePill>
-            {activeLocations.map((l, i) => (
-              <ZonePill
-                key={l.id}
-                active={zoneFilter === l.id}
-                onClick={() => setZoneFilter(l.id)}
-              >
-                <span
-                  className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${DOT_COLORS[i % DOT_COLORS.length]}`}
-                />
-                {l.name}
-              </ZonePill>
-            ))}
-          </div>
-        )
-      ) : (
-        hasZones && (
-          <div className="flex gap-2 mb-4 flex-wrap">
-            <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
-              All zones
-            </ZonePill>
-            {Array.from(new Set(items.filter((i) => i.location_id).map((i) => i.location_id!))).map((lid) => {
-              const loc = locById.get(lid);
-              if (!loc) return null;
-              return (
-                <ZonePill key={lid} active={zoneFilter === lid} onClick={() => setZoneFilter(lid)}>
-                  {loc.name}
-                </ZonePill>
-              );
-            })}
-          </div>
-        )
+          ))}
+        </div>
       )}
 
       {/* Groups */}
@@ -1043,47 +1029,43 @@ function CountTab({
                     /* ====== MULTI-LOCATION GRID ====== */
                     <div className="overflow-x-auto">
                       <table
-                        className="text-sm border-collapse"
-                        style={{ minWidth: `${tableMinWidth}px`, width: "100%" }}
+                        className="border-collapse w-full text-sm"
+                        style={{ minWidth: `${tableMinWidth}px` }}
                       >
                         <thead>
-                          <tr className="bg-muted/20 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                            <th className="text-left px-2 py-1 w-[80px]">SKU</th>
-                            <th className="text-left px-2 py-1">Item</th>
-                            <th className="text-center px-2 py-1 w-[55px]">Unit</th>
+                          <tr className="bg-primary text-primary-foreground text-xs font-semibold uppercase tracking-wider">
+                            <th className="text-left px-2 py-2 w-[80px]">SKU</th>
+                            <th className="text-left px-2 py-2">Item</th>
+                            <th className="text-center px-2 py-2 w-[55px]">Unit</th>
                             {showRef && (
-                              <th className="text-right px-2 py-1 w-[90px]">{refLabel}</th>
+                              <th className="text-center px-2 py-2 w-[75px]">{refLabel}</th>
                             )}
-                            {activeLocations.map((l, i) => {
+                            {activeLocations.map((l) => {
                               const dim =
-                                zoneFilter !== "all" && zoneFilter !== l.id
-                                  ? "opacity-40"
-                                  : "";
+                                zoneFilter !== "all" && zoneFilter !== l.id ? "opacity-40" : "";
                               return (
                                 <th
                                   key={l.id}
-                                  className={`text-right px-2 py-1 w-[90px] ${dim}`}
+                                  className={`text-center px-2 py-2 w-[80px] ${dim}`}
                                 >
-                                  <span className="inline-flex items-center justify-end gap-1.5">
-                                    <span
-                                      className={`inline-block w-2 h-2 rounded-full ${DOT_COLORS[i % DOT_COLORS.length]}`}
-                                    />
-                                    {l.name}
-                                  </span>
+                                  {l.name}
                                 </th>
                               );
                             })}
-                            <th className="text-right px-2 py-1 w-[80px]">Total</th>
-                            <th className="px-2 py-1 w-[28px]"></th>
+                            <th className="text-center px-2 py-2 w-[65px] bg-black/10">Total</th>
+                            <th className="px-2 py-2 w-[32px]"></th>
                           </tr>
                         </thead>
                         <tbody>
                           {list.map((it) => {
                             const p = products.get(it.product_master_id);
-                            const itemMap = locQtys.get(it.id) ?? new Map<string, number | null>();
                             let liveTotal: number | null = null;
-                            itemMap.forEach((v) => {
-                              if (v != null) liveTotal = (liveTotal ?? 0) + (v as number);
+                            activeLocations.forEach((l) => {
+                              const raw = draft.get(`${it.id}|${l.id}`);
+                              if (raw != null && raw !== "") {
+                                const n = Number(raw);
+                                if (!isNaN(n)) liveTotal = (liveTotal ?? 0) + n;
+                              }
                             });
                             return (
                               <tr
@@ -1096,45 +1078,49 @@ function CountTab({
                                 <td className="px-2 py-1.5 font-medium text-foreground truncate pr-2">
                                   {p?.internal_product_name ?? "Unknown"}
                                 </td>
-                                <td className="px-2 py-1.5 text-muted-foreground text-center text-xs">
+                                <td className="px-2 py-1.5 text-center text-muted-foreground text-xs">
                                   {it.unit}
                                 </td>
                                 {showRef && (
-                                  <td className="px-2 py-1.5 text-right text-sm italic">
-                                    {it.last_count_qty != null ? (
-                                      <span className="text-muted-foreground">
-                                        {it.last_count_qty}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground/50">—</span>
-                                    )}
+                                  <td className="px-2 py-1.5 text-center italic text-muted-foreground text-sm">
+                                    {it.last_count_qty != null ? it.last_count_qty : "—"}
                                   </td>
                                 )}
                                 {activeLocations.map((l) => {
-                                  const v = itemMap.get(l.id);
                                   const key = `${it.id}|${l.id}`;
+                                  const val = draft.get(key) ?? "";
                                   const saved = savedCellKeys.has(key);
                                   const dim =
                                     zoneFilter !== "all" && zoneFilter !== l.id
                                       ? "opacity-40"
                                       : "";
                                   return (
-                                    <td key={l.id} className={`px-2 py-1.5 text-right ${dim}`}>
+                                    <td
+                                      key={l.id}
+                                      className={`px-2 py-1.5 text-center ${dim}`}
+                                    >
                                       <Input
                                         type="number"
                                         step="any"
-                                        defaultValue={v == null ? "" : String(v)}
+                                        value={val}
                                         placeholder="—"
                                         disabled={readonly}
+                                        onChange={(e) =>
+                                          setDraft((prev) => {
+                                            const n = new Map(prev);
+                                            n.set(key, e.target.value);
+                                            return n;
+                                          })
+                                        }
                                         onBlur={(e) => onLocBlur(it, l.id, e.target.value)}
-                                        className={`h-7 w-20 text-right text-sm ml-auto ${
+                                        className={`h-7 w-16 text-center text-sm mx-auto ${
                                           saved ? "ring-1 ring-green-500" : ""
                                         }`}
                                       />
                                     </td>
                                   );
                                 })}
-                                <td className="text-right font-semibold bg-muted/30 px-3 py-2 tabular-nums">
+                                <td className="text-center font-semibold bg-muted/40 px-3 py-2 tabular-nums">
                                   {liveTotal == null ? (
                                     <span className="text-muted-foreground">—</span>
                                   ) : (
@@ -1155,26 +1141,22 @@ function CountTab({
                       </table>
                     </div>
                   ) : (
-                    /* ====== LEGACY SINGLE-ZONE GRID ====== */
+                    /* ====== SINGLE-COUNT GRID (no per-location) ====== */
                     <div>
                       <div
-                        className="grid bg-muted/20 text-[11px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1"
+                        className="grid bg-primary text-primary-foreground text-xs font-semibold uppercase tracking-wider px-2 py-2"
                         style={{ gridTemplateColumns: gridCols }}
                       >
                         <div>SKU</div>
                         <div>Item</div>
                         <div className="text-center">Unit</div>
-                        <div>Zone</div>
-                        {showRef && <div className="text-right">{refLabel}</div>}
+                        {showRef && <div className="text-center">{refLabel}</div>}
                         <div className="text-right">Counted</div>
                         <div></div>
                       </div>
 
                       {list.map((it) => {
                         const p = products.get(it.product_master_id);
-                        const loc = it.location_id ? locById.get(it.location_id) : null;
-                        const locIdx = loc ? locations.findIndex((l) => l.id === loc.id) : -1;
-                        const locColor = locIdx >= 0 ? LOC_COLORS[locIdx % LOC_COLORS.length] : "";
                         const saved = savedIds.has(it.id);
                         return (
                           <div
@@ -1188,42 +1170,12 @@ function CountTab({
                             <div className="font-medium text-foreground truncate pr-2">
                               {p?.internal_product_name ?? "Unknown"}
                             </div>
-                            <div className="text-muted-foreground text-center text-xs">{it.unit}</div>
-                            <div>
-                              {loc ? (
-                                <Badge variant="outline" className={`${locColor} text-[10px]`}>
-                                  {loc.name}
-                                </Badge>
-                              ) : locations.length > 0 ? (
-                                <Select
-                                  value={it.location_id ?? ""}
-                                  onValueChange={(v) =>
-                                    saveItem(it.id, { location_id: v || null } as any)
-                                  }
-                                  disabled={readonly}
-                                >
-                                  <SelectTrigger className="h-7 text-xs">
-                                    <SelectValue placeholder="— assign —" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {locations.map((l) => (
-                                      <SelectItem key={l.id} value={l.id}>
-                                        {l.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                            <div className="text-muted-foreground text-center text-xs">
+                              {it.unit}
                             </div>
                             {showRef && (
-                              <div className="text-right text-sm italic">
-                                {it.last_count_qty != null ? (
-                                  <span className="text-muted-foreground">{it.last_count_qty}</span>
-                                ) : (
-                                  <span className="text-muted-foreground/50">—</span>
-                                )}
+                              <div className="text-center text-sm italic text-muted-foreground">
+                                {it.last_count_qty != null ? it.last_count_qty : "—"}
                               </div>
                             )}
                             <div className="text-right">
