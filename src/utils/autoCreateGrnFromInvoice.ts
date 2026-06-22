@@ -92,7 +92,6 @@ export async function autoCreateGrnFromInvoice(
           quantity_received: qtyAcc,
           unit: l.unit || "each",
           unit_cost: unitCost,
-          total: qtyAcc * unitCost,
           accepted_qty: qtyAcc,
           qty_difference: diff,
           receiving_reason: l.receiving_reason ?? null,
