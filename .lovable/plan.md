@@ -1,59 +1,78 @@
-## Goal
+# Transfers Page
 
-Rebuild the Count tab grid so it matches the spec exactly: kill the legacy single-Zone column/dropdown path entirely in multi-mode, restyle the multi-location grid to the portal design system (no neon dots, no inline colors), and make the location pills column-focus rather than row filters. Only `src/pages/procurement/StockCounts.tsx` changes.
+Build the venue-to-venue Transfers feature at `/procurement/transfers`. Two new tables, one full-page React component replacing the current stub. No stock movement logic — just a logged paper trail.
 
-## Changes in `StockCounts.tsx`
+## 1. Database migration
 
-### 1. Remove legacy zone UI
+New sequence + two tables:
 
-In `CountTab`:
-- Delete `DOT_COLORS` / `LOC_COLORS` usage in the grid headers and rows.
-- Delete the legacy single-zone grid block (the `gridCols` table with the Zone column, the `Badge` for assigned location, and the `Select` "— assign —" dropdown). The fallback when `multiMode` is false becomes the **counted-only** grid: SKU | Item | Unit | Last count | Counted | Notes. No Zone column, no assign dropdown.
-- Drop `hasZones`, the row-filtering branch `it.location_id !== zoneFilter`, and any related state that becomes unused.
+- `transfer_number_seq` — auto-numbers transfers as `TRF-YYYYMMDD-0001`.
+- `public.transfers` — header row: from/to venue, optional from/to `stock_locations`, status (`draft` / `confirmed` / `received` / `cancelled`), transfer date, notes, created_by, received_by, received_at.
+- `public.transfer_items` — line items: FK to transfer + `product_master`, quantity_sent, quantity_received, unit, unit_cost, notes. Unique on (transfer_id, product_master_id).
 
-### 2. Pills (column focus, not row filter)
+Access rules (plain English):
+- Any signed-in user can view transfers and their items.
+- Only admins and managers can create, edit, confirm, receive, or cancel transfers and their line items.
 
-Replace the pill block so that pills only render in `multiMode`:
-- "All zones" pill first, then one pill per location in `sort_order`.
-- No dots/icons.
-- Style: reuse the existing `ZonePill` component but strip the colored dot prop usage. Active pill = `bg-primary text-primary-foreground`; inactive = `bg-muted/40 text-muted-foreground hover:bg-accent/30 border border-border`.
-- State variable kept as `zoneFilter` (now means "focused location"). It never filters which rows are shown — remove the row-skip line. It only dims non-active location columns via `opacity-40`.
+Plus: GRANTs to authenticated/service_role, RLS enabled, `updated_at` triggers on both tables using the existing `update_updated_at_column()` function.
 
-### 3. Multi-location grid restyle
+## 2. `src/pages/procurement/Transfers.tsx`
 
-Header row:
-- `<tr className="bg-primary text-primary-foreground text-xs font-semibold uppercase tracking-wider">`
-- Cells: SKU (80px, left), Item (auto, left), Unit (55px, center), Last count (75px, center, only when `showRef`), each location (80px, center, name only — no dot), Total (65px, center, add `bg-black/10` overlay on top of header), Notes (32px).
-- Apply `opacity-40` to a location `<th>` when `zoneFilter !== 'all' && zoneFilter !== l.id`.
+Single component, list/detail pattern like `StockCounts.tsx`. State: `selectedTransferId` (null → list, set → detail) and `dialogOpen` for the New Transfer modal.
 
-Body rows:
-- `className="border-b border-border/40 hover:bg-accent/30 align-middle"`
-- SKU: `font-mono text-xs text-muted-foreground`
-- Item: `font-medium text-foreground`
-- Unit: `text-center text-muted-foreground text-xs`
-- Last count: `text-center italic text-muted-foreground`, value or `—`
-- Location cell: centered `<Input type="number" placeholder="—" className="h-7 w-16 text-center text-sm mx-auto" />` (plus `ring-1 ring-green-500` flash). Same `opacity-40` dim when other location is focused.
-- Total cell: `className="text-center font-semibold bg-muted/40 px-3 py-2 tabular-nums"`. Computed live from controlled input state (see below) — `—` when all null.
-- Notes: existing `NotesCell`, 32px column.
+### List view
 
-Inner table wrapper: `overflow-x-auto`; `style={{ minWidth: \`${680 + activeLocations.length * 85}px\` }}`.
+- Header: page title "Transfers" + primary `New Transfer` button.
+- Filter bar: From venue, To venue, Status, date/month filter.
+- `card-glass rounded-xl` table:
+  - Columns: Transfer # · From → To (with `ArrowRight` icon) · Date · Items count · Status badge · Value · `ChevronRight`.
+  - Status badges per spec (draft/confirmed/received/cancelled color map).
+  - Value = Σ(quantity_sent × unit_cost); shows "—" for drafts.
+- Row click → opens detail.
 
-### 4. Live Total
+### New Transfer dialog
 
-Currently location inputs are uncontrolled (`defaultValue`) and Total only reflects last server snapshot. Add a per-cell controlled draft state `draft: Map<string, string>` keyed by `${itemId}|${locId}` so the Total recomputes on every keystroke:
-- Initialize draft from `locQtys` when items load and on session reload.
-- `onChange` updates draft.
-- `onBlur` keeps current upsert behavior: writes value (or null when blank) to `stock_count_location_qtys`, recomputes total from draft, updates `stock_count_items.counted_qty`, and triggers the green ring for 1.5s.
-- Total cell sums the numeric values in draft for that row; `—` if all blank/NaN.
+`max-w-lg`. Fields:
+- From venue + To venue (2-col). Inline error if equal.
+- From location + To location (2-col, optional, filtered by selected venue from `stock_locations`, only rendered when locations exist).
+- Transfer date (defaults today).
+- Items table: searchable product picker from `product_master` (active only, via `fetchAllRows`), Qty, Unit (auto from product, editable), Unit cost (auto from product, editable), remove button, `Add item` action. Min 1 item to submit.
+- Notes textarea.
 
-### 5. Blur behavior (unchanged contract)
+Submit: insert `transfers` (status `draft`) + bulk insert `transfer_items`, then open the new transfer's detail view and close the dialog.
 
-On blur, only fire when the parsed value differs from the previously saved `locQtys` value. Skip work otherwise so unchanged blurs don't write.
+### Detail view
 
-### 6. Things that stay exactly as-is
+- Back button → clears `selectedTransferId`.
+- Header left: `transfer_number · From → To` (xl bold, ArrowRight between venues), then date + status badge below.
+- Header right (status-driven actions):
+  - draft: `Confirm Transfer` (blue) → status `confirmed`; `Cancel` (destructive, sm) → status `cancelled`, disabled if any line has `quantity_received`.
+  - confirmed: `Mark as Received` (green) → opens Receive dialog.
+  - received/cancelled: no actions.
 
-Category grouping, group open/close, progress bar, Uncounted-only toggle, status workflow buttons, Summary tab, list view, New Count dialog, System Configuration, migrations. No other file touched.
+Tabs (underline style): **Items** (default) and **Details**.
 
-## File touched
+**Items tab** — `card-glass` table with columns SKU · Item · Unit · Qty Sent · Qty Received · Unit Cost · Total · Notes. Qty Received colored green/amber/red vs Qty Sent when status is `received`, otherwise "—". Footer row sums total value. When status is `draft`, an `Edit items` button above the table enables inline add/remove of rows.
 
-- `src/pages/procurement/StockCounts.tsx`
+**Details tab** — 2-col grid of read-only label/value pairs: Transfer # · Status · From venue · To venue · From location · To location · Transfer date · Created by · Received by · Received at · Notes (full width).
+
+### Receive dialog
+
+`max-w-md`. Table of items with editable `Qty Received` (pre-filled with `quantity_sent`), plus Received date and Notes. On confirm: update each `transfer_items.quantity_received`, then set transfer `status='received'`, `received_by=auth user`, `received_at=now()`.
+
+### Styling
+
+All visuals reuse the existing portal system: `card-glass`, `rounded-xl`, `bg-primary text-primary-foreground` table headers, `border-border/40` dividers, `hover:bg-accent/30`, `text-muted-foreground` secondary, `font-display` headings, tabular-nums for numbers.
+
+## Out of scope
+
+- No stock movement / inventory deduction (later phase).
+- No CSV export wiring yet (use `downloadCSV` later if asked).
+- No other files touched besides `Transfers.tsx` and the new migration.
+
+## Technical notes
+
+- Tables fetched via standard supabase client; `product_master` list via `fetchAllRows` to bypass the 1000-row cap.
+- Venues hardcoded to Assembly / Caliente / Hanabi per spec.
+- `stock_locations` filtered by `venue` column and ordered by `sort_order`.
+- Status transitions guarded client-side; RLS guards server-side.
