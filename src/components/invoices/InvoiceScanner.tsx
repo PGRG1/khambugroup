@@ -1793,14 +1793,34 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           placeholder="0"
                         />
                       </td>
-                      {/* Total */}
-                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
-                        <Input
-                          type="number"
-                          value={line.total}
-                          onChange={(e) => updateLine(i, "total", e.target.value)}
-                          className="text-xs font-medium h-8 w-full"
-                        />
+                      {/* Invoiced Amount */}
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                        {(() => {
+                          const q = parseFloat(line.quantity) || 0;
+                          const p = parseFloat(line.unit_price) || 0;
+                          const inv = q * p;
+                          return (
+                            <div className="h-8 flex items-center justify-end px-2 font-mono text-xs text-muted-foreground">
+                              {inv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      {/* Accepted Amount */}
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                        {(() => {
+                          const q = parseFloat(line.quantity) || 0;
+                          const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+                          const p = parseFloat(line.unit_price) || 0;
+                          const inv = q * p;
+                          const acc = a * p;
+                          const cls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
+                          return (
+                            <div className={`h-8 flex items-center justify-end px-2 font-mono text-xs font-medium ${cls}`}>
+                              {acc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          );
+                        })()}
                       </td>
                       {/* Status */}
                       <td className="px-1 py-1 align-top">
