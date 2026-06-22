@@ -1883,10 +1883,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
           {/* Totals */}
           <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
-            <div>
-              <span className="text-muted-foreground">Subtotal: </span>
-              <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
             {taxTotal > 0 && (
               <div>
                 <span className="text-muted-foreground">Tax: </span>
