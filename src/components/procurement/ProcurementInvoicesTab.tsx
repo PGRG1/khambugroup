@@ -937,6 +937,10 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[85px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Qty</th>
                   <th className="w-[75px] px-1 py-1.5 text-left font-medium text-muted-foreground">Stock UOM</th>
                   <th className="w-[85px] px-1 py-1.5 text-left font-medium text-muted-foreground">Stock Qty</th>
+                  <th className="w-[90px] px-1 py-1.5 text-left font-medium text-muted-foreground">Accepted Qty</th>
+                  <th className="w-[80px] px-1 py-1.5 text-left font-medium text-muted-foreground">Difference</th>
+                  <th className="w-[160px] px-1 py-1.5 text-left font-medium text-muted-foreground">Reason</th>
+                  <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Note</th>
                   <th className="w-[95px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Cost</th>
                   <th className="w-[90px] px-1 py-1.5 text-left font-medium text-muted-foreground">Total</th>
                   <th className="w-8"></th>
@@ -944,11 +948,20 @@ export default function ProcurementInvoicesTab() {
               </thead>
               <tbody>
                 {editLines.map((line, index) => {
-                  const rowClass = line.unmatched && line.description.trim()
+                  const tint = computeEditReceivingTint(line);
+                  const rowClass = !tint && line.unmatched && line.description.trim()
                     ? "bg-destructive/10 border-l-2 border-l-destructive"
-                    : line.price_changed
+                    : !tint && line.price_changed
                     ? "bg-accent/40 border-l-2 border-l-primary"
                     : "";
+                  const rowStyle: React.CSSProperties | undefined = tint
+                    ? { backgroundColor: tint.bg, borderLeft: `2px solid ${tint.border}` }
+                    : undefined;
+                  const qtyNum = parseFloat(line.quantity) || 0;
+                  const accNum = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+                  const diff = accNum - qtyNum;
+                  const effReason = diff === 0 ? "matched" : (line.receiving_reason || "");
+                  const noteRequired = effReason === "other" && !(line.receiving_note || "").trim();
 
                   return (
                     <tr key={line.id || index} className={`border-b border-border/50 ${rowClass}`}>
