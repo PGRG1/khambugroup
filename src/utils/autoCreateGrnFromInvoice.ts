@@ -38,7 +38,7 @@ export async function autoCreateGrnFromInvoice(
     // 2. Load invoice + lines
     const { data: invoice, error: invErr } = await supabase
       .from("invoices")
-      .select("id, supplier_id, venue, po_id")
+      .select("id, supplier_id, venue")
       .eq("id", invoiceId)
       .eq("tenant_id", tenantId)
       .single();
@@ -61,7 +61,7 @@ export async function autoCreateGrnFromInvoice(
         invoice_id: invoiceId,
         supplier_id: (invoice as any).supplier_id,
         venue: (invoice as any).venue,
-        po_id: (invoice as any).po_id ?? null,
+        
         status: "confirmed",
         received_date: today,
         received_by: userId,
