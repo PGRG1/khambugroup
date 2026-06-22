@@ -756,12 +756,11 @@ function CountTab({
   const [savedCellKeys, setSavedCellKeys] = useState<Set<string>>(new Set());
   const [locQtys, setLocQtys] = useState<Map<string, Map<string, number | null>>>(new Map());
   const [locQtysLoaded, setLocQtysLoaded] = useState(false);
+  const [draft, setDraft] = useState<Map<string, string>>(new Map());
 
   const refMode = session.reference_mode;
   const showRef = refMode !== "none";
   const refLabel = refMode === "expected" ? "Expected" : "Last count";
-
-  const DOT_COLORS = ["bg-teal-500", "bg-blue-500", "bg-purple-500", "bg-orange-500"];
 
   const locById = useMemo(() => {
     const m = new Map<string, StockLocation>();
