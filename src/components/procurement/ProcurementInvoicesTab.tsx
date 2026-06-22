@@ -964,7 +964,7 @@ export default function ProcurementInvoicesTab() {
                   const noteRequired = effReason === "other" && !(line.receiving_note || "").trim();
 
                   return (
-                    <tr key={line.id || index} className={`border-b border-border/50 ${rowClass}`}>
+                    <tr key={line.id || index} className={`border-b border-border/50 ${rowClass}`} style={rowStyle}>
                       <td className="px-1 py-1 pt-2.5 align-top font-medium text-muted-foreground">{index + 1}</td>
                       <td className="px-1 py-1 align-top">
                         <Input value={line.matched_sku} readOnly tabIndex={-1} className="h-8 cursor-default bg-muted/50 font-mono text-xs" placeholder="—" />
