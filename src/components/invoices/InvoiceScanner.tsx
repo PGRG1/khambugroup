@@ -774,12 +774,52 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       if (field === "total") {
         line.total_override = true;
       }
+      // Keep Accepted Qty in lock-step with Purch. Qty until the user overrides it.
+      if (field === "quantity" && !line.accepted_qty_touched) {
+        line.accepted_qty = value;
+      }
+      // Auto-resolve / require Reason based on current diff.
+      {
+        const q = parseFloat(line.quantity) || 0;
+        const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+        if (a === q) {
+          line.receiving_reason = "matched";
+        } else if (line.receiving_reason === "matched" || !line.receiving_reason) {
+          line.receiving_reason = "";
+        }
+      }
       if (["unit_price", "matched_sku"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
         lines[i] = flagged[0];
       } else {
         lines[i] = line;
       }
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+  };
+
+  const updateLineReceiving = (i: number, field: "accepted_qty" | "receiving_reason" | "receiving_note", value: string) => {
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const line = { ...lines[i] };
+      if (field === "accepted_qty") {
+        line.accepted_qty = value;
+        line.accepted_qty_touched = true;
+        const q = parseFloat(line.quantity) || 0;
+        const a = parseFloat(value) || 0;
+        if (a === q) {
+          line.receiving_reason = "matched";
+        } else if (line.receiving_reason === "matched" || !line.receiving_reason) {
+          line.receiving_reason = "";
+        }
+      } else if (field === "receiving_reason") {
+        line.receiving_reason = value;
+      } else {
+        line.receiving_note = value;
+      }
+      lines[i] = line;
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
