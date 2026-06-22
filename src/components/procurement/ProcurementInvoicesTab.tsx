@@ -797,6 +797,39 @@ export default function ProcurementInvoicesTab() {
   const unmatchedCount = editLines.filter((line) => line.unmatched && line.description.trim()).length;
   const priceChangedCount = editLines.filter((line) => line.price_changed).length;
 
+  // GRN dispute stats: any line whose accepted_qty differs from quantity is disputed.
+  const editDisputeStats = useMemo(() => {
+    let disputedLines = 0;
+    let missingReason = 0;
+    let missingNote = 0;
+    for (const l of editLines) {
+      const q = parseFloat(l.quantity) || 0;
+      const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+      if (a - q !== 0) {
+        disputedLines += 1;
+        if (!l.receiving_reason) missingReason += 1;
+        if (l.receiving_reason === "other" && !(l.receiving_note || "").trim()) missingNote += 1;
+      }
+    }
+    return { disputedLines, missingReason, missingNote, hasDispute: disputedLines > 0 };
+  }, [editLines]);
+
+  const previousStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editing) return;
+    if (editDisputeStats.hasDispute) {
+      if (editForm.status !== "disputed") {
+        previousStatusRef.current = (editForm.status as string) || null;
+        setEditForm((f) => ({ ...f, status: "disputed" }));
+      }
+    } else if (editForm.status === "disputed") {
+      const restore = previousStatusRef.current || "unpaid";
+      previousStatusRef.current = null;
+      setEditForm((f) => ({ ...f, status: restore }));
+    }
+  }, [editing, editDisputeStats.hasDispute]);
+
+
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading invoices...</div>;
 
   if (editing && selectedInvoice) {
