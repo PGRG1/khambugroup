@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 // Types
 export interface HRDepartment {
@@ -173,6 +174,7 @@ export interface HRLeaveLedger {
 }
 
 export function useHRData() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [departments, setDepartments] = useState<HRDepartment[]>([]);
   const [employees, setEmployees] = useState<HREmployee[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<HRLeaveType[]>([]);
@@ -186,56 +188,71 @@ export function useHRData() {
   const [loading, setLoading] = useState(true);
 
   const fetchDepartments = useCallback(async () => {
-    const { data } = await supabase.from("hr_departments").select("*").order("name");
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_departments").select("*").eq("tenant_id", tenantId).order("name");
     if (data) setDepartments(data);
-  }, []);
+  }, [tenantId]);
 
   const fetchEmployees = useCallback(async () => {
-    const { data } = await supabase.from("hr_employees").select("*, department:hr_departments(*)").order("sort_order").order("first_name");
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_employees").select("*, department:hr_departments(*)").eq("tenant_id", tenantId).order("sort_order").order("first_name");
     if (data) setEmployees(data as any);
-  }, []);
+  }, [tenantId]);
 
   const fetchLeaveTypes = useCallback(async () => {
-    const { data } = await supabase.from("hr_leave_types").select("*").order("name");
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_leave_types").select("*").eq("tenant_id", tenantId).order("name");
     if (data) setLeaveTypes(data);
-  }, []);
+  }, [tenantId]);
 
   const fetchLeaveRequests = useCallback(async () => {
-    const { data } = await supabase.from("hr_leave_requests").select("*, employee:hr_employees(*), leave_type:hr_leave_types(*)").order("created_at", { ascending: false });
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_leave_requests").select("*, employee:hr_employees(*), leave_type:hr_leave_types(*)").eq("tenant_id", tenantId).order("created_at", { ascending: false });
     if (data) setLeaveRequests(data as any);
-  }, []);
+  }, [tenantId]);
 
   const fetchLeaveBalances = useCallback(async () => {
-    const { data } = await supabase.from("hr_leave_balances").select("*, leave_type:hr_leave_types(*)").order("year", { ascending: false });
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_leave_balances").select("*, leave_type:hr_leave_types(*)").eq("tenant_id", tenantId).order("year", { ascending: false });
     if (data) setLeaveBalances(data as any);
-  }, []);
+  }, [tenantId]);
 
   const fetchShifts = useCallback(async () => {
-    const { data } = await supabase.from("hr_shifts").select("*, employee:hr_employees(*)").order("shift_date", { ascending: false });
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_shifts").select("*, employee:hr_employees(*)").eq("tenant_id", tenantId).order("shift_date", { ascending: false });
     if (data) setShifts(data as any);
-  }, []);
+  }, [tenantId]);
 
   const fetchAttendance = useCallback(async () => {
-    const { data } = await supabase.from("hr_attendance").select("*, employee:hr_employees(*)").order("date", { ascending: false });
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_attendance").select("*, employee:hr_employees(*)").eq("tenant_id", tenantId).order("date", { ascending: false });
     if (data) setAttendance(data as any);
-  }, []);
+  }, [tenantId]);
 
   const fetchPayroll = useCallback(async () => {
-    const { data } = await supabase.from("hr_payroll").select("*, employee:hr_employees(*)").order("year", { ascending: false }).order("month", { ascending: false });
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_payroll").select("*, employee:hr_employees(*)").eq("tenant_id", tenantId).order("year", { ascending: false }).order("month", { ascending: false });
     if (data) setPayroll(data as any);
-  }, []);
+  }, [tenantId]);
 
   const fetchHolidays = useCallback(async () => {
-    const { data } = await supabase.from("hr_holidays").select("*").eq("is_active", true).order("date");
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_holidays").select("*").eq("tenant_id", tenantId).eq("is_active", true).order("date");
     if (data) setHolidays(data);
-  }, []);
+  }, [tenantId]);
 
   const fetchLeaveLedger = useCallback(async () => {
-    const { data } = await supabase.from("hr_leave_ledger").select("*").order("entry_date").order("sort_order");
+    if (!tenantId) return;
+    const { data } = await supabase.from("hr_leave_ledger").select("*").eq("tenant_id", tenantId).order("entry_date").order("sort_order");
     if (data) setLeaveLedger(data as any);
-  }, []);
+  }, [tenantId]);
 
   const fetchAll = useCallback(async () => {
+    if (!tenantId) {
+      setDepartments([]); setEmployees([]); setLeaveTypes([]); setLeaveRequests([]);
+      setLeaveBalances([]); setShifts([]); setAttendance([]); setPayroll([]);
+      setHolidays([]); setLeaveLedger([]); setLoading(false); return;
+    }
     setLoading(true);
     await Promise.all([
       fetchDepartments(), fetchEmployees(), fetchLeaveTypes(),
@@ -243,114 +260,125 @@ export function useHRData() {
       fetchAttendance(), fetchPayroll(), fetchHolidays(), fetchLeaveLedger(),
     ]);
     setLoading(false);
-  }, [fetchDepartments, fetchEmployees, fetchLeaveTypes, fetchLeaveRequests, fetchLeaveBalances, fetchShifts, fetchAttendance, fetchPayroll, fetchHolidays, fetchLeaveLedger]);
+  }, [fetchDepartments, fetchEmployees, fetchLeaveTypes, fetchLeaveRequests, fetchLeaveBalances, fetchShifts, fetchAttendance, fetchPayroll, fetchHolidays, fetchLeaveLedger, tenantId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { if (!tenantLoading) fetchAll(); }, [fetchAll, tenantLoading]);
 
-  // CRUD helpers
+  // CRUD helpers — every insert injects tenant_id; every update/delete is guarded.
   const upsertDepartment = async (dept: Partial<HRDepartment>) => {
+    if (!tenantId) return false;
     const { error } = dept.id
-      ? await supabase.from("hr_departments").update(dept).eq("id", dept.id)
-      : await supabase.from("hr_departments").insert(dept as any);
+      ? await supabase.from("hr_departments").update(dept).eq("id", dept.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_departments").insert({ ...dept, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchDepartments();
     return true;
   };
 
   const upsertEmployee = async (emp: Partial<HREmployee>) => {
+    if (!tenantId) return false;
     const payload = { ...emp };
     delete (payload as any).department;
     const { error } = emp.id
-      ? await supabase.from("hr_employees").update(payload).eq("id", emp.id)
-      : await supabase.from("hr_employees").insert(payload as any);
+      ? await supabase.from("hr_employees").update(payload).eq("id", emp.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_employees").insert({ ...payload, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchEmployees();
     return true;
   };
 
   const upsertLeaveType = async (lt: Partial<HRLeaveType>) => {
+    if (!tenantId) return false;
     const { error } = lt.id
-      ? await supabase.from("hr_leave_types").update(lt).eq("id", lt.id)
-      : await supabase.from("hr_leave_types").insert(lt as any);
+      ? await supabase.from("hr_leave_types").update(lt).eq("id", lt.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_leave_types").insert({ ...lt, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchLeaveTypes();
     return true;
   };
 
   const upsertLeaveRequest = async (lr: Partial<HRLeaveRequest>) => {
+    if (!tenantId) return false;
     const payload = { ...lr };
     delete (payload as any).employee;
     delete (payload as any).leave_type;
     const { error } = lr.id
-      ? await supabase.from("hr_leave_requests").update(payload).eq("id", lr.id)
-      : await supabase.from("hr_leave_requests").insert(payload as any);
+      ? await supabase.from("hr_leave_requests").update(payload).eq("id", lr.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_leave_requests").insert({ ...payload, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchLeaveRequests();
     return true;
   };
 
   const upsertLeaveBalance = async (lb: Partial<HRLeaveBalance>) => {
+    if (!tenantId) return false;
     const payload = { ...lb };
     delete (payload as any).leave_type;
     const { error } = lb.id
-      ? await supabase.from("hr_leave_balances").update(payload).eq("id", lb.id)
-      : await supabase.from("hr_leave_balances").insert(payload as any);
+      ? await supabase.from("hr_leave_balances").update(payload).eq("id", lb.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_leave_balances").insert({ ...payload, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchLeaveBalances();
     return true;
   };
 
   const upsertShift = async (s: Partial<HRShift>) => {
+    if (!tenantId) return false;
     const payload = { ...s };
     delete (payload as any).employee;
     const { error } = s.id
-      ? await supabase.from("hr_shifts").update(payload).eq("id", s.id)
-      : await supabase.from("hr_shifts").insert(payload as any);
+      ? await supabase.from("hr_shifts").update(payload).eq("id", s.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_shifts").insert({ ...payload, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchShifts();
     return true;
   };
 
   const upsertAttendance = async (a: Partial<HRAttendance>) => {
+    if (!tenantId) return false;
     const payload = { ...a };
     delete (payload as any).employee;
     const { error } = a.id
-      ? await supabase.from("hr_attendance").update(payload).eq("id", a.id)
-      : await supabase.from("hr_attendance").insert(payload as any);
+      ? await supabase.from("hr_attendance").update(payload).eq("id", a.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_attendance").insert({ ...payload, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchAttendance();
     return true;
   };
 
   const upsertPayroll = async (p: Partial<HRPayroll>) => {
+    if (!tenantId) return false;
     const payload = { ...p };
     delete (payload as any).employee;
     const { error } = p.id
-      ? await supabase.from("hr_payroll").update(payload).eq("id", p.id)
-      : await supabase.from("hr_payroll").insert(payload as any);
+      ? await supabase.from("hr_payroll").update(payload).eq("id", p.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_payroll").insert({ ...payload, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchPayroll();
     return true;
   };
 
   const upsertLeaveLedger = async (entry: Partial<HRLeaveLedger>) => {
+    if (!tenantId) return false;
     const { error } = entry.id
-      ? await supabase.from("hr_leave_ledger").update(entry).eq("id", entry.id)
-      : await supabase.from("hr_leave_ledger").insert(entry as any);
+      ? await supabase.from("hr_leave_ledger").update(entry).eq("id", entry.id).eq("tenant_id", tenantId)
+      : await supabase.from("hr_leave_ledger").insert({ ...entry, tenant_id: tenantId } as any);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchLeaveLedger();
     return true;
   };
 
   const deleteLeaveLedger = async (id: string) => {
-    const { error } = await supabase.from("hr_leave_ledger" as any).delete().eq("id", id);
+    if (!tenantId) return false;
+    const { error } = await supabase.from("hr_leave_ledger" as any).delete().eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchLeaveLedger();
     return true;
   };
 
   const deleteRecord = async (table: string, id: string) => {
-    const { error } = await supabase.from(table as any).delete().eq("id", id);
+    if (!tenantId) return false;
+    const { error } = await supabase.from(table as any).delete().eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchAll();
     return true;
