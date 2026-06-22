@@ -6653,6 +6653,54 @@ export type Database = {
           },
         ]
       }
+      stock_count_location_qtys: {
+        Row: {
+          count_item_id: string
+          counted_at: string | null
+          counted_by: string | null
+          created_at: string
+          id: string
+          location_id: string
+          qty: number | null
+          updated_at: string
+        }
+        Insert: {
+          count_item_id: string
+          counted_at?: string | null
+          counted_by?: string | null
+          created_at?: string
+          id?: string
+          location_id: string
+          qty?: number | null
+          updated_at?: string
+        }
+        Update: {
+          count_item_id?: string
+          counted_at?: string | null
+          counted_by?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string
+          qty?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_count_location_qtys_count_item_id_fkey"
+            columns: ["count_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_count_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_location_qtys_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_count_sessions: {
         Row: {
           approved_at: string | null
