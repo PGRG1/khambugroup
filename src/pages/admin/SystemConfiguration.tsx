@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useVenues, Venue } from "@/hooks/useVenues";
 import { useServicePeriods, ServicePeriod } from "@/hooks/useServicePeriods";
 import { useRevenueSources, RevenueSource } from "@/hooks/useRevenueSources";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   ChevronDown,
   Building2,
@@ -19,6 +23,10 @@ import {
   Check,
   X,
   Lock,
+  ClipboardCheck,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 const SectionShell = ({
