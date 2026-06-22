@@ -1164,8 +1164,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disputeStats.hasDispute, currentIdx]);
 
+  // Disputed invoices can still be saved — we only require a reason/note so the
+  // discrepancy is documented for follow-up. The dispute itself does not block.
   const receivingBlocksApproval =
-    disputeStats.hasDispute || disputeStats.missingReason > 0 || disputeStats.missingNote > 0;
+    disputeStats.missingReason > 0 || disputeStats.missingNote > 0;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
