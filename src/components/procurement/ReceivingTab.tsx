@@ -70,7 +70,10 @@ interface GRNItem {
 
 export default function ReceivingTab() {
   const { user, isAdmin } = useAuth();
+  const { tenantId } = useActiveTenant();
   const [grns, setGrns] = useState<GRN[]>([]);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
   const [grnTotals, setGrnTotals] = useState<Record<string, number>>({});
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
