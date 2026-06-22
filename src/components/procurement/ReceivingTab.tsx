@@ -16,6 +16,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Plus, X, Trash2, ChevronsUpDown, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { backfillGrnsFromInvoices } from "@/utils/backfillGrnsFromInvoices";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 
 const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
 type Venue = typeof VENUES[number];
@@ -105,9 +106,9 @@ export default function ReceivingTab() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [grnRes, itemsRes, supRes, prodRes, poRes, invRes] = await Promise.all([
+    const [grnRes, allItems, supRes, prodRes, poRes, invRes] = await Promise.all([
       supabase.from("goods_received_notes" as any).select("*, suppliers(name), purchase_orders(po_number), invoices!invoice_id(invoice_number)").order("created_at", { ascending: false }),
-      supabase.from("grn_items" as any).select("grn_id, total"),
+      fetchAllRows("grn_items", "grn_id, total", undefined, tenantId),
       supabase.from("suppliers").select("id,name,is_active").order("name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").order("internal_product_name"),
       supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
@@ -116,7 +117,7 @@ export default function ReceivingTab() {
     if (grnRes.error) toast.error(grnRes.error.message);
     setGrns((grnRes.data ?? []) as any);
     const totals: Record<string, number> = {};
-    for (const r of (itemsRes.data ?? []) as any[]) {
+    for (const r of (allItems ?? []) as any[]) {
       totals[r.grn_id] = (totals[r.grn_id] || 0) + Number(r.total || 0);
     }
     setGrnTotals(totals);
