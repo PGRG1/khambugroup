@@ -978,44 +978,22 @@ function CountTab({
         </button>
       </div>
 
-      {/* Pills: locations in multi mode, legacy zones otherwise */}
-      {multiMode ? (
-        activeLocations.length > 0 && (
-          <div className="flex gap-2 mb-4 flex-wrap">
-            <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
-              All zones
+      {/* Location focus pills (multi-mode only) — column focus, not row filter */}
+      {multiMode && activeLocations.length > 0 && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
+            All zones
+          </ZonePill>
+          {activeLocations.map((l) => (
+            <ZonePill
+              key={l.id}
+              active={zoneFilter === l.id}
+              onClick={() => setZoneFilter(l.id)}
+            >
+              {l.name}
             </ZonePill>
-            {activeLocations.map((l, i) => (
-              <ZonePill
-                key={l.id}
-                active={zoneFilter === l.id}
-                onClick={() => setZoneFilter(l.id)}
-              >
-                <span
-                  className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${DOT_COLORS[i % DOT_COLORS.length]}`}
-                />
-                {l.name}
-              </ZonePill>
-            ))}
-          </div>
-        )
-      ) : (
-        hasZones && (
-          <div className="flex gap-2 mb-4 flex-wrap">
-            <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
-              All zones
-            </ZonePill>
-            {Array.from(new Set(items.filter((i) => i.location_id).map((i) => i.location_id!))).map((lid) => {
-              const loc = locById.get(lid);
-              if (!loc) return null;
-              return (
-                <ZonePill key={lid} active={zoneFilter === lid} onClick={() => setZoneFilter(lid)}>
-                  {loc.name}
-                </ZonePill>
-              );
-            })}
-          </div>
-        )
+          ))}
+        </div>
       )}
 
       {/* Groups */}
