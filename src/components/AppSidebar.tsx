@@ -5,7 +5,7 @@ import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Sidebar,
