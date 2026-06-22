@@ -799,17 +799,15 @@ function CountTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, items.length]);
 
-  const multiMode = locQtys.size > 0;
+  // Multi-location mode whenever the venue has zones configured.
+  // Columns come from stock_locations directly; location_qtys rows are
+  // created on demand (upsert) the first time a user enters a value.
+  const multiMode = locations.length > 0;
 
-  // Locations actually used in this session (ordered by sort_order)
   const activeLocations = useMemo(() => {
     if (!multiMode) return [] as StockLocation[];
-    const ids = new Set<string>();
-    locQtys.forEach((m) => m.forEach((_v, k) => ids.add(k)));
-    return locations
-      .filter((l) => ids.has(l.id))
-      .sort((a, b) => a.sort_order - b.sort_order);
-  }, [locQtys, locations, multiMode]);
+    return [...locations].sort((a, b) => a.sort_order - b.sort_order);
+  }, [locations, multiMode]);
 
   // Initialize draft from server snapshot once loaded
   useEffect(() => {
