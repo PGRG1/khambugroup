@@ -375,7 +375,7 @@ export default function PurchaseOrdersTab() {
                     <TableRow key={l.key}>
                       <TableCell>
                         <ProductPicker
-                          products={products}
+                          products={supplierProducts}
                           value={l.product_master_id}
                           onChange={(id) => onPickProduct(l.key, id)}
                         />
