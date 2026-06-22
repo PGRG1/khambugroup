@@ -1124,6 +1124,44 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
   const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
 
+  // GRN receiving: detect disputed lines (any qty diff) and missing reason/notes.
+  const disputeStats = useMemo(() => {
+    const lines = current?.line_items || [];
+    let disputedLines = 0;
+    let missingReason = 0;
+    let missingNote = 0;
+    for (const l of lines) {
+      const q = parseFloat(l.quantity) || 0;
+      const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+      if (a !== q) {
+        disputedLines += 1;
+        if (!l.receiving_reason) missingReason += 1;
+        if (l.receiving_reason === "other" && !(l.receiving_note || "").trim()) missingNote += 1;
+      }
+    }
+    return { disputedLines, missingReason, missingNote, hasDispute: disputedLines > 0 };
+  }, [current?.line_items]);
+
+  // Auto-flip Status to "disputed" when any line has a qty difference; restore on resolve.
+  const prevStatusBeforeDisputeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!current) return;
+    if (disputeStats.hasDispute) {
+      if (current.invoice_status !== "disputed") {
+        prevStatusBeforeDisputeRef.current = current.invoice_status || "outstanding";
+        updateField("invoice_status", "disputed");
+      }
+    } else if (current.invoice_status === "disputed") {
+      const restore = prevStatusBeforeDisputeRef.current || "outstanding";
+      prevStatusBeforeDisputeRef.current = null;
+      updateField("invoice_status", restore);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disputeStats.hasDispute, currentIdx]);
+
+  const receivingBlocksApproval =
+    disputeStats.hasDispute || disputeStats.missingReason > 0 || disputeStats.missingNote > 0;
+
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
   }, []);
