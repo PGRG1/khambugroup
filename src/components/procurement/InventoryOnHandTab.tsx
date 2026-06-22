@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 interface ProductRow {
   id: string;
   internal_sku: string;
+  financial_treatment?: string | null;
   internal_product_name: string;
   level1_category: string;
   unit: string;
@@ -39,7 +40,7 @@ interface InventoryRow extends ProductRow {
 
 type SortKey = "internal_sku" | "internal_product_name" | "level1_category" | "qty_on_hand" | "avg_cost" | "cost_value" | "unit_cost" | "supplier_value";
 
-export default function InventoryOnHandTab() {
+export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inventory" | "deposits" } = {}) {
   const navigate = useNavigate();
   const { tenantId } = useActiveTenant();
   const [products, setProducts] = useState<ProductRow[]>([]);
@@ -53,11 +54,15 @@ export default function InventoryOnHandTab() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [prodData, lineRes] = await Promise.all([
-      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty", { col: "internal_sku", asc: true }, tenantId),
+      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty, financial_treatment", { col: "internal_sku", asc: true }, tenantId),
       supabase.rpc("get_inventory_aggregates" as any, { p_tenant_id: tenantId } as any),
     ]);
 
-    setProducts((prodData as any[]).filter((p) => p.status === "Active") as ProductRow[]);
+    const isDeposit = (t?: string | null) => (t || "").startsWith("Asset");
+    setProducts((prodData as any[]).filter((p) => {
+      if (p.status !== "Active") return false;
+      return mode === "deposits" ? isDeposit(p.financial_treatment) : !isDeposit(p.financial_treatment);
+    }) as ProductRow[]);
 
     // Fallback: aggregate from confirmed/disputed GRN items if RPC is unavailable.
     if (lineRes.error || !lineRes.data) {
@@ -86,7 +91,7 @@ export default function InventoryOnHandTab() {
       setLineAgg((lineRes.data as any[]).map((r: any) => ({ product_master_id: r.product_master_id, total_qty: Number(r.total_qty), total_spend: Number(r.total_spend) })));
     }
     setLoading(false);
-  }, [tenantId]);
+  }, [tenantId, mode]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -236,13 +241,13 @@ export default function InventoryOnHandTab() {
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="rounded-lg bg-primary/10 p-2"><Package className="h-5 w-5 text-primary" /></div>
-            <div><p className="text-xs text-muted-foreground">Active SKUs</p><p className="text-xl font-bold tabular-nums">{totals.skus}</p></div>
+            <div><p className="text-xs text-muted-foreground">{mode === "deposits" ? "Deposit Items" : "Active SKUs"}</p><p className="text-xl font-bold tabular-nums">{totals.skus}</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="rounded-lg bg-primary/10 p-2"><DollarSign className="h-5 w-5 text-primary" /></div>
-            <div><p className="text-xs text-muted-foreground">Total Cost Value</p><p className="text-xl font-bold tabular-nums">${fmt(totals.costValue)}</p></div>
+            <div><p className="text-xs text-muted-foreground">{mode === "deposits" ? "Total Deposit Value (Cost)" : "Total Cost Value"}</p><p className="text-xl font-bold tabular-nums">${fmt(totals.costValue)}</p></div>
           </CardContent>
         </Card>
         <Card>
