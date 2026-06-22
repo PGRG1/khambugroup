@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface KpiBundle {
   id: string;
@@ -17,24 +18,26 @@ export interface KpiBundleCard {
 }
 
 export function useKpiBundles() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [bundles, setBundles] = useState<KpiBundle[]>([]);
   const [bundleCards, setBundleCards] = useState<KpiBundleCard[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!tenantId) { setBundles([]); setBundleCards([]); setLoading(false); return; }
     setLoading(true);
     const [b, bc] = await Promise.all([
-      supabase.from("kpi_bundles" as any).select("*").order("name"),
-      supabase.from("kpi_bundle_cards" as any).select("*").order("sort_order"),
+      supabase.from("kpi_bundles" as any).select("*").eq("tenant_id", tenantId).order("name"),
+      supabase.from("kpi_bundle_cards" as any).select("*").eq("tenant_id", tenantId).order("sort_order"),
     ]);
     if (b.error) toast({ title: "Failed to load bundles", description: b.error.message, variant: "destructive" });
     else setBundles((b.data ?? []) as any);
     if (bc.error) toast({ title: "Failed to load bundle cards", description: bc.error.message, variant: "destructive" });
     else setBundleCards((bc.data ?? []) as any);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
 
   const cardsInBundle = useCallback(
     (bundleId: string) =>

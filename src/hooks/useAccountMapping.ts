@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface AccountMappingRule {
   id: string;
@@ -30,35 +31,40 @@ export const RULE_TYPES: { value: string; label: string; needsKey: boolean }[] =
 ];
 
 export function useAccountMapping() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [items, setItems] = useState<AccountMappingRule[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
+    if (!tenantId) { setItems([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from("account_mapping_rules" as any).select("*").order("rule_type").order("match_key");
+    const { data, error } = await supabase.from("account_mapping_rules" as any).select("*").eq("tenant_id", tenantId).order("rule_type").order("match_key");
     if (error) toast.error(error.message);
     else setItems((data as unknown as AccountMappingRule[]) ?? []);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { if (!tenantLoading) fetchAll(); }, [fetchAll, tenantLoading]);
 
   const upsert = useCallback(async (input: { rule_type: string; match_key: string; account_id: string; notes?: string }) => {
+    if (!tenantId) return;
     const { error } = await supabase.from("account_mapping_rules" as any).upsert({
       rule_type: input.rule_type,
       match_key: input.match_key ?? "",
       account_id: input.account_id,
       notes: input.notes ?? "",
-    } as any, { onConflict: "rule_type,match_key" } as any);
+      tenant_id: tenantId,
+    } as any, { onConflict: "tenant_id,rule_type,match_key" } as any);
     if (error) { toast.error(error.message); return; }
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const remove = useCallback(async (id: string) => {
-    const { error } = await supabase.from("account_mapping_rules" as any).delete().eq("id", id);
+    if (!tenantId) return;
+    const { error } = await supabase.from("account_mapping_rules" as any).delete().eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast.error(error.message); return; }
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   return { items, loading, fetchAll, upsert, remove };
 }

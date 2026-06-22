@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface ProductCategory {
   id: string;
@@ -12,14 +13,17 @@ export interface ProductCategory {
 }
 
 export function useProductCategories() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchCategories = useCallback(async () => {
+    if (!tenantId) { setCategories([]); setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from("product_categories")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("level", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
@@ -29,14 +33,15 @@ export function useProductCategories() {
       setCategories((data as ProductCategory[]) ?? []);
     }
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+    if (!tenantLoading) fetchCategories();
+  }, [fetchCategories, tenantLoading]);
 
   const createCategory = useCallback(
     async (input: { name: string; level: 1 | 2 | 3; parent_id: string | null }) => {
+      if (!tenantId) return null;
       const trimmed = input.name.trim();
       if (!trimmed) {
         toast.error("Category name is required");
@@ -48,6 +53,7 @@ export function useProductCategories() {
           name: trimmed,
           level: input.level,
           parent_id: input.parent_id,
+          tenant_id: tenantId,
         })
         .select()
         .single();
@@ -62,42 +68,47 @@ export function useProductCategories() {
       await fetchCategories();
       return data as ProductCategory;
     },
-    [fetchCategories]
+    [fetchCategories, tenantId]
   );
 
   const renameCategory = useCallback(
     async (id: string, name: string) => {
+      if (!tenantId) return;
       const trimmed = name.trim();
       if (!trimmed) return;
       const { error } = await supabase
         .from("product_categories")
         .update({ name: trimmed })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
       if (error) {
         toast.error(`Rename failed: ${error.message}`);
         return;
       }
       await fetchCategories();
     },
-    [fetchCategories]
+    [fetchCategories, tenantId]
   );
 
   const deleteCategory = useCallback(
     async (id: string) => {
-      const { error } = await supabase.from("product_categories").delete().eq("id", id);
+      if (!tenantId) return;
+      const { error } = await supabase.from("product_categories").delete().eq("id", id).eq("tenant_id", tenantId);
       if (error) {
         toast.error(`Delete failed: ${error.message}`);
         return;
       }
       await fetchCategories();
     },
-    [fetchCategories]
+    [fetchCategories, tenantId]
   );
 
   const importFromProducts = useCallback(async () => {
+    if (!tenantId) return;
     const { data, error } = await supabase
       .from("product_master")
-      .select("level1_category, level2_category, level3_category");
+      .select("level1_category, level2_category, level3_category")
+      .eq("tenant_id", tenantId);
     if (error) {
       toast.error(`Import failed: ${error.message}`);
       return;
@@ -108,7 +119,7 @@ export function useProductCategories() {
       level3_category: string | null;
     }>;
     // Re-fetch current to know what already exists
-    const { data: existing } = await supabase.from("product_categories").select("*");
+    const { data: existing } = await supabase.from("product_categories").select("*").eq("tenant_id", tenantId);
     const existingRows = (existing as ProductCategory[]) ?? [];
 
     const findExisting = (name: string, level: 1 | 2 | 3, parent_id: string | null) =>
@@ -137,7 +148,7 @@ export function useProductCategories() {
 
       const { data: row, error: insErr } = await supabase
         .from("product_categories")
-        .insert({ name, level, parent_id })
+        .insert({ name, level, parent_id, tenant_id: tenantId })
         .select()
         .single();
       if (insErr) return null;
@@ -160,7 +171,7 @@ export function useProductCategories() {
 
     toast.success(`Imported ${createdCount} new categor${createdCount === 1 ? "y" : "ies"}`);
     await fetchCategories();
-  }, [fetchCategories]);
+  }, [fetchCategories, tenantId]);
 
   return {
     categories,

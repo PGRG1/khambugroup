@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type AccountType = "asset" | "liability" | "equity" | "revenue" | "cogs" | "opex" | "other_income" | "other_expense";
 export type NormalSide = "debit" | "credit";
@@ -45,23 +46,27 @@ export function defaultNormalSide(t: AccountType): NormalSide {
 }
 
 export function useChartOfAccounts() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [items, setItems] = useState<ChartAccount[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
+    if (!tenantId) { setItems([]); setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from("chart_of_accounts" as any)
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("code", { ascending: true });
     if (error) toast.error(`Failed to load chart of accounts: ${error.message}`);
     else setItems((data as unknown as ChartAccount[]) ?? []);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { if (!tenantLoading) fetchAll(); }, [fetchAll, tenantLoading]);
 
   const createAccount = useCallback(async (input: Partial<ChartAccount>) => {
+    if (!tenantId) return null;
     if (!input.code || !input.name || !input.account_type) {
       toast.error("Code, name, and type are required");
       return null;
@@ -76,6 +81,7 @@ export function useChartOfAccounts() {
       is_cash: input.is_cash ?? false,
       description: input.description ?? "",
       sort_order: input.sort_order ?? 0,
+      tenant_id: tenantId,
     };
     const { data, error } = await supabase.from("chart_of_accounts" as any).insert(payload as any).select().single();
     if (error) {
@@ -85,19 +91,21 @@ export function useChartOfAccounts() {
     }
     await fetchAll();
     return data as unknown as ChartAccount;
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const updateAccount = useCallback(async (id: string, updates: Partial<ChartAccount>) => {
-    const { error } = await supabase.from("chart_of_accounts" as any).update(updates as any).eq("id", id);
+    if (!tenantId) return;
+    const { error } = await supabase.from("chart_of_accounts" as any).update(updates as any).eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast.error(`Update failed: ${error.message}`); return; }
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const deleteAccount = useCallback(async (id: string) => {
-    const { error } = await supabase.from("chart_of_accounts" as any).delete().eq("id", id);
+    if (!tenantId) return;
+    const { error } = await supabase.from("chart_of_accounts" as any).delete().eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast.error(`Cannot delete: ${error.message}`); return; }
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   return { items, loading, fetchAll, createAccount, updateAccount, deleteAccount };
 }

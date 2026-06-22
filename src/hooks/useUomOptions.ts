@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type UomType = "base" | "stock" | "purchase";
 
@@ -14,31 +15,35 @@ export interface UomOption {
 }
 
 export function useUomOptions() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [items, setItems] = useState<UomOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
+    if (!tenantId) { setItems([]); setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from("uom_options" as any)
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("uom_type", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("code", { ascending: true });
     if (error) toast.error(`Failed to load UOM options: ${error.message}`);
     else setItems((data as unknown as UomOption[]) ?? []);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { if (!tenantLoading) fetchAll(); }, [fetchAll, tenantLoading]);
 
   const createItem = useCallback(async (input: { code: string; label: string; uom_type: UomType; sort_order?: number }) => {
+    if (!tenantId) return null;
     const code = input.code.trim();
     const label = input.label.trim();
     if (!code || !label) { toast.error("Code and label are required"); return null; }
     const { data, error } = await supabase
       .from("uom_options" as any)
-      .insert({ code, label, uom_type: input.uom_type, sort_order: input.sort_order ?? 0 } as any)
+      .insert({ code, label, uom_type: input.uom_type, sort_order: input.sort_order ?? 0, tenant_id: tenantId } as any)
       .select()
       .single();
     if (error) {
@@ -48,19 +53,21 @@ export function useUomOptions() {
     }
     await fetchAll();
     return data as unknown as UomOption;
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Omit<UomOption, "id">>) => {
-    const { error } = await supabase.from("uom_options" as any).update(updates as any).eq("id", id);
+    if (!tenantId) return;
+    const { error } = await supabase.from("uom_options" as any).update(updates as any).eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast.error(`Update failed: ${error.message}`); return; }
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const deleteItem = useCallback(async (id: string) => {
-    const { error } = await supabase.from("uom_options" as any).delete().eq("id", id);
+    if (!tenantId) return;
+    const { error } = await supabase.from("uom_options" as any).delete().eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast.error(`Delete failed: ${error.message}`); return; }
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   return { items, loading, fetchAll, createItem, updateItem, deleteItem };
 }
