@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -13,6 +14,7 @@ export type TenantMembership = { tenant_id: string; role: string; tenant_name?: 
  */
 export function useActiveTenant() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [memberships, setMemberships] = useState<TenantMembership[]>([]);
   const [tenantId, setTenantIdState] = useState<string | null>(
     typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null
@@ -61,9 +63,16 @@ export function useActiveTenant() {
   }, []);
 
   const setTenantId = (id: string) => {
+    const prev = localStorage.getItem(STORAGE_KEY);
     localStorage.setItem(STORAGE_KEY, id);
     setTenantIdState(id);
     window.dispatchEvent(new Event(TENANT_CHANGE_EVENT));
+    // Wipe React Query cache so every tenant-scoped hook refetches against the
+    // new tenant. Without this, cached pages keep showing the prior tenant's
+    // data until the user navigates away.
+    if (prev !== id) {
+      try { queryClient.clear(); } catch { /* no-op */ }
+    }
   };
 
   const isSuperAdmin = memberships.some(
