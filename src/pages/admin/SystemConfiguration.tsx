@@ -743,7 +743,7 @@ const ProcurementSection = () => {
                 className="flex items-center gap-2 px-3 py-2 border-b border-border last:border-0"
               >
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
-                <div className="flex flex-col -gap-px">
+                <div className="flex flex-col gap-0">
                   <button
                     onClick={() => move(idx, -1)}
                     disabled={idx === 0}
