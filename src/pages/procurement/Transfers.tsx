@@ -699,10 +699,10 @@ function TransferDetail({ transferId, onBack }: { transferId: string; onBack: ()
     if (userIds.length) {
       const { data: ps } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
-        .in("id", userIds);
+        .select("user_id, display_name")
+        .in("user_id", userIds);
       const pmap = new Map<string, { name: string | null; email: string | null }>();
-      for (const p of (ps as any[]) ?? []) pmap.set(p.id, { name: p.full_name, email: p.email });
+      for (const p of (ps as any[]) ?? []) pmap.set(p.user_id, { name: p.display_name, email: null });
       setProfiles(pmap);
     }
   };
