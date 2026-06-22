@@ -1913,8 +1913,35 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 placeholder="0.00"
               />
             </div>
+            {(() => {
+              const lines = current?.line_items || [];
+              const invSub = lines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const accSub = lines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const disputed = invSub - accSub;
+              const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
+              return (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Invoiced subtotal: </span>
+                    <span className="font-mono font-medium text-muted-foreground">{invSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Accepted subtotal: </span>
+                    <span className={`font-mono font-medium ${accCls}`}>{accSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  {Math.abs(disputed) > 0.001 && (
+                    <div>
+                      <span className="text-muted-foreground">Disputed: </span>
+                      <span className="font-mono font-medium text-red-400">
+                        {disputed > 0 ? "−" : "+"}{Math.abs(disputed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             <div>
-              <span className="text-muted-foreground">Total: </span>
+              <span className="text-muted-foreground">Doc total: </span>
               <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
                 {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
