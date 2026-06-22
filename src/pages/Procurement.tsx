@@ -22,6 +22,7 @@ const tabTitles: Record<string, string> = {
   "purchase-orders": "Purchase Orders",
   receiving: "Goods Receipts / GRNs",
   "line-items": "Purchase Register",
+  "deposit-ledger": "Deposit Ledger",
   inventory: "Stock on Hand",
   "menu-costing": "Recipes & Menu Costing",
   documents: "Documents",
