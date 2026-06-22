@@ -101,7 +101,7 @@ export default function ReceivingTab() {
   const loadAll = async () => {
     setLoading(true);
     const [grnRes, itemsRes, supRes, prodRes, poRes, invRes] = await Promise.all([
-      supabase.from("goods_received_notes" as any).select("*, suppliers(name), purchase_orders(po_number), invoices(invoice_number)").order("created_at", { ascending: false }),
+      supabase.from("goods_received_notes" as any).select("*, suppliers(name), purchase_orders(po_number), invoices!invoice_id(invoice_number)").order("created_at", { ascending: false }),
       supabase.from("grn_items" as any).select("grn_id, total"),
       supabase.from("suppliers").select("id,name,is_active").order("name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").order("internal_product_name"),
