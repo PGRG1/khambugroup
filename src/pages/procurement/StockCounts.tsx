@@ -753,21 +753,71 @@ function CountTab({
   const [zoneFilter, setZoneFilter] = useState<string>("all");
   const [groupsOpen, setGroupsOpen] = useState<Record<string, boolean>>({});
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savedCellKeys, setSavedCellKeys] = useState<Set<string>>(new Set());
+  const [locQtys, setLocQtys] = useState<Map<string, Map<string, number | null>>>(new Map());
+  const [locQtysLoaded, setLocQtysLoaded] = useState(false);
 
   const refMode = session.reference_mode;
   const showRef = refMode !== "none";
   const refLabel = refMode === "expected" ? "Expected" : "Last count";
 
-  const hasZones = items.some((i) => i.location_id);
+  const DOT_COLORS = ["bg-teal-500", "bg-blue-500", "bg-purple-500", "bg-orange-500"];
+
   const locById = useMemo(() => {
     const m = new Map<string, StockLocation>();
     locations.forEach((l) => m.set(l.id, l));
     return m;
   }, [locations]);
 
+  // Load location qtys for this session
+  useEffect(() => {
+    (async () => {
+      if (items.length === 0) {
+        setLocQtys(new Map());
+        setLocQtysLoaded(true);
+        return;
+      }
+      const ids = items.map((i) => i.id);
+      const all: any[] = [];
+      const CHUNK = 200;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const { data } = await supabase
+          .from("stock_count_location_qtys")
+          .select("count_item_id, location_id, qty")
+          .in("count_item_id", ids.slice(i, i + CHUNK));
+        (data ?? []).forEach((r) => all.push(r));
+      }
+      const map = new Map<string, Map<string, number | null>>();
+      all.forEach((r) => {
+        if (!map.has(r.count_item_id)) map.set(r.count_item_id, new Map());
+        map
+          .get(r.count_item_id)!
+          .set(r.location_id, r.qty == null ? null : Number(r.qty));
+      });
+      setLocQtys(map);
+      setLocQtysLoaded(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.id, items.length]);
+
+  const multiMode = locQtys.size > 0;
+
+  // Locations actually used in this session (ordered by sort_order)
+  const activeLocations = useMemo(() => {
+    if (!multiMode) return [] as StockLocation[];
+    const ids = new Set<string>();
+    locQtys.forEach((m) => m.forEach((_v, k) => ids.add(k)));
+    return locations
+      .filter((l) => ids.has(l.id))
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }, [locQtys, locations, multiMode]);
+
+  // Legacy single-zone column items (only relevant when not multiMode)
+  const hasZones = !multiMode && items.some((i) => i.location_id);
+
   const visibleItems = items.filter((it) => {
     if (filter === "uncounted" && it.counted_qty != null) return false;
-    if (zoneFilter !== "all" && it.location_id !== zoneFilter) return false;
+    if (!multiMode && zoneFilter !== "all" && it.location_id !== zoneFilter) return false;
     return true;
   });
 
@@ -820,10 +870,74 @@ function CountTab({
     } as any);
   };
 
-  // Grid cols by ref mode
+  const onLocBlur = async (it: Item, locId: string, raw: string) => {
+    if (readonly) return;
+    const newVal = raw === "" ? null : Number(raw);
+    if (newVal != null && isNaN(newVal)) return;
+    const curMap = locQtys.get(it.id);
+    const cur = curMap?.get(locId);
+    if ((cur ?? null) === newVal) return;
+
+    const { error } = await supabase
+      .from("stock_count_location_qtys")
+      .upsert(
+        {
+          count_item_id: it.id,
+          location_id: locId,
+          qty: newVal,
+          counted_by: userId,
+          counted_at: new Date().toISOString(),
+        },
+        { onConflict: "count_item_id,location_id" }
+      );
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    // Update local locQtys map
+    const next = new Map(locQtys);
+    const itemMap = new Map(next.get(it.id) ?? new Map());
+    itemMap.set(locId, newVal);
+    next.set(it.id, itemMap);
+    setLocQtys(next);
+
+    // Sum non-null and patch counted_qty on stock_count_items
+    let sum: number | null = null;
+    itemMap.forEach((v) => {
+      if (v != null) sum = (sum ?? 0) + (v as number);
+    });
+    const { error: updErr } = await supabase
+      .from("stock_count_items")
+      .update({
+        counted_qty: sum,
+        counted_by: userId,
+        counted_at: new Date().toISOString(),
+      })
+      .eq("id", it.id);
+    if (updErr) {
+      toast.error(updErr.message);
+      return;
+    }
+    setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, counted_qty: sum } : x)));
+
+    const key = `${it.id}|${locId}`;
+    setSavedCellKeys((p) => new Set(p).add(key));
+    setTimeout(() => {
+      setSavedCellKeys((p) => {
+        const n = new Set(p);
+        n.delete(key);
+        return n;
+      });
+    }, 1500);
+  };
+
+  // Single-mode grid cols
   const gridCols = showRef
     ? "65px 1fr 55px 100px 80px 85px 28px"
     : "65px 1fr 55px 100px 85px 28px";
+
+  const tableMinWidth = 600 + activeLocations.length * 90;
 
   return (
     <div>
@@ -856,22 +970,44 @@ function CountTab({
         </button>
       </div>
 
-      {/* Zone pills */}
-      {hasZones && (
-        <div className="flex gap-2 mb-4 flex-wrap">
-          <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
-            All zones
-          </ZonePill>
-          {Array.from(new Set(items.filter((i) => i.location_id).map((i) => i.location_id!))).map((lid) => {
-            const loc = locById.get(lid);
-            if (!loc) return null;
-            return (
-              <ZonePill key={lid} active={zoneFilter === lid} onClick={() => setZoneFilter(lid)}>
-                {loc.name}
+      {/* Pills: locations in multi mode, legacy zones otherwise */}
+      {multiMode ? (
+        activeLocations.length > 0 && (
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
+              All zones
+            </ZonePill>
+            {activeLocations.map((l, i) => (
+              <ZonePill
+                key={l.id}
+                active={zoneFilter === l.id}
+                onClick={() => setZoneFilter(l.id)}
+              >
+                <span
+                  className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${DOT_COLORS[i % DOT_COLORS.length]}`}
+                />
+                {l.name}
               </ZonePill>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )
+      ) : (
+        hasZones && (
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <ZonePill active={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
+              All zones
+            </ZonePill>
+            {Array.from(new Set(items.filter((i) => i.location_id).map((i) => i.location_id!))).map((lid) => {
+              const loc = locById.get(lid);
+              if (!loc) return null;
+              return (
+                <ZonePill key={lid} active={zoneFilter === lid} onClick={() => setZoneFilter(lid)}>
+                  {loc.name}
+                </ZonePill>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* Groups */}
@@ -881,7 +1017,7 @@ function CountTab({
           .map(([cat, list]) => {
             const allCounted = list.every((x) => x.counted_qty != null);
             const open = groupsOpen[cat] ?? !allCounted;
-            const counted = list.filter((x) => x.counted_qty != null).length;
+            const countedInGroup = list.filter((x) => x.counted_qty != null).length;
             return (
               <div key={cat} className="rounded-md overflow-hidden border border-border/60">
                 <div
@@ -896,106 +1032,223 @@ function CountTab({
                       <span className="text-green-600">✓ All counted</span>
                     ) : (
                       <span className="text-muted-foreground">
-                        {counted} / {list.length} counted
+                        {countedInGroup} / {list.length} counted
                       </span>
                     )}
                   </span>
                 </div>
 
-                {open && (
-                  <div>
-                    <div
-                      className="grid bg-muted/20 text-[11px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1"
-                      style={{ gridTemplateColumns: gridCols }}
-                    >
-                      <div>SKU</div>
-                      <div>Item</div>
-                      <div className="text-center">Unit</div>
-                      <div>Zone</div>
-                      {showRef && <div className="text-right">{refLabel}</div>}
-                      <div className="text-right">Counted</div>
-                      <div></div>
-                    </div>
-
-                    {list.map((it) => {
-                      const p = products.get(it.product_master_id);
-                      const loc = it.location_id ? locById.get(it.location_id) : null;
-                      const locIdx = loc ? locations.findIndex((l) => l.id === loc.id) : -1;
-                      const locColor = locIdx >= 0 ? LOC_COLORS[locIdx % LOC_COLORS.length] : "";
-                      const saved = savedIds.has(it.id);
-                      return (
-                        <div
-                          key={it.id}
-                          className="grid items-center px-2 py-1.5 border-b border-border/40 hover:bg-accent/30 text-sm"
-                          style={{ gridTemplateColumns: gridCols }}
-                        >
-                          <div className="font-mono text-xs text-muted-foreground truncate">
-                            {p?.internal_sku ?? "—"}
-                          </div>
-                          <div className="font-medium text-foreground truncate pr-2">
-                            {p?.internal_product_name ?? "Unknown"}
-                          </div>
-                          <div className="text-muted-foreground text-center text-xs">{it.unit}</div>
-                          <div>
-                            {loc ? (
-                              <Badge variant="outline" className={`${locColor} text-[10px]`}>
-                                {loc.name}
-                              </Badge>
-                            ) : locations.length > 0 ? (
-                              <Select
-                                value={it.location_id ?? ""}
-                                onValueChange={(v) =>
-                                  saveItem(it.id, { location_id: v || null } as any)
-                                }
-                                disabled={readonly}
-                              >
-                                <SelectTrigger className="h-7 text-xs">
-                                  <SelectValue placeholder="— assign —" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {locations.map((l) => (
-                                    <SelectItem key={l.id} value={l.id}>
-                                      {l.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
+                {open &&
+                  (multiMode ? (
+                    /* ====== MULTI-LOCATION GRID ====== */
+                    <div className="overflow-x-auto">
+                      <table
+                        className="text-sm border-collapse"
+                        style={{ minWidth: `${tableMinWidth}px`, width: "100%" }}
+                      >
+                        <thead>
+                          <tr className="bg-muted/20 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                            <th className="text-left px-2 py-1 w-[80px]">SKU</th>
+                            <th className="text-left px-2 py-1">Item</th>
+                            <th className="text-center px-2 py-1 w-[55px]">Unit</th>
+                            {showRef && (
+                              <th className="text-right px-2 py-1 w-[90px]">{refLabel}</th>
                             )}
-                          </div>
-                          {showRef && (
-                            <div className="text-right text-sm italic">
-                              {it.last_count_qty != null ? (
-                                <span className="text-muted-foreground">{it.last_count_qty}</span>
+                            {activeLocations.map((l, i) => {
+                              const dim =
+                                zoneFilter !== "all" && zoneFilter !== l.id
+                                  ? "opacity-40"
+                                  : "";
+                              return (
+                                <th
+                                  key={l.id}
+                                  className={`text-right px-2 py-1 w-[90px] ${dim}`}
+                                >
+                                  <span className="inline-flex items-center justify-end gap-1.5">
+                                    <span
+                                      className={`inline-block w-2 h-2 rounded-full ${DOT_COLORS[i % DOT_COLORS.length]}`}
+                                    />
+                                    {l.name}
+                                  </span>
+                                </th>
+                              );
+                            })}
+                            <th className="text-right px-2 py-1 w-[80px]">Total</th>
+                            <th className="px-2 py-1 w-[28px]"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {list.map((it) => {
+                            const p = products.get(it.product_master_id);
+                            const itemMap = locQtys.get(it.id) ?? new Map<string, number | null>();
+                            let liveTotal: number | null = null;
+                            itemMap.forEach((v) => {
+                              if (v != null) liveTotal = (liveTotal ?? 0) + (v as number);
+                            });
+                            return (
+                              <tr
+                                key={it.id}
+                                className="border-b border-border/40 hover:bg-accent/30 align-middle"
+                              >
+                                <td className="px-2 py-1.5 font-mono text-xs text-muted-foreground truncate">
+                                  {p?.internal_sku ?? "—"}
+                                </td>
+                                <td className="px-2 py-1.5 font-medium text-foreground truncate pr-2">
+                                  {p?.internal_product_name ?? "Unknown"}
+                                </td>
+                                <td className="px-2 py-1.5 text-muted-foreground text-center text-xs">
+                                  {it.unit}
+                                </td>
+                                {showRef && (
+                                  <td className="px-2 py-1.5 text-right text-sm italic">
+                                    {it.last_count_qty != null ? (
+                                      <span className="text-muted-foreground">
+                                        {it.last_count_qty}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground/50">—</span>
+                                    )}
+                                  </td>
+                                )}
+                                {activeLocations.map((l) => {
+                                  const v = itemMap.get(l.id);
+                                  const key = `${it.id}|${l.id}`;
+                                  const saved = savedCellKeys.has(key);
+                                  const dim =
+                                    zoneFilter !== "all" && zoneFilter !== l.id
+                                      ? "opacity-40"
+                                      : "";
+                                  return (
+                                    <td key={l.id} className={`px-2 py-1.5 text-right ${dim}`}>
+                                      <Input
+                                        type="number"
+                                        step="any"
+                                        defaultValue={v == null ? "" : String(v)}
+                                        placeholder="—"
+                                        disabled={readonly}
+                                        onBlur={(e) => onLocBlur(it, l.id, e.target.value)}
+                                        className={`h-7 w-20 text-right text-sm ml-auto ${
+                                          saved ? "ring-1 ring-green-500" : ""
+                                        }`}
+                                      />
+                                    </td>
+                                  );
+                                })}
+                                <td className="text-right font-semibold bg-muted/30 px-3 py-2 tabular-nums">
+                                  {liveTotal == null ? (
+                                    <span className="text-muted-foreground">—</span>
+                                  ) : (
+                                    liveTotal
+                                  )}
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  <NotesCell
+                                    value={it.notes ?? ""}
+                                    disabled={readonly}
+                                    onSave={(v) => saveItem(it.id, { notes: v || null } as any)}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    /* ====== LEGACY SINGLE-ZONE GRID ====== */
+                    <div>
+                      <div
+                        className="grid bg-muted/20 text-[11px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1"
+                        style={{ gridTemplateColumns: gridCols }}
+                      >
+                        <div>SKU</div>
+                        <div>Item</div>
+                        <div className="text-center">Unit</div>
+                        <div>Zone</div>
+                        {showRef && <div className="text-right">{refLabel}</div>}
+                        <div className="text-right">Counted</div>
+                        <div></div>
+                      </div>
+
+                      {list.map((it) => {
+                        const p = products.get(it.product_master_id);
+                        const loc = it.location_id ? locById.get(it.location_id) : null;
+                        const locIdx = loc ? locations.findIndex((l) => l.id === loc.id) : -1;
+                        const locColor = locIdx >= 0 ? LOC_COLORS[locIdx % LOC_COLORS.length] : "";
+                        const saved = savedIds.has(it.id);
+                        return (
+                          <div
+                            key={it.id}
+                            className="grid items-center px-2 py-1.5 border-b border-border/40 hover:bg-accent/30 text-sm"
+                            style={{ gridTemplateColumns: gridCols }}
+                          >
+                            <div className="font-mono text-xs text-muted-foreground truncate">
+                              {p?.internal_sku ?? "—"}
+                            </div>
+                            <div className="font-medium text-foreground truncate pr-2">
+                              {p?.internal_product_name ?? "Unknown"}
+                            </div>
+                            <div className="text-muted-foreground text-center text-xs">{it.unit}</div>
+                            <div>
+                              {loc ? (
+                                <Badge variant="outline" className={`${locColor} text-[10px]`}>
+                                  {loc.name}
+                                </Badge>
+                              ) : locations.length > 0 ? (
+                                <Select
+                                  value={it.location_id ?? ""}
+                                  onValueChange={(v) =>
+                                    saveItem(it.id, { location_id: v || null } as any)
+                                  }
+                                  disabled={readonly}
+                                >
+                                  <SelectTrigger className="h-7 text-xs">
+                                    <SelectValue placeholder="— assign —" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {locations.map((l) => (
+                                      <SelectItem key={l.id} value={l.id}>
+                                        {l.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               ) : (
-                                <span className="text-muted-foreground/50">—</span>
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </div>
-                          )}
-                          <div className="text-right">
-                            <Input
-                              type="number"
-                              step="any"
-                              defaultValue={it.counted_qty ?? ""}
-                              placeholder="—"
+                            {showRef && (
+                              <div className="text-right text-sm italic">
+                                {it.last_count_qty != null ? (
+                                  <span className="text-muted-foreground">{it.last_count_qty}</span>
+                                ) : (
+                                  <span className="text-muted-foreground/50">—</span>
+                                )}
+                              </div>
+                            )}
+                            <div className="text-right">
+                              <Input
+                                type="number"
+                                step="any"
+                                defaultValue={it.counted_qty ?? ""}
+                                placeholder="—"
+                                disabled={readonly}
+                                onBlur={(e) => onCountBlur(it, e.target.value)}
+                                className={`h-7 w-16 text-right text-sm ml-auto ${
+                                  saved ? "ring-1 ring-green-500" : ""
+                                }`}
+                              />
+                            </div>
+                            <NotesCell
+                              value={it.notes ?? ""}
                               disabled={readonly}
-                              onBlur={(e) => onCountBlur(it, e.target.value)}
-                              className={`h-7 w-16 text-right text-sm ml-auto ${
-                                saved ? "ring-1 ring-green-500" : ""
-                              }`}
+                              onSave={(v) => saveItem(it.id, { notes: v || null } as any)}
                             />
                           </div>
-                          <NotesCell
-                            value={it.notes ?? ""}
-                            disabled={readonly}
-                            onSave={(v) => saveItem(it.id, { notes: v || null } as any)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  ))}
               </div>
             );
           })}
