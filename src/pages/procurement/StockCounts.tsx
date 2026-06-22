@@ -397,11 +397,33 @@ function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated
         unit_cost: Number(p.cost_per_stock_unit || 0),
         last_count_qty: lastQtyMap.get(p.id) ?? null,
       }));
+      const insertedItemIds: string[] = [];
       if (rows.length > 0) {
         // chunk to be safe
         const CHUNK = 500;
         for (let i = 0; i < rows.length; i += CHUNK) {
-          const { error } = await supabase.from("stock_count_items").insert(rows.slice(i, i + CHUNK));
+          const { data: inserted, error } = await supabase
+            .from("stock_count_items")
+            .insert(rows.slice(i, i + CHUNK))
+            .select("id");
+          if (error) throw error;
+          (inserted ?? []).forEach((r: any) => insertedItemIds.push(r.id));
+        }
+      }
+
+      // 6. If locations were selected, seed stock_count_location_qtys (one row per item × location)
+      if (selectedLocs.length > 0 && insertedItemIds.length > 0) {
+        const locRows: Array<{ count_item_id: string; location_id: string; qty: null }> = [];
+        for (const itemId of insertedItemIds) {
+          for (const locId of selectedLocs) {
+            locRows.push({ count_item_id: itemId, location_id: locId, qty: null });
+          }
+        }
+        const CHUNK = 500;
+        for (let i = 0; i < locRows.length; i += CHUNK) {
+          const { error } = await supabase
+            .from("stock_count_location_qtys")
+            .insert(locRows.slice(i, i + CHUNK));
           if (error) throw error;
         }
       }
