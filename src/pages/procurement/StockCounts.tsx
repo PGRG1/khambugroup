@@ -940,12 +940,12 @@ function CountTab({
     }, 1500);
   };
 
-  // Single-mode grid cols
+  // Single-mode (no per-location) grid cols: SKU | Item | Unit | [Last count] | Counted | Notes
   const gridCols = showRef
-    ? "65px 1fr 55px 100px 80px 85px 28px"
-    : "65px 1fr 55px 100px 85px 28px";
+    ? "80px 1fr 55px 75px 85px 32px"
+    : "80px 1fr 55px 85px 32px";
 
-  const tableMinWidth = 600 + activeLocations.length * 90;
+  const tableMinWidth = 680 + activeLocations.length * 85;
 
   return (
     <div>
