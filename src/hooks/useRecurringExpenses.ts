@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { toast } from "sonner";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type RecurringRuleStatus = "draft" | "active" | "paused" | "ended";
 
@@ -37,30 +38,33 @@ export interface RecurringRule {
 }
 
 export function useRecurringExpenses() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    if (!tenantId) { setRules([]); setLoading(false); return; }
     setLoading(true);
     try {
       const rows = await fetchAllRows("expense_recurring_rules", "*", {
         col: "next_generation_date",
         asc: true,
-      });
+      }, tenantId);
       setRules(rows as RecurringRule[]);
     } catch (e: any) {
       toast.error("Failed to load recurring rules: " + e.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (!tenantLoading) refresh();
+  }, [refresh, tenantLoading]);
 
   const save = useCallback(
     async (r: Partial<RecurringRule>) => {
+      if (!tenantId) return false;
       const status: RecurringRuleStatus = (r.status as RecurringRuleStatus) || "draft";
       const payload: any = {
         name: r.name,
@@ -91,11 +95,13 @@ export function useRecurringExpenses() {
           const { error } = await supabase
             .from("expense_recurring_rules")
             .update(payload)
-            .eq("id", r.id);
+            .eq("id", r.id)
+            .eq("tenant_id", tenantId);
           if (error) throw error;
         } else {
           const auth = (await supabase.auth.getUser()).data.user?.id ?? null;
           payload.created_by = auth;
+          payload.tenant_id = tenantId;
           const { error } = await supabase
             .from("expense_recurring_rules")
             .insert(payload);
@@ -109,15 +115,17 @@ export function useRecurringExpenses() {
         return false;
       }
     },
-    [refresh]
+    [refresh, tenantId]
   );
 
   const remove = useCallback(
     async (id: string) => {
+      if (!tenantId) return false;
       const { error } = await supabase
         .from("expense_recurring_rules")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
       if (error) {
         toast.error("Delete failed: " + error.message);
         return false;
@@ -125,15 +133,17 @@ export function useRecurringExpenses() {
       await refresh();
       return true;
     },
-    [refresh]
+    [refresh, tenantId]
   );
 
   const setStatus = useCallback(
     async (id: string, status: RecurringRuleStatus) => {
+      if (!tenantId) return false;
       const { error } = await supabase
         .from("expense_recurring_rules")
         .update({ status, active: status === "active" })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
       if (error) {
         toast.error("Status update failed: " + error.message);
         return false;
@@ -141,10 +151,11 @@ export function useRecurringExpenses() {
       await refresh();
       return true;
     },
-    [refresh]
+    [refresh, tenantId]
   );
 
   const generateNow = useCallback(async () => {
+    if (!tenantId) return null;
     const { data, error } = await supabase.rpc("generate_recurring_expense_bills" as any);
     if (error) {
       toast.error("Generation failed: " + error.message);
@@ -154,15 +165,15 @@ export function useRecurringExpenses() {
     const created = result?.created ?? 0;
     const skipped = result?.skipped_duplicate ?? 0;
 
-    // Auto-approve & post bills generated from rules with auto_approve=true
     const { data: autoBills } = await supabase
       .from("expense_bills")
       .select("id, recurring_rule_id")
+      .eq("tenant_id", tenantId)
       .eq("approval_status", "pending_review")
       .eq("source_type", "recurring_rule")
       .not("recurring_rule_id", "is", null);
     const autoRuleIds = new Set(
-      (await supabase.from("expense_recurring_rules").select("id").eq("auto_approve", true)).data?.map((r: any) => r.id) || []
+      (await supabase.from("expense_recurring_rules").select("id").eq("tenant_id", tenantId).eq("auto_approve", true)).data?.map((r: any) => r.id) || []
     );
     let autoPosted = 0;
     for (const b of autoBills || []) {
@@ -170,7 +181,7 @@ export function useRecurringExpenses() {
         await supabase.from("expense_bills").update({
           approval_status: "approved",
           approved_at: new Date().toISOString(),
-        }).eq("id", b.id);
+        }).eq("id", b.id).eq("tenant_id", tenantId);
         const { error: postErr } = await supabase.rpc("post_expense_bill" as any, { p_bill_id: b.id });
         if (!postErr) autoPosted++;
       }
@@ -181,7 +192,7 @@ export function useRecurringExpenses() {
     );
     await refresh();
     return result;
-  }, [refresh]);
+  }, [refresh, tenantId]);
 
 
   return { rules, loading, refresh, save, remove, setStatus, generateNow };

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface RevenueTarget {
   id: string;
@@ -28,25 +29,29 @@ function fromDb(r: any): RevenueTarget {
 }
 
 export function useRevenueTargets() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [targets, setTargets] = useState<RevenueTarget[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTargets = useCallback(async () => {
+    if (!tenantId) { setTargets([]); setLoading(false); return; }
     const { data, error } = await supabase
       .from("revenue_targets")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("year", { ascending: false })
       .order("month", { ascending: false });
     if (!error && data) setTargets(data.map(fromDb));
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
-    fetchTargets();
-  }, [fetchTargets]);
+    if (!tenantLoading) fetchTargets();
+  }, [fetchTargets, tenantLoading]);
 
   const upsertTarget = useCallback(
     async (input: { year: number; month: number; targetAmount: number; venues: string[]; notes?: string; userId?: string | null }) => {
+      if (!tenantId) return false;
       const existing = targets.find((t) => t.year === input.year && t.month === input.month);
       if (existing) {
         const { error } = await supabase
@@ -56,7 +61,8 @@ export function useRevenueTargets() {
             venues: input.venues,
             notes: input.notes ?? "",
           })
-          .eq("id", existing.id);
+          .eq("id", existing.id)
+          .eq("tenant_id", tenantId);
         if (!error) await fetchTargets();
         return !error;
       }
@@ -67,11 +73,12 @@ export function useRevenueTargets() {
         venues: input.venues,
         notes: input.notes ?? "",
         created_by: input.userId ?? null,
+        tenant_id: tenantId,
       });
       if (!error) await fetchTargets();
       return !error;
     },
-    [targets, fetchTargets]
+    [targets, fetchTargets, tenantId]
   );
 
   const getTarget = useCallback(

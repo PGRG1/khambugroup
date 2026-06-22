@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ForecastRecord, ForecastStatus } from "@/types/forecast";
 import { logAuditEvent } from "@/utils/auditLog";
 import { calculateForecast } from "@/utils/forecastUtils";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 function fromDb(r: any): ForecastRecord {
   return {
@@ -49,26 +50,30 @@ function toDb(r: Partial<ForecastRecord>) {
 }
 
 export function useForecastData() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [forecasts, setForecasts] = useState<ForecastRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchForecasts = useCallback(async () => {
+    if (!tenantId) { setForecasts([]); setLoading(false); return; }
     const { data, error } = await supabase
       .from("forecasts")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("date", { ascending: false });
 
     if (!error && data) {
       setForecasts(data.map(fromDb));
     }
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
-    fetchForecasts();
-  }, [fetchForecasts]);
+    if (!tenantLoading) fetchForecasts();
+  }, [fetchForecasts, tenantLoading]);
 
   const addForecast = useCallback(async (record: Omit<ForecastRecord, "id" | "createdAt" | "approvedBy" | "approvedAt">) => {
+    if (!tenantId) return false;
     const { error } = await supabase.from("forecasts").insert({
       venue: record.venue,
       date: record.date,
@@ -83,6 +88,7 @@ export function useForecastData() {
       post_event_notes: record.postEventNotes,
       status: record.status,
       submitted_by: record.submittedBy,
+      tenant_id: tenantId,
     });
 
     if (!error) {
@@ -94,10 +100,10 @@ export function useForecastData() {
       await fetchForecasts();
     }
     return !error;
-  }, [fetchForecasts]);
+  }, [fetchForecasts, tenantId]);
 
   const updateForecast = useCallback(async (id: string, updates: Partial<ForecastRecord>) => {
-    // If updating figures, recalculate derived fields
+    if (!tenantId) return false;
     if (updates.forecastedCustomers !== undefined || updates.forecastedAvgSpend !== undefined) {
       const existing = forecasts.find((f) => f.id === id);
       if (existing) {
@@ -113,7 +119,8 @@ export function useForecastData() {
     const { error } = await supabase
       .from("forecasts")
       .update(toDb(updates))
-      .eq("id", id);
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
 
     if (!error) {
       const existing = forecasts.find((f) => f.id === id);
@@ -125,11 +132,12 @@ export function useForecastData() {
       await fetchForecasts();
     }
     return !error;
-  }, [fetchForecasts, forecasts]);
+  }, [fetchForecasts, forecasts, tenantId]);
 
   const deleteForecast = useCallback(async (id: string) => {
+    if (!tenantId) return false;
     const record = forecasts.find((f) => f.id === id);
-    const { error } = await supabase.from("forecasts").delete().eq("id", id);
+    const { error } = await supabase.from("forecasts").delete().eq("id", id).eq("tenant_id", tenantId);
 
     if (!error) {
       if (record) {
@@ -142,7 +150,7 @@ export function useForecastData() {
       await fetchForecasts();
     }
     return !error;
-  }, [fetchForecasts, forecasts]);
+  }, [fetchForecasts, forecasts, tenantId]);
 
   const approveForecast = useCallback(async (id: string, userId: string) => {
     return updateForecast(id, {

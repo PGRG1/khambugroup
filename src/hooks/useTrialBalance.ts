@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface TrialBalanceRow {
   account_id: string;
@@ -14,20 +15,21 @@ export interface TrialBalanceRow {
 }
 
 export function useTrialBalance(opts?: { fromDate?: string; toDate?: string }) {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [rows, setRows] = useState<TrialBalanceRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) { setRows([]); setLoading(false); return; }
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // If date filters provided, compute from journal_lines + entries client-side.
-      // Use fetchAllRows to bypass the 1000-row PostgREST cap.
       if (opts?.fromDate || opts?.toDate) {
         const [entries, lines, accRes] = await Promise.all([
-          fetchAllRows("journal_entries", "id,entry_date,status"),
-          fetchAllRows("journal_lines", "account_id,entry_id,debit,credit"),
-          supabase.from("chart_of_accounts" as any).select("*").order("code"),
+          fetchAllRows("journal_entries", "id,entry_date,status", undefined, tenantId),
+          fetchAllRows("journal_lines", "account_id,entry_id,debit,credit", undefined, tenantId),
+          supabase.from("chart_of_accounts" as any).select("*").eq("tenant_id", tenantId).order("code"),
         ]);
         const entryMap = new Map<string, { date: string; status: string }>();
         (entries as any[]).forEach((e) => entryMap.set(e.id, { date: e.entry_date, status: e.status }));
@@ -53,14 +55,15 @@ export function useTrialBalance(opts?: { fromDate?: string; toDate?: string }) {
         });
         if (!cancelled) setRows(out);
       } else {
-        // v_trial_balance is pre-aggregated (one row per account) — safe under 1000-row cap
-        const { data, error } = await supabase.from("v_trial_balance" as any).select("*");
+        // v_trial_balance respects RLS; super-admins must scope by tenant.
+        const { data, error } = await supabase.from("v_trial_balance" as any).select("*").eq("tenant_id", tenantId);
         if (!error && !cancelled) setRows(((data as unknown) as TrialBalanceRow[]) ?? []);
       }
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [opts?.fromDate, opts?.toDate]);
+  }, [opts?.fromDate, opts?.toDate, tenantId, tenantLoading]);
 
   return { rows, loading };
 }
+

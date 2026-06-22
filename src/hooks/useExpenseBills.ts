@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { toast } from "sonner";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type BillApprovalStatus = "draft" | "pending_review" | "approved" | "rejected" | "posted" | "void";
 export type BillPaymentStatus = "unpaid" | "partial" | "paid";
@@ -84,30 +85,33 @@ export interface ExpenseBillPayment {
 }
 
 export function useExpenseBills() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [bills, setBills] = useState<ExpenseBill[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    if (!tenantId) { setBills([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const rows = await fetchAllRows("expense_bills", "*", { col: "bill_date", asc: false });
+      const rows = await fetchAllRows("expense_bills", "*", { col: "bill_date", asc: false }, tenantId);
       setBills(rows as ExpenseBill[]);
     } catch (e: any) {
       toast.error("Failed to load bills: " + e.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (!tenantLoading) refresh();
+  }, [refresh, tenantLoading]);
 
   const saveBill = useCallback(
     async (
       header: Partial<ExpenseBill>,
       allocations: ExpenseBillAllocation[]
     ): Promise<string | null> => {
+      if (!tenantId) return null;
       try {
         let billId = header.id;
         const auth = (await supabase.auth.getUser()).data.user?.id ?? null;
@@ -134,10 +138,11 @@ export function useExpenseBills() {
         };
 
         if (billId) {
-          const { error } = await supabase.from("expense_bills").update(headerPayload).eq("id", billId);
+          const { error } = await supabase.from("expense_bills").update(headerPayload).eq("id", billId).eq("tenant_id", tenantId);
           if (error) throw error;
         } else {
           headerPayload.created_by = auth;
+          headerPayload.tenant_id = tenantId;
           const { data, error } = await supabase.from("expense_bills").insert(headerPayload).select("id").single();
           if (error) throw error;
           billId = data.id;
@@ -146,11 +151,11 @@ export function useExpenseBills() {
             event_type: "uploaded",
             actor_id: auth,
             details: { source: "manual" },
+            tenant_id: tenantId,
           });
         }
 
-        // Replace allocations
-        await supabase.from("expense_bill_allocations").delete().eq("bill_id", billId);
+        await supabase.from("expense_bill_allocations").delete().eq("bill_id", billId).eq("tenant_id", tenantId);
         if (allocations.length) {
           const payload = allocations.map((a, i) => ({
             bill_id: billId,
@@ -163,6 +168,7 @@ export function useExpenseBills() {
             tax_treatment: a.tax_treatment || "none",
             tax_amount: Number(a.tax_amount || 0),
             notes: a.notes || null,
+            tenant_id: tenantId,
           }));
           const { error } = await supabase.from("expense_bill_allocations").insert(payload);
           if (error) throw error;
@@ -175,25 +181,22 @@ export function useExpenseBills() {
         return null;
       }
     },
-    [refresh]
+    [refresh, tenantId]
   );
 
   const setStatus = useCallback(
     async (billId: string, status: BillApprovalStatus) => {
+      if (!tenantId) return false;
       const auth = (await supabase.auth.getUser()).data.user?.id ?? null;
       const patch: any = { approval_status: status };
-      if (status === "pending_review") {
-        /* no-op timestamps */
-      } else if (status === "approved") {
+      if (status === "approved") {
         patch.approved_by = auth;
         patch.approved_at = new Date().toISOString();
       } else if (status === "rejected") {
         patch.reviewed_by = auth;
         patch.reviewed_at = new Date().toISOString();
-      } else if (status === "void") {
-        // void
       }
-      const { error } = await supabase.from("expense_bills").update(patch).eq("id", billId);
+      const { error } = await supabase.from("expense_bills").update(patch).eq("id", billId).eq("tenant_id", tenantId);
       if (error) {
         toast.error("Status update failed: " + error.message);
         return false;
@@ -202,11 +205,12 @@ export function useExpenseBills() {
         bill_id: billId,
         event_type: status,
         actor_id: auth,
+        tenant_id: tenantId,
       });
       await refresh();
       return true;
     },
-    [refresh]
+    [refresh, tenantId]
   );
 
   const postBill = useCallback(
@@ -225,6 +229,7 @@ export function useExpenseBills() {
 
   const recordPayment = useCallback(
     async (payment: ExpenseBillPayment) => {
+      if (!tenantId) return false;
       const auth = (await supabase.auth.getUser()).data.user?.id ?? null;
       const { data, error } = await supabase
         .from("expense_bill_payments")
@@ -237,6 +242,7 @@ export function useExpenseBills() {
           reference: payment.reference || null,
           notes: payment.notes || null,
           created_by: auth,
+          tenant_id: tenantId,
         })
         .select("id")
         .single();
@@ -253,13 +259,15 @@ export function useExpenseBills() {
       await refresh();
       return true;
     },
-    [refresh]
+    [refresh, tenantId]
   );
 
   const fetchAllocations = useCallback(async (billId: string): Promise<ExpenseBillAllocation[]> => {
+    if (!tenantId) return [];
     const { data, error } = await supabase
       .from("expense_bill_allocations")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("bill_id", billId)
       .order("line_no");
     if (error) {
@@ -267,34 +275,40 @@ export function useExpenseBills() {
       return [];
     }
     return (data || []) as ExpenseBillAllocation[];
-  }, []);
+  }, [tenantId]);
 
   const fetchAudit = useCallback(async (billId: string): Promise<ExpenseBillAuditRow[]> => {
+    if (!tenantId) return [];
     const { data, error } = await supabase
       .from("expense_bill_audit")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("bill_id", billId)
       .order("created_at", { ascending: false });
     if (error) return [];
     return (data || []) as ExpenseBillAuditRow[];
-  }, []);
+  }, [tenantId]);
 
   const fetchPayments = useCallback(async (billId: string): Promise<ExpenseBillPayment[]> => {
+    if (!tenantId) return [];
     const { data, error } = await supabase
       .from("expense_bill_payments")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("bill_id", billId)
       .order("payment_date", { ascending: false });
     if (error) return [];
     return (data || []) as ExpenseBillPayment[];
-  }, []);
+  }, [tenantId]);
 
   const setDocumentRequirement = useCallback(
     async (billId: string, requirement: "not_required" | "pending" | "received") => {
+      if (!tenantId) return false;
       const { error } = await supabase
         .from("expense_bills")
         .update({ document_requirement: requirement } as any)
-        .eq("id", billId);
+        .eq("id", billId)
+        .eq("tenant_id", tenantId);
       if (error) {
         toast.error("Update failed: " + error.message);
         return false;
@@ -302,7 +316,7 @@ export function useExpenseBills() {
       await refresh();
       return true;
     },
-    [refresh]
+    [refresh, tenantId]
   );
 
   return {
@@ -319,4 +333,3 @@ export function useExpenseBills() {
     setDocumentRequirement,
   };
 }
-

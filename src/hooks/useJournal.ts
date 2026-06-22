@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { toast } from "sonner";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface JournalEntry {
   id: string;
@@ -36,13 +37,15 @@ export interface JournalLineDraft {
 }
 
 export function useJournal(filters?: { fromDate?: string; toDate?: string; sourceType?: string }) {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [lines, setLines] = useState<JournalLine[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
+    if (!tenantId) { setEntries([]); setLines([]); setLoading(false); return; }
     setLoading(true);
-    let q: any = supabase.from("journal_entries" as any).select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false });
+    let q: any = supabase.from("journal_entries" as any).select("*").eq("tenant_id", tenantId).order("entry_date", { ascending: false }).order("created_at", { ascending: false });
     if (filters?.fromDate) q = q.gte("entry_date", filters.fromDate);
     if (filters?.toDate) q = q.lte("entry_date", filters.toDate);
     if (filters?.sourceType && filters.sourceType !== "all") q = q.eq("source_type", filters.sourceType);
@@ -51,12 +54,12 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
     setEntries((ents as unknown as JournalEntry[]) ?? []);
     const ids = ((ents as any[]) ?? []).map((e) => e.id);
     if (ids.length === 0) { setLines([]); setLoading(false); return; }
-    const allLines = await fetchAllRows("journal_lines", "*");
+    const allLines = await fetchAllRows("journal_lines", "*", undefined, tenantId);
     setLines((allLines as JournalLine[]).filter((l) => ids.includes(l.entry_id)));
     setLoading(false);
-  }, [filters?.fromDate, filters?.toDate, filters?.sourceType]);
+  }, [filters?.fromDate, filters?.toDate, filters?.sourceType, tenantId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { if (!tenantLoading) fetchAll(); }, [fetchAll, tenantLoading]);
 
   const validateLines = (ls: JournalLineDraft[]): { valid: JournalLineDraft[]; ok: boolean } => {
     const valid = ls.filter((l) => l.account_id && (Number(l.debit) > 0 || Number(l.credit) > 0));
@@ -71,12 +74,13 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
   };
 
   const createManualEntry = useCallback(async (input: { entry_date: string; memo: string; lines: JournalLineDraft[] }) => {
+    if (!tenantId) return null;
     const { valid, ok } = validateLines(input.lines);
     if (!ok) return null;
     const { data: { user } } = await supabase.auth.getUser();
     const { data: ent, error: e1 } = await supabase
       .from("journal_entries" as any)
-      .insert({ entry_date: input.entry_date, memo: input.memo, source_type: "manual", status: "draft", created_by: user?.id ?? null } as any)
+      .insert({ entry_date: input.entry_date, memo: input.memo, source_type: "manual", status: "draft", created_by: user?.id ?? null, tenant_id: tenantId } as any)
       .select().single();
     if (e1) { toast.error(e1.message); return null; }
     const eid = (ent as any).id;
@@ -89,40 +93,40 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
         memo: l.memo ?? "",
         venue: l.venue ?? null,
         line_no: i + 1,
+        tenant_id: tenantId,
       })) as any,
     );
     if (e2) {
-      await supabase.from("journal_entries" as any).delete().eq("id", eid);
+      await supabase.from("journal_entries" as any).delete().eq("id", eid).eq("tenant_id", tenantId);
       toast.error(`Lines failed: ${e2.message}`);
       return null;
     }
-    const { error: e3 } = await supabase.from("journal_entries" as any).update({ status: "posted", posted_at: new Date().toISOString() } as any).eq("id", eid);
+    const { error: e3 } = await supabase.from("journal_entries" as any).update({ status: "posted", posted_at: new Date().toISOString() } as any).eq("id", eid).eq("tenant_id", tenantId);
     if (e3) { toast.error(`Post failed: ${e3.message}`); return null; }
     toast.success("Journal entry posted");
     await fetchAll();
     return eid;
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const updateEntry = useCallback(async (
     id: string,
     input: { entry_date: string; memo: string; lines: JournalLineDraft[] },
     sourceType: string,
   ) => {
+    if (!tenantId) return false;
     const { valid, ok } = validateLines(input.lines);
     if (!ok) return false;
 
-    // Temporarily mark as draft to avoid trigger firing mid-update
     const { error: eDraft } = await supabase
       .from("journal_entries" as any)
       .update({ status: "draft" } as any)
-      .eq("id", id);
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (eDraft) { toast.error(eDraft.message); return false; }
 
-    // Delete existing lines
-    const { error: eDel } = await supabase.from("journal_lines" as any).delete().eq("entry_id", id);
+    const { error: eDel } = await supabase.from("journal_lines" as any).delete().eq("entry_id", id).eq("tenant_id", tenantId);
     if (eDel) { toast.error(`Delete lines failed: ${eDel.message}`); return false; }
 
-    // Insert new lines
     const { error: eIns } = await supabase.from("journal_lines" as any).insert(
       valid.map((l, i) => ({
         entry_id: id,
@@ -132,11 +136,11 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
         memo: l.memo ?? "",
         venue: l.venue ?? null,
         line_no: i + 1,
+        tenant_id: tenantId,
       })) as any,
     );
     if (eIns) { toast.error(`Insert lines failed: ${eIns.message}`); return false; }
 
-    // Update header + flag manually_adjusted for non-manual entries; repost
     const patch: any = {
       entry_date: input.entry_date,
       memo: input.memo,
@@ -145,10 +149,9 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
     };
     if (sourceType !== "manual") patch.manually_adjusted = true;
 
-    const { error: eUpd } = await supabase.from("journal_entries" as any).update(patch).eq("id", id);
+    const { error: eUpd } = await supabase.from("journal_entries" as any).update(patch).eq("id", id).eq("tenant_id", tenantId);
     if (eUpd) { toast.error(`Update failed: ${eUpd.message}`); return false; }
 
-    // Audit log
     const { data: { user } } = await supabase.auth.getUser();
     let uname: string | null = null;
     if (user?.id) {
@@ -162,27 +165,30 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
       journal_entry_id: id,
       status: "success",
       notes: `Edited ${sourceType} entry (${valid.length} lines)`,
+      tenant_id: tenantId,
     } as any);
 
     toast.success(sourceType === "manual" ? "Entry updated" : "Entry updated & detached from auto-rebuild");
     await fetchAll();
     return true;
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const restoreAutoEntry = useCallback(async (id: string) => {
+    if (!tenantId) return;
     const { error } = await supabase.from("journal_entries" as any)
-      .update({ manually_adjusted: false } as any).eq("id", id);
+      .update({ manually_adjusted: false } as any).eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast.error(error.message); return; }
     toast.success("Re-attached. Next rebuild will recreate this entry.");
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const voidEntry = useCallback(async (id: string) => {
-    const { error } = await supabase.from("journal_entries" as any).update({ status: "void" } as any).eq("id", id);
+    if (!tenantId) return;
+    const { error } = await supabase.from("journal_entries" as any).update({ status: "void" } as any).eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast.error(error.message); return; }
     toast.success("Entry voided");
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   const rebuildFromOperations = useCallback(async () => {
     const { data, error } = await (supabase as any).rpc("rebuild_journal_from_operations");
