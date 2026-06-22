@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { SalesRecord } from "@/types/sales";
 import { logAuditEvent } from "@/utils/auditLog";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
-function toDbRecord(r: SalesRecord) {
+function toDbRecord(r: SalesRecord, tenantId?: string | null) {
   return {
+    ...(tenantId ? { tenant_id: tenantId } : {}),
     date: r.date,
     day: r.day,
     venue: r.venue,
@@ -69,16 +71,26 @@ function fromDbRecord(r: any): SalesRecord {
 }
 
 export function useSalesData() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [data, setData] = useState<SalesRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    const rows = await fetchAllRows("sales_records", "*", { col: "date", asc: true });
+    if (tenantLoading) return;
+    if (!tenantId) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
+
+    const rows = (await fetchAllRows("sales_records", "*", { col: "date", asc: true }))
+      .filter((row) => row.tenant_id === tenantId);
     setData(rows.map(fromDbRecord));
     setLoading(false);
-  }, []);
+  }, [tenantId, tenantLoading]);
 
   useEffect(() => {
+    if (!tenantLoading) setLoading(true);
     fetchData();
   }, [fetchData]);
 
@@ -91,7 +103,8 @@ export function useSalesData() {
   }, []);
 
   const uploadRecords = useCallback(async (records: SalesRecord[]) => {
-    const dbRecords = records.map(toDbRecord);
+    if (!tenantId) return false;
+    const dbRecords = records.map((record) => toDbRecord(record, tenantId));
     const { error } = await supabase
       .from("sales_records")
       .upsert(dbRecords, { onConflict: "date,venue,report_number" });
@@ -106,9 +119,10 @@ export function useSalesData() {
       rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData, rebuildJournalSilently]);
+  }, [fetchData, rebuildJournalSilently, tenantId]);
 
   const addRecord = useCallback(async (record: SalesRecord, file?: File | null) => {
+    if (!tenantId) return false;
     let finalRecord = record;
 
     if (file) {
@@ -125,7 +139,7 @@ export function useSalesData() {
 
     const { error } = await supabase
       .from("sales_records")
-      .insert(toDbRecord(finalRecord));
+      .insert(toDbRecord(finalRecord, tenantId));
 
     if (!error) {
       await logAuditEvent({
@@ -137,12 +151,14 @@ export function useSalesData() {
       rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData, rebuildJournalSilently]);
+  }, [fetchData, rebuildJournalSilently, tenantId]);
 
   const updateRecord = useCallback(async (oldRecord: SalesRecord, newRecord: SalesRecord) => {
+    if (!tenantId) return false;
     const { error } = await supabase
       .from("sales_records")
-      .update(toDbRecord(newRecord))
+      .update(toDbRecord(newRecord, tenantId))
+      .eq("tenant_id", tenantId)
       .eq("date", oldRecord.date)
       .eq("venue", oldRecord.venue)
       .eq("report_number", oldRecord.reportNumber);
@@ -158,12 +174,14 @@ export function useSalesData() {
       rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData, rebuildJournalSilently]);
+  }, [fetchData, rebuildJournalSilently, tenantId]);
 
   const deleteRecord = useCallback(async (record: SalesRecord) => {
+    if (!tenantId) return false;
     const { error } = await supabase
       .from("sales_records")
       .delete()
+      .eq("tenant_id", tenantId)
       .eq("date", record.date)
       .eq("venue", record.venue)
       .eq("report_number", record.reportNumber);
@@ -178,9 +196,10 @@ export function useSalesData() {
       rebuildJournalSilently();
     }
     return !error;
-  }, [fetchData, rebuildJournalSilently]);
+  }, [fetchData, rebuildJournalSilently, tenantId]);
 
   const attachReceipt = useCallback(async (record: SalesRecord, file: File) => {
+    if (!tenantId) return false;
     // Delete old file if exists
     if (record.receiptFileUrl) {
       await supabase.storage.from("sales-receipts").remove([record.receiptFileUrl]);
@@ -196,6 +215,7 @@ export function useSalesData() {
     const { error } = await supabase
       .from("sales_records")
       .update({ receipt_file_url: path, receipt_file_name: file.name })
+      .eq("tenant_id", tenantId)
       .eq("date", record.date)
       .eq("venue", record.venue)
       .eq("report_number", record.reportNumber);
@@ -210,7 +230,7 @@ export function useSalesData() {
       await fetchData();
     }
     return !error;
-  }, [fetchData]);
+  }, [fetchData, tenantId]);
 
   return { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, attachReceipt, refetch: fetchData };
 }

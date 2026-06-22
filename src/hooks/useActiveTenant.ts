@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const STORAGE_KEY = "khambu.activeTenantId";
+const TENANT_CHANGE_EVENT = "khambu.activeTenantId.changed";
 
 export type TenantMembership = { tenant_id: string; role: string; tenant_name?: string };
 
@@ -49,9 +50,20 @@ export function useActiveTenant() {
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  useEffect(() => {
+    const syncTenant = () => setTenantIdState(localStorage.getItem(STORAGE_KEY));
+    window.addEventListener(TENANT_CHANGE_EVENT, syncTenant);
+    window.addEventListener("storage", syncTenant);
+    return () => {
+      window.removeEventListener(TENANT_CHANGE_EVENT, syncTenant);
+      window.removeEventListener("storage", syncTenant);
+    };
+  }, []);
+
   const setTenantId = (id: string) => {
     localStorage.setItem(STORAGE_KEY, id);
     setTenantIdState(id);
+    window.dispatchEvent(new Event(TENANT_CHANGE_EVENT));
   };
 
   const isSuperAdmin = memberships.some(
