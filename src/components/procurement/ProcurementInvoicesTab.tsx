@@ -916,9 +916,16 @@ export default function ProcurementInvoicesTab() {
             </div>
           )}
 
+          {editDisputeStats.hasDispute && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Invoice disputed — quantity differences must be resolved before saving.</span>
+            </div>
+          )}
+
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full min-w-[1350px] border-collapse text-xs">
+            <table className="w-full min-w-[1700px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border">
                   <th className="w-7 px-1 py-1.5 text-left font-medium text-muted-foreground">#</th>
