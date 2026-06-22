@@ -2379,6 +2379,7 @@ export type Database = {
           received_date: string
           status: string
           supplier_id: string
+          tenant_id: string
           updated_at: string
           venue: string
         }
@@ -2393,6 +2394,7 @@ export type Database = {
           received_date?: string
           status?: string
           supplier_id: string
+          tenant_id?: string
           updated_at?: string
           venue: string
         }
@@ -2407,6 +2409,7 @@ export type Database = {
           received_date?: string
           status?: string
           supplier_id?: string
+          tenant_id?: string
           updated_at?: string
           venue?: string
         }
@@ -2457,6 +2460,7 @@ export type Database = {
           quantity_received: number
           receiving_note: string | null
           receiving_reason: string | null
+          tenant_id: string
           total: number | null
           unit: string
           unit_cost: number
@@ -2476,6 +2480,7 @@ export type Database = {
           quantity_received?: number
           receiving_note?: string | null
           receiving_reason?: string | null
+          tenant_id?: string
           total?: number | null
           unit?: string
           unit_cost?: number
@@ -2495,6 +2500,7 @@ export type Database = {
           quantity_received?: number
           receiving_note?: string | null
           receiving_reason?: string | null
+          tenant_id?: string
           total?: number | null
           unit?: string
           unit_cost?: number
