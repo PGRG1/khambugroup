@@ -1475,7 +1475,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               {disputeStats.hasDispute && (
                 <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span>Invoice disputed — quantity differences must be resolved before approval.</span>
+                  <span>Quantity differences logged — set a reason for each line so the dispute can be followed up after saving.</span>
                 </div>
               )}
             </div>
