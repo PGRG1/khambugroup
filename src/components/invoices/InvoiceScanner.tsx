@@ -1646,6 +1646,72 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           placeholder="—"
                         />
                       </td>
+                      {/* Accepted Qty - editable, defaults to Purch. Qty */}
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={acceptedQtyStr}
+                          onChange={(e) => updateLineReceiving(i, "accepted_qty", e.target.value)}
+                          className="text-xs h-8 w-full font-mono"
+                        />
+                      </td>
+                      {/* Difference - read-only */}
+                      <td style={{ minWidth: 80 }} className="px-1 py-1 align-top">
+                        <div
+                          className={`text-xs h-8 px-2 flex items-center justify-end font-mono tabular-nums ${
+                            qtyDiff === 0
+                              ? "text-muted-foreground"
+                              : qtyDiff < 0
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-emerald-600 dark:text-emerald-400"
+                          }`}
+                        >
+                          {qtyDiff === 0 ? "0" : qtyDiff > 0 ? `+${qtyDiff}` : `${qtyDiff}`}
+                        </div>
+                      </td>
+                      {/* Reason - locked Matched when diff=0, otherwise required dropdown */}
+                      <td style={{ minWidth: 160 }} className="px-1 py-1 align-top">
+                        {qtyDiff === 0 ? (
+                          <div className="text-xs h-8 px-2 flex items-center text-muted-foreground bg-muted/40 rounded-md border border-input">
+                            Matched
+                          </div>
+                        ) : (
+                          <select
+                            value={effReason}
+                            onChange={(e) => updateLineReceiving(i, "receiving_reason", e.target.value)}
+                            className={`text-xs h-8 w-full px-2 rounded-md border bg-background ${
+                              reasonMissing ? "border-red-500" : "border-input"
+                            }`}
+                          >
+                            <option value="">Select reason…</option>
+                            {RECEIVING_REASONS.map((r) => (
+                              <option key={r.value} value={r.value}>
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      {/* Note */}
+                      <td style={{ minWidth: 140 }} className="px-1 py-1 align-top">
+                        <div className="relative">
+                          <Input
+                            value={line.receiving_note || ""}
+                            onChange={(e) => updateLineReceiving(i, "receiving_note", e.target.value)}
+                            placeholder="Add note…"
+                            maxLength={500}
+                            className={`text-xs h-8 w-full ${noteRequired ? "border-red-500" : ""}`}
+                          />
+                          {noteRequired && (
+                            <span
+                              className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500"
+                              title="Note required when Reason is Other"
+                            />
+                          )}
+                        </div>
+                      </td>
                       {/* Purchase Cost - editable */}
                       <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
 
