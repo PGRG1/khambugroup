@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, X, Trash2, ChevronsUpDown } from "lucide-react";
+import { Plus, X, Trash2, ChevronsUpDown, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { backfillGrnsFromInvoices } from "@/utils/backfillGrnsFromInvoices";
 
 const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
 type Venue = typeof VENUES[number];
@@ -68,7 +70,10 @@ interface GRNItem {
 
 export default function ReceivingTab() {
   const { user, isAdmin } = useAuth();
+  const { tenantId } = useActiveTenant();
   const [grns, setGrns] = useState<GRN[]>([]);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
   const [grnTotals, setGrnTotals] = useState<Record<string, number>>({});
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -340,13 +345,56 @@ export default function ReceivingTab() {
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="disputed">Disputed</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }} disabled={!canManage}>
-          <Plus className="h-4 w-4 mr-1" /> New GRN
-        </Button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button
+              variant="outline"
+              disabled={backfilling || !tenantId || !user}
+              onClick={async () => {
+                if (!tenantId || !user) return;
+                if (!window.confirm("Backfill GRNs for every invoice without one? This is a one-off historical migration.")) return;
+                setBackfilling(true);
+                setBackfillProgress({ done: 0, total: 0 });
+                try {
+                  const summary = await backfillGrnsFromInvoices({
+                    tenantId,
+                    userId: user.id,
+                    onProgress: (done, total) => setBackfillProgress({ done, total }),
+                  });
+                  toast.success(
+                    `Backfill complete: ${summary.created} created, ${summary.skipped} skipped, ${summary.failed} failed. ` +
+                    `Remaining without GRN: ${summary.remainingWithoutGrn}. Total GRNs: ${summary.grnCount}.`,
+                    { duration: 10000 },
+                  );
+                  if (summary.failed > 0) {
+                    console.error("Backfill failures:", summary.failures);
+                  }
+                  loadAll();
+                } catch (e: any) {
+                  toast.error(`Backfill failed: ${e?.message || String(e)}`);
+                } finally {
+                  setBackfilling(false);
+                  setBackfillProgress(null);
+                }
+              }}
+            >
+              <Database className="h-4 w-4 mr-1" />
+              {backfilling
+                ? backfillProgress && backfillProgress.total > 0
+                  ? `Backfilling ${backfillProgress.done}/${backfillProgress.total}…`
+                  : "Backfilling…"
+                : "Backfill GRNs from invoices"}
+            </Button>
+          )}
+          <Button onClick={() => { resetForm(); setCreateOpen(true); }} disabled={!canManage}>
+            <Plus className="h-4 w-4 mr-1" /> New GRN
+          </Button>
+        </div>
       </div>
 
       <div className="border border-border rounded-md overflow-hidden">

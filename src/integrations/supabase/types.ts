@@ -7751,6 +7751,14 @@ export type Database = {
       current_user_tenant_id: { Args: never; Returns: string }
       generate_po_number: { Args: never; Returns: string }
       generate_recurring_expense_bills: { Args: never; Returns: Json }
+      get_inventory_aggregates: {
+        Args: { p_tenant_id?: string }
+        Returns: {
+          product_master_id: string
+          total_qty: number
+          total_spend: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

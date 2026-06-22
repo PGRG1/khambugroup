@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,6 +41,7 @@ type SortKey = "internal_sku" | "internal_product_name" | "level1_category" | "q
 
 export default function InventoryOnHandTab() {
   const navigate = useNavigate();
+  const { tenantId } = useActiveTenant();
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [lineAgg, setLineAgg] = useState<AggregatedLineItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,21 +53,32 @@ export default function InventoryOnHandTab() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [prodData, lineRes] = await Promise.all([
-      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty", { col: "internal_sku", asc: true }),
-      supabase.rpc("get_inventory_aggregates" as any),
+      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty", { col: "internal_sku", asc: true }, tenantId),
+      supabase.rpc("get_inventory_aggregates" as any, { p_tenant_id: tenantId } as any),
     ]);
 
     setProducts((prodData as any[]).filter((p) => p.status === "Active") as ProductRow[]);
 
-    // If RPC doesn't exist yet, fall back to client-side aggregation
+    // Fallback: aggregate from confirmed/disputed GRN items if RPC is unavailable.
     if (lineRes.error || !lineRes.data) {
-      const fallback = await fetchAllRows("invoice_line_items", "product_master_id, quantity, total");
+      const [grnHeaders, grnItems] = await Promise.all([
+        fetchAllRows("goods_received_notes", "id, status", undefined, tenantId),
+        fetchAllRows("grn_items", "product_master_id, accepted_qty, quantity_received, unit_cost, grn_id", undefined, tenantId),
+      ]);
+      const eligibleGrnIds = new Set(
+        (grnHeaders as any[])
+          .filter((g) => g.status === "confirmed" || g.status === "disputed")
+          .map((g) => g.id),
+      );
       const map = new Map<string, { qty: number; spend: number }>();
-      for (const row of fallback as any[]) {
+      for (const row of grnItems as any[]) {
         if (!row.product_master_id) continue;
+        if (!eligibleGrnIds.has(row.grn_id)) continue;
+        const qty = row.accepted_qty != null ? Number(row.accepted_qty) : Number(row.quantity_received) || 0;
+        const cost = Number(row.unit_cost) || 0;
         const existing = map.get(row.product_master_id) || { qty: 0, spend: 0 };
-        existing.qty += Number(row.quantity) || 0;
-        existing.spend += Number(row.total) || 0;
+        existing.qty += qty;
+        existing.spend += qty * cost;
         map.set(row.product_master_id, existing);
       }
       setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
@@ -73,7 +86,7 @@ export default function InventoryOnHandTab() {
       setLineAgg((lineRes.data as any[]).map((r: any) => ({ product_master_id: r.product_master_id, total_qty: Number(r.total_qty), total_spend: Number(r.total_spend) })));
     }
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
