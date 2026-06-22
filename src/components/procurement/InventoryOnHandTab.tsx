@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 interface ProductRow {
   id: string;
   internal_sku: string;
+  financial_treatment?: string | null;
   internal_product_name: string;
   level1_category: string;
   unit: string;
