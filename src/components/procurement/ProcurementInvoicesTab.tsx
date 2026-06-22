@@ -844,7 +844,17 @@ export default function ProcurementInvoicesTab() {
             <Button variant="outline" onClick={() => setEditing(false)}>
               <X className="h-4 w-4 mr-1" />Close
             </Button>
-            <Button onClick={handleSaveEdit} disabled={saving || !editForm.supplier_id || !editForm.invoice_number || !editForm.invoice_date}>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={
+                saving ||
+                !editForm.supplier_id ||
+                !editForm.invoice_number ||
+                !editForm.invoice_date ||
+                editDisputeStats.missingReason > 0 ||
+                editDisputeStats.missingNote > 0
+              }
+            >
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
