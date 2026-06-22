@@ -196,6 +196,7 @@ export default function ProcurementInvoicesTab() {
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   useEffect(() => {
     if (searchParams.get("scan") === "1") {
       setScannerOpen(true);
