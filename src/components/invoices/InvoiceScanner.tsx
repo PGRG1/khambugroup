@@ -1470,6 +1470,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock UOM</th>
                   <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock Qty</th>
+                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Accepted Qty</th>
+                  <th style={{ minWidth: 80 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Difference</th>
+                  <th style={{ minWidth: 160 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Reason</th>
+                  <th style={{ minWidth: 140 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Note</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
