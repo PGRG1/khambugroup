@@ -6958,6 +6958,133 @@ export type Database = {
         }
         Relationships: []
       }
+      transfer_items: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          product_master_id: string
+          quantity_received: number | null
+          quantity_sent: number
+          transfer_id: string
+          unit: string
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_master_id: string
+          quantity_received?: number | null
+          quantity_sent?: number
+          transfer_id: string
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_master_id?: string
+          quantity_received?: number | null
+          quantity_sent?: number
+          transfer_id?: string
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_items_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfers: {
+        Row: {
+          created_at: string
+          created_by: string
+          from_location_id: string | null
+          from_venue: string
+          id: string
+          notes: string | null
+          received_at: string | null
+          received_by: string | null
+          status: string
+          to_location_id: string | null
+          to_venue: string
+          transfer_date: string
+          transfer_number: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          from_location_id?: string | null
+          from_venue: string
+          id?: string
+          notes?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          status?: string
+          to_location_id?: string | null
+          to_venue: string
+          transfer_date?: string
+          transfer_number?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          from_location_id?: string | null
+          from_venue?: string
+          id?: string
+          notes?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          status?: string
+          to_location_id?: string | null
+          to_venue?: string
+          transfer_date?: string
+          transfer_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfers_from_location_id_fkey"
+            columns: ["from_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_to_location_id_fkey"
+            columns: ["to_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uom_options: {
         Row: {
           code: string
