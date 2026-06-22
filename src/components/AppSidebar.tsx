@@ -183,27 +183,15 @@ export function AppSidebar() {
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
 
-  // All nav groups start collapsed by default; user toggles persist for the session only
-  const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>({
-    revenue: false,
-    kpi: false,
-    finance: false,
-    expenses: false,
-    procurement: false,
-    hr: false,
-    admin: false,
-    platform: false,
-
-  });
+  const [groupState, setGroupState] = useState<Record<GroupKey, boolean>>(loadGroupState);
 
   const setGroup = (key: GroupKey, open: boolean) => {
-    setGroupState((prev) => ({ ...prev, [key]: open }));
+    setGroupState((prev) => {
+      const next = { ...prev, [key]: open };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
   };
-
-  // Clear any previously persisted sidebar state so collapsed-by-default truly applies
-  useEffect(() => {
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
-  }, []);
 
   const visibleItems = navItems.filter(item => {
     if (item.pageKey === "home") return true;
