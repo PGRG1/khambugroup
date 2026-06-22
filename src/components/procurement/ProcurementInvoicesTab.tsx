@@ -434,6 +434,17 @@ export default function ProcurementInvoicesTab() {
       ? (matchedProduct.external_sku ?? "")
       : (line.item_code || "");
 
+    const qtyNum = parseFloat(qtyStr) || 0;
+    const savedAccepted = (line as any).accepted_qty;
+    const acceptedStr = savedAccepted != null && savedAccepted !== ""
+      ? String(savedAccepted)
+      : qtyStr;
+    const acceptedNum = parseFloat(acceptedStr) || 0;
+    const diff = acceptedNum - qtyNum;
+    const savedReason = (line as any).receiving_reason as string | null | undefined;
+    const receivingReason = savedReason || (diff === 0 ? "matched" : "");
+    const receivingNote = ((line as any).receiving_note as string | null | undefined) || "";
+
     return {
       id: "id" in line ? line.id : undefined,
       item_code: resolvedItemCode,
@@ -457,6 +468,10 @@ export default function ProcurementInvoicesTab() {
       unmatched: !matchedProduct && Boolean((line.description || "").trim()),
       price_changed: typeof pmPrice === "number" && pmPrice > 0 ? Math.abs(currentPrice - pmPrice) > 0.01 : false,
       pm_unit_price: typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : undefined,
+      accepted_qty: acceptedStr,
+      accepted_qty_touched: savedAccepted != null,
+      receiving_reason: receivingReason,
+      receiving_note: receivingNote,
     };
   };
 
