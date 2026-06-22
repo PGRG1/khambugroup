@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface KpiCard {
   id: string;
@@ -21,10 +22,10 @@ export interface KpiTarget {
   assigned_user_id: string | null;
   assigned_role: string | null;
   target_value: number;
-  target_period: string; // day|week|month
+  target_period: string;
   period_start_date: string | null;
   period_end_date: string | null;
-  calculation_method: string; // manual|venue_specific|day_of_week|mtd
+  calculation_method: string;
   day_of_week: number | null;
   warning_threshold_pct: number;
   critical_threshold_pct: number;
@@ -73,18 +74,21 @@ function showError(title: string, e: any) {
 }
 
 export function useKpiCards() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [cards, setCards] = useState<KpiCard[]>([]);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
+    if (!tenantId) { setCards([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from("kpi_cards").select("*").order("kpi_name");
+    const { data, error } = await supabase.from("kpi_cards").select("*").eq("tenant_id", tenantId).order("kpi_name");
     if (error) showError("Failed to load KPI cards", error);
     else setCards((data ?? []) as KpiCard[]);
     setLoading(false);
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  }, [tenantId]);
+  useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
 
   const create = async (p: Partial<KpiCard>) => {
+    if (!tenantId) return false;
     const { error } = await supabase.from("kpi_cards").insert({
       kpi_name: p.kpi_name ?? "Untitled KPI",
       kpi_category: p.kpi_category ?? "custom",
@@ -92,12 +96,14 @@ export function useKpiCards() {
       unit: p.unit ?? "currency",
       description: p.description ?? "",
       active: p.active ?? true,
+      tenant_id: tenantId,
     });
     if (error) return showError("Create failed", error), false;
     await load(); return true;
   };
   const update = async (id: string, patch: Partial<KpiCard>) => {
-    const { error } = await supabase.from("kpi_cards").update(patch).eq("id", id);
+    if (!tenantId) return false;
+    const { error } = await supabase.from("kpi_cards").update(patch).eq("id", id).eq("tenant_id", tenantId);
     if (error) return showError("Update failed", error), false;
     await load(); return true;
   };
@@ -105,17 +111,20 @@ export function useKpiCards() {
 }
 
 export function useKpiTargets() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [targets, setTargets] = useState<KpiTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
+    if (!tenantId) { setTargets([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from("kpi_targets").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("kpi_targets").select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false });
     if (error) showError("Failed to load targets", error);
     else setTargets((data ?? []) as KpiTarget[]);
     setLoading(false);
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  }, [tenantId]);
+  useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
   const create = async (p: Partial<KpiTarget>) => {
+    if (!tenantId) return false;
     const { error } = await supabase.from("kpi_targets").insert({
       kpi_card_id: p.kpi_card_id!,
       venue_id: p.venue_id ?? null,
@@ -131,17 +140,20 @@ export function useKpiTargets() {
       critical_threshold_pct: p.critical_threshold_pct ?? 20,
       active: p.active ?? true,
       target_mode: p.target_mode ?? "absolute",
+      tenant_id: tenantId,
     } as any);
     if (error) return showError("Create target failed", error), false;
     await load(); return true;
   };
   const update = async (id: string, patch: Partial<KpiTarget>) => {
-    const { error } = await supabase.from("kpi_targets").update(patch).eq("id", id);
+    if (!tenantId) return false;
+    const { error } = await supabase.from("kpi_targets").update(patch).eq("id", id).eq("tenant_id", tenantId);
     if (error) return showError("Update failed", error), false;
     await load(); return true;
   };
   const remove = async (id: string) => {
-    const { error } = await supabase.from("kpi_targets").delete().eq("id", id);
+    if (!tenantId) return false;
+    const { error } = await supabase.from("kpi_targets").delete().eq("id", id).eq("tenant_id", tenantId);
     if (error) return showError("Delete failed", error), false;
     await load(); return true;
   };
@@ -149,17 +161,20 @@ export function useKpiTargets() {
 }
 
 export function useKpiAssignments() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [assignments, setAssignments] = useState<KpiAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
+    if (!tenantId) { setAssignments([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from("kpi_assignments").select("*").order("assigned_at", { ascending: false });
+    const { data, error } = await supabase.from("kpi_assignments").select("*").eq("tenant_id", tenantId).order("assigned_at", { ascending: false });
     if (error) showError("Failed to load assignments", error);
     else setAssignments((data ?? []) as KpiAssignment[]);
     setLoading(false);
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  }, [tenantId]);
+  useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
   const create = async (p: Partial<KpiAssignment>) => {
+    if (!tenantId) return false;
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("kpi_assignments").insert({
       kpi_card_id: p.kpi_card_id!,
@@ -168,17 +183,20 @@ export function useKpiAssignments() {
       venue_id: p.venue_id ?? null,
       assigned_by: u.user?.id ?? null,
       active: p.active ?? true,
+      tenant_id: tenantId,
     });
     if (error) return showError("Create assignment failed", error), false;
     await load(); return true;
   };
   const update = async (id: string, patch: Partial<KpiAssignment>) => {
-    const { error } = await supabase.from("kpi_assignments").update(patch).eq("id", id);
+    if (!tenantId) return false;
+    const { error } = await supabase.from("kpi_assignments").update(patch).eq("id", id).eq("tenant_id", tenantId);
     if (error) return showError("Update failed", error), false;
     await load(); return true;
   };
   const remove = async (id: string) => {
-    const { error } = await supabase.from("kpi_assignments").delete().eq("id", id);
+    if (!tenantId) return false;
+    const { error } = await supabase.from("kpi_assignments").delete().eq("id", id).eq("tenant_id", tenantId);
     if (error) return showError("Delete failed", error), false;
     await load(); return true;
   };
@@ -186,17 +204,20 @@ export function useKpiAssignments() {
 }
 
 export function useKpiActuals() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [actuals, setActuals] = useState<KpiActual[]>([]);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
+    if (!tenantId) { setActuals([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from("kpi_actuals").select("*").order("period_date", { ascending: false });
+    const { data, error } = await supabase.from("kpi_actuals").select("*").eq("tenant_id", tenantId).order("period_date", { ascending: false });
     if (error) showError("Failed to load actuals", error);
     else setActuals((data ?? []) as KpiActual[]);
     setLoading(false);
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  }, [tenantId]);
+  useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
   const upsert = async (p: Partial<KpiActual>) => {
+    if (!tenantId) return false;
     const { data: u } = await supabase.auth.getUser();
     const payload = {
       kpi_card_id: p.kpi_card_id!,
@@ -207,6 +228,7 @@ export function useKpiActuals() {
       actual_source: p.actual_source ?? "manual",
       updated_by: u.user?.id ?? null,
       updated_at: new Date().toISOString(),
+      tenant_id: tenantId,
     };
     const { error } = await supabase
       .from("kpi_actuals")
@@ -218,15 +240,17 @@ export function useKpiActuals() {
 }
 
 export function useKpiActions() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [actions, setActions] = useState<KpiAction[]>([]);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
+    if (!tenantId) { setActions([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase.from("kpi_actions").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("kpi_actions").select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false });
     if (error) showError("Failed to load actions", error);
     else setActions((data ?? []) as KpiAction[]);
     setLoading(false);
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  }, [tenantId]);
+  useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
   return { actions, loading, reload: load };
 }
