@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useToast } from "@/hooks/use-toast";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface Supplier {
   id: string;
@@ -76,6 +77,7 @@ export interface Invoice {
 }
 
 export function useInvoiceData() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -84,11 +86,12 @@ export function useInvoiceData() {
   const { toast } = useToast();
 
   const fetchAll = useCallback(async () => {
+    if (!tenantId) { setInvoices([]); setSuppliers([]); setCategories([]); setLoading(false); return; }
     if (!initialLoadDone.current) setLoading(true);
     const [invData, supData, catRes] = await Promise.all([
-      fetchAllRows("invoices", "*", { col: "invoice_date", asc: false }),
-      fetchAllRows("suppliers", "*", { col: "name", asc: true }),
-      supabase.from("expense_categories").select("*").order("name"),
+      fetchAllRows("invoices", "*", { col: "invoice_date", asc: false }, tenantId),
+      fetchAllRows("suppliers", "*", { col: "name", asc: true }, tenantId),
+      supabase.from("expense_categories").select("*").eq("tenant_id", tenantId).order("name"),
     ]);
 
     setSuppliers(supData as Supplier[]);
@@ -103,14 +106,16 @@ export function useInvoiceData() {
     );
     setLoading(false);
     initialLoadDone.current = true;
-  }, []);
+  }, [tenantId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { if (!tenantLoading) fetchAll(); }, [fetchAll, tenantLoading]);
 
   const fetchLineItems = useCallback(async (invoiceId: string): Promise<InvoiceLineItem[]> => {
+    if (!tenantId) return [];
     const { data } = await supabase
       .from("invoice_line_items")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("invoice_id", invoiceId)
       .order("created_at");
 
@@ -120,11 +125,11 @@ export function useInvoiceData() {
       ...li,
       category_name: li.category_id ? catMap.get(li.category_id) || "" : "",
     }));
-  }, [categories]);
+  }, [categories, tenantId]);
 
   const syncLineItemsToInventory = useCallback(async (lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]) => {
-    // Fetch current inventory items
-    const invItems = await fetchAllRows("inventory_items", "id, name, current_qty");
+    if (!tenantId) return;
+    const invItems = await fetchAllRows("inventory_items", "id, name, current_qty", undefined, tenantId);
     const itemMap = new Map(invItems.map((i: any) => [i.name.trim().toLowerCase(), i]));
 
     for (const li of lineItems) {
@@ -135,14 +140,11 @@ export function useInvoiceData() {
 
       const existing = itemMap.get(key);
       if (existing) {
-        // Add purchased qty to current stock
         await supabase.from("inventory_items").update({
           current_qty: (Number(existing.current_qty) || 0) + qty,
-        } as any).eq("id", existing.id);
-        // Update local map for subsequent items in same batch
+        } as any).eq("id", existing.id).eq("tenant_id", tenantId);
         existing.current_qty = (Number(existing.current_qty) || 0) + qty;
       } else {
-        // Create new inventory item from invoice line
         const { data: newItem } = await supabase.from("inventory_items").insert({
           name: desc,
           unit_of_measure: li.unit || "unit",
@@ -150,21 +152,21 @@ export function useInvoiceData() {
           current_qty: qty,
           category_id: li.category_id || null,
           is_active: true,
+          tenant_id: tenantId,
         } as any).select("id, name, current_qty").single();
         if (newItem) itemMap.set(key, newItem);
       }
     }
-  }, []);
+  }, [tenantId]);
 
   const matchLineItemsToProductMaster = useCallback(async (lineItems: any[]) => {
-    // Fetch all product master and supplier entries
+    if (!tenantId) return lineItems;
     const [pmData, psData] = await Promise.all([
-      fetchAllRows("product_master", "id, supplier_product_name, internal_product_name, external_sku, internal_sku"),
-      fetchAllRows("product_suppliers", "id, product_master_id, supplier, external_sku, supplier_product_name"),
+      fetchAllRows("product_master", "id, supplier_product_name, internal_product_name, external_sku, internal_sku", undefined, tenantId),
+      fetchAllRows("product_suppliers", "id, product_master_id, supplier, external_sku, supplier_product_name", undefined, tenantId),
     ]);
     if (pmData.length === 0 && psData.length === 0) return lineItems;
 
-    // Build flattened entries similar to the UI
     const entries: Array<{ id: string; external_sku: string; supplier_product_name: string; internal_product_name: string; internal_sku: string; supplier?: string }> = [];
     for (const p of pmData) {
       const supplierEntries = psData.filter((s: any) => s.product_master_id === p.id);
@@ -196,13 +198,11 @@ export function useInvoiceData() {
       const itemCode = (li.item_code || "").trim().toLowerCase();
       const desc = (li.description || "").trim().toLowerCase();
 
-      // Priority 1: Exact external SKU match
       let match: any = null;
       if (itemCode) {
         match = entries.find(e => (e.external_sku || "").trim().toLowerCase() === itemCode);
       }
 
-      // Priority 2: Exact name match
       if (!match && desc) {
         match = entries.find(e => {
           const spn = (e.supplier_product_name || "").trim().toLowerCase();
@@ -210,7 +210,6 @@ export function useInvoiceData() {
         });
       }
 
-      // Priority 3: Internal product name
       if (!match && desc) {
         match = entries.find(e => {
           const ipn = (e.internal_product_name || "").trim().toLowerCase();
@@ -220,7 +219,7 @@ export function useInvoiceData() {
 
       return { ...li, product_master_id: match ? match.id : null };
     });
-  }, []);
+  }, [tenantId]);
 
   const createInvoice = useCallback(async (
     invoice: Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name" | "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes" | "verified_by" | "verified_at" | "approved_by" | "approved_at"> & Partial<Pick<Invoice, "received_date" | "payment_status" | "amount_paid" | "remaining_balance" | "payment_method" | "dispute_notes" | "verified_by" | "verified_at" | "approved_by" | "approved_at">>,
@@ -228,7 +227,8 @@ export function useInvoiceData() {
     fileUrl?: string | null,
     fileName?: string | null
   ) => {
-    const { data, error } = await supabase.from("invoices").insert({ ...invoice, file_url: fileUrl || null, file_name: fileName || null } as any).select().single();
+    if (!tenantId) return null;
+    const { data, error } = await supabase.from("invoices").insert({ ...invoice, file_url: fileUrl || null, file_name: fileName || null, tenant_id: tenantId } as any).select().single();
     if (error) {
       const isDup = (error as any).code === "23505" || /duplicate key|invoices_supplier_invoice_number_uniq/i.test(error.message || "");
       toast({
@@ -242,79 +242,76 @@ export function useInvoiceData() {
     }
 
     if (lineItems.length > 0) {
-      // Match line items against product master
       const matchedItems = await matchLineItemsToProductMaster(
-        lineItems.map((li) => ({ ...li, invoice_id: data.id }))
+        lineItems.map((li) => ({ ...li, invoice_id: data.id, tenant_id: tenantId }))
       );
       const { error: liErr } = await supabase.from("invoice_line_items").insert(matchedItems as any);
       if (liErr) toast({ title: "Error adding line items", description: liErr.message, variant: "destructive" });
 
-      // Sync to inventory
       await syncLineItemsToInventory(lineItems);
     }
     await fetchAll();
     return data;
-  }, [fetchAll, toast, syncLineItemsToInventory, matchLineItemsToProductMaster]);
+  }, [fetchAll, toast, syncLineItemsToInventory, matchLineItemsToProductMaster, tenantId]);
 
   const updateInvoice = useCallback(async (
     id: string,
     updates: Partial<Omit<Invoice, "id" | "created_at" | "supplier_name" | "line_items" | "file_url" | "file_name">>,
     lineItems?: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]
   ) => {
-    const { error } = await supabase.from("invoices").update(updates as any).eq("id", id);
+    if (!tenantId) return false;
+    const { error } = await supabase.from("invoices").update(updates as any).eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
 
     if (lineItems !== undefined) {
-      // Delete existing line items and re-insert
-      await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
+      await supabase.from("invoice_line_items").delete().eq("invoice_id", id).eq("tenant_id", tenantId);
       if (lineItems.length > 0) {
-        const items = lineItems.map((li) => ({ ...li, invoice_id: id }));
+        const items = lineItems.map((li) => ({ ...li, invoice_id: id, tenant_id: tenantId }));
         const { error: liErr } = await supabase.from("invoice_line_items").insert(items as any);
         if (liErr) { toast({ title: "Error updating line items", description: liErr.message, variant: "destructive" }); return false; }
       }
     }
     await fetchAll();
     return true;
-  }, [fetchAll, toast]);
+  }, [fetchAll, toast, tenantId]);
 
   const deleteInvoice = useCallback(async (id: string) => {
-    // Find the invoice to get file_url before deleting
+    if (!tenantId) return false;
     const invoiceToDelete = invoices.find((inv) => inv.id === id);
-
-    // Delete storage file if exists
     if (invoiceToDelete?.file_url) {
       await supabase.storage.from("invoice-files").remove([invoiceToDelete.file_url]);
     }
-
-    // Delete line items first (FK constraint)
-    await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
-    const { error } = await supabase.from("invoices").delete().eq("id", id);
+    await supabase.from("invoice_line_items").delete().eq("invoice_id", id).eq("tenant_id", tenantId);
+    const { error } = await supabase.from("invoices").delete().eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return false; }
     await fetchAll();
     toast({ title: "Invoice deleted" });
     return true;
-  }, [fetchAll, toast, invoices]);
+  }, [fetchAll, toast, invoices, tenantId]);
 
   const updateInvoiceStatus = useCallback(async (id: string, status: string, metadata?: { verified_by?: string; verified_at?: string; approved_by?: string; approved_at?: string }) => {
+    if (!tenantId) return;
     const updates: any = { status, ...metadata };
-    const { error } = await supabase.from("invoices").update(updates).eq("id", id);
+    const { error } = await supabase.from("invoices").update(updates).eq("id", id).eq("tenant_id", tenantId);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
     await fetchAll();
-  }, [fetchAll, toast]);
+  }, [fetchAll, toast, tenantId]);
 
   const createSupplier = useCallback(async (supplier: Omit<Supplier, "id">) => {
-    const { data, error } = await supabase.from("suppliers").insert(supplier as any).select().single();
+    if (!tenantId) return null;
+    const { data, error } = await supabase.from("suppliers").insert({ ...supplier, tenant_id: tenantId } as any).select().single();
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return null; }
     await fetchAll();
     return data;
-  }, [fetchAll, toast]);
+  }, [fetchAll, toast, tenantId]);
 
   const createCategory = useCallback(async (name: string, description?: string) => {
-    const { data, error } = await supabase.from("expense_categories").insert({ name, description } as any).select().single();
+    if (!tenantId) return null;
+    const { data, error } = await supabase.from("expense_categories").insert({ name, description, tenant_id: tenantId } as any).select().single();
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return null; }
     await fetchAll();
     return data;
-  }, [fetchAll, toast]);
+  }, [fetchAll, toast, tenantId]);
 
   return {
     invoices, suppliers, categories, loading,
