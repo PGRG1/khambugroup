@@ -55,6 +55,7 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
         <TabsContent value="purchase-orders"><PurchaseOrdersTab /></TabsContent>
         <TabsContent value="receiving"><ReceivingTab /></TabsContent>
         <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
+        <TabsContent value="deposit-ledger"><DepositLedgerTab /></TabsContent>
         <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
         <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>
         <TabsContent value="documents"><DocumentsTab /></TabsContent>
