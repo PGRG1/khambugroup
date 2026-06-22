@@ -35,6 +35,9 @@ import UserAccessControl from "./pages/UserAccessControl";
 import AccessDenied from "./pages/AccessDenied";
 
 import Procurement from "./pages/Procurement";
+import CreditNotes from "./pages/procurement/CreditNotes";
+import StockCounts from "./pages/procurement/StockCounts";
+
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
 import CashflowStatement from "./pages/finance/CashflowStatement";
@@ -171,6 +174,9 @@ function App() {
                 <Route path="/procurement/inventory" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="inventory" /></ProtectedRoute>} />
                 <Route path="/procurement/menu-costing" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="menu-costing" /></ProtectedRoute>} />
                 <Route path="/procurement/documents" element={<ProtectedRoute pageKey="invoices"><Procurement defaultTab="documents" /></ProtectedRoute>} />
+                <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
+                <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
+
                 
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
                 <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />

@@ -16,15 +16,16 @@ const tabTitles: Record<string, string> = {
   dashboard: "Overview",
   suppliers: "Suppliers & Vendors",
   "product-master": "Items Master",
-  categories: "Categories",
+  categories: "Categories & Units",
   invoices: "Invoices",
   "purchase-orders": "Purchase Orders",
-  receiving: "Receiving",
-  "line-items": "Invoice Line Items",
-  inventory: "Inventory",
-  "menu-costing": "Menu Costing",
+  receiving: "Goods Receipts / GRNs",
+  "line-items": "Purchase Register",
+  inventory: "Stock on Hand",
+  "menu-costing": "Recipes & Menu Costing",
   documents: "Documents",
 };
+
 
 interface ProcurementProps {
   defaultTab?: string;

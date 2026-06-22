@@ -1,11 +1,11 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -69,19 +69,41 @@ const financeAccountingItems = [
   { title: "Ledger Audit Log", url: "/finance/ledger-audit", icon: History },
 ];
 
-const procurementItems = [
-  { title: "Overview", url: "/procurement/dashboard", icon: LayoutDashboard },
+const procurementOverview = { title: "Overview", url: "/procurement/dashboard", icon: LayoutDashboard };
+
+const procurementMasterData = [
   { title: "Suppliers & Vendors", url: "/procurement/suppliers", icon: Building2 },
   { title: "Items Master", url: "/procurement/products", icon: Package },
-  { title: "Categories", url: "/procurement/categories", icon: Tags },
-  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
+  { title: "Categories & Units", url: "/procurement/categories", icon: Tags },
+];
+
+const procurementPurchasing = [
   { title: "Purchase Orders", url: "/procurement/purchase-orders", icon: ShoppingCart },
-  { title: "Receiving", url: "/procurement/receiving", icon: PackageCheck },
-  { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
-  { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
-  { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
+  { title: "Goods Receipts / GRNs", url: "/procurement/receiving", icon: PackageCheck },
+  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
+  { title: "Purchase Register", url: "/procurement/line-items", icon: ListChecks },
+  { title: "Credit & Debit Notes", url: "/procurement/credit-notes", icon: FileMinus },
   { title: "Documents", url: "/procurement/documents", icon: FolderDown },
 ];
+
+const procurementInventory = [
+  { title: "Stock on Hand", url: "/procurement/inventory", icon: ClipboardList, disabled: false },
+  { title: "Stock Counts", url: "/procurement/stock-counts", icon: ClipboardCheck, disabled: false },
+  { title: "Stock Movements", url: "/procurement/stock-movements", icon: ArrowLeftRight, disabled: true },
+  { title: "Transfers", url: "/procurement/transfers", icon: ArrowRightLeft, disabled: true },
+  { title: "Waste & Adjustments", url: "/procurement/waste", icon: Trash2, disabled: true },
+];
+
+const procurementCosting = [
+  { title: "Recipes & Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
+];
+
+const procurementAnalysis = [
+  { title: "Purchase Analysis", url: "/procurement/purchase-analysis", icon: BarChart3, disabled: true },
+  { title: "Supplier Pricing", url: "/procurement/supplier-pricing", icon: Tag, disabled: true },
+  { title: "Inventory Variance", url: "/procurement/inventory-variance", icon: TrendingDown, disabled: true },
+];
+
 
 const hrItems = [
   { title: "Employee Directory", url: "/hr/employees", icon: Users },
@@ -324,9 +346,51 @@ export function AppSidebar() {
             defaultOpen={groupState.procurement}
             onOpenChange={(o) => setGroup("procurement", o)}
           >
-            <SidebarMenu>{procurementItems.map(renderLink)}</SidebarMenu>
+            <SidebarMenu>{renderLink(procurementOverview)}</SidebarMenu>
+
+            {[
+              { label: "Master Data", items: procurementMasterData },
+              { label: "Purchasing", items: procurementPurchasing },
+              { label: "Inventory", items: procurementInventory },
+              { label: "Costing", items: procurementCosting },
+              { label: "Analysis", items: procurementAnalysis },
+            ].map((sub) => (
+              <React.Fragment key={sub.label}>
+                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                      <span className="flex items-center gap-2">
+                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                        {sub.label}
+                      </span>
+                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                      <SidebarMenu>
+                        {sub.items.map((item: any) =>
+                          item.disabled ? (
+                            <SidebarMenuItem key={item.title}>
+                              <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground opacity-40 pointer-events-none">
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </div>
+                            </SidebarMenuItem>
+                          ) : (
+                            renderLink(item)
+                          )
+                        )}
+                      </SidebarMenu>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </React.Fragment>
+            ))}
           </CollapsibleNavGroup>
         )}
+
 
         {showHR && (
           <CollapsibleNavGroup
