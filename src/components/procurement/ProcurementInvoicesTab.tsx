@@ -919,7 +919,7 @@ export default function ProcurementInvoicesTab() {
           {editDisputeStats.hasDispute && (
             <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>Invoice disputed — quantity differences must be resolved before saving.</span>
+              <span>Quantity differences logged — set a reason for each disputed line so the discrepancy can be followed up. You can still save the invoice.</span>
             </div>
           )}
 

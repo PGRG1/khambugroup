@@ -1164,8 +1164,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disputeStats.hasDispute, currentIdx]);
 
+  // Disputed invoices can still be saved — we only require a reason/note so the
+  // discrepancy is documented for follow-up. The dispute itself does not block.
   const receivingBlocksApproval =
-    disputeStats.hasDispute || disputeStats.missingReason > 0 || disputeStats.missingNote > 0;
+    disputeStats.missingReason > 0 || disputeStats.missingNote > 0;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
@@ -1473,7 +1475,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               {disputeStats.hasDispute && (
                 <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span>Invoice disputed — quantity differences must be resolved before approval.</span>
+                  <span>Quantity differences logged — set a reason for each line so the dispute can be followed up after saving.</span>
                 </div>
               )}
             </div>
@@ -1962,12 +1964,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first (or use Override)`
                         : hasUnmatchedItems
                         ? "Match all items first"
-                        : disputeStats.hasDispute
-                        ? "Resolve quantity differences before approval"
                         : disputeStats.missingReason > 0
                         ? "Select a reason for every disputed line"
                         : disputeStats.missingNote > 0
                         ? "Add a note for every line where Reason is Other"
+                        : disputeStats.hasDispute
+                        ? "Save invoice with logged dispute for follow-up"
                         : "Approve and save invoice"
                     }
                   >
@@ -1977,7 +1979,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       : hasBlockingIssues
                       ? `Resolve ${blockingCount} Blocking`
                       : disputeStats.hasDispute
-                      ? `Resolve ${disputeStats.disputedLines} Disputed`
+                      ? `Save with ${disputeStats.disputedLines} Disputed`
                       : "Approve & Save"}
                   </Button>
                 </>
