@@ -2443,6 +2443,7 @@ export type Database = {
       }
       grn_items: {
         Row: {
+          accepted_qty: number | null
           created_at: string
           description: string
           grn_id: string
@@ -2450,14 +2451,18 @@ export type Database = {
           invoice_line_item_id: string | null
           po_item_id: string | null
           product_master_id: string | null
+          qty_difference: number | null
           quantity_invoiced: number | null
           quantity_ordered: number | null
           quantity_received: number
+          receiving_note: string | null
+          receiving_reason: string | null
           total: number | null
           unit: string
           unit_cost: number
         }
         Insert: {
+          accepted_qty?: number | null
           created_at?: string
           description: string
           grn_id: string
@@ -2465,14 +2470,18 @@ export type Database = {
           invoice_line_item_id?: string | null
           po_item_id?: string | null
           product_master_id?: string | null
+          qty_difference?: number | null
           quantity_invoiced?: number | null
           quantity_ordered?: number | null
           quantity_received?: number
+          receiving_note?: string | null
+          receiving_reason?: string | null
           total?: number | null
           unit?: string
           unit_cost?: number
         }
         Update: {
+          accepted_qty?: number | null
           created_at?: string
           description?: string
           grn_id?: string
@@ -2480,9 +2489,12 @@ export type Database = {
           invoice_line_item_id?: string | null
           po_item_id?: string | null
           product_master_id?: string | null
+          qty_difference?: number | null
           quantity_invoiced?: number | null
           quantity_ordered?: number | null
           quantity_received?: number
+          receiving_note?: string | null
+          receiving_reason?: string | null
           total?: number | null
           unit?: string
           unit_cost?: number
@@ -3951,6 +3963,7 @@ export type Database = {
           exception_note: string
           file_name: string | null
           file_url: string | null
+          grn_id: string | null
           id: string
           invoice_date: string
           invoice_number: string
@@ -3991,6 +4004,7 @@ export type Database = {
           exception_note?: string
           file_name?: string | null
           file_url?: string | null
+          grn_id?: string | null
           id?: string
           invoice_date: string
           invoice_number: string
@@ -4031,6 +4045,7 @@ export type Database = {
           exception_note?: string
           file_name?: string | null
           file_url?: string | null
+          grn_id?: string | null
           id?: string
           invoice_date?: string
           invoice_number?: string
@@ -4055,6 +4070,13 @@ export type Database = {
           verified_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_grn_id_fkey"
+            columns: ["grn_id"]
+            isOneToOne: false
+            referencedRelation: "goods_received_notes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_supplier_id_fkey"
             columns: ["supplier_id"]
