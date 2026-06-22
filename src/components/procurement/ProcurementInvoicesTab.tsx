@@ -1157,10 +1157,37 @@ export default function ProcurementInvoicesTab() {
                 placeholder="0.00"
               />
             </div>
-            <div>
-              <span className="text-muted-foreground">Total: </span>
-              <span className="font-mono font-bold">{(editTotal - (Number((editForm as any).discount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
+            {(() => {
+              const invSub = editLines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const accSub = editLines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const disputed = invSub - accSub;
+              const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
+              const docTotal = invSub - (Number((editForm as any).discount) || 0);
+              return (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Invoiced subtotal: </span>
+                    <span className="font-mono font-medium text-muted-foreground">{invSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Accepted subtotal: </span>
+                    <span className={`font-mono font-medium ${accCls}`}>{accSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  {Math.abs(disputed) > 0.001 && (
+                    <div>
+                      <span className="text-muted-foreground">Disputed: </span>
+                      <span className="font-mono font-medium text-red-400">
+                        {disputed > 0 ? "−" : "+"}{Math.abs(disputed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-muted-foreground">Doc total: </span>
+                    <span className="font-mono font-bold">{docTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
