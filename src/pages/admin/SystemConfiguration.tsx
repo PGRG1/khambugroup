@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useVenues, Venue } from "@/hooks/useVenues";
 import { useServicePeriods, ServicePeriod } from "@/hooks/useServicePeriods";
 import { useRevenueSources, RevenueSource } from "@/hooks/useRevenueSources";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   ChevronDown,
   Building2,
@@ -19,6 +23,10 @@ import {
   Check,
   X,
   Lock,
+  ClipboardCheck,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 const SectionShell = ({
@@ -499,6 +507,313 @@ const RevenueSourcesSection = () => {
   );
 };
 
+// ---------- Procurement ----------
+type StockLocation = {
+  id: string;
+  venue: string;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+};
+
+const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
+const REF_MODES = [
+  {
+    value: "none",
+    title: "None — blind count",
+    desc: "No reference shown. Best for unbiased counts.",
+    pill: null as null | { label: string; cls: string },
+    disabled: false,
+  },
+  {
+    value: "last_count",
+    title: "Last count qty",
+    desc: "Shows qty from the most recent approved count.",
+    pill: { label: "Recommended", cls: "bg-green-100 text-green-700" },
+    disabled: false,
+  },
+  {
+    value: "expected",
+    title: "Expected on hand",
+    desc: "Requires Stock Movements module.",
+    pill: { label: "Coming soon", cls: "bg-gray-200 text-gray-600" },
+    disabled: true,
+  },
+];
+
+const ProcurementSection = () => {
+  const { tenantId } = useActiveTenant();
+  const [refMode, setRefMode] = useState<string>("last_count");
+  const [locations, setLocations] = useState<StockLocation[]>([]);
+  const [activeVenue, setActiveVenue] = useState<string>("Assembly");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [newName, setNewName] = useState("");
+
+  const loadLocations = async () => {
+    const { data } = await supabase
+      .from("stock_locations")
+      .select("*")
+      .order("venue")
+      .order("sort_order");
+    setLocations((data as StockLocation[]) ?? []);
+  };
+
+  const loadRefMode = async () => {
+    if (!tenantId) return;
+    const { data } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("tenant_id", tenantId)
+      .eq("key", "stock_count_reference_mode")
+      .maybeSingle();
+    if (data?.value) {
+      const v = typeof data.value === "string" ? data.value : (data.value as any);
+      setRefMode(typeof v === "string" ? v : String(v));
+    }
+  };
+
+  useEffect(() => {
+    loadLocations();
+  }, []);
+  useEffect(() => {
+    loadRefMode();
+  }, [tenantId]);
+
+  const saveRefMode = async (value: string) => {
+    if (!tenantId) {
+      toast.error("No active tenant");
+      return;
+    }
+    setRefMode(value);
+    const { error } = await supabase
+      .from("app_config")
+      .upsert(
+        { tenant_id: tenantId, key: "stock_count_reference_mode", value: value as any },
+        { onConflict: "tenant_id,key" }
+      );
+    if (error) toast.error(error.message);
+  };
+
+  const venueLocations = locations
+    .filter((l) => l.venue === activeVenue)
+    .sort((a, b) => a.sort_order - b.sort_order);
+
+  const move = async (idx: number, dir: -1 | 1) => {
+    const next = idx + dir;
+    if (next < 0 || next >= venueLocations.length) return;
+    const a = venueLocations[idx];
+    const b = venueLocations[next];
+    await supabase.from("stock_locations").update({ sort_order: b.sort_order }).eq("id", a.id);
+    await supabase.from("stock_locations").update({ sort_order: a.sort_order }).eq("id", b.id);
+    await loadLocations();
+  };
+
+  const startEdit = (loc: StockLocation) => {
+    setEditingId(loc.id);
+    setEditDraft(loc.name);
+  };
+
+  const saveEdit = async (loc: StockLocation) => {
+    const name = editDraft.trim();
+    if (!name || name === loc.name) {
+      setEditingId(null);
+      return;
+    }
+    const { error } = await supabase.from("stock_locations").update({ name }).eq("id", loc.id);
+    if (error) toast.error(error.message);
+    else await loadLocations();
+    setEditingId(null);
+  };
+
+  const handleDelete = async (loc: StockLocation) => {
+    const { count } = await supabase
+      .from("stock_count_items")
+      .select("id", { count: "exact", head: true })
+      .eq("location_id", loc.id);
+    if ((count ?? 0) > 0) {
+      toast.error("Cannot delete — this location is used in an existing count.");
+      return;
+    }
+    if (!confirm(`Delete location "${loc.name}"?`)) return;
+    const { error } = await supabase.from("stock_locations").delete().eq("id", loc.id);
+    if (error) toast.error(error.message);
+    else await loadLocations();
+  };
+
+  const handleAdd = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    const maxOrder = venueLocations.reduce((m, l) => Math.max(m, l.sort_order), 0);
+    const { error } = await supabase
+      .from("stock_locations")
+      .insert({ venue: activeVenue, name, sort_order: maxOrder + 1 });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setNewName("");
+    await loadLocations();
+  };
+
+  return (
+    <SectionShell
+      icon={ClipboardCheck}
+      title="Procurement"
+      subtitle="Stock count behaviour and location management."
+      count={locations.length}
+    >
+      {/* Part A — Reference mode */}
+      <div>
+        <div className="text-sm font-medium text-foreground">Stock count reference quantity</div>
+        <div className="text-xs text-muted-foreground mb-4">
+          Controls what counters see alongside each item.
+        </div>
+        <div className="space-y-2">
+          {REF_MODES.map((opt) => {
+            const selected = refMode === opt.value;
+            return (
+              <div
+                key={opt.value}
+                onClick={() => !opt.disabled && saveRefMode(opt.value)}
+                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                } ${opt.disabled ? "opacity-40 pointer-events-none" : ""}`}
+              >
+                <div
+                  className={`mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                    selected ? "border-primary" : "border-muted-foreground/40"
+                  }`}
+                >
+                  {selected && <div className="h-2 w-2 rounded-full bg-primary" />}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-foreground flex items-center">
+                    {opt.title}
+                    {opt.pill && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full ml-2 inline ${opt.pill.cls}`}
+                      >
+                        {opt.pill.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <Separator className="my-5" />
+
+      {/* Part B — Stock locations */}
+      <div>
+        <div className="text-sm font-medium text-foreground">Stock count locations</div>
+        <div className="text-xs text-muted-foreground mb-3">
+          Define counting zones per venue. Optional.
+        </div>
+
+        <div className="flex gap-1 border-b border-border mb-3">
+          {VENUES.map((v) => (
+            <button
+              key={v}
+              onClick={() => setActiveVenue(v)}
+              className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
+                activeVenue === v
+                  ? "border-primary text-foreground font-medium"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+
+        <div className="rounded-lg border border-border bg-card">
+          {venueLocations.length === 0 ? (
+            <div className="text-xs text-muted-foreground p-3 text-center">
+              No locations for {activeVenue} yet.
+            </div>
+          ) : (
+            venueLocations.map((loc, idx) => (
+              <div
+                key={loc.id}
+                className="flex items-center gap-2 px-3 py-2 border-b border-border last:border-0"
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col gap-0">
+                  <button
+                    onClick={() => move(idx, -1)}
+                    disabled={idx === 0}
+                    className="h-3 w-4 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  >
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => move(idx, 1)}
+                    disabled={idx === venueLocations.length - 1}
+                    className="h-3 w-4 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
+                </div>
+                {editingId === loc.id ? (
+                  <Input
+                    autoFocus
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    onBlur={() => saveEdit(loc)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveEdit(loc);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    className="h-7 text-sm flex-1"
+                  />
+                ) : (
+                  <div className="flex-1 text-sm text-foreground">{loc.name}</div>
+                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => startEdit(loc)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 hover:text-destructive"
+                  onClick={() => handleDelete(loc)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="flex gap-2 pt-3 border-t border-border mt-3">
+          <Input
+            placeholder={`New location for ${activeVenue}`}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdd();
+            }}
+            className="h-8 text-sm"
+          />
+          <Button size="sm" onClick={handleAdd} disabled={!newName.trim()}>
+            <Plus className="h-4 w-4 mr-1" /> Add
+          </Button>
+        </div>
+      </div>
+    </SectionShell>
+  );
+};
+
 // ---------- Page ----------
 const SystemConfiguration = () => {
   const { isAdmin } = useAuth();
@@ -518,6 +833,7 @@ const SystemConfiguration = () => {
       <VenuesSection />
       <ServicePeriodsSection />
       <RevenueSourcesSection />
+      <ProcurementSection />
     </div>
   );
 };
