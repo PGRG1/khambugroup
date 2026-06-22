@@ -33,9 +33,14 @@ export function useActiveTenant() {
         tenant_name: r.tenants?.name,
       }));
       setMemberships(m);
-      // Validate stored tenant; fall back to first membership.
+      const isSuper = m.some((x) => x.role === "super_admin" || x.role === "platform_admin");
       const stored = localStorage.getItem(STORAGE_KEY);
-      const valid = stored && m.some((x) => x.tenant_id === stored);
+      // Super-admins can hold any tenant_id; verify it exists. Regular users must be members.
+      let valid = !!stored && m.some((x) => x.tenant_id === stored);
+      if (!valid && stored && isSuper) {
+        const { data: t } = await supabase.from("tenants").select("id").eq("id", stored).maybeSingle();
+        valid = !!t;
+      }
       const next = valid ? stored : m[0]?.tenant_id ?? null;
       if (next && next !== stored) localStorage.setItem(STORAGE_KEY, next);
       setTenantIdState(next);
