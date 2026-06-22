@@ -1964,12 +1964,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first (or use Override)`
                         : hasUnmatchedItems
                         ? "Match all items first"
-                        : disputeStats.hasDispute
-                        ? "Resolve quantity differences before approval"
                         : disputeStats.missingReason > 0
                         ? "Select a reason for every disputed line"
                         : disputeStats.missingNote > 0
                         ? "Add a note for every line where Reason is Other"
+                        : disputeStats.hasDispute
+                        ? "Save invoice with logged dispute for follow-up"
                         : "Approve and save invoice"
                     }
                   >
@@ -1979,7 +1979,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       : hasBlockingIssues
                       ? `Resolve ${blockingCount} Blocking`
                       : disputeStats.hasDispute
-                      ? `Resolve ${disputeStats.disputedLines} Disputed`
+                      ? `Save with ${disputeStats.disputedLines} Disputed`
                       : "Approve & Save"}
                   </Button>
                 </>
