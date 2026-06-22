@@ -40,7 +40,7 @@ interface InventoryRow extends ProductRow {
 
 type SortKey = "internal_sku" | "internal_product_name" | "level1_category" | "qty_on_hand" | "avg_cost" | "cost_value" | "unit_cost" | "supplier_value";
 
-export default function InventoryOnHandTab() {
+export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inventory" | "deposits" } = {}) {
   const navigate = useNavigate();
   const { tenantId } = useActiveTenant();
   const [products, setProducts] = useState<ProductRow[]>([]);
