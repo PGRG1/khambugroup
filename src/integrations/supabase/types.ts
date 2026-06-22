@@ -6576,6 +6576,158 @@ export type Database = {
           },
         ]
       }
+      stock_count_items: {
+        Row: {
+          counted_at: string | null
+          counted_by: string | null
+          counted_qty: number | null
+          created_at: string
+          id: string
+          last_count_qty: number | null
+          location_id: string | null
+          notes: string | null
+          product_master_id: string
+          session_id: string
+          unit: string
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          counted_at?: string | null
+          counted_by?: string | null
+          counted_qty?: number | null
+          created_at?: string
+          id?: string
+          last_count_qty?: number | null
+          location_id?: string | null
+          notes?: string | null
+          product_master_id: string
+          session_id: string
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          counted_at?: string | null
+          counted_by?: string | null
+          counted_qty?: number | null
+          created_at?: string
+          id?: string
+          last_count_qty?: number | null
+          location_id?: string | null
+          notes?: string | null
+          product_master_id?: string
+          session_id?: string
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_count_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_items_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "stock_count_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_count_sessions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          count_date: string
+          count_type: string
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          reference_mode: string
+          session_number: string
+          status: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          count_date?: string
+          count_type?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          reference_mode?: string
+          session_number?: string
+          status?: string
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          count_date?: string
+          count_type?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          reference_mode?: string
+          session_number?: string
+          status?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: []
+      }
+      stock_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          venue: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          venue: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          venue?: string
+        }
+        Relationships: []
+      }
       supplier_item_mappings: {
         Row: {
           created_at: string
