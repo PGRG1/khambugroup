@@ -48,7 +48,7 @@ export async function autoCreateGrnFromInvoice(
 
     const { data: lines, error: linesErr } = await supabase
       .from("invoice_line_items")
-      .select("id, description, unit, quantity, unit_price, product_master_id, accepted_qty, qty_difference, receiving_reason, receiving_note")
+      .select("id, description, unit, quantity, unit_price, normalized_unit_cost, total, discount, product_master_id, accepted_qty, qty_difference, receiving_reason, receiving_note")
       .eq("invoice_id", invoiceId)
       .eq("tenant_id", tenantId);
     if (linesErr) return { error: linesErr.message };
@@ -82,7 +82,17 @@ export async function autoCreateGrnFromInvoice(
         const qtyAcc = l.accepted_qty != null ? Number(l.accepted_qty) : qtyInv;
         const diff = l.qty_difference != null ? Number(l.qty_difference) : qtyAcc - qtyInv;
         if (diff !== 0) disputed = true;
-        const unitCost = Number(l.unit_price) || 0;
+        // Cost resolution fallback chain: unit_price → normalized_unit_cost → (total+discount)/qty
+        let unitCost = Number(l.unit_price) || 0;
+        if (unitCost === 0) {
+          const nuc = Number(l.normalized_unit_cost) || 0;
+          if (nuc > 0) unitCost = nuc;
+        }
+        if (unitCost === 0) {
+          const lineTotal = Number(l.total) || 0;
+          const lineDisc = Number(l.discount) || 0;
+          if (lineTotal > 0 && qtyInv > 0) unitCost = (lineTotal + lineDisc) / qtyInv;
+        }
         return {
           grn_id: grnId,
           invoice_line_item_id: l.id,
