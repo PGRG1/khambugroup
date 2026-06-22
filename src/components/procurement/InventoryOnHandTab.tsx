@@ -247,7 +247,7 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="rounded-lg bg-primary/10 p-2"><DollarSign className="h-5 w-5 text-primary" /></div>
-            <div><p className="text-xs text-muted-foreground">Total Cost Value</p><p className="text-xl font-bold tabular-nums">${fmt(totals.costValue)}</p></div>
+            <div><p className="text-xs text-muted-foreground">{mode === "deposits" ? "Total Deposit Value (Cost)" : "Total Cost Value"}</p><p className="text-xl font-bold tabular-nums">${fmt(totals.costValue)}</p></div>
           </CardContent>
         </Card>
         <Card>
