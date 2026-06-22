@@ -3717,6 +3717,7 @@ export type Database = {
       }
       invoice_line_items: {
         Row: {
+          accepted_qty: number | null
           ai_suggestion: Json | null
           category_id: string | null
           created_at: string
@@ -3730,7 +3731,10 @@ export type Database = {
           pack_size: string | null
           pack_size_norm: string | null
           product_master_id: string | null
+          qty_difference: number | null
           quantity: number
+          receiving_note: string | null
+          receiving_reason: string | null
           standard_product_id: string | null
           tax_amount: number
           tenant_id: string
@@ -3741,6 +3745,7 @@ export type Database = {
           weight: number | null
         }
         Insert: {
+          accepted_qty?: number | null
           ai_suggestion?: Json | null
           category_id?: string | null
           created_at?: string
@@ -3754,7 +3759,10 @@ export type Database = {
           pack_size?: string | null
           pack_size_norm?: string | null
           product_master_id?: string | null
+          qty_difference?: number | null
           quantity?: number
+          receiving_note?: string | null
+          receiving_reason?: string | null
           standard_product_id?: string | null
           tax_amount?: number
           tenant_id?: string
@@ -3765,6 +3773,7 @@ export type Database = {
           weight?: number | null
         }
         Update: {
+          accepted_qty?: number | null
           ai_suggestion?: Json | null
           category_id?: string | null
           created_at?: string
@@ -3778,7 +3787,10 @@ export type Database = {
           pack_size?: string | null
           pack_size_norm?: string | null
           product_master_id?: string | null
+          qty_difference?: number | null
           quantity?: number
+          receiving_note?: string | null
+          receiving_reason?: string | null
           standard_product_id?: string | null
           tax_amount?: number
           tenant_id?: string
