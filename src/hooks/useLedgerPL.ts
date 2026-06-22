@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import type { ChartAccount } from "@/hooks/useChartOfAccounts";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export interface LedgerPLPeriod {
   id: string;
@@ -32,6 +33,7 @@ interface JEntry {
  *   COGS / opex / other_expense: debit - credit (positive = expense)
  */
 export function useLedgerPL(periods: LedgerPLPeriod[]) {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [entries, setEntries] = useState<JEntry[]>([]);
   const [lines, setLines] = useState<JLine[]>([]);
   const [accounts, setAccounts] = useState<ChartAccount[]>([]);
@@ -50,13 +52,14 @@ export function useLedgerPL(periods: LedgerPLPeriod[]) {
   }, [periods]);
 
   const fetchAll = useCallback(async () => {
+    if (!tenantId) { setEntries([]); setLines([]); setAccounts([]); setLoading(false); return; }
     setLoading(true);
-    // Use fetchAllRows for entries to bypass 1000-row PostgREST cap, then filter in JS
     const [allEntries, accRes] = await Promise.all([
-      fetchAllRows("journal_entries", "id,entry_date,status"),
+      fetchAllRows("journal_entries", "id,entry_date,status", undefined, tenantId),
       supabase
         .from("chart_of_accounts" as any)
         .select("*")
+        .eq("tenant_id", tenantId)
         .order("code", { ascending: true }),
     ]);
     const ents = ((allEntries as unknown) as JEntry[]).filter(
@@ -70,12 +73,13 @@ export function useLedgerPL(periods: LedgerPLPeriod[]) {
       return;
     }
     const ids = new Set(ents.map(e => e.id));
-    const all = await fetchAllRows("journal_lines", "account_id,debit,credit,venue,entry_id");
+    const all = await fetchAllRows("journal_lines", "account_id,debit,credit,venue,entry_id", undefined, tenantId);
     setLines((all as JLine[]).filter(l => ids.has(l.entry_id)));
     setLoading(false);
-  }, [range.from, range.to]);
+  }, [range.from, range.to, tenantId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { if (!tenantLoading) fetchAll(); }, [fetchAll, tenantLoading]);
+
 
   const entryDate = useMemo(() => {
     const m = new Map<string, string>();
