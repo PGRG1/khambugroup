@@ -1462,8 +1462,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <SelectItem value="outstanding">Outstanding</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="under_review">Under Review</SelectItem>
+                  <SelectItem value="disputed">Disputed</SelectItem>
                 </SelectContent>
               </Select>
+              {disputeStats.hasDispute && (
+                <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span>Invoice disputed — quantity differences must be resolved before approval.</span>
+                </div>
+              )}
             </div>
             <div>
               <Label className="text-xs">Invoice Date</Label>
