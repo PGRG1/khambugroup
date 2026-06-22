@@ -1528,7 +1528,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th style={{ minWidth: 140 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Note</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
-                  <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
+                  <th style={{ minWidth: 90 }} className="text-right px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Invoiced Amount</th>
+                  <th style={{ minWidth: 90 }} className="text-right px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Accepted Amount</th>
 
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Status</th>
                   <th className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Action</th>
@@ -1792,14 +1793,34 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           placeholder="0"
                         />
                       </td>
-                      {/* Total */}
-                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
-                        <Input
-                          type="number"
-                          value={line.total}
-                          onChange={(e) => updateLine(i, "total", e.target.value)}
-                          className="text-xs font-medium h-8 w-full"
-                        />
+                      {/* Invoiced Amount */}
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                        {(() => {
+                          const q = parseFloat(line.quantity) || 0;
+                          const p = parseFloat(line.unit_price) || 0;
+                          const inv = q * p;
+                          return (
+                            <div className="h-8 flex items-center justify-end px-2 font-mono text-xs text-muted-foreground">
+                              {inv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      {/* Accepted Amount */}
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                        {(() => {
+                          const q = parseFloat(line.quantity) || 0;
+                          const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+                          const p = parseFloat(line.unit_price) || 0;
+                          const inv = q * p;
+                          const acc = a * p;
+                          const cls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
+                          return (
+                            <div className={`h-8 flex items-center justify-end px-2 font-mono text-xs font-medium ${cls}`}>
+                              {acc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          );
+                        })()}
                       </td>
                       {/* Status */}
                       <td className="px-1 py-1 align-top">
@@ -1862,10 +1883,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
           {/* Totals */}
           <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
-            <div>
-              <span className="text-muted-foreground">Subtotal: </span>
-              <span className="font-mono font-medium">{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
             {taxTotal > 0 && (
               <div>
                 <span className="text-muted-foreground">Tax: </span>
@@ -1892,15 +1909,33 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 placeholder="0.00"
               />
             </div>
-            <div>
-              <span className="text-muted-foreground">Total: </span>
-              <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
-                {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              {currentMode === "integer" && (
-                <span className="text-xs text-muted-foreground ml-1">(rounded)</span>
-              )}
-            </div>
+            {(() => {
+              const lines = current?.line_items || [];
+              const invSub = lines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const accSub = lines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const disputed = invSub - accSub;
+              const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
+              return (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Invoiced subtotal: </span>
+                    <span className="font-mono font-medium text-muted-foreground">{invSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Accepted subtotal: </span>
+                    <span className={`font-mono font-medium ${accCls}`}>{accSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  {Math.abs(disputed) > 0.001 && (
+                    <div>
+                      <span className="text-muted-foreground">Disputed: </span>
+                      <span className="font-mono font-medium text-red-400">
+                        {disputed > 0 ? "−" : "+"}{Math.abs(disputed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             {aiTotal !== undefined && (
               <div>
                 <span className="text-xs text-muted-foreground">

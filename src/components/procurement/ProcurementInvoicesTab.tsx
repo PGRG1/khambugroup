@@ -928,7 +928,7 @@ export default function ProcurementInvoicesTab() {
 
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full min-w-[1700px] border-collapse text-xs">
+            <table className="w-full min-w-[1810px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border">
                   <th className="w-7 px-1 py-1.5 text-left font-medium text-muted-foreground">#</th>
@@ -945,7 +945,8 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[160px] px-1 py-1.5 text-left font-medium text-muted-foreground">Reason</th>
                   <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Note</th>
                   <th className="w-[95px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Cost</th>
-                  <th className="w-[90px] px-1 py-1.5 text-left font-medium text-muted-foreground">Total</th>
+                  <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Invoiced Amount</th>
+                  <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Accepted Amount</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
@@ -1095,9 +1096,28 @@ export default function ProcurementInvoicesTab() {
                           )}
                         </div>
                       </td>
-                      <td className="px-1 py-1 align-top">
-                        <Input value={line.total} readOnly tabIndex={-1} className="h-8 text-xs font-medium min-w-[90px] bg-muted/50 cursor-default font-mono" />
-                      </td>
+                      {(() => {
+                        const q = parseFloat(line.quantity) || 0;
+                        const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+                        const p = parseFloat(line.unit_price) || 0;
+                        const inv = q * p;
+                        const acc = a * p;
+                        const accCls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
+                        return (
+                          <>
+                            <td className="px-1 py-1 align-top">
+                              <div className="h-8 flex items-center justify-end px-2 font-mono text-xs text-muted-foreground min-w-[100px]">
+                                {inv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </td>
+                            <td className="px-1 py-1 align-top">
+                              <div className={`h-8 flex items-center justify-end px-2 font-mono text-xs font-medium min-w-[100px] ${accCls}`}>
+                                {acc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </td>
+                          </>
+                        );
+                      })()}
                       <td className="px-1 py-1 align-top">
                         {editLines.length > 1 && (
                           <Button size="icon" variant="ghost" onClick={() => removeEditLine(index)} className="h-8 w-8">
@@ -1117,10 +1137,6 @@ export default function ProcurementInvoicesTab() {
           </Button>
 
           <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
-            <div>
-              <span className="text-muted-foreground">Subtotal: </span>
-              <span className="font-mono font-medium">{editSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">Discount:</span>
               <Select
@@ -1141,10 +1157,37 @@ export default function ProcurementInvoicesTab() {
                 placeholder="0.00"
               />
             </div>
-            <div>
-              <span className="text-muted-foreground">Total: </span>
-              <span className="font-mono font-bold">{(editTotal - (Number((editForm as any).discount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
+            {(() => {
+              const invSub = editLines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const accSub = editLines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const disputed = invSub - accSub;
+              const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
+              const docTotal = invSub - (Number((editForm as any).discount) || 0);
+              return (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Invoiced subtotal: </span>
+                    <span className="font-mono font-medium text-muted-foreground">{invSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Accepted subtotal: </span>
+                    <span className={`font-mono font-medium ${accCls}`}>{accSub.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  {Math.abs(disputed) > 0.001 && (
+                    <div>
+                      <span className="text-muted-foreground">Disputed: </span>
+                      <span className="font-mono font-medium text-red-400">
+                        {disputed > 0 ? "−" : "+"}{Math.abs(disputed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-muted-foreground">Doc total: </span>
+                    <span className="font-mono font-bold">{docTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
