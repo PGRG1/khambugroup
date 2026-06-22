@@ -156,6 +156,13 @@ export default function PurchaseOrdersTab() {
     });
   };
 
+  const supplierProducts = useMemo(() => {
+    const supName = suppliers.find((s) => s.id === supplierId)?.name;
+    if (!supName) return [];
+    const ids = new Set(psRows.filter((r) => r.supplier === supName).map((r) => r.product_master_id));
+    return products.filter((p) => ids.has(p.id));
+  }, [supplierId, suppliers, psRows, products]);
+
   const draftTotal = useMemo(
     () => lines.reduce((s, l) => s + (Number(l.quantity_ordered) || 0) * (Number(l.unit_price) || 0), 0),
     [lines]
