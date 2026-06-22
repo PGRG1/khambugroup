@@ -949,7 +949,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           );
           if (resolved) pmId = resolved.id;
         }
-        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
+        const acceptedQtyVal = parseFloat(l.accepted_qty ?? l.quantity ?? "0");
+        const acceptedQty = Number.isFinite(acceptedQtyVal) ? acceptedQtyVal : qty;
+        const qtyDiff = acceptedQty - qty;
+        const recvReason = qtyDiff === 0 ? "matched" : (l.receiving_reason || null);
+        const recvNote = (l.receiving_note || "").trim() || null;
+        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId, accepted_qty: acceptedQty, qty_difference: qtyDiff, receiving_reason: recvReason, receiving_note: recvNote } as any;
       });
 
       const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
