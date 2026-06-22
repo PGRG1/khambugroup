@@ -928,7 +928,7 @@ export default function ProcurementInvoicesTab() {
 
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
-            <table className="w-full min-w-[1700px] border-collapse text-xs">
+            <table className="w-full min-w-[1810px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border">
                   <th className="w-7 px-1 py-1.5 text-left font-medium text-muted-foreground">#</th>
