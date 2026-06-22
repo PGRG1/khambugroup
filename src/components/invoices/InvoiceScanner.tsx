@@ -1936,15 +1936,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 </>
               );
             })()}
-            <div>
-              <span className="text-muted-foreground">Doc total: </span>
-              <span className={`font-mono font-bold ${totalMismatch ? "text-amber-600" : ""}`}>
-                {displayTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              {currentMode === "integer" && (
-                <span className="text-xs text-muted-foreground ml-1">(rounded)</span>
-              )}
-            </div>
             {aiTotal !== undefined && (
               <div>
                 <span className="text-xs text-muted-foreground">
