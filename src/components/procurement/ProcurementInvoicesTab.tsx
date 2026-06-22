@@ -1203,6 +1203,33 @@ export default function ProcurementInvoicesTab() {
               runBaniScan({ invoiceId: created.id, tenantId, force: true }).catch((e) =>
                 console.warn("Bani auto-scan failed", e)
               );
+
+              // Auto-create matching GRN from the scanner's receiving fields.
+              const grnRes = await autoCreateGrnFromInvoice(created.id, {
+                tenantId,
+                userId: user?.id || "",
+              });
+              if (grnRes.error) {
+                console.error("Auto-GRN creation failed:", grnRes.error);
+                toast.error("Invoice confirmed, but GRN creation failed — see console.");
+              } else if (!grnRes.skipped && grnRes.grn) {
+                const grnNo = grnRes.grn.grn_number;
+                const action = {
+                  label: "View GRN",
+                  onClick: () => navigate("/procurement/receiving"),
+                };
+                if (grnRes.disputed) {
+                  toast.warning(
+                    `Invoice confirmed with disputes. GRN ${grnNo} created — review disputed lines.`,
+                    { action }
+                  );
+                } else {
+                  toast.success(
+                    `Invoice confirmed. GRN ${grnNo} created and posted to inventory.`,
+                    { action }
+                  );
+                }
+              }
             }
           }}
           onClose={() => {
