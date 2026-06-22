@@ -91,7 +91,7 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
       setLineAgg((lineRes.data as any[]).map((r: any) => ({ product_master_id: r.product_master_id, total_qty: Number(r.total_qty), total_spend: Number(r.total_spend) })));
     }
     setLoading(false);
-  }, [tenantId]);
+  }, [tenantId, mode]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
