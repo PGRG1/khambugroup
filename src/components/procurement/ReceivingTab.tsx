@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, X, Trash2, ChevronsUpDown } from "lucide-react";
+import { Plus, X, Trash2, ChevronsUpDown, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { backfillGrnsFromInvoices } from "@/utils/backfillGrnsFromInvoices";
 
 const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
 type Venue = typeof VENUES[number];
