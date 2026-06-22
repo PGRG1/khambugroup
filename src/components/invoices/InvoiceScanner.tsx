@@ -173,7 +173,45 @@ const emptyLine: ScannedLineItem = {
   unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "",
   matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
   unmatched: false, price_changed: false,
+  accepted_qty: "1", accepted_qty_touched: false, receiving_reason: "matched", receiving_note: "",
 };
+
+const RECEIVING_REASONS: { value: string; label: string }[] = [
+  { value: "short_delivery", label: "Short delivery" },
+  { value: "partial_delivery", label: "Partial delivery" },
+  { value: "not_received", label: "Not received" },
+  { value: "damaged", label: "Damaged" },
+  { value: "broken", label: "Broken" },
+  { value: "poor_quality", label: "Poor quality" },
+  { value: "rejected", label: "Rejected" },
+  { value: "extra_quantity_received", label: "Extra quantity received" },
+  { value: "free_promotional_quantity", label: "Free promotional quantity" },
+  { value: "supplier_over_delivery", label: "Supplier over-delivery" },
+  { value: "substitution_accepted", label: "Substitution accepted" },
+  { value: "wrong_item_received", label: "Wrong item received" },
+  { value: "new_item_received", label: "New item received" },
+  { value: "other", label: "Other" },
+];
+
+const NEGATIVE_AMBER_REASONS = new Set(["short_delivery", "partial_delivery", "not_received"]);
+const NEGATIVE_RED_REASONS = new Set(["damaged", "broken", "poor_quality", "rejected", "wrong_item_received"]);
+const POSITIVE_GREEN_REASONS = new Set(["extra_quantity_received", "free_promotional_quantity", "supplier_over_delivery"]);
+
+function computeReceivingTint(line: ScannedLineItem): { bg: string; border: string } | null {
+  const qty = parseFloat(line.quantity) || 0;
+  const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
+  const diff = acc - qty;
+  if (diff === 0) return null;
+  const reason = line.receiving_reason || "";
+  if (diff < 0 && NEGATIVE_RED_REASONS.has(reason)) {
+    return { bg: "rgba(239, 68, 68, 0.10)", border: "rgba(239, 68, 68, 0.35)" };
+  }
+  if (diff > 0 && POSITIVE_GREEN_REASONS.has(reason)) {
+    return { bg: "rgba(34, 197, 94, 0.10)", border: "rgba(34, 197, 94, 0.35)" };
+  }
+  // amber: negative w/ delivery reasons, OR any non-zero diff without a chosen reason
+  return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
+}
 
 const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
