@@ -345,13 +345,56 @@ export default function ReceivingTab() {
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="disputed">Disputed</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
-        <Button onClick={() => { resetForm(); setCreateOpen(true); }} disabled={!canManage}>
-          <Plus className="h-4 w-4 mr-1" /> New GRN
-        </Button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button
+              variant="outline"
+              disabled={backfilling || !tenantId || !user}
+              onClick={async () => {
+                if (!tenantId || !user) return;
+                if (!window.confirm("Backfill GRNs for every invoice without one? This is a one-off historical migration.")) return;
+                setBackfilling(true);
+                setBackfillProgress({ done: 0, total: 0 });
+                try {
+                  const summary = await backfillGrnsFromInvoices({
+                    tenantId,
+                    userId: user.id,
+                    onProgress: (done, total) => setBackfillProgress({ done, total }),
+                  });
+                  toast.success(
+                    `Backfill complete: ${summary.created} created, ${summary.skipped} skipped, ${summary.failed} failed. ` +
+                    `Remaining without GRN: ${summary.remainingWithoutGrn}. Total GRNs: ${summary.grnCount}.`,
+                    { duration: 10000 },
+                  );
+                  if (summary.failed > 0) {
+                    console.error("Backfill failures:", summary.failures);
+                  }
+                  loadAll();
+                } catch (e: any) {
+                  toast.error(`Backfill failed: ${e?.message || String(e)}`);
+                } finally {
+                  setBackfilling(false);
+                  setBackfillProgress(null);
+                }
+              }}
+            >
+              <Database className="h-4 w-4 mr-1" />
+              {backfilling
+                ? backfillProgress && backfillProgress.total > 0
+                  ? `Backfilling ${backfillProgress.done}/${backfillProgress.total}…`
+                  : "Backfilling…"
+                : "Backfill GRNs from invoices"}
+            </Button>
+          )}
+          <Button onClick={() => { resetForm(); setCreateOpen(true); }} disabled={!canManage}>
+            <Plus className="h-4 w-4 mr-1" /> New GRN
+          </Button>
+        </div>
       </div>
 
       <div className="border border-border rounded-md overflow-hidden">
