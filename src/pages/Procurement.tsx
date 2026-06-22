@@ -11,6 +11,7 @@ import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboa
 import DocumentsTab from "@/components/procurement/DocumentsTab";
 import PurchaseOrdersTab from "@/components/procurement/PurchaseOrdersTab";
 import ReceivingTab from "@/components/procurement/ReceivingTab";
+import DepositLedgerTab from "@/components/procurement/DepositLedgerTab";
 
 const tabTitles: Record<string, string> = {
   dashboard: "Overview",
