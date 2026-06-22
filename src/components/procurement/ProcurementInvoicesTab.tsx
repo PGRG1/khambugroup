@@ -570,21 +570,33 @@ export default function ProcurementInvoicesTab() {
     setSaving(true);
     const mappedLines = editLines
       .filter((line) => line.description.trim())
-      .map((line) => ({
-        item_code: line.item_code || "",
-        description: line.description,
-        pack_size: line.pack_size || "",
-        category_id: null,
-        quantity: parseFloat(line.quantity) || 0,
-        unit: line.unit || null,
-        weight: line.weight ? parseFloat(line.weight) || 0 : null,
-        unit_price: parseFloat(line.unit_price) || 0,
-        discount: parseFloat(line.discount) || 0,
-        tax_amount: parseFloat(line.tax_amount) || 0,
-        total: parseFloat(line.total) || 0,
-        notes: null,
-        product_master_id: line.product_master_id,
-      }));
+      .map((line) => {
+        const qty = parseFloat(line.quantity) || 0;
+        const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
+        const qtyDiff = acc - qty;
+        const recvReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || null);
+        const recvNote = (line.receiving_note || "").trim() || null;
+        return {
+          item_code: line.item_code || "",
+          description: line.description,
+          pack_size: line.pack_size || "",
+          category_id: null,
+          quantity: qty,
+          unit: line.unit || null,
+          weight: line.weight ? parseFloat(line.weight) || 0 : null,
+          unit_price: parseFloat(line.unit_price) || 0,
+          discount: parseFloat(line.discount) || 0,
+          tax_amount: parseFloat(line.tax_amount) || 0,
+          total: parseFloat(line.total) || 0,
+          notes: null,
+          product_master_id: line.product_master_id,
+          accepted_qty: acc,
+          qty_difference: qtyDiff,
+          receiving_reason: recvReason,
+          receiving_note: recvNote,
+        } as any;
+      });
+
 
     // Subtotal/total are computed using the supplier's invoice rounding rule
     // (see Suppliers & Vendors → Invoice rounding rule).
