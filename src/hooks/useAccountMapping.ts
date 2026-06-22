@@ -54,7 +54,7 @@ export function useAccountMapping() {
       account_id: input.account_id,
       notes: input.notes ?? "",
       tenant_id: tenantId,
-    } as any, { onConflict: "tenant_id,rule_type,match_key" } as any);
+    } as any, { onConflict: "rule_type,match_key" } as any);
     if (error) { toast.error(error.message); return; }
     await fetchAll();
   }, [fetchAll, tenantId]);
