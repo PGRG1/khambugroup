@@ -82,7 +82,7 @@ const procurementPurchasing = [
   { title: "Goods Receipts / GRNs", url: "/procurement/receiving", icon: PackageCheck },
   { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
   { title: "Purchase Register", url: "/procurement/line-items", icon: ListChecks },
-  { title: "Deposit Ledger", url: "/procurement/deposit-ledger", icon: ListChecks },
+  { title: "Deposit Ledger", url: "/procurement/deposit-ledger", icon: Landmark },
   { title: "Credit & Debit Notes", url: "/procurement/credit-notes", icon: FileMinus },
   { title: "Documents", url: "/procurement/documents", icon: FolderDown },
 ];
