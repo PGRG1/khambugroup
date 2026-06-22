@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -69,19 +69,41 @@ const financeAccountingItems = [
   { title: "Ledger Audit Log", url: "/finance/ledger-audit", icon: History },
 ];
 
-const procurementItems = [
-  { title: "Overview", url: "/procurement/dashboard", icon: LayoutDashboard },
+const procurementOverview = { title: "Overview", url: "/procurement/dashboard", icon: LayoutDashboard };
+
+const procurementMasterData = [
   { title: "Suppliers & Vendors", url: "/procurement/suppliers", icon: Building2 },
   { title: "Items Master", url: "/procurement/products", icon: Package },
-  { title: "Categories", url: "/procurement/categories", icon: Tags },
-  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
+  { title: "Categories & Units", url: "/procurement/categories", icon: Tags },
+];
+
+const procurementPurchasing = [
   { title: "Purchase Orders", url: "/procurement/purchase-orders", icon: ShoppingCart },
-  { title: "Receiving", url: "/procurement/receiving", icon: PackageCheck },
-  { title: "Invoice Line Items", url: "/procurement/line-items", icon: FileText },
-  { title: "Inventory", url: "/procurement/inventory", icon: ClipboardList },
-  { title: "Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
+  { title: "Goods Receipts / GRNs", url: "/procurement/receiving", icon: PackageCheck },
+  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
+  { title: "Purchase Register", url: "/procurement/line-items", icon: ListChecks },
+  { title: "Credit & Debit Notes", url: "/procurement/credit-notes", icon: FileMinus },
   { title: "Documents", url: "/procurement/documents", icon: FolderDown },
 ];
+
+const procurementInventory = [
+  { title: "Stock on Hand", url: "/procurement/inventory", icon: ClipboardList, disabled: false },
+  { title: "Stock Counts", url: "/procurement/stock-counts", icon: ClipboardCheck, disabled: false },
+  { title: "Stock Movements", url: "/procurement/stock-movements", icon: ArrowLeftRight, disabled: true },
+  { title: "Transfers", url: "/procurement/transfers", icon: ArrowRightLeft, disabled: true },
+  { title: "Waste & Adjustments", url: "/procurement/waste", icon: Trash2, disabled: true },
+];
+
+const procurementCosting = [
+  { title: "Recipes & Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
+];
+
+const procurementAnalysis = [
+  { title: "Purchase Analysis", url: "/procurement/purchase-analysis", icon: BarChart3, disabled: true },
+  { title: "Supplier Pricing", url: "/procurement/supplier-pricing", icon: Tag, disabled: true },
+  { title: "Inventory Variance", url: "/procurement/inventory-variance", icon: TrendingDown, disabled: true },
+];
+
 
 const hrItems = [
   { title: "Employee Directory", url: "/hr/employees", icon: Users },
