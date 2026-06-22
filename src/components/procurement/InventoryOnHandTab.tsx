@@ -54,11 +54,15 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [prodData, lineRes] = await Promise.all([
-      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty", { col: "internal_sku", asc: true }, tenantId),
+      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty, financial_treatment", { col: "internal_sku", asc: true }, tenantId),
       supabase.rpc("get_inventory_aggregates" as any, { p_tenant_id: tenantId } as any),
     ]);
 
-    setProducts((prodData as any[]).filter((p) => p.status === "Active") as ProductRow[]);
+    const isDeposit = (t?: string | null) => (t || "").startsWith("Asset");
+    setProducts((prodData as any[]).filter((p) => {
+      if (p.status !== "Active") return false;
+      return mode === "deposits" ? isDeposit(p.financial_treatment) : !isDeposit(p.financial_treatment);
+    }) as ProductRow[]);
 
     // Fallback: aggregate from confirmed/disputed GRN items if RPC is unavailable.
     if (lineRes.error || !lineRes.data) {
