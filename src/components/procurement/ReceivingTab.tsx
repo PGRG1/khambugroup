@@ -106,16 +106,15 @@ export default function ReceivingTab() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [grnRes, allItems, supRes, prodRes, poRes, invRes] = await Promise.all([
-      supabase.from("goods_received_notes" as any).select("*, suppliers(name), purchase_orders(po_number), invoices!invoice_id(invoice_number)").order("created_at", { ascending: false }),
+    const [grnRows, allItems, supRes, prodRes, poRes, invRes] = await Promise.all([
+      fetchAllRows("goods_received_notes", "*, suppliers(name), purchase_orders(po_number), invoices!invoice_id(invoice_number)", { col: "created_at", asc: false }, tenantId),
       fetchAllRows("grn_items", "grn_id, total", undefined, tenantId),
       supabase.from("suppliers").select("id,name,is_active").order("name"),
       supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").order("internal_product_name"),
       supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
       supabase.from("invoices").select("id, invoice_number, supplier_id, venue").order("created_at", { ascending: false }).limit(500),
     ]);
-    if (grnRes.error) toast.error(grnRes.error.message);
-    setGrns((grnRes.data ?? []) as any);
+    setGrns((grnRows ?? []) as any);
     const totals: Record<string, number> = {};
     for (const r of (allItems ?? []) as any[]) {
       totals[r.grn_id] = (totals[r.grn_id] || 0) + Number(r.total || 0);
