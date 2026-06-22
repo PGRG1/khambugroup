@@ -1,78 +1,77 @@
-# Transfers Page
+## Problem
 
-Build the venue-to-venue Transfers feature at `/procurement/transfers`. Two new tables, one full-page React component replacing the current stub. No stock movement logic — just a logged paper trail.
+RLS lets `super_admin` / `platform_admin` see rows from **every** tenant (`is_super_admin(auth.uid()) OR user_has_tenant(...)`). When such a user switches tenant via `TenantSwitcher`, only hooks that explicitly filter `.eq('tenant_id', activeTenantId)` actually respect the switch. Right now only `useSalesData` and a handful of admin/procurement files do this — every other hook silently returns merged data from all tenants and inserts rows without setting `tenant_id`.
 
-## 1. Database migration
+Regular tenant users are still protected by RLS, but the dashboard is wrong for super‑admins and for the "Preview As" / Test Client flows you've been validating.
 
-New sequence + two tables:
+~90 public tables carry `tenant_id`. ~45 hooks/pages read or write them without filtering.
 
-- `transfer_number_seq` — auto-numbers transfers as `TRF-YYYYMMDD-0001`.
-- `public.transfers` — header row: from/to venue, optional from/to `stock_locations`, status (`draft` / `confirmed` / `received` / `cancelled`), transfer date, notes, created_by, received_by, received_at.
-- `public.transfer_items` — line items: FK to transfer + `product_master`, quantity_sent, quantity_received, unit, unit_cost, notes. Unique on (transfer_id, product_master_id).
+## Approach
 
-Access rules (plain English):
-- Any signed-in user can view transfers and their items.
-- Only admins and managers can create, edit, confirm, receive, or cancel transfers and their line items.
+Introduce a single, enforced tenant boundary in the data layer rather than patching every call site ad‑hoc.
 
-Plus: GRANTs to authenticated/service_role, RLS enabled, `updated_at` triggers on both tables using the existing `update_updated_at_column()` function.
+### 1. Central tenant helpers (new file `src/lib/tenantQuery.ts`)
+- `useTenantId()` — thin re-export of `useActiveTenant().tenantId` with a loading guard.
+- `tenantSelect(table, tenantId)` — returns `supabase.from(table).select(...).eq('tenant_id', tenantId)`.
+- `tenantInsert(table, tenantId, payload)` — injects `tenant_id` (array or single).
+- `tenantUpdate(table, tenantId, patch)` — adds `.eq('tenant_id', tenantId)` guard so cross‑tenant writes are impossible even for super‑admins.
+- `tenantDelete(table, tenantId, filter)` — same guard.
+- `fetchAllRowsForTenant(table, tenantId, builder?)` — wraps existing `fetchAllRows` adding `.eq('tenant_id', tenantId)`.
 
-## 2. `src/pages/procurement/Transfers.tsx`
+All hooks become 3‑line changes: pull `tenantId`, gate fetch on `if (!tenantId) return`, swap the call.
 
-Single component, list/detail pattern like `StockCounts.tsx`. State: `selectedTransferId` (null → list, set → detail) and `dialogOpen` for the New Transfer modal.
+### 2. Hook refactor (sequenced, one PR-style batch per domain)
 
-### List view
+Priority order (highest blast radius first):
 
-- Header: page title "Transfers" + primary `New Transfer` button.
-- Filter bar: From venue, To venue, Status, date/month filter.
-- `card-glass rounded-xl` table:
-  - Columns: Transfer # · From → To (with `ArrowRight` icon) · Date · Items count · Status badge · Value · `ChevronRight`.
-  - Status badges per spec (draft/confirmed/received/cancelled color map).
-  - Value = Σ(quantity_sent × unit_cost); shows "—" for drafts.
-- Row click → opens detail.
+```text
+Domain          Hooks / pages to update
+──────────────  ──────────────────────────────────────────────
+Finance         useChartOfAccounts, useJournal, useLedgerPL,
+                useTrialBalance, usePLData, usePLStructure,
+                useAccountMapping, useCashflowData, useReceivables,
+                usePayables, useVendorStatements,
+                pages/finance/Ledger, BillsExpenses, LedgerAuditLog
+Procurement     useProductMaster, useStandardProducts, useInvoiceData,
+                useProductCategories, useUomOptions, useMenuCosting,
+                useExpenseBills, useRecurringExpenses,
+                pages/procurement/Transfers, StockCounts
+HR              useHRData, usePayrollPaymentBatches
+Revenue         useRevenueSources, useServicePeriods, useRevenueTargets,
+                useForecastData, useForecastPermissions
+KPIs            useKpi, useKpiBundles, pages/kpis/*
+Admin / misc    useVenues, usePageVisibility, useUserPermissions,
+                usePushSubscription, pages/AuditLog, Notifications, Home,
+                UserAccessControl, admin/Clients
+```
 
-### New Transfer dialog
+Each hook:
+- imports `useActiveTenant`, blocks fetch while `tenantLoading || !tenantId`,
+- replaces `supabase.from(t).select(...)` with `tenantSelect(...)` (or `fetchAllRowsForTenant`),
+- adds `tenant_id` to every insert and `.eq('tenant_id', tenantId)` to every update/delete,
+- adds `tenantId` to the query key (React Query) or refetch effect deps so switching tenants invalidates cache.
 
-`max-w-lg`. Fields:
-- From venue + To venue (2-col). Inline error if equal.
-- From location + To location (2-col, optional, filtered by selected venue from `stock_locations`, only rendered when locations exist).
-- Transfer date (defaults today).
-- Items table: searchable product picker from `product_master` (active only, via `fetchAllRows`), Qty, Unit (auto from product, editable), Unit cost (auto from product, editable), remove button, `Add item` action. Min 1 item to submit.
-- Notes textarea.
+### 3. Tenant switch invalidation
+Extend `useActiveTenant` so changing tenant calls `queryClient.clear()` (or `invalidateQueries()`). Today only same‑hook listeners react; React Query caches keyed on the old tenant survive.
 
-Submit: insert `transfers` (status `draft`) + bulk insert `transfer_items`, then open the new transfer's detail view and close the dialog.
+### 4. Edge functions / scanners
+Audit edge functions that write tenant‑scoped tables (`ai-classify`, receipt scanner, settlement importers). They must read `tenant_id` from JWT claims (or an explicit body param) and set it on every insert. List + fix in a follow‑up pass after the client side is clean.
 
-### Detail view
+### 5. Tightening RLS (optional, recommended)
+Once all clients pass `tenant_id` explicitly, drop the `is_super_admin(...) OR` branch from write policies and replace with a stricter rule that still requires `tenant_id = current_active_tenant()` for super‑admins. Keeps read access for support but blocks accidental cross‑tenant writes. This is a follow‑up migration, not part of the initial refactor.
 
-- Back button → clears `selectedTransferId`.
-- Header left: `transfer_number · From → To` (xl bold, ArrowRight between venues), then date + status badge below.
-- Header right (status-driven actions):
-  - draft: `Confirm Transfer` (blue) → status `confirmed`; `Cancel` (destructive, sm) → status `cancelled`, disabled if any line has `quantity_received`.
-  - confirmed: `Mark as Received` (green) → opens Receive dialog.
-  - received/cancelled: no actions.
-
-Tabs (underline style): **Items** (default) and **Details**.
-
-**Items tab** — `card-glass` table with columns SKU · Item · Unit · Qty Sent · Qty Received · Unit Cost · Total · Notes. Qty Received colored green/amber/red vs Qty Sent when status is `received`, otherwise "—". Footer row sums total value. When status is `draft`, an `Edit items` button above the table enables inline add/remove of rows.
-
-**Details tab** — 2-col grid of read-only label/value pairs: Transfer # · Status · From venue · To venue · From location · To location · Transfer date · Created by · Received by · Received at · Notes (full width).
-
-### Receive dialog
-
-`max-w-md`. Table of items with editable `Qty Received` (pre-filled with `quantity_sent`), plus Received date and Notes. On confirm: update each `transfer_items.quantity_received`, then set transfer `status='received'`, `received_by=auth user`, `received_at=now()`.
-
-### Styling
-
-All visuals reuse the existing portal system: `card-glass`, `rounded-xl`, `bg-primary text-primary-foreground` table headers, `border-border/40` dividers, `hover:bg-accent/30`, `text-muted-foreground` secondary, `font-display` headings, tabular-nums for numbers.
+### 6. Verification
+- Manual: switch between KHAMBU and Test Client on Sales, Bills, Ledger, Products, HR, KPIs — each must show only the selected tenant.
+- Automated: add a Playwright smoke that logs in as the test super‑admin, switches tenants, and asserts row counts differ on 4 representative pages.
 
 ## Out of scope
+- New backend schema changes.
+- Re‑theming or feature changes.
+- Tightening RLS (deferred to a follow-up once client passes audits).
 
-- No stock movement / inventory deduction (later phase).
-- No CSV export wiring yet (use `downloadCSV` later if asked).
-- No other files touched besides `Transfers.tsx` and the new migration.
-
-## Technical notes
-
-- Tables fetched via standard supabase client; `product_master` list via `fetchAllRows` to bypass the 1000-row cap.
-- Venues hardcoded to Assembly / Caliente / Hanabi per spec.
-- `stock_locations` filtered by `venue` column and ordered by `sort_order`.
-- Status transitions guarded client-side; RLS guards server-side.
+## Deliverables
+1. `src/lib/tenantQuery.ts` + tenant-aware `fetchAllRows` wrapper.
+2. Refactor of the ~45 hooks/pages listed above, in the priority order shown.
+3. React Query cache invalidation on tenant switch in `useActiveTenant`.
+4. Memory entry under `mem://architecture/multi-tenant` capturing the rule "every public-table query must go through `tenantSelect/Insert/Update/Delete` or include `.eq('tenant_id', tenantId)` explicitly".
+5. Playwright smoke verifying tenant isolation on Sales, Bills, Ledger, Products.
