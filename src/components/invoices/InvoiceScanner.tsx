@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useMemo } from "react";
+import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert } from "lucide-react";
 import {
   WorkflowStrip,
@@ -76,6 +76,10 @@ interface ScannedLineItem {
   matched_stock_uom: string;
   matched_purchase_uom: string;
   matched_stock_qty_ratio: number;
+  accepted_qty?: string;
+  accepted_qty_touched?: boolean;
+  receiving_reason?: string;
+  receiving_note?: string;
   sku_mismatch?: boolean;
   unmatched?: boolean;
   price_changed?: boolean;
@@ -169,7 +173,45 @@ const emptyLine: ScannedLineItem = {
   unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "",
   matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
   unmatched: false, price_changed: false,
+  accepted_qty: "1", accepted_qty_touched: false, receiving_reason: "matched", receiving_note: "",
 };
+
+const RECEIVING_REASONS: { value: string; label: string }[] = [
+  { value: "short_delivery", label: "Short delivery" },
+  { value: "partial_delivery", label: "Partial delivery" },
+  { value: "not_received", label: "Not received" },
+  { value: "damaged", label: "Damaged" },
+  { value: "broken", label: "Broken" },
+  { value: "poor_quality", label: "Poor quality" },
+  { value: "rejected", label: "Rejected" },
+  { value: "extra_quantity_received", label: "Extra quantity received" },
+  { value: "free_promotional_quantity", label: "Free promotional quantity" },
+  { value: "supplier_over_delivery", label: "Supplier over-delivery" },
+  { value: "substitution_accepted", label: "Substitution accepted" },
+  { value: "wrong_item_received", label: "Wrong item received" },
+  { value: "new_item_received", label: "New item received" },
+  { value: "other", label: "Other" },
+];
+
+const NEGATIVE_AMBER_REASONS = new Set(["short_delivery", "partial_delivery", "not_received"]);
+const NEGATIVE_RED_REASONS = new Set(["damaged", "broken", "poor_quality", "rejected", "wrong_item_received"]);
+const POSITIVE_GREEN_REASONS = new Set(["extra_quantity_received", "free_promotional_quantity", "supplier_over_delivery"]);
+
+function computeReceivingTint(line: ScannedLineItem): { bg: string; border: string } | null {
+  const qty = parseFloat(line.quantity) || 0;
+  const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
+  const diff = acc - qty;
+  if (diff === 0) return null;
+  const reason = line.receiving_reason || "";
+  if (diff < 0 && NEGATIVE_RED_REASONS.has(reason)) {
+    return { bg: "rgba(239, 68, 68, 0.10)", border: "rgba(239, 68, 68, 0.35)" };
+  }
+  if (diff > 0 && POSITIVE_GREEN_REASONS.has(reason)) {
+    return { bg: "rgba(34, 197, 94, 0.10)", border: "rgba(34, 197, 94, 0.35)" };
+  }
+  // amber: negative w/ delivery reasons, OR any non-zero diff without a chosen reason
+  return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
+}
 
 const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
@@ -732,12 +774,52 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       if (field === "total") {
         line.total_override = true;
       }
+      // Keep Accepted Qty in lock-step with Purch. Qty until the user overrides it.
+      if (field === "quantity" && !line.accepted_qty_touched) {
+        line.accepted_qty = value;
+      }
+      // Auto-resolve / require Reason based on current diff.
+      {
+        const q = parseFloat(line.quantity) || 0;
+        const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+        if (a === q) {
+          line.receiving_reason = "matched";
+        } else if (line.receiving_reason === "matched" || !line.receiving_reason) {
+          line.receiving_reason = "";
+        }
+      }
       if (["unit_price", "matched_sku"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
         lines[i] = flagged[0];
       } else {
         lines[i] = line;
       }
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+  };
+
+  const updateLineReceiving = (i: number, field: "accepted_qty" | "receiving_reason" | "receiving_note", value: string) => {
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const line = { ...lines[i] };
+      if (field === "accepted_qty") {
+        line.accepted_qty = value;
+        line.accepted_qty_touched = true;
+        const q = parseFloat(line.quantity) || 0;
+        const a = parseFloat(value) || 0;
+        if (a === q) {
+          line.receiving_reason = "matched";
+        } else if (line.receiving_reason === "matched" || !line.receiving_reason) {
+          line.receiving_reason = "";
+        }
+      } else if (field === "receiving_reason") {
+        line.receiving_reason = value;
+      } else {
+        line.receiving_note = value;
+      }
+      lines[i] = line;
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
@@ -867,7 +949,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           );
           if (resolved) pmId = resolved.id;
         }
-        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId };
+        const acceptedQtyVal = parseFloat(l.accepted_qty ?? l.quantity ?? "0");
+        const acceptedQty = Number.isFinite(acceptedQtyVal) ? acceptedQtyVal : qty;
+        const qtyDiff = acceptedQty - qty;
+        const recvReason = qtyDiff === 0 ? "matched" : (l.receiving_reason || null);
+        const recvNote = (l.receiving_note || "").trim() || null;
+        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId, accepted_qty: acceptedQty, qty_difference: qtyDiff, receiving_reason: recvReason, receiving_note: recvNote } as any;
       });
 
       const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
@@ -1041,6 +1128,44 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const blockingCount = (current?.review_blocking?.length || 0)
     + (current?.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) || 0);
   const hasBlockingIssues = current ? hasBlockingForSave(current) : false;
+
+  // GRN receiving: detect disputed lines (any qty diff) and missing reason/notes.
+  const disputeStats = useMemo(() => {
+    const lines = current?.line_items || [];
+    let disputedLines = 0;
+    let missingReason = 0;
+    let missingNote = 0;
+    for (const l of lines) {
+      const q = parseFloat(l.quantity) || 0;
+      const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+      if (a !== q) {
+        disputedLines += 1;
+        if (!l.receiving_reason) missingReason += 1;
+        if (l.receiving_reason === "other" && !(l.receiving_note || "").trim()) missingNote += 1;
+      }
+    }
+    return { disputedLines, missingReason, missingNote, hasDispute: disputedLines > 0 };
+  }, [current?.line_items]);
+
+  // Auto-flip Status to "disputed" when any line has a qty difference; restore on resolve.
+  const prevStatusBeforeDisputeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!current) return;
+    if (disputeStats.hasDispute) {
+      if (current.invoice_status !== "disputed") {
+        prevStatusBeforeDisputeRef.current = current.invoice_status || "outstanding";
+        updateField("invoice_status", "disputed");
+      }
+    } else if (current.invoice_status === "disputed") {
+      const restore = prevStatusBeforeDisputeRef.current || "outstanding";
+      prevStatusBeforeDisputeRef.current = null;
+      updateField("invoice_status", restore);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disputeStats.hasDispute, currentIdx]);
+
+  const receivingBlocksApproval =
+    disputeStats.hasDispute || disputeStats.missingReason > 0 || disputeStats.missingNote > 0;
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
@@ -1342,8 +1467,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <SelectItem value="outstanding">Outstanding</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="under_review">Under Review</SelectItem>
+                  <SelectItem value="disputed">Disputed</SelectItem>
                 </SelectContent>
               </Select>
+              {disputeStats.hasDispute && (
+                <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span>Invoice disputed — quantity differences must be resolved before approval.</span>
+                </div>
+              )}
             </div>
             <div>
               <Label className="text-xs">Invoice Date</Label>
@@ -1388,6 +1520,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Qty</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock UOM</th>
                   <th style={{ minWidth: 75 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Stock Qty</th>
+                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Accepted Qty</th>
+                  <th style={{ minWidth: 80 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Difference</th>
+                  <th style={{ minWidth: 160 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Reason</th>
+                  <th style={{ minWidth: 140 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Note</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Total</th>
@@ -1406,9 +1542,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                     : line.price_changed
                     ? "bg-blue-500/10 border-l-2 border-l-blue-500"
                     : "";
+                  const recvTint = !rowClass ? computeReceivingTint(line) : null;
+                  const purchQty = parseFloat(line.quantity) || 0;
+                  const acceptedQtyStr = line.accepted_qty ?? line.quantity ?? "";
+                  const acceptedQty = parseFloat(acceptedQtyStr || "0") || 0;
+                  const qtyDiff = acceptedQty - purchQty;
+                  const effReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || "");
+                  const reasonMissing = qtyDiff !== 0 && !effReason;
+                  const noteRequired = effReason === "other" && !(line.receiving_note || "").trim();
                   return (
                     <tr
                       key={i}
+                      style={recvTint ? { backgroundColor: recvTint.bg, borderLeft: `3px solid ${recvTint.border}` } : undefined}
                       className={`border-b border-border/50 ${rowClass} ${dragSrcIdx === i ? "opacity-50" : ""} ${
                         dragOverIdx === i && dragOverPos === "above" ? "border-t-2 border-t-primary" : ""
                       } ${dragOverIdx === i && dragOverPos === "below" ? "border-b-2 border-b-primary" : ""}`}
@@ -1550,6 +1695,72 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           className="text-xs bg-muted/50 cursor-default h-8 font-mono w-full"
                           placeholder="—"
                         />
+                      </td>
+                      {/* Accepted Qty - editable, defaults to Purch. Qty */}
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={acceptedQtyStr}
+                          onChange={(e) => updateLineReceiving(i, "accepted_qty", e.target.value)}
+                          className="text-xs h-8 w-full font-mono"
+                        />
+                      </td>
+                      {/* Difference - read-only */}
+                      <td style={{ minWidth: 80 }} className="px-1 py-1 align-top">
+                        <div
+                          className={`text-xs h-8 px-2 flex items-center justify-end font-mono tabular-nums ${
+                            qtyDiff === 0
+                              ? "text-muted-foreground"
+                              : qtyDiff < 0
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-emerald-600 dark:text-emerald-400"
+                          }`}
+                        >
+                          {qtyDiff === 0 ? "0" : qtyDiff > 0 ? `+${qtyDiff}` : `${qtyDiff}`}
+                        </div>
+                      </td>
+                      {/* Reason - locked Matched when diff=0, otherwise required dropdown */}
+                      <td style={{ minWidth: 160 }} className="px-1 py-1 align-top">
+                        {qtyDiff === 0 ? (
+                          <div className="text-xs h-8 px-2 flex items-center text-muted-foreground bg-muted/40 rounded-md border border-input">
+                            Matched
+                          </div>
+                        ) : (
+                          <select
+                            value={effReason}
+                            onChange={(e) => updateLineReceiving(i, "receiving_reason", e.target.value)}
+                            className={`text-xs h-8 w-full px-2 rounded-md border bg-background ${
+                              reasonMissing ? "border-red-500" : "border-input"
+                            }`}
+                          >
+                            <option value="">Select reason…</option>
+                            {RECEIVING_REASONS.map((r) => (
+                              <option key={r.value} value={r.value}>
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      {/* Note */}
+                      <td style={{ minWidth: 140 }} className="px-1 py-1 align-top">
+                        <div className="relative">
+                          <Input
+                            value={line.receiving_note || ""}
+                            onChange={(e) => updateLineReceiving(i, "receiving_note", e.target.value)}
+                            placeholder="Add note…"
+                            maxLength={500}
+                            className={`text-xs h-8 w-full ${noteRequired ? "border-red-500" : ""}`}
+                          />
+                          {noteRequired && (
+                            <span
+                              className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500"
+                              title="Note required when Reason is Other"
+                            />
+                          )}
+                        </div>
                       </td>
                       {/* Purchase Cost - editable */}
                       <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
@@ -1743,7 +1954,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   )}
                   <Button
                     onClick={() => handleSaveCurrent()}
-                    disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}
+                    disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues || receivingBlocksApproval}
                     title={
                       current.is_duplicate
                         ? "Duplicate invoice — cannot save"
@@ -1751,6 +1962,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first (or use Override)`
                         : hasUnmatchedItems
                         ? "Match all items first"
+                        : disputeStats.hasDispute
+                        ? "Resolve quantity differences before approval"
+                        : disputeStats.missingReason > 0
+                        ? "Select a reason for every disputed line"
+                        : disputeStats.missingNote > 0
+                        ? "Add a note for every line where Reason is Other"
                         : "Approve and save invoice"
                     }
                   >
@@ -1759,6 +1976,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       ? "Duplicate"
                       : hasBlockingIssues
                       ? `Resolve ${blockingCount} Blocking`
+                      : disputeStats.hasDispute
+                      ? `Resolve ${disputeStats.disputedLines} Disputed`
                       : "Approve & Save"}
                   </Button>
                 </>

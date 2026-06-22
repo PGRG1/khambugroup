@@ -1,77 +1,66 @@
-## Problem
+## Goal
+Add inline GRN-receiving columns (Accepted Qty, Difference, Reason, Note) to the existing Invoice Scanner line-item table, with row highlighting, Status auto-flip to Disputed, and persistence of receiving data into a GRN on confirmation. No other parts of the page change.
 
-RLS lets `super_admin` / `platform_admin` see rows from **every** tenant (`is_super_admin(auth.uid()) OR user_has_tenant(...)`). When such a user switches tenant via `TenantSwitcher`, only hooks that explicitly filter `.eq('tenant_id', activeTenantId)` actually respect the switch. Right now only `useSalesData` and a handful of admin/procurement files do this — every other hook silently returns merged data from all tenants and inserts rows without setting `tenant_id`.
+## Scope
+Only `src/components/invoices/InvoiceScanner.tsx` for UI/state, plus a small backend migration to persist receiving data and generate the GRN. Everything else (header, summary, existing columns, footer, scan/save/duplicate, pricing/tax logic) is untouched.
 
-Regular tenant users are still protected by RLS, but the dashboard is wrong for super‑admins and for the "Preview As" / Test Client flows you've been validating.
+## Frontend changes (InvoiceScanner.tsx)
 
-~90 public tables carry `tenant_id`. ~45 hooks/pages read or write them without filtering.
+1. Extend the in-memory line shape with four optional fields:
+   - `accepted_qty: string` (defaults to `quantity` on load / when `quantity` changes and user hasn't overridden)
+   - `receiving_reason: string` (one of the 14 options, or empty; auto-set to `"matched"` when difference is 0)
+   - `receiving_note: string`
+   - `accepted_qty_touched: boolean` (so we only auto-track `quantity` until the user edits Accepted Qty)
+   When the scanner first populates `line_items`, seed `accepted_qty = quantity` and `receiving_reason = "matched"`.
 
-## Approach
+2. Insert four `<th>` columns between Stock Qty and Purch. Cost, with widths 90 / 80 / 160 / 140 px, matching the existing header styling.
 
-Introduce a single, enforced tenant boundary in the data layer rather than patching every call site ad‑hoc.
+3. Insert four `<td>` cells per row in the same position:
+   - Accepted Qty: numeric `<Input>` styled like Purch. Cost/Discount, `min=0`, decimals allowed, updates `accepted_qty` and sets `accepted_qty_touched=true`.
+   - Difference: read-only span. `diff = Number(accepted_qty) - Number(quantity)`. Render `0` muted, negative in red (`-n`), positive in green (`+n`), tabular-nums.
+   - Reason: when `diff === 0`, render a muted "Matched" chip (no select). Otherwise a compact `<select>` with the 14 options in the specified order; red border when value is empty.
+   - Note: compact `<Input>` with placeholder "Add note…", `maxLength=500`. Show a tiny red dot when `receiving_reason === "other"` and note is empty. (Multi-line expansion deferred to a textarea swap on focus inside the same cell.)
 
-### 1. Central tenant helpers (new file `src/lib/tenantQuery.ts`)
-- `useTenantId()` — thin re-export of `useActiveTenant().tenantId` with a loading guard.
-- `tenantSelect(table, tenantId)` — returns `supabase.from(table).select(...).eq('tenant_id', tenantId)`.
-- `tenantInsert(table, tenantId, payload)` — injects `tenant_id` (array or single).
-- `tenantUpdate(table, tenantId, patch)` — adds `.eq('tenant_id', tenantId)` guard so cross‑tenant writes are impossible even for super‑admins.
-- `tenantDelete(table, tenantId, filter)` — same guard.
-- `fetchAllRowsForTenant(table, tenantId, builder?)` — wraps existing `fetchAllRows` adding `.eq('tenant_id', tenantId)`.
+4. Row highlight: compute a `receivingRowClass` per line and merge with the existing `rowClass` (preserve current unmatched/sku/price classes; receiving highlight wins only when the existing class is empty so we don't double-tint). Mapping:
+   - diff 0 → none
+   - diff < 0 + reason ∈ {short_delivery, partial_delivery, not_received} → amber
+   - diff < 0 + reason ∈ {damaged, broken, poor_quality, rejected, wrong_item_received} → red
+   - diff > 0 + reason ∈ {extra_quantity_received, free_promotional_quantity, supplier_over_delivery} → green
+   - diff ≠ 0 + reason empty → amber (needs attention)
+   Implemented with inline `style` using the exact `rgba()` values + 3px left border, since these are one-off tints.
 
-All hooks become 3‑line changes: pull `tenantId`, gate fetch on `if (!tenantId) return`, swap the call.
+5. Status auto-flip:
+   - Derive `hasDispute = line_items.some(l => Number(l.accepted_qty||0) !== Number(l.quantity||0))`.
+   - Track `previousStatus` in a ref. When `hasDispute` becomes true and current status ≠ "disputed", store previousStatus and set status to "disputed". When `hasDispute` becomes false, restore previousStatus (only if status still === "disputed").
+   - Render an inline warning next to the Status field when disputed: "Invoice disputed — quantity differences must be resolved before approval."
+   - Save Draft remains enabled; final approval/confirm action is disabled while `hasDispute` is true OR any disputed line has empty reason OR any "other" reason has empty note.
 
-### 2. Hook refactor (sequenced, one PR-style batch per domain)
+6. Disputed-blocking validation only gates the confirm/approve button — Scan Another, Save Draft, Duplicate are untouched.
 
-Priority order (highest blast radius first):
+## Backend changes
 
-```text
-Domain          Hooks / pages to update
-──────────────  ──────────────────────────────────────────────
-Finance         useChartOfAccounts, useJournal, useLedgerPL,
-                useTrialBalance, usePLData, usePLStructure,
-                useAccountMapping, useCashflowData, useReceivables,
-                usePayables, useVendorStatements,
-                pages/finance/Ledger, BillsExpenses, LedgerAuditLog
-Procurement     useProductMaster, useStandardProducts, useInvoiceData,
-                useProductCategories, useUomOptions, useMenuCosting,
-                useExpenseBills, useRecurringExpenses,
-                pages/procurement/Transfers, StockCounts
-HR              useHRData, usePayrollPaymentBatches
-Revenue         useRevenueSources, useServicePeriods, useRevenueTargets,
-                useForecastData, useForecastPermissions
-KPIs            useKpi, useKpiBundles, pages/kpis/*
-Admin / misc    useVenues, usePageVisibility, useUserPermissions,
-                usePushSubscription, pages/AuditLog, Notifications, Home,
-                UserAccessControl, admin/Clients
-```
+1. Migration: add receiving columns to `invoice_line_items`:
+   - `accepted_qty numeric`
+   - `qty_difference numeric` (generated or set by app)
+   - `receiving_reason text`
+   - `receiving_note text`
+   No RLS or grant changes (table already configured).
 
-Each hook:
-- imports `useActiveTenant`, blocks fetch while `tenantLoading || !tenantId`,
-- replaces `supabase.from(t).select(...)` with `tenantSelect(...)` (or `fetchAllRowsForTenant`),
-- adds `tenant_id` to every insert and `.eq('tenant_id', tenantId)` to every update/delete,
-- adds `tenantId` to the query key (React Query) or refetch effect deps so switching tenants invalidates cache.
+2. On invoice confirmation (existing approval path), in addition to current behaviour:
+   - Insert a row in `goods_received_notes` linked to the invoice (supplier, venue, invoice_id, received_by, received_at).
+   - Insert one `grn_items` row per invoice line using `accepted_qty` (not `quantity`) for the received quantity; copy reason/note.
+   - Write audit entries capturing invoiced qty, accepted qty, difference, reason, note, confirming user (reusing the existing audit/ledger logging hook for invoice approval; one entry per line or one summary entry with line payload).
+   - Pricing/tax/Total continue to use `quantity` and existing fields — no change.
 
-### 3. Tenant switch invalidation
-Extend `useActiveTenant` so changing tenant calls `queryClient.clear()` (or `invalidateQueries()`). Today only same‑hook listeners react; React Query caches keyed on the old tenant survive.
+3. The invoice header amounts and the line `total` stay computed from `quantity` × `unit_price` − `discount`, unchanged.
 
-### 4. Edge functions / scanners
-Audit edge functions that write tenant‑scoped tables (`ai-classify`, receipt scanner, settlement importers). They must read `tenant_id` from JWT claims (or an explicit body param) and set it on every insert. List + fix in a follow‑up pass after the client side is clean.
+## What stays exactly as-is
+Header fields, top summary chips, all existing columns/inputs, footer totals & buttons, extraction/matching/pricing/tax logic, item-status badges, drag-to-reorder, supplier-filtered autocomplete.
 
-### 5. Tightening RLS (optional, recommended)
-Once all clients pass `tenant_id` explicitly, drop the `is_super_admin(...) OR` branch from write policies and replace with a stricter rule that still requires `tenant_id = current_active_tenant()` for super‑admins. Keeps read access for support but blocks accidental cross‑tenant writes. This is a follow‑up migration, not part of the initial refactor.
-
-### 6. Verification
-- Manual: switch between KHAMBU and Test Client on Sales, Bills, Ledger, Products, HR, KPIs — each must show only the selected tenant.
-- Automated: add a Playwright smoke that logs in as the test super‑admin, switches tenants, and asserts row counts differ on 4 representative pages.
+## Files to touch
+- `src/components/invoices/InvoiceScanner.tsx` — new fields in line state, 4 header cells, 4 body cells, row-highlight merge, Status auto-flip + warning + confirm-button gating.
+- Migration: add 4 columns to `invoice_line_items`.
+- Invoice confirmation handler (will locate during build — likely in `InvoiceScanner.tsx` save/confirm path or a shared hook) to write GRN + grn_items + audit on approval.
 
 ## Out of scope
-- New backend schema changes.
-- Re‑theming or feature changes.
-- Tightening RLS (deferred to a follow-up once client passes audits).
-
-## Deliverables
-1. `src/lib/tenantQuery.ts` + tenant-aware `fetchAllRows` wrapper.
-2. Refactor of the ~45 hooks/pages listed above, in the priority order shown.
-3. React Query cache invalidation on tenant switch in `useActiveTenant`.
-4. Memory entry under `mem://architecture/multi-tenant` capturing the rule "every public-table query must go through `tenantSelect/Insert/Update/Delete` or include `.eq('tenant_id', tenantId)` explicitly".
-5. Playwright smoke verifying tenant isolation on Sales, Bills, Ledger, Products.
+Header redesign, summary chip changes, modals/drawers, mobile column stacking, changes to other invoice tabs (`ProcurementInvoicesTab`, `LineItemsTab`), and any non-invoice screens.
