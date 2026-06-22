@@ -1949,7 +1949,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   )}
                   <Button
                     onClick={() => handleSaveCurrent()}
-                    disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues}
+                    disabled={saving || savingAll || !!current.is_duplicate || hasUnmatchedItems || hasBlockingIssues || receivingBlocksApproval}
                     title={
                       current.is_duplicate
                         ? "Duplicate invoice — cannot save"
@@ -1957,6 +1957,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                         ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first (or use Override)`
                         : hasUnmatchedItems
                         ? "Match all items first"
+                        : disputeStats.hasDispute
+                        ? "Resolve quantity differences before approval"
+                        : disputeStats.missingReason > 0
+                        ? "Select a reason for every disputed line"
+                        : disputeStats.missingNote > 0
+                        ? "Add a note for every line where Reason is Other"
                         : "Approve and save invoice"
                     }
                   >
@@ -1965,6 +1971,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       ? "Duplicate"
                       : hasBlockingIssues
                       ? `Resolve ${blockingCount} Blocking`
+                      : disputeStats.hasDispute
+                      ? `Resolve ${disputeStats.disputedLines} Disputed`
                       : "Approve & Save"}
                   </Button>
                 </>
