@@ -1096,9 +1096,28 @@ export default function ProcurementInvoicesTab() {
                           )}
                         </div>
                       </td>
-                      <td className="px-1 py-1 align-top">
-                        <Input value={line.total} readOnly tabIndex={-1} className="h-8 text-xs font-medium min-w-[90px] bg-muted/50 cursor-default font-mono" />
-                      </td>
+                      {(() => {
+                        const q = parseFloat(line.quantity) || 0;
+                        const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+                        const p = parseFloat(line.unit_price) || 0;
+                        const inv = q * p;
+                        const acc = a * p;
+                        const accCls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
+                        return (
+                          <>
+                            <td className="px-1 py-1 align-top">
+                              <div className="h-8 flex items-center justify-end px-2 font-mono text-xs text-muted-foreground min-w-[100px]">
+                                {inv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </td>
+                            <td className="px-1 py-1 align-top">
+                              <div className={`h-8 flex items-center justify-end px-2 font-mono text-xs font-medium min-w-[100px] ${accCls}`}>
+                                {acc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </td>
+                          </>
+                        );
+                      })()}
                       <td className="px-1 py-1 align-top">
                         {editLines.length > 1 && (
                           <Button size="icon" variant="ghost" onClick={() => removeEditLine(index)} className="h-8 w-8">
