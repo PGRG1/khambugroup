@@ -1492,9 +1492,18 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                     : line.price_changed
                     ? "bg-blue-500/10 border-l-2 border-l-blue-500"
                     : "";
+                  const recvTint = !rowClass ? computeReceivingTint(line) : null;
+                  const purchQty = parseFloat(line.quantity) || 0;
+                  const acceptedQtyStr = line.accepted_qty ?? line.quantity ?? "";
+                  const acceptedQty = parseFloat(acceptedQtyStr || "0") || 0;
+                  const qtyDiff = acceptedQty - purchQty;
+                  const effReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || "");
+                  const reasonMissing = qtyDiff !== 0 && !effReason;
+                  const noteRequired = effReason === "other" && !(line.receiving_note || "").trim();
                   return (
                     <tr
                       key={i}
+                      style={recvTint ? { backgroundColor: recvTint.bg, borderLeft: `3px solid ${recvTint.border}` } : undefined}
                       className={`border-b border-border/50 ${rowClass} ${dragSrcIdx === i ? "opacity-50" : ""} ${
                         dragOverIdx === i && dragOverPos === "above" ? "border-t-2 border-t-primary" : ""
                       } ${dragOverIdx === i && dragOverPos === "below" ? "border-b-2 border-b-primary" : ""}`}
