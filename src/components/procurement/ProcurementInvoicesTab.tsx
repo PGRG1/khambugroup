@@ -1020,6 +1020,66 @@ export default function ProcurementInvoicesTab() {
                         />
                       </td>
                       <td className="px-1 py-1 align-top">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={line.accepted_qty ?? ""}
+                          onChange={(e) => updateEditLineReceiving(index, "accepted_qty", e.target.value)}
+                          className="h-8 text-xs min-w-[90px]"
+                        />
+                      </td>
+                      <td className="px-1 py-1 align-top">
+                        <div
+                          className={`h-8 flex items-center justify-end px-2 font-mono text-xs rounded-md border border-input bg-muted/50 ${
+                            diff === 0
+                              ? "text-muted-foreground"
+                              : diff < 0
+                              ? "text-red-400"
+                              : "text-emerald-400"
+                          }`}
+                        >
+                          {diff > 0 ? `+${diff}` : String(diff)}
+                        </div>
+                      </td>
+                      <td className="px-1 py-1 align-top">
+                        {diff === 0 ? (
+                          <div className="h-8 flex items-center px-2 text-xs rounded-md border border-input bg-muted/50 text-muted-foreground">
+                            Matched
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <select
+                              value={line.receiving_reason || ""}
+                              onChange={(e) => updateEditLineReceiving(index, "receiving_reason", e.target.value)}
+                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                            >
+                              <option value="">Select reason…</option>
+                              {RECEIVING_REASONS.map((r) => (
+                                <option key={r.value} value={r.value}>{r.label}</option>
+                              ))}
+                            </select>
+                            {!line.receiving_reason && (
+                              <span className="absolute top-1 right-6 h-1.5 w-1.5 rounded-full bg-red-500" />
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-1 py-1 align-top">
+                        <div className="relative">
+                          <Input
+                            value={line.receiving_note || ""}
+                            onChange={(e) => updateEditLineReceiving(index, "receiving_note", e.target.value)}
+                            maxLength={500}
+                            placeholder={effReason === "other" ? "Required" : "Optional"}
+                            className="h-8 text-xs min-w-[140px]"
+                          />
+                          {noteRequired && (
+                            <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-red-500" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-1 py-1 align-top">
                         <div className="relative">
                           <Input
                             type="number"
