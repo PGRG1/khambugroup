@@ -635,6 +635,19 @@ export default function ProcurementInvoicesTab() {
         nextLine.total = calculateEditLineTotal(nextLine, supplierName, supplierId);
       }
 
+      if (field === "quantity") {
+        if (!nextLine.accepted_qty_touched) {
+          nextLine.accepted_qty = value;
+        }
+        const q = parseFloat(value) || 0;
+        const a = parseFloat(nextLine.accepted_qty ?? value) || 0;
+        if (a - q === 0) {
+          nextLine.receiving_reason = "matched";
+        } else if (nextLine.receiving_reason === "matched" || !nextLine.receiving_reason) {
+          nextLine.receiving_reason = "";
+        }
+      }
+
       if (field === "unit_price" && nextLine.pm_unit_price) {
         nextLine.price_changed = Math.abs((parseFloat(value) || 0) - nextLine.pm_unit_price) > 0.01;
       }
@@ -657,6 +670,31 @@ export default function ProcurementInvoicesTab() {
       return updated;
     });
   };
+
+  const updateEditLineReceiving = (idx: number, field: "accepted_qty" | "receiving_reason" | "receiving_note", value: string) => {
+    setEditLines((prev) => {
+      const updated = [...prev];
+      const line = { ...updated[idx] };
+      if (field === "accepted_qty") {
+        line.accepted_qty = value;
+        line.accepted_qty_touched = true;
+        const q = parseFloat(line.quantity) || 0;
+        const a = parseFloat(value) || 0;
+        if (a - q === 0) {
+          line.receiving_reason = "matched";
+        } else if (line.receiving_reason === "matched" || !line.receiving_reason) {
+          line.receiving_reason = "";
+        }
+      } else if (field === "receiving_reason") {
+        line.receiving_reason = value;
+      } else {
+        line.receiving_note = value;
+      }
+      updated[idx] = line;
+      return updated;
+    });
+  };
+
 
   const selectEditProduct = (idx: number, product: ProductMasterEntry) => {
     setEditLines((prev) => {
