@@ -121,7 +121,7 @@ export default function CreditNotes() {
         venue: i.venue || "",
         total_amount: Number(i.total_amount || 0),
         amount_paid: Number(i.amount_paid || 0),
-        outstanding_amount: Number(i.remaining_balance ?? (i.total_amount - i.amount_paid) ?? 0),
+        outstanding_amount: Number(i.remaining_balance ?? (Number(i.total_amount || 0) - Number(i.amount_paid || 0))),
         age_days: 0,
         bucket: "",
         payment_status: i.payment_status || "",
