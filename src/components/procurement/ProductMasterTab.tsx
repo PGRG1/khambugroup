@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useProductMaster, ProductMasterItem, ProductSupplierEntry, FINANCIAL_TREATMENTS, plSectionFor } from "@/hooks/useProductMaster";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal, AlertTriangle, CheckCircle2, Filter, Columns3, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal, AlertTriangle, CheckCircle2, Filter, Columns3, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
@@ -19,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 
 import UomSelect from "@/components/procurement/UomSelect";
 
@@ -852,6 +855,18 @@ export default function ProductMasterTab() {
                         ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="col-span-2 flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+                  <div className="flex-1">
+                    <Label className="text-xs font-medium">Creates stock movement</Label>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      When off, receiving this item will not update inventory quantities. Use for price corrections, refunds, deposits and non-stock expenses.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.creates_stock_movement}
+                    onCheckedChange={(v) => setForm(f => ({ ...f, creates_stock_movement: v }))}
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Supplier</Label>
