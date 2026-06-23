@@ -1,146 +1,60 @@
-# Invoice Discount: % and $ Support with Proportional Distribution
+# Items Master: Stock Movement Flag + Supplier Refund Items
 
-Upgrade the discount system across the invoice scanner, invoice edit view, and GRN auto-creation so that:
-- Both line-level and header-level discounts support `%` and `$` modes.
-- Header discounts are distributed proportionally to lines so each line carries a true `net_unit_cost`.
-- GRN/inventory valuations use the post-discount net cost (today they use the pre-discount unit price, inflating inventory and recipe costing).
+Add a `creates_stock_movement` boolean to `product_master` so invoice lines for non-stock items (refunds, deposits, OpEx) skip GRN inventory creation. Seed a standard set of supplier refund items per tenant.
 
-Existing rounding behaviour (`invoiceRounding.ts` per-supplier modes), receiving columns, dispute auto-flip, and all other pages are untouched.
+## 1. Migration: add column + backfill
 
----
+- `ALTER TABLE public.product_master ADD COLUMN creates_stock_movement boolean NOT NULL DEFAULT true`
+- Backfill: `true` for COGS, `false` for OpEx and all Asset treatments
 
-## Step 1 — Database migration
+## 2. Migration: tenant-scoped inventory aggregates RPC
 
-Add discount fields to `invoice_line_items` and `invoices`, then backfill existing rows.
+Replace `get_inventory_aggregates(p_tenant_id uuid)` so it joins `product_master` and filters out:
+- `financial_treatment ILIKE 'Asset%'`
+- `creates_stock_movement = false`
 
-**`invoice_line_items` new columns**
-- `discount_mode text` — `"fixed"` or `"percentage"`, default `"fixed"`
-- `discount_rate numeric` — percentage value (e.g. `10` = 10%), default `0`
-- `line_discount_amount numeric` — calculated $ from the line's own discount, default `0`
-- `header_discount_share numeric` — portion of the header discount allocated to this line, default `0`
-- `net_unit_cost numeric` — final per-unit cost after line + header discounts, default `0`
+Grant EXECUTE to `authenticated, service_role`. (I'll verify the current signature before replacing.)
 
-**`invoices` new columns**
-- `discount_mode text` — default `"fixed"`
-- `discount_rate numeric` — default `0`
+## 3. `src/hooks/useProductMaster.ts`
 
-**Backfill**
-- `line_discount_amount = discount`, `discount_mode = 'fixed'`, `discount_rate = 0`, `header_discount_share = 0`.
-- `net_unit_cost = (quantity * unit_price - discount) / quantity` when `quantity > 0`, else `unit_price`.
+- Add `creates_stock_movement: boolean` to `ProductMasterItem`
+- No other changes — `fetchAllRows("product_master", "*", …)` already returns the new column, and `createProduct`/`updateProduct` spread the full form object so the field flows through automatically
 
-Existing `invoices.discount`, `invoices.discount_type`, and `invoice_line_items.discount` are kept and continue to hold the fixed $ amount.
+## 4. `src/components/procurement/ProductMasterTab.tsx`
 
----
+- Add `creates_stock_movement: true` to `EMPTY_FORM`
+- Add `creates_stock_movement: boolean` to `FlatRow`; populate in both branches of the `flatRows` useMemo with `p.creates_stock_movement ?? true`
+- In the edit/create dialog, add a `Switch` row beneath the `financial_treatment` Select labelled "Creates stock movement" with helper text
+- Extend the `financial_treatment` `onValueChange` to also set `creates_stock_movement = (v === "COGS")` — user can still override manually after
+- In the table row, when `row.financial_treatment === "COGS" && !row.creates_stock_movement`, render a muted "No stock" badge next to the treatment badge
+- Add `creates_stock_movement` (label "Creates Stock Movement") to the CSV export columns
 
-## Step 2 — Shared calculation utilities in `src/utils/invoiceRounding.ts`
+## 5. `src/utils/autoCreateGrnFromInvoice.ts`
 
-Only **add** new exports.
+- Invoice-line select already includes `net_unit_cost`, `line_discount_amount`, `header_discount_share`, `product_master_id` — leave as-is
+- After loading lines, fetch `{ id, creates_stock_movement, financial_treatment }` from `product_master` for the line product IDs and build a Map
+- Compute `hasDispute` across **all** lines (refunds with qty diffs still flip status to disputed)
+- **Always create the `goods_received_notes` header row and always update `invoices.grn_id`**, regardless of whether any lines are stock-bearing
+- Build the `grn_items` insert payload from only the lines whose product has `creates_stock_movement !== false` (unknown product defaults to included). If the filtered list is empty, skip just the `grn_items` insert — the header and the `invoices.grn_id` link still happen
+- Cost basis stays `net_unit_cost` when > 0, else falls back to `unit_price` (existing fallback chain kept)
 
-- `type DiscountMode = "fixed" | "percentage"`
-- `calcLineDiscount(lineGross, mode, rate, fixed)` → $ amount for the line.
-- `calcHeaderDiscount(subtotal, mode, rate, fixed)` → header $ amount.
-- `distributeHeaderDiscount(lineNets[], headerAmount)` → per-line shares, proportional to each line's net; last line absorbs rounding remainder.
-  - **Edge case guard**: if `lineNets` is empty, total is `0`, or `headerAmount` is `0`, return all zeros immediately — no division and no last-line adjustment, preventing any divide-by-zero (covers the all-100%-line-discount scenario).
-- `calcNetUnitCost(qty, unitPrice, lineDiscount, headerShare)` → 4dp per-unit net cost (returns `unitPrice` when `qty = 0`).
-- `recalcAllDiscounts(lines, headerMode, headerRate, headerFixed, roundingMode)` → returns updated lines with `line_discount_amount`, `header_discount_share`, `net_unit_cost`, and rounded `total`. Single shared implementation for scanner + edit view.
+## 6. Refund-items seed banner in `ProductMasterTab.tsx`
 
----
+- Show a dismissible `Alert` at the top of the page when both:
+  - `localStorage.getItem("refund_seed_dismissed") !== "true"`
+  - No existing products with `internal_sku` starting with `REF-`
+- "Add refund items" inserts 7 standard rows (REF-0001…REF-0007) via the existing `createProduct` path (tenant-scoped), each: `financial_treatment="COGS"`, `creates_stock_movement=false`, `level1_category="Supplier Refunds"`, `accounting_category="purchases"`, `status="Active"`, numeric fields `0`, strings `""`
+- "Not now" writes `refund_seed_dismissed=true` to localStorage and hides the banner
+- After seeding, call `fetchProducts()`
 
-## Step 3 — `InvoiceScanner.tsx` UI + state
+## What does NOT change
 
-**Line row**
-- Extend `EditableInvoiceLine` and `emptyEditLine` with `discount_mode` (default `"fixed"`), `discount_rate` (`"0"`), `line_discount_amount`, `header_discount_share`, `net_unit_cost`.
-- Replace existing line discount `<Input>` with:
+`FINANCIAL_TREATMENTS`, `plSectionFor`, `product_suppliers`, `CategoryCascadeSelect`, `UomSelect`, Invoice Scanner, Invoice Edit, finance pages, Deposit Ledger, Stock Counts, sidebar/routing.
 
-```text
-[%] [$]  [ input ]   Disc: $X.XX   Net: $Y.YY/unit
-```
+## Verification
 
-  - Toggle picks `%` vs `$`; in `%` mode input is the rate, in `$` mode it's the fixed amount.
-  - Muted read-only labels show calculated line discount and resulting per-unit net cost.
-
-**Header / footer**
-- Add `invoice_discount_mode` and `invoice_discount_rate` to scanner state.
-- Header control: `Type: [Discount | Refund]   Mode: [% | $]   Amount: [ input ]   Calculated: $X.XX`.
-
-**Footer summary**
-
-```text
-Line discounts:     -$X.XX
-Invoice discount:   -$X.XX
-─────────────────────────
-Total discounts:    -$X.XX
-Net subtotal:        $X.XX   ← flows to GRN / inventory
-Tax:                 $X.XX
-Invoice total:       $X.XX   ← what you pay
-```
-
-When `discount_type = "refund"` the header label reads "Refund" and the amount renders amber; distribution math is identical.
-
-**Recalculation**
-- Call `recalcAllDiscounts` whenever `quantity`, `unit_price`, line `discount` / `discount_mode` / `discount_rate`, or header `invoice_discount` / `invoice_discount_mode` / `invoice_discount_rate` changes.
-- Line `total` uses `formatLineTotal(lineNet - headerShare, currentRoundingMode)` so per-supplier rounding is preserved.
-
-**Save payload**
-- Line items persist `discount_mode`, `discount_rate`, `line_discount_amount`, `header_discount_share`, `net_unit_cost` (plus existing `discount` = `line_discount_amount`).
-- Invoice header persists `discount_mode`, `discount_rate`, and `discount` = calculated header $ amount.
-
----
-
-## Step 4 — `ProcurementInvoicesTab.tsx` (edit view)
-
-Apply the same changes:
-- Extend `EditableInvoiceLine` and `editForm` with new fields.
-- Load `discount_mode`, `discount_rate`, `line_discount_amount`, `header_discount_share`, `net_unit_cost` when opening edit mode (safe fallbacks for legacy rows).
-- Same `% / $` toggle controls on line and header.
-- Use shared `recalcAllDiscounts` on every relevant change.
-- Footer renders the same summary block.
-- Save the new fields on update.
-
----
-
-## Step 5 — `src/utils/autoCreateGrnFromInvoice.ts`
-
-**Two changes:**
-
-1. **Update the `invoice_line_items` SELECT** to include the new discount columns. The current query selects only specific columns and does not include `net_unit_cost`, so it must be extended:
-
-```ts
-.select(
-  "id, description, unit, quantity, unit_price, normalized_unit_cost, total, discount, " +
-  "product_master_id, accepted_qty, qty_difference, receiving_reason, receiving_note, " +
-  "net_unit_cost, line_discount_amount, header_discount_share"
-)
-```
-
-2. **Use `net_unit_cost` as the GRN cost basis** with fallback for legacy rows:
-
-```ts
-const unitCost =
-  l.net_unit_cost != null && Number(l.net_unit_cost) > 0
-    ? Number(l.net_unit_cost)
-    : <existing fallback chain: unit_price → normalized_unit_cost → (total + discount) / qty>;
-```
-
-Existing fallback chain stays in place for rows where `net_unit_cost` is null/0 (pre-migration data).
-
----
-
-## Out of scope (explicitly unchanged)
-
-- `invoiceRounding.ts` existing functions and per-supplier rounding modes.
-- Receiving columns (`accepted_qty`, `qty_difference`, `receiving_reason`, `receiving_note`).
-- GRN status auto-flip to `disputed`.
-- Row highlighting, dispute UI.
-- GRN creation trigger flow (only the cost source changes).
-- All finance pages, all other procurement pages, sidebar, routing.
-
----
-
-## Files touched
-
-- Migration: add columns + backfill on `invoice_line_items` and `invoices`.
-- `src/utils/invoiceRounding.ts` — add new discount helpers (with zero-subtotal guard in `distributeHeaderDiscount`).
-- `src/components/invoices/InvoiceScanner.tsx` — line + header discount UI, state, recalculation, save payload.
-- `src/components/procurement/ProcurementInvoicesTab.tsx` — same changes in the edit view.
-- `src/utils/autoCreateGrnFromInvoice.ts` — extend SELECT to include new discount columns and switch GRN `unit_cost` source to `net_unit_cost` with fallback.
+1. Build passes
+2. Create a new product, toggle treatment between COGS/OpEx/Asset — switch follows; manual override sticks
+3. Invoice with one COGS stock line + one REF-0001 line: GRN created with one `grn_items` row, invoice links to GRN
+4. Invoice with only REF-* lines: GRN header still created, `grn_items` empty, `invoices.grn_id` populated
+5. `get_inventory_aggregates` for the current tenant returns no rows for REF-* or Asset items
