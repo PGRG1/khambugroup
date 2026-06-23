@@ -605,6 +605,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               weight: li?.weight != null ? String(li.weight) : "",
               unit_price: String(li?.unit_price ?? "0"),
               discount: String(li?.discount ?? "0"),
+              discount_mode: "fixed" as DiscountMode,
+              discount_rate: "0",
               tax_amount: String(li?.tax_amount ?? "0"),
               total: totalStr,
               matched_sku: pmData.entry?.internal_sku || matchedSku,
