@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, Download, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
+import DepositTransactionSheet from "./DepositTransactionSheet";
 
 interface ProductRow {
   id: string;
