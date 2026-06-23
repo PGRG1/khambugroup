@@ -405,12 +405,18 @@ export default function ProcurementInvoicesTab() {
     );
   };
 
-  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">, supplierName?: string, supplierId?: string | null) => {
+  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount"> & Partial<Pick<EditableInvoiceLine, "discount_mode" | "discount_rate">>, supplierName?: string, supplierId?: string | null) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
-    const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
-    const raw = (qty * price) - discount + tax;
+    const dMode = normalizeDiscountMode(line.discount_mode);
+    const rate = parseFloat(line.discount_rate || "0") || 0;
+    const fixed = parseFloat(line.discount) || 0;
+    const gross = qty * price;
+    const disc = dMode === "percentage"
+      ? Math.max(0, (gross * Math.max(0, Math.min(100, rate))) / 100)
+      : Math.max(0, fixed);
+    const raw = gross - disc + tax;
     return formatLineTotal(raw, getModeForSupplier(supplierId, supplierName));
   };
 
