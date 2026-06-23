@@ -1134,6 +1134,45 @@ export default function ProcurementInvoicesTab() {
                           )}
                         </div>
                       </td>
+                      {/* Discount (% or $) */}
+                      <td className="px-1 py-1 align-top">
+                        {(() => {
+                          const dMode = normalizeDiscountMode(line.discount_mode);
+                          const q = parseFloat(line.quantity) || 0;
+                          const p = parseFloat(line.unit_price) || 0;
+                          const rate = parseFloat(line.discount_rate || "0") || 0;
+                          const fixed = parseFloat(line.discount || "0") || 0;
+                          const calc = dMode === "percentage" ? (q * p * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                          return (
+                            <div className="flex flex-col gap-0.5 min-w-[130px]">
+                              <div className="flex items-center gap-1">
+                                <div className="inline-flex rounded-md border border-input overflow-hidden h-7">
+                                  <button
+                                    type="button"
+                                    className={`px-1.5 text-[10px] ${dMode === "percentage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                                    onClick={() => updateEditLine(index, "discount_mode", "percentage")}
+                                  >%</button>
+                                  <button
+                                    type="button"
+                                    className={`px-1.5 text-[10px] ${dMode === "fixed" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                                    onClick={() => updateEditLine(index, "discount_mode", "fixed")}
+                                  >$</button>
+                                </div>
+                                <Input
+                                  type="number"
+                                  value={dMode === "percentage" ? (line.discount_rate || "0") : (line.discount || "0")}
+                                  onChange={(e) => updateEditLine(index, dMode === "percentage" ? "discount_rate" : "discount", e.target.value)}
+                                  className="h-7 text-xs"
+                                  placeholder="0"
+                                />
+                              </div>
+                              {calc > 0 && (
+                                <span className="text-[9px] text-muted-foreground font-mono">−${calc.toFixed(2)}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       {(() => {
                         const q = parseFloat(line.quantity) || 0;
                         const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
