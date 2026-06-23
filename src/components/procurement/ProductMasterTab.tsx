@@ -501,8 +501,84 @@ export default function ProductMasterTab() {
   const SORT_LABELS: Record<string, string> = Object.fromEntries(columns.map(c => [c.key, c.label]));
   const primarySort = sortColumns[0];
 
+  const hasRefundItems = products.some(p => p.internal_sku?.startsWith("REF-"));
+  const showRefundSeedBanner = !refundSeedDismissed && !hasRefundItems && !loading;
+
+  const dismissSeedBanner = () => {
+    localStorage.setItem("refund_seed_dismissed", "true");
+    setRefundSeedDismissed(true);
+  };
+
+  const seedRefundItems = async () => {
+    if (!tenantId || seedingRefunds) return;
+    setSeedingRefunds(true);
+    const refundItems = [
+      { internal_sku: "REF-0001", internal_product_name: "Price correction" },
+      { internal_sku: "REF-0002", internal_product_name: "Short delivery credit" },
+      { internal_sku: "REF-0003", internal_product_name: "Quality rejection credit" },
+      { internal_sku: "REF-0004", internal_product_name: "Damaged goods credit" },
+      { internal_sku: "REF-0005", internal_product_name: "Promotional rebate" },
+      { internal_sku: "REF-0006", internal_product_name: "Volume rebate" },
+      { internal_sku: "REF-0007", internal_product_name: "General supplier refund" },
+    ];
+    try {
+      const payload = refundItems.map(r => ({
+        internal_sku: r.internal_sku,
+        external_sku: "",
+        internal_product_name: r.internal_product_name,
+        supplier_product_name: "",
+        level1_category: "Supplier Refunds",
+        level2_category: "",
+        level3_category: "",
+        accounting_category: "purchases",
+        financial_treatment: "COGS",
+        default_coa_account_id: null,
+        unit: "",
+        unit_cost: 0,
+        purchase_unit: "",
+        purchase_unit_cost: 0,
+        stock_uom: "",
+        stock_qty: 0,
+        cost_per_stock_unit: 0,
+        base_unit_type: "",
+        base_unit_qty: 0,
+        cost_per_base_unit: 0,
+        notes: "",
+        status: "Active",
+        creates_stock_movement: false,
+        min_stock_qty: null,
+        reorder_qty: null,
+        tenant_id: tenantId,
+      }));
+      const { error } = await supabase.from("product_master" as any).insert(payload as any);
+      if (error) throw error;
+      toast({ title: "Refund items added", description: `Created ${payload.length} standard refund items.` });
+      await fetchProducts();
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Failed to seed refund items", variant: "destructive" });
+    } finally {
+      setSeedingRefunds(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {showRefundSeedBanner && (
+        <Alert className="border-sky-500/40 bg-sky-500/5">
+          <Info className="h-4 w-4 text-sky-400" />
+          <AlertDescription className="flex items-center justify-between gap-3 w-full">
+            <span className="text-sm">
+              Add standard supplier refund items? Used for price corrections and credits on invoices.
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button size="sm" onClick={seedRefundItems} disabled={seedingRefunds || !tenantId}>
+                {seedingRefunds ? "Adding..." : "Add refund items"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={dismissSeedBanner}>Not now</Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Top toolbar: search + add */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[240px] max-w-md">
