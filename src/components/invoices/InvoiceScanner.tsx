@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
-import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
+import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { useProductMaster } from "@/hooks/useProductMaster";
 import {
   AlertDialog,
