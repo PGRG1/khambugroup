@@ -69,6 +69,8 @@ interface ScannedLineItem {
   weight: string;
   unit_price: string;
   discount: string;
+  discount_mode?: DiscountMode;   // "fixed" | "percentage"; defaults to "fixed"
+  discount_rate?: string;          // when mode = percentage, e.g. "10" => 10%
   tax_amount: string;
   total: string;
   matched_sku: string;
