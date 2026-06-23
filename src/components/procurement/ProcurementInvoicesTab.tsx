@@ -462,6 +462,8 @@ export default function ProcurementInvoicesTab() {
       weight: line.weight ? String(line.weight) : "",
       unit_price: priceStr,
       discount: discStr,
+      discount_mode: normalizeDiscountMode((line as any).discount_mode),
+      discount_rate: String((line as any).discount_rate ?? "0"),
       tax_amount: taxStr,
       total: recalcLineTotal
         ? computedTotal
