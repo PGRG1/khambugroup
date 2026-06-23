@@ -774,16 +774,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
       }
 
-      if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
-        const w = line.weight ? parseFloat(line.weight) : null;
+      if (["quantity", "weight", "unit_price", "discount", "discount_mode", "discount_rate", "tax_amount"].includes(field)) {
         const price = parseFloat(line.unit_price) || 0;
         const qty = parseFloat(line.quantity) || 0;
-        const disc = parseFloat(line.discount) || 0;
         const tax = parseFloat(line.tax_amount) || 0;
         const supplierName = copy[currentIdx].supplier_name || "";
         const supplierObj = suppliers.find((s) => s.id === copy[currentIdx].supplier_id) ?? { name: supplierName };
         const mode = getRoundingMode(supplierObj, supplierName);
-        const raw = (qty * price) - disc + tax;
+        // Use computed line discount ($ for fixed mode, derived for %).
+        const dMode = normalizeDiscountMode(line.discount_mode);
+        const dRate = parseFloat(line.discount_rate || "0") || 0;
+        const dFixed = parseFloat(line.discount || "0") || 0;
+        const lineGross = qty * price;
+        const lineDisc = dMode === "percentage"
+          ? Math.max(0, (lineGross * Math.max(0, Math.min(100, dRate))) / 100)
+          : Math.max(0, dFixed);
+        const raw = lineGross - lineDisc + tax;
         line.total = formatLineTotal(raw, mode);
         line.total_override = false;
       }
