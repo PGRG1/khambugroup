@@ -1939,26 +1939,64 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 <span className="font-mono font-medium">{taxTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground">Discount:</span>
-              <Select
-                value={current.invoice_discount_type || "discount"}
-                onValueChange={(v) => updateField("invoice_discount_type", v as "discount" | "refund")}
-              >
-                <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="discount">Discount</SelectItem>
-                  <SelectItem value="refund">Refund</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                value={current.invoice_discount}
-                onChange={(e) => updateField("invoice_discount", e.target.value)}
-                className="text-xs h-7 w-24 font-mono text-right"
-                placeholder="0.00"
-              />
-            </div>
+            {(() => {
+              const hMode = normalizeDiscountMode(current.invoice_discount_mode);
+              const lines = current?.line_items || [];
+              const subtotalAfterLine = lines.reduce((s, l) => {
+                const q = parseFloat(l.quantity) || 0;
+                const p = parseFloat(l.unit_price) || 0;
+                const dm = normalizeDiscountMode(l.discount_mode);
+                const rate = parseFloat(l.discount_rate || "0") || 0;
+                const fixed = parseFloat(l.discount || "0") || 0;
+                const gross = q * p;
+                const ld = dm === "percentage" ? (gross * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                return s + Math.max(0, gross - ld);
+              }, 0);
+              const rate = parseFloat(current.invoice_discount_rate || "0") || 0;
+              const fixedHdr = parseFloat(current.invoice_discount || "0") || 0;
+              const headerCalc = hMode === "percentage"
+                ? (subtotalAfterLine * Math.max(0, Math.min(100, rate))) / 100
+                : Math.max(0, fixedHdr);
+              return (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">
+                    {current.invoice_discount_type === "refund" ? "Refund:" : "Discount:"}
+                  </span>
+                  <Select
+                    value={current.invoice_discount_type || "discount"}
+                    onValueChange={(v) => updateField("invoice_discount_type", v as "discount" | "refund")}
+                  >
+                    <SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="discount">Discount</SelectItem>
+                      <SelectItem value="refund">Refund</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="inline-flex rounded-md border border-input overflow-hidden h-7">
+                    <button
+                      type="button"
+                      className={`px-1.5 text-[10px] ${hMode === "percentage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                      onClick={() => updateField("invoice_discount_mode", "percentage" as any)}
+                    >%</button>
+                    <button
+                      type="button"
+                      className={`px-1.5 text-[10px] ${hMode === "fixed" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                      onClick={() => updateField("invoice_discount_mode", "fixed" as any)}
+                    >$</button>
+                  </div>
+                  <Input
+                    type="number"
+                    value={hMode === "percentage" ? (current.invoice_discount_rate || "0") : current.invoice_discount}
+                    onChange={(e) => updateField(hMode === "percentage" ? "invoice_discount_rate" : "invoice_discount", e.target.value)}
+                    className="text-xs h-7 w-24 font-mono text-right"
+                    placeholder="0.00"
+                  />
+                  <span className={`text-[10px] font-mono ${current.invoice_discount_type === "refund" ? "text-amber-500" : "text-muted-foreground"}`}>
+                    = ${headerCalc.toFixed(2)}
+                  </span>
+                </div>
+              );
+            })()}
             {(() => {
               const lines = current?.line_items || [];
               const invSub = lines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
