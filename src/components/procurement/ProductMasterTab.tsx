@@ -74,7 +74,12 @@ interface FlatRow {
 
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
-  
+  const { tenantId } = useActiveTenant();
+  const { toast } = useToast();
+  const [seedingRefunds, setSeedingRefunds] = useState(false);
+  const [refundSeedDismissed, setRefundSeedDismissed] = useState(
+    () => (typeof window !== "undefined" ? localStorage.getItem("refund_seed_dismissed") === "true" : true)
+  );
   const { items: coaAccounts } = useChartOfAccounts();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
