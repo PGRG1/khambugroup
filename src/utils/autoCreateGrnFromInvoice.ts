@@ -57,6 +57,25 @@ export async function autoCreateGrnFromInvoice(
       .eq("tenant_id", tenantId);
     if (linesErr) return { error: linesErr.message };
 
+    // Fetch product_master classification to know which lines create stock movement
+    const productIds = Array.from(new Set(
+      (lines || []).map((l: any) => l.product_master_id).filter(Boolean)
+    ));
+    const productMap = new Map<string, { creates_stock_movement: boolean; financial_treatment: string }>();
+    if (productIds.length > 0) {
+      const { data: products } = await supabase
+        .from("product_master")
+        .select("id, creates_stock_movement, financial_treatment")
+        .in("id", productIds)
+        .eq("tenant_id", tenantId);
+      for (const p of (products || []) as any[]) {
+        productMap.set(p.id, {
+          creates_stock_movement: p.creates_stock_movement ?? true,
+          financial_treatment: p.financial_treatment ?? "",
+        });
+      }
+    }
+
     // 3. Create GRN header
     const today = new Date().toISOString().slice(0, 10);
     const { data: grn, error: grnErr } = await supabase
