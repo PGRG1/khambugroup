@@ -48,7 +48,11 @@ export async function autoCreateGrnFromInvoice(
 
     const { data: lines, error: linesErr } = await supabase
       .from("invoice_line_items")
-      .select("id, description, unit, quantity, unit_price, normalized_unit_cost, total, discount, product_master_id, accepted_qty, qty_difference, receiving_reason, receiving_note")
+      .select(
+        "id, description, unit, quantity, unit_price, normalized_unit_cost, total, discount, " +
+        "product_master_id, accepted_qty, qty_difference, receiving_reason, receiving_note, " +
+        "net_unit_cost, line_discount_amount, header_discount_share"
+      )
       .eq("invoice_id", invoiceId)
       .eq("tenant_id", tenantId);
     if (linesErr) return { error: linesErr.message };
