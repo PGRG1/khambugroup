@@ -21,7 +21,7 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
-import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
+import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -99,6 +99,8 @@ interface EditableInvoiceLine {
   weight: string;
   unit_price: string;
   discount: string;
+  discount_mode: DiscountMode;
+  discount_rate: string;
   tax_amount: string;
   total: string;
   product_master_id: string | null;
@@ -125,6 +127,8 @@ const emptyEditLine: EditableInvoiceLine = {
   weight: "",
   unit_price: "0",
   discount: "0",
+  discount_mode: "fixed",
+  discount_rate: "0",
   tax_amount: "0",
   total: "0",
   product_master_id: null,
@@ -401,12 +405,18 @@ export default function ProcurementInvoicesTab() {
     );
   };
 
-  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount">, supplierName?: string, supplierId?: string | null) => {
+  const calculateEditLineTotal = (line: Pick<EditableInvoiceLine, "quantity" | "unit_price" | "discount" | "tax_amount"> & Partial<Pick<EditableInvoiceLine, "discount_mode" | "discount_rate">>, supplierName?: string, supplierId?: string | null) => {
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unit_price) || 0;
-    const discount = parseFloat(line.discount) || 0;
     const tax = parseFloat(line.tax_amount) || 0;
-    const raw = (qty * price) - discount + tax;
+    const dMode = normalizeDiscountMode(line.discount_mode);
+    const rate = parseFloat(line.discount_rate || "0") || 0;
+    const fixed = parseFloat(line.discount) || 0;
+    const gross = qty * price;
+    const disc = dMode === "percentage"
+      ? Math.max(0, (gross * Math.max(0, Math.min(100, rate))) / 100)
+      : Math.max(0, fixed);
+    const raw = gross - disc + tax;
     return formatLineTotal(raw, getModeForSupplier(supplierId, supplierName));
   };
 
@@ -458,6 +468,8 @@ export default function ProcurementInvoicesTab() {
       weight: line.weight ? String(line.weight) : "",
       unit_price: priceStr,
       discount: discStr,
+      discount_mode: normalizeDiscountMode((line as any).discount_mode),
+      discount_rate: String((line as any).discount_rate ?? "0"),
       tax_amount: taxStr,
       total: recalcLineTotal
         ? computedTotal
@@ -555,7 +567,9 @@ export default function ProcurementInvoicesTab() {
       notes: selectedInvoice.notes,
       discount: selectedInvoice.discount ?? 0,
       discount_type: (selectedInvoice as any).discount_type === "refund" ? "refund" : "discount",
-    });
+      discount_mode: normalizeDiscountMode((selectedInvoice as any).discount_mode) as any,
+      discount_rate: Number((selectedInvoice as any).discount_rate ?? 0) as any,
+    } as any);
     setEditLines(lineItems.map((line) => hydrateEditLine(line, selectedInvoice.supplier_id)));
     setDrawerOpen(false);
     setEditing(true);
@@ -571,58 +585,81 @@ export default function ProcurementInvoicesTab() {
     if (!selectedInvoice) return;
 
     setSaving(true);
-    const mappedLines = editLines
-      .filter((line) => line.description.trim())
-      .map((line) => {
-        const qty = parseFloat(line.quantity) || 0;
-        const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
-        const qtyDiff = acc - qty;
-        const recvReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || null);
-        const recvNote = (line.receiving_note || "").trim() || null;
-        return {
-          item_code: line.item_code || "",
-          description: line.description,
-          pack_size: line.pack_size || "",
-          category_id: null,
-          quantity: qty,
-          unit: line.unit || null,
-          weight: line.weight ? parseFloat(line.weight) || 0 : null,
-          unit_price: parseFloat(line.unit_price) || 0,
-          discount: parseFloat(line.discount) || 0,
-          tax_amount: parseFloat(line.tax_amount) || 0,
-          total: parseFloat(line.total) || 0,
-          notes: null,
-          product_master_id: line.product_master_id,
-          accepted_qty: acc,
-          qty_difference: qtyDiff,
-          receiving_reason: recvReason,
-          receiving_note: recvNote,
-        } as any;
-      });
 
-
-    // Subtotal/total are computed using the supplier's invoice rounding rule
-    // (see Suppliers & Vendors → Invoice rounding rule).
     const supplierIdForSave = editForm.supplier_id || selectedInvoice.supplier_id;
     const supplierNameForSave = getSupplierNameById(supplierIdForSave) || selectedInvoice.supplier_name || "";
     const modeForSave = getModeForSupplier(supplierIdForSave, supplierNameForSave);
-    const rawLines = editLines.map((line) => {
+
+    const filteredLines = editLines.filter((line) => line.description.trim());
+    const headerMode = normalizeDiscountMode((editForm as any).discount_mode);
+    const headerRate = Number((editForm as any).discount_rate ?? 0) || 0;
+    const headerFixed = Number((editForm as any).discount ?? 0) || 0;
+    const discResults = recalcAllDiscounts(
+      filteredLines.map((l) => ({
+        quantity: l.quantity,
+        unit_price: l.unit_price,
+        discount_mode: l.discount_mode,
+        discount_rate: l.discount_rate || "0",
+        discount: l.discount || "0",
+      })),
+      headerMode,
+      headerRate,
+      headerFixed,
+      modeForSave,
+    );
+
+    const mappedLines = filteredLines.map((line, idx) => {
+      const qty = parseFloat(line.quantity) || 0;
+      const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
+      const qtyDiff = acc - qty;
+      const recvReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || null);
+      const recvNote = (line.receiving_note || "").trim() || null;
+      const out = discResults.perLine[idx];
+      return {
+        item_code: line.item_code || "",
+        description: line.description,
+        pack_size: line.pack_size || "",
+        category_id: null,
+        quantity: qty,
+        unit: line.unit || null,
+        weight: line.weight ? parseFloat(line.weight) || 0 : null,
+        unit_price: parseFloat(line.unit_price) || 0,
+        discount: out.line_discount_amount,
+        discount_mode: line.discount_mode,
+        discount_rate: parseFloat(line.discount_rate || "0") || 0,
+        line_discount_amount: out.line_discount_amount,
+        header_discount_share: out.header_discount_share,
+        net_unit_cost: out.net_unit_cost,
+        tax_amount: parseFloat(line.tax_amount) || 0,
+        total: parseFloat(out.total) || 0,
+        notes: null,
+        product_master_id: line.product_master_id,
+        accepted_qty: acc,
+        qty_difference: qtyDiff,
+        receiving_reason: recvReason,
+        receiving_note: recvNote,
+      } as any;
+    });
+
+    const rawLines = filteredLines.map((line, idx) => {
       const qty = parseFloat(line.quantity) || 0;
       const price = parseFloat(line.unit_price) || 0;
-      const discount = parseFloat(line.discount) || 0;
       const tax = parseFloat(line.tax_amount) || 0;
-      return { gross: (qty * price) - discount + tax, tax };
+      const out = discResults.perLine[idx];
+      return { gross: (qty * price) - out.line_discount_amount - out.header_discount_share + tax, tax };
     });
     const taxSum = rawLines.reduce((s, l) => s + l.tax, 0);
     const grossTotal = aggregateTotal(rawLines.map((l) => l.gross), modeForSave);
     const subtotalAmount = aggregateTotal(rawLines.map((l) => l.gross - l.tax), modeForSave);
-    const headerDiscount = Number((editForm as any).discount) || 0;
-    const totalAmount = grossTotal - headerDiscount;
+    const totalAmount = grossTotal;
 
     const success = await updateInvoice(
       selectedInvoice.id,
       {
         ...editForm,
+        discount: discResults.headerDiscountAmount,
+        discount_mode: headerMode,
+        discount_rate: headerRate,
         subtotal: subtotalAmount,
         tax_amount: taxSum,
         total_amount: totalAmount,
@@ -642,9 +679,9 @@ export default function ProcurementInvoicesTab() {
   const updateEditLine = (idx: number, field: keyof EditableInvoiceLine, value: string) => {
     setEditLines((prev) => {
       const updated = [...prev];
-      const nextLine: EditableInvoiceLine = { ...updated[idx], [field]: value };
+      const nextLine: EditableInvoiceLine = { ...updated[idx], [field]: value as any };
 
-      if (["quantity", "unit_price", "discount", "tax_amount"].includes(field)) {
+      if (["quantity", "unit_price", "discount", "discount_mode", "discount_rate", "tax_amount"].includes(field)) {
         const supplierId = editForm.supplier_id || selectedInvoice?.supplier_id || null;
         const supplierName = getSupplierNameById(supplierId) || selectedInvoice?.supplier_name || "";
         nextLine.total = calculateEditLineTotal(nextLine, supplierName, supplierId);
@@ -945,6 +982,7 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[160px] px-1 py-1.5 text-left font-medium text-muted-foreground">Reason</th>
                   <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Note</th>
                   <th className="w-[95px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Cost</th>
+                  <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Discount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Invoiced Amount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Accepted Amount</th>
                   <th className="w-8"></th>
@@ -1096,6 +1134,45 @@ export default function ProcurementInvoicesTab() {
                           )}
                         </div>
                       </td>
+                      {/* Discount (% or $) */}
+                      <td className="px-1 py-1 align-top">
+                        {(() => {
+                          const dMode = normalizeDiscountMode(line.discount_mode);
+                          const q = parseFloat(line.quantity) || 0;
+                          const p = parseFloat(line.unit_price) || 0;
+                          const rate = parseFloat(line.discount_rate || "0") || 0;
+                          const fixed = parseFloat(line.discount || "0") || 0;
+                          const calc = dMode === "percentage" ? (q * p * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                          return (
+                            <div className="flex flex-col gap-0.5 min-w-[130px]">
+                              <div className="flex items-center gap-1">
+                                <div className="inline-flex rounded-md border border-input overflow-hidden h-7">
+                                  <button
+                                    type="button"
+                                    className={`px-1.5 text-[10px] ${dMode === "percentage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                                    onClick={() => updateEditLine(index, "discount_mode", "percentage")}
+                                  >%</button>
+                                  <button
+                                    type="button"
+                                    className={`px-1.5 text-[10px] ${dMode === "fixed" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                                    onClick={() => updateEditLine(index, "discount_mode", "fixed")}
+                                  >$</button>
+                                </div>
+                                <Input
+                                  type="number"
+                                  value={dMode === "percentage" ? (line.discount_rate || "0") : (line.discount || "0")}
+                                  onChange={(e) => updateEditLine(index, dMode === "percentage" ? "discount_rate" : "discount", e.target.value)}
+                                  className="h-7 text-xs"
+                                  placeholder="0"
+                                />
+                              </div>
+                              {calc > 0 && (
+                                <span className="text-[9px] text-muted-foreground font-mono">−${calc.toFixed(2)}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       {(() => {
                         const q = parseFloat(line.quantity) || 0;
                         const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
@@ -1137,32 +1214,92 @@ export default function ProcurementInvoicesTab() {
           </Button>
 
           <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground">Discount:</span>
-              <Select
-                value={(editForm as any).discount_type || "discount"}
-                onValueChange={(v) => setEditForm((f) => ({ ...f, discount_type: v as any }))}
-              >
-                <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="discount">Discount</SelectItem>
-                  <SelectItem value="refund">Refund</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                value={String(editForm.discount ?? 0)}
-                onChange={(e) => setEditForm((f) => ({ ...f, discount: parseFloat(e.target.value) || 0 }))}
-                className="h-7 w-24 font-mono text-xs text-right"
-                placeholder="0.00"
-              />
-            </div>
+            {(() => {
+              const hMode = normalizeDiscountMode((editForm as any).discount_mode);
+              const subtotalAfterLine = editLines.reduce((s, l) => {
+                const q = parseFloat(l.quantity) || 0;
+                const p = parseFloat(l.unit_price) || 0;
+                const dm = normalizeDiscountMode(l.discount_mode);
+                const rate = parseFloat(l.discount_rate || "0") || 0;
+                const fixed = parseFloat(l.discount || "0") || 0;
+                const gross = q * p;
+                const ld = dm === "percentage" ? (gross * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                return s + Math.max(0, gross - ld);
+              }, 0);
+              const rate = Number((editForm as any).discount_rate ?? 0) || 0;
+              const fixedHdr = Number(editForm.discount ?? 0) || 0;
+              const headerCalc = hMode === "percentage"
+                ? (subtotalAfterLine * Math.max(0, Math.min(100, rate))) / 100
+                : Math.max(0, fixedHdr);
+              return (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">
+                    {(editForm as any).discount_type === "refund" ? "Refund:" : "Discount:"}
+                  </span>
+                  <Select
+                    value={(editForm as any).discount_type || "discount"}
+                    onValueChange={(v) => setEditForm((f) => ({ ...f, discount_type: v as any }))}
+                  >
+                    <SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="discount">Discount</SelectItem>
+                      <SelectItem value="refund">Refund</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="inline-flex rounded-md border border-input overflow-hidden h-7">
+                    <button
+                      type="button"
+                      className={`px-1.5 text-[10px] ${hMode === "percentage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                      onClick={() => setEditForm((f) => ({ ...f, discount_mode: "percentage" } as any))}
+                    >%</button>
+                    <button
+                      type="button"
+                      className={`px-1.5 text-[10px] ${hMode === "fixed" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                      onClick={() => setEditForm((f) => ({ ...f, discount_mode: "fixed" } as any))}
+                    >$</button>
+                  </div>
+                  <Input
+                    type="number"
+                    value={hMode === "percentage" ? String((editForm as any).discount_rate ?? 0) : String(editForm.discount ?? 0)}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value) || 0;
+                      if (hMode === "percentage") {
+                        setEditForm((f) => ({ ...f, discount_rate: v } as any));
+                      } else {
+                        setEditForm((f) => ({ ...f, discount: v } as any));
+                      }
+                    }}
+                    className="h-7 w-24 font-mono text-xs text-right"
+                    placeholder="0.00"
+                  />
+                  <span className={`text-[10px] font-mono ${(editForm as any).discount_type === "refund" ? "text-amber-500" : "text-muted-foreground"}`}>
+                    = ${headerCalc.toFixed(2)}
+                  </span>
+                </div>
+              );
+            })()}
             {(() => {
               const invSub = editLines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
               const accSub = editLines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
-              const docTotal = invSub - (Number((editForm as any).discount) || 0);
+              const hMode = normalizeDiscountMode((editForm as any).discount_mode);
+              const subtotalAfterLineForTotal = editLines.reduce((s, l) => {
+                const q = parseFloat(l.quantity) || 0;
+                const p = parseFloat(l.unit_price) || 0;
+                const dm = normalizeDiscountMode(l.discount_mode);
+                const rate = parseFloat(l.discount_rate || "0") || 0;
+                const fixed = parseFloat(l.discount || "0") || 0;
+                const gross = q * p;
+                const ld = dm === "percentage" ? (gross * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                return s + Math.max(0, gross - ld);
+              }, 0);
+              const hRate = Number((editForm as any).discount_rate ?? 0) || 0;
+              const hFixed = Number(editForm.discount ?? 0) || 0;
+              const headerCalc = hMode === "percentage"
+                ? (subtotalAfterLineForTotal * Math.max(0, Math.min(100, hRate))) / 100
+                : Math.max(0, hFixed);
+              const docTotal = subtotalAfterLineForTotal - headerCalc;
               return (
                 <>
                   <div>

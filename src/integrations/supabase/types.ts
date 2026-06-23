@@ -3741,9 +3741,14 @@ export type Database = {
           created_at: string
           description: string
           discount: number
+          discount_mode: string
+          discount_rate: number
+          header_discount_share: number
           id: string
           invoice_id: string
           item_code: string | null
+          line_discount_amount: number
+          net_unit_cost: number
           normalized_unit_cost: number | null
           notes: string | null
           pack_size: string | null
@@ -3769,9 +3774,14 @@ export type Database = {
           created_at?: string
           description: string
           discount?: number
+          discount_mode?: string
+          discount_rate?: number
+          header_discount_share?: number
           id?: string
           invoice_id: string
           item_code?: string | null
+          line_discount_amount?: number
+          net_unit_cost?: number
           normalized_unit_cost?: number | null
           notes?: string | null
           pack_size?: string | null
@@ -3797,9 +3807,14 @@ export type Database = {
           created_at?: string
           description?: string
           discount?: number
+          discount_mode?: string
+          discount_rate?: number
+          header_discount_share?: number
           id?: string
           invoice_id?: string
           item_code?: string | null
+          line_discount_amount?: number
+          net_unit_cost?: number
           normalized_unit_cost?: number | null
           notes?: string | null
           pack_size?: string | null
@@ -3962,6 +3977,8 @@ export type Database = {
           bank_match_status: string
           created_at: string
           discount: number
+          discount_mode: string
+          discount_rate: number
           discount_type: string
           dispute_notes: string | null
           due_date: string | null
@@ -4003,6 +4020,8 @@ export type Database = {
           bank_match_status?: string
           created_at?: string
           discount?: number
+          discount_mode?: string
+          discount_rate?: number
           discount_type?: string
           dispute_notes?: string | null
           due_date?: string | null
@@ -4044,6 +4063,8 @@ export type Database = {
           bank_match_status?: string
           created_at?: string
           discount?: number
+          discount_mode?: string
+          discount_rate?: number
           discount_type?: string
           dispute_notes?: string | null
           due_date?: string | null

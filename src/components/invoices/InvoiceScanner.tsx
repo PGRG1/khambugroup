@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
-import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
+import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { useProductMaster } from "@/hooks/useProductMaster";
 import {
   AlertDialog,
@@ -69,6 +69,8 @@ interface ScannedLineItem {
   weight: string;
   unit_price: string;
   discount: string;
+  discount_mode?: DiscountMode;   // "fixed" | "percentage"; defaults to "fixed"
+  discount_rate?: string;          // when mode = percentage, e.g. "10" => 10%
   tax_amount: string;
   total: string;
   matched_sku: string;
@@ -124,6 +126,8 @@ interface ScannedInvoice {
   invoice_status: string;
   invoice_discount: string;
   invoice_discount_type: "discount" | "refund";
+  invoice_discount_mode?: DiscountMode;
+  invoice_discount_rate?: string;
   line_items: ScannedLineItem[];
   saved?: boolean;
   sourceFiles?: File[];
@@ -147,6 +151,8 @@ interface InvoiceScannerProps {
     notes: string | null;
     discount?: number;
     discount_type?: "discount" | "refund";
+    discount_mode?: DiscountMode;
+    discount_rate?: number;
     status?: string;
   }, lineItems: {
     item_code: string;
@@ -158,6 +164,11 @@ interface InvoiceScannerProps {
     weight: number | null;
     unit_price: number;
     discount: number;
+    discount_mode?: DiscountMode;
+    discount_rate?: number;
+    line_discount_amount?: number;
+    header_discount_share?: number;
+    net_unit_cost?: number;
     tax_amount: number;
     total: number;
     notes: null;
@@ -170,7 +181,8 @@ interface InvoiceScannerProps {
 
 const emptyLine: ScannedLineItem = {
   item_code: "", description: "", pack_size: "", quantity: "1", unit: "", weight: "",
-  unit_price: "0", discount: "0", tax_amount: "0", total: "0", matched_sku: "",
+  unit_price: "0", discount: "0", discount_mode: "fixed", discount_rate: "0",
+  tax_amount: "0", total: "0", matched_sku: "",
   matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
   unmatched: false, price_changed: false,
   accepted_qty: "1", accepted_qty_touched: false, receiving_reason: "matched", receiving_note: "",
@@ -593,6 +605,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               weight: li?.weight != null ? String(li.weight) : "",
               unit_price: String(li?.unit_price ?? "0"),
               discount: String(li?.discount ?? "0"),
+              discount_mode: "fixed" as DiscountMode,
+              discount_rate: "0",
               tax_amount: String(li?.tax_amount ?? "0"),
               total: totalStr,
               matched_sku: pmData.entry?.internal_sku || matchedSku,
@@ -626,6 +640,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           invoice_status: "outstanding",
           invoice_discount: "0",
           invoice_discount_type: "discount",
+          invoice_discount_mode: "fixed",
+          invoice_discount_rate: "0",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
@@ -758,16 +774,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         line.unmatched = Boolean((line.item_code || "").trim() || (line.description || "").trim());
       }
 
-      if (["quantity", "weight", "unit_price", "discount", "tax_amount"].includes(field)) {
-        const w = line.weight ? parseFloat(line.weight) : null;
+      if (["quantity", "weight", "unit_price", "discount", "discount_mode", "discount_rate", "tax_amount"].includes(field)) {
         const price = parseFloat(line.unit_price) || 0;
         const qty = parseFloat(line.quantity) || 0;
-        const disc = parseFloat(line.discount) || 0;
         const tax = parseFloat(line.tax_amount) || 0;
         const supplierName = copy[currentIdx].supplier_name || "";
         const supplierObj = suppliers.find((s) => s.id === copy[currentIdx].supplier_id) ?? { name: supplierName };
         const mode = getRoundingMode(supplierObj, supplierName);
-        const raw = (qty * price) - disc + tax;
+        // Use computed line discount ($ for fixed mode, derived for %).
+        const dMode = normalizeDiscountMode(line.discount_mode);
+        const dRate = parseFloat(line.discount_rate || "0") || 0;
+        const dFixed = parseFloat(line.discount || "0") || 0;
+        const lineGross = qty * price;
+        const lineDisc = dMode === "percentage"
+          ? Math.max(0, (lineGross * Math.max(0, Math.min(100, dRate))) / 100)
+          : Math.max(0, dFixed);
+        const raw = lineGross - lineDisc + tax;
         line.total = formatLineTotal(raw, mode);
         line.total_override = false;
       }
@@ -931,15 +953,31 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const supplierName = supplierObj?.name || "";
       const mode = getRoundingMode(supplierObj ?? { name: supplierName });
 
-      const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
+      // Centralized discount math: per-line discount + proportional header share + net_unit_cost.
+      const invDiscMode = normalizeDiscountMode(inv.invoice_discount_mode);
+      const filteredLines = inv.line_items.filter((l) => l.description.trim());
+      const discResults = recalcAllDiscounts(
+        filteredLines.map((l) => ({
+          quantity: l.quantity,
+          unit_price: l.unit_price,
+          discount_mode: normalizeDiscountMode(l.discount_mode),
+          discount_rate: l.discount_rate || "0",
+          discount: l.discount || "0",
+        })),
+        invDiscMode,
+        inv.invoice_discount_rate || "0",
+        inv.invoice_discount || "0",
+        mode,
+      );
+
+      const lines = filteredLines.map((l, idx) => {
         const qty = parseFloat(l.quantity) || 0;
         const price = parseFloat(l.unit_price) || 0;
-        const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
+        const out = discResults.perLine[idx];
         const lineTotal = l.total_override
           ? roundLineTotal(parseFloat(l.total) || 0, mode)
-          : roundLineTotal((qty * price) - disc + tax, mode);
-        // Resolve product_master_id at save time using EXACT match only
+          : roundLineTotal((qty * price) - out.line_discount_amount - out.header_discount_share + tax, mode);
         let pmId: string | null = null;
         if (productMaster) {
           const resolved = resolveExactMatch(
@@ -954,7 +992,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const qtyDiff = acceptedQty - qty;
         const recvReason = qtyDiff === 0 ? "matched" : (l.receiving_reason || null);
         const recvNote = (l.receiving_note || "").trim() || null;
-        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId, accepted_qty: acceptedQty, qty_difference: qtyDiff, receiving_reason: recvReason, receiving_note: recvNote } as any;
+        return {
+          item_code: l.item_code || "",
+          description: l.description,
+          pack_size: l.pack_size || "",
+          category_id: null as null,
+          quantity: qty,
+          unit: l.unit || null,
+          weight: l.weight ? parseFloat(l.weight) : null,
+          unit_price: price,
+          discount: out.line_discount_amount,
+          discount_mode: normalizeDiscountMode(l.discount_mode),
+          discount_rate: parseFloat(l.discount_rate || "0") || 0,
+          line_discount_amount: out.line_discount_amount,
+          header_discount_share: out.header_discount_share,
+          net_unit_cost: out.net_unit_cost,
+          tax_amount: tax,
+          total: lineTotal,
+          notes: null as null,
+          product_master_id: pmId,
+          accepted_qty: acceptedQty,
+          qty_difference: qtyDiff,
+          receiving_reason: recvReason,
+          receiving_note: recvNote,
+        } as any;
       });
 
       const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
@@ -976,8 +1037,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           invoice_date: inv.invoice_date,
           due_date: inv.due_date || null,
           notes: inv.notes || null,
-          discount: parseFloat(inv.invoice_discount || "0") || 0,
+          discount: discResults.headerDiscountAmount,
           discount_type: inv.invoice_discount_type || "discount",
+          discount_mode: invDiscMode,
+          discount_rate: parseFloat(inv.invoice_discount_rate || "0") || 0,
           status: inv.invoice_status || undefined,
         },
         lines,
@@ -1782,16 +1845,44 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           )}
                         </div>
                       </td>
-                      {/* Discount */}
-                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
-
-                        <Input
-                          type="number"
-                          value={line.discount}
-                          onChange={(e) => updateLine(i, "discount", e.target.value)}
-                          className="text-xs h-8 w-full"
-                          placeholder="0"
-                        />
+                      {/* Discount (% or $) */}
+                      <td style={{ minWidth: 130 }} className="px-1 py-1 align-top">
+                        {(() => {
+                          const dMode = normalizeDiscountMode(line.discount_mode);
+                          const q = parseFloat(line.quantity) || 0;
+                          const p = parseFloat(line.unit_price) || 0;
+                          const rate = parseFloat(line.discount_rate || "0") || 0;
+                          const fixed = parseFloat(line.discount || "0") || 0;
+                          const calc = dMode === "percentage" ? (q * p * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1">
+                                <div className="inline-flex rounded-md border border-input overflow-hidden h-7">
+                                  <button
+                                    type="button"
+                                    className={`px-1.5 text-[10px] ${dMode === "percentage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                                    onClick={() => updateLine(i, "discount_mode", "percentage")}
+                                  >%</button>
+                                  <button
+                                    type="button"
+                                    className={`px-1.5 text-[10px] ${dMode === "fixed" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                                    onClick={() => updateLine(i, "discount_mode", "fixed")}
+                                  >$</button>
+                                </div>
+                                <Input
+                                  type="number"
+                                  value={dMode === "percentage" ? (line.discount_rate || "0") : (line.discount || "0")}
+                                  onChange={(e) => updateLine(i, dMode === "percentage" ? "discount_rate" : "discount", e.target.value)}
+                                  className="text-xs h-7 w-full"
+                                  placeholder="0"
+                                />
+                              </div>
+                              {calc > 0 && (
+                                <span className="text-[9px] text-muted-foreground font-mono">−${calc.toFixed(2)}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       {/* Invoiced Amount */}
                       <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
@@ -1889,26 +1980,64 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 <span className="font-mono font-medium">{taxTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground">Discount:</span>
-              <Select
-                value={current.invoice_discount_type || "discount"}
-                onValueChange={(v) => updateField("invoice_discount_type", v as "discount" | "refund")}
-              >
-                <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="discount">Discount</SelectItem>
-                  <SelectItem value="refund">Refund</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                value={current.invoice_discount}
-                onChange={(e) => updateField("invoice_discount", e.target.value)}
-                className="text-xs h-7 w-24 font-mono text-right"
-                placeholder="0.00"
-              />
-            </div>
+            {(() => {
+              const hMode = normalizeDiscountMode(current.invoice_discount_mode);
+              const lines = current?.line_items || [];
+              const subtotalAfterLine = lines.reduce((s, l) => {
+                const q = parseFloat(l.quantity) || 0;
+                const p = parseFloat(l.unit_price) || 0;
+                const dm = normalizeDiscountMode(l.discount_mode);
+                const rate = parseFloat(l.discount_rate || "0") || 0;
+                const fixed = parseFloat(l.discount || "0") || 0;
+                const gross = q * p;
+                const ld = dm === "percentage" ? (gross * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                return s + Math.max(0, gross - ld);
+              }, 0);
+              const rate = parseFloat(current.invoice_discount_rate || "0") || 0;
+              const fixedHdr = parseFloat(current.invoice_discount || "0") || 0;
+              const headerCalc = hMode === "percentage"
+                ? (subtotalAfterLine * Math.max(0, Math.min(100, rate))) / 100
+                : Math.max(0, fixedHdr);
+              return (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">
+                    {current.invoice_discount_type === "refund" ? "Refund:" : "Discount:"}
+                  </span>
+                  <Select
+                    value={current.invoice_discount_type || "discount"}
+                    onValueChange={(v) => updateField("invoice_discount_type", v as "discount" | "refund")}
+                  >
+                    <SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="discount">Discount</SelectItem>
+                      <SelectItem value="refund">Refund</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="inline-flex rounded-md border border-input overflow-hidden h-7">
+                    <button
+                      type="button"
+                      className={`px-1.5 text-[10px] ${hMode === "percentage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                      onClick={() => updateField("invoice_discount_mode", "percentage" as any)}
+                    >%</button>
+                    <button
+                      type="button"
+                      className={`px-1.5 text-[10px] ${hMode === "fixed" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                      onClick={() => updateField("invoice_discount_mode", "fixed" as any)}
+                    >$</button>
+                  </div>
+                  <Input
+                    type="number"
+                    value={hMode === "percentage" ? (current.invoice_discount_rate || "0") : current.invoice_discount}
+                    onChange={(e) => updateField(hMode === "percentage" ? "invoice_discount_rate" : "invoice_discount", e.target.value)}
+                    className="text-xs h-7 w-24 font-mono text-right"
+                    placeholder="0.00"
+                  />
+                  <span className={`text-[10px] font-mono ${current.invoice_discount_type === "refund" ? "text-amber-500" : "text-muted-foreground"}`}>
+                    = ${headerCalc.toFixed(2)}
+                  </span>
+                </div>
+              );
+            })()}
             {(() => {
               const lines = current?.line_items || [];
               const invSub = lines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
