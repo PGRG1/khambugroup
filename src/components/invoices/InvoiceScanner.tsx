@@ -151,6 +151,8 @@ interface InvoiceScannerProps {
     notes: string | null;
     discount?: number;
     discount_type?: "discount" | "refund";
+    discount_mode?: DiscountMode;
+    discount_rate?: number;
     status?: string;
   }, lineItems: {
     item_code: string;
@@ -162,6 +164,11 @@ interface InvoiceScannerProps {
     weight: number | null;
     unit_price: number;
     discount: number;
+    discount_mode?: DiscountMode;
+    discount_rate?: number;
+    line_discount_amount?: number;
+    header_discount_share?: number;
+    net_unit_cost?: number;
     tax_amount: number;
     total: number;
     notes: null;
