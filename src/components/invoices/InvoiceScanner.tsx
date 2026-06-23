@@ -126,6 +126,8 @@ interface ScannedInvoice {
   invoice_status: string;
   invoice_discount: string;
   invoice_discount_type: "discount" | "refund";
+  invoice_discount_mode?: DiscountMode;
+  invoice_discount_rate?: string;
   line_items: ScannedLineItem[];
   saved?: boolean;
   sourceFiles?: File[];
