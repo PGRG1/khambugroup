@@ -127,6 +127,8 @@ const emptyEditLine: EditableInvoiceLine = {
   weight: "",
   unit_price: "0",
   discount: "0",
+  discount_mode: "fixed",
+  discount_rate: "0",
   tax_amount: "0",
   total: "0",
   product_master_id: null,
