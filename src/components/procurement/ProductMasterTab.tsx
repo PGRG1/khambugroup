@@ -879,7 +879,9 @@ export default function ProductMasterTab() {
                   </div>
                 )}
                 <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
-                <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
+                {form.creates_stock_movement && (
+                  <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
+                )}
                 <div className="col-span-2">
                   <Label className="text-xs">Categories (L1 → L2 → L3)</Label>
                   <CategoryCascadeSelect
