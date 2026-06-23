@@ -5797,6 +5797,7 @@ export type Database = {
           cost_per_base_unit: number
           cost_per_stock_unit: number
           created_at: string
+          creates_stock_movement: boolean
           default_coa_account_id: string | null
           external_sku: string
           financial_treatment: string
@@ -5828,6 +5829,7 @@ export type Database = {
           cost_per_base_unit?: number
           cost_per_stock_unit?: number
           created_at?: string
+          creates_stock_movement?: boolean
           default_coa_account_id?: string | null
           external_sku?: string
           financial_treatment?: string
@@ -5859,6 +5861,7 @@ export type Database = {
           cost_per_base_unit?: number
           cost_per_stock_unit?: number
           created_at?: string
+          creates_stock_movement?: boolean
           default_coa_account_id?: string | null
           external_sku?: string
           financial_treatment?: string
