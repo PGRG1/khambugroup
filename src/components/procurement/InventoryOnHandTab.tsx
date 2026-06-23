@@ -65,43 +65,121 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [prodData, lineRes] = await Promise.all([
-      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty, financial_treatment", { col: "internal_sku", asc: true }, tenantId),
-      supabase.rpc("get_inventory_aggregates" as any, { p_tenant_id: tenantId } as any),
-    ]);
+    const prodData = await fetchAllRows(
+      "product_master",
+      "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty, financial_treatment",
+      { col: "internal_sku", asc: true },
+      tenantId,
+    );
 
     const isDeposit = (t?: string | null) => (t || "").startsWith("Asset");
-    setProducts((prodData as any[]).filter((p) => {
+    const filteredProducts = (prodData as any[]).filter((p) => {
       if (p.status !== "Active") return false;
       return mode === "deposits" ? isDeposit(p.financial_treatment) : !isDeposit(p.financial_treatment);
-    }) as ProductRow[]);
+    }) as ProductRow[];
+    setProducts(filteredProducts);
 
-    // Fallback: aggregate from confirmed/disputed GRN items if RPC is unavailable.
-    if (lineRes.error || !lineRes.data) {
-      const [grnHeaders, grnItems] = await Promise.all([
-        fetchAllRows("goods_received_notes", "id, status", undefined, tenantId),
-        fetchAllRows("grn_items", "product_master_id, accepted_qty, quantity_received, unit_cost, grn_id", undefined, tenantId),
-      ]);
-      const eligibleGrnIds = new Set(
-        (grnHeaders as any[])
-          .filter((g) => g.status === "confirmed" || g.status === "disputed")
-          .map((g) => g.id),
-      );
-      const map = new Map<string, { qty: number; spend: number }>();
-      for (const row of grnItems as any[]) {
-        if (!row.product_master_id) continue;
-        if (!eligibleGrnIds.has(row.grn_id)) continue;
-        const qty = row.accepted_qty != null ? Number(row.accepted_qty) : Number(row.quantity_received) || 0;
-        const cost = Number(row.unit_cost) || 0;
-        const existing = map.get(row.product_master_id) || { qty: 0, spend: 0 };
-        existing.qty += qty;
-        existing.spend += qty * cost;
-        map.set(row.product_master_id, existing);
+    if (mode === "deposits") {
+      // Deposits mode keeps RPC-based aggregate (unchanged behaviour).
+      const lineRes: any = await supabase.rpc("get_inventory_aggregates" as any, { p_tenant_id: tenantId } as any);
+      if (lineRes.error || !lineRes.data) {
+        const [grnHeaders, grnItems] = await Promise.all([
+          fetchAllRows("goods_received_notes", "id, status", undefined, tenantId),
+          fetchAllRows("grn_items", "product_master_id, accepted_qty, quantity_received, unit_cost, grn_id", undefined, tenantId),
+        ]);
+        const eligibleGrnIds = new Set(
+          (grnHeaders as any[])
+            .filter((g) => g.status === "confirmed" || g.status === "disputed")
+            .map((g) => g.id),
+        );
+        const map = new Map<string, { qty: number; spend: number }>();
+        for (const row of grnItems as any[]) {
+          if (!row.product_master_id) continue;
+          if (!eligibleGrnIds.has(row.grn_id)) continue;
+          const qty = row.accepted_qty != null ? Number(row.accepted_qty) : Number(row.quantity_received) || 0;
+          const cost = Number(row.unit_cost) || 0;
+          const existing = map.get(row.product_master_id) || { qty: 0, spend: 0 };
+          existing.qty += qty;
+          existing.spend += qty * cost;
+          map.set(row.product_master_id, existing);
+        }
+        setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
+      } else {
+        setLineAgg((lineRes.data as any[]).map((r: any) => ({ product_master_id: r.product_master_id, total_qty: Number(r.total_qty), total_spend: Number(r.total_spend) })));
       }
-      setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
-    } else {
-      setLineAgg((lineRes.data as any[]).map((r: any) => ({ product_master_id: r.product_master_id, total_qty: Number(r.total_qty), total_spend: Number(r.total_spend) })));
+      setLastCountMap(new Map());
+      setLoading(false);
+      return;
     }
+
+    // Inventory mode: baseline = last approved stock count + GRN received after that count.
+    const [sessionsRes, grnHeaders, grnItems] = await Promise.all([
+      (supabase as any)
+        .from("stock_count_sessions")
+        .select("id, venue, count_date")
+        .eq("tenant_id", tenantId)
+        .eq("status", "approved")
+        .order("count_date", { ascending: false }),
+      fetchAllRows("goods_received_notes", "id, status, received_date", undefined, tenantId),
+      fetchAllRows("grn_items", "product_master_id, accepted_qty, quantity_received, unit_cost, grn_id", undefined, tenantId),
+    ]);
+
+    const approvedSessions: any[] = sessionsRes?.data ?? [];
+    const sessionIds = approvedSessions.map((s: any) => s.id);
+    let countItems: any[] = [];
+    if (sessionIds.length) {
+      const { data } = await (supabase as any)
+        .from("stock_count_items")
+        .select("session_id, product_master_id, counted_qty, unit_cost")
+        .in("session_id", sessionIds);
+      countItems = data ?? [];
+    }
+    const sessionDate = new Map<string, string>(
+      approvedSessions.map((s: any) => [s.id, s.count_date as string]),
+    );
+    const lastCount = new Map<string, InventoryItemSheetLastCount>();
+    // sessions are date-desc; first seen per product wins.
+    for (const sess of approvedSessions) {
+      const items = countItems.filter((ci: any) => ci.session_id === sess.id);
+      for (const ci of items) {
+        if (!ci.product_master_id || ci.counted_qty == null) continue;
+        if (lastCount.has(ci.product_master_id)) continue;
+        lastCount.set(ci.product_master_id, {
+          counted_qty: Number(ci.counted_qty),
+          count_date: sessionDate.get(sess.id) || sess.count_date,
+          session_id: sess.id,
+          unit_cost: Number(ci.unit_cost) || 0,
+        });
+      }
+    }
+    setLastCountMap(lastCount);
+
+    const eligibleGrnDate = new Map<string, string>();
+    for (const g of grnHeaders as any[]) {
+      if (g.status !== "confirmed" && g.status !== "disputed") continue;
+      eligibleGrnDate.set(g.id, g.received_date);
+    }
+
+    const map = new Map<string, { qty: number; spend: number }>();
+    for (const p of filteredProducts) {
+      const lc = lastCount.get(p.id);
+      let qty = lc ? lc.counted_qty : 0;
+      let spend = lc ? lc.counted_qty * (lc.unit_cost || p.unit_cost || 0) : 0;
+      for (const row of grnItems as any[]) {
+        if (row.product_master_id !== p.id) continue;
+        const grnDate = eligibleGrnDate.get(row.grn_id);
+        if (!grnDate) continue;
+        if (lc && !(grnDate > lc.count_date)) continue;
+        const q = row.accepted_qty != null ? Number(row.accepted_qty) : Number(row.quantity_received) || 0;
+        const c = Number(row.unit_cost) || 0;
+        qty += q;
+        spend += q * c;
+      }
+      if (qty !== 0 || spend !== 0 || lc) {
+        map.set(p.id, { qty, spend });
+      }
+    }
+    setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
     setLoading(false);
   }, [tenantId, mode]);
 
