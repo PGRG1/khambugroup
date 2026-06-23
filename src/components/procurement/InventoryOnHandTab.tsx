@@ -60,6 +60,8 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
   const [alertsOpen, setAlertsOpen] = useState(true);
   const [sortColumns, setSortColumns] = useState<Array<{key: SortKey, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
   const [selectedDeposit, setSelectedDeposit] = useState<InventoryRow | null>(null);
+  const [selectedItem, setSelectedItem] = useState<InventoryRow | null>(null);
+  const [lastCountMap, setLastCountMap] = useState<Map<string, InventoryItemSheetLastCount>>(new Map());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
