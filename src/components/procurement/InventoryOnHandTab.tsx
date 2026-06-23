@@ -310,7 +310,11 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No inventory items found.</TableCell></TableRow>
               ) : filtered.map((r, i) => (
-                <TableRow key={r.id} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                <TableRow
+                  key={r.id}
+                  className={`${i % 2 === 0 ? "bg-background" : "bg-muted/30"} ${mode === "deposits" ? "cursor-pointer hover:bg-primary/10" : ""}`}
+                  onClick={mode === "deposits" ? () => setSelectedDeposit(r) : undefined}
+                >
                   <TableCell className="text-xs font-mono tabular-nums">{r.internal_sku}</TableCell>
                   <TableCell className="text-xs font-medium">{r.internal_product_name}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.level1_category || "—"}</TableCell>
