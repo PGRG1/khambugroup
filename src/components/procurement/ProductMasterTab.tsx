@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useProductMaster, ProductMasterItem, ProductSupplierEntry, FINANCIAL_TREATMENTS, plSectionFor } from "@/hooks/useProductMaster";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal, AlertTriangle, CheckCircle2, Filter, Columns3, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal, AlertTriangle, CheckCircle2, Filter, Columns3, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
@@ -19,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 
 import UomSelect from "@/components/procurement/UomSelect";
 
@@ -34,6 +37,7 @@ const EMPTY_FORM = {
   base_unit_type: "g", base_unit_qty: "1", cost_per_base_unit: "0",
   notes: "",
   min_stock_qty: "", reorder_qty: "",
+  creates_stock_movement: true as boolean,
 };
 
 interface FlatRow {
@@ -64,12 +68,18 @@ interface FlatRow {
   status: string;
   unit_cost: number;
   notes: string;
+  creates_stock_movement: boolean;
   rowKey: string;
 }
 
 export default function ProductMasterTab() {
   const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, addSupplier, updateSupplier, deleteSupplier, splitProduct, reassignSupplier, deleteProductIfOrphaned } = useProductMaster();
-  
+  const { tenantId } = useActiveTenant();
+  const { toast } = useToast();
+  const [seedingRefunds, setSeedingRefunds] = useState(false);
+  const [refundSeedDismissed, setRefundSeedDismissed] = useState(
+    () => (typeof window !== "undefined" ? localStorage.getItem("refund_seed_dismissed") === "true" : true)
+  );
   const { items: coaAccounts } = useChartOfAccounts();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
@@ -166,6 +176,7 @@ export default function ProductMasterTab() {
             stock_uom: s.stock_uom ?? p.stock_uom, stock_qty: s.stock_qty ?? p.stock_qty, cost_per_stock_unit: s.purchase_unit_cost / ((s.stock_qty ?? p.stock_qty) || 1),
             base_unit_type: s.base_unit_type ?? p.base_unit_type, base_unit_qty: s.base_unit_qty ?? p.base_unit_qty, cost_per_base_unit: s.purchase_unit_cost / ((s.base_unit_qty ?? p.base_unit_qty) || 1),
             supplier: s.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
+            creates_stock_movement: p.creates_stock_movement ?? true,
           });
         }
       } else {
@@ -180,6 +191,7 @@ export default function ProductMasterTab() {
           stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: p.cost_per_stock_unit,
           base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
           supplier: p.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
+          creates_stock_movement: p.creates_stock_movement ?? true,
         });
       }
     }
@@ -274,6 +286,7 @@ export default function ProductMasterTab() {
       notes: row.notes,
       min_stock_qty: (row.product as any).min_stock_qty != null ? String((row.product as any).min_stock_qty) : "",
       reorder_qty: (row.product as any).reorder_qty != null ? String((row.product as any).reorder_qty) : "",
+      creates_stock_movement: row.creates_stock_movement,
     });
     setDragPos(null);
     setDialogOpen(true);
@@ -332,6 +345,7 @@ export default function ProductMasterTab() {
         notes: form.notes,
         min_stock_qty: form.min_stock_qty === "" ? null : parseFloat(form.min_stock_qty),
         reorder_qty: form.reorder_qty === "" ? null : parseFloat(form.reorder_qty),
+        creates_stock_movement: form.creates_stock_movement,
       };
 
       const supplierLevelFields = {
@@ -487,8 +501,84 @@ export default function ProductMasterTab() {
   const SORT_LABELS: Record<string, string> = Object.fromEntries(columns.map(c => [c.key, c.label]));
   const primarySort = sortColumns[0];
 
+  const hasRefundItems = products.some(p => p.internal_sku?.startsWith("REF-"));
+  const showRefundSeedBanner = !refundSeedDismissed && !hasRefundItems && !loading;
+
+  const dismissSeedBanner = () => {
+    localStorage.setItem("refund_seed_dismissed", "true");
+    setRefundSeedDismissed(true);
+  };
+
+  const seedRefundItems = async () => {
+    if (!tenantId || seedingRefunds) return;
+    setSeedingRefunds(true);
+    const refundItems = [
+      { internal_sku: "REF-0001", internal_product_name: "Price correction" },
+      { internal_sku: "REF-0002", internal_product_name: "Short delivery credit" },
+      { internal_sku: "REF-0003", internal_product_name: "Quality rejection credit" },
+      { internal_sku: "REF-0004", internal_product_name: "Damaged goods credit" },
+      { internal_sku: "REF-0005", internal_product_name: "Promotional rebate" },
+      { internal_sku: "REF-0006", internal_product_name: "Volume rebate" },
+      { internal_sku: "REF-0007", internal_product_name: "General supplier refund" },
+    ];
+    try {
+      const payload = refundItems.map(r => ({
+        internal_sku: r.internal_sku,
+        external_sku: "",
+        internal_product_name: r.internal_product_name,
+        supplier_product_name: "",
+        level1_category: "Supplier Refunds",
+        level2_category: "",
+        level3_category: "",
+        accounting_category: "purchases",
+        financial_treatment: "COGS",
+        default_coa_account_id: null,
+        unit: "",
+        unit_cost: 0,
+        purchase_unit: "",
+        purchase_unit_cost: 0,
+        stock_uom: "",
+        stock_qty: 0,
+        cost_per_stock_unit: 0,
+        base_unit_type: "",
+        base_unit_qty: 0,
+        cost_per_base_unit: 0,
+        notes: "",
+        status: "Active",
+        creates_stock_movement: false,
+        min_stock_qty: null,
+        reorder_qty: null,
+        tenant_id: tenantId,
+      }));
+      const { error } = await supabase.from("product_master" as any).insert(payload as any);
+      if (error) throw error;
+      toast({ title: "Refund items added", description: `Created ${payload.length} standard refund items.` });
+      await fetchProducts();
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Failed to seed refund items", variant: "destructive" });
+    } finally {
+      setSeedingRefunds(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {showRefundSeedBanner && (
+        <Alert className="border-sky-500/40 bg-sky-500/5">
+          <Info className="h-4 w-4 text-sky-400" />
+          <AlertDescription className="flex items-center justify-between gap-3 w-full">
+            <span className="text-sm">
+              Add standard supplier refund items? Used for price corrections and credits on invoices.
+            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button size="sm" onClick={seedRefundItems} disabled={seedingRefunds || !tenantId}>
+                {seedingRefunds ? "Adding..." : "Add refund items"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={dismissSeedBanner}>Not now</Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Top toolbar: search + add */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[240px] max-w-md">
@@ -504,7 +594,8 @@ export default function ProductMasterTab() {
           base_unit_type: r.base_unit_type, base_unit_qty: r.base_unit_qty,
           cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
           supplier: r.supplier, status: r.status,
-        })), columns.map(c => ({ key: c.key, label: c.label })), "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
+          creates_stock_movement: r.creates_stock_movement ? "Yes" : "No",
+        })), [...columns.map(c => ({ key: c.key, label: c.label })), { key: "creates_stock_movement", label: "Creates Stock Movement" }], "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
         <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
       </div>
 
@@ -671,13 +762,20 @@ export default function ProductMasterTab() {
                   <TableCell className="text-sm text-muted-foreground">{r.level2_category}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.level3_category}</TableCell>
                   <TableCell>
-                    {r.financial_treatment ? (
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${r.financial_treatment === "COGS" || r.financial_treatment === "OpEx" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-sky-500/40 bg-sky-500/10 text-sky-300"}`}>
-                        {r.financial_treatment}
-                      </Badge>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground italic">—</span>
-                    )}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {r.financial_treatment ? (
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${r.financial_treatment === "COGS" || r.financial_treatment === "OpEx" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-sky-500/40 bg-sky-500/10 text-sky-300"}`}>
+                          {r.financial_treatment}
+                        </Badge>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">—</span>
+                      )}
+                      {r.financial_treatment === "COGS" && !r.creates_stock_movement && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30 bg-muted/30 text-muted-foreground">
+                          No stock
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {r.mapping_status === "Mapped" ? (
@@ -793,7 +891,11 @@ export default function ProductMasterTab() {
                   <Label className="text-xs">Financial Treatment</Label>
                   <Select
                     value={form.financial_treatment || "__none__"}
-                    onValueChange={v => setForm({ ...form, financial_treatment: v === "__none__" ? "" : v, default_coa_account_id: "" })}
+                    onValueChange={v => {
+                      const treatment = v === "__none__" ? "" : v;
+                      const autoStock = treatment === "COGS";
+                      setForm({ ...form, financial_treatment: treatment, default_coa_account_id: "", creates_stock_movement: autoStock });
+                    }}
                   >
                     <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select treatment" /></SelectTrigger>
                     <SelectContent>
@@ -834,6 +936,18 @@ export default function ProductMasterTab() {
                         ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="col-span-2 flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+                  <div className="flex-1">
+                    <Label className="text-xs font-medium">Creates stock movement</Label>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      When off, receiving this item will not update inventory quantities. Use for price corrections, refunds, deposits and non-stock expenses.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.creates_stock_movement}
+                    onCheckedChange={(v) => setForm(f => ({ ...f, creates_stock_movement: v }))}
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Supplier</Label>

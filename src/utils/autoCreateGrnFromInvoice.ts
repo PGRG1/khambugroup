@@ -57,6 +57,25 @@ export async function autoCreateGrnFromInvoice(
       .eq("tenant_id", tenantId);
     if (linesErr) return { error: linesErr.message };
 
+    // Fetch product_master classification to know which lines create stock movement
+    const productIds = Array.from(new Set(
+      (lines || []).map((l: any) => l.product_master_id).filter(Boolean)
+    ));
+    const productMap = new Map<string, { creates_stock_movement: boolean; financial_treatment: string }>();
+    if (productIds.length > 0) {
+      const { data: products } = await supabase
+        .from("product_master")
+        .select("id, creates_stock_movement, financial_treatment")
+        .in("id", productIds)
+        .eq("tenant_id", tenantId);
+      for (const p of (products || []) as any[]) {
+        productMap.set(p.id, {
+          creates_stock_movement: p.creates_stock_movement ?? true,
+          financial_treatment: p.financial_treatment ?? "",
+        });
+      }
+    }
+
     // 3. Create GRN header
     const today = new Date().toISOString().slice(0, 10);
     const { data: grn, error: grnErr } = await supabase
@@ -78,14 +97,28 @@ export async function autoCreateGrnFromInvoice(
 
     const grnId = (grn as any).id;
 
-    // 4. Insert grn_items
+    // 4. Build grn_items only from stock-bearing lines.
+    //    Header + invoices.grn_id link still happen for invoices with only non-stock lines.
     let disputed = false;
-    if (lines && lines.length > 0) {
-      const payload = lines.map((l: any) => {
+    // Compute disputed across ALL lines (a refund/non-stock line with qty diff is still a dispute).
+    for (const l of (lines || []) as any[]) {
+      const qtyInv = Number(l.quantity) || 0;
+      const qtyAcc = l.accepted_qty != null ? Number(l.accepted_qty) : qtyInv;
+      const diff = l.qty_difference != null ? Number(l.qty_difference) : qtyAcc - qtyInv;
+      if (diff !== 0) { disputed = true; break; }
+    }
+
+    const stockLines = ((lines || []) as any[]).filter((l: any) => {
+      const p = productMap.get(l.product_master_id);
+      if (!p) return true; // safe default: include if product unknown
+      return p.creates_stock_movement !== false;
+    });
+
+    if (stockLines.length > 0) {
+      const payload = stockLines.map((l: any) => {
         const qtyInv = Number(l.quantity) || 0;
         const qtyAcc = l.accepted_qty != null ? Number(l.accepted_qty) : qtyInv;
         const diff = l.qty_difference != null ? Number(l.qty_difference) : qtyAcc - qtyInv;
-        if (diff !== 0) disputed = true;
         // Prefer post-discount net_unit_cost (set by scanner/edit view).
         // Fallback chain for legacy rows: unit_price → normalized_unit_cost → (total+discount)/qty
         let unitCost = 0;
@@ -127,6 +160,8 @@ export async function autoCreateGrnFromInvoice(
         return { error: itemsErr.message };
       }
     }
+    // If stockLines is empty (e.g. invoice with only refund/deposit/OpEx items), we keep
+    // the GRN header and still link invoices.grn_id below — no inventory movement created.
 
     // 5. Flip status if disputed
     if (disputed) {

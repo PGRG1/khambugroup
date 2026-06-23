@@ -69,6 +69,7 @@ export interface ProductMasterItem {
   financial_treatment: FinancialTreatment | string;
   default_coa_account_id: string | null;
   accounting_category?: string;
+  creates_stock_movement: boolean;
   created_at: string;
   updated_at: string;
   suppliers?: ProductSupplierEntry[];
