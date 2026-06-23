@@ -340,6 +340,18 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
           </Table>
         </div>
       </Card>
+      {mode === "deposits" && (
+        <DepositTransactionSheet
+          item={selectedDeposit ? {
+            id: selectedDeposit.id,
+            internal_sku: selectedDeposit.internal_sku,
+            internal_product_name: selectedDeposit.internal_product_name,
+            qty_on_hand: selectedDeposit.qty_on_hand,
+            cost_value: selectedDeposit.cost_value,
+          } : null}
+          onClose={() => setSelectedDeposit(null)}
+        />
+      )}
     </div>
   );
 }
