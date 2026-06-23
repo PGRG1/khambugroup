@@ -640,6 +640,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           invoice_status: "outstanding",
           invoice_discount: "0",
           invoice_discount_type: "discount",
+          invoice_discount_mode: "fixed",
+          invoice_discount_rate: "0",
           line_items: lineItems.length > 0 ? lineItems : [{ ...emptyLine }],
           sourceFiles: files,
           ai_total: raw?.total_amount ?? raw?.ai_total,
