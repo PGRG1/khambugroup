@@ -86,16 +86,23 @@ export async function autoCreateGrnFromInvoice(
         const qtyAcc = l.accepted_qty != null ? Number(l.accepted_qty) : qtyInv;
         const diff = l.qty_difference != null ? Number(l.qty_difference) : qtyAcc - qtyInv;
         if (diff !== 0) disputed = true;
-        // Cost resolution fallback chain: unit_price → normalized_unit_cost → (total+discount)/qty
-        let unitCost = Number(l.unit_price) || 0;
-        if (unitCost === 0) {
-          const nuc = Number(l.normalized_unit_cost) || 0;
-          if (nuc > 0) unitCost = nuc;
-        }
-        if (unitCost === 0) {
-          const lineTotal = Number(l.total) || 0;
-          const lineDisc = Number(l.discount) || 0;
-          if (lineTotal > 0 && qtyInv > 0) unitCost = (lineTotal + lineDisc) / qtyInv;
+        // Prefer post-discount net_unit_cost (set by scanner/edit view).
+        // Fallback chain for legacy rows: unit_price → normalized_unit_cost → (total+discount)/qty
+        let unitCost = 0;
+        const nucNet = Number(l.net_unit_cost) || 0;
+        if (nucNet > 0) {
+          unitCost = nucNet;
+        } else {
+          unitCost = Number(l.unit_price) || 0;
+          if (unitCost === 0) {
+            const nuc = Number(l.normalized_unit_cost) || 0;
+            if (nuc > 0) unitCost = nuc;
+          }
+          if (unitCost === 0) {
+            const lineTotal = Number(l.total) || 0;
+            const lineDisc = Number(l.discount) || 0;
+            if (lineTotal > 0 && qtyInv > 0) unitCost = (lineTotal + lineDisc) / qtyInv;
+          }
         }
         return {
           grn_id: grnId,
