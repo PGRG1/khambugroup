@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDown, Download, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
+import DepositTransactionSheet from "./DepositTransactionSheet";
 
 interface ProductRow {
   id: string;
@@ -50,6 +51,7 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [alertsOpen, setAlertsOpen] = useState(true);
   const [sortColumns, setSortColumns] = useState<Array<{key: SortKey, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
+  const [selectedDeposit, setSelectedDeposit] = useState<InventoryRow | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -308,7 +310,11 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No inventory items found.</TableCell></TableRow>
               ) : filtered.map((r, i) => (
-                <TableRow key={r.id} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                <TableRow
+                  key={r.id}
+                  className={`${i % 2 === 0 ? "bg-background" : "bg-muted/30"} ${mode === "deposits" ? "cursor-pointer hover:bg-primary/10" : ""}`}
+                  onClick={mode === "deposits" ? () => setSelectedDeposit(r) : undefined}
+                >
                   <TableCell className="text-xs font-mono tabular-nums">{r.internal_sku}</TableCell>
                   <TableCell className="text-xs font-medium">{r.internal_product_name}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.level1_category || "—"}</TableCell>
@@ -334,6 +340,18 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
           </Table>
         </div>
       </Card>
+      {mode === "deposits" && (
+        <DepositTransactionSheet
+          item={selectedDeposit ? {
+            id: selectedDeposit.id,
+            internal_sku: selectedDeposit.internal_sku,
+            internal_product_name: selectedDeposit.internal_product_name,
+            qty_on_hand: selectedDeposit.qty_on_hand,
+            cost_value: selectedDeposit.cost_value,
+          } : null}
+          onClose={() => setSelectedDeposit(null)}
+        />
+      )}
     </div>
   );
 }
