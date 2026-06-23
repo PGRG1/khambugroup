@@ -953,15 +953,31 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const supplierName = supplierObj?.name || "";
       const mode = getRoundingMode(supplierObj ?? { name: supplierName });
 
-      const lines = inv.line_items.filter((l) => l.description.trim()).map((l) => {
+      // Centralized discount math: per-line discount + proportional header share + net_unit_cost.
+      const invDiscMode = normalizeDiscountMode(inv.invoice_discount_mode);
+      const filteredLines = inv.line_items.filter((l) => l.description.trim());
+      const discResults = recalcAllDiscounts(
+        filteredLines.map((l) => ({
+          quantity: l.quantity,
+          unit_price: l.unit_price,
+          discount_mode: normalizeDiscountMode(l.discount_mode),
+          discount_rate: l.discount_rate || "0",
+          discount: l.discount || "0",
+        })),
+        invDiscMode,
+        inv.invoice_discount_rate || "0",
+        inv.invoice_discount || "0",
+        mode,
+      );
+
+      const lines = filteredLines.map((l, idx) => {
         const qty = parseFloat(l.quantity) || 0;
         const price = parseFloat(l.unit_price) || 0;
-        const disc = parseFloat(l.discount) || 0;
         const tax = parseFloat(l.tax_amount) || 0;
+        const out = discResults.perLine[idx];
         const lineTotal = l.total_override
           ? roundLineTotal(parseFloat(l.total) || 0, mode)
-          : roundLineTotal((qty * price) - disc + tax, mode);
-        // Resolve product_master_id at save time using EXACT match only
+          : roundLineTotal((qty * price) - out.line_discount_amount - out.header_discount_share + tax, mode);
         let pmId: string | null = null;
         if (productMaster) {
           const resolved = resolveExactMatch(
@@ -976,7 +992,30 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const qtyDiff = acceptedQty - qty;
         const recvReason = qtyDiff === 0 ? "matched" : (l.receiving_reason || null);
         const recvNote = (l.receiving_note || "").trim() || null;
-        return { item_code: l.item_code || "", description: l.description, pack_size: l.pack_size || "", category_id: null as null, quantity: qty, unit: l.unit || null, weight: l.weight ? parseFloat(l.weight) : null, unit_price: price, discount: disc, tax_amount: tax, total: lineTotal, notes: null as null, product_master_id: pmId, accepted_qty: acceptedQty, qty_difference: qtyDiff, receiving_reason: recvReason, receiving_note: recvNote } as any;
+        return {
+          item_code: l.item_code || "",
+          description: l.description,
+          pack_size: l.pack_size || "",
+          category_id: null as null,
+          quantity: qty,
+          unit: l.unit || null,
+          weight: l.weight ? parseFloat(l.weight) : null,
+          unit_price: price,
+          discount: out.line_discount_amount,
+          discount_mode: normalizeDiscountMode(l.discount_mode),
+          discount_rate: parseFloat(l.discount_rate || "0") || 0,
+          line_discount_amount: out.line_discount_amount,
+          header_discount_share: out.header_discount_share,
+          net_unit_cost: out.net_unit_cost,
+          tax_amount: tax,
+          total: lineTotal,
+          notes: null as null,
+          product_master_id: pmId,
+          accepted_qty: acceptedQty,
+          qty_difference: qtyDiff,
+          receiving_reason: recvReason,
+          receiving_note: recvNote,
+        } as any;
       });
 
       const dateStr = (inv.invoice_date || new Date().toISOString().slice(0, 10)).replace(/-/g, "");
@@ -998,8 +1037,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           invoice_date: inv.invoice_date,
           due_date: inv.due_date || null,
           notes: inv.notes || null,
-          discount: parseFloat(inv.invoice_discount || "0") || 0,
+          discount: discResults.headerDiscountAmount,
           discount_type: inv.invoice_discount_type || "discount",
+          discount_mode: invDiscMode,
+          discount_rate: parseFloat(inv.invoice_discount_rate || "0") || 0,
           status: inv.invoice_status || undefined,
         },
         lines,
