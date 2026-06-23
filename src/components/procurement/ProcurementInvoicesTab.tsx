@@ -21,7 +21,7 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { Textarea } from "@/components/ui/textarea";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
-import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, type RoundingMode } from "@/utils/invoiceRounding";
+import { getRoundingMode, roundLineTotal, formatLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
