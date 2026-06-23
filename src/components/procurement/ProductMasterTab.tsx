@@ -34,6 +34,7 @@ const EMPTY_FORM = {
   base_unit_type: "g", base_unit_qty: "1", cost_per_base_unit: "0",
   notes: "",
   min_stock_qty: "", reorder_qty: "",
+  creates_stock_movement: true as boolean,
 };
 
 interface FlatRow {
@@ -64,6 +65,7 @@ interface FlatRow {
   status: string;
   unit_cost: number;
   notes: string;
+  creates_stock_movement: boolean;
   rowKey: string;
 }
 
@@ -166,6 +168,7 @@ export default function ProductMasterTab() {
             stock_uom: s.stock_uom ?? p.stock_uom, stock_qty: s.stock_qty ?? p.stock_qty, cost_per_stock_unit: s.purchase_unit_cost / ((s.stock_qty ?? p.stock_qty) || 1),
             base_unit_type: s.base_unit_type ?? p.base_unit_type, base_unit_qty: s.base_unit_qty ?? p.base_unit_qty, cost_per_base_unit: s.purchase_unit_cost / ((s.base_unit_qty ?? p.base_unit_qty) || 1),
             supplier: s.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
+            creates_stock_movement: p.creates_stock_movement ?? true,
           });
         }
       } else {
@@ -180,6 +183,7 @@ export default function ProductMasterTab() {
           stock_uom: p.stock_uom, stock_qty: p.stock_qty, cost_per_stock_unit: p.cost_per_stock_unit,
           base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
           supplier: p.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
+          creates_stock_movement: p.creates_stock_movement ?? true,
         });
       }
     }
