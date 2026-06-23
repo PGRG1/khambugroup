@@ -99,6 +99,8 @@ interface EditableInvoiceLine {
   weight: string;
   unit_price: string;
   discount: string;
+  discount_mode: DiscountMode;
+  discount_rate: string;
   tax_amount: string;
   total: string;
   product_master_id: string | null;
