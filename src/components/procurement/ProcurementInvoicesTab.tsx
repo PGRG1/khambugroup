@@ -585,58 +585,81 @@ export default function ProcurementInvoicesTab() {
     if (!selectedInvoice) return;
 
     setSaving(true);
-    const mappedLines = editLines
-      .filter((line) => line.description.trim())
-      .map((line) => {
-        const qty = parseFloat(line.quantity) || 0;
-        const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
-        const qtyDiff = acc - qty;
-        const recvReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || null);
-        const recvNote = (line.receiving_note || "").trim() || null;
-        return {
-          item_code: line.item_code || "",
-          description: line.description,
-          pack_size: line.pack_size || "",
-          category_id: null,
-          quantity: qty,
-          unit: line.unit || null,
-          weight: line.weight ? parseFloat(line.weight) || 0 : null,
-          unit_price: parseFloat(line.unit_price) || 0,
-          discount: parseFloat(line.discount) || 0,
-          tax_amount: parseFloat(line.tax_amount) || 0,
-          total: parseFloat(line.total) || 0,
-          notes: null,
-          product_master_id: line.product_master_id,
-          accepted_qty: acc,
-          qty_difference: qtyDiff,
-          receiving_reason: recvReason,
-          receiving_note: recvNote,
-        } as any;
-      });
 
-
-    // Subtotal/total are computed using the supplier's invoice rounding rule
-    // (see Suppliers & Vendors → Invoice rounding rule).
     const supplierIdForSave = editForm.supplier_id || selectedInvoice.supplier_id;
     const supplierNameForSave = getSupplierNameById(supplierIdForSave) || selectedInvoice.supplier_name || "";
     const modeForSave = getModeForSupplier(supplierIdForSave, supplierNameForSave);
-    const rawLines = editLines.map((line) => {
+
+    const filteredLines = editLines.filter((line) => line.description.trim());
+    const headerMode = normalizeDiscountMode((editForm as any).discount_mode);
+    const headerRate = Number((editForm as any).discount_rate ?? 0) || 0;
+    const headerFixed = Number((editForm as any).discount ?? 0) || 0;
+    const discResults = recalcAllDiscounts(
+      filteredLines.map((l) => ({
+        quantity: l.quantity,
+        unit_price: l.unit_price,
+        discount_mode: l.discount_mode,
+        discount_rate: l.discount_rate || "0",
+        discount: l.discount || "0",
+      })),
+      headerMode,
+      headerRate,
+      headerFixed,
+      modeForSave,
+    );
+
+    const mappedLines = filteredLines.map((line, idx) => {
+      const qty = parseFloat(line.quantity) || 0;
+      const acc = parseFloat(line.accepted_qty ?? line.quantity) || 0;
+      const qtyDiff = acc - qty;
+      const recvReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || null);
+      const recvNote = (line.receiving_note || "").trim() || null;
+      const out = discResults.perLine[idx];
+      return {
+        item_code: line.item_code || "",
+        description: line.description,
+        pack_size: line.pack_size || "",
+        category_id: null,
+        quantity: qty,
+        unit: line.unit || null,
+        weight: line.weight ? parseFloat(line.weight) || 0 : null,
+        unit_price: parseFloat(line.unit_price) || 0,
+        discount: out.line_discount_amount,
+        discount_mode: line.discount_mode,
+        discount_rate: parseFloat(line.discount_rate || "0") || 0,
+        line_discount_amount: out.line_discount_amount,
+        header_discount_share: out.header_discount_share,
+        net_unit_cost: out.net_unit_cost,
+        tax_amount: parseFloat(line.tax_amount) || 0,
+        total: parseFloat(out.total) || 0,
+        notes: null,
+        product_master_id: line.product_master_id,
+        accepted_qty: acc,
+        qty_difference: qtyDiff,
+        receiving_reason: recvReason,
+        receiving_note: recvNote,
+      } as any;
+    });
+
+    const rawLines = filteredLines.map((line, idx) => {
       const qty = parseFloat(line.quantity) || 0;
       const price = parseFloat(line.unit_price) || 0;
-      const discount = parseFloat(line.discount) || 0;
       const tax = parseFloat(line.tax_amount) || 0;
-      return { gross: (qty * price) - discount + tax, tax };
+      const out = discResults.perLine[idx];
+      return { gross: (qty * price) - out.line_discount_amount - out.header_discount_share + tax, tax };
     });
     const taxSum = rawLines.reduce((s, l) => s + l.tax, 0);
     const grossTotal = aggregateTotal(rawLines.map((l) => l.gross), modeForSave);
     const subtotalAmount = aggregateTotal(rawLines.map((l) => l.gross - l.tax), modeForSave);
-    const headerDiscount = Number((editForm as any).discount) || 0;
-    const totalAmount = grossTotal - headerDiscount;
+    const totalAmount = grossTotal;
 
     const success = await updateInvoice(
       selectedInvoice.id,
       {
         ...editForm,
+        discount: discResults.headerDiscountAmount,
+        discount_mode: headerMode,
+        discount_rate: headerRate,
         subtotal: subtotalAmount,
         tax_amount: taxSum,
         total_amount: totalAmount,
