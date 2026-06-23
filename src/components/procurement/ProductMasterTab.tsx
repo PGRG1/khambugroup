@@ -278,6 +278,7 @@ export default function ProductMasterTab() {
       notes: row.notes,
       min_stock_qty: (row.product as any).min_stock_qty != null ? String((row.product as any).min_stock_qty) : "",
       reorder_qty: (row.product as any).reorder_qty != null ? String((row.product as any).reorder_qty) : "",
+      creates_stock_movement: row.creates_stock_movement,
     });
     setDragPos(null);
     setDialogOpen(true);
@@ -336,6 +337,7 @@ export default function ProductMasterTab() {
         notes: form.notes,
         min_stock_qty: form.min_stock_qty === "" ? null : parseFloat(form.min_stock_qty),
         reorder_qty: form.reorder_qty === "" ? null : parseFloat(form.reorder_qty),
+        creates_stock_movement: form.creates_stock_movement,
       };
 
       const supplierLevelFields = {
@@ -508,7 +510,8 @@ export default function ProductMasterTab() {
           base_unit_type: r.base_unit_type, base_unit_qty: r.base_unit_qty,
           cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
           supplier: r.supplier, status: r.status,
-        })), columns.map(c => ({ key: c.key, label: c.label })), "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
+          creates_stock_movement: r.creates_stock_movement ? "Yes" : "No",
+        })), [...columns.map(c => ({ key: c.key, label: c.label })), { key: "creates_stock_movement", label: "Creates Stock Movement" }], "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
         <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
       </div>
 
@@ -675,13 +678,20 @@ export default function ProductMasterTab() {
                   <TableCell className="text-sm text-muted-foreground">{r.level2_category}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.level3_category}</TableCell>
                   <TableCell>
-                    {r.financial_treatment ? (
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${r.financial_treatment === "COGS" || r.financial_treatment === "OpEx" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-sky-500/40 bg-sky-500/10 text-sky-300"}`}>
-                        {r.financial_treatment}
-                      </Badge>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground italic">—</span>
-                    )}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {r.financial_treatment ? (
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${r.financial_treatment === "COGS" || r.financial_treatment === "OpEx" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-sky-500/40 bg-sky-500/10 text-sky-300"}`}>
+                          {r.financial_treatment}
+                        </Badge>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">—</span>
+                      )}
+                      {r.financial_treatment === "COGS" && !r.creates_stock_movement && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30 bg-muted/30 text-muted-foreground">
+                          No stock
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {r.mapping_status === "Mapped" ? (
@@ -797,7 +807,11 @@ export default function ProductMasterTab() {
                   <Label className="text-xs">Financial Treatment</Label>
                   <Select
                     value={form.financial_treatment || "__none__"}
-                    onValueChange={v => setForm({ ...form, financial_treatment: v === "__none__" ? "" : v, default_coa_account_id: "" })}
+                    onValueChange={v => {
+                      const treatment = v === "__none__" ? "" : v;
+                      const autoStock = treatment === "COGS";
+                      setForm({ ...form, financial_treatment: treatment, default_coa_account_id: "", creates_stock_movement: autoStock });
+                    }}
                   >
                     <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select treatment" /></SelectTrigger>
                     <SelectContent>
