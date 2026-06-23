@@ -361,15 +361,23 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
             {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => ({
-          internal_sku: r.internal_sku, internal_product_name: r.internal_product_name,
-          level1_category: r.level1_category, qty_on_hand: r.qty_on_hand.toFixed(2),
-          unit: r.unit, avg_cost: r.avg_cost.toFixed(2), cost_value: r.cost_value.toFixed(2),
-          unit_cost: r.unit_cost.toFixed(2), supplier_value: r.supplier_value.toFixed(2),
-        })), [
+        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => {
+          const lc = lastCountMap.get(r.id);
+          return {
+            internal_sku: r.internal_sku, internal_product_name: r.internal_product_name,
+            level1_category: r.level1_category, qty_on_hand: r.qty_on_hand.toFixed(2),
+            unit: r.unit,
+            basis: lc ? "Stock take" : "GRN total",
+            last_count: lc ? formatDateShort(lc.count_date) : "",
+            avg_cost: r.avg_cost.toFixed(2), cost_value: r.cost_value.toFixed(2),
+            unit_cost: r.unit_cost.toFixed(2), supplier_value: r.supplier_value.toFixed(2),
+          };
+        }), [
           { key: "internal_sku", label: "SKU" }, { key: "internal_product_name", label: "Product Name" },
           { key: "level1_category", label: "Category" }, { key: "qty_on_hand", label: "Qty On Hand" },
-          { key: "unit", label: "Unit" }, { key: "avg_cost", label: "Avg Cost" },
+          { key: "unit", label: "Unit" },
+          { key: "basis", label: "Basis" }, { key: "last_count", label: "Last Count" },
+          { key: "avg_cost", label: "Avg Cost" },
          { key: "cost_value", label: "Cost Value" }, { key: "unit_cost", label: "Supplier & Vendor Price" },
          { key: "supplier_value", label: "Supplier & Vendor Value" },
         ], "inventory")} className="h-9">
@@ -387,6 +395,8 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
                 <TableHead className="text-xs"><SortHeader label="Product Name" col="internal_product_name" /></TableHead>
                 <TableHead className="text-xs"><SortHeader label="Category" col="level1_category" /></TableHead>
                 <TableHead className="text-xs text-right"><SortHeader label="Qty On Hand" col="qty_on_hand" /></TableHead>
+                {mode === "inventory" && <TableHead className="text-xs">Basis</TableHead>}
+                {mode === "inventory" && <TableHead className="text-xs whitespace-nowrap">Last count</TableHead>}
                 <TableHead className="text-xs">Unit</TableHead>
                 <TableHead className="text-xs text-right"><SortHeader label="Avg Cost" col="avg_cost" /></TableHead>
                 <TableHead className="text-xs text-right"><SortHeader label="Cost Value" col="cost_value" /></TableHead>
@@ -396,29 +406,43 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No inventory items found.</TableCell></TableRow>
-              ) : filtered.map((r, i) => (
+                <TableRow><TableCell colSpan={mode === "inventory" ? 11 : 9} className="text-center text-muted-foreground py-8">No inventory items found.</TableCell></TableRow>
+              ) : filtered.map((r, i) => {
+                const lc = mode === "inventory" ? lastCountMap.get(r.id) : null;
+                return (
                 <TableRow
                   key={r.id}
-                  className={`${i % 2 === 0 ? "bg-background" : "bg-muted/30"} ${mode === "deposits" ? "cursor-pointer hover:bg-primary/10" : ""}`}
-                  onClick={mode === "deposits" ? () => setSelectedDeposit(r) : undefined}
+                  className={`${i % 2 === 0 ? "bg-background" : "bg-muted/30"} cursor-pointer hover:bg-primary/10`}
+                  onClick={() => mode === "deposits" ? setSelectedDeposit(r) : setSelectedItem(r)}
                 >
                   <TableCell className="text-xs font-mono tabular-nums">{r.internal_sku}</TableCell>
                   <TableCell className="text-xs font-medium">{r.internal_product_name}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.level1_category || "—"}</TableCell>
-                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.qty_on_hand > 0 ? fmt(r.qty_on_hand) : "—"}</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.qty_on_hand !== 0 ? fmt(r.qty_on_hand) : "—"}</TableCell>
+                  {mode === "inventory" && (
+                    <TableCell className="text-xs">
+                      {lc ? (
+                        <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">Stock take</span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md border border-muted-foreground/30 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">GRN total</span>
+                      )}
+                    </TableCell>
+                  )}
+                  {mode === "inventory" && (
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{lc ? formatDateShort(lc.count_date) : "—"}</TableCell>
+                  )}
                   <TableCell className="text-xs text-muted-foreground">{r.unit}</TableCell>
-                  <TableCell className="text-xs text-right tabular-nums">{r.qty_on_hand > 0 ? `$${fmt(r.avg_cost)}` : "—"}</TableCell>
-                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.cost_value > 0 ? `$${fmt(r.cost_value)}` : "—"}</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums">{r.qty_on_hand !== 0 ? `$${fmt(r.avg_cost)}` : "—"}</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.cost_value !== 0 ? `$${fmt(r.cost_value)}` : "—"}</TableCell>
                   <TableCell className="text-xs text-right tabular-nums">${fmt(r.unit_cost)}</TableCell>
-                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.supplier_value > 0 ? `$${fmt(r.supplier_value)}` : "—"}</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.supplier_value !== 0 ? `$${fmt(r.supplier_value)}` : "—"}</TableCell>
                 </TableRow>
-              ))}
+              );})}
             </TableBody>
             {filtered.length > 0 && (
               <TableFooter>
                 <TableRow className="font-semibold">
-                  <TableCell colSpan={6} className="text-xs">Totals</TableCell>
+                  <TableCell colSpan={mode === "inventory" ? 8 : 6} className="text-xs">Totals</TableCell>
                   <TableCell className="text-xs text-right tabular-nums">${fmt(totals.costValue)}</TableCell>
                   <TableCell />
                   <TableCell className="text-xs text-right tabular-nums">${fmt(totals.supplierValue)}</TableCell>
@@ -438,6 +462,21 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
             cost_value: selectedDeposit.cost_value,
           } : null}
           onClose={() => setSelectedDeposit(null)}
+        />
+      )}
+      {mode === "inventory" && (
+        <InventoryItemSheet
+          item={selectedItem ? {
+            id: selectedItem.id,
+            internal_sku: selectedItem.internal_sku,
+            internal_product_name: selectedItem.internal_product_name,
+            unit: selectedItem.unit,
+            qty_on_hand: selectedItem.qty_on_hand,
+            avg_cost: selectedItem.avg_cost,
+            cost_value: selectedItem.cost_value,
+          } : null}
+          lastCount={selectedItem ? (lastCountMap.get(selectedItem.id) ?? null) : null}
+          onClose={() => setSelectedItem(null)}
         />
       )}
     </div>
