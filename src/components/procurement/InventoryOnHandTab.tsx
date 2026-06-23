@@ -12,6 +12,14 @@ import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDow
 import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
 import DepositTransactionSheet from "./DepositTransactionSheet";
+import InventoryItemSheet, { type InventoryItemSheetLastCount } from "./InventoryItemSheet";
+
+const formatDateShort = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
 
 interface ProductRow {
   id: string;
@@ -52,46 +60,126 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
   const [alertsOpen, setAlertsOpen] = useState(true);
   const [sortColumns, setSortColumns] = useState<Array<{key: SortKey, dir: "asc"|"desc"}>>([{ key: "internal_sku", dir: "asc" }]);
   const [selectedDeposit, setSelectedDeposit] = useState<InventoryRow | null>(null);
+  const [selectedItem, setSelectedItem] = useState<InventoryRow | null>(null);
+  const [lastCountMap, setLastCountMap] = useState<Map<string, InventoryItemSheetLastCount>>(new Map());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [prodData, lineRes] = await Promise.all([
-      fetchAllRows("product_master", "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty, financial_treatment", { col: "internal_sku", asc: true }, tenantId),
-      supabase.rpc("get_inventory_aggregates" as any, { p_tenant_id: tenantId } as any),
-    ]);
+    const prodData = await fetchAllRows(
+      "product_master",
+      "id, internal_sku, internal_product_name, level1_category, unit, unit_cost, status, min_stock_qty, reorder_qty, financial_treatment",
+      { col: "internal_sku", asc: true },
+      tenantId,
+    );
 
     const isDeposit = (t?: string | null) => (t || "").startsWith("Asset");
-    setProducts((prodData as any[]).filter((p) => {
+    const filteredProducts = (prodData as any[]).filter((p) => {
       if (p.status !== "Active") return false;
       return mode === "deposits" ? isDeposit(p.financial_treatment) : !isDeposit(p.financial_treatment);
-    }) as ProductRow[]);
+    }) as ProductRow[];
+    setProducts(filteredProducts);
 
-    // Fallback: aggregate from confirmed/disputed GRN items if RPC is unavailable.
-    if (lineRes.error || !lineRes.data) {
-      const [grnHeaders, grnItems] = await Promise.all([
-        fetchAllRows("goods_received_notes", "id, status", undefined, tenantId),
-        fetchAllRows("grn_items", "product_master_id, accepted_qty, quantity_received, unit_cost, grn_id", undefined, tenantId),
-      ]);
-      const eligibleGrnIds = new Set(
-        (grnHeaders as any[])
-          .filter((g) => g.status === "confirmed" || g.status === "disputed")
-          .map((g) => g.id),
-      );
-      const map = new Map<string, { qty: number; spend: number }>();
-      for (const row of grnItems as any[]) {
-        if (!row.product_master_id) continue;
-        if (!eligibleGrnIds.has(row.grn_id)) continue;
-        const qty = row.accepted_qty != null ? Number(row.accepted_qty) : Number(row.quantity_received) || 0;
-        const cost = Number(row.unit_cost) || 0;
-        const existing = map.get(row.product_master_id) || { qty: 0, spend: 0 };
-        existing.qty += qty;
-        existing.spend += qty * cost;
-        map.set(row.product_master_id, existing);
+    if (mode === "deposits") {
+      // Deposits mode keeps RPC-based aggregate (unchanged behaviour).
+      const lineRes: any = await supabase.rpc("get_inventory_aggregates" as any, { p_tenant_id: tenantId } as any);
+      if (lineRes.error || !lineRes.data) {
+        const [grnHeaders, grnItems] = await Promise.all([
+          fetchAllRows("goods_received_notes", "id, status", undefined, tenantId),
+          fetchAllRows("grn_items", "product_master_id, accepted_qty, quantity_received, unit_cost, grn_id", undefined, tenantId),
+        ]);
+        const eligibleGrnIds = new Set(
+          (grnHeaders as any[])
+            .filter((g) => g.status === "confirmed" || g.status === "disputed")
+            .map((g) => g.id),
+        );
+        const map = new Map<string, { qty: number; spend: number }>();
+        for (const row of grnItems as any[]) {
+          if (!row.product_master_id) continue;
+          if (!eligibleGrnIds.has(row.grn_id)) continue;
+          const qty = row.accepted_qty != null ? Number(row.accepted_qty) : Number(row.quantity_received) || 0;
+          const cost = Number(row.unit_cost) || 0;
+          const existing = map.get(row.product_master_id) || { qty: 0, spend: 0 };
+          existing.qty += qty;
+          existing.spend += qty * cost;
+          map.set(row.product_master_id, existing);
+        }
+        setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
+      } else {
+        setLineAgg((lineRes.data as any[]).map((r: any) => ({ product_master_id: r.product_master_id, total_qty: Number(r.total_qty), total_spend: Number(r.total_spend) })));
       }
-      setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
-    } else {
-      setLineAgg((lineRes.data as any[]).map((r: any) => ({ product_master_id: r.product_master_id, total_qty: Number(r.total_qty), total_spend: Number(r.total_spend) })));
+      setLastCountMap(new Map());
+      setLoading(false);
+      return;
     }
+
+    // Inventory mode: baseline = last approved stock count + GRN received after that count.
+    const [sessionsRes, grnHeaders, grnItems] = await Promise.all([
+      (supabase as any)
+        .from("stock_count_sessions")
+        .select("id, venue, count_date")
+        .eq("tenant_id", tenantId)
+        .eq("status", "approved")
+        .order("count_date", { ascending: false }),
+      fetchAllRows("goods_received_notes", "id, status, received_date", undefined, tenantId),
+      fetchAllRows("grn_items", "product_master_id, accepted_qty, quantity_received, unit_cost, grn_id", undefined, tenantId),
+    ]);
+
+    const approvedSessions: any[] = sessionsRes?.data ?? [];
+    const sessionIds = approvedSessions.map((s: any) => s.id);
+    let countItems: any[] = [];
+    if (sessionIds.length) {
+      const { data } = await (supabase as any)
+        .from("stock_count_items")
+        .select("session_id, product_master_id, counted_qty, unit_cost")
+        .in("session_id", sessionIds);
+      countItems = data ?? [];
+    }
+    const sessionDate = new Map<string, string>(
+      approvedSessions.map((s: any) => [s.id, s.count_date as string]),
+    );
+    const lastCount = new Map<string, InventoryItemSheetLastCount>();
+    // sessions are date-desc; first seen per product wins.
+    for (const sess of approvedSessions) {
+      const items = countItems.filter((ci: any) => ci.session_id === sess.id);
+      for (const ci of items) {
+        if (!ci.product_master_id || ci.counted_qty == null) continue;
+        if (lastCount.has(ci.product_master_id)) continue;
+        lastCount.set(ci.product_master_id, {
+          counted_qty: Number(ci.counted_qty),
+          count_date: sessionDate.get(sess.id) || sess.count_date,
+          session_id: sess.id,
+          unit_cost: Number(ci.unit_cost) || 0,
+        });
+      }
+    }
+    setLastCountMap(lastCount);
+
+    const eligibleGrnDate = new Map<string, string>();
+    for (const g of grnHeaders as any[]) {
+      if (g.status !== "confirmed" && g.status !== "disputed") continue;
+      eligibleGrnDate.set(g.id, g.received_date);
+    }
+
+    const map = new Map<string, { qty: number; spend: number }>();
+    for (const p of filteredProducts) {
+      const lc = lastCount.get(p.id);
+      let qty = lc ? lc.counted_qty : 0;
+      let spend = lc ? lc.counted_qty * (lc.unit_cost || p.unit_cost || 0) : 0;
+      for (const row of grnItems as any[]) {
+        if (row.product_master_id !== p.id) continue;
+        const grnDate = eligibleGrnDate.get(row.grn_id);
+        if (!grnDate) continue;
+        if (lc && !(grnDate > lc.count_date)) continue;
+        const q = row.accepted_qty != null ? Number(row.accepted_qty) : Number(row.quantity_received) || 0;
+        const c = Number(row.unit_cost) || 0;
+        qty += q;
+        spend += q * c;
+      }
+      if (qty !== 0 || spend !== 0 || lc) {
+        map.set(p.id, { qty, spend });
+      }
+    }
+    setLineAgg(Array.from(map.entries()).map(([id, v]) => ({ product_master_id: id, total_qty: v.qty, total_spend: v.spend })));
     setLoading(false);
   }, [tenantId, mode]);
 
@@ -273,15 +361,23 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
             {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => ({
-          internal_sku: r.internal_sku, internal_product_name: r.internal_product_name,
-          level1_category: r.level1_category, qty_on_hand: r.qty_on_hand.toFixed(2),
-          unit: r.unit, avg_cost: r.avg_cost.toFixed(2), cost_value: r.cost_value.toFixed(2),
-          unit_cost: r.unit_cost.toFixed(2), supplier_value: r.supplier_value.toFixed(2),
-        })), [
+        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => {
+          const lc = lastCountMap.get(r.id);
+          return {
+            internal_sku: r.internal_sku, internal_product_name: r.internal_product_name,
+            level1_category: r.level1_category, qty_on_hand: r.qty_on_hand.toFixed(2),
+            unit: r.unit,
+            basis: lc ? "Stock take" : "GRN total",
+            last_count: lc ? formatDateShort(lc.count_date) : "",
+            avg_cost: r.avg_cost.toFixed(2), cost_value: r.cost_value.toFixed(2),
+            unit_cost: r.unit_cost.toFixed(2), supplier_value: r.supplier_value.toFixed(2),
+          };
+        }), [
           { key: "internal_sku", label: "SKU" }, { key: "internal_product_name", label: "Product Name" },
           { key: "level1_category", label: "Category" }, { key: "qty_on_hand", label: "Qty On Hand" },
-          { key: "unit", label: "Unit" }, { key: "avg_cost", label: "Avg Cost" },
+          { key: "unit", label: "Unit" },
+          { key: "basis", label: "Basis" }, { key: "last_count", label: "Last Count" },
+          { key: "avg_cost", label: "Avg Cost" },
          { key: "cost_value", label: "Cost Value" }, { key: "unit_cost", label: "Supplier & Vendor Price" },
          { key: "supplier_value", label: "Supplier & Vendor Value" },
         ], "inventory")} className="h-9">
@@ -299,6 +395,8 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
                 <TableHead className="text-xs"><SortHeader label="Product Name" col="internal_product_name" /></TableHead>
                 <TableHead className="text-xs"><SortHeader label="Category" col="level1_category" /></TableHead>
                 <TableHead className="text-xs text-right"><SortHeader label="Qty On Hand" col="qty_on_hand" /></TableHead>
+                {mode === "inventory" && <TableHead className="text-xs">Basis</TableHead>}
+                {mode === "inventory" && <TableHead className="text-xs whitespace-nowrap">Last count</TableHead>}
                 <TableHead className="text-xs">Unit</TableHead>
                 <TableHead className="text-xs text-right"><SortHeader label="Avg Cost" col="avg_cost" /></TableHead>
                 <TableHead className="text-xs text-right"><SortHeader label="Cost Value" col="cost_value" /></TableHead>
@@ -308,29 +406,43 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No inventory items found.</TableCell></TableRow>
-              ) : filtered.map((r, i) => (
+                <TableRow><TableCell colSpan={mode === "inventory" ? 11 : 9} className="text-center text-muted-foreground py-8">No inventory items found.</TableCell></TableRow>
+              ) : filtered.map((r, i) => {
+                const lc = mode === "inventory" ? lastCountMap.get(r.id) : null;
+                return (
                 <TableRow
                   key={r.id}
-                  className={`${i % 2 === 0 ? "bg-background" : "bg-muted/30"} ${mode === "deposits" ? "cursor-pointer hover:bg-primary/10" : ""}`}
-                  onClick={mode === "deposits" ? () => setSelectedDeposit(r) : undefined}
+                  className={`${i % 2 === 0 ? "bg-background" : "bg-muted/30"} cursor-pointer hover:bg-primary/10`}
+                  onClick={() => mode === "deposits" ? setSelectedDeposit(r) : setSelectedItem(r)}
                 >
                   <TableCell className="text-xs font-mono tabular-nums">{r.internal_sku}</TableCell>
                   <TableCell className="text-xs font-medium">{r.internal_product_name}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.level1_category || "—"}</TableCell>
-                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.qty_on_hand > 0 ? fmt(r.qty_on_hand) : "—"}</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.qty_on_hand !== 0 ? fmt(r.qty_on_hand) : "—"}</TableCell>
+                  {mode === "inventory" && (
+                    <TableCell className="text-xs">
+                      {lc ? (
+                        <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">Stock take</span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md border border-muted-foreground/30 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">GRN total</span>
+                      )}
+                    </TableCell>
+                  )}
+                  {mode === "inventory" && (
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{lc ? formatDateShort(lc.count_date) : "—"}</TableCell>
+                  )}
                   <TableCell className="text-xs text-muted-foreground">{r.unit}</TableCell>
-                  <TableCell className="text-xs text-right tabular-nums">{r.qty_on_hand > 0 ? `$${fmt(r.avg_cost)}` : "—"}</TableCell>
-                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.cost_value > 0 ? `$${fmt(r.cost_value)}` : "—"}</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums">{r.qty_on_hand !== 0 ? `$${fmt(r.avg_cost)}` : "—"}</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.cost_value !== 0 ? `$${fmt(r.cost_value)}` : "—"}</TableCell>
                   <TableCell className="text-xs text-right tabular-nums">${fmt(r.unit_cost)}</TableCell>
-                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.supplier_value > 0 ? `$${fmt(r.supplier_value)}` : "—"}</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums font-medium">{r.supplier_value !== 0 ? `$${fmt(r.supplier_value)}` : "—"}</TableCell>
                 </TableRow>
-              ))}
+              );})}
             </TableBody>
             {filtered.length > 0 && (
               <TableFooter>
                 <TableRow className="font-semibold">
-                  <TableCell colSpan={6} className="text-xs">Totals</TableCell>
+                  <TableCell colSpan={mode === "inventory" ? 8 : 6} className="text-xs">Totals</TableCell>
                   <TableCell className="text-xs text-right tabular-nums">${fmt(totals.costValue)}</TableCell>
                   <TableCell />
                   <TableCell className="text-xs text-right tabular-nums">${fmt(totals.supplierValue)}</TableCell>
@@ -350,6 +462,21 @@ export default function InventoryOnHandTab({ mode = "inventory" }: { mode?: "inv
             cost_value: selectedDeposit.cost_value,
           } : null}
           onClose={() => setSelectedDeposit(null)}
+        />
+      )}
+      {mode === "inventory" && (
+        <InventoryItemSheet
+          item={selectedItem ? {
+            id: selectedItem.id,
+            internal_sku: selectedItem.internal_sku,
+            internal_product_name: selectedItem.internal_product_name,
+            unit: selectedItem.unit,
+            qty_on_hand: selectedItem.qty_on_hand,
+            avg_cost: selectedItem.avg_cost,
+            cost_value: selectedItem.cost_value,
+          } : null}
+          lastCount={selectedItem ? (lastCountMap.get(selectedItem.id) ?? null) : null}
+          onClose={() => setSelectedItem(null)}
         />
       )}
     </div>

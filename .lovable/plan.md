@@ -1,41 +1,58 @@
-## Diagnosis
+## Stock on Hand — Stock Count Baseline + Item Drill-Down
 
-GRN line value is a generated column: `total = quantity_received * unit_cost`. Out of 9,512 GRN items, **335 have a zero total**:
+Two coordinated frontend-only changes to `src/components/procurement/InventoryOnHandTab.tsx` (and a new sibling component). No DB schema changes, no edits to the stock count entry flow, no sidebar/route changes.
 
-- 332 rows: `unit_cost = 0`
-- 3 rows: `quantity_received = 0`
+### Part 1 — Recalculate Stock on Hand using last approved count + GRN since
 
-For every zero-cost GRN row, the source `invoice_line_items` row also has `unit_price = 0`, `normalized_unit_cost = NULL`, and line `total = 0`. So the GRN is faithfully copying what was captured on the invoice — **the break is upstream in the invoice data**, not in the GRN logic.
+In `InventoryOnHandTab.tsx` `fetchData` (inventory mode only), after loading `product_master`:
 
-Looking at the actual items, they fall into two groups:
+1. Fetch `stock_count_sessions` where `status='approved'`, ordered by `count_date` desc, scoped to `tenantId`.
+2. Fetch matching `stock_count_items` (`session_id, product_master_id, counted_qty, unit_cost`) via `.in('session_id', sessionIds)`.
+3. Build `lastCountMap: product_master_id → { counted_qty, count_date, session_id, unit_cost }` (first hit wins because sessions are date-desc).
+4. Fetch `goods_received_notes` (id, received_date, venue, status, supplier_id, grn_number) with `status in ('confirmed','disputed')` via `fetchAllRows` (tenant scoped) — replaces / augments the existing RPC path for inventory mode.
+5. Fetch `grn_items` (grn_id, product_master_id, accepted_qty, unit_cost) via `fetchAllRows`.
+6. For each product, compute:
+   - If `lastCount` exists: `qty = counted_qty + Σ accepted_qty (GRN.received_date > count_date)`; `spend = counted_qty * count.unit_cost + Σ (accepted_qty * gi.unit_cost)` for those same GRN rows.
+   - Else: sum across all confirmed/disputed GRN rows (current fallback behaviour).
+7. Pass into existing `lineAgg` shape plus a parallel `basisMap: id → { from_count, count_date }` held in state.
 
-1. **Genuine freebies / marketing items** (the majority — ~325 rows): coasters, plastic cups, branded mugs, lighters, pens, pineapple leaf garnish, etc. These really were billed at $0 by the supplier.
-2. **Suspicious zeros** (a small handful): items where `product_master.unit_cost` is non-zero, e.g. Cherry Tomato ($19), Asahi Super Dry Keg ($1,150), Coriander ($40). These look like data-entry / scan misses on the original invoice.
+Exclude `financial_treatment` starting with `"Asset"` from inventory mode (already done in current code — keep as-is).
 
-## Where the break is
+`mode === "deposits"` path: unchanged.
 
-`src/utils/autoCreateGrnFromInvoice.ts` line ~80:
-```ts
-const unitCost = Number(l.unit_price) || 0;
-```
-No fallback. If the invoice line price is missing, the GRN inherits a zero.
+### Part 2 — Two new columns on the inventory table
 
-## Proposed fix
+Insert after "Qty On Hand":
 
-Add a cost-resolution fallback chain inside `autoCreateGrnFromInvoice` (and the historical backfill), in this order:
+- **Basis** — `<span className="chip chip-warn">Stock take</span>` when `from_count`, else `<span className="chip chip-neutral">GRN total</span>`.
+- **Last count** — formatted `count_date` via `@/utils/format` `formatDate`, or `—`.
 
-1. `invoice_line_items.unit_price` (current behaviour)
-2. `invoice_line_items.normalized_unit_cost` (already computed by the scanner for some rows)
-3. `invoice_line_items.total / quantity` when `total > 0` and `quantity > 0` (recovers cases where only the line total was captured)
-4. `product_master.unit_cost` (last-resort valuation using the SKU's standing cost)
+Update CSV export to include both columns. Sort keys: not required for the new columns (display only) to keep scope tight; if added, only `count_date` as a sortable key.
 
-If all four are zero, the row stays at zero — that's the correct outcome for genuine freebies.
+### Part 3 — Item drill-down sheet (inventory mode)
 
-Then run a one-shot SQL recompute over the existing 332 zero-cost GRN rows using the same chain so historical data heals immediately. Stock on Hand and Deposit Ledger will pick up the new values automatically (they read `unit_cost * quantity` from grn_items).
+New component `src/components/procurement/InventoryItemSheet.tsx` modelled on `DepositTransactionSheet.tsx`:
 
-## Decision needed
+- Right-side `Sheet` (`sm:max-w-[700px]`).
+- Props: `item: { id, internal_sku, internal_product_name, qty_on_hand, avg_cost, cost_value, unit } | null`, `lastCount: { count_date, counted_qty, unit_cost, session_id } | null`, `onClose`.
+- On open: fetch `grn_items` for `product_master_id = item.id` joined to `goods_received_notes` (id, grn_number, received_date, venue, supplier_id, status in confirmed/disputed) and `suppliers(name)`. Filter to rows after `lastCount.count_date` when present; otherwise show all.
+- Header: title `name — SKU`, subtitle `qty units estimated on hand`, avg cost & total value chips.
+- Body Section 1 — Last count card (highlighted) with date / counted qty / count value / "Approved" note. If null, muted "No stock count recorded yet…" panel.
+- Body Section 2 — Movements table: pinned baseline row (if count exists), then GRN rows newest-first with running total computed in render order (ascending date for math, displayed desc — compute running totals from baseline forward then sort desc for display).
+- Footer: baseline qty, GRN qty since, divider, Estimated on hand. No-count variant shows `Total GRN received` only.
+- Loading skeleton + empty state ("No GRN receipts since the last stock count.").
 
-Do you want the product_master fallback (step 4) included? It will value the few suspicious zeros (Cherry Tomato, Asahi Keg, Coriander, etc.) but will also assign a non-zero cost to any "freebie" that happens to have a standing cost in product_master — which may or may not reflect reality.
+Wire in `InventoryOnHandTab.tsx`:
+- New `selectedItem` state. Inventory rows get `cursor-pointer hover:bg-primary/10` and `onClick` setter (mirrors the existing deposit pattern).
+- Render `<InventoryItemSheet>` gated on `mode === 'inventory'`, passing `lastCount` from `basisMap`/`lastCountMap`.
 
-- **Yes, include master cost fallback** — maximises valuation, masks invoice data-entry gaps
-- **No, stop at step 3** — only recover rows where the invoice has a line total but no unit price; genuine zero-priced invoice lines remain at $0
+### Out of scope
+
+- `StockCounts.tsx` entry flow
+- Auto-posting approved counts into GL/inventory
+- Sidebar, routing, GRN creation, invoice scanner, deposit ledger, finance pages
+
+### Files touched
+
+- edit `src/components/procurement/InventoryOnHandTab.tsx`
+- create `src/components/procurement/InventoryItemSheet.tsx`
