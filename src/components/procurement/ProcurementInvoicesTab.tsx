@@ -650,9 +650,9 @@ export default function ProcurementInvoicesTab() {
   const updateEditLine = (idx: number, field: keyof EditableInvoiceLine, value: string) => {
     setEditLines((prev) => {
       const updated = [...prev];
-      const nextLine: EditableInvoiceLine = { ...updated[idx], [field]: value };
+      const nextLine: EditableInvoiceLine = { ...updated[idx], [field]: value as any };
 
-      if (["quantity", "unit_price", "discount", "tax_amount"].includes(field)) {
+      if (["quantity", "unit_price", "discount", "discount_mode", "discount_rate", "tax_amount"].includes(field)) {
         const supplierId = editForm.supplier_id || selectedInvoice?.supplier_id || null;
         const supplierName = getSupplierNameById(supplierId) || selectedInvoice?.supplier_name || "";
         nextLine.total = calculateEditLineTotal(nextLine, supplierName, supplierId);
