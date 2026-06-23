@@ -1804,16 +1804,44 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           )}
                         </div>
                       </td>
-                      {/* Discount */}
-                      <td style={{ minWidth: 68 }} className="px-1 py-1 align-top">
-
-                        <Input
-                          type="number"
-                          value={line.discount}
-                          onChange={(e) => updateLine(i, "discount", e.target.value)}
-                          className="text-xs h-8 w-full"
-                          placeholder="0"
-                        />
+                      {/* Discount (% or $) */}
+                      <td style={{ minWidth: 130 }} className="px-1 py-1 align-top">
+                        {(() => {
+                          const dMode = normalizeDiscountMode(line.discount_mode);
+                          const q = parseFloat(line.quantity) || 0;
+                          const p = parseFloat(line.unit_price) || 0;
+                          const rate = parseFloat(line.discount_rate || "0") || 0;
+                          const fixed = parseFloat(line.discount || "0") || 0;
+                          const calc = dMode === "percentage" ? (q * p * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1">
+                                <div className="inline-flex rounded-md border border-input overflow-hidden h-7">
+                                  <button
+                                    type="button"
+                                    className={`px-1.5 text-[10px] ${dMode === "percentage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                                    onClick={() => updateLine(i, "discount_mode", "percentage")}
+                                  >%</button>
+                                  <button
+                                    type="button"
+                                    className={`px-1.5 text-[10px] ${dMode === "fixed" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                                    onClick={() => updateLine(i, "discount_mode", "fixed")}
+                                  >$</button>
+                                </div>
+                                <Input
+                                  type="number"
+                                  value={dMode === "percentage" ? (line.discount_rate || "0") : (line.discount || "0")}
+                                  onChange={(e) => updateLine(i, dMode === "percentage" ? "discount_rate" : "discount", e.target.value)}
+                                  className="text-xs h-7 w-full"
+                                  placeholder="0"
+                                />
+                              </div>
+                              {calc > 0 && (
+                                <span className="text-[9px] text-muted-foreground font-mono">−${calc.toFixed(2)}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       {/* Invoiced Amount */}
                       <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
