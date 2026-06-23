@@ -561,7 +561,9 @@ export default function ProcurementInvoicesTab() {
       notes: selectedInvoice.notes,
       discount: selectedInvoice.discount ?? 0,
       discount_type: (selectedInvoice as any).discount_type === "refund" ? "refund" : "discount",
-    });
+      discount_mode: normalizeDiscountMode((selectedInvoice as any).discount_mode) as any,
+      discount_rate: Number((selectedInvoice as any).discount_rate ?? 0) as any,
+    } as any);
     setEditLines(lineItems.map((line) => hydrateEditLine(line, selectedInvoice.supplier_id)));
     setDrawerOpen(false);
     setEditing(true);
