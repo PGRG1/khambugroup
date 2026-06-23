@@ -1174,32 +1174,92 @@ export default function ProcurementInvoicesTab() {
           </Button>
 
           <div className="flex items-center justify-end gap-4 text-sm border-t pt-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground">Discount:</span>
-              <Select
-                value={(editForm as any).discount_type || "discount"}
-                onValueChange={(v) => setEditForm((f) => ({ ...f, discount_type: v as any }))}
-              >
-                <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="discount">Discount</SelectItem>
-                  <SelectItem value="refund">Refund</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                value={String(editForm.discount ?? 0)}
-                onChange={(e) => setEditForm((f) => ({ ...f, discount: parseFloat(e.target.value) || 0 }))}
-                className="h-7 w-24 font-mono text-xs text-right"
-                placeholder="0.00"
-              />
-            </div>
+            {(() => {
+              const hMode = normalizeDiscountMode((editForm as any).discount_mode);
+              const subtotalAfterLine = editLines.reduce((s, l) => {
+                const q = parseFloat(l.quantity) || 0;
+                const p = parseFloat(l.unit_price) || 0;
+                const dm = normalizeDiscountMode(l.discount_mode);
+                const rate = parseFloat(l.discount_rate || "0") || 0;
+                const fixed = parseFloat(l.discount || "0") || 0;
+                const gross = q * p;
+                const ld = dm === "percentage" ? (gross * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                return s + Math.max(0, gross - ld);
+              }, 0);
+              const rate = Number((editForm as any).discount_rate ?? 0) || 0;
+              const fixedHdr = Number(editForm.discount ?? 0) || 0;
+              const headerCalc = hMode === "percentage"
+                ? (subtotalAfterLine * Math.max(0, Math.min(100, rate))) / 100
+                : Math.max(0, fixedHdr);
+              return (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">
+                    {(editForm as any).discount_type === "refund" ? "Refund:" : "Discount:"}
+                  </span>
+                  <Select
+                    value={(editForm as any).discount_type || "discount"}
+                    onValueChange={(v) => setEditForm((f) => ({ ...f, discount_type: v as any }))}
+                  >
+                    <SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="discount">Discount</SelectItem>
+                      <SelectItem value="refund">Refund</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="inline-flex rounded-md border border-input overflow-hidden h-7">
+                    <button
+                      type="button"
+                      className={`px-1.5 text-[10px] ${hMode === "percentage" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                      onClick={() => setEditForm((f) => ({ ...f, discount_mode: "percentage" } as any))}
+                    >%</button>
+                    <button
+                      type="button"
+                      className={`px-1.5 text-[10px] ${hMode === "fixed" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+                      onClick={() => setEditForm((f) => ({ ...f, discount_mode: "fixed" } as any))}
+                    >$</button>
+                  </div>
+                  <Input
+                    type="number"
+                    value={hMode === "percentage" ? String((editForm as any).discount_rate ?? 0) : String(editForm.discount ?? 0)}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value) || 0;
+                      if (hMode === "percentage") {
+                        setEditForm((f) => ({ ...f, discount_rate: v } as any));
+                      } else {
+                        setEditForm((f) => ({ ...f, discount: v } as any));
+                      }
+                    }}
+                    className="h-7 w-24 font-mono text-xs text-right"
+                    placeholder="0.00"
+                  />
+                  <span className={`text-[10px] font-mono ${(editForm as any).discount_type === "refund" ? "text-amber-500" : "text-muted-foreground"}`}>
+                    = ${headerCalc.toFixed(2)}
+                  </span>
+                </div>
+              );
+            })()}
             {(() => {
               const invSub = editLines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
               const accSub = editLines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
-              const docTotal = invSub - (Number((editForm as any).discount) || 0);
+              const hMode = normalizeDiscountMode((editForm as any).discount_mode);
+              const subtotalAfterLineForTotal = editLines.reduce((s, l) => {
+                const q = parseFloat(l.quantity) || 0;
+                const p = parseFloat(l.unit_price) || 0;
+                const dm = normalizeDiscountMode(l.discount_mode);
+                const rate = parseFloat(l.discount_rate || "0") || 0;
+                const fixed = parseFloat(l.discount || "0") || 0;
+                const gross = q * p;
+                const ld = dm === "percentage" ? (gross * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
+                return s + Math.max(0, gross - ld);
+              }, 0);
+              const hRate = Number((editForm as any).discount_rate ?? 0) || 0;
+              const hFixed = Number(editForm.discount ?? 0) || 0;
+              const headerCalc = hMode === "percentage"
+                ? (subtotalAfterLineForTotal * Math.max(0, Math.min(100, hRate))) / 100
+                : Math.max(0, hFixed);
+              const docTotal = subtotalAfterLineForTotal - headerCalc;
               return (
                 <>
                   <div>
