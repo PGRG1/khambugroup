@@ -862,8 +862,10 @@ export default function ProductMasterTab() {
             </div>
             <div className="px-4 py-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className={`h-9 text-sm ${duplicateSku !== null ? "border-amber-500" : ""}`} /></div>
-                <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
+                <div className={form.creates_stock_movement ? "" : "col-span-2"}><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className={`h-9 text-sm ${duplicateSku !== null ? "border-amber-500" : ""}`} /></div>
+                {form.creates_stock_movement && (
+                  <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
+                )}
                 {duplicateSku !== null && (
                   <div className="col-span-2">
                     <Alert className="border-amber-400 bg-amber-50 py-2">
@@ -877,7 +879,9 @@ export default function ProductMasterTab() {
                   </div>
                 )}
                 <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
-                <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
+                {form.creates_stock_movement && (
+                  <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
+                )}
                 <div className="col-span-2">
                   <Label className="text-xs">Categories (L1 → L2 → L3)</Label>
                   <CategoryCascadeSelect
@@ -949,53 +953,56 @@ export default function ProductMasterTab() {
                     onCheckedChange={(v) => setForm(f => ({ ...f, creates_stock_movement: v }))}
                   />
                 </div>
-                <div>
-                  <Label className="text-xs">Supplier</Label>
-                  <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                    <SelectContent>
-                      {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {form.creates_stock_movement && (
+                  <>
+                    <div className="col-span-2">
+                      <Label className="text-xs">Supplier</Label>
+                      <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                        <SelectContent>
+                          {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
+                    {/* Purchase & Stock */}
+                    <div className="col-span-2 border-t pt-3 mt-1">
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">Purchase & Stock Units</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Purchase UOM</Label>
+                      <UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case, Pack" legacyValues={legacyPurchaseUoms} />
+                    </div>
+                    <div><Label className="text-xs">Purchase Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
+                    <div>
+                      <Label className="text-xs">Stock UOM</Label>
+                      <UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle, Pack" legacyValues={legacyStockUoms} />
+                    </div>
+                    <div><Label className="text-xs">Stock Qty</Label><Input type="number" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm" /></div>
+                    <div className="col-span-2 bg-muted/30 rounded-lg p-2">
+                      <p className="text-xs text-muted-foreground">
+                        Cost per Stock Unit: <span className="font-mono font-semibold text-foreground">${fmt(liveCostPerStock)}</span>
+                        <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
+                      </p>
+                    </div>
 
-                {/* Purchase & Stock */}
-                <div className="col-span-2 border-t pt-3 mt-1">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Purchase & Stock Units</p>
-                </div>
-                <div>
-                  <Label className="text-xs">Purchase UOM</Label>
-                  <UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case, Pack" legacyValues={legacyPurchaseUoms} />
-                </div>
-                <div><Label className="text-xs">Purchase Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
-                <div>
-                  <Label className="text-xs">Stock UOM</Label>
-                  <UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle, Pack" legacyValues={legacyStockUoms} />
-                </div>
-                <div><Label className="text-xs">Stock Qty</Label><Input type="number" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm" /></div>
-                <div className="col-span-2 bg-muted/30 rounded-lg p-2">
-                  <p className="text-xs text-muted-foreground">
-                    Cost per Stock Unit: <span className="font-mono font-semibold text-foreground">${fmt(liveCostPerStock)}</span>
-                    <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
-                  </p>
-                </div>
-
-                {/* Recipe units */}
-                <div className="col-span-2 border-t pt-3 mt-1">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
-                </div>
-                <div>
-                  <Label className="text-xs">Recipe UOM</Label>
-                  <UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml, ea" legacyValues={legacyBaseUoms} />
-                </div>
-                <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
-                <div className="col-span-2 bg-muted/30 rounded-lg p-2">
-                  <p className="text-xs text-muted-foreground">
-                    Standard Cost per Recipe Unit: <span className="font-mono font-semibold text-foreground">${fmt4(liveCostPerRecipe)}</span>
-                    <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Recipe Qty)</span>
-                  </p>
-                </div>
+                    {/* Recipe units */}
+                    <div className="col-span-2 border-t pt-3 mt-1">
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Recipe UOM</Label>
+                      <UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml, ea" legacyValues={legacyBaseUoms} />
+                    </div>
+                    <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
+                    <div className="col-span-2 bg-muted/30 rounded-lg p-2">
+                      <p className="text-xs text-muted-foreground">
+                        Standard Cost per Recipe Unit: <span className="font-mono font-semibold text-foreground">${fmt4(liveCostPerRecipe)}</span>
+                        <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Recipe Qty)</span>
+                      </p>
+                    </div>
+                  </>
+                )}
 
                 <div className="col-span-2 border-t pt-3 mt-1">
                   <Label className="text-xs">Notes</Label>
