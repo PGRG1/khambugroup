@@ -12,6 +12,14 @@ import { Package, DollarSign, TrendingUp, Search, ArrowUpDown, ArrowUp, ArrowDow
 import { downloadCSV } from "@/utils/csvDownload";
 import { Button } from "@/components/ui/button";
 import DepositTransactionSheet from "./DepositTransactionSheet";
+import InventoryItemSheet, { type InventoryItemSheetLastCount } from "./InventoryItemSheet";
+
+const formatDateShort = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
 
 interface ProductRow {
   id: string;
