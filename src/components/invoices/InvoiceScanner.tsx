@@ -1033,7 +1033,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         return copy;
       });
       try { await fetchProducts(); } catch {}
-      toast({ title: "Items Master updated", description: `New price: $${newPrice.toFixed(2)}` });
+      toast({ title: "Items Master updated", description: `New price: $${newPrice}` });
     } finally {
       setUpdatingMasterIdx(null);
     }
@@ -2098,9 +2098,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                                     disabled={updatingMasterIdx === i}
                                     onClick={() => handleUpdateMaster(i)}
                                     className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
-                                    title={`Set Items Master price to $${accNum.toFixed(2)}`}
+                                    title={`Set Items Master price to $${accNum}`}
                                   >
-                                    {updatingMasterIdx === i ? "Updating…" : `Update master → $${accNum.toFixed(2)}`}
+                                    {updatingMasterIdx === i ? "Updating…" : `Update master → $${accNum}`}
                                   </button>
                                 )}
                               </div>
