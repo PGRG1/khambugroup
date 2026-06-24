@@ -1033,7 +1033,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         return copy;
       });
       try { await fetchProducts(); } catch {}
-      toast({ title: "Items Master updated", description: `New price: $${newPrice.toFixed(2)}` });
+      toast({ title: "Items Master updated", description: `New price: $${newPrice}` });
     } finally {
       setUpdatingMasterIdx(null);
     }
