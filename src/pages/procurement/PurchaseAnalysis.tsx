@@ -646,29 +646,89 @@ export default function PurchaseAnalysis() {
             <div className="flex items-center justify-between mb-3">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Spend trend</div>
               <div className="flex items-center gap-3 text-[10px]">
-                <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: AMBER }} />Total</span>
-                {categoryAgg.slice(0, 2).map((c) => (
-                  <span key={c.name} className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c.color }} />{c.name}</span>
-                ))}
+                <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: AMBER }} />Spend</span>
+                {hasSalesData && (
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "hsl(175, 55%, 42%)" }} />Revenue</span>
+                )}
+                {period === "1M" && (
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-0.5" style={{ backgroundColor: AMBER, opacity: 0.5 }} />Prior</span>
+                )}
               </div>
             </div>
-            <div style={{ height: 180 }}>
+            <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <YAxis tickFormatter={fmtShort} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => fmtMoney(v)} />
-                  <Line type="monotone" dataKey="total" name="Total" stroke={AMBER} strokeWidth={2} dot={{ r: 3 }} />
-                  {categoryAgg.slice(0, 2).map((c) => (
-                    <Line key={c.name} type="monotone" dataKey={c.name} stroke={c.color} strokeWidth={1.5} strokeDasharray="4 2" dot={false} />
-                  ))}
-                </LineChart>
+                {period === "1M" ? (
+                  <ComposedChart data={trend1M} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" tickFormatter={(v) => `${v}`} />
+                    <YAxis tickFormatter={fmtShort} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip
+                      contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                      labelFormatter={(l) => `Day ${l}`}
+                      formatter={(v: any, name: string) => (v === null || v === undefined ? ["—", name] : [fmtMoney(Number(v)), name])}
+                    />
+                    {hasSalesData && (
+                      <Area type="monotone" dataKey="cumRevenue" stroke="hsl(175, 55%, 42%)" strokeWidth={2}
+                        fill="hsl(175, 55%, 42%)" fillOpacity={0.08} name="Cumulative revenue" connectNulls dot={false} />
+                    )}
+                    <Line type="monotone" dataKey="cumSpendPrior" stroke={AMBER} strokeWidth={1.5}
+                      strokeDasharray="5 4" strokeOpacity={0.35} dot={false} name="Prior month spend" connectNulls />
+                    <Area type="monotone" dataKey="cumSpend" stroke={AMBER} strokeWidth={2.5}
+                      fill={AMBER} fillOpacity={0.07} name="Cumulative spend" connectNulls dot={false}
+                      activeDot={{ r: 4, fill: AMBER }} />
+                  </ComposedChart>
+                ) : (
+                  <ComposedChart data={trendMonthly} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <YAxis tickFormatter={fmtShort} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                      formatter={(v: any, name: string) => (v === null || v === undefined ? ["—", name] : [fmtMoney(Number(v)), name])} />
+                    {hasSalesData && (
+                      <Bar dataKey="revenue" fill="hsl(175, 55%, 42%)" fillOpacity={0.5} radius={[3, 3, 0, 0]} name="Revenue" />
+                    )}
+                    <Bar dataKey="spend" fill={AMBER} radius={[3, 3, 0, 0]} name="Net spend" />
+                  </ComposedChart>
+                )}
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Cost % metric strip */}
+      <div className="space-y-1">
+        <div
+          className="grid gap-px bg-border rounded-xl overflow-hidden"
+          style={{ gridTemplateColumns: `repeat(${activeGroups.length + 1}, minmax(0, 1fr))` }}
+        >
+          <CostChip
+            label="Total cost %"
+            value={totalCostPct}
+            color={AMBER}
+            spend={totalSpend}
+            revenue={totalRevenue}
+            hasSalesData={hasSalesData}
+          />
+          {activeGroups.map((g) => (
+            <CostChip
+              key={g.key}
+              label={g.label}
+              value={hasSalesData && totalRevenue > 0 ? (groupSpend[g.key] / totalRevenue) * 100 : null}
+              color={g.color}
+              spend={groupSpend[g.key]}
+              revenue={totalRevenue}
+              hasSalesData={hasSalesData}
+            />
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground text-center mt-1">
+          {hasSalesData
+            ? `Cost % = category spend ÷ total revenue (${fmtShort(totalRevenue)}) · Sourced from confirmed GRNs`
+            : "Add revenue data in Sales Records to see cost % figures"}
+        </p>
+      </div>
+
 
       {/* Section 3: Top items */}
       <div className="space-y-3">
