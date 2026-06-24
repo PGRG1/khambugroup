@@ -924,6 +924,104 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     });
   };
 
+  // Editable Accepted Price (Items Master baseline)
+  const updateLineAcceptedPrice = (i: number, value: string) => {
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const line = { ...lines[i] };
+      if (line.is_free_unit_line) return prev; // zero-price lines aren't disputable
+      line.accepted_price = value;
+      const accNum = parseFloat(value);
+      const invPrice = parseFloat(line.unit_price) || 0;
+      line.price_disputed = Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(invPrice * 100);
+      lines[i] = line;
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+    // Show "Update Items Master" banner if differs from master
+    const line = invoices[currentIdx]?.line_items[i];
+    if (line?.product_master_id && line.master_price != null) {
+      const accNum = parseFloat(value);
+      if (Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(line.master_price * 100)) {
+        setMasterUpdateBanner({
+          lineIdx: i,
+          productMasterId: line.product_master_id,
+          itemName: line.matched_internal_name || line.description || "this item",
+          newPrice: accNum,
+        });
+      } else {
+        setMasterUpdateBanner((b) => (b && b.lineIdx === i ? null : b));
+      }
+    }
+  };
+
+  // When deals load, relink existing free-unit lines to a matching deal
+  useEffect(() => {
+    if (!current) return;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const inv = copy[currentIdx];
+      if (!inv) return prev;
+      let changed = false;
+      const next = inv.line_items.map((l) => {
+        const isFree = (parseFloat(l.unit_price) || 0) === 0 && (parseFloat(l.quantity) || 0) > 0 && !!l.product_master_id;
+        const dealId = isFree ? (findDealForProduct(activeDeals, l.product_master_id || null)?.id ?? null) : (l.deal_id ?? null);
+        if (l.is_free_unit_line !== isFree || (l.deal_id ?? null) !== dealId) {
+          changed = true;
+          return { ...l, is_free_unit_line: isFree, deal_id: dealId };
+        }
+        return l;
+      });
+      if (!changed) return prev;
+      copy[currentIdx] = { ...inv, line_items: next };
+      return copy;
+    });
+  }, [activeDeals, currentIdx]);
+
+  // Compute missing deal warnings for current invoice
+  const missingDeals = useMemo(() => {
+    if (!current || activeDeals.length === 0) return [];
+    return computeMissingDeals(
+      activeDeals,
+      current.line_items.map((l) => ({
+        product_master_id: l.product_master_id || null,
+        quantity: parseFloat(l.quantity) || 0,
+        unit_price: parseFloat(l.unit_price) || 0,
+        is_free_unit_line: !!l.is_free_unit_line,
+        matched_internal_name: l.matched_internal_name,
+        description: l.description,
+      })),
+    );
+  }, [current, activeDeals]);
+
+  const handleUpdateMaster = async () => {
+    if (!masterUpdateBanner) return;
+    const { productMasterId, newPrice, lineIdx } = masterUpdateBanner;
+    const { error } = await supabase
+      .from("product_master")
+      .update({ purchase_unit_cost: newPrice } as any)
+      .eq("id", productMasterId);
+    if (error) {
+      toast({ title: "Failed to update Items Master", description: error.message, variant: "destructive" });
+      return;
+    }
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const line = { ...lines[lineIdx] };
+      line.master_price = newPrice;
+      line.pm_unit_price = newPrice;
+      const invPrice = parseFloat(line.unit_price) || 0;
+      line.price_changed = Math.abs(invPrice - newPrice) > 0.01;
+      lines[lineIdx] = line;
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+    setMasterUpdateBanner(null);
+    toast({ title: "Items Master updated", description: `New price: $${newPrice.toFixed(2)}` });
+  };
+
   const addLine = () => setInvoices((prev) => {
     const copy = [...prev];
     copy[currentIdx] = { ...copy[currentIdx], line_items: [...copy[currentIdx].line_items, { ...emptyLine }] };
