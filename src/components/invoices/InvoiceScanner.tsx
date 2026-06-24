@@ -2201,6 +2201,20 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               </tbody>
             </table>
           </div>
+
+          {masterUpdateBanner && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs">
+              <div className="flex items-center gap-2 text-amber-200">
+                <Tag className="h-3.5 w-3.5 shrink-0" />
+                <span>Accepted price differs from Items Master for <strong>{masterUpdateBanner.itemName}</strong>. Update master to ${masterUpdateBanner.newPrice.toFixed(2)}?</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleUpdateMaster}>Update master</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setMasterUpdateBanner(null)}>Keep current</Button>
+              </div>
+            </div>
+          )}
+
           <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
 
           {/* Totals */}
