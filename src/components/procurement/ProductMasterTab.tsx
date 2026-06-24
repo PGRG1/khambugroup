@@ -295,6 +295,8 @@ export default function ProductMasterTab() {
       min_stock_qty: (row.product as any).min_stock_qty != null ? String((row.product as any).min_stock_qty) : "",
       reorder_qty: (row.product as any).reorder_qty != null ? String((row.product as any).reorder_qty) : "",
       creates_stock_movement: row.creates_stock_movement,
+      purchase_yield: String(row.purchase_yield ?? 100),
+      cooking_yield: String(row.cooking_yield ?? 100),
     });
     setDragPos(null);
     setDialogOpen(true);
