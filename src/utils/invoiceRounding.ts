@@ -165,9 +165,9 @@ export function calcNetUnitCost(
 export interface DiscountLineInput {
   quantity: number | string;
   unit_price: number | string;
-  discount_mode: DiscountMode;
-  discount_rate: number | string;
-  discount: number | string; // fixed $ amount on the line
+  discount_mode?: DiscountMode;
+  discount_rate?: number | string;
+  discount?: number | string; // fixed $ amount on the line
 }
 
 export interface DiscountLineOutput {
