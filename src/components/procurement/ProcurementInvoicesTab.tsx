@@ -286,6 +286,13 @@ export default function ProcurementInvoicesTab() {
 
   useEffect(() => { loadProductMaster(); }, [loadProductMaster]);
 
+  // Load active supplier deals when editing and supplier changes
+  useEffect(() => {
+    const sid = editForm.supplier_id || selectedInvoice?.supplier_id;
+    if (!sid || !tenantId || !editing) { setActiveDeals([]); return; }
+    fetchActiveDealsForSupplier(sid, tenantId).then(setActiveDeals);
+  }, [editing, editForm.supplier_id, selectedInvoice?.supplier_id, tenantId]);
+
 
   const openAttachmentViewer = (fileUrl: string, invoiceNumber: string) => {
     setViewerFileUrl(fileUrl);
