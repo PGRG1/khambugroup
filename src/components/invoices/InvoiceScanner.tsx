@@ -94,6 +94,7 @@ interface ScannedLineItem {
   is_free_unit_line?: boolean;
   deal_id?: string | null;
   product_master_id?: string | null;
+  supplier_entry_id?: string | null;
   total_override?: boolean;
   review_status?: "matched" | "possible_match" | "new_item" | "needs_review";
   review_warnings?: string[];
