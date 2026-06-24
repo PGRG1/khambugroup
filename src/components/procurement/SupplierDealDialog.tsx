@@ -58,13 +58,13 @@ export default function SupplierDealDialog({
       setNotes(initial.notes ?? "");
       setIsActive(initial.is_active);
     } else {
-      setSupplierId("");
+      setSupplierId(lockedSupplierId || "");
       setBuyQty("");
       setFreeQty("");
       setNotes("");
       setIsActive(true);
     }
-  }, [open, initial]);
+  }, [open, initial, lockedSupplierId]);
 
   const buy = parseFloat(buyQty) || 0;
   const free = parseFloat(freeQty) || 0;
