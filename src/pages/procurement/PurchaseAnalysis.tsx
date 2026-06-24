@@ -158,12 +158,16 @@ export default function PurchaseAnalysis() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // suppliers
-      const sups = await fetchAllRows("suppliers", "id, name", undefined, tenantId);
+      // suppliers + sales (parallel)
+      const [sups, sales] = await Promise.all([
+        fetchAllRows("suppliers", "id, name", undefined, tenantId),
+        fetchAllRows("sales_records", "date, total_sales, venue", undefined, tenantId),
+      ]);
       const sm = new Map<string, string>();
       for (const s of sups as any[]) sm.set(s.id, s.name);
       if (cancelled) return;
       setSuppliersMap(sm);
+      setSalesRows(sales as SalesRow[]);
 
       // Fetch all grn_items for tenant (paginated via .range)
       const PAGE = 1000;
