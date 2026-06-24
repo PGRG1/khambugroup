@@ -46,7 +46,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Info } from "lucide-react";
-import { DisputeConfirmDialog, type DisputedLineSummary } from "./DisputeConfirmDialog";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -164,8 +163,6 @@ interface InvoiceScannerProps {
     discount_mode?: DiscountMode;
     discount_rate?: number;
     status?: string;
-    has_disputes?: boolean;
-    disputed_amount?: number;
   }, lineItems: {
     item_code: string;
     description: string;
@@ -250,8 +247,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [showOverrideDialog, setShowOverrideDialog] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
-  const [showDisputeDialog, setShowDisputeDialog] = useState(false);
-  const [pendingDisputePayload, setPendingDisputePayload] = useState<{ lines: DisputedLineSummary[]; amount: number } | null>(null);
   const [savedCount, setSavedCount] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -1100,42 +1095,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const aiTotal = current?.ai_total;
   const totalMismatch = aiTotal !== undefined && Math.abs(aiTotal - calculatedTotal) > 0.50;
 
-  /** Compute disputed-line summary per spec: (price_disputed OR accepted_qty < quantity) AND !is_free_unit_line */
-  const computeDisputeSummary = (inv: ScannedInvoice): { lines: DisputedLineSummary[]; amount: number } => {
-    const out: DisputedLineSummary[] = [];
-    let amount = 0;
-    for (const l of inv.line_items) {
-      if (!l.description.trim()) continue;
-      if (l.is_free_unit_line) continue;
-      const qty = parseFloat(l.quantity) || 0;
-      const accQty = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
-      const price = parseFloat(l.unit_price) || 0;
-      const accPriceParsed = parseFloat(l.accepted_price || "");
-      const accPrice = Number.isFinite(accPriceParsed) ? accPriceParsed : price;
-      const priceDisputed = !!l.price_disputed || (Number.isFinite(accPriceParsed) && Math.abs(accPrice - price) > 0.0001);
-      const qtyDisputed = accQty < qty;
-      if (!priceDisputed && !qtyDisputed) continue;
-      const variance = (price * qty) - (accPrice * accQty);
-      amount += variance;
-      out.push({
-        description: l.description,
-        invPrice: price,
-        accPrice,
-        invQty: qty,
-        accQty,
-        unit: l.matched_purchase_uom || l.unit || null,
-        variance,
-      });
-    }
-    return { lines: out, amount };
-  };
-
-  const doSaveCurrent = async (
-    inv: ScannedInvoice,
-    idx: number,
-    skipDuplicateCheck = false,
-    disputeMeta?: { hasDisputes: boolean; disputedAmount: number },
-  ) => {
+  const doSaveCurrent = async (inv: ScannedInvoice, idx: number, skipDuplicateCheck = false) => {
     if (!skipDuplicateCheck) {
       const { data: existingInvoices } = await supabase
         .from("invoices")
@@ -1252,8 +1212,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           discount_mode: invDiscMode,
           discount_rate: parseFloat(inv.invoice_discount_rate || "0") || 0,
           status: inv.invoice_status || undefined,
-          has_disputes: disputeMeta?.hasDisputes ?? false,
-          disputed_amount: disputeMeta?.disputedAmount ?? 0,
         },
         lines,
         filesToSave.length > 0 ? filesToSave : undefined
@@ -1283,7 +1241,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     return (inv.review_blocking?.length || 0) + inv.line_items.reduce((s, l) => s + (l.review_blocking?.length || 0), 0) > 0;
   }, []);
 
-  const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string; forceDispute?: boolean } = {}) => {
+  const handleSaveCurrent = async (opts: { forceOverride?: boolean; overrideReason?: string } = {}) => {
     if (!current) return;
     if (!current.supplier_id) { toast({ title: "Supplier required", variant: "destructive" }); return; }
     if (!current.invoice_number) { toast({ title: "Invoice number required", variant: "destructive" }); return; }
@@ -1298,23 +1256,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       toSave = { ...current, notes: mergedNotes };
       setInvoices(prev => prev.map((inv, i) => i === currentIdx ? toSave : inv));
     }
-
-    // Dispute interception: show summary modal before confirming when disputed lines exist.
-    const summary = computeDisputeSummary(toSave);
-    if (!opts.forceDispute && summary.lines.length > 0) {
-      setPendingDisputePayload(summary);
-      setShowDisputeDialog(true);
-      return;
-    }
-
-    await doSaveCurrent(
-      toSave,
-      currentIdx,
-      false,
-      summary.lines.length > 0
-        ? { hasDisputes: true, disputedAmount: summary.amount }
-        : { hasDisputes: false, disputedAmount: 0 },
-    );
+    await doSaveCurrent(toSave, currentIdx);
   };
 
 
@@ -2632,19 +2574,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <DisputeConfirmDialog
-        open={showDisputeDialog}
-        onOpenChange={(o) => { setShowDisputeDialog(o); if (!o) setPendingDisputePayload(null); }}
-        lines={pendingDisputePayload?.lines || []}
-        disputedAmount={pendingDisputePayload?.amount || 0}
-        busy={saving}
-        onConfirm={async () => {
-          setShowDisputeDialog(false);
-          setPendingDisputePayload(null);
-          await handleSaveCurrent({ forceDispute: true });
-        }}
-      />
     </div>
   );
 };

@@ -1,126 +1,152 @@
 ## Goal
+Add **Accepted Price** column and **Deal Tracking** to the Invoice Scanner line-item table. Same logic mirrors into the Edit Invoice dialog so behaviour matches everywhere (we always keep these two views in lockstep). No changes to GRN logic, confirmation flow, status transitions, or the invoice list.
 
-Redesign the invoice list in `ProcurementInvoicesTab.tsx` around the new dispute lifecycle: a single Status badge, dedicated Reason / Resolution / Actions columns for disputed rows, and a four-card stat strip. Scanner, GRN logic, and the detail/edit view stay untouched.
+## Schema notes (deviation from the prompt)
+The prompt references `product_master.supplier_id`, `product_master.sku`, and a `supplier_id` on the invoice. The actual schema is:
+- Supplier-level data lives in `product_suppliers` (linked to `product_master` via `product_master_id`). `external_sku` and `supplier_product_name` live there.
+- `invoices.supplier_id` references `suppliers.id`; `item_supplier_deals.supplier_id` also references `suppliers.id` — they match directly.
+- Per-product price lives on `product_suppliers.purchase_unit_cost` (scoped per supplier). I'll use that as the authoritative "Items Master price" for the matched supplier, falling back to `product_master.unit_cost`.
 
-## Live-data notes
+The scanner already has a resolver (`productMasterResolver`) and tracks `pm_unit_price` + a `price_changed` flag — I'll build on top of it rather than introduce a parallel lookup.
 
-- `invoices.has_disputes` and `invoices.disputed_amount` already exist — do **not** re-add.
-- Live `invoices.status` values today are only `disputed`, `paid`, `unpaid`. `approved` and `voided` are valid per the check constraint but historically absent; UI must not assume they exist.
+---
 
-## 1. Migration
+## Part 1 — Accepted Price
 
-Add one nullable column to `invoices`:
+### 1.1 Database (migration)
+On `invoice_line_items` add:
+- `accepted_price numeric(10,4)` — nullable
+- `price_disputed boolean not null default false`
+- `is_free_unit_line boolean not null default false`
+- `deal_id uuid references item_supplier_deals(id) on delete set null`
 
-```sql
-alter table public.invoices
-  add column if not exists dispute_resolution text
-  check (dispute_resolution in ('credit_note','qty_received','resolved'));
+Add an index on `(deal_id)`.
+
+### 1.2 Master-price resolution
+When a line is loaded (AI scan, manual add, product picker, or initial load of an existing invoice):
+1. Resolve the supplier-scoped `product_suppliers` row using the existing resolver (priority: invoice supplier + external_sku, then external_sku-only, then name fuzzy).
+2. Set `master_price = product_suppliers.purchase_unit_cost` (fallback `product_master.unit_cost`).
+3. Initialise `accepted_price = master_price` on first load. If no match, leave `accepted_price = null` and show a grey "No master price" label — no dispute.
+
+`master_price` is held in component state (`pm_unit_price` already exists) and is read-only as far as the user is concerned.
+
+### 1.3 New column in the line table
+After the existing Acc. Qty column, insert:
+
+| Column | Source | Editable |
+|---|---|---|
+| Inv. price | `unit_price` | no |
+| Acc. price | `accepted_price` | yes (number, 2 dp) |
+
+Under the Acc. price input, render:
+- `Master: $X.XX` (grey, static) when a master price is known.
+- Amber input border when `accepted_price ≠ master_price`.
+- `No master price` when null.
+
+### 1.4 Real-time `price_disputed`
+```
+price_disputed =
+  accepted_price IS NOT NULL
+  AND !is_free_unit_line
+  AND round(accepted_price, 2) !== round(unit_price, 2)
+```
+Recompute on every keystroke. Persist on save.
+
+### 1.5 Status badge update
+Extend the existing per-line badge logic:
+
+| Condition | Badge |
+|---|---|
+| qty match + price match | ✓ Matched (green) |
+| qty dispute only | ⚠ Qty dispute (amber) |
+| price dispute only | ⚠ Price dispute (amber) |
+| both | ⚠ Qty + price (red) |
+| `is_free_unit_line` | 🏷 Deal — free unit (blue) |
+
+Free-unit lines never count toward price dispute.
+
+### 1.6 "Update master" banner
+Below the line table, one dismissible inline banner at a time. Shown when the most-recently-edited line has `accepted_price !== master_price` and a `product_master_id` is known.
+```
+🏷  Accepted price differs from Items Master for {item name}. Update master to $X.XX?
+    [ Update master ]  [ Keep current ]
+```
+- **Update master**: write `product_suppliers.purchase_unit_cost = accepted_price` for that `(product_master_id, supplier)` row (scoped by tenant). Update the in-memory `master_price` on the line, clear amber, dismiss.
+- **Keep current**: dismiss banner only; amber + `price_disputed` remain.
+
+Banner replaces itself when the user edits a different line. Never stacks.
+
+### 1.7 Totals footer
+Add two rows beneath existing totals (which we keep — they stay the source of recon-truth):
+```
+Accepted total: $X,XXX.XX   sum(accepted_price * accepted_qty) over lines with non-null accepted_price
+Variance:       ±$XXX.XX    accepted - invoice subtotal (red if negative, green if positive)
+```
+"Doc total" / recon delta logic stays untouched.
+
+---
+
+## Part 2 — Deal tracking
+
+### 2.1 Free-unit detection
+On every line load/edit, mark `is_free_unit_line = true` when:
+```
+unit_price === 0 AND quantity > 0 AND product_master_id !== null
 ```
 
-Extend `Invoice` in `src/hooks/useInvoiceData.ts` with `dispute_resolution?: 'credit_note' | 'qty_received' | 'resolved' | null` and let `updateInvoice` pass it through.
+Then look up an active deal:
+```
+SELECT id, buy_qty, free_qty
+FROM item_supplier_deals
+WHERE tenant_id = current
+  AND product_id = line.product_master_id
+  AND supplier_id = invoice.supplier_id
+  AND is_active = true
+  AND deal_type = 'buy_x_get_y_free'
+LIMIT 1
+```
+Cache all active deals for the invoice supplier in one fetch per scan/edit session.
 
-## 2. Column structure
+If matched → set `deal_id`. If not → leave `deal_id = null` (shows as "Zero price — unlinked").
 
-Replace the existing table columns in `ProcurementInvoicesTab.tsx` with exactly:
+### 2.2 Free-unit rendering
+- Inv. price cell shows `$0.00` + blue **Deal** chip.
+- Acc. price input becomes read-only and locked at 0.
+- Status badge: 🏷 Deal — free unit (blue).
+- When `deal_id` is set, tooltip / sub-label: `{buy_qty}+{free_qty} · {supplier name}`.
 
-```text
-Date 7% | Invoice # 14% | Supplier 17% | Venue 8% | Amount 10% (right) |
-Status 10% | Reason 12% | Resolution 11% | Actions 11%
+### 2.3 Missing-deal warning
+After all lines are loaded (and on every line change), for each active deal of the invoice supplier:
+```
+paid_qty   = sum(quantity) of lines where product_master_id = deal.product_id AND unit_price > 0
+free_qty_g = sum(quantity) of lines where product_master_id = deal.product_id AND is_free_unit_line
+expected   = floor(paid_qty / deal.buy_qty) * deal.free_qty
+if expected > 0 AND free_qty_g < expected → emit warning
+```
+Render yellow inline alert above the line-item table, one per missing deal, informational only (doesn't block confirmation):
+```
+⚠ Deal not fully applied: {item} — expected {expected - found} free unit(s) ({buy}+{free} deal with {supplier}). Check with supplier.
 ```
 
-- Remove the `Payment Status` column and the `Review Status` / `Issue / Exception` selectors.
-- Amount: right-aligned `HK$ X,XXX.XX` via existing `@/utils/format`.
-- Invoice # remains the click target for the detail sheet; row click stays the same.
-- Voided rows render at 45% opacity and the Actions cell is a muted dash (view-only).
+### 2.4 Effective cost label
+For lines with a linked `deal_id` and a non-zero accepted_price, beneath the Acc. price input show:
+```
+Effective: ${eff} / {uom}
+eff = (deal.buy_qty * accepted_price) / (deal.buy_qty + deal.free_qty)
+```
+Display-only. Not written to GRN.
 
-## 3. Status badge
+---
 
-Single badge derived from `inv.status`:
+## Persistence
+`onSave` payload (scanner) and the update path (editor) extend to include the four new fields per line. GRN auto-creation still uses `accepted_qty * accepted_price` (it already uses accepted qty; price source today is `unit_price` — confirm with you whether GRN should switch to `accepted_price` for valuation, see Open Question below).
 
-- `approved` → green "✓ Approved"
-- `voided` → grey "⊘ Voided"
-- `has_disputes` true (typically `status='disputed'`) → amber/red "⚠ Disputed"
-- `paid` / `unpaid` / any other legacy value → neutral grey chip with the raw status label, so historical rows render cleanly and never crash.
+## Files touched
+- **Migration** — add 4 columns + index on `invoice_line_items`.
+- `src/components/invoices/InvoiceScanner.tsx` — line type, master-price seed, edit handler, columns, banner, totals, deal logic, missing-deal alerts, payload.
+- `src/components/procurement/ProcurementInvoicesTab.tsx` — same UI/logic in the Edit Invoice dialog (kept in lockstep per existing rule).
+- `src/utils/autoCreateGrnFromInvoice.ts` — pass `accepted_price` through for GRN valuation **only if** you confirm GRN should use accepted price (otherwise no change).
+- No changes to the invoice list, status transitions, or `parse-invoice` edge function.
 
-No "Under Review", "Verified", "Exceptions", or "Duplicates" anywhere.
-
-## 4. Reason column (disputed rows only)
-
-Compute from `invoice_line_items` per invoice:
-
-- Alongside `fetchAll`, run a single tenant-scoped `fetchAllRows("invoice_line_items", "invoice_id, price_disputed, quantity, accepted_qty, is_free_unit_line", ...)` and aggregate per `invoice_id` into `{ hasPrice, hasShortQty }`. Keyed off `has_disputes=true` invoices.
-- Badge rules:
-  - price only → "Price" (`bg-[#FAEEDA] text-[#633806]`)
-  - qty only → "Short qty" (same amber palette)
-  - both → "Price + qty" (`bg-[#FCEBEB] text-[#791F1F]`)
-- Non-disputed rows → muted dash.
-
-## 5. Resolution column (disputed rows only)
-
-Driven by `dispute_resolution`:
-
-- `null` → amber "HK$ X,XXX pending" using `disputed_amount`
-- `credit_note` → blue "Credit note" with `FileText` icon
-- `qty_received` → green "Qty received" with `Check` icon
-- `resolved` → green "Resolved" with `Check` icon
-
-Non-disputed rows → muted dash.
-
-## 6. Actions column
-
-- Disputed + `dispute_resolution == null`: two outline buttons inline:
-  - **Mark resolved** — green outline (`border-[#3B6D11] text-[#27500A] hover:bg-[#EAF3DE]`), opens the new `MarkResolvedDialog`.
-  - **Void** — default outline, opens the existing `VoidInvoiceDialog`.
-- Disputed + resolution set → muted "Done".
-- All other rows (including voided) → muted dash.
-
-Both buttons `stopPropagation` so the detail sheet doesn't open.
-
-## 7. New `MarkResolvedDialog`
-
-New file `src/components/invoices/MarkResolvedDialog.tsx`:
-
-- Title "Mark invoice resolved".
-- Required resolution select: Credit note received → `credit_note`, Qty received from supplier → `qty_received`, Other → `resolved`.
-- Optional note textarea (placeholder "e.g. Credit note CN-0041 received from Jebsen"); appended to the invoice's existing `notes` field on save with a timestamped "Dispute resolved:" prefix (no new column).
-- Confirm (amber primary) calls back with `{ resolution, note }`; tab calls `updateInvoice(id, { dispute_resolution, notes })` and refreshes.
-- Cancel closes with no changes.
-
-## 8. Stat cards
-
-Exactly four cards, replacing the existing strip:
-
-| Card | Value | Sub-label |
-| --- | --- | --- |
-| Approved | count where `status='approved'` | "confirmed clean" |
-| Disputed | count where `has_disputes=true` | `HK$ X,XXX pending` (sum `disputed_amount` where `dispute_resolution is null`) |
-| Voided | count where `status='voided'` | "—" |
-| Total value | sum of `total_amount` across all invoices | "all time" |
-
-Remove Total Invoices, Under Review, Exceptions, Duplicates.
-
-## 9. Filter bar
-
-Status chips collapse to **All · Approved · Disputed · Voided**:
-
-- All: everything (voided rows included at 45% opacity).
-- Approved: `status='approved'`.
-- Disputed: `has_disputes=true`.
-- Voided: `status='voided'`.
-
-Remove `reviewStatusFilter`, `exceptionNoteFilter`, and the `showVoided` toggle plus their plumbing into `InvoiceFilters`. Keep supplier/venue/month dropdowns and the search box.
-
-## 10. Files touched
-
-- Migration — section 1 column only.
-- `src/hooks/useInvoiceData.ts` — extend `Invoice` type.
-- `src/components/procurement/ProcurementInvoicesTab.tsx` — column/header rewrite, stat cards, filter chips, action wiring, dispute-summary fetch, removal of review/exception state.
-- `src/components/invoices/MarkResolvedDialog.tsx` — new.
-
-## Out of scope
-
-- Invoice scanner (`InvoiceScanner.tsx`) untouched.
-- GRN creation, accepted-price logic, edit/detail sheet behaviour untouched.
-- No new pages, routes, or sidebar entries.
-- `VoidInvoiceDialog` reused as-is.
-- No re-adding of `has_disputes` / `disputed_amount`.
+## Open question (one)
+**GRN valuation source**: the prompt says "GRN still uses `accepted_qty × accepted_price`" — today the GRN uses unit_price. Do you want me to switch GRN valuation to `accepted_price` when present (falling back to `unit_price`)? Defaulting to **yes** unless you say otherwise — it matches the prompt's wording and your earlier net_unit_cost direction.
