@@ -1327,6 +1327,11 @@ export default function ProcurementInvoicesTab() {
                   <div>
                     <span className="text-muted-foreground">Doc total: </span>
                     <span className="font-mono font-bold">{docTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    {Math.abs(docDiff) > 0.01 && (
+                      <span className="ml-2 font-mono text-[10px] text-amber-500">
+                        (recon Δ {docDiff > 0 ? "+" : "−"}{Math.abs(docDiff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      </span>
+                    )}
                   </div>
                 </>
               );
