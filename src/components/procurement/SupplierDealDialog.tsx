@@ -28,6 +28,7 @@ interface Props {
   purchaseUnit: string;
   stockUom: string;
   suppliers: { id: string; name: string }[];
+  lockedSupplierId?: string | null;
   existingDeals: { supplier_id: string; id: string }[];
   initial?: SupplierDealEditable | null;
   onSaved: () => void;
@@ -35,7 +36,7 @@ interface Props {
 
 export default function SupplierDealDialog({
   open, onOpenChange, productId, purchaseUnitCost, purchaseUnit, stockUom,
-  suppliers, existingDeals, initial, onSaved,
+  suppliers, lockedSupplierId, existingDeals, initial, onSaved,
 }: Props) {
   const { tenantId } = useActiveTenant();
   const { toast } = useToast();
@@ -57,13 +58,13 @@ export default function SupplierDealDialog({
       setNotes(initial.notes ?? "");
       setIsActive(initial.is_active);
     } else {
-      setSupplierId("");
+      setSupplierId(lockedSupplierId || "");
       setBuyQty("");
       setFreeQty("");
       setNotes("");
       setIsActive(true);
     }
-  }, [open, initial]);
+  }, [open, initial, lockedSupplierId]);
 
   const buy = parseFloat(buyQty) || 0;
   const free = parseFloat(freeQty) || 0;
@@ -147,17 +148,19 @@ export default function SupplierDealDialog({
           <DialogTitle>{initial?.id ? "Edit deal" : "Add deal"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label className="text-xs">Supplier *</Label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
-              <SelectContent>
-                {sanitizedSuppliers.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!lockedSupplierId && (
+            <div>
+              <Label className="text-xs">Supplier *</Label>
+              <Select value={supplierId} onValueChange={setSupplierId}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectContent>
+                  {sanitizedSuppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label className="text-xs">Deal type</Label>
             <div className="h-9 px-3 text-sm border rounded-md bg-muted/40 flex items-center text-muted-foreground">

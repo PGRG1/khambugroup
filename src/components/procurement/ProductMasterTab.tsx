@@ -1378,6 +1378,7 @@ export default function ProductMasterTab() {
           purchaseUnit={form.purchase_unit}
           stockUom={form.stock_uom}
           suppliers={dbSuppliers}
+          lockedSupplierId={dbSuppliers.find((s) => s.name === form.supplier)?.id || null}
           existingDeals={deals.map((d) => ({ id: d.id, supplier_id: d.supplier_id }))}
           initial={editingDeal}
           onSaved={() => loadDeals(editingProductId)}
