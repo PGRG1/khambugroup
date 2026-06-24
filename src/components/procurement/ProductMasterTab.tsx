@@ -1368,6 +1368,21 @@ export default function ProductMasterTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {editingProductId && (
+        <SupplierDealDialog
+          open={dealDialogOpen}
+          onOpenChange={setDealDialogOpen}
+          productId={editingProductId}
+          purchaseUnitCost={parseFloat(form.purchase_unit_cost) || 0}
+          purchaseUnit={form.purchase_unit}
+          stockUom={form.stock_uom}
+          suppliers={dbSuppliers}
+          existingDeals={deals.map((d) => ({ id: d.id, supplier_id: d.supplier_id }))}
+          initial={editingDeal}
+          onSaved={() => loadDeals(editingProductId)}
+        />
+      )}
     </div>
   );
 }
