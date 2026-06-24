@@ -500,6 +500,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         matched_purchase_uom: resolved.purchase_unit || "",
         matched_stock_qty_ratio: resolved.stock_qty ?? 1,
         product_master_id: (resolved as any).id ?? workingLine.product_master_id ?? null,
+        supplier_entry_id: (resolved as any).supplier_entry_id ?? workingLine.supplier_entry_id ?? null,
         master_price: masterPrice,
         accepted_price: acceptedPrice,
         price_disputed: priceDisputed,
