@@ -386,15 +386,18 @@ export default function ProcurementInvoicesTab() {
     let pendingAmount = 0;
     for (const inv of invoices) {
       const s = (inv.status || "").toLowerCase();
-      if (s === "approved") approved++;
-      if (s === "voided") voided++;
-      if ((inv as any).has_disputes) {
+      if (s === "voided") {
+        voided++;
+      } else if ((inv as any).has_disputes) {
         disputed++;
         if (!(inv as any).dispute_resolution) {
           pendingAmount += Number((inv as any).disputed_amount) || 0;
         }
+      } else {
+        approved++;
       }
       totalValue += Number(inv.total_amount) || 0;
+
     }
     return { approved, disputed, voided, totalValue, pendingAmount };
   }, [invoices]);
