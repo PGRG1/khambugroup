@@ -12,6 +12,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { usePayables, type APInvoice } from "@/hooks/usePayables";
 import { RecordPaymentDialog } from "@/components/finance/payables/RecordPaymentDialog";
 import { PaymentHistoryDialog } from "@/components/finance/payables/PaymentHistoryDialog";
+import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNoteDialog";
+import { SupplierLedgerSheet } from "@/components/procurement/SupplierLedgerSheet";
 
 // ---------- format helpers ----------
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -135,7 +137,7 @@ export default function ProcurementFinance() {
         </TabsContent>
 
         <TabsContent value="payables" className="mt-6">
-          <SupplierPayablesTab />
+          <SupplierPayablesTab tenantId={tenantId} venues={venues} />
         </TabsContent>
 
         <TabsContent value="credits" className="mt-6">
@@ -384,10 +386,33 @@ function SpendSummaryTab({
 
 // =================== TAB 2 — SUPPLIER PAYABLES ===================
 
-function SupplierPayablesTab() {
-  const { invoices, supplierSummary, paidThisMonth, creditNotesAvailable, bankAccounts, loading, refresh } = usePayables();
+function SupplierPayablesTab({ tenantId, venues }: { tenantId: string; venues: string[] }) {
+  const { invoices, supplierSummary, paidThisMonth, creditNotes, creditNotesAvailable, bankAccounts, loading, refresh } = usePayables();
   const [payInvoice, setPayInvoice] = useState<APInvoice | null>(null);
   const [historyInvoice, setHistoryInvoice] = useState<APInvoice | null>(null);
+  const [bookCNOpen, setBookCNOpen] = useState(false);
+  const [bookCNSupplierId, setBookCNSupplierId] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+
+  // Extra tenant-scoped data for the ledger sheet
+  const [paymentRows, setPaymentRows] = useState<any[]>([]);
+  const [allocRows, setAllocRows] = useState<any[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      const [pays, allocs] = await Promise.all([
+        fetchAllRows("payments", "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status", undefined, tenantId),
+        fetchAllRows("payment_allocations", "id, payment_id, invoice_id, amount_allocated, credit_note_id, credit_note_amount_applied", undefined, tenantId),
+      ]);
+      setPaymentRows(pays);
+      setAllocRows(allocs);
+    })();
+  }, [tenantId, refreshKey]);
+
+  const refetch = () => { refresh(); setRefreshKey((k) => k + 1); };
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -395,7 +420,7 @@ function SupplierPayablesTab() {
 
   const totals = useMemo(() => {
     let total = 0; let overdue = 0; let dueSoon = 0;
-    const aging = [0, 0, 0, 0, 0]; // Current / 1-30 / 31-60 / 61-90 / 90+
+    const aging = [0, 0, 0, 0, 0];
     for (const inv of invoices) {
       if (inv.outstanding_amount <= 0 || inv.payment_status === "voided") continue;
       total += inv.outstanding_amount;
@@ -420,7 +445,16 @@ function SupplierPayablesTab() {
     { label: "90+ days", color: "bg-red-500" },
   ];
 
-  const findSupplierInvoices = (supplierId: string) => invoices.filter((i) => i.supplier_id === supplierId);
+  // Credits available per supplier
+  const creditsBySupplier = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const cn of creditNotesAvailable) {
+      map.set(cn.supplier_id, (map.get(cn.supplier_id) || 0) + cn.remaining_balance);
+    }
+    return map;
+  }, [creditNotesAvailable]);
+
+  const selectedSupplier = supplierSummary.find((s) => s.supplier_id === selectedSupplierId);
 
   return (
     <div className="space-y-6">
@@ -467,25 +501,35 @@ function SupplierPayablesTab() {
                     <th className="text-right py-2 pr-4">Outstanding</th>
                     <th className="text-right py-2 pr-4">Open invoices</th>
                     <th className="text-right py-2 pr-4">Oldest</th>
-                    <th className="text-left py-2 pr-4">Last invoice</th>
-                    <th className="text-right py-2">Action</th>
+                    <th className="text-right py-2 pr-4">Credits available</th>
+                    <th className="text-right py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {supplierSummary.map((s) => {
-                    const supplierInvs = findSupplierInvoices(s.supplier_id);
-                    const firstOpen = supplierInvs.find((i) => i.outstanding_amount > 0) || null;
+                    const supplierInvs = invoices.filter((i) => i.supplier_id === s.supplier_id);
+                    const oldestOpen = supplierInvs
+                      .filter((i) => i.outstanding_amount > 0)
+                      .sort((a, b) => (a.due_date || a.invoice_date).localeCompare(b.due_date || b.invoice_date))[0] || null;
+                    const credit = creditsBySupplier.get(s.supplier_id) || 0;
                     return (
                       <tr key={s.supplier_id} className="border-b border-border/40">
-                        <td className="py-2 pr-4">{s.supplier_name}</td>
-                        <td className={`py-2 pr-4 text-right td-num ${s.outstanding > 0 ? "text-amber-400" : ""}`}>{fmtMoney(s.outstanding)}</td>
+                        <td className="py-2 pr-4">
+                          <button
+                            className="font-semibold text-left hover:text-amber-400 hover:underline"
+                            onClick={() => { setSelectedSupplierId(s.supplier_id); setLedgerOpen(true); }}
+                          >
+                            {s.supplier_name}
+                          </button>
+                        </td>
+                        <td className={`py-2 pr-4 text-right td-num ${s.outstanding > 0 ? "text-amber-400 font-semibold" : ""}`}>{fmtMoney(s.outstanding)}</td>
                         <td className="py-2 pr-4 text-right td-num">{s.open_count}</td>
                         <td className={`py-2 pr-4 text-right td-num ${s.oldest_age > 60 ? "text-red-400" : ""}`}>{s.oldest_age}d</td>
-                        <td className="py-2 pr-4">{fmtDate(s.last_invoice_date)}</td>
-                        <td className="py-2 text-right">
-                          <Button size="sm" variant="outline" disabled={!firstOpen} onClick={() => firstOpen && setPayInvoice(firstOpen)}>
-                            Pay
-                          </Button>
+                        <td className={`py-2 pr-4 text-right td-num ${credit > 0 ? "text-green-400" : "text-muted-foreground/60"}`}>{credit > 0 ? fmtMoney(credit) : "—"}</td>
+                        <td className="py-2 text-right space-x-1">
+                          <Button size="sm" variant="outline" disabled={!oldestOpen} onClick={() => oldestOpen && setPayInvoice(oldestOpen)}>Pay</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setBookCNSupplierId(s.supplier_id); setBookCNOpen(true); }}>Book CN</Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setSelectedSupplierId(s.supplier_id); setLedgerOpen(true); }}>View ledger</Button>
                         </td>
                       </tr>
                     );
@@ -498,7 +542,8 @@ function SupplierPayablesTab() {
       </Card>
 
       <div className="text-xs text-muted-foreground">
-        Full payment management available in <Link to="/finance/payables" className="text-amber-400 hover:underline">Finance → Accounts Payable →</Link>
+        Bank reconciliation and journal verification available in{" "}
+        <Link to="/finance/payables" className="text-amber-400 hover:underline">Finance → Accounts Payable →</Link>
       </div>
 
       <RecordPaymentDialog
@@ -508,14 +553,40 @@ function SupplierPayablesTab() {
         supplierInvoices={invoices}
         bankAccounts={bankAccounts}
         creditNotes={creditNotesAvailable}
-        onSaved={() => { setPayInvoice(null); refresh(); }}
+        onSaved={() => { setPayInvoice(null); refetch(); }}
       />
       <PaymentHistoryDialog
         open={!!historyInvoice}
         onOpenChange={(o) => { if (!o) setHistoryInvoice(null); }}
         invoice={historyInvoice}
-        onChanged={() => refresh()}
+        onChanged={() => refetch()}
       />
+      <BookCreditNoteDialog
+        open={bookCNOpen}
+        onOpenChange={setBookCNOpen}
+        suppliers={supplierSummary.map((s) => [s.supplier_id, s.supplier_name] as [string, string])}
+        venues={venues}
+        invoices={invoices}
+        defaultSupplierId={bookCNSupplierId}
+        onSaved={() => { setBookCNOpen(false); refetch(); }}
+      />
+      {selectedSupplier && (
+        <SupplierLedgerSheet
+          open={ledgerOpen}
+          onOpenChange={setLedgerOpen}
+          supplierId={selectedSupplier.supplier_id}
+          supplierName={selectedSupplier.supplier_name}
+          invoices={invoices.filter((i) => i.supplier_id === selectedSupplier.supplier_id)}
+          allInvoices={invoices}
+          creditNotes={creditNotes.filter((cn) => cn.supplier_id === selectedSupplier.supplier_id)}
+          payments={paymentRows.filter((p: any) => p.supplier_id === selectedSupplier.supplier_id)}
+          allocations={allocRows}
+          bankAccounts={bankAccounts}
+          venues={venues}
+          tenantId={tenantId || ""}
+          onRefresh={refetch}
+        />
+      )}
     </div>
   );
 }

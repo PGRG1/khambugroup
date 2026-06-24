@@ -1,31 +1,37 @@
-## Suppliers & Vendors — New Fields + Profile Sheet
+# Procurement Finance — Supplier Ledger + Full Payables Management
 
-### 1. Database migration
-Add to `public.suppliers`:
-- `categories text[] NOT NULL DEFAULT '{}'`
-- `delivery_days text[] NOT NULL DEFAULT '{}'`
-- `moq numeric NOT NULL DEFAULT 0`
-- `account_number text NOT NULL DEFAULT ''`
+Replace the existing Supplier Payables tab with a fully actionable Supplier Ledger so AP work can happen entirely inside Procurement. Reuses the Finance `RecordPaymentDialog` / `BookCreditNoteDialog` and `usePayables` hook unchanged.
 
-### 2. Edit `src/components/procurement/SuppliersTab.tsx`
-- Extend `Supplier` interface, `emptyForm`, `openEdit`, `handleSave` payload, and `handleExport` CSV columns with the four new fields.
-- Add `selectedSupplier` / `sheetOpen` state + `openSheet` handler.
-- Replace table columns with: Name (clickable, opens sheet) · Categories (badges) · Delivery days (abbrev) · Payment Terms · MOQ · Status · Actions (Edit/Delete). Remove Email and Phone columns.
-- Extend Add/Edit dialog with three new sections after Notes: category pill multi-select (Food, Beverages, Packaging, Supplies, Tobacco, Other), day pill multi-select (Mon–Sun), and 2-col grid for MOQ + Account number.
-- Render `<SupplierSheet>` below the table; wire `onEdit` to close sheet then `openEdit`, and `onRefresh` to `fetchSuppliers`.
+## Files to create
 
-### 3. New file `src/components/procurement/SupplierSheet.tsx`
-Right-side Sheet (`sm:max-w-[700px]`) with header (name + status badge + payment/MOQ/account meta), Edit button, and 3 tabs:
-- **Profile** — read-only two-column definition list: Contact (person/email/phone/address), Ordering (payment terms, invoice rounding label via `ROUNDING_MODE_LABELS`, MOQ, account #), Categories badges, Delivery day badges, Notes, Member since.
-- **Activity** — lazy-loaded on first open. Fetch last 10 invoices (`invoices` filtered by `supplier_id` + `tenant_id`) and last 5 GRNs (`goods_received_notes`). Two tables with date/number/venue/total/status. Footer link → `/procurement/invoices?supplier=<id>`.
-- **Financial** — lazy-loaded. Fetch `grn_items` with joined GRN (filter to this supplier + status `confirmed`), open invoices (not paid), and approved `credit_notes`. Render 4 KPI cards: This-month spend, YTD spend, Open payables (amber), Available credits (green). Footer link → `/finance/payables`.
+1. **`src/components/procurement/SupplierLedgerSheet.tsx`** — wide right slide-out (max-w-5xl).
+   - Header: supplier name, net outstanding (Dr/Cr), available credits, action buttons (Record payment / Exercise credit / Book CN / Add charge / Export CSV).
+   - Tabs: **Ledger** (chronological Dr/Cr/running balance, period filter), **Open invoices** (Pay this), **Credits** (Available / Pending [Approve, Void] / Historical + Book new), **Payments** (date desc with allocation count).
+   - Builds entries client-side from `invoices`, `payments`, `creditNotes`; sorts by date and computes running balance.
+   - CSV export via existing `downloadCSV` util.
 
-Use `tenantId` from `useActiveTenant`, currency via `@/utils/format`, and existing `card-glass`/chip patterns.
+2. **`src/components/procurement/ExerciseCreditDialog.tsx`** — multi-CN selection, auto-distribute to oldest invoices (editable), optional net-cash payment with bank account + reference. On save: update each CN's `remaining_balance` + `status` (→ `fully_applied` when ≤ 0.01), update each invoice's `amount_paid` / `remaining_balance` / `payment_status`, optionally insert a `payments` row + per-invoice `payment_allocations` carrying `credit_note_id` + `credit_note_amount_applied`.
 
-### Files
-- migration (new columns on `suppliers`)
-- `src/components/procurement/SuppliersTab.tsx` (edit)
-- `src/components/procurement/SupplierSheet.tsx` (new)
+3. **`src/components/procurement/AddChargeDialog.tsx`** — fields: charge type (Interest / Late fee / Bank charge / Other), amount, date, description, reference, optional invoice link, notes. Inserts an `invoices` row with `invoice_number = CHARGE-<ts>`, `review_status = Approved`, `status = confirmed`, `payment_status = pending`, full amount in `remaining_balance`; appends description to notes so it's identifiable.
 
-### Out of scope
-Other procurement tabs, routing, invoice scanner, GRN flow, finance pages, sidebar.
+## File to modify
+
+**`src/pages/procurement/ProcurementFinance.tsx`** — rewrite `SupplierPayablesTab`:
+- Keep existing KPI cards (Total outstanding / Overdue / Due this week / Paid this month) and aging breakdown.
+- Replace supplier table with new columns: Supplier (clickable → ledger), Outstanding, Open invoices, Oldest (red > 60d), **Credits available** (sum of approved CN `remaining_balance` per supplier, green), Actions = [Pay] [Book CN] [View ledger].
+- Pay button picks the oldest open invoice for that supplier and opens `RecordPaymentDialog`.
+- Additionally fetch tenant-scoped `payments` + `payment_allocations` via `fetchAllRows(..., undefined, tenantId)` (using `useActiveTenant`) to pass into the ledger sheet.
+- Mount at bottom: `RecordPaymentDialog`, `BookCreditNoteDialog`, `SupplierLedgerSheet` (conditional on selected supplier).
+- Update footer link text to "Bank reconciliation and journal verification available in Finance → Accounts Payable".
+
+## Data / behaviour notes
+
+- **No DB migration.** All required columns already exist on `invoices`, `payments`, `payment_allocations`, `credit_notes`.
+- **Tenant scoping** — every new insert/update includes `tenant_id` (from `useActiveTenant`) and every supabase update chains `.eq("tenant_id", tenantId)`, matching project convention.
+- **Ledger math** — Dr = invoices + charges (raise balance), Cr = payments + CN applied portion (`original - remaining`). Running balance positive = supplier is owed.
+- **Type badges** — amber (Invoice), green (Payment / CN applied), sky (Credit note), red (Charge), per spec.
+- **Reuse without change** — `RecordPaymentDialog`, `BookCreditNoteDialog`, `usePayables`, `APInvoice`/`APCreditNote`/`APBankAccountLite` types, `downloadCSV`, `fmtMoney`/`fmtDate` helpers.
+
+## Out of scope (untouched)
+
+Finance → Payables page, other ProcurementFinance tabs (Spend Summary, Credits & Deposits), sidebar/routing, all other procurement pages.
