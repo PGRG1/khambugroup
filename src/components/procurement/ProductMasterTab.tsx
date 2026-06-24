@@ -1266,6 +1266,68 @@ export default function ProductMasterTab() {
                   </Select>
                 </div>
               </div>
+
+              {/* Supplier deals */}
+              <div className="mt-5 pt-4 border-t">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold">Supplier deals</h3>
+                  {editingProductId && (
+                    <Button size="sm" variant="outline" onClick={() => { setEditingDeal(null); setDealDialogOpen(true); }}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add deal
+                    </Button>
+                  )}
+                </div>
+                {!editingProductId ? (
+                  <p className="text-xs text-muted-foreground">Save the item first to add supplier deals.</p>
+                ) : deals.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No deals configured</p>
+                ) : (
+                  <div className="space-y-2">
+                    {deals.map((d) => {
+                      const supplier = dbSuppliers.find((s) => s.id === d.supplier_id);
+                      const pc = parseFloat(form.purchase_unit_cost) || 0;
+                      const effective = d.buy_qty + d.free_qty > 0
+                        ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
+                      const unit = form.purchase_unit || "unit";
+                      return (
+                        <div key={d.id} className="flex items-center gap-3 border rounded-md px-3 py-2 text-xs">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{supplier?.name || "—"}</div>
+                            <div className="text-muted-foreground">
+                              Buy <span className="font-mono">{d.buy_qty}</span> {unit} get{" "}
+                              <span className="font-mono">{d.free_qty}</span> {unit} free
+                            </div>
+                          </div>
+                          <div className="text-right whitespace-nowrap">
+                            <div className="text-muted-foreground">Effective</div>
+                            <div className="font-mono font-semibold">{formatCurrency(effective)} / {unit}</div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7"
+                              onClick={() => {
+                                setEditingDeal({
+                                  id: d.id,
+                                  supplier_id: d.supplier_id,
+                                  buy_qty: d.buy_qty,
+                                  free_qty: d.free_qty,
+                                  notes: d.notes,
+                                  is_active: d.is_active,
+                                });
+                                setDealDialogOpen(true);
+                              }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
+                              onClick={() => handleDeleteDeal(d.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex justify-end gap-2 px-4 py-3 border-t">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
