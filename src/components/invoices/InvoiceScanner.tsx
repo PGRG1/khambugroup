@@ -451,7 +451,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       }
 
       if (!resolved) {
-        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_sku: "", matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
+        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_sku: "", matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1, product_master_id: null, master_price: undefined, accepted_price: workingLine.accepted_price ?? "" };
       }
 
       // SKU mismatch check
@@ -471,6 +471,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const pmPrice = resolved.purchase_unit_cost ?? 0;
       const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
 
+      // Seed accepted_price from master if empty/not yet set
+      const masterPrice = pmPrice > 0 ? pmPrice : undefined;
+      const existingAcc = parseFloat(workingLine.accepted_price || "");
+      const acceptedPrice = Number.isFinite(existingAcc) && (workingLine.accepted_price || "").trim() !== ""
+        ? workingLine.accepted_price!
+        : (masterPrice != null ? String(masterPrice) : "");
+      const accNum = parseFloat(acceptedPrice);
+      const isFreeUnit = scannedPrice === 0 && (parseFloat(workingLine.quantity) || 0) > 0;
+      const priceDisputed = !isFreeUnit && Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(scannedPrice * 100);
+
       // If matched via external SKU, always override description from the PM entry
       const hasItemCode = (workingLine.item_code || "").trim();
       const autoDescription = resolved.supplier_product_name || resolved.internal_product_name || "";
@@ -488,6 +498,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         matched_stock_uom: resolved.stock_uom || "",
         matched_purchase_uom: resolved.purchase_unit || "",
         matched_stock_qty_ratio: resolved.stock_qty ?? 1,
+        product_master_id: (resolved as any).id ?? workingLine.product_master_id ?? null,
+        master_price: masterPrice,
+        accepted_price: acceptedPrice,
+        price_disputed: priceDisputed,
+        is_free_unit_line: isFreeUnit,
       };
     });
   }, []);
