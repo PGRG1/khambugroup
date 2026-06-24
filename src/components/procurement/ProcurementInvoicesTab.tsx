@@ -360,13 +360,15 @@ export default function ProcurementInvoicesTab() {
     const result = invoices.filter((inv) => {
       if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
+      const sLower = (inv.status || "").toLowerCase();
       if (statusFilter === "disputed") {
         if (!(inv as any).has_disputes) return false;
       } else if (statusFilter === "voided") {
-        if ((inv.status || "").toLowerCase() !== "voided") return false;
+        if (sLower !== "voided") return false;
       } else if (statusFilter === "approved") {
-        if ((inv.status || "").toLowerCase() !== "approved") return false;
+        if (sLower === "voided" || (inv as any).has_disputes) return false;
       }
+
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
@@ -384,15 +386,18 @@ export default function ProcurementInvoicesTab() {
     let pendingAmount = 0;
     for (const inv of invoices) {
       const s = (inv.status || "").toLowerCase();
-      if (s === "approved") approved++;
-      if (s === "voided") voided++;
-      if ((inv as any).has_disputes) {
+      if (s === "voided") {
+        voided++;
+      } else if ((inv as any).has_disputes) {
         disputed++;
         if (!(inv as any).dispute_resolution) {
           pendingAmount += Number((inv as any).disputed_amount) || 0;
         }
+      } else {
+        approved++;
       }
       totalValue += Number(inv.total_amount) || 0;
+
     }
     return { approved, disputed, voided, totalValue, pendingAmount };
   }, [invoices]);
@@ -1829,18 +1834,15 @@ interface InvoiceTableSectionProps {
 
 function StatusBadge({ inv }: { inv: Invoice }) {
   const s = (inv.status || "").toLowerCase();
-  if (s === "approved") {
-    return <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] px-1.5 py-0">✓ Approved</Badge>;
-  }
   if (s === "voided") {
     return <Badge className="bg-zinc-700/30 text-zinc-400 border border-zinc-600/30 text-[10px] px-1.5 py-0">⊘ Voided</Badge>;
   }
   if ((inv as any).has_disputes) {
     return <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">⚠ Disputed</Badge>;
   }
-  if (!inv.status) return <span className="text-[10px] text-muted-foreground">—</span>;
-  return <Badge className={`capitalize text-[10px] px-1.5 py-0 ${NEUTRAL_STATUS_CHIP}`}>{inv.status}</Badge>;
+  return <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] px-1.5 py-0">✓ Approved</Badge>;
 }
+
 
 function ReasonBadge({ info }: { info?: DisputeReasonInfo }) {
   if (!info) return <span className="text-[10px] text-muted-foreground">—</span>;
