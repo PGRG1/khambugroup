@@ -15,6 +15,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Label } from "@/components/ui/label";
 import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles, MessageSquareWarning } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
+import { DisputeConfirmDialog, type DisputedLineSummary } from "@/components/invoices/DisputeConfirmDialog";
+import VoidInvoiceDialog from "@/components/invoices/VoidInvoiceDialog";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
@@ -29,7 +31,7 @@ import { BaniScanSummary } from "@/components/invoices/ai/BaniScanSummary";
 import { runBaniScan } from "@/lib/baniRunScan";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 
-const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
+const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed", "voided"];
 const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review", "Disputed"] as const;
 const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
 
@@ -55,6 +57,14 @@ const STATUS_BADGE: Record<string, string> = {
   overdue: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
   cancelled: "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30 line-through",
   disputed: "bg-red-500/15 text-red-300 border border-red-500/30",
+  voided: "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
+};
+
+const isVoidEligible = (inv: Pick<Invoice, "status" | "approved_at">) => {
+  const s = (inv.status || "").toLowerCase();
+  if (s === "paid" || s === "voided" || s === "approved") return false;
+  if (inv.approved_at) return false;
+  return true;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -183,7 +193,7 @@ function computeEditReceivingTint(line: EditableInvoiceLine): { bg: string; bord
 
 
 export default function ProcurementInvoicesTab() {
-  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } = useInvoiceData();
+  const { invoices, suppliers, loading, fetchAll, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } = useInvoiceData();
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
 
@@ -227,6 +237,18 @@ export default function ProcurementInvoicesTab() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerFileUrl, setViewerFileUrl] = useState("");
   const [viewerTitle, setViewerTitle] = useState("");
+
+  // Dispute confirmation modal for the editor flow.
+  const [editDisputeOpen, setEditDisputeOpen] = useState(false);
+  const [editDisputePayload, setEditDisputePayload] = useState<{ lines: DisputedLineSummary[]; amount: number } | null>(null);
+
+  // Void invoice flow.
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<Invoice | null>(null);
+  const [voiding, setVoiding] = useState(false);
+
+  // Hide voided invoices by default; toggle to surface them.
+  const [showVoided, setShowVoided] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -317,9 +339,13 @@ export default function ProcurementInvoicesTab() {
 
   const filtered = useMemo(() => {
     const result = invoices.filter((inv) => {
+      // Hide voided unless the toggle is on or the status filter explicitly selects voided.
+      if (!showVoided && (inv.status || "").toLowerCase() === "voided" && statusFilter !== "voided") return false;
       if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
-      if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+      if (statusFilter === "__disputed__") {
+        if (!(inv as any).has_disputes) return false;
+      } else if (statusFilter !== "all" && inv.status !== statusFilter) return false;
       if (reviewStatusFilter !== "all" && (inv.review_status || "Under Review") !== reviewStatusFilter) return false;
       if (exceptionNoteFilter !== "all" && (inv.exception_note || "-") !== exceptionNoteFilter) return false;
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
@@ -330,7 +356,7 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, supplierFilter, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
+  }, [invoices, supplierFilter, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns, showVoided]);
 
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
@@ -581,8 +607,44 @@ export default function ProcurementInvoicesTab() {
     setEditLines((prev) => prev.map((line) => hydrateEditLine(line, supplierId)));
   }, [editing, productMaster, editForm.supplier_id, selectedInvoice]);
 
-  const handleSaveEdit = async () => {
+  const computeEditDisputeSummary = (): { lines: DisputedLineSummary[]; amount: number } => {
+    const out: DisputedLineSummary[] = [];
+    let amount = 0;
+    for (const l of editLines) {
+      if (!l.description.trim()) continue;
+      const qty = parseFloat(l.quantity) || 0;
+      const acc = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+      if (acc >= qty) continue;
+      const price = parseFloat(l.unit_price) || 0;
+      const variance = (price * qty) - (price * acc);
+      amount += variance;
+      out.push({
+        description: l.description,
+        invPrice: price,
+        accPrice: price,
+        invQty: qty,
+        accQty: acc,
+        unit: l.matched_purchase_uom || l.unit || null,
+        variance,
+      });
+    }
+    return { lines: out, amount };
+  };
+
+  const handleSaveEdit = async (opts: { forceDispute?: boolean } = {}) => {
     if (!selectedInvoice) return;
+
+    // Intercept disputes for the editor flow.
+    if (!opts.forceDispute) {
+      const summary = computeEditDisputeSummary();
+      if (summary.lines.length > 0) {
+        setEditDisputePayload(summary);
+        setEditDisputeOpen(true);
+        return;
+      }
+    }
+    const summary = opts.forceDispute ? computeEditDisputeSummary() : { lines: [], amount: 0 };
+
 
     setSaving(true);
 
@@ -653,16 +715,22 @@ export default function ProcurementInvoicesTab() {
     const subtotalAmount = aggregateTotal(rawLines.map((l) => l.gross - l.tax), modeForSave);
     const totalAmount = grossTotal;
 
+    const hasDisputes = summary.lines.length > 0;
+    const statusForSave = hasDisputes ? "disputed" : (editForm.status || selectedInvoice.status);
+
     const success = await updateInvoice(
       selectedInvoice.id,
       {
         ...editForm,
+        status: statusForSave,
         discount: discResults.headerDiscountAmount,
         discount_mode: headerMode,
         discount_rate: headerRate,
         subtotal: subtotalAmount,
         tax_amount: taxSum,
         total_amount: totalAmount,
+        has_disputes: hasDisputes,
+        disputed_amount: summary.amount,
       } as any,
       mappedLines
     );
@@ -885,7 +953,7 @@ export default function ProcurementInvoicesTab() {
               <X className="h-4 w-4 mr-1" />Close
             </Button>
             <Button
-              onClick={handleSaveEdit}
+              onClick={() => handleSaveEdit()}
               disabled={
                 saving ||
                 !editForm.supplier_id ||
@@ -1349,6 +1417,10 @@ export default function ProcurementInvoicesTab() {
           suppliers={suppliers}
           productMaster={productMaster}
           onSave={async (inv, lines, files) => {
+            const hasDisputes = !!(inv as any).has_disputes;
+            const disputedAmount = Number((inv as any).disputed_amount || 0);
+            const baseStatus = inv.status === "paid" ? "paid" : "unpaid";
+            const statusForCreate = hasDisputes ? "disputed" : baseStatus;
             let fileUrl: string | null = null;
             let fileName: string | null = null;
 
@@ -1379,12 +1451,14 @@ export default function ProcurementInvoicesTab() {
                 ...inv,
                 discount: inv.discount ?? 0,
                 discount_type: (inv as any).discount_type === "refund" ? "refund" : "discount",
-                status: inv.status === "paid" ? "paid" : "unpaid",
+                status: statusForCreate,
                 subtotal: lines.reduce((sum, line) => sum + line.total - line.tax_amount, 0),
                 tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
                 total_amount: lines.reduce((sum, line) => sum + line.total, 0),
                 entered_by: user?.id || "",
-              },
+                has_disputes: hasDisputes,
+                disputed_amount: disputedAmount,
+              } as any,
               lines,
               fileUrl,
               fileName
@@ -1507,6 +1581,11 @@ export default function ProcurementInvoicesTab() {
                   ) : (
                     <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "unpaid"); setDrawerOpen(false); }}>Mark Unpaid</Button>
                   )}
+                  {isVoidEligible(selectedInvoice) && (
+                    <Button size="sm" variant="outline" className="border-orange-500/40 text-orange-300 hover:bg-orange-500/10" onClick={() => { setVoidTarget(selectedInvoice); setDrawerOpen(false); setVoidOpen(true); }}>
+                      Void
+                    </Button>
+                  )}
                   <Button size="sm" variant="destructive" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
                     <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
                   </Button>
@@ -1614,6 +1693,47 @@ export default function ProcurementInvoicesTab() {
 
       <DeleteConfirmDialog open={deleteOpen} onOpenChange={setDeleteOpen} onConfirm={handleDelete} title="Delete Invoice" description="This will permanently delete this invoice and all its line items." />
       <AttachmentViewerDialog open={viewerOpen} onOpenChange={setViewerOpen} fileUrl={viewerFileUrl} title={viewerTitle} />
+
+      <DisputeConfirmDialog
+        open={editDisputeOpen}
+        onOpenChange={(o) => { setEditDisputeOpen(o); if (!o) setEditDisputePayload(null); }}
+        lines={editDisputePayload?.lines || []}
+        disputedAmount={editDisputePayload?.amount || 0}
+        busy={saving}
+        onConfirm={async () => {
+          setEditDisputeOpen(false);
+          await handleSaveEdit({ forceDispute: true });
+        }}
+      />
+
+      <VoidInvoiceDialog
+        open={voidOpen}
+        onOpenChange={(o) => { setVoidOpen(o); if (!o) setVoidTarget(null); }}
+        invoiceNumber={voidTarget?.invoice_number}
+        busy={voiding}
+        onConfirm={async (reason) => {
+          if (!voidTarget) return;
+          setVoiding(true);
+          const { error } = await supabase
+            .from("invoices")
+            .update({
+              status: "voided",
+              void_reason: reason,
+              voided_at: new Date().toISOString(),
+              voided_by: user?.id || null,
+            } as any)
+            .eq("id", voidTarget.id);
+          setVoiding(false);
+          if (error) {
+            toast.error(`Void failed: ${error.message}`);
+            return;
+          }
+          toast.success(`Invoice ${voidTarget.invoice_number} voided.`);
+          setVoidOpen(false);
+          setVoidTarget(null);
+          await fetchAll?.();
+        }}
+      />
     </div>
   );
 }
@@ -1791,7 +1911,7 @@ function InvoiceTableSection({
             </TableRow>
           ) : (
             pag.pageItems.map((inv) => (
-              <TableRow key={inv.id} onClick={() => openDetail(inv)} className="cursor-pointer text-[12px]">
+              <TableRow key={inv.id} onClick={() => openDetail(inv)} className={`cursor-pointer text-[12px] ${(inv.status || "").toLowerCase() === "voided" ? "opacity-50" : ""}`}>
                 <TableCell className="whitespace-nowrap text-muted-foreground py-2">{fmtDate(inv.invoice_date)}</TableCell>
                 <TableCell className="py-2 font-mono font-medium text-primary">
                   <span className="inline-flex items-center gap-1.5">
@@ -1834,6 +1954,20 @@ function InvoiceTableSection({
                       </Badge>
                     ) : (
                       <span className="text-[10px] text-muted-foreground">—</span>
+                    )}
+                    {(inv as any).has_disputes && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="bg-orange-500/15 text-orange-300 border border-orange-500/30 text-[10px] px-1.5 py-0 cursor-help">
+                              Disputed
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Variance: ${Number((inv as any).disputed_amount || 0).toFixed(2)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                     {invoiceVarianceMap[inv.id] && (
                       <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>

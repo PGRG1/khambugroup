@@ -81,6 +81,11 @@ export interface Invoice {
   verified_at: string | null;
   approved_by: string | null;
   approved_at: string | null;
+  has_disputes?: boolean | null;
+  disputed_amount?: number | null;
+  void_reason?: string | null;
+  voided_at?: string | null;
+  voided_by?: string | null;
   line_items?: InvoiceLineItem[];
 }
 
