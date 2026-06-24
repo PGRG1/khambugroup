@@ -94,6 +94,7 @@ interface ScannedLineItem {
   is_free_unit_line?: boolean;
   deal_id?: string | null;
   product_master_id?: string | null;
+  supplier_entry_id?: string | null;
   total_override?: boolean;
   review_status?: "matched" | "possible_match" | "new_item" | "needs_review";
   review_warnings?: string[];
@@ -259,9 +260,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const current = invoices[currentIdx] || null;
   const { tenantId } = useActiveTenant();
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
-  const [masterUpdateBanner, setMasterUpdateBanner] = useState<
-    null | { lineIdx: number; productMasterId: string; itemName: string; newPrice: number }
-  >(null);
+  const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
 
   // Load deals when the active supplier changes
   useEffect(() => {
@@ -499,6 +498,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         matched_purchase_uom: resolved.purchase_unit || "",
         matched_stock_qty_ratio: resolved.stock_qty ?? 1,
         product_master_id: (resolved as any).id ?? workingLine.product_master_id ?? null,
+        supplier_entry_id: (resolved as any).supplier_entry_id ?? workingLine.supplier_entry_id ?? null,
         master_price: masterPrice,
         accepted_price: acceptedPrice,
         price_disputed: priceDisputed,
@@ -939,21 +939,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
-    // Show "Update Items Master" banner if differs from master
-    const line = invoices[currentIdx]?.line_items[i];
-    if (line?.product_master_id && line.master_price != null) {
-      const accNum = parseFloat(value);
-      if (Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(line.master_price * 100)) {
-        setMasterUpdateBanner({
-          lineIdx: i,
-          productMasterId: line.product_master_id,
-          itemName: line.matched_internal_name || line.description || "this item",
-          newPrice: accNum,
-        });
-      } else {
-        setMasterUpdateBanner((b) => (b && b.lineIdx === i ? null : b));
-      }
-    }
   };
 
   // When deals load, relink existing free-unit lines to a matching deal
@@ -995,31 +980,63 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     );
   }, [current, activeDeals]);
 
-  const handleUpdateMaster = async () => {
-    if (!masterUpdateBanner) return;
-    const { productMasterId, newPrice, lineIdx } = masterUpdateBanner;
-    const { error } = await supabase
-      .from("product_master")
-      .update({ purchase_unit_cost: newPrice } as any)
-      .eq("id", productMasterId);
-    if (error) {
-      toast({ title: "Failed to update Items Master", description: error.message, variant: "destructive" });
+  const handleUpdateMaster = async (lineIdx: number) => {
+    const line = invoices[currentIdx]?.line_items[lineIdx];
+    if (!line) return;
+    const newPrice = parseFloat(line.accepted_price || "");
+    if (!Number.isFinite(newPrice) || newPrice <= 0) {
+      toast({ title: "Invalid price", description: "Accepted price must be a positive number.", variant: "destructive" });
       return;
     }
-    setInvoices((prev) => {
-      const copy = [...prev];
-      const lines = [...copy[currentIdx].line_items];
-      const line = { ...lines[lineIdx] };
-      line.master_price = newPrice;
-      line.pm_unit_price = newPrice;
-      const invPrice = parseFloat(line.unit_price) || 0;
-      line.price_changed = Math.abs(invPrice - newPrice) > 0.01;
-      lines[lineIdx] = line;
-      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
-      return copy;
-    });
-    setMasterUpdateBanner(null);
-    toast({ title: "Items Master updated", description: `New price: $${newPrice.toFixed(2)}` });
+    if (!tenantId) return;
+    setUpdatingMasterIdx(lineIdx);
+    try {
+      let updated = false;
+      // Prefer per-supplier row when available so multi-supplier prices stay independent.
+      if (line.supplier_entry_id) {
+        const { error } = await supabase
+          .from("product_suppliers" as any)
+          .update({ purchase_unit_cost: newPrice } as any)
+          .eq("id", line.supplier_entry_id)
+          .eq("tenant_id", tenantId);
+        if (error) {
+          toast({ title: "Failed to update Items Master", description: error.message, variant: "destructive" });
+          return;
+        }
+        updated = true;
+      } else if (line.product_master_id) {
+        const { error } = await supabase
+          .from("product_master" as any)
+          .update({ purchase_unit_cost: newPrice } as any)
+          .eq("id", line.product_master_id)
+          .eq("tenant_id", tenantId);
+        if (error) {
+          toast({ title: "Failed to update Items Master", description: error.message, variant: "destructive" });
+          return;
+        }
+        updated = true;
+      }
+      if (!updated) {
+        toast({ title: "No master record", description: "This line is not linked to an Items Master entry.", variant: "destructive" });
+        return;
+      }
+      setInvoices((prev) => {
+        const copy = [...prev];
+        const lines = [...copy[currentIdx].line_items];
+        const l = { ...lines[lineIdx] };
+        l.master_price = newPrice;
+        l.pm_unit_price = newPrice;
+        const invPrice = parseFloat(l.unit_price) || 0;
+        l.price_changed = Math.abs(invPrice - newPrice) > 0.01;
+        lines[lineIdx] = l;
+        copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+        return copy;
+      });
+      try { await fetchProducts(); } catch {}
+      toast({ title: "Items Master updated", description: `New price: $${newPrice.toFixed(2)}` });
+    } finally {
+      setUpdatingMasterIdx(null);
+    }
   };
 
   const addLine = () => setInvoices((prev) => {
@@ -2075,6 +2092,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                                 {effective !== null && (
                                   <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">Eff: ${effective.toFixed(2)}</span>
                                 )}
+                                {differsFromMaster && line.product_master_id && (
+                                  <button
+                                    type="button"
+                                    disabled={updatingMasterIdx === i}
+                                    onClick={() => handleUpdateMaster(i)}
+                                    className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                                    title={`Set Items Master price to $${accNum.toFixed(2)}`}
+                                  >
+                                    {updatingMasterIdx === i ? "Updating…" : `Update master → $${accNum.toFixed(2)}`}
+                                  </button>
+                                )}
                               </div>
                             );
                           })()
@@ -2202,18 +2230,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             </table>
           </div>
 
-          {masterUpdateBanner && (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs">
-              <div className="flex items-center gap-2 text-amber-200">
-                <Tag className="h-3.5 w-3.5 shrink-0" />
-                <span>Accepted price differs from Items Master for <strong>{masterUpdateBanner.itemName}</strong>. Update master to ${masterUpdateBanner.newPrice.toFixed(2)}?</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleUpdateMaster}>Update master</Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setMasterUpdateBanner(null)}>Keep current</Button>
-              </div>
-            </div>
-          )}
 
           <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
 
