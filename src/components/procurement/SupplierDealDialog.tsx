@@ -148,17 +148,19 @@ export default function SupplierDealDialog({
           <DialogTitle>{initial?.id ? "Edit deal" : "Add deal"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label className="text-xs">Supplier *</Label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
-              <SelectContent>
-                {sanitizedSuppliers.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!lockedSupplierId && (
+            <div>
+              <Label className="text-xs">Supplier *</Label>
+              <Select value={supplierId} onValueChange={setSupplierId}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectContent>
+                  {sanitizedSuppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label className="text-xs">Deal type</Label>
             <div className="h-9 px-3 text-sm border rounded-md bg-muted/40 flex items-center text-muted-foreground">
