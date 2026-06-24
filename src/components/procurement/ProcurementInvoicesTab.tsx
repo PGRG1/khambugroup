@@ -150,6 +150,7 @@ const emptyEditLine: EditableInvoiceLine = {
   accepted_price: "",
   price_disputed: false,
   is_free_unit_line: false,
+  deal_id: null,
   accepted_qty: "1",
   accepted_qty_touched: false,
   receiving_reason: "matched",
