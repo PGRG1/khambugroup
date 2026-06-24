@@ -1104,7 +1104,12 @@ export default function ProcurementInvoicesTab() {
                     const q = parseFloat(l.quantity) || 0;
                     const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                     const invoiced = parseFloat(editRecalc.perLine[i].total) || 0;
-                    const accepted = q > 0 ? invoiced * (a / q) : 0;
+                    const accPrice = parseFloat(l.accepted_price || "");
+                    const invPrice = parseFloat(l.unit_price) || 0;
+                    // If accepted price set & differs, use accepted_price * accepted_qty (proportional discount share via ratio of price * qty)
+                    const grossAcc = (Number.isFinite(accPrice) && accPrice > 0 ? accPrice : invPrice) * a;
+                    const grossInv = invPrice * q;
+                    const accepted = grossInv > 0 ? invoiced * (grossAcc / grossInv) : (q > 0 ? invoiced * (a / q) : 0);
                     return { invoiced, accepted };
                   });
                   return editLines.map((line, index) => {
