@@ -160,8 +160,17 @@ export default function SuppliersTab() {
       toast.error("Supplier & vendor name is required");
       return;
     }
+    const trimmedCode = form.code.trim();
+    if (trimmedCode) {
+      const dup = suppliers.find((s) => (s.code || "") === trimmedCode && s.id !== editingId);
+      if (dup) {
+        toast.error(`Code "${trimmedCode}" is already used by ${dup.name}`);
+        return;
+      }
+    }
     setSaving(true);
     const payload = {
+      code: trimmedCode || null,
       name: form.name.trim(),
       contact_person: form.contact_person || null,
       email: form.email || null,
