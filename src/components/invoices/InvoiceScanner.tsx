@@ -2048,8 +2048,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             })()}
             {(() => {
               const lines = current?.line_items || [];
-              const invSub = lines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
-              const accSub = lines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const hM = normalizeDiscountMode(current?.invoice_discount_mode);
+              const recalc = recalcAllDiscounts(lines, hM, current?.invoice_discount_rate || "0", current?.invoice_discount || "0", currentMode);
+              let invSub = 0;
+              let accSub = 0;
+              lines.forEach((l, i) => {
+                const q = parseFloat(l.quantity) || 0;
+                const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+                const invoiced = parseFloat(recalc.perLine[i].total) || 0;
+                invSub += invoiced;
+                accSub += q > 0 ? invoiced * (a / q) : 0;
+              });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
               return (
