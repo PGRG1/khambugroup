@@ -86,6 +86,12 @@ interface ScannedLineItem {
   unmatched?: boolean;
   price_changed?: boolean;
   pm_unit_price?: number;
+  accepted_price?: string;
+  master_price?: number; // snapshot of items master price at load time
+  price_disputed?: boolean;
+  is_free_unit_line?: boolean;
+  deal_id?: string | null;
+  product_master_id?: string | null;
   total_override?: boolean;
   review_status?: "matched" | "possible_match" | "new_item" | "needs_review";
   review_warnings?: string[];
