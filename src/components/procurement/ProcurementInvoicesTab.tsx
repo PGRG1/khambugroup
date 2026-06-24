@@ -842,7 +842,7 @@ export default function ProcurementInvoicesTab() {
   const handleEditUpdateMaster = async (idx: number) => {
     const line = editLines[idx];
     if (!line) return;
-    const newPrice = parseFloat(line.unit_price || "");
+    const newPrice = parseFloat(line.accepted_price || line.unit_price || "");
     if (!Number.isFinite(newPrice) || newPrice <= 0) {
       toast.error("Invalid price — enter a positive number first.");
       return;
@@ -873,7 +873,8 @@ export default function ProcurementInvoicesTab() {
         const copy = [...prev];
         const l = { ...copy[idx] };
         l.pm_unit_price = newPrice;
-        l.price_changed = false;
+        l.master_price = newPrice;
+        l.price_changed = Math.abs((parseFloat(l.unit_price) || 0) - newPrice) > 0.01;
         copy[idx] = l;
         return copy;
       });
