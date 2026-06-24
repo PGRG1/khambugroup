@@ -1375,6 +1375,17 @@ export default function ProcurementInvoicesTab() {
                                   className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
                                 />
                                 <span className="text-[9px] text-muted-foreground whitespace-nowrap">Master: ${(line.master_price as number).toFixed(2)}</span>
+                                {(() => {
+                                  const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
+                                  const accNumE = parseFloat(line.accepted_price || "");
+                                  if (!deal || !Number.isFinite(accNumE)) return null;
+                                  const effective = (deal.buy_qty * accNumE) / (deal.buy_qty + deal.free_qty);
+                                  return (
+                                    <span className="text-[9px] text-blue-500 whitespace-nowrap">
+                                      Eff: ${effective.toFixed(2)}
+                                    </span>
+                                  );
+                                })()}
                                 {differsFromMaster && line.product_master_id && (
                                   <button
                                     type="button"
