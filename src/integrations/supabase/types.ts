@@ -4127,6 +4127,77 @@ export type Database = {
           },
         ]
       }
+      item_supplier_deals: {
+        Row: {
+          buy_qty: number
+          created_at: string
+          deal_type: string
+          free_qty: number
+          id: string
+          is_active: boolean
+          notes: string | null
+          product_id: string
+          supplier_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          buy_qty: number
+          created_at?: string
+          deal_type?: string
+          free_qty: number
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          product_id: string
+          supplier_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          buy_qty?: number
+          created_at?: string
+          deal_type?: string
+          free_qty?: number
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          product_id?: string
+          supplier_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_supplier_deals_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_supplier_deals_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_supplier_deals_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_supplier_deals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_entries: {
         Row: {
           created_at: string
