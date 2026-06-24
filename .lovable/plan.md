@@ -1,64 +1,89 @@
-# Purchase Analysis Page
 
-A new standalone procurement page giving spend analysis sourced from GRN data (not invoices). Surfaces KPIs, category breakdown + trend, top items, and supplier concentration.
+# Purchase Analysis — Spend Trend Chart + Cost % Strip
 
----
+Single-file change to `src/pages/procurement/PurchaseAnalysis.tsx`. No new files, no schema changes, no other sections touched.
 
-## 1. Sidebar (`src/components/AppSidebar.tsx`)
+## 1. Additional data fetch
 
-In the `procurementAnalysis` array, remove `disabled: true` from the Purchase Analysis entry so it becomes an active link to `/procurement/purchase-analysis`.
+Inside the existing `useEffect` that loads tenant data, alongside the GRN fetch, also load sales:
 
-## 2. Route (`src/App.tsx`)
-
-Import `PurchaseAnalysis` and register:
-```tsx
-<Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
+```
+salesRaw = fetchAllRows("sales_records", "date, total_sales, venue", undefined, tenantId)
 ```
 
-## 3. New page `src/pages/procurement/PurchaseAnalysis.tsx`
+Store it in component state (`salesRows`). Venue filter for sales is intentionally NOT applied (sales venue strings may not align with GRN venue strings) — sales are only filtered by date. This matches the user's choice from clarifying questions.
 
-### Header
-- `<PageHeader>` title "Purchase Analysis".
-- Period buttons (1M / 3M / 6M / 12M). 6M default. Active = amber `#E8820C` fill, white text. Inactive = `bg-secondary text-muted-foreground`.
-- Right-aligned filters: Venue (distinct `goods_received_notes.venue`) and Category (distinct `product_master.level1_category`), both with "All …" default.
+Derive:
+- `salesInPeriod` — sales rows whose `date` falls inside current period range.
+- `salesPrior` — sales rows for the prior period range (used only for monthly buckets crossing into prior).
+- `hasSalesData = salesInPeriod.length > 0`.
+- `totalRevenue = sum(total_sales) of salesInPeriod`.
 
-### Data layer
-- Use `useActiveTenant` for tenantId; fetch `suppliers` via `fetchAllRows` for id→name map.
-- Fetch `grn_items` with explicit FK hints `goods_received_notes!grn_id` and `product_master!product_master_id`, filtered by `tenant_id`. Refetch when period or venue changes.
-- Client-side `inScope` filter: `status='confirmed'`, `creates_stock_movement !== false`, `financial_treatment` not starting with `asset`, received_date in period, venue match, category match.
-- `lineValue = accepted_qty * unit_cost` per item.
-- Compute prior-period dataset with the same duration immediately before the selected window for comparisons.
+## 2. Cost group definitions
 
-### Section 1 — KPI cards (4)
-`KpiGrid` of: Net spend, vs prior period (red ↑ / green ↓), Top category (`$X · Y% of total`), Items purchased (`across N suppliers`).
+Module-level `COST_GROUPS` array with three entries (food, beverage, tobacco), each with `key`, `label`, `color`, and case-insensitive `match(level1_category)` function (beverage matches bev/drink/liquor/beer/wine; tobacco matches tobacco/smok/cigar).
 
-### Section 2 — `grid-cols-[1.1fr_0.9fr] gap-3`
-**Left — Category breakdown**: per `level1_category`, two stacked horizontal bars (current full opacity, prior 40%) using palette `["#0ea5e9","#22c55e","#a855f7","#f59e0b","#ef4444","#06b6d4","#84cc16"]` cycled. Width proportional to max current spend. Sub-label: `■ This period: $X · ■ Last period: $X`. Sorted desc.
+Compute `groupSpend[key]` from the existing in-scope GRN items (`scoped` — already filtered for confirmed status, stock-moving, non-asset, venue, etc.) using `accepted_qty * unit_cost` (the existing `lineValue` helper).
 
-**Right — Spend trend** (recharts `LineChart`, 180px, `ResponsiveContainer`): monthly buckets across selected period. Lines = Total (amber #E8820C, strokeWidth 2, dots) + top 2 categories (assigned colour, strokeWidth 1.5, `strokeDasharray="4 2"`, no dots). Y axis uses `fmtShort`. Reuse `tooltipStyle/tooltipItemStyle/tooltipLabelStyle` from `ProcurementDashboardTab.tsx`. Legend above chart.
+`activeGroups = COST_GROUPS.filter(g => groupSpend[g.key] > 0)` — only groups with spend render as chips.
 
-### Section 3 — Top items table (full width)
-- Header: "Top items by spend" + search input + "Showing top N of total".
-- Top 20 by `lineValue` desc (after category filter if active).
-- Columns (widths as specified): # / SKU / Item / Category badge / Qty / Net spend / % of total / vs prior (red ↑ / green ↓) / Avg cost.
-- Row hover: `bg-primary/5` + 3px amber left border.
-- Inline search filters by item name or SKU.
-- Virtualized via `useVirtualizer` (same pattern as `ProcurementLineItemsTab.tsx`).
-- Wrapper: `card-glass rounded-xl overflow-hidden`, header row `bg-primary text-primary-foreground`.
+`totalCostPct = totalRevenue > 0 ? (totalSpend / totalRevenue) * 100 : null`.
 
-### Section 4 — Supplier concentration (full width)
-Header + right-side insight `Top 3 suppliers = X% of spend`. Horizontal list (not table), one row per supplier sorted desc, max 10:
-```
-[name 120px] [progress flex-1] [spend 55px] [% 42px] [change 38px] [invoice count 30px]
-```
-Progress bar `h-2 rounded-full`. Fill amber for top 3, `bg-border` otherwise; width proportional to top supplier spend. Top 3 rows tinted `bg-amber-500/5`. Invoice count = distinct `grn_id` count for that supplier.
+## 3. Replace the Section 2 right-panel chart
 
-### Shared patterns
-- `useActiveTenant`, `fetchAllRows`, formatters from `@/utils/format`.
-- Recharts constants and `fmtShort` mirrored from `ProcurementDashboardTab.tsx`.
-- CSV export button via `downloadCSV` on the Top items table.
+Keep Section 2 grid (`1.1fr 0.9fr`) and the left-side "Spend by category" card untouched. Replace the contents of the right-side "Spend trend" card.
+
+### 1M mode — daily cumulative ComposedChart
+
+Build `chartData` for days 1..maxDay (where maxDay = today's day-of-month if viewing the current month, otherwise the full month length):
+
+For each day, accumulate:
+- `cumSpend` from `scoped` GRN items where `received_date === YYYY-MM-DD`.
+- `cumRevenue` from `salesInPeriod` where `date === YYYY-MM-DD` (only emitted when `hasSalesData`).
+- `cumSpendPrior` from `scopedPrior` GRN items on the same day of the prior month.
+
+Render `ComposedChart` height 200px, left Y axis only, `fmtShort` tick formatter, with three series in this order:
+1. `Area cumRevenue` — teal `hsl(175 55% 42%)`, fillOpacity 0.08, only when `hasSalesData`.
+2. `Line cumSpendPrior` — amber `#E8820C`, dashed `5 4`, opacity 0.35, no dots.
+3. `Area cumSpend` — solid amber `#E8820C`, fillOpacity 0.07, activeDot r4.
+
+Tooltip uses the existing `tooltipStyle/tooltipItemStyle/tooltipLabelStyle` constants. Currency formatter via existing `fmtMoney`.
+
+### 3M / 6M / 12M mode — monthly bars ComposedChart
+
+Build `monthlyData` from the existing `range.months` array. For each `{y, m}`:
+- `spend` = sum of `lineValue` over scoped+scopedPrior items whose `received_date` is in that month (the existing `scoped` covers current-period months; `scopedPrior` covers prior-period months — we use whichever bucket the month belongs to so the chart spans the full window cleanly).
+- `revenue` = sum of `total_sales` over `salesRaw` (sales rows, no venue filter) whose `date` is in that month, only when `hasSalesData`.
+- `label` = `MMM YY`.
+
+Render `ComposedChart` height 200px, left Y axis only, with two bars: Revenue (teal, fillOpacity 0.5) and Net spend (amber). Spend bar always rendered; revenue bar only when `hasSalesData`. Rounded top corners `[3,3,0,0]`.
+
+Mode switch is driven by the existing `period` state (`1M` vs everything else).
+
+## 4. Cost % metric strip (new block below Section 2)
+
+Rendered as a new block between Section 2 and Section 3 (Top items). One row of equal-width chips using `grid gap-px bg-border rounded-xl overflow-hidden` so the border colour shows through as 1px dividers. Column count = `activeGroups.length + 1`.
+
+Chip order: Total cost % (always first, amber), then one chip per active group (Food green, Beverage sky, Tobacco purple).
+
+`CostChip` is defined inline in the file with this shape:
+- Label (11px muted)
+- Value (`{value.toFixed(1)}%` or `—`) in the group colour, large tabular-nums
+- Sub-label (10.5px muted): `{fmtShort(spend)} spend · {fmtShort(revenue)} revenue` or `... · no revenue data`
+
+Below the strip, a centred footnote: when `hasSalesData`, "Cost % = category spend ÷ total revenue (...) · Sourced from confirmed GRNs"; otherwise "Add revenue data in Sales Records to see cost % figures".
+
+## 5. Helpers / constants
+
+- Reuse existing `fmtMoney`, `fmtShort`, `tooltipStyle`, `tooltipItemStyle`, `tooltipLabelStyle`, `AMBER`, `lineValue` already defined at the top of the file.
+- Add new recharts imports: `ComposedChart`, `Area`, `Bar`. `LineChart` import becomes unused and gets removed.
 
 ## Out of scope
-- No DB migration.
-- `ProcurementDashboardTab.tsx`, `ProcurementLineItemsTab.tsx`, and all other pages untouched.
-- Spend calculations never read `invoices` or `invoice_line_items`.
+
+- KPI cards (Section 1) unchanged.
+- Spend-by-category panel (left of Section 2) unchanged.
+- Top items table (Section 3), supplier concentration (Section 4) unchanged.
+- Period buttons, venue and category filters unchanged.
+- Drill-down Sheet and Dialog added earlier remain unchanged.
+- Data source remains GRN-only for spend; sales come from `sales_records` only.
+- No DB migration, no edits to any other file.
