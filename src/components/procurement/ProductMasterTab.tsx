@@ -433,6 +433,8 @@ export default function ProductMasterTab() {
         purchase_unit_cost: purchaseUnitCost,
         stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
         base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
+        purchase_yield: py,
+        cooking_yield: cy,
       };
       const ok = await createProduct(data as any);
       if (ok) setDialogOpen(false);
