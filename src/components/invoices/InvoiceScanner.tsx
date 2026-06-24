@@ -939,21 +939,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
-    // Show "Update Items Master" banner if differs from master
-    const line = invoices[currentIdx]?.line_items[i];
-    if (line?.product_master_id && line.master_price != null) {
-      const accNum = parseFloat(value);
-      if (Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(line.master_price * 100)) {
-        setMasterUpdateBanner({
-          lineIdx: i,
-          productMasterId: line.product_master_id,
-          itemName: line.matched_internal_name || line.description || "this item",
-          newPrice: accNum,
-        });
-      } else {
-        setMasterUpdateBanner((b) => (b && b.lineIdx === i ? null : b));
-      }
-    }
   };
 
   // When deals load, relink existing free-unit lines to a matching deal
