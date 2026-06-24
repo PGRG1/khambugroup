@@ -891,6 +891,8 @@ export default function ProductMasterTab() {
                       <TableCell className="text-right tabular-nums text-xs">{fmt(r.purchase_unit_cost)}</TableCell>
                       <TableCell className="text-xs">{r.stock_uom}</TableCell>
                       <TableCell className="text-right tabular-nums text-xs">{fmt(r.stock_qty)}</TableCell>
+                      <TableCell className="text-xs">{r.base_unit_type}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">{fmt(r.base_unit_qty)}</TableCell>
                     </>
                   )}
                   <TableCell className="text-right">
