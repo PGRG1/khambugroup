@@ -338,6 +338,19 @@ export default function ProductMasterTab() {
 
   const handleSave = async () => {
     setConfirmDuplicateOpen(false);
+
+    // Yield validation (only relevant when item creates stock movement, but we sanitise regardless)
+    const py = parseFloat(form.purchase_yield);
+    const cy = parseFloat(form.cooking_yield);
+    if (isNaN(py) || py < 1 || py > 100) {
+      toast({ title: "Invalid yield", description: "Purchase yield must be between 1% and 100%", variant: "destructive" });
+      return;
+    }
+    if (isNaN(cy) || cy < 1 || cy > 100) {
+      toast({ title: "Invalid yield", description: "Cooking yield must be between 1% and 100%", variant: "destructive" });
+      return;
+    }
+
     const purchaseUnitCost = parseFloat(form.purchase_unit_cost) || 0;
     const stockQty = parseFloat(form.stock_qty) || 1;
     const costPerStockUnit = stockQty > 0 ? purchaseUnitCost / stockQty : 0;
@@ -356,7 +369,10 @@ export default function ProductMasterTab() {
         min_stock_qty: form.min_stock_qty === "" ? null : parseFloat(form.min_stock_qty),
         reorder_qty: form.reorder_qty === "" ? null : parseFloat(form.reorder_qty),
         creates_stock_movement: form.creates_stock_movement,
+        purchase_yield: py,
+        cooking_yield: cy,
       };
+
 
       const supplierLevelFields = {
         supplier: form.supplier, external_sku: form.external_sku,
