@@ -906,6 +906,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         sku_mismatch: false,
         price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+        product_master_id: product.id,
+        master_price: pmPrice > 0 ? pmPrice : undefined,
+        accepted_price: pmPrice > 0 ? String(pmPrice) : currentLine.accepted_price || "",
+        price_disputed: scannedPrice > 0 && pmPrice > 0 && Math.round(scannedPrice * 100) !== Math.round(pmPrice * 100),
+        is_free_unit_line: scannedPrice === 0 && (parseFloat(currentLine.quantity) || 0) > 0,
+        deal_id: scannedPrice === 0 ? (findDealForProduct(activeDeals, product.id)?.id ?? null) : currentLine.deal_id ?? null,
         review_status: "matched",
         review_blocking: [],
       };
