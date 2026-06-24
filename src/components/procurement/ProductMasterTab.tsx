@@ -490,10 +490,12 @@ export default function ProductMasterTab() {
     { key: "purchase_unit_cost", label: "Purch. Cost", align: "right" as const },
     { key: "stock_uom", label: "Stock UOM" },
     { key: "stock_qty", label: "Stock Qty", align: "right" as const },
+    { key: "base_unit_type", label: "Recipe UOM" },
+    { key: "base_unit_qty", label: "Recipe Qty", align: "right" as const },
   ];
   const columns = showLegacyCols ? [...baseColumns, ...legacyColumns] : baseColumns;
   const GRID_COLS = showLegacyCols
-    ? "minmax(200px,1.5fr) 130px 100px 100px 100px 180px 110px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 70px"
+    ? "minmax(200px,1.5fr) 130px 100px 100px 100px 180px 110px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 100px 90px 70px"
     : "minmax(220px,1.6fr) 140px 110px 110px 110px 200px 110px 90px 70px";
 
   if (loading) return <div className="py-12 text-center text-muted-foreground">Loading products...</div>;
@@ -889,6 +891,8 @@ export default function ProductMasterTab() {
                       <TableCell className="text-right tabular-nums text-xs">{fmt(r.purchase_unit_cost)}</TableCell>
                       <TableCell className="text-xs">{r.stock_uom}</TableCell>
                       <TableCell className="text-right tabular-nums text-xs">{fmt(r.stock_qty)}</TableCell>
+                      <TableCell className="text-xs">{r.base_unit_type}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">{fmt(r.base_unit_qty)}</TableCell>
                     </>
                   )}
                   <TableCell className="text-right">
