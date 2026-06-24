@@ -1906,7 +1906,7 @@ function InvoiceTableSection({
             </TableRow>
           ) : (
             pag.pageItems.map((inv) => (
-              <TableRow key={inv.id} onClick={() => openDetail(inv)} className="cursor-pointer text-[12px]">
+              <TableRow key={inv.id} onClick={() => openDetail(inv)} className={`cursor-pointer text-[12px] ${(inv.status || "").toLowerCase() === "voided" ? "opacity-50" : ""}`}>
                 <TableCell className="whitespace-nowrap text-muted-foreground py-2">{fmtDate(inv.invoice_date)}</TableCell>
                 <TableCell className="py-2 font-mono font-medium text-primary">
                   <span className="inline-flex items-center gap-1.5">
