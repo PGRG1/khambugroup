@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown, ReceiptText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -103,6 +103,10 @@ const procurementAnalysis = [
   { title: "Purchase Analysis", url: "/procurement/purchase-analysis", icon: BarChart3, disabled: true },
   { title: "Supplier Pricing", url: "/procurement/supplier-pricing", icon: Tag, disabled: true },
   { title: "Inventory Variance", url: "/procurement/inventory-variance", icon: TrendingDown, disabled: true },
+];
+
+const procurementFinance = [
+  { title: "Spend Summary", url: "/procurement/finance", icon: ReceiptText },
 ];
 
 
@@ -343,6 +347,7 @@ export function AppSidebar() {
               { label: "Inventory", items: procurementInventory },
               { label: "Costing", items: procurementCosting },
               { label: "Analysis", items: procurementAnalysis },
+              { label: "Finance", items: procurementFinance },
             ].map((sub) => (
               <React.Fragment key={sub.label}>
                 <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
