@@ -1540,10 +1540,9 @@ export default function ProcurementInvoicesTab() {
         setVenueFilter={setVenueFilter}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
-        reviewStatusFilter={reviewStatusFilter}
-        setReviewStatusFilter={setReviewStatusFilter}
-        exceptionNoteFilter={exceptionNoteFilter}
-        setExceptionNoteFilter={setExceptionNoteFilter}
+        disputeReasonMap={disputeReasonMap}
+        onMarkResolved={(inv) => { setResolveTarget(inv); setResolveOpen(true); }}
+        onVoid={(inv) => { setVoidTarget(inv); setVoidOpen(true); }}
         monthFilter={monthFilter === "__latest__" ? "all" : monthFilter}
         setMonthFilter={setMonthFilter}
         months={months}
