@@ -86,6 +86,7 @@ export interface Invoice {
   void_reason?: string | null;
   voided_at?: string | null;
   voided_by?: string | null;
+  dispute_resolution?: "credit_note" | "qty_received" | "resolved" | null;
   line_items?: InvoiceLineItem[];
 }
 
