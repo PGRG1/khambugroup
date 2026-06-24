@@ -257,6 +257,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const [dragOverPos, setDragOverPos] = useState<"above" | "below" | null>(null);
 
   const current = invoices[currentIdx] || null;
+  const { tenantId } = useActiveTenant();
+  const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
+  const [masterUpdateBanner, setMasterUpdateBanner] = useState<
+    null | { lineIdx: number; productMasterId: string; itemName: string; newPrice: number }
+  >(null);
+
+  // Load deals when the active supplier changes
+  useEffect(() => {
+    const sid = current?.supplier_id;
+    if (!sid || !tenantId) { setActiveDeals([]); return; }
+    fetchActiveDealsForSupplier(sid, tenantId).then(setActiveDeals);
+  }, [current?.supplier_id, tenantId]);
+
 
   const normalizeSupplierName = (value: string) =>
     value
