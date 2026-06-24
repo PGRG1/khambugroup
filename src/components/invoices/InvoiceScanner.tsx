@@ -1899,9 +1899,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       {/* Invoiced Amount */}
                       <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
                         {(() => {
-                          const q = parseFloat(line.quantity) || 0;
-                          const p = parseFloat(line.unit_price) || 0;
-                          const inv = q * p;
+                          const inv = rowAmounts[i].invoiced;
                           return (
                             <div className="h-8 flex items-center justify-end px-2 font-mono text-xs text-muted-foreground">
                               {inv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1912,11 +1910,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       {/* Accepted Amount */}
                       <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
                         {(() => {
-                          const q = parseFloat(line.quantity) || 0;
-                          const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
-                          const p = parseFloat(line.unit_price) || 0;
-                          const inv = q * p;
-                          const acc = a * p;
+                          const inv = rowAmounts[i].invoiced;
+                          const acc = rowAmounts[i].accepted;
                           const cls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
                           return (
                             <div className={`h-8 flex items-center justify-end px-2 font-mono text-xs font-medium ${cls}`}>
