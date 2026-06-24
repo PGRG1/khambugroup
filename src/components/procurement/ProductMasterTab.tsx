@@ -38,6 +38,8 @@ const EMPTY_FORM = {
   notes: "",
   min_stock_qty: "", reorder_qty: "",
   creates_stock_movement: true as boolean,
+  purchase_yield: "100",
+  cooking_yield: "100",
 };
 
 interface FlatRow {
