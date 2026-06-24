@@ -2092,6 +2092,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                                 {effective !== null && (
                                   <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">Eff: ${effective.toFixed(2)}</span>
                                 )}
+                                {differsFromMaster && line.product_master_id && (
+                                  <button
+                                    type="button"
+                                    disabled={updatingMasterIdx === i}
+                                    onClick={() => handleUpdateMaster(i)}
+                                    className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                                    title={`Set Items Master price to $${accNum.toFixed(2)}`}
+                                  >
+                                    {updatingMasterIdx === i ? "Updating…" : `Update master → $${accNum.toFixed(2)}`}
+                                  </button>
+                                )}
                               </div>
                             );
                           })()
