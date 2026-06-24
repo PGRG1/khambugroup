@@ -324,17 +324,49 @@ export default function ProcurementInvoicesTab() {
     return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
   };
 
+  // Fetch dispute reasons (price / qty / both) per invoice from line items.
+  useEffect(() => {
+    if (!tenantId) { setDisputeReasonMap({}); return; }
+    let cancelled = false;
+    (async () => {
+      const rows = await fetchAllRows(
+        "invoice_line_items",
+        "invoice_id, price_disputed, quantity, accepted_qty, is_free_unit_line",
+        undefined,
+        tenantId,
+      );
+      if (cancelled) return;
+      const map: Record<string, DisputeReasonInfo> = {};
+      for (const r of rows as any[]) {
+        if (r.is_free_unit_line) continue;
+        const id = r.invoice_id as string;
+        if (!id) continue;
+        const qty = Number(r.quantity) || 0;
+        const acc = r.accepted_qty == null ? qty : Number(r.accepted_qty) || 0;
+        const priceDisp = !!r.price_disputed;
+        const qtyDisp = acc < qty;
+        if (!priceDisp && !qtyDisp) continue;
+        const cur = map[id] || { hasPrice: false, hasShortQty: false };
+        if (priceDisp) cur.hasPrice = true;
+        if (qtyDisp) cur.hasShortQty = true;
+        map[id] = cur;
+      }
+      setDisputeReasonMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [tenantId, invoices]);
+
   const filtered = useMemo(() => {
     const result = invoices.filter((inv) => {
-      // Hide voided unless the toggle is on or the status filter explicitly selects voided.
-      if (!showVoided && (inv.status || "").toLowerCase() === "voided" && statusFilter !== "voided") return false;
       if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
-      if (statusFilter === "__disputed__") {
+      if (statusFilter === "disputed") {
         if (!(inv as any).has_disputes) return false;
-      } else if (statusFilter !== "all" && inv.status !== statusFilter) return false;
-      if (reviewStatusFilter !== "all" && (inv.review_status || "Under Review") !== reviewStatusFilter) return false;
-      if (exceptionNoteFilter !== "all" && (inv.exception_note || "-") !== exceptionNoteFilter) return false;
+      } else if (statusFilter === "voided") {
+        if ((inv.status || "").toLowerCase() !== "voided") return false;
+      } else if (statusFilter === "approved") {
+        if ((inv.status || "").toLowerCase() !== "approved") return false;
+      }
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
@@ -343,42 +375,40 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, supplierFilter, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns, showVoided]);
+  }, [invoices, supplierFilter, venueFilter, statusFilter, monthFilter, search, sortColumns]);
 
-  // KPI computation across FILTERED invoices — reflects active filters
+  // KPI strip: Approved · Disputed · Voided · Total value (computed across ALL invoices).
   const kpis = useMemo(() => {
-    const total = filtered.length;
-    let underReview = 0, approved = 0, exceptions = 0, disputed = 0;
+    let approved = 0, disputed = 0, voided = 0;
     let totalValue = 0;
-    const dupKey = new Map<string, number>();
-    for (const inv of filtered) {
-      const rs = inv.review_status || "Under Review";
-      if (rs === "Under Review") underReview++;
-      if (rs === "Approved") approved++;
-      if (rs === "Disputed") disputed++;
-      const en = inv.exception_note || "-";
-      if (en !== "-" || rs === "Rejected") exceptions++;
+    let pendingAmount = 0;
+    for (const inv of invoices) {
+      const s = (inv.status || "").toLowerCase();
+      if (s === "approved") approved++;
+      if (s === "voided") voided++;
+      if ((inv as any).has_disputes) {
+        disputed++;
+        if (!(inv as any).dispute_resolution) {
+          pendingAmount += Number((inv as any).disputed_amount) || 0;
+        }
+      }
       totalValue += Number(inv.total_amount) || 0;
-      const k = `${inv.supplier_id}::${(inv.invoice_number || "").trim().toLowerCase()}`;
-      if (k.trim() !== "::") dupKey.set(k, (dupKey.get(k) || 0) + 1);
     }
-    let duplicates = 0;
-    for (const v of dupKey.values()) if (v > 1) duplicates += v;
-    const pct = (n: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "0%";
-    return { total, underReview, approved, exceptions, disputed, duplicates, totalValue, pct };
-  }, [filtered]);
+    return { approved, disputed, voided, totalValue, pendingAmount };
+  }, [invoices]);
 
   const columns = [
-    { key: "invoice_date", label: "Date", w: "w-[100px]" },
-    { key: "invoice_number", label: "Invoice #", w: "w-[120px]" },
-    { key: "supplier_name", label: "Supplier & Vendor", w: "min-w-[160px]" },
-    { key: "venue", label: "Venue", w: "w-[90px]" },
-    { key: "due_date", label: "Due Date", w: "w-[100px]" },
-    { key: "total_amount", label: "Amount", w: "w-[110px]", align: "right" as const },
-    { key: "status", label: "Payment Status", w: "w-[110px]" },
-    { key: "review_status", label: "Review Status", w: "w-[130px]" },
-    { key: "exception_note", label: "Issue / Exception", w: "w-[150px]" },
+    { key: "invoice_date", label: "Date", w: "w-[7%]" },
+    { key: "invoice_number", label: "Invoice #", w: "w-[14%]" },
+    { key: "supplier_name", label: "Supplier", w: "w-[17%]" },
+    { key: "venue", label: "Venue", w: "w-[8%]" },
+    { key: "total_amount", label: "Amount", w: "w-[10%]", align: "right" as const },
+    { key: "status", label: "Status", w: "w-[10%]" },
+    { key: "reason", label: "Reason", w: "w-[12%]" },
+    { key: "resolution", label: "Resolution", w: "w-[11%]" },
+    { key: "actions", label: "Actions", w: "w-[11%]" },
   ];
+
 
   const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
 
