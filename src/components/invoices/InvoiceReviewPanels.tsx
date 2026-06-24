@@ -48,6 +48,9 @@ export interface LineForReview {
   unmatched?: boolean;
   sku_mismatch?: boolean;
   price_changed?: boolean;
+  price_disputed?: boolean;
+  is_free_unit_line?: boolean;
+  accepted_qty?: string;
   suggested_new_item?: any;
 }
 
