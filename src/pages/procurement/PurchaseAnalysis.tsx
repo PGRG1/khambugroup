@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Search, Download, TrendingUp, TrendingDown } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -336,6 +338,47 @@ export default function PurchaseAnalysis() {
 
   const maxSupplierSpend = Math.max(1, ...supplierAgg.map((s) => s.spend));
 
+  // ---------- Drill-downs ----------
+  const [selectedSupplier, setSelectedSupplier] = useState<{ id: string; name: string } | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const supplierGrns = useMemo(() => {
+    if (!selectedSupplier) return [] as { grnId: string; date: string | null; venue: string | null; lines: number; qty: number; spend: number }[];
+    const map = new Map<string, { grnId: string; date: string | null; venue: string | null; lines: number; qty: number; spend: number }>();
+    for (const it of scoped) {
+      const sid = it.goods_received_notes?.supplier_id || "—";
+      if (sid !== selectedSupplier.id) continue;
+      const gid = it.grn_id || "—";
+      const e = map.get(gid) || { grnId: gid, date: it.goods_received_notes?.received_date || null, venue: it.goods_received_notes?.venue || null, lines: 0, qty: 0, spend: 0 };
+      e.lines += 1;
+      e.qty += it.accepted_qty || 0;
+      e.spend += lineValue(it);
+      map.set(gid, e);
+    }
+    return Array.from(map.values()).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  }, [selectedSupplier, scoped]);
+
+  const categoryItems = useMemo(() => {
+    if (!selectedCategory) return [] as { id: string; sku: string; name: string; qty: number; spend: number; pct: number }[];
+    const map = new Map<string, { id: string; sku: string; name: string; qty: number; spend: number }>();
+    let total = 0;
+    for (const it of scoped) {
+      const cat = it.product_master?.level1_category || "Uncategorised";
+      if (cat !== selectedCategory) continue;
+      const id = it.product_master_id || "unmatched";
+      const v = lineValue(it);
+      total += v;
+      const cur = map.get(id);
+      if (cur) { cur.qty += it.accepted_qty || 0; cur.spend += v; }
+      else map.set(id, { id, sku: it.product_master?.internal_sku || "—", name: it.product_master?.internal_product_name || "Unmatched", qty: it.accepted_qty || 0, spend: v });
+    }
+    return Array.from(map.values())
+      .map((r) => ({ ...r, pct: total > 0 ? (r.spend / total) * 100 : 0 }))
+      .sort((a, b) => b.spend - a.spend);
+  }, [selectedCategory, scoped]);
+
+  const categoryTotalSpend = useMemo(() => categoryItems.reduce((s, r) => s + r.spend, 0), [categoryItems]);
+
   // ---------- Virtualized top items ----------
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useVirtualizer({
@@ -436,7 +479,12 @@ export default function PurchaseAnalysis() {
                   const wCur = (c.current / maxCatSpend) * 100;
                   const wPrv = (c.prior / maxCatSpend) * 100;
                   return (
-                    <div key={c.name}>
+                    <button
+                      type="button"
+                      key={c.name}
+                      onClick={() => setSelectedCategory(c.name)}
+                      className="w-full text-left rounded-md p-2 -m-2 hover:bg-primary/5 transition-colors"
+                    >
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span className="font-medium text-foreground">{c.name}</span>
                         <span className="td-num text-muted-foreground">{fmtMoney(c.current)}</span>
@@ -452,7 +500,7 @@ export default function PurchaseAnalysis() {
                       <div className="text-[10px] text-muted-foreground mt-1">
                         <span style={{ color: c.color }}>■</span> This period: {fmtMoney(c.current)} · <span style={{ color: c.color, opacity: 0.6 }}>■</span> Last period: {fmtMoney(c.prior)}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -600,7 +648,12 @@ export default function PurchaseAnalysis() {
                 const pct = totalSpend > 0 ? (s.spend / totalSpend) * 100 : 0;
                 const change = s.prior > 0 ? ((s.spend - s.prior) / s.prior) * 100 : 0;
                 return (
-                  <div key={s.id} className={`flex items-center gap-3 py-1.5 px-2 rounded ${isTop3 ? "bg-amber-500/5" : ""}`}>
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => setSelectedSupplier({ id: s.id, name: s.name })}
+                    className={`w-full text-left flex items-center gap-3 py-1.5 px-2 rounded hover:bg-primary/5 transition-colors ${isTop3 ? "bg-amber-500/5" : ""}`}
+                  >
                     <div className="w-[120px] text-xs font-medium truncate">{s.name}</div>
                     <div className="flex-1 h-2 rounded-full bg-border overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${w}%`, backgroundColor: isTop3 ? AMBER : "hsl(var(--muted-foreground))" }} />
@@ -611,13 +664,81 @@ export default function PurchaseAnalysis() {
                       {s.prior === 0 ? "—" : fmtPct(change)}
                     </div>
                     <div className="w-[40px] text-right text-[10px] text-muted-foreground">{s.grnCount} GRN</div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Supplier drill-down */}
+      <Sheet open={!!selectedSupplier} onOpenChange={(o) => !o && setSelectedSupplier(null)}>
+        <SheetContent side="right" className="w-[640px] sm:max-w-[640px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{selectedSupplier?.name}</SheetTitle>
+            <SheetDescription>
+              {supplierGrns.length} GRN{supplierGrns.length === 1 ? "" : "s"} · {fmtMoney(supplierGrns.reduce((s, g) => s + g.spend, 0))} spend · {periodLabel}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 card-glass rounded-xl overflow-hidden">
+            <div className="grid bg-primary text-primary-foreground text-[12px] font-semibold" style={{ gridTemplateColumns: "110px 1fr 60px 80px 100px" }}>
+              <div className="px-3 py-2">Date</div>
+              <div className="px-3 py-2">Venue</div>
+              <div className="px-3 py-2 text-right">Lines</div>
+              <div className="px-3 py-2 text-right">Qty</div>
+              <div className="px-3 py-2 text-right">Spend</div>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto">
+              {supplierGrns.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">No GRNs.</div>
+              ) : supplierGrns.map((g, i) => (
+                <div key={g.grnId} className={`grid items-center text-[12px] border-b border-border/40 ${i % 2 === 0 ? "bg-card" : "bg-muted/20"}`} style={{ gridTemplateColumns: "110px 1fr 60px 80px 100px" }}>
+                  <div className="px-3 py-2 tabular-nums">{g.date ? new Date(g.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}</div>
+                  <div className="px-3 py-2 truncate">{g.venue || "—"}</div>
+                  <div className="px-3 py-2 text-right tabular-nums">{g.lines}</div>
+                  <div className="px-3 py-2 text-right tabular-nums">{g.qty.toLocaleString()}</div>
+                  <div className="px-3 py-2 text-right tabular-nums font-semibold">{fmtMoney(g.spend)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Category drill-down */}
+      <Dialog open={!!selectedCategory} onOpenChange={(o) => !o && setSelectedCategory(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{selectedCategory}</DialogTitle>
+            <DialogDescription>
+              {categoryItems.length} item{categoryItems.length === 1 ? "" : "s"} · {fmtMoney(categoryTotalSpend)} spend · {periodLabel}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="card-glass rounded-xl overflow-hidden">
+            <div className="grid bg-primary text-primary-foreground text-[12px] font-semibold" style={{ gridTemplateColumns: "90px 1fr 70px 100px 70px" }}>
+              <div className="px-3 py-2">SKU</div>
+              <div className="px-3 py-2">Item</div>
+              <div className="px-3 py-2 text-right">Qty</div>
+              <div className="px-3 py-2 text-right">Spend</div>
+              <div className="px-3 py-2 text-right">% cat</div>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              {categoryItems.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">No items.</div>
+              ) : categoryItems.map((r, i) => (
+                <div key={r.id} className={`grid items-center text-[12px] border-b border-border/40 ${i % 2 === 0 ? "bg-card" : "bg-muted/20"}`} style={{ gridTemplateColumns: "90px 1fr 70px 100px 70px" }}>
+                  <div className="px-3 py-2 font-mono text-muted-foreground truncate">{r.sku}</div>
+                  <div className="px-3 py-2 truncate">{r.name}</div>
+                  <div className="px-3 py-2 text-right tabular-nums">{r.qty.toLocaleString()}</div>
+                  <div className="px-3 py-2 text-right tabular-nums font-semibold">{fmtMoney(r.spend)}</div>
+                  <div className="px-3 py-2 text-right tabular-nums text-muted-foreground">{r.pct.toFixed(1)}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
