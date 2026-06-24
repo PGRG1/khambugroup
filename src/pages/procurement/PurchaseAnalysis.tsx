@@ -97,6 +97,43 @@ interface GrnItem {
   } | null;
 }
 
+// ---------- cost groups ----------
+type SalesRow = { date: string; total_sales: number | string; venue: string | null };
+
+const COST_GROUPS: { key: string; label: string; color: string; match: (cat: string) => boolean }[] = [
+  { key: "food", label: "Food cost %", color: "#22c55e", match: (c) => c.toLowerCase().includes("food") },
+  {
+    key: "beverage", label: "Bev cost %", color: "#0ea5e9",
+    match: (c) => {
+      const x = c.toLowerCase();
+      return x.includes("bev") || x.includes("drink") || x.includes("liquor") || x.includes("beer") || x.includes("wine");
+    },
+  },
+  {
+    key: "tobacco", label: "Tobacco cost %", color: "#a855f7",
+    match: (c) => {
+      const x = c.toLowerCase();
+      return x.includes("tobacco") || x.includes("smok") || x.includes("cigar");
+    },
+  },
+];
+
+function CostChip({ label, value, color, spend, revenue, hasSalesData }: {
+  label: string; value: number | null; color: string; spend: number; revenue: number; hasSalesData: boolean;
+}) {
+  const pct = value !== null ? `${value.toFixed(1)}%` : "—";
+  return (
+    <div className="bg-card px-4 py-3 flex flex-col gap-1">
+      <span className="text-[11px] text-muted-foreground font-medium">{label}</span>
+      <span className="text-xl font-semibold tabular-nums" style={{ color: value !== null ? color : "hsl(var(--muted-foreground))" }}>{pct}</span>
+      <span className="text-[10.5px] text-muted-foreground">
+        {fmtShort(spend)} spend{hasSalesData ? ` · ${fmtShort(revenue)} revenue` : " · no revenue data"}
+      </span>
+    </div>
+  );
+}
+
+
 // ---------- page ----------
 export default function PurchaseAnalysis() {
   const { tenantId } = useActiveTenant();
