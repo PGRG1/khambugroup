@@ -648,7 +648,12 @@ export default function PurchaseAnalysis() {
                 const pct = totalSpend > 0 ? (s.spend / totalSpend) * 100 : 0;
                 const change = s.prior > 0 ? ((s.spend - s.prior) / s.prior) * 100 : 0;
                 return (
-                  <div key={s.id} className={`flex items-center gap-3 py-1.5 px-2 rounded ${isTop3 ? "bg-amber-500/5" : ""}`}>
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => setSelectedSupplier({ id: s.id, name: s.name })}
+                    className={`w-full text-left flex items-center gap-3 py-1.5 px-2 rounded hover:bg-primary/5 transition-colors ${isTop3 ? "bg-amber-500/5" : ""}`}
+                  >
                     <div className="w-[120px] text-xs font-medium truncate">{s.name}</div>
                     <div className="flex-1 h-2 rounded-full bg-border overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${w}%`, backgroundColor: isTop3 ? AMBER : "hsl(var(--muted-foreground))" }} />
@@ -659,13 +664,81 @@ export default function PurchaseAnalysis() {
                       {s.prior === 0 ? "—" : fmtPct(change)}
                     </div>
                     <div className="w-[40px] text-right text-[10px] text-muted-foreground">{s.grnCount} GRN</div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Supplier drill-down */}
+      <Sheet open={!!selectedSupplier} onOpenChange={(o) => !o && setSelectedSupplier(null)}>
+        <SheetContent side="right" className="w-[640px] sm:max-w-[640px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{selectedSupplier?.name}</SheetTitle>
+            <SheetDescription>
+              {supplierGrns.length} GRN{supplierGrns.length === 1 ? "" : "s"} · {fmtMoney(supplierGrns.reduce((s, g) => s + g.spend, 0))} spend · {periodLabel}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 card-glass rounded-xl overflow-hidden">
+            <div className="grid bg-primary text-primary-foreground text-[12px] font-semibold" style={{ gridTemplateColumns: "110px 1fr 60px 80px 100px" }}>
+              <div className="px-3 py-2">Date</div>
+              <div className="px-3 py-2">Venue</div>
+              <div className="px-3 py-2 text-right">Lines</div>
+              <div className="px-3 py-2 text-right">Qty</div>
+              <div className="px-3 py-2 text-right">Spend</div>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto">
+              {supplierGrns.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">No GRNs.</div>
+              ) : supplierGrns.map((g, i) => (
+                <div key={g.grnId} className={`grid items-center text-[12px] border-b border-border/40 ${i % 2 === 0 ? "bg-card" : "bg-muted/20"}`} style={{ gridTemplateColumns: "110px 1fr 60px 80px 100px" }}>
+                  <div className="px-3 py-2 tabular-nums">{g.date ? new Date(g.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—"}</div>
+                  <div className="px-3 py-2 truncate">{g.venue || "—"}</div>
+                  <div className="px-3 py-2 text-right tabular-nums">{g.lines}</div>
+                  <div className="px-3 py-2 text-right tabular-nums">{g.qty.toLocaleString()}</div>
+                  <div className="px-3 py-2 text-right tabular-nums font-semibold">{fmtMoney(g.spend)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Category drill-down */}
+      <Dialog open={!!selectedCategory} onOpenChange={(o) => !o && setSelectedCategory(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{selectedCategory}</DialogTitle>
+            <DialogDescription>
+              {categoryItems.length} item{categoryItems.length === 1 ? "" : "s"} · {fmtMoney(categoryTotalSpend)} spend · {periodLabel}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="card-glass rounded-xl overflow-hidden">
+            <div className="grid bg-primary text-primary-foreground text-[12px] font-semibold" style={{ gridTemplateColumns: "90px 1fr 70px 100px 70px" }}>
+              <div className="px-3 py-2">SKU</div>
+              <div className="px-3 py-2">Item</div>
+              <div className="px-3 py-2 text-right">Qty</div>
+              <div className="px-3 py-2 text-right">Spend</div>
+              <div className="px-3 py-2 text-right">% cat</div>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              {categoryItems.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">No items.</div>
+              ) : categoryItems.map((r, i) => (
+                <div key={r.id} className={`grid items-center text-[12px] border-b border-border/40 ${i % 2 === 0 ? "bg-card" : "bg-muted/20"}`} style={{ gridTemplateColumns: "90px 1fr 70px 100px 70px" }}>
+                  <div className="px-3 py-2 font-mono text-muted-foreground truncate">{r.sku}</div>
+                  <div className="px-3 py-2 truncate">{r.name}</div>
+                  <div className="px-3 py-2 text-right tabular-nums">{r.qty.toLocaleString()}</div>
+                  <div className="px-3 py-2 text-right tabular-nums font-semibold">{fmtMoney(r.spend)}</div>
+                  <div className="px-3 py-2 text-right tabular-nums text-muted-foreground">{r.pct.toFixed(1)}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
