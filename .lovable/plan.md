@@ -1,74 +1,64 @@
-# Procurement Finance Page
+# Purchase Analysis Page
 
-A new read-only page giving procurement staff a complete financial view of supplier activity: spend, payables, and credits — all in one place. No changes to existing Finance pages.
+A new standalone procurement page giving spend analysis sourced from GRN data (not invoices). Surfaces KPIs, category breakdown + trend, top items, and supplier concentration.
 
 ---
 
 ## 1. Sidebar (`src/components/AppSidebar.tsx`)
 
-- Import `ReceiptText` from `lucide-react`.
-- Add `procurementFinance` array after `procurementAnalysis`:
-  ```ts
-  const procurementFinance = [
-    { title: "Spend Summary", url: "/procurement/finance", icon: ReceiptText },
-  ];
-  ```
-- Append `{ label: "Finance", items: procurementFinance }` to the procurement sub-group array (line ~345) so it renders below "Analysis" using the existing collapsible/styling pattern — no new markup needed.
+In the `procurementAnalysis` array, remove `disabled: true` from the Purchase Analysis entry so it becomes an active link to `/procurement/purchase-analysis`.
 
 ## 2. Route (`src/App.tsx`)
 
-- Import `ProcurementFinance` and add `<Route path="/procurement/finance" element={<ProcurementFinance />} />` alongside the other procurement routes.
+Import `PurchaseAnalysis` and register:
+```tsx
+<Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
+```
 
-## 3. New page `src/pages/procurement/ProcurementFinance.tsx`
+## 3. New page `src/pages/procurement/PurchaseAnalysis.tsx`
 
 ### Header
-- `<PageHeader>` title "Procurement Finance".
-- Period selector: month/year with prev/next arrows, default = current month.
-- Venue dropdown sourced from distinct `goods_received_notes.venue` (default "All venues").
+- `<PageHeader>` title "Purchase Analysis".
+- Period buttons (1M / 3M / 6M / 12M). 6M default. Active = amber `#E8820C` fill, white text. Inactive = `bg-secondary text-muted-foreground`.
+- Right-aligned filters: Venue (distinct `goods_received_notes.venue`) and Category (distinct `product_master.level1_category`), both with "All …" default.
 
-### Tabs (shadcn `Tabs`)
-1. **Spend Summary**
-2. **Supplier Payables**
-3. **Credits & Deposits**
+### Data layer
+- Use `useActiveTenant` for tenantId; fetch `suppliers` via `fetchAllRows` for id→name map.
+- Fetch `grn_items` with explicit FK hints `goods_received_notes!grn_id` and `product_master!product_master_id`, filtered by `tenant_id`. Refetch when period or venue changes.
+- Client-side `inScope` filter: `status='confirmed'`, `creates_stock_movement !== false`, `financial_treatment` not starting with `asset`, received_date in period, venue match, category match.
+- `lineValue = accepted_qty * unit_cost` per item.
+- Compute prior-period dataset with the same duration immediately before the selected window for comparisons.
 
-Active tab styled with amber underline + amber text. Section headers inside tabs use the existing uppercase/tracked muted style.
+### Section 1 — KPI cards (4)
+`KpiGrid` of: Net spend, vs prior period (red ↑ / green ↓), Top category (`$X · Y% of total`), Items purchased (`across N suppliers`).
 
-### Tab 1 — Spend Summary
-- **Data**: `grn_items` joined to `goods_received_notes` and `product_master`, scoped by tenant.
-  - **PostgREST join hint**: use the explicit FK hint `goods_received_notes!grn_id` (and `product_master!product_master_id`) when selecting nested relations, to avoid the relationship-conflict issue we fixed earlier.
-  - Net spend: `status='confirmed'`, `received_date` in period, `creates_stock_movement=true`, `financial_treatment NOT ILIKE 'Asset%'`, venue filter when set.
-  - Disputes: same filters but `status='disputed'`.
-  - Deductions: `invoice_line_items` with negative `unit_price` and `creates_stock_movement=false` (refunds), plus `credit_notes` with `status IN ('fully_applied','approved')`, both filtered by date in period.
-  - Last month: rerun the net-spend query for the previous month.
-- **4 KPI cards** (`KpiCard`/`KpiGrid`): Net spend, Refunds & credits (green), Disputes outstanding (amber), vs last month (up red / down green).
-- **Spend by category** table grouped by `product_master.level1_category` with This month / Last month / Change columns. Each row has a thin progress bar showing share of total.
-- **Deductions** section showing refunds and credit notes applied, followed by "NET SPEND <Month>".
-- **Disputes banner** (amber) when value > 0, linking to `/procurement/invoices?status=disputed`.
+### Section 2 — `grid-cols-[1.1fr_0.9fr] gap-3`
+**Left — Category breakdown**: per `level1_category`, two stacked horizontal bars (current full opacity, prior 40%) using palette `["#0ea5e9","#22c55e","#a855f7","#f59e0b","#ef4444","#06b6d4","#84cc16"]` cycled. Width proportional to max current spend. Sub-label: `■ This period: $X · ■ Last period: $X`. Sorted desc.
 
-### Tab 2 — Supplier Payables
-- Reuse `usePayables` hook as-is.
-- **4 KPI cards**: Total outstanding (amber), Overdue (red), Due this week (sky), Paid this month (green).
-- **Aging breakdown**: horizontal bar with 5 buckets (Current / 1-30 / 31-60 / 61-90 / 90+) coloured green / sky / amber / purple / red. Computed from `usePayables` open invoices using `age_days`.
-- **Supplier table** from `supplierSummary`: Supplier, Outstanding (amber if > 0), Open invoices, Oldest (red if > 60), Last invoice, Action (Pay → `RecordPaymentDialog`).
-- **Footer note** (muted): "Full payment management available in Finance → Accounts Payable →" linking to `/finance/payables`.
-- Mount `RecordPaymentDialog` and `PaymentHistoryDialog` from `@/components/finance/payables/*`.
+**Right — Spend trend** (recharts `LineChart`, 180px, `ResponsiveContainer`): monthly buckets across selected period. Lines = Total (amber #E8820C, strokeWidth 2, dots) + top 2 categories (assigned colour, strokeWidth 1.5, `strokeDasharray="4 2"`, no dots). Y axis uses `fmtShort`. Reuse `tooltipStyle/tooltipItemStyle/tooltipLabelStyle` from `ProcurementDashboardTab.tsx`. Legend above chart.
 
-### Tab 3 — Credits & Deposits
-**Section A — Credit Notes**
-- Fetch with `fetchAllRows('credit_notes', ...)` scoped by tenant.
-- **Also fetch `suppliers` via `fetchAllRows`** and build a `supplierMap` (id → name) to resolve `supplier_id` to a display name in the table — `credit_notes` only stores `supplier_id`.
-- Summary line: "Available credits: $X   Pending review: N".
-- Table: CN #, Supplier (from map), Date, Original, Remaining (amber if > 0), Status badge.
+### Section 3 — Top items table (full width)
+- Header: "Top items by spend" + search input + "Showing top N of total".
+- Top 20 by `lineValue` desc (after category filter if active).
+- Columns (widths as specified): # / SKU / Item / Category badge / Qty / Net spend / % of total / vs prior (red ↑ / green ↓) / Avg cost.
+- Row hover: `bg-primary/5` + 3px amber left border.
+- Inline search filters by item name or SKU.
+- Virtualized via `useVirtualizer` (same pattern as `ProcurementLineItemsTab.tsx`).
+- Wrapper: `card-glass rounded-xl overflow-hidden`, header row `bg-primary text-primary-foreground`.
 
-**Section B — Deposit Position** (all-time, not period-filtered)
-- Fetch `invoice_line_items` joined to `product_master` (treatment ILIKE `'Asset - Supplier Deposit%'`) and `invoices` (supplier). Reuse the `supplierMap` from Section A for names.
-- Group by supplier: `paid` = positive line totals; `returned` = abs of negatives; `net` = paid − returned.
-- Summary line + per-supplier table. Net column: amber if > 0, green if 0, red if negative.
-- Footer link → `/procurement/deposit-ledger`.
+### Section 4 — Supplier concentration (full width)
+Header + right-side insight `Top 3 suppliers = X% of spend`. Horizontal list (not table), one row per supplier sorted desc, max 10:
+```
+[name 120px] [progress flex-1] [spend 55px] [% 42px] [change 38px] [invoice count 30px]
+```
+Progress bar `h-2 rounded-full`. Fill amber for top 3, `bg-border` otherwise; width proportional to top supplier spend. Top 3 rows tinted `bg-amber-500/5`. Invoice count = distinct `grn_id` count for that supplier.
 
-## Styling & utilities
-- Dark zinc / `card-glass`, currency via `@/utils/format`, `StatusBadge`, `KpiCard`, `PageHeader`.
-- All Supabase reads tenant-scoped via `useActiveTenant` + `fetchAllRows` where pagination matters.
+### Shared patterns
+- `useActiveTenant`, `fetchAllRows`, formatters from `@/utils/format`.
+- Recharts constants and `fmtShort` mirrored from `ProcurementDashboardTab.tsx`.
+- CSV export button via `downloadCSV` on the Top items table.
 
-## Out of scope (unchanged)
-`src/pages/finance/Payables.tsx`, `usePayables`, `RecordPaymentDialog`, `PaymentHistoryDialog`, `credit_notes` schema, Deposit Ledger page, Credit & Debit Notes page.
+## Out of scope
+- No DB migration.
+- `ProcurementDashboardTab.tsx`, `ProcurementLineItemsTab.tsx`, and all other pages untouched.
+- Spend calculations never read `invoices` or `invoice_line_items`.
