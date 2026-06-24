@@ -493,6 +493,22 @@ export default function ProcurementInvoicesTab() {
       price_changed: typeof pmPrice === "number" && pmPrice > 0 ? Math.abs(currentPrice - pmPrice) > 0.01 : false,
       pm_unit_price: typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : undefined,
       supplier_entry_id: matchedProduct?.supplier_entry_id,
+      master_price: typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : undefined,
+      accepted_price: (() => {
+        const savedAcc = (line as any).accepted_price;
+        if (savedAcc != null && savedAcc !== "") return String(savedAcc);
+        if (typeof pmPrice === "number" && pmPrice > 0) return String(pmPrice);
+        return priceStr;
+      })(),
+      price_disputed: (() => {
+        const savedAcc = parseFloat(String((line as any).accepted_price ?? ""));
+        const acc = Number.isFinite(savedAcc) && savedAcc > 0
+          ? savedAcc
+          : (typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : currentPrice);
+        if (currentPrice === 0) return false;
+        return Math.round(acc * 100) !== Math.round(currentPrice * 100);
+      })(),
+      is_free_unit_line: !!(line as any).is_free_unit_line || (currentPrice === 0 && (parseFloat(qtyStr) || 0) > 0),
       accepted_qty: acceptedStr,
       accepted_qty_touched: savedAccepted != null,
       receiving_reason: receivingReason,
