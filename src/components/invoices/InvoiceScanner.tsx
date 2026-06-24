@@ -1978,7 +1978,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       </td>
                     </tr>
                   );
-                })}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
