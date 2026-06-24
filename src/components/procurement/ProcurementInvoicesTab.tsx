@@ -17,6 +17,7 @@ import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown,
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import { DisputeConfirmDialog, type DisputedLineSummary } from "@/components/invoices/DisputeConfirmDialog";
 import VoidInvoiceDialog from "@/components/invoices/VoidInvoiceDialog";
+import MarkResolvedDialog, { type ResolutionValue } from "@/components/invoices/MarkResolvedDialog";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
