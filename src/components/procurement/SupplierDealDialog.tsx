@@ -28,6 +28,7 @@ interface Props {
   purchaseUnit: string;
   stockUom: string;
   suppliers: { id: string; name: string }[];
+  lockedSupplierId?: string | null;
   existingDeals: { supplier_id: string; id: string }[];
   initial?: SupplierDealEditable | null;
   onSaved: () => void;
@@ -35,7 +36,7 @@ interface Props {
 
 export default function SupplierDealDialog({
   open, onOpenChange, productId, purchaseUnitCost, purchaseUnit, stockUom,
-  suppliers, existingDeals, initial, onSaved,
+  suppliers, lockedSupplierId, existingDeals, initial, onSaved,
 }: Props) {
   const { tenantId } = useActiveTenant();
   const { toast } = useToast();
