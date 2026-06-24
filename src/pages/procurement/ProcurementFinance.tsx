@@ -137,7 +137,7 @@ export default function ProcurementFinance() {
         </TabsContent>
 
         <TabsContent value="payables" className="mt-6">
-          <SupplierPayablesTab />
+          <SupplierPayablesTab tenantId={tenantId} venues={venues} />
         </TabsContent>
 
         <TabsContent value="credits" className="mt-6">
