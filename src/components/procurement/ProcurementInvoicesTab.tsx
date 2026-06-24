@@ -112,6 +112,7 @@ interface EditableInvoiceLine {
   unmatched: boolean;
   price_changed: boolean;
   pm_unit_price?: number;
+  supplier_entry_id?: string;
   accepted_qty: string;
   accepted_qty_touched: boolean;
   receiving_reason: string;
