@@ -1068,12 +1068,12 @@ export default function ProductMasterTab() {
                     </div>
                     <div>
                       <Label className="text-xs">Purchase UOM</Label>
-                      <UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case, Pack" legacyValues={legacyPurchaseUoms} />
+                      <UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case, Pack" />
                     </div>
                     <div><Label className="text-xs">Purchase Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
                     <div>
                       <Label className="text-xs">Stock UOM</Label>
-                      <UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle, Pack" legacyValues={legacyStockUoms} />
+                      <UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle, Pack" />
                     </div>
                     <div><Label className="text-xs">Stock Qty</Label><Input type="number" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm" /></div>
                     <div className="col-span-2 bg-muted/30 rounded-lg p-2">
@@ -1157,7 +1157,7 @@ export default function ProductMasterTab() {
                     </div>
                     <div>
                       <Label className="text-xs">Recipe UOM</Label>
-                      <UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml, ea" legacyValues={legacyBaseUoms} />
+                      <UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml, ea" />
                     </div>
                     <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
                     <div className="col-span-2 bg-muted/30 rounded-lg p-2">
