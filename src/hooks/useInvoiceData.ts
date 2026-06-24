@@ -44,6 +44,10 @@ export interface InvoiceLineItem {
   qty_difference?: number | null;
   receiving_reason?: string | null;
   receiving_note?: string | null;
+  accepted_price?: number | null;
+  price_disputed?: boolean | null;
+  is_free_unit_line?: boolean | null;
+  deal_id?: string | null;
 }
 
 export interface Invoice {
