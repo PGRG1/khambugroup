@@ -726,8 +726,15 @@ export default function ProcurementInvoicesTab() {
         }
       }
 
-      if (field === "unit_price" && nextLine.pm_unit_price) {
-        nextLine.price_changed = Math.abs((parseFloat(value) || 0) - nextLine.pm_unit_price) > 0.01;
+      if (field === "unit_price") {
+        const p = parseFloat(value) || 0;
+        if (nextLine.pm_unit_price) {
+          nextLine.price_changed = Math.abs(p - nextLine.pm_unit_price) > 0.01;
+        }
+        const acc = parseFloat(nextLine.accepted_price || "") || 0;
+        nextLine.price_disputed = !nextLine.is_free_unit_line && p > 0 && acc > 0
+          && Math.round(p * 100) !== Math.round(acc * 100);
+        nextLine.is_free_unit_line = p === 0 && (parseFloat(nextLine.quantity) || 0) > 0;
       }
 
       if (field === "item_code" || field === "description") {
@@ -740,6 +747,7 @@ export default function ProcurementInvoicesTab() {
         nextLine.matched_purchase_uom = "";
         nextLine.matched_stock_qty_ratio = 1;
         nextLine.pm_unit_price = undefined;
+        nextLine.master_price = undefined;
         nextLine.price_changed = false;
         nextLine.unmatched = Boolean((nextLine.item_code || "").trim() || (nextLine.description || "").trim());
       }
