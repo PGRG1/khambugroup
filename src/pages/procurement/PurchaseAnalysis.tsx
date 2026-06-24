@@ -143,6 +143,7 @@ export default function PurchaseAnalysis() {
   const [rows, setRows] = useState<GrnItem[]>([]);
   const [priorRows, setPriorRows] = useState<GrnItem[]>([]);
   const [suppliersMap, setSuppliersMap] = useState<Map<string, string>>(new Map());
+  const [salesRows, setSalesRows] = useState<SalesRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
