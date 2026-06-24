@@ -12,6 +12,7 @@ import { ROUNDING_MODE_LABELS, type RoundingMode } from "@/utils/invoiceRounding
 
 export interface SupplierLike {
   id: string;
+  code: string | null;
   name: string;
   contact_person: string | null;
   email: string | null;
