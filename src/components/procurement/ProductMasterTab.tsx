@@ -126,6 +126,45 @@ export default function ProductMasterTab() {
   const [duplicateSku, setDuplicateSku] = useState<string | null>(null);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
 
+  // Supplier deals (within edit panel)
+  const [deals, setDeals] = useState<SupplierDealRow[]>([]);
+  const [dealDialogOpen, setDealDialogOpen] = useState(false);
+  const [editingDeal, setEditingDeal] = useState<SupplierDealEditable | null>(null);
+
+  const loadDeals = useCallback(async (productId: string) => {
+    if (!tenantId || !productId) { setDeals([]); return; }
+    const { data } = await supabase
+      .from("item_supplier_deals" as any)
+      .select("id, supplier_id, buy_qty, free_qty, notes, is_active")
+      .eq("tenant_id", tenantId)
+      .eq("product_id", productId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
+    setDeals(((data as any[]) || []) as SupplierDealRow[]);
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (dialogOpen && editingProductId) {
+      loadDeals(editingProductId);
+    } else if (!dialogOpen) {
+      setDeals([]);
+    }
+  }, [dialogOpen, editingProductId, loadDeals]);
+
+  const handleDeleteDeal = async (dealId: string) => {
+    if (!tenantId) return;
+    const { error } = await supabase
+      .from("item_supplier_deals" as any)
+      .update({ is_active: false })
+      .eq("id", dealId)
+      .eq("tenant_id", tenantId);
+    if (error) {
+      toast({ title: "Could not delete deal", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (editingProductId) loadDeals(editingProductId);
+  };
+
   useEffect(() => {
     supabase.from("suppliers").select("id, name").eq("is_active", true).order("name").then(({ data }) => {
       setDbSuppliers((data || []) as { id: string; name: string }[]);
