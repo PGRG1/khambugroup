@@ -234,6 +234,7 @@ export default function ProcurementInvoicesTab() {
   const [grnItemsForInvoice, setGrnItemsForInvoice] = useState<any[]>([]);
   const [invoiceVarianceMap, setInvoiceVarianceMap] = useState<Record<string, boolean>>({});
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
+  const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
