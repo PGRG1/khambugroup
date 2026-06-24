@@ -12,6 +12,8 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { usePayables, type APInvoice } from "@/hooks/usePayables";
 import { RecordPaymentDialog } from "@/components/finance/payables/RecordPaymentDialog";
 import { PaymentHistoryDialog } from "@/components/finance/payables/PaymentHistoryDialog";
+import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNoteDialog";
+import { SupplierLedgerSheet } from "@/components/procurement/SupplierLedgerSheet";
 
 // ---------- format helpers ----------
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
