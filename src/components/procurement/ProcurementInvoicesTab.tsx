@@ -852,6 +852,10 @@ export default function ProcurementInvoicesTab() {
         price_disputed: typeof product.purchase_unit_cost === "number" && product.purchase_unit_cost > 0
           ? Math.abs((parseFloat(currentLine.unit_price) || 0) - product.purchase_unit_cost) > 0.01
           : false,
+        is_free_unit_line: parseFloat(currentLine.unit_price) === 0 && (parseFloat(currentLine.quantity) || 0) > 0,
+        deal_id: parseFloat(currentLine.unit_price) === 0
+          ? (findDealForProduct(activeDeals, product.id)?.id ?? null)
+          : null,
       };
       updated[idx] = nextLine;
       return updated;
