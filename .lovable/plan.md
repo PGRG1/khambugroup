@@ -1,82 +1,126 @@
 ## Goal
 
-Two narrow additions to the invoice workflow:
+Redesign the invoice list in `ProcurementInvoicesTab.tsx` around the new dispute lifecycle: a single Status badge, dedicated Reason / Resolution / Actions columns for disputed rows, and a four-card stat strip. Scanner, GRN logic, and the detail/edit view stay untouched.
 
-1. Let users confirm an invoice **even when disputed lines exist** — GRN still uses accepted values, the disputed amount is captured on the invoice for follow-up.
-2. Let users **void** an invoice that has not yet been confirmed (no GRN), with a required reason.
+## Live-data notes
 
-No changes to GRN logic, accepted price/qty logic, the parse-invoice edge function, or the scanner line-item table.
+- `invoices.has_disputes` and `invoices.disputed_amount` already exist — do **not** re-add.
+- Live `invoices.status` values today are only `disputed`, `paid`, `unpaid`. `approved` and `voided` are valid per the check constraint but historically absent; UI must not assume they exist.
 
-## Status mapping
+## 1. Migration
 
-Codebase uses `'approved'` as the confirmation state that triggers GRN creation. I'll treat **`approved` = confirmed** — no new "confirmed" status. Verified existing `invoices.status` values: only `disputed`, `paid`, `unpaid` exist today, all covered by the new constraint.
-
-## 1. Database migration
+Add one nullable column to `invoices`:
 
 ```sql
-ALTER TABLE public.invoices
-  ADD COLUMN IF NOT EXISTS has_disputes      boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS disputed_amount   numeric(12,2) NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS void_reason       text,
-  ADD COLUMN IF NOT EXISTS voided_at         timestamptz,
-  ADD COLUMN IF NOT EXISTS voided_by         uuid;
-
-ALTER TABLE public.invoices DROP CONSTRAINT invoices_status_check;
-ALTER TABLE public.invoices ADD CONSTRAINT invoices_status_check
-  CHECK (status = ANY (ARRAY['pending','verified','approved','paid','unpaid',
-                             'overdue','cancelled','disputed','voided']));
+alter table public.invoices
+  add column if not exists dispute_resolution text
+  check (dispute_resolution in ('credit_note','qty_received','resolved'));
 ```
 
-## 2. Dispute summary modal (Invoice Scanner + Edit Invoice)
+Extend `Invoice` in `src/hooks/useInvoiceData.ts` with `dispute_resolution?: 'credit_note' | 'qty_received' | 'resolved' | null` and let `updateInvoice` pass it through.
 
-On **Approve & Save** (`InvoiceScanner.tsx` `handleSaveCurrent` and `ProcurementInvoicesTab.tsx` edit-save):
+## 2. Column structure
 
-- Disputed lines: `(price_disputed === true || accepted_qty < quantity) && !is_free_unit_line`.
-- `disputed_amount = Σ (unit_price·quantity − accepted_price·accepted_qty)` (signed; negative = supplier over-billed).
-- None → existing flow unchanged.
-- Any → open new `DisputeConfirmDialog`:
-  - Title: "Confirm with disputes?"
-  - Table: Item · Inv. price · Acc. price · Inv. qty · Acc. qty · Variance, plus total row.
-  - Muted note: "Cost and inventory will be posted using accepted quantities and prices. The disputed amount will be tracked for follow-up with the supplier."
-  - Buttons: **Confirm anyway** (amber/primary) · **Go back**.
-- On confirm-anyway: run existing approve path and additionally persist `has_disputes=true`, `disputed_amount=<computed>`. GRN path untouched.
+Replace the existing table columns in `ProcurementInvoicesTab.tsx` with exactly:
 
-## 3. Invoice list — dispute badge & filter
+```text
+Date 7% | Invoice # 14% | Supplier 17% | Venue 8% | Amount 10% (right) |
+Status 10% | Reason 12% | Resolution 11% | Actions 11%
+```
 
-`ProcurementInvoicesTab.tsx`:
+- Remove the `Payment Status` column and the `Review Status` / `Issue / Exception` selectors.
+- Amount: right-aligned `HK$ X,XXX.XX` via existing `@/utils/format`.
+- Invoice # remains the click target for the detail sheet; row click stays the same.
+- Voided rows render at 45% opacity and the Actions cell is a muted dash (view-only).
 
-- Where `has_disputes`, render amber **Disputed** chip next to the existing status chip (status stays Approved/emerald). No new column.
-- Tooltip: `Disputed: HK$ X.XX — pending credit note`.
-- Add "Disputed" filter option → `status='approved' AND has_disputes=true`.
+## 3. Status badge
 
-## 4. Void flow
+Single badge derived from `inv.status`:
 
-Eligibility: `status NOT IN ('approved','paid','voided','cancelled')` — before any GRN exists.
+- `approved` → green "✓ Approved"
+- `voided` → grey "⊘ Voided"
+- `has_disputes` true (typically `status='disputed'`) → amber/red "⚠ Disputed"
+- `paid` / `unpaid` / any other legacy value → neutral grey chip with the raw status label, so historical rows render cleanly and never crash.
 
-- Add **Void invoice** to the existing row action menu and to the scanner/editor action area when eligible.
-- `VoidInvoiceDialog`:
-  - Required reason textarea (placeholder: `e.g. Supplier sending corrected invoice`).
-  - Muted-red warning: "This cannot be undone. No GRN will be created for this invoice."
-  - **Void invoice** (destructive, disabled until reason non-empty) · **Cancel**.
-- On confirm: `status='voided'`, `void_reason`, `voided_at=now()`, `voided_by=auth.uid()`. No GRN side-effects.
+No "Under Review", "Verified", "Exceptions", or "Duplicates" anywhere.
 
-List behaviour:
+## 4. Reason column (disputed rows only)
 
-- Voided rows: grey "Voided" chip, row text at reduced opacity.
-- Hidden by default; **Show voided** toggle in the filter bar surfaces them.
-- When shown, row is read-only (view only).
+Compute from `invoice_line_items` per invoice:
 
-## 5. Files touched
+- Alongside `fetchAll`, run a single tenant-scoped `fetchAllRows("invoice_line_items", "invoice_id, price_disputed, quantity, accepted_qty, is_free_unit_line", ...)` and aggregate per `invoice_id` into `{ hasPrice, hasShortQty }`. Keyed off `has_disputes=true` invoices.
+- Badge rules:
+  - price only → "Price" (`bg-[#FAEEDA] text-[#633806]`)
+  - qty only → "Short qty" (same amber palette)
+  - both → "Price + qty" (`bg-[#FCEBEB] text-[#791F1F]`)
+- Non-disputed rows → muted dash.
 
-- New migration — section 1.
-- `src/components/invoices/InvoiceScanner.tsx` — dispute detection + modal trigger on confirm; persist `has_disputes`/`disputed_amount`.
-- `src/components/invoices/DisputeConfirmDialog.tsx` — new.
-- `src/components/invoices/VoidInvoiceDialog.tsx` — new.
-- `src/components/procurement/ProcurementInvoicesTab.tsx` — same dispute trigger in edit-save, list badge + tooltip, filter additions, void menu item, voided-row styling, "Show voided" toggle.
-- `src/hooks/useInvoiceData.ts` — extend `Invoice` interface with the new fields and allow them through `updateInvoice`.
+## 5. Resolution column (disputed rows only)
+
+Driven by `dispute_resolution`:
+
+- `null` → amber "HK$ X,XXX pending" using `disputed_amount`
+- `credit_note` → blue "Credit note" with `FileText` icon
+- `qty_received` → green "Qty received" with `Check` icon
+- `resolved` → green "Resolved" with `Check` icon
+
+Non-disputed rows → muted dash.
+
+## 6. Actions column
+
+- Disputed + `dispute_resolution == null`: two outline buttons inline:
+  - **Mark resolved** — green outline (`border-[#3B6D11] text-[#27500A] hover:bg-[#EAF3DE]`), opens the new `MarkResolvedDialog`.
+  - **Void** — default outline, opens the existing `VoidInvoiceDialog`.
+- Disputed + resolution set → muted "Done".
+- All other rows (including voided) → muted dash.
+
+Both buttons `stopPropagation` so the detail sheet doesn't open.
+
+## 7. New `MarkResolvedDialog`
+
+New file `src/components/invoices/MarkResolvedDialog.tsx`:
+
+- Title "Mark invoice resolved".
+- Required resolution select: Credit note received → `credit_note`, Qty received from supplier → `qty_received`, Other → `resolved`.
+- Optional note textarea (placeholder "e.g. Credit note CN-0041 received from Jebsen"); appended to the invoice's existing `notes` field on save with a timestamped "Dispute resolved:" prefix (no new column).
+- Confirm (amber primary) calls back with `{ resolution, note }`; tab calls `updateInvoice(id, { dispute_resolution, notes })` and refreshes.
+- Cancel closes with no changes.
+
+## 8. Stat cards
+
+Exactly four cards, replacing the existing strip:
+
+| Card | Value | Sub-label |
+| --- | --- | --- |
+| Approved | count where `status='approved'` | "confirmed clean" |
+| Disputed | count where `has_disputes=true` | `HK$ X,XXX pending` (sum `disputed_amount` where `dispute_resolution is null`) |
+| Voided | count where `status='voided'` | "—" |
+| Total value | sum of `total_amount` across all invoices | "all time" |
+
+Remove Total Invoices, Under Review, Exceptions, Duplicates.
+
+## 9. Filter bar
+
+Status chips collapse to **All · Approved · Disputed · Voided**:
+
+- All: everything (voided rows included at 45% opacity).
+- Approved: `status='approved'`.
+- Disputed: `has_disputes=true`.
+- Voided: `status='voided'`.
+
+Remove `reviewStatusFilter`, `exceptionNoteFilter`, and the `showVoided` toggle plus their plumbing into `InvoiceFilters`. Keep supplier/venue/month dropdowns and the search box.
+
+## 10. Files touched
+
+- Migration — section 1 column only.
+- `src/hooks/useInvoiceData.ts` — extend `Invoice` type.
+- `src/components/procurement/ProcurementInvoicesTab.tsx` — column/header rewrite, stat cards, filter chips, action wiring, dispute-summary fetch, removal of review/exception state.
+- `src/components/invoices/MarkResolvedDialog.tsx` — new.
 
 ## Out of scope
 
-- No changes to GRN creation, accepted price/qty math, scanner line-item columns, or the parse-invoice edge function.
-- No automatic credit-note creation from disputed amounts.
-- No GRN reversal — void is pre-confirmation only.
+- Invoice scanner (`InvoiceScanner.tsx`) untouched.
+- GRN creation, accepted-price logic, edit/detail sheet behaviour untouched.
+- No new pages, routes, or sidebar entries.
+- `VoidInvoiceDialog` reused as-is.
+- No re-adding of `has_disputes` / `disputed_amount`.
