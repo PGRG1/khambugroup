@@ -513,6 +513,7 @@ export default function ProcurementInvoicesTab() {
         return Math.round(acc * 100) !== Math.round(currentPrice * 100);
       })(),
       is_free_unit_line: !!(line as any).is_free_unit_line || (currentPrice === 0 && (parseFloat(qtyStr) || 0) > 0),
+      deal_id: ((line as any).deal_id as string | null) ?? null,
       accepted_qty: acceptedStr,
       accepted_qty_touched: savedAccepted != null,
       receiving_reason: receivingReason,
