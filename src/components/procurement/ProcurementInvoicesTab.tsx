@@ -1443,6 +1443,52 @@ export default function ProcurementInvoicesTab() {
                           </>
                         );
                       })()}
+                      {/* Status chip */}
+                      <td className="px-1 py-1 align-top">
+                        {(() => {
+                          const s = getLineStatus({
+                            description: line.description,
+                            item_code: line.item_code,
+                            unit: line.unit,
+                            quantity: line.quantity,
+                            unit_price: line.unit_price,
+                            matched_sku: line.matched_sku,
+                            matched_internal_name: line.matched_internal_name,
+                            unmatched: line.unmatched && !!line.description.trim(),
+                            price_changed: line.price_changed,
+                            price_disputed: line.price_disputed,
+                            is_free_unit_line: line.is_free_unit_line,
+                            accepted_qty: line.accepted_qty,
+                          });
+                          return <LineStatusChip variant={s.variant} label={s.label} />;
+                        })()}
+                      </td>
+                      {/* Action: show match info tooltip */}
+                      <td className="px-1 py-1 align-top">
+                        {line.matched_sku ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="text-[10px] underline text-muted-foreground hover:text-foreground">
+                                  Details
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[260px] text-xs">
+                                <p><strong>SKU:</strong> {line.matched_sku}</p>
+                                <p><strong>Name:</strong> {line.matched_internal_name}</p>
+                                {line.pm_unit_price !== undefined && (
+                                  <p><strong>Master price:</strong> ${line.pm_unit_price.toFixed(2)}</p>
+                                )}
+                                {line.price_disputed && (
+                                  <p className="text-amber-500">Price dispute: accepted ≠ invoiced</p>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : line.unmatched && line.description.trim() ? (
+                          <Badge className="bg-destructive/15 text-destructive-foreground text-[9px]">Unmatched</Badge>
+                        ) : null}
+                      </td>
                       <td className="px-1 py-1 align-top">
                         {editLines.length > 1 && (
                           <Button size="icon" variant="ghost" onClick={() => removeEditLine(index)} className="h-8 w-8">
