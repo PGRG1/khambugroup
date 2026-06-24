@@ -167,9 +167,14 @@ export default function SupplierSheet({ supplier, open, onOpenChange, onEdit, on
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-[700px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-3">
+          <SheetTitle className="flex items-center gap-3 flex-wrap">
             <Building2 className="h-5 w-5 text-muted-foreground" />
             {supplier.name}
+            {supplier.code && (
+              <span className="text-xs font-mono text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+                {supplier.code}
+              </span>
+            )}
             <Badge variant={supplier.is_active ? "default" : "secondary"}>
               {supplier.is_active ? "Active" : "Inactive"}
             </Badge>
