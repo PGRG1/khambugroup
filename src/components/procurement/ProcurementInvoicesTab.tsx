@@ -485,6 +485,7 @@ export default function ProcurementInvoicesTab() {
       unmatched: !matchedProduct && Boolean((line.description || "").trim()),
       price_changed: typeof pmPrice === "number" && pmPrice > 0 ? Math.abs(currentPrice - pmPrice) > 0.01 : false,
       pm_unit_price: typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : undefined,
+      supplier_entry_id: matchedProduct?.supplier_entry_id,
       accepted_qty: acceptedStr,
       accepted_qty_touched: savedAccepted != null,
       receiving_reason: receivingReason,
