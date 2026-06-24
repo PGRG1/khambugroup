@@ -28,6 +28,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { BaniScanSummary } from "@/components/invoices/ai/BaniScanSummary";
 import { runBaniScan } from "@/lib/baniRunScan";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
+import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 
 const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
 const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review", "Disputed"] as const;
@@ -117,6 +119,7 @@ interface EditableInvoiceLine {
   master_price?: number;
   price_disputed: boolean;
   is_free_unit_line: boolean;
+  deal_id: string | null;
   accepted_qty: string;
   accepted_qty_touched: boolean;
   receiving_reason: string;
@@ -147,6 +150,7 @@ const emptyEditLine: EditableInvoiceLine = {
   accepted_price: "",
   price_disputed: false,
   is_free_unit_line: false,
+  deal_id: null,
   accepted_qty: "1",
   accepted_qty_touched: false,
   receiving_reason: "matched",
@@ -230,6 +234,7 @@ export default function ProcurementInvoicesTab() {
   const [grnItemsForInvoice, setGrnItemsForInvoice] = useState<any[]>([]);
   const [invoiceVarianceMap, setInvoiceVarianceMap] = useState<Record<string, boolean>>({});
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
+  const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
@@ -280,6 +285,13 @@ export default function ProcurementInvoicesTab() {
   }, []);
 
   useEffect(() => { loadProductMaster(); }, [loadProductMaster]);
+
+  // Load active supplier deals when editing and supplier changes
+  useEffect(() => {
+    const sid = editForm.supplier_id || selectedInvoice?.supplier_id;
+    if (!sid || !tenantId || !editing) { setActiveDeals([]); return; }
+    fetchActiveDealsForSupplier(sid, tenantId).then(setActiveDeals);
+  }, [editing, editForm.supplier_id, selectedInvoice?.supplier_id, tenantId]);
 
 
   const openAttachmentViewer = (fileUrl: string, invoiceNumber: string) => {
@@ -509,6 +521,7 @@ export default function ProcurementInvoicesTab() {
         return Math.round(acc * 100) !== Math.round(currentPrice * 100);
       })(),
       is_free_unit_line: !!(line as any).is_free_unit_line || (currentPrice === 0 && (parseFloat(qtyStr) || 0) > 0),
+      deal_id: ((line as any).deal_id as string | null) ?? null,
       accepted_qty: acceptedStr,
       accepted_qty_touched: savedAccepted != null,
       receiving_reason: receivingReason,
@@ -667,6 +680,7 @@ export default function ProcurementInvoicesTab() {
         accepted_price: (() => { const v = parseFloat(line.accepted_price || ""); return Number.isFinite(v) && v >= 0 ? v : null; })(),
         price_disputed: !!line.price_disputed,
         is_free_unit_line: !!line.is_free_unit_line,
+        deal_id: line.deal_id ?? null,
       } as any;
     });
 
@@ -738,6 +752,11 @@ export default function ProcurementInvoicesTab() {
         nextLine.price_disputed = !nextLine.is_free_unit_line && p > 0 && acc > 0
           && Math.round(p * 100) !== Math.round(acc * 100);
         nextLine.is_free_unit_line = p === 0 && (parseFloat(nextLine.quantity) || 0) > 0;
+        if (nextLine.is_free_unit_line && nextLine.product_master_id) {
+          nextLine.deal_id = findDealForProduct(activeDeals, nextLine.product_master_id)?.id ?? null;
+        } else if (!nextLine.is_free_unit_line) {
+          nextLine.deal_id = null;
+        }
       }
 
       if (field === "item_code" || field === "description") {
@@ -833,6 +852,10 @@ export default function ProcurementInvoicesTab() {
         price_disputed: typeof product.purchase_unit_cost === "number" && product.purchase_unit_cost > 0
           ? Math.abs((parseFloat(currentLine.unit_price) || 0) - product.purchase_unit_cost) > 0.01
           : false,
+        is_free_unit_line: parseFloat(currentLine.unit_price) === 0 && (parseFloat(currentLine.quantity) || 0) > 0,
+        deal_id: parseFloat(currentLine.unit_price) === 0
+          ? (findDealForProduct(activeDeals, product.id)?.id ?? null)
+          : null,
       };
       updated[idx] = nextLine;
       return updated;
@@ -962,6 +985,21 @@ export default function ProcurementInvoicesTab() {
     return { disputedLines, missingReason, missingNote, hasDispute: disputedLines > 0 };
   }, [editLines]);
 
+  const missingDeals = useMemo(() => {
+    if (!editing || activeDeals.length === 0) return [];
+    return computeMissingDeals(
+      activeDeals,
+      editLines.map((l) => ({
+        product_master_id: l.product_master_id || null,
+        quantity: parseFloat(l.quantity) || 0,
+        unit_price: parseFloat(l.unit_price) || 0,
+        is_free_unit_line: !!l.is_free_unit_line,
+        matched_internal_name: l.matched_internal_name,
+        description: l.description,
+      })),
+    );
+  }, [editing, editLines, activeDeals]);
+
   const previousStatusRef = useRef<string | null>(null);
   useEffect(() => {
     if (!editing) return;
@@ -1009,7 +1047,7 @@ export default function ProcurementInvoicesTab() {
         </div>
 
         <div className="rounded-2xl border bg-background p-4 md:p-6 space-y-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
             <div>
               <Label className="text-xs">Supplier</Label>
               <Select value={editForm.supplier_id || ""} onValueChange={(value) => setEditForm((form) => ({ ...form, supplier_id: value }))}>
@@ -1035,6 +1073,27 @@ export default function ProcurementInvoicesTab() {
                   <SelectItem value="Hanabi">Hanabi</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Status</Label>
+              <Select value={(editForm.status as string) || ""} onValueChange={(value) => setEditForm((form) => ({ ...form, status: value }))}>
+                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Outstanding</SelectItem>
+                  <SelectItem value="unpaid">Unpaid</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="verified">Under Review</SelectItem>
+                  <SelectItem value="disputed">Disputed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              {editDisputeStats.hasDispute && (
+                <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span>Quantity differences detected — status set to Disputed.</span>
+                </div>
+              )}
             </div>
             <div>
               <Label className="text-xs">Invoice Date</Label>
@@ -1071,6 +1130,19 @@ export default function ProcurementInvoicesTab() {
             </div>
           )}
 
+          {missingDeals.length > 0 && (
+            <div className="space-y-1">
+              {missingDeals.map((m, idx) => (
+                <div key={idx} className="flex items-start gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    Deal not fully applied: <strong>{m.productName}</strong> — expected {m.expectedFree} free unit{m.expectedFree === 1 ? "" : "s"} ({m.deal.buy_qty}+{m.deal.free_qty} deal with {getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id)}). Check with supplier.
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
             <table className="w-full min-w-[1810px] border-collapse text-xs">
@@ -1094,6 +1166,8 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Discount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Invoiced Amount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Accepted Amount</th>
+                  <th className="w-[100px] px-1 py-1.5 text-left font-medium text-muted-foreground">Status</th>
+                  <th className="w-[80px] px-1 py-1.5 text-left font-medium text-muted-foreground">Action</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
@@ -1267,9 +1341,15 @@ export default function ProcurementInvoicesTab() {
                       {/* Acc. price */}
                       <td className="px-1 py-1 align-top">
                         {line.is_free_unit_line ? (
-                          <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap">
-                            Zero — unlinked
-                          </div>
+                          (() => {
+                            const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
+                            const supName = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id || null);
+                            return (
+                              <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap">
+                                {deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero — unlinked"}
+                              </div>
+                            );
+                          })()
                         ) : line.master_price == null ? (
                           <div className="h-8 flex flex-col justify-center px-1">
                             <Input
@@ -1295,6 +1375,17 @@ export default function ProcurementInvoicesTab() {
                                   className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
                                 />
                                 <span className="text-[9px] text-muted-foreground whitespace-nowrap">Master: ${(line.master_price as number).toFixed(2)}</span>
+                                {(() => {
+                                  const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
+                                  const accNumE = parseFloat(line.accepted_price || "");
+                                  if (!deal || !Number.isFinite(accNumE)) return null;
+                                  const effective = (deal.buy_qty * accNumE) / (deal.buy_qty + deal.free_qty);
+                                  return (
+                                    <span className="text-[9px] text-blue-500 whitespace-nowrap">
+                                      Eff: ${effective.toFixed(2)}
+                                    </span>
+                                  );
+                                })()}
                                 {differsFromMaster && line.product_master_id && (
                                   <button
                                     type="button"
@@ -1369,6 +1460,52 @@ export default function ProcurementInvoicesTab() {
                           </>
                         );
                       })()}
+                      {/* Status chip */}
+                      <td className="px-1 py-1 align-top">
+                        {(() => {
+                          const s = getLineStatus({
+                            description: line.description,
+                            item_code: line.item_code,
+                            unit: line.unit,
+                            quantity: line.quantity,
+                            unit_price: line.unit_price,
+                            matched_sku: line.matched_sku,
+                            matched_internal_name: line.matched_internal_name,
+                            unmatched: line.unmatched && !!line.description.trim(),
+                            price_changed: line.price_changed,
+                            price_disputed: line.price_disputed,
+                            is_free_unit_line: line.is_free_unit_line,
+                            accepted_qty: line.accepted_qty,
+                          });
+                          return <LineStatusChip variant={s.variant} label={s.label} />;
+                        })()}
+                      </td>
+                      {/* Action: show match info tooltip */}
+                      <td className="px-1 py-1 align-top">
+                        {line.matched_sku ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="text-[10px] underline text-muted-foreground hover:text-foreground">
+                                  Details
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[260px] text-xs">
+                                <p><strong>SKU:</strong> {line.matched_sku}</p>
+                                <p><strong>Name:</strong> {line.matched_internal_name}</p>
+                                {line.pm_unit_price !== undefined && (
+                                  <p><strong>Master price:</strong> ${line.pm_unit_price.toFixed(2)}</p>
+                                )}
+                                {line.price_disputed && (
+                                  <p className="text-amber-500">Price dispute: accepted ≠ invoiced</p>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : line.unmatched && line.description.trim() ? (
+                          <Badge className="bg-destructive/15 text-destructive-foreground text-[9px]">Unmatched</Badge>
+                        ) : null}
+                      </td>
                       <td className="px-1 py-1 align-top">
                         {editLines.length > 1 && (
                           <Button size="icon" variant="ghost" onClick={() => removeEditLine(index)} className="h-8 w-8">
