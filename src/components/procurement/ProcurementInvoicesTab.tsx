@@ -1304,7 +1304,8 @@ export default function ProcurementInvoicesTab() {
               });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
-              const docTotal = invSub;
+              const docTotal = Number((editForm as any).total_amount ?? selectedInvoice?.total_amount ?? 0) || 0;
+              const docDiff = invSub - docTotal;
               return (
                 <>
                   <div>
