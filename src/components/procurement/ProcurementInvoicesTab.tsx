@@ -1829,18 +1829,15 @@ interface InvoiceTableSectionProps {
 
 function StatusBadge({ inv }: { inv: Invoice }) {
   const s = (inv.status || "").toLowerCase();
-  if (s === "approved") {
-    return <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] px-1.5 py-0">✓ Approved</Badge>;
-  }
   if (s === "voided") {
     return <Badge className="bg-zinc-700/30 text-zinc-400 border border-zinc-600/30 text-[10px] px-1.5 py-0">⊘ Voided</Badge>;
   }
   if ((inv as any).has_disputes) {
     return <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">⚠ Disputed</Badge>;
   }
-  if (!inv.status) return <span className="text-[10px] text-muted-foreground">—</span>;
-  return <Badge className={`capitalize text-[10px] px-1.5 py-0 ${NEUTRAL_STATUS_CHIP}`}>{inv.status}</Badge>;
+  return <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] px-1.5 py-0">✓ Approved</Badge>;
 }
+
 
 function ReasonBadge({ info }: { info?: DisputeReasonInfo }) {
   if (!info) return <span className="text-[10px] text-muted-foreground">—</span>;
