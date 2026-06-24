@@ -338,6 +338,47 @@ export default function PurchaseAnalysis() {
 
   const maxSupplierSpend = Math.max(1, ...supplierAgg.map((s) => s.spend));
 
+  // ---------- Drill-downs ----------
+  const [selectedSupplier, setSelectedSupplier] = useState<{ id: string; name: string } | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  const supplierGrns = useMemo(() => {
+    if (!selectedSupplier) return [] as { grnId: string; date: string | null; venue: string | null; lines: number; qty: number; spend: number }[];
+    const map = new Map<string, { grnId: string; date: string | null; venue: string | null; lines: number; qty: number; spend: number }>();
+    for (const it of scoped) {
+      const sid = it.goods_received_notes?.supplier_id || "—";
+      if (sid !== selectedSupplier.id) continue;
+      const gid = it.grn_id || "—";
+      const e = map.get(gid) || { grnId: gid, date: it.goods_received_notes?.received_date || null, venue: it.goods_received_notes?.venue || null, lines: 0, qty: 0, spend: 0 };
+      e.lines += 1;
+      e.qty += it.accepted_qty || 0;
+      e.spend += lineValue(it);
+      map.set(gid, e);
+    }
+    return Array.from(map.values()).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  }, [selectedSupplier, scoped]);
+
+  const categoryItems = useMemo(() => {
+    if (!selectedCategory) return [] as { id: string; sku: string; name: string; qty: number; spend: number; pct: number }[];
+    const map = new Map<string, { id: string; sku: string; name: string; qty: number; spend: number }>();
+    let total = 0;
+    for (const it of scoped) {
+      const cat = it.product_master?.level1_category || "Uncategorised";
+      if (cat !== selectedCategory) continue;
+      const id = it.product_master_id || "unmatched";
+      const v = lineValue(it);
+      total += v;
+      const cur = map.get(id);
+      if (cur) { cur.qty += it.accepted_qty || 0; cur.spend += v; }
+      else map.set(id, { id, sku: it.product_master?.internal_sku || "—", name: it.product_master?.internal_product_name || "Unmatched", qty: it.accepted_qty || 0, spend: v });
+    }
+    return Array.from(map.values())
+      .map((r) => ({ ...r, pct: total > 0 ? (r.spend / total) * 100 : 0 }))
+      .sort((a, b) => b.spend - a.spend);
+  }, [selectedCategory, scoped]);
+
+  const categoryTotalSpend = useMemo(() => categoryItems.reduce((s, r) => s + r.spend, 0), [categoryItems]);
+
   // ---------- Virtualized top items ----------
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useVirtualizer({
