@@ -1250,23 +1250,63 @@ export default function ProcurementInvoicesTab() {
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateEditLine(index, "unit_price", e.target.value)}
-                            className={`h-8 text-xs min-w-[95px] ${line.price_changed ? "border-primary" : ""}`}
+                            className={`h-8 text-xs min-w-[95px] ${line.price_changed ? "border-primary" : ""} ${line.is_free_unit_line ? "border-blue-500 text-blue-600" : ""}`}
+                            readOnly={line.is_free_unit_line}
                           />
-                          {line.price_changed && line.pm_unit_price !== undefined && (
+                          {line.is_free_unit_line && (
+                            <span className="absolute -top-1 -right-1 inline-flex items-center rounded-md px-1 py-0 text-[9px] font-medium border bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">Deal</span>
+                          )}
+                          {line.price_changed && line.pm_unit_price !== undefined && !line.is_free_unit_line && (
                             <span className="mt-0.5 block whitespace-nowrap text-[9px] text-primary">PM: ${line.pm_unit_price.toFixed(2)}</span>
                           )}
-                          {line.price_changed && line.product_master_id && (
-                            <button
-                              type="button"
-                              disabled={updatingMasterIdx === index}
-                              onClick={() => handleEditUpdateMaster(index)}
-                              className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
-                              title={`Set Items Master price to $${line.unit_price}`}
-                            >
-                              {updatingMasterIdx === index ? "Updating…" : `Update master → $${line.unit_price}`}
-                            </button>
-                          )}
                         </div>
+                      </td>
+                      {/* Acc. price */}
+                      <td className="px-1 py-1 align-top">
+                        {line.is_free_unit_line ? (
+                          <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap">
+                            Zero — unlinked
+                          </div>
+                        ) : line.master_price == null ? (
+                          <div className="h-8 flex flex-col justify-center px-1">
+                            <Input
+                              type="number"
+                              value={line.accepted_price || ""}
+                              onChange={(e) => updateEditLineAcceptedPrice(index, e.target.value)}
+                              className="text-xs h-7 w-full"
+                              placeholder="—"
+                            />
+                            <span className="text-[9px] text-muted-foreground">No master price</span>
+                          </div>
+                        ) : (
+                          (() => {
+                            const accNum = parseFloat(line.accepted_price || "");
+                            const differsFromMaster = Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round((line.master_price as number) * 100);
+                            return (
+                              <div className="h-8 flex flex-col justify-center px-1">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={line.accepted_price || ""}
+                                  onChange={(e) => updateEditLineAcceptedPrice(index, e.target.value)}
+                                  className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
+                                />
+                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">Master: ${(line.master_price as number).toFixed(2)}</span>
+                                {differsFromMaster && line.product_master_id && (
+                                  <button
+                                    type="button"
+                                    disabled={updatingMasterIdx === index}
+                                    onClick={() => handleEditUpdateMaster(index)}
+                                    className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                                    title={`Set Items Master price to $${accNum}`}
+                                  >
+                                    {updatingMasterIdx === index ? "Updating…" : `Update master → $${accNum}`}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()
+                        )}
                       </td>
                       {/* Discount (% or $) */}
                       <td className="px-1 py-1 align-top">
