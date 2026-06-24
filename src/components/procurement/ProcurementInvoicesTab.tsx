@@ -985,6 +985,21 @@ export default function ProcurementInvoicesTab() {
     return { disputedLines, missingReason, missingNote, hasDispute: disputedLines > 0 };
   }, [editLines]);
 
+  const missingDeals = useMemo(() => {
+    if (!editing || activeDeals.length === 0) return [];
+    return computeMissingDeals(
+      activeDeals,
+      editLines.map((l) => ({
+        product_master_id: l.product_master_id || null,
+        quantity: parseFloat(l.quantity) || 0,
+        unit_price: parseFloat(l.unit_price) || 0,
+        is_free_unit_line: !!l.is_free_unit_line,
+        matched_internal_name: l.matched_internal_name,
+        description: l.description,
+      })),
+    );
+  }, [editing, editLines, activeDeals]);
+
   const previousStatusRef = useRef<string | null>(null);
   useEffect(() => {
     if (!editing) return;
