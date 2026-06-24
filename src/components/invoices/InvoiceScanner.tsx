@@ -1138,6 +1138,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const qtyDiff = acceptedQty - qty;
         const recvReason = qtyDiff === 0 ? "matched" : (l.receiving_reason || null);
         const recvNote = (l.receiving_note || "").trim() || null;
+        const accPriceNum = parseFloat(l.accepted_price || "");
+        const acceptedPrice = Number.isFinite(accPriceNum) ? accPriceNum : null;
+        const priceDisputed = !l.is_free_unit_line && acceptedPrice != null && Math.round(acceptedPrice * 100) !== Math.round(price * 100);
         return {
           item_code: l.item_code || "",
           description: l.description,
@@ -1161,6 +1164,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           qty_difference: qtyDiff,
           receiving_reason: recvReason,
           receiving_note: recvNote,
+          accepted_price: acceptedPrice,
+          price_disputed: priceDisputed,
+          is_free_unit_line: !!l.is_free_unit_line,
+          deal_id: l.deal_id ?? null,
         } as any;
       });
 
