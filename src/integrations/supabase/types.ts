@@ -6906,13 +6906,17 @@ export type Database = {
       }
       suppliers: {
         Row: {
+          account_number: string
           address: string | null
+          categories: string[]
           contact_person: string | null
           created_at: string
+          delivery_days: string[]
           email: string | null
           id: string
           invoice_rounding_mode: string
           is_active: boolean
+          moq: number
           name: string
           notes: string | null
           payment_terms: string | null
@@ -6921,13 +6925,17 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_number?: string
           address?: string | null
+          categories?: string[]
           contact_person?: string | null
           created_at?: string
+          delivery_days?: string[]
           email?: string | null
           id?: string
           invoice_rounding_mode?: string
           is_active?: boolean
+          moq?: number
           name: string
           notes?: string | null
           payment_terms?: string | null
@@ -6936,13 +6944,17 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_number?: string
           address?: string | null
+          categories?: string[]
           contact_person?: string | null
           created_at?: string
+          delivery_days?: string[]
           email?: string | null
           id?: string
           invoice_rounding_mode?: string
           is_active?: boolean
+          moq?: number
           name?: string
           notes?: string | null
           payment_terms?: string | null

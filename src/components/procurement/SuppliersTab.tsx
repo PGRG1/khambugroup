@@ -15,6 +15,7 @@ import { downloadCSV } from "@/utils/csvDownload";
 import { Plus, Download, Pencil, Trash2 } from "lucide-react";
 import { DataTableShell, usePagination } from "@/components/common/data-table";
 import { ROUNDING_MODE_LABELS, type RoundingMode } from "@/utils/invoiceRounding";
+import SupplierSheet from "./SupplierSheet";
 
 interface Supplier {
   id: string;
@@ -28,10 +29,16 @@ interface Supplier {
   invoice_rounding_mode: RoundingMode | null;
   is_active: boolean;
   created_at: string;
+  categories: string[];
+  delivery_days: string[];
+  moq: number;
+  account_number: string;
 }
 
 const PAYMENT_TERMS = ["COD", "Net 7", "Net 14", "Net 30", "Net 60"];
 const ROUNDING_MODES: RoundingMode[] = ["sum_then_round", "round_then_sum", "integer"];
+const CATEGORY_OPTIONS = ["Food", "Beverages", "Packaging", "Supplies", "Tobacco", "Other"];
+const DAY_OPTIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const emptyForm = {
   name: "",
@@ -43,6 +50,10 @@ const emptyForm = {
   payment_terms: "COD",
   invoice_rounding_mode: "sum_then_round" as RoundingMode,
   is_active: true,
+  categories: [] as string[],
+  delivery_days: [] as string[],
+  moq: 0,
+  account_number: "",
 };
 
 export default function SuppliersTab() {
@@ -54,6 +65,8 @@ export default function SuppliersTab() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const fetchSuppliers = async () => {
     const { data, error } = await supabase
@@ -98,8 +111,17 @@ export default function SuppliersTab() {
       payment_terms: s.payment_terms || "COD",
       invoice_rounding_mode: (s.invoice_rounding_mode || "sum_then_round") as RoundingMode,
       is_active: s.is_active,
+      categories: s.categories || [],
+      delivery_days: s.delivery_days || [],
+      moq: s.moq || 0,
+      account_number: s.account_number || "",
     });
     setDialogOpen(true);
+  };
+
+  const openSheet = (s: Supplier) => {
+    setSelectedSupplier(s);
+    setSheetOpen(true);
   };
 
   const handleSave = async () => {
@@ -118,6 +140,10 @@ export default function SuppliersTab() {
       payment_terms: form.payment_terms,
       invoice_rounding_mode: form.invoice_rounding_mode,
       is_active: form.is_active,
+      categories: form.categories,
+      delivery_days: form.delivery_days,
+      moq: form.moq || 0,
+      account_number: form.account_number || "",
     };
 
     if (editingId) {
@@ -155,6 +181,10 @@ export default function SuppliersTab() {
         { key: "address", label: "Address" },
         { key: "is_active", label: "Active" },
         { key: "notes", label: "Notes" },
+        { key: "categories", label: "Categories" },
+        { key: "delivery_days", label: "Delivery Days" },
+        { key: "moq", label: "MOQ ($)" },
+        { key: "account_number", label: "Account Number" },
       ],
       "suppliers"
     );
@@ -187,30 +217,47 @@ export default function SuppliersTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Contact Person</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
+              <TableHead>Categories</TableHead>
+              <TableHead>Delivery days</TableHead>
               <TableHead>Payment Terms</TableHead>
-              <TableHead>Invoice Rounding</TableHead>
+              <TableHead className="text-right">MOQ</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
             ) : pag.pageItems.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
             ) : (
               pag.pageItems.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell>{s.contact_person || "—"}</TableCell>
-                  <TableCell>{s.email || "—"}</TableCell>
-                  <TableCell>{s.phone || "—"}</TableCell>
+                  <TableCell
+                    className="font-medium cursor-pointer text-primary hover:underline"
+                    onClick={() => openSheet(s)}
+                  >
+                    {s.name}
+                  </TableCell>
+                  <TableCell>
+                    {s.categories?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {s.categories.map((c) => (
+                          <Badge key={c} variant="secondary" className="text-[10px]">{c}</Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {s.delivery_days?.length
+                      ? DAY_OPTIONS.filter((d) => s.delivery_days.includes(d)).join(" ")
+                      : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
                   <TableCell>{s.payment_terms || "—"}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {ROUNDING_MODE_LABELS[(s.invoice_rounding_mode || "sum_then_round") as RoundingMode]}
+                  <TableCell className="text-right tabular-nums">
+                    {s.moq > 0 ? `$${Number(s.moq).toLocaleString()}` : <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>
                     <Badge variant={s.is_active ? "default" : "secondary"}>
@@ -234,10 +281,22 @@ export default function SuppliersTab() {
         </Table>
       </DataTableShell>
 
+      {selectedSupplier && (
+        <SupplierSheet
+          supplier={selectedSupplier}
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          onEdit={(s) => {
+            setSheetOpen(false);
+            openEdit(s as Supplier);
+          }}
+          onRefresh={fetchSuppliers}
+        />
+      )}
 
       {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Supplier & Vendor" : "Add Supplier & Vendor"}</DialogTitle>
           </DialogHeader>
@@ -299,6 +358,95 @@ export default function SuppliersTab() {
             <div className="grid gap-1.5">
               <Label>Notes</Label>
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
+            </div>
+
+            {/* Categories */}
+            <div className="space-y-2">
+              <Label>Supplier categories</Label>
+              <p className="text-xs text-muted-foreground">Select all that apply</p>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORY_OPTIONS.map((cat) => (
+                  <label
+                    key={cat}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm cursor-pointer transition-colors ${
+                      form.categories.includes(cat)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border text-muted-foreground hover:border-primary"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={form.categories.includes(cat)}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          categories: e.target.checked
+                            ? [...f.categories, cat]
+                            : f.categories.filter((c) => c !== cat),
+                        }))
+                      }
+                    />
+                    {cat}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Delivery days */}
+            <div className="space-y-2">
+              <Label>Delivery days</Label>
+              <p className="text-xs text-muted-foreground">Which days does this supplier deliver?</p>
+              <div className="flex gap-2">
+                {DAY_OPTIONS.map((day) => (
+                  <label
+                    key={day}
+                    className={`flex items-center justify-center w-10 h-10 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                      form.delivery_days.includes(day)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border text-muted-foreground hover:border-primary"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={form.delivery_days.includes(day)}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          delivery_days: e.target.checked
+                            ? [...f.delivery_days, day]
+                            : f.delivery_days.filter((d) => d !== day),
+                        }))
+                      }
+                    />
+                    {day}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* MOQ + Account number */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Minimum order value ($)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={form.moq || ""}
+                  onChange={(e) => setForm((f) => ({ ...f, moq: Number(e.target.value) || 0 }))}
+                />
+                <p className="text-xs text-muted-foreground">Leave 0 if no minimum</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Account number</Label>
+                <Input
+                  placeholder="Your account ref with supplier"
+                  value={form.account_number}
+                  onChange={(e) => setForm((f) => ({ ...f, account_number: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
