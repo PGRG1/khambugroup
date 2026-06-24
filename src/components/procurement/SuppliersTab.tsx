@@ -257,6 +257,7 @@ export default function SuppliersTab() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[90px]">Code</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Categories</TableHead>
               <TableHead>Delivery days</TableHead>
@@ -268,12 +269,15 @@ export default function SuppliersTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
             ) : pag.pageItems.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
             ) : (
               pag.pageItems.map((s) => (
                 <TableRow key={s.id}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {s.code || "—"}
+                  </TableCell>
                   <TableCell
                     className="font-medium cursor-pointer text-primary hover:underline"
                     onClick={() => openSheet(s)}
