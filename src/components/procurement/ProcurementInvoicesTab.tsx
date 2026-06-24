@@ -112,6 +112,7 @@ interface EditableInvoiceLine {
   unmatched: boolean;
   price_changed: boolean;
   pm_unit_price?: number;
+  supplier_entry_id?: string;
   accepted_qty: string;
   accepted_qty_touched: boolean;
   receiving_reason: string;
@@ -221,6 +222,7 @@ export default function ProcurementInvoicesTab() {
   const [saving, setSaving] = useState(false);
   const [grnItemsForInvoice, setGrnItemsForInvoice] = useState<any[]>([]);
   const [invoiceVarianceMap, setInvoiceVarianceMap] = useState<Record<string, boolean>>({});
+  const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
@@ -228,50 +230,50 @@ export default function ProcurementInvoicesTab() {
   const [viewerFileUrl, setViewerFileUrl] = useState("");
   const [viewerTitle, setViewerTitle] = useState("");
 
-  useEffect(() => {
-    Promise.all([
+  const loadProductMaster = React.useCallback(async () => {
+    const [pm, ps] = await Promise.all([
       fetchAllRows("product_master", "id, internal_sku, internal_product_name, external_sku, supplier_product_name, supplier, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
       fetchAllRows("product_suppliers", "id, product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
-    ]).then(([pm, ps]) => {
-      const entries: ProductMasterEntry[] = [];
-
-      for (const p of pm) {
-        const supplierEntries = ps.filter((s: any) => s.product_master_id === p.id);
-        if (supplierEntries.length > 0) {
-          for (const s of supplierEntries) {
-            entries.push({
-              id: p.id,
-              supplier_entry_id: s.id,
-              internal_sku: p.internal_sku,
-              external_sku: s.external_sku ?? "",
-              internal_product_name: p.internal_product_name,
-              supplier_product_name: s.supplier_product_name || p.supplier_product_name || p.internal_product_name || "",
-              purchase_unit_cost: s.purchase_unit_cost ?? p.purchase_unit_cost ?? 0,
-              supplier: s.supplier || p.supplier || "",
-              purchase_unit: s.purchase_unit || p.purchase_unit || "",
-              stock_uom: s.stock_uom || p.stock_uom || "",
-              stock_qty: s.stock_qty ?? p.stock_qty ?? 1,
-            });
-          }
-        } else {
+    ]);
+    const entries: ProductMasterEntry[] = [];
+    for (const p of pm) {
+      const supplierEntries = ps.filter((s: any) => s.product_master_id === p.id);
+      if (supplierEntries.length > 0) {
+        for (const s of supplierEntries) {
           entries.push({
             id: p.id,
+            supplier_entry_id: s.id,
             internal_sku: p.internal_sku,
-            external_sku: p.external_sku || "",
+            external_sku: s.external_sku ?? "",
             internal_product_name: p.internal_product_name,
-            supplier_product_name: p.supplier_product_name || p.internal_product_name || "",
-            purchase_unit_cost: p.purchase_unit_cost ?? 0,
-            supplier: p.supplier || "",
-            purchase_unit: p.purchase_unit || "",
-            stock_uom: p.stock_uom || "",
-            stock_qty: p.stock_qty ?? 1,
+            supplier_product_name: s.supplier_product_name || p.supplier_product_name || p.internal_product_name || "",
+            purchase_unit_cost: s.purchase_unit_cost ?? p.purchase_unit_cost ?? 0,
+            supplier: s.supplier || p.supplier || "",
+            purchase_unit: s.purchase_unit || p.purchase_unit || "",
+            stock_uom: s.stock_uom || p.stock_uom || "",
+            stock_qty: s.stock_qty ?? p.stock_qty ?? 1,
           });
         }
+      } else {
+        entries.push({
+          id: p.id,
+          internal_sku: p.internal_sku,
+          external_sku: p.external_sku || "",
+          internal_product_name: p.internal_product_name,
+          supplier_product_name: p.supplier_product_name || p.internal_product_name || "",
+          purchase_unit_cost: p.purchase_unit_cost ?? 0,
+          supplier: p.supplier || "",
+          purchase_unit: p.purchase_unit || "",
+          stock_uom: p.stock_uom || "",
+          stock_qty: p.stock_qty ?? 1,
+        });
       }
-
-      setProductMaster(entries);
-    });
+    }
+    setProductMaster(entries);
   }, []);
+
+  useEffect(() => { loadProductMaster(); }, [loadProductMaster]);
+
 
   const openAttachmentViewer = (fileUrl: string, invoiceNumber: string) => {
     setViewerFileUrl(fileUrl);
@@ -483,6 +485,7 @@ export default function ProcurementInvoicesTab() {
       unmatched: !matchedProduct && Boolean((line.description || "").trim()),
       price_changed: typeof pmPrice === "number" && pmPrice > 0 ? Math.abs(currentPrice - pmPrice) > 0.01 : false,
       pm_unit_price: typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : undefined,
+      supplier_entry_id: matchedProduct?.supplier_entry_id,
       accepted_qty: acceptedStr,
       accepted_qty_touched: savedAccepted != null,
       receiving_reason: receivingReason,
@@ -769,6 +772,7 @@ export default function ProcurementInvoicesTab() {
         matched_stock_qty_ratio: product.stock_qty ?? 1,
         unmatched: false,
         pm_unit_price: product.purchase_unit_cost,
+        supplier_entry_id: product.supplier_entry_id,
         price_changed: typeof product.purchase_unit_cost === "number" && product.purchase_unit_cost > 0
           ? Math.abs((parseFloat(currentLine.unit_price) || 0) - product.purchase_unit_cost) > 0.01
           : false,
@@ -780,6 +784,52 @@ export default function ProcurementInvoicesTab() {
 
   const addEditLine = () => setEditLines((prev) => [...prev, { ...emptyEditLine }]);
   const removeEditLine = (idx: number) => setEditLines((prev) => prev.filter((_, lineIdx) => lineIdx !== idx));
+
+  const handleEditUpdateMaster = async (idx: number) => {
+    const line = editLines[idx];
+    if (!line) return;
+    const newPrice = parseFloat(line.unit_price || "");
+    if (!Number.isFinite(newPrice) || newPrice <= 0) {
+      toast.error("Invalid price — enter a positive number first.");
+      return;
+    }
+    if (!tenantId) return;
+    setUpdatingMasterIdx(idx);
+    try {
+      let updated = false;
+      if (line.supplier_entry_id) {
+        const { error } = await supabase
+          .from("product_suppliers" as any)
+          .update({ purchase_unit_cost: newPrice } as any)
+          .eq("id", line.supplier_entry_id)
+          .eq("tenant_id", tenantId);
+        if (error) { toast.error(`Failed to update Items Master: ${error.message}`); return; }
+        updated = true;
+      } else if (line.product_master_id) {
+        const { error } = await supabase
+          .from("product_master" as any)
+          .update({ purchase_unit_cost: newPrice } as any)
+          .eq("id", line.product_master_id)
+          .eq("tenant_id", tenantId);
+        if (error) { toast.error(`Failed to update Items Master: ${error.message}`); return; }
+        updated = true;
+      }
+      if (!updated) { toast.error("This line is not linked to an Items Master entry."); return; }
+      setEditLines((prev) => {
+        const copy = [...prev];
+        const l = { ...copy[idx] };
+        l.pm_unit_price = newPrice;
+        l.price_changed = false;
+        copy[idx] = l;
+        return copy;
+      });
+      try { await loadProductMaster(); } catch {}
+      toast.success(`Items Master updated → $${newPrice}`);
+    } finally {
+      setUpdatingMasterIdx(null);
+    }
+  };
+
 
   const handleDelete = async () => {
     if (!deletingId) return;
@@ -1143,6 +1193,17 @@ export default function ProcurementInvoicesTab() {
                           />
                           {line.price_changed && line.pm_unit_price !== undefined && (
                             <span className="mt-0.5 block whitespace-nowrap text-[9px] text-primary">PM: ${line.pm_unit_price.toFixed(2)}</span>
+                          )}
+                          {line.price_changed && line.product_master_id && (
+                            <button
+                              type="button"
+                              disabled={updatingMasterIdx === index}
+                              onClick={() => handleEditUpdateMaster(index)}
+                              className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                              title={`Set Items Master price to $${line.unit_price}`}
+                            >
+                              {updatingMasterIdx === index ? "Updating…" : `Update master → $${line.unit_price}`}
+                            </button>
                           )}
                         </div>
                       </td>
