@@ -848,9 +848,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           line.receiving_reason = "";
         }
       }
-      if (["unit_price", "matched_sku"].includes(field)) {
+      if (["unit_price", "matched_sku", "quantity"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
         lines[i] = flagged[0];
+        // Re-link deal for newly-detected free unit
+        if (lines[i].is_free_unit_line && lines[i].product_master_id) {
+          lines[i].deal_id = findDealForProduct(activeDeals, lines[i].product_master_id)?.id ?? null;
+        }
       } else {
         lines[i] = line;
       }
