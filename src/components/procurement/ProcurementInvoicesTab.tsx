@@ -1186,11 +1186,8 @@ export default function ProcurementInvoicesTab() {
                         })()}
                       </td>
                       {(() => {
-                        const q = parseFloat(line.quantity) || 0;
-                        const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
-                        const p = parseFloat(line.unit_price) || 0;
-                        const inv = q * p;
-                        const acc = a * p;
+                        const inv = editRowAmounts[index].invoiced;
+                        const acc = editRowAmounts[index].accepted;
                         const accCls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
                         return (
                           <>
