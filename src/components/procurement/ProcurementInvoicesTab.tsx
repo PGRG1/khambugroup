@@ -1304,7 +1304,8 @@ export default function ProcurementInvoicesTab() {
               });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
-              const docTotal = invSub;
+              const docTotal = Number((editForm as any).total_amount ?? selectedInvoice?.total_amount ?? 0) || 0;
+              const docDiff = invSub - docTotal;
               return (
                 <>
                   <div>
@@ -1326,6 +1327,11 @@ export default function ProcurementInvoicesTab() {
                   <div>
                     <span className="text-muted-foreground">Doc total: </span>
                     <span className="font-mono font-bold">{docTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    {Math.abs(docDiff) > 0.01 && (
+                      <span className="ml-2 font-mono text-[10px] text-amber-500">
+                        (recon Δ {docDiff > 0 ? "+" : "−"}{Math.abs(docDiff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      </span>
+                    )}
                   </div>
                 </>
               );
