@@ -69,7 +69,7 @@ const financeAccountingItems = [
   { title: "Ledger Audit Log", url: "/finance/ledger-audit", icon: History },
 ];
 
-const procurementOverview = { title: "Overview", url: "/procurement/dashboard", icon: LayoutDashboard };
+const procurementOverview = { title: "Procurement Overview", url: "/procurement/dashboard", icon: LayoutDashboard };
 
 const procurementMasterData = [
   { title: "Suppliers & Vendors", url: "/procurement/suppliers", icon: Building2 },
