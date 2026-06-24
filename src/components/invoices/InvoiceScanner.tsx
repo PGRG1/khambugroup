@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert, Tag } from "lucide-react";
 import {
   WorkflowStrip,
   CheckCard,
@@ -26,6 +26,8 @@ import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { useProductMaster } from "@/hooks/useProductMaster";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,6 +88,12 @@ interface ScannedLineItem {
   unmatched?: boolean;
   price_changed?: boolean;
   pm_unit_price?: number;
+  accepted_price?: string;
+  master_price?: number; // snapshot of items master price at load time
+  price_disputed?: boolean;
+  is_free_unit_line?: boolean;
+  deal_id?: string | null;
+  product_master_id?: string | null;
   total_override?: boolean;
   review_status?: "matched" | "possible_match" | "new_item" | "needs_review";
   review_warnings?: string[];
@@ -186,6 +194,8 @@ const emptyLine: ScannedLineItem = {
   matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
   unmatched: false, price_changed: false,
   accepted_qty: "1", accepted_qty_touched: false, receiving_reason: "matched", receiving_note: "",
+  accepted_price: "", master_price: undefined, price_disputed: false,
+  is_free_unit_line: false, deal_id: null, product_master_id: null,
 };
 
 const RECEIVING_REASONS: { value: string; label: string }[] = [
@@ -247,6 +257,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const [dragOverPos, setDragOverPos] = useState<"above" | "below" | null>(null);
 
   const current = invoices[currentIdx] || null;
+  const { tenantId } = useActiveTenant();
+  const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
+  const [masterUpdateBanner, setMasterUpdateBanner] = useState<
+    null | { lineIdx: number; productMasterId: string; itemName: string; newPrice: number }
+  >(null);
+
+  // Load deals when the active supplier changes
+  useEffect(() => {
+    const sid = current?.supplier_id;
+    if (!sid || !tenantId) { setActiveDeals([]); return; }
+    fetchActiveDealsForSupplier(sid, tenantId).then(setActiveDeals);
+  }, [current?.supplier_id, tenantId]);
+
 
   const normalizeSupplierName = (value: string) =>
     value
@@ -428,7 +451,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       }
 
       if (!resolved) {
-        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_sku: "", matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1 };
+        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_sku: "", matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1, product_master_id: null, master_price: undefined, accepted_price: workingLine.accepted_price ?? "" };
       }
 
       // SKU mismatch check
@@ -448,6 +471,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       const pmPrice = resolved.purchase_unit_cost ?? 0;
       const priceChanged = pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01;
 
+      // Seed accepted_price from master if empty/not yet set
+      const masterPrice = pmPrice > 0 ? pmPrice : undefined;
+      const existingAcc = parseFloat(workingLine.accepted_price || "");
+      const acceptedPrice = Number.isFinite(existingAcc) && (workingLine.accepted_price || "").trim() !== ""
+        ? workingLine.accepted_price!
+        : (masterPrice != null ? String(masterPrice) : "");
+      const accNum = parseFloat(acceptedPrice);
+      const isFreeUnit = scannedPrice === 0 && (parseFloat(workingLine.quantity) || 0) > 0;
+      const priceDisputed = !isFreeUnit && Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(scannedPrice * 100);
+
       // If matched via external SKU, always override description from the PM entry
       const hasItemCode = (workingLine.item_code || "").trim();
       const autoDescription = resolved.supplier_product_name || resolved.internal_product_name || "";
@@ -465,6 +498,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         matched_stock_uom: resolved.stock_uom || "",
         matched_purchase_uom: resolved.purchase_unit || "",
         matched_stock_qty_ratio: resolved.stock_qty ?? 1,
+        product_master_id: (resolved as any).id ?? workingLine.product_master_id ?? null,
+        master_price: masterPrice,
+        accepted_price: acceptedPrice,
+        price_disputed: priceDisputed,
+        is_free_unit_line: isFreeUnit,
       };
     });
   }, []);
@@ -810,9 +848,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           line.receiving_reason = "";
         }
       }
-      if (["unit_price", "matched_sku"].includes(field)) {
+      if (["unit_price", "matched_sku", "quantity"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
         lines[i] = flagged[0];
+        // Re-link deal for newly-detected free unit
+        if (lines[i].is_free_unit_line && lines[i].product_master_id) {
+          lines[i].deal_id = findDealForProduct(activeDeals, lines[i].product_master_id)?.id ?? null;
+        }
       } else {
         lines[i] = line;
       }
@@ -868,12 +910,116 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         sku_mismatch: false,
         price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
         pm_unit_price: pmPrice > 0 ? pmPrice : undefined,
+        product_master_id: product.id,
+        master_price: pmPrice > 0 ? pmPrice : undefined,
+        accepted_price: pmPrice > 0 ? String(pmPrice) : currentLine.accepted_price || "",
+        price_disputed: scannedPrice > 0 && pmPrice > 0 && Math.round(scannedPrice * 100) !== Math.round(pmPrice * 100),
+        is_free_unit_line: scannedPrice === 0 && (parseFloat(currentLine.quantity) || 0) > 0,
+        deal_id: scannedPrice === 0 ? (findDealForProduct(activeDeals, product.id)?.id ?? null) : currentLine.deal_id ?? null,
         review_status: "matched",
         review_blocking: [],
       };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
+  };
+
+  // Editable Accepted Price (Items Master baseline)
+  const updateLineAcceptedPrice = (i: number, value: string) => {
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const line = { ...lines[i] };
+      if (line.is_free_unit_line) return prev; // zero-price lines aren't disputable
+      line.accepted_price = value;
+      const accNum = parseFloat(value);
+      const invPrice = parseFloat(line.unit_price) || 0;
+      line.price_disputed = Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(invPrice * 100);
+      lines[i] = line;
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+    // Show "Update Items Master" banner if differs from master
+    const line = invoices[currentIdx]?.line_items[i];
+    if (line?.product_master_id && line.master_price != null) {
+      const accNum = parseFloat(value);
+      if (Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(line.master_price * 100)) {
+        setMasterUpdateBanner({
+          lineIdx: i,
+          productMasterId: line.product_master_id,
+          itemName: line.matched_internal_name || line.description || "this item",
+          newPrice: accNum,
+        });
+      } else {
+        setMasterUpdateBanner((b) => (b && b.lineIdx === i ? null : b));
+      }
+    }
+  };
+
+  // When deals load, relink existing free-unit lines to a matching deal
+  useEffect(() => {
+    if (!current) return;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const inv = copy[currentIdx];
+      if (!inv) return prev;
+      let changed = false;
+      const next = inv.line_items.map((l) => {
+        const isFree = (parseFloat(l.unit_price) || 0) === 0 && (parseFloat(l.quantity) || 0) > 0 && !!l.product_master_id;
+        const dealId = isFree ? (findDealForProduct(activeDeals, l.product_master_id || null)?.id ?? null) : (l.deal_id ?? null);
+        if (l.is_free_unit_line !== isFree || (l.deal_id ?? null) !== dealId) {
+          changed = true;
+          return { ...l, is_free_unit_line: isFree, deal_id: dealId };
+        }
+        return l;
+      });
+      if (!changed) return prev;
+      copy[currentIdx] = { ...inv, line_items: next };
+      return copy;
+    });
+  }, [activeDeals, currentIdx]);
+
+  // Compute missing deal warnings for current invoice
+  const missingDeals = useMemo(() => {
+    if (!current || activeDeals.length === 0) return [];
+    return computeMissingDeals(
+      activeDeals,
+      current.line_items.map((l) => ({
+        product_master_id: l.product_master_id || null,
+        quantity: parseFloat(l.quantity) || 0,
+        unit_price: parseFloat(l.unit_price) || 0,
+        is_free_unit_line: !!l.is_free_unit_line,
+        matched_internal_name: l.matched_internal_name,
+        description: l.description,
+      })),
+    );
+  }, [current, activeDeals]);
+
+  const handleUpdateMaster = async () => {
+    if (!masterUpdateBanner) return;
+    const { productMasterId, newPrice, lineIdx } = masterUpdateBanner;
+    const { error } = await supabase
+      .from("product_master")
+      .update({ purchase_unit_cost: newPrice } as any)
+      .eq("id", productMasterId);
+    if (error) {
+      toast({ title: "Failed to update Items Master", description: error.message, variant: "destructive" });
+      return;
+    }
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const lines = [...copy[currentIdx].line_items];
+      const line = { ...lines[lineIdx] };
+      line.master_price = newPrice;
+      line.pm_unit_price = newPrice;
+      const invPrice = parseFloat(line.unit_price) || 0;
+      line.price_changed = Math.abs(invPrice - newPrice) > 0.01;
+      lines[lineIdx] = line;
+      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+      return copy;
+    });
+    setMasterUpdateBanner(null);
+    toast({ title: "Items Master updated", description: `New price: $${newPrice.toFixed(2)}` });
   };
 
   const addLine = () => setInvoices((prev) => {
@@ -992,6 +1138,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         const qtyDiff = acceptedQty - qty;
         const recvReason = qtyDiff === 0 ? "matched" : (l.receiving_reason || null);
         const recvNote = (l.receiving_note || "").trim() || null;
+        const accPriceNum = parseFloat(l.accepted_price || "");
+        const acceptedPrice = Number.isFinite(accPriceNum) ? accPriceNum : null;
+        const priceDisputed = !l.is_free_unit_line && acceptedPrice != null && Math.round(acceptedPrice * 100) !== Math.round(price * 100);
         return {
           item_code: l.item_code || "",
           description: l.description,
@@ -1015,6 +1164,10 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           qty_difference: qtyDiff,
           receiving_reason: recvReason,
           receiving_note: recvNote,
+          accepted_price: acceptedPrice,
+          price_disputed: priceDisputed,
+          is_free_unit_line: !!l.is_free_unit_line,
+          deal_id: l.deal_id ?? null,
         } as any;
       });
 
@@ -1571,7 +1724,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
+
+          {missingDeals.length > 0 && (
+            <div className="space-y-1.5">
+              {missingDeals.map((m, idx) => (
+                <div key={idx} className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-200">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Deal not fully applied:</strong> {m.productName} — expected {m.expectedFree} free unit{m.expectedFree === 1 ? "" : "s"} ({m.deal.buy_qty}+{m.deal.free_qty} deal with {current?.supplier_name}). Check with supplier.
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="overflow-x-auto w-full -mx-2">
+
             <table className="w-max min-w-full text-xs border-collapse table-auto">
               <thead>
                 <tr className="border-b border-border">
@@ -1590,6 +1758,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                   <th style={{ minWidth: 160 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Reason</th>
                   <th style={{ minWidth: 140 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Note</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Purch. Cost</th>
+                  <th style={{ minWidth: 90 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Acc. price</th>
                   <th style={{ minWidth: 68 }} className="text-left px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Discount</th>
                   <th style={{ minWidth: 90 }} className="text-right px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Invoiced Amount</th>
                   <th style={{ minWidth: 90 }} className="text-right px-1 py-1.5 text-muted-foreground font-medium whitespace-nowrap">Accepted Amount</th>
@@ -1848,14 +2017,68 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""}`}
+                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line ? "border-blue-500 text-blue-600" : ""}`}
+                            readOnly={line.is_free_unit_line}
                           />
-                          {line.price_changed && line.pm_unit_price !== undefined && (
+                          {line.is_free_unit_line && (
+                            <span className="absolute -top-1 -right-1 inline-flex items-center rounded-md px-1 py-0 text-[9px] font-medium border bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">Deal</span>
+                          )}
+                          {line.price_changed && line.pm_unit_price !== undefined && !line.is_free_unit_line && (
                             <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
                               PM: ${line.pm_unit_price.toFixed(2)}
                             </span>
                           )}
                         </div>
+                      </td>
+                      {/* Accepted Price */}
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                        {line.is_free_unit_line ? (
+                          (() => {
+                            const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
+                            const supName = current?.supplier_name || "";
+                            return (
+                              <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap" title={deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero price — unlinked"}>
+                                {deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero — unlinked"}
+                              </div>
+                            );
+                          })()
+                        ) : line.master_price == null ? (
+                          <div className="h-8 flex flex-col justify-center px-1">
+                            <Input
+                              type="number"
+                              value={line.accepted_price || ""}
+                              onChange={(e) => updateLineAcceptedPrice(i, e.target.value)}
+                              className="text-xs h-7 w-full"
+                              placeholder="—"
+                            />
+                            <span className="text-[9px] text-muted-foreground">No master price</span>
+                          </div>
+                        ) : (
+                          (() => {
+                            const accNum = parseFloat(line.accepted_price || "");
+                            const differsFromMaster = Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(line.master_price * 100);
+                            const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
+                            let effective: number | null = null;
+                            if (deal && Number.isFinite(accNum)) {
+                              effective = (deal.buy_qty * accNum) / (deal.buy_qty + deal.free_qty);
+                            }
+                            return (
+                              <div className="h-8 flex flex-col justify-center px-1">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={line.accepted_price || ""}
+                                  onChange={(e) => updateLineAcceptedPrice(i, e.target.value)}
+                                  className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
+                                />
+                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">Master: ${line.master_price.toFixed(2)}</span>
+                                {effective !== null && (
+                                  <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">Eff: ${effective.toFixed(2)}</span>
+                                )}
+                              </div>
+                            );
+                          })()
+                        )}
                       </td>
                       {/* Discount (% or $) */}
                       <td style={{ minWidth: 130 }} className="px-1 py-1 align-top">
@@ -1978,6 +2201,20 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               </tbody>
             </table>
           </div>
+
+          {masterUpdateBanner && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs">
+              <div className="flex items-center gap-2 text-amber-200">
+                <Tag className="h-3.5 w-3.5 shrink-0" />
+                <span>Accepted price differs from Items Master for <strong>{masterUpdateBanner.itemName}</strong>. Update master to ${masterUpdateBanner.newPrice.toFixed(2)}?</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleUpdateMaster}>Update master</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setMasterUpdateBanner(null)}>Keep current</Button>
+              </div>
+            </div>
+          )}
+
           <Button variant="outline" size="sm" onClick={addLine}><Plus className="h-3 w-3 mr-1" />Add Line</Button>
 
           {/* Totals */}
@@ -2057,7 +2294,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                 const invoiced = parseFloat(recalc.perLine[i].total) || 0;
                 invSub += invoiced;
-                accSub += q > 0 ? invoiced * (a / q) : 0;
+                const accPrice = parseFloat(l.accepted_price || "");
+                if (Number.isFinite(accPrice)) {
+                  accSub += accPrice * a;
+                } else {
+                  accSub += q > 0 ? invoiced * (a / q) : 0;
+                }
               });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
