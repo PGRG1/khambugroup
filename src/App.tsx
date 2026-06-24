@@ -184,6 +184,7 @@ function App() {
                 <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
                 <Route path="/procurement/finance" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance /></ProtectedRoute>} />
                 <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
+                <Route path="/procurement/supplier-pricing" element={<AdminRoute><SupplierPricing /></AdminRoute>} />
 
                 
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
