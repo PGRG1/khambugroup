@@ -230,50 +230,50 @@ export default function ProcurementInvoicesTab() {
   const [viewerFileUrl, setViewerFileUrl] = useState("");
   const [viewerTitle, setViewerTitle] = useState("");
 
-  useEffect(() => {
-    Promise.all([
+  const loadProductMaster = React.useCallback(async () => {
+    const [pm, ps] = await Promise.all([
       fetchAllRows("product_master", "id, internal_sku, internal_product_name, external_sku, supplier_product_name, supplier, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
       fetchAllRows("product_suppliers", "id, product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
-    ]).then(([pm, ps]) => {
-      const entries: ProductMasterEntry[] = [];
-
-      for (const p of pm) {
-        const supplierEntries = ps.filter((s: any) => s.product_master_id === p.id);
-        if (supplierEntries.length > 0) {
-          for (const s of supplierEntries) {
-            entries.push({
-              id: p.id,
-              supplier_entry_id: s.id,
-              internal_sku: p.internal_sku,
-              external_sku: s.external_sku ?? "",
-              internal_product_name: p.internal_product_name,
-              supplier_product_name: s.supplier_product_name || p.supplier_product_name || p.internal_product_name || "",
-              purchase_unit_cost: s.purchase_unit_cost ?? p.purchase_unit_cost ?? 0,
-              supplier: s.supplier || p.supplier || "",
-              purchase_unit: s.purchase_unit || p.purchase_unit || "",
-              stock_uom: s.stock_uom || p.stock_uom || "",
-              stock_qty: s.stock_qty ?? p.stock_qty ?? 1,
-            });
-          }
-        } else {
+    ]);
+    const entries: ProductMasterEntry[] = [];
+    for (const p of pm) {
+      const supplierEntries = ps.filter((s: any) => s.product_master_id === p.id);
+      if (supplierEntries.length > 0) {
+        for (const s of supplierEntries) {
           entries.push({
             id: p.id,
+            supplier_entry_id: s.id,
             internal_sku: p.internal_sku,
-            external_sku: p.external_sku || "",
+            external_sku: s.external_sku ?? "",
             internal_product_name: p.internal_product_name,
-            supplier_product_name: p.supplier_product_name || p.internal_product_name || "",
-            purchase_unit_cost: p.purchase_unit_cost ?? 0,
-            supplier: p.supplier || "",
-            purchase_unit: p.purchase_unit || "",
-            stock_uom: p.stock_uom || "",
-            stock_qty: p.stock_qty ?? 1,
+            supplier_product_name: s.supplier_product_name || p.supplier_product_name || p.internal_product_name || "",
+            purchase_unit_cost: s.purchase_unit_cost ?? p.purchase_unit_cost ?? 0,
+            supplier: s.supplier || p.supplier || "",
+            purchase_unit: s.purchase_unit || p.purchase_unit || "",
+            stock_uom: s.stock_uom || p.stock_uom || "",
+            stock_qty: s.stock_qty ?? p.stock_qty ?? 1,
           });
         }
+      } else {
+        entries.push({
+          id: p.id,
+          internal_sku: p.internal_sku,
+          external_sku: p.external_sku || "",
+          internal_product_name: p.internal_product_name,
+          supplier_product_name: p.supplier_product_name || p.internal_product_name || "",
+          purchase_unit_cost: p.purchase_unit_cost ?? 0,
+          supplier: p.supplier || "",
+          purchase_unit: p.purchase_unit || "",
+          stock_uom: p.stock_uom || "",
+          stock_qty: p.stock_qty ?? 1,
+        });
       }
-
-      setProductMaster(entries);
-    });
+    }
+    setProductMaster(entries);
   }, []);
+
+  useEffect(() => { loadProductMaster(); }, [loadProductMaster]);
+
 
   const openAttachmentViewer = (fileUrl: string, invoiceNumber: string) => {
     setViewerFileUrl(fileUrl);
