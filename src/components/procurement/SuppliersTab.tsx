@@ -213,6 +213,7 @@ export default function SuppliersTab() {
     downloadCSV(
       filtered,
       [
+        { key: "code", label: "Code" },
         { key: "name", label: "Name" },
         { key: "contact_person", label: "Contact Person" },
         { key: "email", label: "Email" },
