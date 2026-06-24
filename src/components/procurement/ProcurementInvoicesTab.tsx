@@ -1087,6 +1087,7 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[160px] px-1 py-1.5 text-left font-medium text-muted-foreground">Reason</th>
                   <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Note</th>
                   <th className="w-[95px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Cost</th>
+                  <th className="w-[110px] px-1 py-1.5 text-left font-medium text-muted-foreground">Acc. price</th>
                   <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Discount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Invoiced Amount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Accepted Amount</th>
