@@ -192,6 +192,8 @@ const emptyLine: ScannedLineItem = {
   matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1,
   unmatched: false, price_changed: false,
   accepted_qty: "1", accepted_qty_touched: false, receiving_reason: "matched", receiving_note: "",
+  accepted_price: "", master_price: undefined, price_disputed: false,
+  is_free_unit_line: false, deal_id: null, product_master_id: null,
 };
 
 const RECEIVING_REASONS: { value: string; label: string }[] = [
