@@ -1216,7 +1216,8 @@ export default function ProcurementInvoicesTab() {
                       </td>
                     </tr>
                   );
-                })}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
