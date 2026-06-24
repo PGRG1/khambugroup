@@ -70,6 +70,8 @@ export interface ProductMasterItem {
   default_coa_account_id: string | null;
   accounting_category?: string;
   creates_stock_movement: boolean;
+  purchase_yield: number;
+  cooking_yield: number;
   created_at: string;
   updated_at: string;
   suppliers?: ProductSupplierEntry[];
