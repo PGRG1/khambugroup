@@ -1194,6 +1194,17 @@ export default function ProcurementInvoicesTab() {
                           {line.price_changed && line.pm_unit_price !== undefined && (
                             <span className="mt-0.5 block whitespace-nowrap text-[9px] text-primary">PM: ${line.pm_unit_price.toFixed(2)}</span>
                           )}
+                          {line.price_changed && line.product_master_id && (
+                            <button
+                              type="button"
+                              disabled={updatingMasterIdx === index}
+                              onClick={() => handleEditUpdateMaster(index)}
+                              className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                              title={`Set Items Master price to $${line.unit_price}`}
+                            >
+                              {updatingMasterIdx === index ? "Updating…" : `Update master → $${line.unit_price}`}
+                            </button>
+                          )}
                         </div>
                       </td>
                       {/* Discount (% or $) */}
