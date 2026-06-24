@@ -989,7 +989,19 @@ export default function ProcurementInvoicesTab() {
                 </tr>
               </thead>
               <tbody>
-                {editLines.map((line, index) => {
+                {(() => {
+                  const hModeEdit = normalizeDiscountMode((editForm as any).discount_mode);
+                  const hRateEdit = String((editForm as any).discount_rate ?? 0);
+                  const hFixedEdit = String(editForm.discount ?? 0);
+                  const editRecalc = recalcAllDiscounts(editLines as any, hModeEdit, hRateEdit, hFixedEdit, editMode);
+                  const editRowAmounts = editLines.map((l, i) => {
+                    const q = parseFloat(l.quantity) || 0;
+                    const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+                    const invoiced = parseFloat(editRecalc.perLine[i].total) || 0;
+                    const accepted = q > 0 ? invoiced * (a / q) : 0;
+                    return { invoiced, accepted };
+                  });
+                  return editLines.map((line, index) => {
                   const tint = computeEditReceivingTint(line);
                   const rowClass = !tint && line.unmatched && line.description.trim()
                     ? "bg-destructive/10 border-l-2 border-l-destructive"
