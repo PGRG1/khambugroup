@@ -781,6 +781,22 @@ export default function ProcurementInvoicesTab() {
     });
   };
 
+  const updateEditLineAcceptedPrice = (idx: number, value: string) => {
+    setEditLines((prev) => {
+      const updated = [...prev];
+      const line = { ...updated[idx] };
+      if (line.is_free_unit_line) return prev;
+      line.accepted_price = value;
+      const acc = parseFloat(value) || 0;
+      const inv = parseFloat(line.unit_price) || 0;
+      line.price_disputed = inv > 0 && acc > 0 && Math.round(acc * 100) !== Math.round(inv * 100);
+      updated[idx] = line;
+      return updated;
+    });
+  };
+
+
+
 
   const selectEditProduct = (idx: number, product: ProductMasterEntry) => {
     setEditLines((prev) => {
