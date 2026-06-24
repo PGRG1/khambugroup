@@ -1724,7 +1724,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
           {/* Line Items table */}
           <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
+
+          {missingDeals.length > 0 && (
+            <div className="space-y-1.5">
+              {missingDeals.map((m, idx) => (
+                <div key={idx} className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-200">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Deal not fully applied:</strong> {m.productName} — expected {m.expectedFree} free unit{m.expectedFree === 1 ? "" : "s"} ({m.deal.buy_qty}+{m.deal.free_qty} deal with {current?.supplier_name}). Check with supplier.
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="overflow-x-auto w-full -mx-2">
+
             <table className="w-max min-w-full text-xs border-collapse table-auto">
               <thead>
                 <tr className="border-b border-border">
