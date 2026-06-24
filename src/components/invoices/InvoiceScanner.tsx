@@ -26,6 +26,8 @@ import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { useProductMaster } from "@/hooks/useProductMaster";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 import {
   AlertDialog,
   AlertDialogAction,
