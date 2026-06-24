@@ -1581,6 +1581,11 @@ export default function ProcurementInvoicesTab() {
                   ) : (
                     <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "unpaid"); setDrawerOpen(false); }}>Mark Unpaid</Button>
                   )}
+                  {isVoidEligible(selectedInvoice) && (
+                    <Button size="sm" variant="outline" className="border-orange-500/40 text-orange-300 hover:bg-orange-500/10" onClick={() => { setVoidTarget(selectedInvoice); setDrawerOpen(false); setVoidOpen(true); }}>
+                      Void
+                    </Button>
+                  )}
                   <Button size="sm" variant="destructive" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
                     <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
                   </Button>
