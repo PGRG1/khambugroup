@@ -3735,10 +3735,12 @@ export type Database = {
       }
       invoice_line_items: {
         Row: {
+          accepted_price: number | null
           accepted_qty: number | null
           ai_suggestion: Json | null
           category_id: string | null
           created_at: string
+          deal_id: string | null
           description: string
           discount: number
           discount_mode: string
@@ -3746,6 +3748,7 @@ export type Database = {
           header_discount_share: number
           id: string
           invoice_id: string
+          is_free_unit_line: boolean
           item_code: string | null
           line_discount_amount: number
           net_unit_cost: number
@@ -3753,6 +3756,7 @@ export type Database = {
           notes: string | null
           pack_size: string | null
           pack_size_norm: string | null
+          price_disputed: boolean
           product_master_id: string | null
           qty_difference: number | null
           quantity: number
@@ -3768,10 +3772,12 @@ export type Database = {
           weight: number | null
         }
         Insert: {
+          accepted_price?: number | null
           accepted_qty?: number | null
           ai_suggestion?: Json | null
           category_id?: string | null
           created_at?: string
+          deal_id?: string | null
           description: string
           discount?: number
           discount_mode?: string
@@ -3779,6 +3785,7 @@ export type Database = {
           header_discount_share?: number
           id?: string
           invoice_id: string
+          is_free_unit_line?: boolean
           item_code?: string | null
           line_discount_amount?: number
           net_unit_cost?: number
@@ -3786,6 +3793,7 @@ export type Database = {
           notes?: string | null
           pack_size?: string | null
           pack_size_norm?: string | null
+          price_disputed?: boolean
           product_master_id?: string | null
           qty_difference?: number | null
           quantity?: number
@@ -3801,10 +3809,12 @@ export type Database = {
           weight?: number | null
         }
         Update: {
+          accepted_price?: number | null
           accepted_qty?: number | null
           ai_suggestion?: Json | null
           category_id?: string | null
           created_at?: string
+          deal_id?: string | null
           description?: string
           discount?: number
           discount_mode?: string
@@ -3812,6 +3822,7 @@ export type Database = {
           header_discount_share?: number
           id?: string
           invoice_id?: string
+          is_free_unit_line?: boolean
           item_code?: string | null
           line_discount_amount?: number
           net_unit_cost?: number
@@ -3819,6 +3830,7 @@ export type Database = {
           notes?: string | null
           pack_size?: string | null
           pack_size_norm?: string | null
+          price_disputed?: boolean
           product_master_id?: string | null
           qty_difference?: number | null
           quantity?: number
@@ -3839,6 +3851,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "item_supplier_deals"
             referencedColumns: ["id"]
           },
           {
