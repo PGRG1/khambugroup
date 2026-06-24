@@ -4000,12 +4000,14 @@ export type Database = {
           discount_rate: number
           discount_type: string
           dispute_notes: string | null
+          disputed_amount: number
           due_date: string | null
           entered_by: string
           exception_note: string
           file_name: string | null
           file_url: string | null
           grn_id: string | null
+          has_disputes: boolean
           id: string
           invoice_date: string
           invoice_number: string
@@ -4028,6 +4030,9 @@ export type Database = {
           venue_id: string | null
           verified_at: string | null
           verified_by: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           ai_anomaly?: Json | null
@@ -4043,12 +4048,14 @@ export type Database = {
           discount_rate?: number
           discount_type?: string
           dispute_notes?: string | null
+          disputed_amount?: number
           due_date?: string | null
           entered_by: string
           exception_note?: string
           file_name?: string | null
           file_url?: string | null
           grn_id?: string | null
+          has_disputes?: boolean
           id?: string
           invoice_date: string
           invoice_number: string
@@ -4071,6 +4078,9 @@ export type Database = {
           venue_id?: string | null
           verified_at?: string | null
           verified_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           ai_anomaly?: Json | null
@@ -4086,12 +4096,14 @@ export type Database = {
           discount_rate?: number
           discount_type?: string
           dispute_notes?: string | null
+          disputed_amount?: number
           due_date?: string | null
           entered_by?: string
           exception_note?: string
           file_name?: string | null
           file_url?: string | null
           grn_id?: string | null
+          has_disputes?: boolean
           id?: string
           invoice_date?: string
           invoice_number?: string
@@ -4114,6 +4126,9 @@ export type Database = {
           venue_id?: string | null
           verified_at?: string | null
           verified_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
