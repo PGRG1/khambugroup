@@ -479,7 +479,12 @@ export default function PurchaseAnalysis() {
                   const wCur = (c.current / maxCatSpend) * 100;
                   const wPrv = (c.prior / maxCatSpend) * 100;
                   return (
-                    <div key={c.name}>
+                    <button
+                      type="button"
+                      key={c.name}
+                      onClick={() => setSelectedCategory(c.name)}
+                      className="w-full text-left rounded-md p-2 -m-2 hover:bg-primary/5 transition-colors"
+                    >
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span className="font-medium text-foreground">{c.name}</span>
                         <span className="td-num text-muted-foreground">{fmtMoney(c.current)}</span>
@@ -495,7 +500,7 @@ export default function PurchaseAnalysis() {
                       <div className="text-[10px] text-muted-foreground mt-1">
                         <span style={{ color: c.color }}>■</span> This period: {fmtMoney(c.current)} · <span style={{ color: c.color, opacity: 0.6 }}>■</span> Last period: {fmtMoney(c.prior)}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
