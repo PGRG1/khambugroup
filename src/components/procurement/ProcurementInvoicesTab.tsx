@@ -752,6 +752,11 @@ export default function ProcurementInvoicesTab() {
         nextLine.price_disputed = !nextLine.is_free_unit_line && p > 0 && acc > 0
           && Math.round(p * 100) !== Math.round(acc * 100);
         nextLine.is_free_unit_line = p === 0 && (parseFloat(nextLine.quantity) || 0) > 0;
+        if (nextLine.is_free_unit_line && nextLine.product_master_id) {
+          nextLine.deal_id = findDealForProduct(activeDeals, nextLine.product_master_id)?.id ?? null;
+        } else if (!nextLine.is_free_unit_line) {
+          nextLine.deal_id = null;
+        }
       }
 
       if (field === "item_code" || field === "description") {
