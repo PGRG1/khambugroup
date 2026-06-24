@@ -198,6 +198,8 @@ export default function ProductMasterTab() {
           base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
           supplier: p.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
           creates_stock_movement: p.creates_stock_movement ?? true,
+          purchase_yield: p.purchase_yield ?? 100,
+          cooking_yield: p.cooking_yield ?? 100,
         });
       }
     }
