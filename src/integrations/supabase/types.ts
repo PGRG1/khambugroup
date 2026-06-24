@@ -6909,6 +6909,7 @@ export type Database = {
           account_number: string
           address: string | null
           categories: string[]
+          code: string | null
           contact_person: string | null
           created_at: string
           delivery_days: string[]
@@ -6928,6 +6929,7 @@ export type Database = {
           account_number?: string
           address?: string | null
           categories?: string[]
+          code?: string | null
           contact_person?: string | null
           created_at?: string
           delivery_days?: string[]
@@ -6947,6 +6949,7 @@ export type Database = {
           account_number?: string
           address?: string | null
           categories?: string[]
+          code?: string | null
           contact_person?: string | null
           created_at?: string
           delivery_days?: string[]

@@ -19,6 +19,7 @@ import SupplierSheet from "./SupplierSheet";
 
 interface Supplier {
   id: string;
+  code: string | null;
   name: string;
   contact_person: string | null;
   email: string | null;
@@ -41,6 +42,7 @@ const CATEGORY_OPTIONS = ["Food", "Beverages", "Packaging", "Supplies", "Tobacco
 const DAY_OPTIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const emptyForm = {
+  code: "",
   name: "",
   contact_person: "",
   email: "",
@@ -55,6 +57,24 @@ const emptyForm = {
   moq: 0,
   account_number: "",
 };
+
+function generateCodeSuggestion(name: string, existingCodes: string[]): string {
+  const base = name
+    .replace(/[^a-zA-Z\s]/g, "")
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0] || "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 4);
+  if (!base) return "";
+  const existing = existingCodes
+    .filter((c) => c.startsWith(base + "-"))
+    .map((c) => parseInt(c.split("-")[1] || "0", 10))
+    .filter((n) => !isNaN(n));
+  const next = existing.length > 0 ? Math.max(...existing) + 1 : 1;
+  return `${base}-${String(next).padStart(3, "0")}`;
+}
 
 export default function SuppliersTab() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -83,6 +103,16 @@ export default function SuppliersTab() {
 
   useEffect(() => { fetchSuppliers(); }, []);
 
+  // Auto-suggest code from name (only when creating and code is empty)
+  useEffect(() => {
+    if (!editingId && form.name && !form.code) {
+      const existingCodes = suppliers.map((s) => s.code || "").filter(Boolean);
+      const suggested = generateCodeSuggestion(form.name, existingCodes);
+      if (suggested) setForm((f) => (f.code ? f : { ...f, code: suggested }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.name]);
+
   const filtered = suppliers.filter((s) => {
     const q = search.toLowerCase();
     return (
@@ -102,6 +132,7 @@ export default function SuppliersTab() {
   const openEdit = (s: Supplier) => {
     setEditingId(s.id);
     setForm({
+      code: s.code || "",
       name: s.name,
       contact_person: s.contact_person || "",
       email: s.email || "",
@@ -129,8 +160,17 @@ export default function SuppliersTab() {
       toast.error("Supplier & vendor name is required");
       return;
     }
+    const trimmedCode = form.code.trim();
+    if (trimmedCode) {
+      const dup = suppliers.find((s) => (s.code || "") === trimmedCode && s.id !== editingId);
+      if (dup) {
+        toast.error(`Code "${trimmedCode}" is already used by ${dup.name}`);
+        return;
+      }
+    }
     setSaving(true);
     const payload = {
+      code: trimmedCode || null,
       name: form.name.trim(),
       contact_person: form.contact_person || null,
       email: form.email || null,
@@ -173,6 +213,7 @@ export default function SuppliersTab() {
     downloadCSV(
       filtered,
       [
+        { key: "code", label: "Code" },
         { key: "name", label: "Name" },
         { key: "contact_person", label: "Contact Person" },
         { key: "email", label: "Email" },
@@ -216,6 +257,7 @@ export default function SuppliersTab() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[90px]">Code</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Categories</TableHead>
               <TableHead>Delivery days</TableHead>
@@ -227,12 +269,15 @@ export default function SuppliersTab() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
             ) : pag.pageItems.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No suppliers & vendors found</TableCell></TableRow>
             ) : (
               pag.pageItems.map((s) => (
                 <TableRow key={s.id}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {s.code || "—"}
+                  </TableCell>
                   <TableCell
                     className="font-medium cursor-pointer text-primary hover:underline"
                     onClick={() => openSheet(s)}
@@ -304,6 +349,21 @@ export default function SuppliersTab() {
             <div className="grid gap-1.5">
               <Label>Name *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>
+                Supplier code
+                <span className="text-xs text-muted-foreground ml-2">(auto-generated, editable)</span>
+              </Label>
+              <Input
+                placeholder="e.g. JEB-001"
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Unique code for this supplier. Used for reporting and integrations. Cannot be shared with another supplier.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-1.5">
