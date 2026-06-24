@@ -38,10 +38,16 @@ const AMBER = "#E8820C";
 const TEAL = "hsl(175, 55%, 42%)";
 
 interface ItemPriceData {
+  /** Unique row key: product_suppliers.id */
   id: string;
+  productSupplierId: string;
+  productMasterId: string;
   sku: string;
   name: string;
   category: string;
+  supplierName: string;
+  supplierId: string | null;
+  externalSku: string;
   masterPrice: number;
   lastGrnPrice: number | null;
   lastGrnDate: string | null;
@@ -72,7 +78,7 @@ export default function SupplierPricing() {
     try {
       const products = await fetchAllRows(
         "product_master",
-        "id, internal_product_name, internal_sku, purchase_unit_cost, unit_cost, level1_category, financial_treatment, creates_stock_movement",
+        "id, internal_product_name, internal_sku, level1_category, financial_treatment, creates_stock_movement",
         undefined,
         tenantId
       );
@@ -80,7 +86,21 @@ export default function SupplierPricing() {
         p.creates_stock_movement !== false &&
         !(p.financial_treatment || "").toLowerCase().startsWith("asset")
       );
+      const productMap = new Map<string, any>(stockItems.map((p: any) => [p.id, p]));
       const productIds = stockItems.map((p: any) => p.id);
+
+      const suppliersRaw = await fetchAllRows("suppliers", "id, name", undefined, tenantId);
+      const supplierIdToName = new Map<string, string>((suppliersRaw || []).map((s: any) => [s.id, s.name]));
+      const supplierNameToId = new Map<string, string>(
+        (suppliersRaw || []).map((s: any) => [String(s.name || "").toLowerCase().trim(), s.id])
+      );
+
+      const productSuppliers = await fetchAllRows(
+        "product_suppliers",
+        "id, product_master_id, supplier, purchase_unit_cost, external_sku, supplier_product_name, status",
+        undefined,
+        tenantId
+      );
 
       // grn_items paginated with explicit FK hint
       const PAGE = 1000;
@@ -107,57 +127,68 @@ export default function SupplierPricing() {
       }
       const confirmed = allGrn.filter((g: any) => g.goods_received_notes?.status === "confirmed");
 
-      const suppliers = await fetchAllRows("suppliers", "id, name", undefined, tenantId);
-      const supplierMap = new Map<string, string>((suppliers || []).map((s: any) => [s.id, s.name]));
-
-      const grnByProduct = new Map<string, any[]>();
+      // Group GRNs by (product_master_id, supplier_id)
+      const grnByPair = new Map<string, any[]>();
       for (const g of confirmed) {
-        const arr = grnByProduct.get(g.product_master_id) || [];
+        const supId = g.goods_received_notes?.supplier_id;
+        if (!supId) continue;
+        const key = `${g.product_master_id}::${supId}`;
+        const arr = grnByPair.get(key) || [];
         arr.push(g);
-        grnByProduct.set(g.product_master_id, arr);
+        grnByPair.set(key, arr);
       }
 
-      const computed: ItemPriceData[] = stockItems.map((p: any) => {
-        const itemGrns = (grnByProduct.get(p.id) || []).sort((a: any, b: any) =>
-          new Date(b.goods_received_notes.received_date).getTime() -
-          new Date(a.goods_received_notes.received_date).getTime()
-        );
-        const lastGrn = itemGrns[0] ?? null;
-        const last3 = itemGrns.slice(0, 3);
-        const avgGrnPrice = last3.length > 0
-          ? last3.reduce((s: number, g: any) => s + Number(g.unit_cost || 0), 0) / last3.length
-          : null;
-        const masterPrice = Number(p.purchase_unit_cost) || 0;
-        const lastGrnPrice = lastGrn ? Number(lastGrn.unit_cost) : null;
-        const priceDrift = masterPrice > 0 && lastGrnPrice !== null
-          ? ((lastGrnPrice - masterPrice) / masterPrice) * 100
-          : null;
-        const priceHistory = itemGrns
-          .slice()
-          .reverse()
-          .map((g: any) => ({
-            date: g.goods_received_notes.received_date,
-            price: Number(g.unit_cost || 0),
-            supplier: supplierMap.get(g.goods_received_notes.supplier_id) || "Unknown",
-            grnId: g.grn_id,
-          }));
-        return {
-          id: p.id,
-          sku: p.internal_sku || "",
-          name: p.internal_product_name || "(unnamed)",
-          category: p.level1_category || "Uncategorised",
-          masterPrice,
-          lastGrnPrice,
-          lastGrnDate: lastGrn?.goods_received_notes?.received_date ?? null,
-          lastGrnSupplier: lastGrn
-            ? supplierMap.get(lastGrn.goods_received_notes.supplier_id) || null
-            : null,
-          avgGrnPrice,
-          priceDrift,
-          grnCount: itemGrns.length,
-          priceHistory,
-        };
-      });
+      const computed: ItemPriceData[] = (productSuppliers || [])
+        .filter((ps: any) => productMap.has(ps.product_master_id))
+        .map((ps: any) => {
+          const product = productMap.get(ps.product_master_id);
+          const supplierName = String(ps.supplier || "").trim();
+          const supplierId = supplierNameToId.get(supplierName.toLowerCase()) || null;
+          const pairKey = supplierId ? `${ps.product_master_id}::${supplierId}` : "";
+          const pairGrns = (pairKey && grnByPair.get(pairKey)) || [];
+          const sorted = pairGrns.slice().sort((a: any, b: any) =>
+            new Date(b.goods_received_notes.received_date).getTime() -
+            new Date(a.goods_received_notes.received_date).getTime()
+          );
+          const lastGrn = sorted[0] ?? null;
+          const last3 = sorted.slice(0, 3);
+          const avgGrnPrice = last3.length > 0
+            ? last3.reduce((s: number, g: any) => s + Number(g.unit_cost || 0), 0) / last3.length
+            : null;
+          const masterPrice = Number(ps.purchase_unit_cost) || 0;
+          const lastGrnPrice = lastGrn ? Number(lastGrn.unit_cost) : null;
+          const priceDrift = masterPrice > 0 && lastGrnPrice !== null
+            ? ((lastGrnPrice - masterPrice) / masterPrice) * 100
+            : null;
+          const priceHistory = sorted
+            .slice()
+            .reverse()
+            .map((g: any) => ({
+              date: g.goods_received_notes.received_date,
+              price: Number(g.unit_cost || 0),
+              supplier: supplierName || (supplierIdToName.get(g.goods_received_notes.supplier_id) || "Unknown"),
+              grnId: g.grn_id,
+            }));
+          return {
+            id: ps.id,
+            productSupplierId: ps.id,
+            productMasterId: ps.product_master_id,
+            sku: product.internal_sku || "",
+            name: product.internal_product_name || "(unnamed)",
+            category: product.level1_category || "Uncategorised",
+            supplierName: supplierName || "—",
+            supplierId,
+            externalSku: ps.external_sku || "",
+            masterPrice,
+            lastGrnPrice,
+            lastGrnDate: lastGrn?.goods_received_notes?.received_date ?? null,
+            lastGrnSupplier: lastGrn ? supplierName : null,
+            avgGrnPrice,
+            priceDrift,
+            grnCount: sorted.length,
+            priceHistory,
+          };
+        });
       setItems(computed);
     } catch (e: any) {
       toast.error(`Failed to load pricing data: ${e?.message || e}`);
@@ -176,13 +207,13 @@ export default function SupplierPricing() {
   }, [items]);
   const supplierOpts = useMemo(() => {
     const s = new Set<string>();
-    items.forEach(i => i.lastGrnSupplier && s.add(i.lastGrnSupplier));
+    items.forEach(i => i.supplierName && i.supplierName !== "—" && s.add(i.supplierName));
     return Array.from(s).sort();
   }, [items]);
 
   const scoped = useMemo(() => items.filter(i => {
     if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
-    if (supplierFilter !== "all" && i.lastGrnSupplier !== supplierFilter) return false;
+    if (supplierFilter !== "all" && i.supplierName !== supplierFilter) return false;
     return true;
   }), [items, categoryFilter, supplierFilter]);
 
@@ -211,7 +242,10 @@ export default function SupplierPricing() {
     if (!search.trim()) return [];
     const q = search.toLowerCase();
     return scoped.filter(i =>
-      i.name.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q)
+      i.name.toLowerCase().includes(q) ||
+      i.sku.toLowerCase().includes(q) ||
+      i.supplierName.toLowerCase().includes(q) ||
+      i.externalSku.toLowerCase().includes(q)
     ).slice(0, 8);
   }, [scoped, search]);
 
@@ -226,19 +260,19 @@ export default function SupplierPricing() {
       });
   }, [scoped, onlyWithGrn, onlyWithDrift, threshold]);
 
-  async function handleUpdateMaster(item: ItemPriceData) {
-    if (!item.lastGrnPrice || !tenantId) return;
-    setUpdatingId(item.id);
+  async function handleUpdateMaster(row: ItemPriceData) {
+    if (!row.lastGrnPrice || !tenantId) return;
+    setUpdatingId(row.id);
     const { error } = await supabase
-      .from("product_master")
-      .update({ purchase_unit_cost: item.lastGrnPrice })
-      .eq("id", item.id)
+      .from("product_suppliers")
+      .update({ purchase_unit_cost: row.lastGrnPrice })
+      .eq("id", row.productSupplierId)
       .eq("tenant_id", tenantId);
     setUpdatingId(null);
     if (error) {
       toast.error(`Failed to update: ${error.message}`);
     } else {
-      toast.success(`Master price updated for ${item.name}`);
+      toast.success(`Master price updated for ${row.name} — ${row.supplierName}`);
       fetchData();
     }
   }
@@ -250,7 +284,7 @@ export default function SupplierPricing() {
         <div>
           <h1 className="text-2xl font-display font-semibold tracking-tight">Supplier Pricing</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Track actual GRN prices against your Items Master. Spot price drift before it hits your margins.
+            Track actual GRN prices against your Items Master per supplier. Spot price drift before it hits your margins.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -295,13 +329,13 @@ export default function SupplierPricing() {
               label="Biggest increase"
               value={biggestIncrease ? fmtPct(biggestIncrease.priceDrift) : "—"}
               tint="red"
-              sub={biggestIncrease ? biggestIncrease.name : "No increases above threshold"}
+              sub={biggestIncrease ? `${biggestIncrease.name} — ${biggestIncrease.supplierName}` : "No increases above threshold"}
             />
             <KpiBox
               label="Biggest decrease"
               value={biggestDecrease ? fmtPct(biggestDecrease.priceDrift) : "—"}
               tint="green"
-              sub={biggestDecrease ? biggestDecrease.name : "No decreases above threshold"}
+              sub={biggestDecrease ? `${biggestDecrease.name} — ${biggestDecrease.supplierName}` : "No decreases above threshold"}
             />
             <KpiBox
               label="Master price gaps"
@@ -317,14 +351,14 @@ export default function SupplierPricing() {
               <div className="p-5 border-b border-border/50">
                 <h2 className="text-sm font-display font-semibold">Price drift alerts</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Items where actual GRN price differs from Items Master by ≥ {threshold}%
+                  Item/supplier pairs where actual GRN price differs from Items Master by ≥ {threshold}%
                 </p>
               </div>
               {alertItems.some(i => (i.priceDrift ?? 0) > 20) && (
                 <div className="px-5 py-3 bg-amber-500/10 border-b border-amber-500/30 flex items-center gap-2 text-sm">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   <span>
-                    {alertItems.filter(i => (i.priceDrift ?? 0) > 20).length} items have price increases above 20% — review before next order
+                    {alertItems.filter(i => (i.priceDrift ?? 0) > 20).length} item/supplier pairs have price increases above 20% — review before next order
                   </span>
                 </div>
               )}
@@ -334,6 +368,8 @@ export default function SupplierPricing() {
                     <tr>
                       <th className="px-3 py-2 text-left font-medium">SKU</th>
                       <th className="px-3 py-2 text-left font-medium">Item</th>
+                      <th className="px-3 py-2 text-left font-medium">Supplier</th>
+                      <th className="px-3 py-2 text-left font-medium">Ext. SKU</th>
                       <th className="px-3 py-2 text-left font-medium">Category</th>
                       <th className="px-3 py-2 text-right font-medium">Master price</th>
                       <th className="px-3 py-2 text-right font-medium">Last GRN price</th>
@@ -353,6 +389,8 @@ export default function SupplierPricing() {
                         >
                           <td className="px-3 py-2 font-mono text-xs">{item.sku}</td>
                           <td className="px-3 py-2 font-semibold">{item.name}</td>
+                          <td className="px-3 py-2 text-xs">{item.supplierName}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{item.externalSku || "—"}</td>
                           <td className="px-3 py-2"><Badge variant="outline" className="text-xs">{item.category}</Badge></td>
                           <td className="px-3 py-2 text-right text-muted-foreground td-num">{fmtMoney(item.masterPrice || null)}</td>
                           <td className="px-3 py-2 text-right td-num">{fmtMoney(item.lastGrnPrice)}</td>
@@ -360,10 +398,7 @@ export default function SupplierPricing() {
                             {positive ? "↑" : "↓"} {fmtPct(item.priceDrift)}
                           </td>
                           <td className="px-3 py-2 text-right text-muted-foreground td-num">{fmtMoney(item.avgGrnPrice)}</td>
-                          <td className="px-3 py-2">
-                            <div>{fmtDate(item.lastGrnDate)}</div>
-                            <div className="text-xs text-muted-foreground">{item.lastGrnSupplier || "—"}</div>
-                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDate(item.lastGrnDate)}</td>
                           <td className="px-3 py-2 text-right">
                             <Button
                               size="sm"
@@ -388,7 +423,7 @@ export default function SupplierPricing() {
             <div>
               <h2 className="text-sm font-display font-semibold">Price history</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Search for any item to see its price trend from GRN receipts
+                Search for any item/supplier pair to see its price trend from GRN receipts
               </p>
             </div>
             <div className="relative">
@@ -396,7 +431,7 @@ export default function SupplierPricing() {
                 <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search item name or SKU..."
+                    placeholder="Search item, SKU, supplier..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     className="pl-9"
@@ -413,11 +448,11 @@ export default function SupplierPricing() {
                   {searchMatches.map(m => (
                     <button
                       key={m.id}
-                      onClick={() => { setSelectedItem(m); setSearch(m.name); }}
+                      onClick={() => { setSelectedItem(m); setSearch(`${m.name} — ${m.supplierName}`); }}
                       className="w-full text-left px-3 py-2 hover:bg-primary/10 border-b border-border/40 last:border-0"
                     >
-                      <div className="text-sm font-medium">{m.name}</div>
-                      <div className="text-xs text-muted-foreground font-mono">{m.sku} · {m.category}</div>
+                      <div className="text-sm font-medium">{m.name} <span className="text-muted-foreground font-normal">— {m.supplierName}</span></div>
+                      <div className="text-xs text-muted-foreground font-mono">{m.sku}{m.externalSku ? ` · ext ${m.externalSku}` : ""} · {m.category}</div>
                     </button>
                   ))}
                 </div>
@@ -428,7 +463,7 @@ export default function SupplierPricing() {
             ) : (
               <div className="text-center py-10 text-muted-foreground">
                 <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">Search for an item above to see its price history</p>
+                <p className="text-sm">Search for an item/supplier pair above to see its price history</p>
               </div>
             )}
           </Card>
@@ -437,8 +472,8 @@ export default function SupplierPricing() {
           <Card className="card-glass rounded-xl overflow-hidden">
             <div className="p-5 border-b border-border/50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-sm font-display font-semibold">All items</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Master price vs last GRN price</p>
+                <h2 className="text-sm font-display font-semibold">All item/supplier pairs</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Master price vs last GRN price, per supplier</p>
               </div>
               <div className="flex flex-wrap gap-4">
                 <div className="flex items-center gap-2">
@@ -457,6 +492,8 @@ export default function SupplierPricing() {
                   <tr>
                     <th className="px-3 py-2 text-left font-medium w-20">SKU</th>
                     <th className="px-3 py-2 text-left font-medium">Item</th>
+                    <th className="px-3 py-2 text-left font-medium w-32">Supplier</th>
+                    <th className="px-3 py-2 text-left font-medium w-24">Ext. SKU</th>
                     <th className="px-3 py-2 text-left font-medium w-28">Category</th>
                     <th className="px-3 py-2 text-right font-medium w-24">Master</th>
                     <th className="px-3 py-2 text-right font-medium w-24">Last GRN</th>
@@ -481,6 +518,8 @@ export default function SupplierPricing() {
                       >
                         <td className="px-3 py-2 font-mono text-xs">{item.sku}</td>
                         <td className="px-3 py-2 font-semibold truncate max-w-[200px]" title={item.name}>{item.name}</td>
+                        <td className="px-3 py-2 text-xs truncate max-w-[140px]" title={item.supplierName}>{item.supplierName}</td>
+                        <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{item.externalSku || "—"}</td>
                         <td className="px-3 py-2"><Badge variant="outline" className="text-xs">{item.category}</Badge></td>
                         <td className="px-3 py-2 text-right td-num text-muted-foreground">
                           {item.masterPrice > 0 ? fmtMoney(item.masterPrice) : <span className="text-muted-foreground/50">—</span>}
@@ -500,7 +539,7 @@ export default function SupplierPricing() {
                     );
                   })}
                   {allItemsSorted.length === 0 && (
-                    <tr><td colSpan={9} className="text-center py-8 text-muted-foreground text-sm">No items match the current filters.</td></tr>
+                    <tr><td colSpan={11} className="text-center py-8 text-muted-foreground text-sm">No items match the current filters.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -515,7 +554,7 @@ export default function SupplierPricing() {
           {sheetItem && (
             <>
               <SheetHeader>
-                <SheetTitle>{sheetItem.name}</SheetTitle>
+                <SheetTitle>{sheetItem.name} — {sheetItem.supplierName}</SheetTitle>
               </SheetHeader>
               <div className="mt-4">
                 <ItemHistory item={sheetItem} />
@@ -562,7 +601,8 @@ function ItemHistory({ item }: { item: ItemPriceData }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-sm font-semibold">
-            {item.name} <span className="text-muted-foreground font-mono text-xs">— {item.sku}</span>
+            {item.name} — {item.supplierName}
+            <span className="text-muted-foreground font-mono text-xs ml-2">{item.sku}{item.externalSku ? ` · ext ${item.externalSku}` : ""}</span>
           </div>
           <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
             <Badge variant="outline" className="text-xs">{item.category}</Badge>
@@ -634,7 +674,7 @@ function ItemHistory({ item }: { item: ItemPriceData }) {
           </div>
         </>
       ) : (
-        <div className="text-center py-8 text-sm text-muted-foreground">No GRN receipts on record for this item.</div>
+        <div className="text-center py-8 text-sm text-muted-foreground">No GRN receipts on record from this supplier.</div>
       )}
     </div>
   );
