@@ -1461,8 +1461,12 @@ export default function ProcurementInvoicesTab() {
                 const q = parseFloat(l.quantity) || 0;
                 const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                 const invoiced = parseFloat(ftRecalc.perLine[i].total) || 0;
+                const invPrice = parseFloat(l.unit_price) || 0;
+                const accPrice = parseFloat(l.accepted_price || "");
+                const grossInv = invPrice * q;
+                const grossAcc = (Number.isFinite(accPrice) && accPrice > 0 ? accPrice : invPrice) * a;
                 invSub += invoiced;
-                accSub += q > 0 ? invoiced * (a / q) : 0;
+                accSub += grossInv > 0 ? invoiced * (grossAcc / grossInv) : (q > 0 ? invoiced * (a / q) : 0);
               });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
