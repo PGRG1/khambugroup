@@ -71,6 +71,8 @@ interface FlatRow {
   unit_cost: number;
   notes: string;
   creates_stock_movement: boolean;
+  purchase_yield: number;
+  cooking_yield: number;
   rowKey: string;
 }
 
