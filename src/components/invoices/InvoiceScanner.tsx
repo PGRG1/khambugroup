@@ -2287,20 +2287,25 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
               const lines = current?.line_items || [];
               const hM = normalizeDiscountMode(current?.invoice_discount_mode);
               const recalc = recalcAllDiscounts(lines, hM, current?.invoice_discount_rate || "0", current?.invoice_discount || "0", currentMode);
-              let invSub = 0;
-              let accSub = 0;
+              const invRaw: number[] = [];
+              const accRaw: number[] = [];
               lines.forEach((l, i) => {
                 const q = parseFloat(l.quantity) || 0;
                 const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                 const invoiced = parseFloat(recalc.perLine[i].total) || 0;
-                invSub += invoiced;
+                invRaw.push(invoiced);
                 const accPrice = parseFloat(l.accepted_price || "");
+                let accLine: number;
                 if (Number.isFinite(accPrice)) {
-                  accSub += accPrice * a;
+                  accLine = accPrice * a;
                 } else {
-                  accSub += q > 0 ? invoiced * (a / q) : 0;
+                  accLine = q > 0 ? invoiced * (a / q) : 0;
                 }
+                accRaw.push(accLine);
               });
+              // Apply per-supplier rounding rule so subtotals match the Suppliers & Vendors logic.
+              const invSub = aggregateTotal(invRaw, currentMode);
+              const accSub = aggregateTotal(accRaw, currentMode);
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
               return (
