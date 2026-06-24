@@ -1786,14 +1786,11 @@ export default function ProcurementInvoicesTab() {
 
 // ----- Invoice table section with pagination & filters -----------
 interface InvoiceKpis {
-  total: number;
-  underReview: number;
   approved: number;
-  exceptions: number;
   disputed: number;
-  duplicates: number;
+  voided: number;
   totalValue: number;
-  pct: (n: number) => string;
+  pendingAmount: number;
 }
 
 interface InvoiceTableSectionProps {
@@ -1814,10 +1811,6 @@ interface InvoiceTableSectionProps {
   setVenueFilter: (v: string) => void;
   statusFilter: string;
   setStatusFilter: (v: string) => void;
-  reviewStatusFilter: string;
-  setReviewStatusFilter: (v: string) => void;
-  exceptionNoteFilter: string;
-  setExceptionNoteFilter: (v: string) => void;
   monthFilter: string;
   setMonthFilter: (v: string) => void;
   months: string[];
@@ -1829,15 +1822,78 @@ interface InvoiceTableSectionProps {
   onUpdateField: (id: string, patch: Partial<Invoice>) => void;
   onUploadClick: () => void;
   invoiceVarianceMap: Record<string, boolean>;
+  disputeReasonMap: Record<string, DisputeReasonInfo>;
+  onMarkResolved: (inv: Invoice) => void;
+  onVoid: (inv: Invoice) => void;
+}
+
+function StatusBadge({ inv }: { inv: Invoice }) {
+  const s = (inv.status || "").toLowerCase();
+  if (s === "approved") {
+    return <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] px-1.5 py-0">✓ Approved</Badge>;
+  }
+  if (s === "voided") {
+    return <Badge className="bg-zinc-700/30 text-zinc-400 border border-zinc-600/30 text-[10px] px-1.5 py-0">⊘ Voided</Badge>;
+  }
+  if ((inv as any).has_disputes) {
+    return <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">⚠ Disputed</Badge>;
+  }
+  if (!inv.status) return <span className="text-[10px] text-muted-foreground">—</span>;
+  return <Badge className={`capitalize text-[10px] px-1.5 py-0 ${NEUTRAL_STATUS_CHIP}`}>{inv.status}</Badge>;
+}
+
+function ReasonBadge({ info }: { info?: DisputeReasonInfo }) {
+  if (!info) return <span className="text-[10px] text-muted-foreground">—</span>;
+  if (info.hasPrice && info.hasShortQty) {
+    return <Badge className="text-[10px] px-1.5 py-0 border-0" style={{ background: "#FCEBEB", color: "#791F1F" }}>Price + qty</Badge>;
+  }
+  if (info.hasPrice) {
+    return <Badge className="text-[10px] px-1.5 py-0 border-0" style={{ background: "#FAEEDA", color: "#633806" }}>Price</Badge>;
+  }
+  if (info.hasShortQty) {
+    return <Badge className="text-[10px] px-1.5 py-0 border-0" style={{ background: "#FAEEDA", color: "#633806" }}>Short qty</Badge>;
+  }
+  return <span className="text-[10px] text-muted-foreground">—</span>;
+}
+
+function ResolutionBadge({ inv }: { inv: Invoice }) {
+  if (!(inv as any).has_disputes) return <span className="text-[10px] text-muted-foreground">—</span>;
+  const r = (inv as any).dispute_resolution as string | null;
+  if (!r) {
+    const amt = Number((inv as any).disputed_amount) || 0;
+    return (
+      <Badge className="text-[10px] px-1.5 py-0 border-0" style={{ background: "#FAEEDA", color: "#633806" }}>
+        ${fmt(amt)} pending
+      </Badge>
+    );
+  }
+  if (r === "credit_note") {
+    return (
+      <Badge className="text-[10px] px-1.5 py-0 inline-flex items-center gap-1 bg-sky-500/15 text-sky-300 border border-sky-500/30">
+        <FileText className="h-3 w-3" /> Credit note
+      </Badge>
+    );
+  }
+  if (r === "qty_received") {
+    return (
+      <Badge className="text-[10px] px-1.5 py-0 inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+        <CheckCircle2 className="h-3 w-3" /> Qty received
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="text-[10px] px-1.5 py-0 inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+      <CheckCircle2 className="h-3 w-3" /> Resolved
+    </Badge>
+  );
 }
 
 function InvoiceTableSection({
   filtered, invoices, suppliers, kpis, totalAmount, columns, sortColumns, toggleSort, SortIcon,
   search, setSearch, supplierFilter, setSupplierFilter, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
-  reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
-  openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
-  invoiceVarianceMap,
+  openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUploadClick,
+  invoiceVarianceMap, disputeReasonMap, onMarkResolved, onVoid,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
 
@@ -1849,45 +1905,45 @@ function InvoiceTableSection({
       options: [{ value: "Assembly", label: "Assembly" }, { value: "Caliente", label: "Caliente" }, { value: "Hanabi", label: "Hanabi" }],
       allLabel: "All Venues" },
     { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
-      options: STATUSES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
-      allLabel: "All Statuses" },
-    { type: "select", key: "review_status", label: "Review Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
-      options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
-      allLabel: "All Review Statuses" },
-    { type: "select", key: "exception_note", label: "Exception Note", value: exceptionNoteFilter, onChange: setExceptionNoteFilter,
-      options: EXCEPTION_NOTES.map(s => ({ value: s, label: s })),
-      allLabel: "All Exceptions" },
+      options: STATUS_FILTER_OPTIONS,
+      allLabel: "All" },
     { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
       options: months.map(m => ({ value: m, label: fmtMonth(m) })),
       allLabel: "All Months" },
   ];
 
-  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
+  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all"); setMonthFilter("all"); };
 
   const handleDownload = () => downloadCSV(
-    filtered.map((inv) => ({
-      invoice_date: fmtDate(inv.invoice_date),
-      invoice_number: inv.invoice_number,
-      supplier_name: inv.supplier_name,
-      venue: inv.venue,
-      due_date: fmtDate(inv.due_date || ""),
-      total_amount: Number(inv.total_amount).toFixed(2),
-      status: inv.status,
-      review_status: inv.review_status || "Under Review",
-      exception_note: inv.exception_note || "-",
-    })),
-    columns.map((column) => ({ key: column.key, label: column.label })),
+    filtered.map((inv) => {
+      const info = disputeReasonMap[inv.id];
+      const reason = info ? (info.hasPrice && info.hasShortQty ? "Price + qty" : info.hasPrice ? "Price" : info.hasShortQty ? "Short qty" : "-") : "-";
+      const resolution = (inv as any).has_disputes
+        ? ((inv as any).dispute_resolution || `${Number((inv as any).disputed_amount || 0).toFixed(2)} pending`)
+        : "-";
+      return {
+        invoice_date: fmtDate(inv.invoice_date),
+        invoice_number: inv.invoice_number,
+        supplier_name: inv.supplier_name,
+        venue: inv.venue,
+        total_amount: Number(inv.total_amount).toFixed(2),
+        status: (inv.status || "").toLowerCase() === "voided" ? "Voided"
+          : (inv.status || "").toLowerCase() === "approved" ? "Approved"
+          : (inv as any).has_disputes ? "Disputed"
+          : inv.status,
+        reason,
+        resolution,
+      };
+    }),
+    columns.filter(c => c.key !== "actions").map((column) => ({ key: column.key, label: column.label })),
     "invoices",
   );
 
   const kpiCards: Array<{ label: string; value: string; sub: string; subTone?: string; icon: React.ReactNode; tone: string }> = [
-    { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Under Review", value: kpis.underReview.toLocaleString(), sub: kpis.pct(kpis.underReview), subTone: "text-amber-400", icon: <Clock className="h-4 w-4" />, tone: "text-amber-400" },
-    { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
-    { label: "Exceptions", value: kpis.exceptions.toLocaleString(), sub: kpis.pct(kpis.exceptions), subTone: "text-red-400", icon: <AlertTriangle className="h-4 w-4" />, tone: "text-red-400" },
-    { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-orange-400", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-orange-400" },
-    { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-violet-400", icon: <CopyIcon className="h-4 w-4" />, tone: "text-violet-400" },
-    { label: "Total Value", value: `$${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
+    { label: "Approved", value: kpis.approved.toLocaleString(), sub: "confirmed clean", subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
+    { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pendingAmount > 0 ? `$${fmt(kpis.pendingAmount)} pending` : "all resolved", subTone: "text-amber-400", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-amber-400" },
+    { label: "Voided", value: kpis.voided.toLocaleString(), sub: "—", icon: <AlertTriangle className="h-4 w-4" />, tone: "text-zinc-400" },
+    { label: "Total Value", value: `$${fmt(kpis.totalValue)}`, sub: "all time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
   ];
 
   return (
@@ -1896,7 +1952,7 @@ function InvoiceTableSection({
         <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">Invoices Database</h2>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {kpiCards.map((k) => (
           <div key={k.label} className="card-glass rounded-lg p-3 flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -1933,141 +1989,121 @@ function InvoiceTableSection({
       <Table>
         <TableHeader className="bg-primary">
           <TableRow className="hover:bg-primary">
-            {columns.map((column) => (
-              <TableHead
-                key={column.key}
-                onClick={(e) => toggleSort(column.key, (e as any).shiftKey)}
-                className={`cursor-pointer select-none text-primary-foreground font-semibold ${column.align === "right" ? "text-right" : ""}`}
-                title="Click to sort. Shift+click for multi-column sort."
-              >
-                <span className={`inline-flex items-center gap-1 ${column.align === "right" ? "justify-end w-full" : ""}`}>
-                  {column.label}<SortIcon col={column.key} />
-                </span>
-              </TableHead>
-            ))}
-            <TableHead className="bg-primary text-primary-foreground w-[80px]"></TableHead>
+            {columns.map((column) => {
+              const sortable = column.key !== "reason" && column.key !== "resolution" && column.key !== "actions";
+              return (
+                <TableHead
+                  key={column.key}
+                  onClick={sortable ? (e) => toggleSort(column.key, (e as any).shiftKey) : undefined}
+                  className={`${sortable ? "cursor-pointer" : ""} select-none text-primary-foreground font-semibold ${column.align === "right" ? "text-right" : ""}`}
+                  title={sortable ? "Click to sort. Shift+click for multi-column sort." : undefined}
+                >
+                  <span className={`inline-flex items-center gap-1 ${column.align === "right" ? "justify-end w-full" : ""}`}>
+                    {column.label}{sortable && <SortIcon col={column.key} />}
+                  </span>
+                </TableHead>
+              );
+            })}
           </TableRow>
         </TableHeader>
         <TableBody>
           {pag.pageItems.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length + 1} className="py-12 text-center text-muted-foreground">
+              <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
                 No invoices found. Upload your first invoice above.
               </TableCell>
             </TableRow>
           ) : (
-            pag.pageItems.map((inv) => (
-              <TableRow key={inv.id} onClick={() => openDetail(inv)} className={`cursor-pointer text-[12px] ${(inv.status || "").toLowerCase() === "voided" ? "opacity-50" : ""}`}>
-                <TableCell className="whitespace-nowrap text-muted-foreground py-2">{fmtDate(inv.invoice_date)}</TableCell>
-                <TableCell className="py-2 font-mono font-medium text-primary">
-                  <span className="inline-flex items-center gap-1.5">
-                    {(() => {
-                      const anomaly = (inv as any).ai_anomaly;
-                      const flags: any[] = anomaly?.flags ?? [];
-                      if (flags.length === 0) return null;
-                      const summary = flags.map((f) => `${f.type}${f.reason ? ` — ${f.reason}` : ""}`).join("\n");
-                      return (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center text-amber-400" onClick={(e) => e.stopPropagation()}>
-                                <AlertTriangle className="h-3.5 w-3.5" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs whitespace-pre-line text-xs">
-                              <div className="font-medium mb-0.5 flex items-center gap-1">
-                                <Sparkles className="h-3 w-3" /> Bani flagged {flags.length} issue{flags.length === 1 ? "" : "s"}
-                              </div>
-                              {summary}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      );
-                    })()}
-                    {inv.invoice_number}
-                  </span>
-                </TableCell>
-
-                <TableCell className="py-2 font-medium text-foreground">{inv.supplier_name}</TableCell>
-                <TableCell className="py-2">{inv.venue}</TableCell>
-                <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
-                <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
-                <TableCell className="py-2">
-                  <span className="inline-flex items-center gap-1">
-                    {inv.status ? (
-                      <Badge className={`capitalize px-1.5 py-0 text-[10px] ${STATUS_BADGE[inv.status] || "bg-muted text-muted-foreground"}`}>
-                        {inv.status}
-                      </Badge>
+            pag.pageItems.map((inv) => {
+              const isVoided = (inv.status || "").toLowerCase() === "voided";
+              const isDisputed = !!(inv as any).has_disputes;
+              const resolution = (inv as any).dispute_resolution as string | null;
+              const reasonInfo = disputeReasonMap[inv.id];
+              return (
+                <TableRow
+                  key={inv.id}
+                  onClick={() => openDetail(inv)}
+                  className={`cursor-pointer text-[12px]`}
+                  style={isVoided ? { opacity: 0.45 } : undefined}
+                >
+                  <TableCell className="whitespace-nowrap text-muted-foreground py-2">{fmtDate(inv.invoice_date)}</TableCell>
+                  <TableCell className="py-2 font-mono font-medium text-primary">
+                    <span className="inline-flex items-center gap-1.5">
+                      {(() => {
+                        const anomaly = (inv as any).ai_anomaly;
+                        const flags: any[] = anomaly?.flags ?? [];
+                        if (flags.length === 0) return null;
+                        const summary = flags.map((f) => `${f.type}${f.reason ? ` — ${f.reason}` : ""}`).join("\n");
+                        return (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center text-amber-400" onClick={(e) => e.stopPropagation()}>
+                                  <AlertTriangle className="h-3.5 w-3.5" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs whitespace-pre-line text-xs">
+                                <div className="font-medium mb-0.5 flex items-center gap-1">
+                                  <Sparkles className="h-3 w-3" /> Bani flagged {flags.length} issue{flags.length === 1 ? "" : "s"}
+                                </div>
+                                {summary}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })()}
+                      {inv.invoice_number}
+                    </span>
+                  </TableCell>
+                  <TableCell className="py-2 font-medium text-foreground">{inv.supplier_name}</TableCell>
+                  <TableCell className="py-2">{inv.venue}</TableCell>
+                  <TableCell className="py-2 text-right font-semibold tabular-nums">HK$ {fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
+                  <TableCell className="py-2">
+                    <span className="inline-flex items-center gap-1">
+                      <StatusBadge inv={inv} />
+                      {invoiceVarianceMap[inv.id] && !isDisputed && (
+                        <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="py-2">
+                    {isDisputed ? <ReasonBadge info={reasonInfo} /> : <span className="text-[10px] text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <ResolutionBadge inv={inv} />
+                  </TableCell>
+                  <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                    {isDisputed && !resolution && !isVoided ? (
+                      <div className="flex gap-1.5 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] bg-transparent"
+                          style={{ borderColor: "#3B6D11", color: "#27500A" }}
+                          onClick={(e) => { e.stopPropagation(); onMarkResolved(inv); }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#EAF3DE"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                        >
+                          Mark resolved
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] text-muted-foreground"
+                          onClick={(e) => { e.stopPropagation(); onVoid(inv); }}
+                        >
+                          Void
+                        </Button>
+                      </div>
+                    ) : isDisputed && resolution ? (
+                      <span className="text-[10px] text-muted-foreground">Done</span>
                     ) : (
                       <span className="text-[10px] text-muted-foreground">—</span>
                     )}
-                    {(inv as any).has_disputes && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge className="bg-orange-500/15 text-orange-300 border border-orange-500/30 text-[10px] px-1.5 py-0 cursor-help">
-                              Disputed
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Variance: ${Number((inv as any).disputed_amount || 0).toFixed(2)}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    {invoiceVarianceMap[inv.id] && (
-                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
-                    )}
-                  </span>
-                </TableCell>
-                <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-                  {(() => {
-                    const rs = inv.review_status || "Under Review";
-                    return (
-                      <Select value={rs} onValueChange={(v) => onUpdateField(inv.id, { review_status: v as any })}>
-                        <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {REVIEW_STATUSES.map((s) => (
-                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-                  {(() => {
-                    const en = inv.exception_note || "-";
-                    return (
-                      <Select value={en} onValueChange={(v) => onUpdateField(inv.id, { exception_note: v as any })}>
-                        <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${en === "-" ? "bg-transparent text-muted-foreground" : (EXCEPTION_BADGE[en] || "bg-muted text-muted-foreground")}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EXCEPTION_NOTES.map((s) => (
-                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell className="py-2">
-                  <div className="flex gap-1">
-                    {inv.file_url && (
-                      <button onClick={(e) => { e.stopPropagation(); openAttachmentViewer(inv.file_url!, inv.invoice_number); }} className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground" title="View attachments">
-                        <Eye className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    <button onClick={(e) => { e.stopPropagation(); setDeletingId(inv.id); setDeleteOpen(true); }} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
@@ -2075,4 +2111,5 @@ function InvoiceTableSection({
     </div>
   );
 }
+
 
