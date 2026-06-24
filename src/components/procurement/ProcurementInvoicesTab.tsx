@@ -664,6 +664,9 @@ export default function ProcurementInvoicesTab() {
         qty_difference: qtyDiff,
         receiving_reason: recvReason,
         receiving_note: recvNote,
+        accepted_price: (() => { const v = parseFloat(line.accepted_price || ""); return Number.isFinite(v) && v >= 0 ? v : null; })(),
+        price_disputed: !!line.price_disputed,
+        is_free_unit_line: !!line.is_free_unit_line,
       } as any;
     });
 
