@@ -1341,9 +1341,15 @@ export default function ProcurementInvoicesTab() {
                       {/* Acc. price */}
                       <td className="px-1 py-1 align-top">
                         {line.is_free_unit_line ? (
-                          <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap">
-                            Zero — unlinked
-                          </div>
+                          (() => {
+                            const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
+                            const supName = getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id || null);
+                            return (
+                              <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap">
+                                {deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero — unlinked"}
+                              </div>
+                            );
+                          })()
                         ) : line.master_price == null ? (
                           <div className="h-8 flex flex-col justify-center px-1">
                             <Input
