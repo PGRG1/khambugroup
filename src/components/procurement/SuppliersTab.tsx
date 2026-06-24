@@ -122,6 +122,7 @@ export default function SuppliersTab() {
   const openEdit = (s: Supplier) => {
     setEditingId(s.id);
     setForm({
+      code: s.code || "",
       name: s.name,
       contact_person: s.contact_person || "",
       email: s.email || "",
