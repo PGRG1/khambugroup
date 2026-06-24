@@ -119,6 +119,7 @@ interface EditableInvoiceLine {
   master_price?: number;
   price_disputed: boolean;
   is_free_unit_line: boolean;
+  deal_id: string | null;
   accepted_qty: string;
   accepted_qty_touched: boolean;
   receiving_reason: string;
