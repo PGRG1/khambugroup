@@ -1,44 +1,60 @@
+## Items Master — Supplier Deal Conditions
 
-## Goal
-Apply UOM-only updates from `product_master_uom_cleaned.csv` (683 rows) to existing records, matched by Internal SKU + Supplier & Vendor. No new items, no deletions, no fields outside the UOM set touched. Empty CSV cells are skipped (existing values preserved).
+### 1. Database migration
+Create `public.item_supplier_deals` with the requested columns, plus standard Lovable Cloud conventions:
+- `tenant_id` FK → `tenants(id)` on delete cascade
+- `product_id` FK → `product_master(id)` on delete cascade
+- `supplier_id` FK → `suppliers(id)` on delete cascade
+- `deal_type text` default `'buy_x_get_y_free'` (CHECK in list)
+- `buy_qty numeric(10,2)`, `free_qty numeric(10,2)` — both > 0 via CHECK
+- `is_active boolean` default true, `notes text`
+- Standard `id`, `created_at`, `updated_at` + update trigger
+- `UNIQUE (product_id, supplier_id, deal_type)`
 
-## Approach
-One-time data update against the database, scoped to the active KHAMBU tenant. Delivered via the migration tool (since `product_master` / `product_suppliers` are RLS-protected and writes need a migration).
+GRANTs: `SELECT, INSERT, UPDATE, DELETE` to `authenticated`; `ALL` to `service_role`.
 
-### Steps
+Enable RLS with the project's standard pattern (used by `product_master`, `suppliers`, etc.):
+```sql
+CREATE POLICY tenant_select ON public.item_supplier_deals
+  FOR SELECT USING (is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id));
+CREATE POLICY tenant_write ON public.item_supplier_deals
+  FOR ALL USING (is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id))
+  WITH CHECK (is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id));
+```
+(Note: the prompt referenced `user_profiles`, which doesn't exist in this project — using the established `user_has_tenant` helper instead, matching every other procurement table.)
 
-1. **Stage the CSV** into a temp table `_stg_uom` via `psql \copy` from `/mnt/user-uploads/product_master_uom_cleaned.csv`. Read all 28 columns from the file (header `Supplier & Vendor` cannot be aliased in `\copy`), then select into the working staging set with normalized names:
-   - `internal_sku` ← Internal SKU
-   - `supplier` ← Supplier & Vendor
-   - `purch_uom` ← Purch. UOM
-   - `stock_uom` ← Stock UOM
-   - `stock_qty` ← Stock Qty (numeric)
-   - `base_uom` ← Base/Recipe UOM
-   - `base_qty` ← Base/Recipe Qty (numeric)
-   
-   Empty strings are converted to NULL during staging so the update logic can simply use `COALESCE(stg.x, target.x)` to preserve existing values.
+### 2. UI — `src/components/procurement/ProductMasterTab.tsx`
+Inside the existing Add/Edit Product slide-out (around lines 944–1221), add a new **"Supplier deals"** section below the existing supplier/pricing block. Visible only when `editingProductId` is set (so the row already exists in DB to attach deals to). For the Add flow, render a muted hint: "Save the item first to add supplier deals."
 
-2. **Preview** — report:
-   - distinct staged Internal SKUs matched vs unmatched in `product_master` (tenant-scoped)
-   - staged (SKU + supplier) pairs matched vs unmatched in `product_suppliers`
-   - any SKU appearing multiple times in the CSV with conflicting Base/Recipe UOM/Qty (these will use the first occurrence for the product_master update; each supplier row still gets its own values)
-   
-   Unmatched rows are listed for review.
+Section layout:
+- Header row: `Supplier deals` + right-aligned `[+ Add deal]` button
+- Active deals list (cards):
+  - `[Supplier name]   Buy {buy_qty} {purchase_unit}   get {free_qty} {purchase_unit} free   Effective: HK$ X.XX / {purchase_unit}   [Edit] [Delete]`
+  - `effective_unit_cost = (buy_qty × purchase_unit_cost) / (buy_qty + free_qty)` using `product_master.purchase_unit_cost`, formatted via `@/utils/format`
+- Empty state: muted "No deals configured"
 
-3. **Update `product_master`** (tenant-scoped, matched by `internal_sku`):
-   - `base_unit_type` ← `COALESCE(stg.base_uom, base_unit_type)`
-   - `base_unit_qty`  ← `COALESCE(stg.base_qty, base_unit_qty)`
-   - Uses `DISTINCT ON (internal_sku)` to pick one row per SKU.
+### 3. Add/Edit Deal dialog — new component `src/components/procurement/SupplierDealDialog.tsx`
+Fields:
+- **Supplier** — `Select` listing tenant suppliers (reuse data already loaded in ProductMasterTab; sanitize empty ids per Radix constraint). Required.
+- **Deal type** — read-only label `Buy X get Y free`.
+- **Buy qty** — numeric > 0.
+- **Free qty** — numeric > 0.
+- **Notes** — optional text.
+- **Active** — `Switch`, default on.
+- Live read-only display: `Effective price: HK$ X.XX per {stock UOM}` and `Saving per deal: HK$ X.XX` (= `free_qty × purchase_unit_cost`).
 
-4. **Update `product_suppliers`** (tenant-scoped, matched by `product_master_id` + `supplier`):
-   - `purchase_unit`   ← `COALESCE(stg.purch_uom, purchase_unit)`
-   - `stock_uom`       ← `COALESCE(stg.stock_uom, stock_uom)`
-   - `stock_qty`       ← `COALESCE(stg.stock_qty, stock_qty)`
-   - `base_unit_type`  ← `COALESCE(stg.base_uom, base_unit_type)`
-   - `base_unit_qty`   ← `COALESCE(stg.base_qty, base_unit_qty)`
+Save → `tenantUpsert('item_supplier_deals', tenantId, …, { onConflict: 'product_id,supplier_id,deal_type' })`.
+Validation: required supplier, both qtys > 0, duplicate (supplier + deal_type) shows inline error "A deal with this supplier already exists" (catch unique-violation or pre-check the local list).
 
-5. **Verify** — return counts: `product_master` rows updated, `product_suppliers` rows updated, plus a small sample for spot-check. Drop the staging table.
+### 4. Delete behavior
+Soft delete via `update { is_active: false }` (keeps row, frees up the unique slot only if we exclude inactive from the list — which we do; re-adding the same supplier later will hit the unique constraint, so deletion will also clear the prior row by hard-deleting inactive duplicates on insert, or we add `WHERE is_active` to the unique index).
 
-### Notes
-- No code changes. `ProductMasterTab.tsx` and other files are not touched.
-- All matching is case-sensitive on supplier name as stored. If the preview shows a meaningful number of supplier-name mismatches, I'll stop and surface them before updating rather than guess at fuzzy matching.
+Implementation choice: keep schema simple with the plain unique constraint, and on soft-delete also hard-delete any *inactive* row for the same (product, supplier, deal_type) when creating a new one. UI only ever shows `is_active = true`.
+
+### 5. Out of scope
+No changes to the main Items Master table columns, filters, CSV export, or navigation. Only the edit panel gains the new section, plus the new dialog component and migration.
+
+### Files touched
+- `supabase/migrations/<new>.sql` — new table + RLS + GRANTs
+- `src/components/procurement/ProductMasterTab.tsx` — render Supplier deals section in edit panel, load deals for current product, wire dialog
+- `src/components/procurement/SupplierDealDialog.tsx` — new dialog component

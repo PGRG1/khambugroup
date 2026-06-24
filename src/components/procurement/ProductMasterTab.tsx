@@ -24,6 +24,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 
 import UomSelect from "@/components/procurement/UomSelect";
+import SupplierDealDialog, { SupplierDealEditable } from "@/components/procurement/SupplierDealDialog";
+import { formatCurrency } from "@/utils/salesUtils";
+
+interface SupplierDealRow {
+  id: string;
+  supplier_id: string;
+  buy_qty: number;
+  free_qty: number;
+  notes: string | null;
+  is_active: boolean;
+}
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
@@ -114,6 +125,45 @@ export default function ProductMasterTab() {
   const modalRef = useRef<HTMLDivElement>(null);
   const [duplicateSku, setDuplicateSku] = useState<string | null>(null);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
+
+  // Supplier deals (within edit panel)
+  const [deals, setDeals] = useState<SupplierDealRow[]>([]);
+  const [dealDialogOpen, setDealDialogOpen] = useState(false);
+  const [editingDeal, setEditingDeal] = useState<SupplierDealEditable | null>(null);
+
+  const loadDeals = useCallback(async (productId: string) => {
+    if (!tenantId || !productId) { setDeals([]); return; }
+    const { data } = await supabase
+      .from("item_supplier_deals" as any)
+      .select("id, supplier_id, buy_qty, free_qty, notes, is_active")
+      .eq("tenant_id", tenantId)
+      .eq("product_id", productId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
+    setDeals(((data as any[]) || []) as SupplierDealRow[]);
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (dialogOpen && editingProductId) {
+      loadDeals(editingProductId);
+    } else if (!dialogOpen) {
+      setDeals([]);
+    }
+  }, [dialogOpen, editingProductId, loadDeals]);
+
+  const handleDeleteDeal = async (dealId: string) => {
+    if (!tenantId) return;
+    const { error } = await supabase
+      .from("item_supplier_deals" as any)
+      .update({ is_active: false })
+      .eq("id", dealId)
+      .eq("tenant_id", tenantId);
+    if (error) {
+      toast({ title: "Could not delete deal", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (editingProductId) loadDeals(editingProductId);
+  };
 
   useEffect(() => {
     supabase.from("suppliers").select("id, name").eq("is_active", true).order("name").then(({ data }) => {
@@ -1216,6 +1266,68 @@ export default function ProductMasterTab() {
                   </Select>
                 </div>
               </div>
+
+              {/* Supplier deals */}
+              <div className="mt-5 pt-4 border-t">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold">Supplier deals</h3>
+                  {editingProductId && (
+                    <Button size="sm" variant="outline" onClick={() => { setEditingDeal(null); setDealDialogOpen(true); }}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add deal
+                    </Button>
+                  )}
+                </div>
+                {!editingProductId ? (
+                  <p className="text-xs text-muted-foreground">Save the item first to add supplier deals.</p>
+                ) : deals.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No deals configured</p>
+                ) : (
+                  <div className="space-y-2">
+                    {deals.map((d) => {
+                      const supplier = dbSuppliers.find((s) => s.id === d.supplier_id);
+                      const pc = parseFloat(form.purchase_unit_cost) || 0;
+                      const effective = d.buy_qty + d.free_qty > 0
+                        ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
+                      const unit = form.purchase_unit || "unit";
+                      return (
+                        <div key={d.id} className="flex items-center gap-3 border rounded-md px-3 py-2 text-xs">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{supplier?.name || "—"}</div>
+                            <div className="text-muted-foreground">
+                              Buy <span className="font-mono">{d.buy_qty}</span> {unit} get{" "}
+                              <span className="font-mono">{d.free_qty}</span> {unit} free
+                            </div>
+                          </div>
+                          <div className="text-right whitespace-nowrap">
+                            <div className="text-muted-foreground">Effective</div>
+                            <div className="font-mono font-semibold">{formatCurrency(effective)} / {unit}</div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7"
+                              onClick={() => {
+                                setEditingDeal({
+                                  id: d.id,
+                                  supplier_id: d.supplier_id,
+                                  buy_qty: d.buy_qty,
+                                  free_qty: d.free_qty,
+                                  notes: d.notes,
+                                  is_active: d.is_active,
+                                });
+                                setDealDialogOpen(true);
+                              }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
+                              onClick={() => handleDeleteDeal(d.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex justify-end gap-2 px-4 py-3 border-t">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
@@ -1256,6 +1368,21 @@ export default function ProductMasterTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {editingProductId && (
+        <SupplierDealDialog
+          open={dealDialogOpen}
+          onOpenChange={setDealDialogOpen}
+          productId={editingProductId}
+          purchaseUnitCost={parseFloat(form.purchase_unit_cost) || 0}
+          purchaseUnit={form.purchase_unit}
+          stockUom={form.stock_uom}
+          suppliers={dbSuppliers}
+          existingDeals={deals.map((d) => ({ id: d.id, supplier_id: d.supplier_id }))}
+          initial={editingDeal}
+          onSaved={() => loadDeals(editingProductId)}
+        />
+      )}
     </div>
   );
 }
