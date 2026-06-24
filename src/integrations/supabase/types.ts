@@ -5794,6 +5794,7 @@ export type Database = {
           accounting_category: string
           base_unit_qty: number
           base_unit_type: string
+          cooking_yield: number
           cost_per_base_unit: number
           cost_per_stock_unit: number
           created_at: string
@@ -5811,6 +5812,7 @@ export type Database = {
           notes: string | null
           purchase_unit: string
           purchase_unit_cost: number
+          purchase_yield: number
           reorder_qty: number | null
           status: string
           stock_qty: number
@@ -5826,6 +5828,7 @@ export type Database = {
           accounting_category?: string
           base_unit_qty?: number
           base_unit_type?: string
+          cooking_yield?: number
           cost_per_base_unit?: number
           cost_per_stock_unit?: number
           created_at?: string
@@ -5843,6 +5846,7 @@ export type Database = {
           notes?: string | null
           purchase_unit?: string
           purchase_unit_cost?: number
+          purchase_yield?: number
           reorder_qty?: number | null
           status?: string
           stock_qty?: number
@@ -5858,6 +5862,7 @@ export type Database = {
           accounting_category?: string
           base_unit_qty?: number
           base_unit_type?: string
+          cooking_yield?: number
           cost_per_base_unit?: number
           cost_per_stock_unit?: number
           created_at?: string
@@ -5875,6 +5880,7 @@ export type Database = {
           notes?: string | null
           purchase_unit?: string
           purchase_unit_cost?: number
+          purchase_yield?: number
           reorder_qty?: number | null
           status?: string
           stock_qty?: number

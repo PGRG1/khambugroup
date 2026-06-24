@@ -38,6 +38,8 @@ const EMPTY_FORM = {
   notes: "",
   min_stock_qty: "", reorder_qty: "",
   creates_stock_movement: true as boolean,
+  purchase_yield: "100",
+  cooking_yield: "100",
 };
 
 interface FlatRow {
@@ -69,6 +71,8 @@ interface FlatRow {
   unit_cost: number;
   notes: string;
   creates_stock_movement: boolean;
+  purchase_yield: number;
+  cooking_yield: number;
   rowKey: string;
 }
 
@@ -177,6 +181,8 @@ export default function ProductMasterTab() {
             base_unit_type: s.base_unit_type ?? p.base_unit_type, base_unit_qty: s.base_unit_qty ?? p.base_unit_qty, cost_per_base_unit: s.purchase_unit_cost / ((s.base_unit_qty ?? p.base_unit_qty) || 1),
             supplier: s.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
             creates_stock_movement: p.creates_stock_movement ?? true,
+            purchase_yield: p.purchase_yield ?? 100,
+            cooking_yield: p.cooking_yield ?? 100,
           });
         }
       } else {
@@ -192,6 +198,8 @@ export default function ProductMasterTab() {
           base_unit_type: p.base_unit_type, base_unit_qty: p.base_unit_qty, cost_per_base_unit: p.cost_per_base_unit,
           supplier: p.supplier, status: p.status, unit_cost: p.unit_cost, notes: p.notes || "",
           creates_stock_movement: p.creates_stock_movement ?? true,
+          purchase_yield: p.purchase_yield ?? 100,
+          cooking_yield: p.cooking_yield ?? 100,
         });
       }
     }
@@ -287,6 +295,8 @@ export default function ProductMasterTab() {
       min_stock_qty: (row.product as any).min_stock_qty != null ? String((row.product as any).min_stock_qty) : "",
       reorder_qty: (row.product as any).reorder_qty != null ? String((row.product as any).reorder_qty) : "",
       creates_stock_movement: row.creates_stock_movement,
+      purchase_yield: String(row.purchase_yield ?? 100),
+      cooking_yield: String(row.cooking_yield ?? 100),
     });
     setDragPos(null);
     setDialogOpen(true);
@@ -328,6 +338,19 @@ export default function ProductMasterTab() {
 
   const handleSave = async () => {
     setConfirmDuplicateOpen(false);
+
+    // Yield validation (only relevant when item creates stock movement, but we sanitise regardless)
+    const py = parseFloat(form.purchase_yield);
+    const cy = parseFloat(form.cooking_yield);
+    if (isNaN(py) || py < 1 || py > 100) {
+      toast({ title: "Invalid yield", description: "Purchase yield must be between 1% and 100%", variant: "destructive" });
+      return;
+    }
+    if (isNaN(cy) || cy < 1 || cy > 100) {
+      toast({ title: "Invalid yield", description: "Cooking yield must be between 1% and 100%", variant: "destructive" });
+      return;
+    }
+
     const purchaseUnitCost = parseFloat(form.purchase_unit_cost) || 0;
     const stockQty = parseFloat(form.stock_qty) || 1;
     const costPerStockUnit = stockQty > 0 ? purchaseUnitCost / stockQty : 0;
@@ -346,7 +369,10 @@ export default function ProductMasterTab() {
         min_stock_qty: form.min_stock_qty === "" ? null : parseFloat(form.min_stock_qty),
         reorder_qty: form.reorder_qty === "" ? null : parseFloat(form.reorder_qty),
         creates_stock_movement: form.creates_stock_movement,
+        purchase_yield: py,
+        cooking_yield: cy,
       };
+
 
       const supplierLevelFields = {
         supplier: form.supplier, external_sku: form.external_sku,
@@ -407,6 +433,8 @@ export default function ProductMasterTab() {
         purchase_unit_cost: purchaseUnitCost,
         stock_qty: stockQty, cost_per_stock_unit: costPerStockUnit,
         base_unit_qty: recipeQty, cost_per_base_unit: costPerRecipeUnit,
+        purchase_yield: py,
+        cooking_yield: cy,
       };
       const ok = await createProduct(data as any);
       if (ok) setDialogOpen(false);
@@ -595,7 +623,9 @@ export default function ProductMasterTab() {
           cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
           supplier: r.supplier, status: r.status,
           creates_stock_movement: r.creates_stock_movement ? "Yes" : "No",
-        })), [...columns.map(c => ({ key: c.key, label: c.label })), { key: "creates_stock_movement", label: "Creates Stock Movement" }], "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
+          purchase_yield: r.purchase_yield,
+          cooking_yield: r.cooking_yield,
+        })), [...columns.map(c => ({ key: c.key, label: c.label })), { key: "creates_stock_movement", label: "Creates Stock Movement" }, { key: "purchase_yield", label: "Purchase Yield (%)" }, { key: "cooking_yield", label: "Cooking Yield (%)" }], "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
         <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
       </div>
 
@@ -986,6 +1016,74 @@ export default function ProductMasterTab() {
                       </p>
                     </div>
 
+                    {/* Yield & Waste */}
+                    <div className="col-span-2 border-t pt-3 mt-1 space-y-3">
+                      <div>
+                        <Label className="text-sm font-medium">Yield & Waste</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Account for prep loss and cooking shrinkage. Leave at 100% if there is no waste.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Purchase yield %</Label>
+                          <div className="relative">
+                            <Input
+                              type="number" min={1} max={100} step={0.1}
+                              value={form.purchase_yield}
+                              onChange={e => setForm(f => ({ ...f, purchase_yield: e.target.value }))}
+                              className="pr-8 text-sm h-9"
+                            />
+                            <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Trim, peeling, bone, fat removed before cooking</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Cooking yield %</Label>
+                          <div className="relative">
+                            <Input
+                              type="number" min={1} max={100} step={0.1}
+                              value={form.cooking_yield}
+                              onChange={e => setForm(f => ({ ...f, cooking_yield: e.target.value }))}
+                              className="pr-8 text-sm h-9"
+                            />
+                            <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Moisture and shrinkage lost during cooking</p>
+                        </div>
+                      </div>
+                      {(() => {
+                        const py = parseFloat(form.purchase_yield) || 100;
+                        const cy = parseFloat(form.cooking_yield) || 100;
+                        const totalYield = (py / 100) * (cy / 100) * 100;
+                        const baseCost = parseFloat(form.cost_per_base_unit) || 0;
+                        const effectiveCost = baseCost > 0 && totalYield > 0 ? baseCost / (totalYield / 100) : 0;
+                        return (
+                          <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2 text-sm">
+                            <div className="flex items-center gap-4">
+                              <span className="text-muted-foreground text-xs">
+                                Total yield:
+                                <span className={`ml-1.5 font-medium ${totalYield < 80 ? "text-amber-400" : "text-foreground"}`}>
+                                  {totalYield.toFixed(1)}%
+                                </span>
+                              </span>
+                              {effectiveCost > 0 && (
+                                <span className="text-muted-foreground text-xs">
+                                  Effective cost:
+                                  <span className="ml-1.5 font-medium text-foreground">
+                                    ${effectiveCost.toFixed(4)}/{form.base_unit_type || "unit"}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                            {totalYield < 100 && (
+                              <span className="text-[11px] text-muted-foreground">Recipes use effective cost</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
                     {/* Recipe units */}
                     <div className="col-span-2 border-t pt-3 mt-1">
                       <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
@@ -996,10 +1094,35 @@ export default function ProductMasterTab() {
                     </div>
                     <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
                     <div className="col-span-2 bg-muted/30 rounded-lg p-2">
-                      <p className="text-xs text-muted-foreground">
-                        Standard Cost per Recipe Unit: <span className="font-mono font-semibold text-foreground">${fmt4(liveCostPerRecipe)}</span>
-                        <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Recipe Qty)</span>
-                      </p>
+                      {(() => {
+                        const py = parseFloat(form.purchase_yield) || 100;
+                        const cy = parseFloat(form.cooking_yield) || 100;
+                        const totalYield = (py / 100) * (cy / 100);
+                        const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
+                        const baseQty = parseFloat(form.base_unit_qty) || 1;
+                        const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
+                        const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
+                        const hasYield = totalYield < 0.9999;
+                        return hasYield ? (
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              Raw cost per {form.base_unit_type || "unit"}:{" "}
+                              <span className="font-mono line-through text-muted-foreground/60">${rawCostPerBase.toFixed(4)}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield):{" "}
+                              <strong className="text-foreground font-mono">${effectiveCostPerBase.toFixed(4)}</strong>
+                              {" "}← used in recipes
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Standard Cost per Recipe Unit:{" "}
+                            <strong className="font-mono">${rawCostPerBase.toFixed(4)}</strong>{" "}
+                            (Purchase Cost ÷ Recipe Qty)
+                          </p>
+                        );
+                      })()}
                     </div>
                   </>
                 )}
