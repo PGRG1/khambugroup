@@ -102,7 +102,7 @@ const procurementCosting = [
 const procurementAnalysis = [
   { title: "Purchase Analysis", url: "/procurement/purchase-analysis", icon: BarChart3 },
 
-  { title: "Supplier Pricing", url: "/procurement/supplier-pricing", icon: Tag, disabled: true },
+  { title: "Supplier Pricing", url: "/procurement/supplier-pricing", icon: Tag },
   { title: "Inventory Variance", url: "/procurement/inventory-variance", icon: TrendingDown, disabled: true },
 ];
 

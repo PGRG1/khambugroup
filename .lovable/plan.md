@@ -1,89 +1,40 @@
+## Supplier Pricing Page
 
-# Purchase Analysis — Spend Trend Chart + Cost % Strip
+Build a new procurement page that compares Items Master prices against actual GRN receipt prices, flags price drift, and shows per-item price history.
 
-Single-file change to `src/pages/procurement/PurchaseAnalysis.tsx`. No new files, no schema changes, no other sections touched.
+### 1. Sidebar
+In `src/components/AppSidebar.tsx`, remove `disabled: true` from the Supplier Pricing entry in `procurementAnalysis`.
 
-## 1. Additional data fetch
-
-Inside the existing `useEffect` that loads tenant data, alongside the GRN fetch, also load sales:
-
+### 2. Route
+In `src/App.tsx`, import `SupplierPricing` and add:
 ```
-salesRaw = fetchAllRows("sales_records", "date, total_sales, venue", undefined, tenantId)
+<Route path="/procurement/supplier-pricing" element={<AdminRoute><SupplierPricing /></AdminRoute>} />
 ```
 
-Store it in component state (`salesRows`). Venue filter for sales is intentionally NOT applied (sales venue strings may not align with GRN venue strings) — sales are only filtered by date. This matches the user's choice from clarifying questions.
+### 3. New page `src/pages/procurement/SupplierPricing.tsx`
 
-Derive:
-- `salesInPeriod` — sales rows whose `date` falls inside current period range.
-- `salesPrior` — sales rows for the prior period range (used only for monthly buckets crossing into prior).
-- `hasSalesData = salesInPeriod.length > 0`.
-- `totalRevenue = sum(total_sales) of salesInPeriod`.
+**Data fetch (tenant-scoped via `useActiveTenant` + `fetchAllRows`):**
+- `product_master` → filter to stock-bearing COGS items (`creates_stock_movement !== false`, not Asset)
+- `grn_items` joined to `goods_received_notes` using the **explicit FK hint `goods_received_notes!grn_id`** (avoids the PostgREST relationship conflict from earlier prompts); keep only `status = 'confirmed'`
+- `suppliers` → name lookup
 
-## 2. Cost group definitions
+**Per-item computation (`ItemPriceData`):**
+- masterPrice = `purchase_unit_cost`
+- lastGrnPrice / lastGrnDate / lastGrnSupplier from most recent confirmed GRN
+- avgGrnPrice = avg of last 3 GRN unit_costs
+- priceDrift % = (last − master) / master × 100
+- priceHistory array (date, price, supplier, grnId)
+- Derived: `alertItems` (|drift| ≥ threshold), `staleItems` (no master price or no GRN)
 
-Module-level `COST_GROUPS` array with three entries (food, beverage, tobacco), each with `key`, `label`, `color`, and case-insensitive `match(level1_category)` function (beverage matches bev/drink/liquor/beer/wine; tobacco matches tobacco/smok/cigar).
+**Layout:**
 
-Compute `groupSpend[key]` from the existing in-scope GRN items (`scoped` — already filtered for confirmed status, stock-moving, non-asset, venue, etc.) using `accepted_qty * unit_cost` (the existing `lineValue` helper).
+- **Header**: title + subtitle, right-side filters (Category, Supplier, Drift threshold ±3/5/10%).
+- **Section 1 — KPI cards (4)**: Items with drift, Biggest increase, Biggest decrease, Master price gaps. Amber/red/green tints per spec.
+- **Section 2 — Price drift alerts table**: only when alerts exist; amber banner if any drift > 20%. Columns: SKU, Item, Category, Master, Last GRN, Drift (↑/↓ red/green), Avg(3), Last received + supplier, Action. "Update master" button writes `product_master.purchase_unit_cost = lastGrnPrice` (tenant-scoped update) and refreshes.
+- **Section 3 — Price history search + chart**: Search box (name/SKU) → dropdown of matches → on select show header line, ComposedChart with `ReferenceLine` for master price (dashed amber) + teal Line for GRN prices, and a 5-box stats strip (Min, Max, Avg, Range $/%, Receipts). Empty state when nothing selected.
+- **Section 4 — All items table**: Toggles (only with GRN history / only with drift). Columns: SKU, Item, Category, Master, Last GRN, Drift, Last received, GRN count, Action (History → opens right-side Sheet with same chart + stats for that item). Default sort by drift desc.
 
-`activeGroups = COST_GROUPS.filter(g => groupSpend[g.key] > 0)` — only groups with spend render as chips.
+**Styling**: `card-glass rounded-xl`, primary-coloured table headers, row hover with 3px left border (red/green by drift sign), red/green/muted drift text, reuse `tooltipStyle/tooltipItemStyle/tooltipLabelStyle` pattern from `ProcurementDashboardTab.tsx`.
 
-`totalCostPct = totalRevenue > 0 ? (totalSpend / totalRevenue) * 100 : null`.
-
-## 3. Replace the Section 2 right-panel chart
-
-Keep Section 2 grid (`1.1fr 0.9fr`) and the left-side "Spend by category" card untouched. Replace the contents of the right-side "Spend trend" card.
-
-### 1M mode — daily cumulative ComposedChart
-
-Build `chartData` for days 1..maxDay (where maxDay = today's day-of-month if viewing the current month, otherwise the full month length):
-
-For each day, accumulate:
-- `cumSpend` from `scoped` GRN items where `received_date === YYYY-MM-DD`.
-- `cumRevenue` from `salesInPeriod` where `date === YYYY-MM-DD` (only emitted when `hasSalesData`).
-- `cumSpendPrior` from `scopedPrior` GRN items on the same day of the prior month.
-
-Render `ComposedChart` height 200px, left Y axis only, `fmtShort` tick formatter, with three series in this order:
-1. `Area cumRevenue` — teal `hsl(175 55% 42%)`, fillOpacity 0.08, only when `hasSalesData`.
-2. `Line cumSpendPrior` — amber `#E8820C`, dashed `5 4`, opacity 0.35, no dots.
-3. `Area cumSpend` — solid amber `#E8820C`, fillOpacity 0.07, activeDot r4.
-
-Tooltip uses the existing `tooltipStyle/tooltipItemStyle/tooltipLabelStyle` constants. Currency formatter via existing `fmtMoney`.
-
-### 3M / 6M / 12M mode — monthly bars ComposedChart
-
-Build `monthlyData` from the existing `range.months` array. For each `{y, m}`:
-- `spend` = sum of `lineValue` over scoped+scopedPrior items whose `received_date` is in that month (the existing `scoped` covers current-period months; `scopedPrior` covers prior-period months — we use whichever bucket the month belongs to so the chart spans the full window cleanly).
-- `revenue` = sum of `total_sales` over `salesRaw` (sales rows, no venue filter) whose `date` is in that month, only when `hasSalesData`.
-- `label` = `MMM YY`.
-
-Render `ComposedChart` height 200px, left Y axis only, with two bars: Revenue (teal, fillOpacity 0.5) and Net spend (amber). Spend bar always rendered; revenue bar only when `hasSalesData`. Rounded top corners `[3,3,0,0]`.
-
-Mode switch is driven by the existing `period` state (`1M` vs everything else).
-
-## 4. Cost % metric strip (new block below Section 2)
-
-Rendered as a new block between Section 2 and Section 3 (Top items). One row of equal-width chips using `grid gap-px bg-border rounded-xl overflow-hidden` so the border colour shows through as 1px dividers. Column count = `activeGroups.length + 1`.
-
-Chip order: Total cost % (always first, amber), then one chip per active group (Food green, Beverage sky, Tobacco purple).
-
-`CostChip` is defined inline in the file with this shape:
-- Label (11px muted)
-- Value (`{value.toFixed(1)}%` or `—`) in the group colour, large tabular-nums
-- Sub-label (10.5px muted): `{fmtShort(spend)} spend · {fmtShort(revenue)} revenue` or `... · no revenue data`
-
-Below the strip, a centred footnote: when `hasSalesData`, "Cost % = category spend ÷ total revenue (...) · Sourced from confirmed GRNs"; otherwise "Add revenue data in Sales Records to see cost % figures".
-
-## 5. Helpers / constants
-
-- Reuse existing `fmtMoney`, `fmtShort`, `tooltipStyle`, `tooltipItemStyle`, `tooltipLabelStyle`, `AMBER`, `lineValue` already defined at the top of the file.
-- Add new recharts imports: `ComposedChart`, `Area`, `Bar`. `LineChart` import becomes unused and gets removed.
-
-## Out of scope
-
-- KPI cards (Section 1) unchanged.
-- Spend-by-category panel (left of Section 2) unchanged.
-- Top items table (Section 3), supplier concentration (Section 4) unchanged.
-- Period buttons, venue and category filters unchanged.
-- Drill-down Sheet and Dialog added earlier remain unchanged.
-- Data source remains GRN-only for spend; sales come from `sales_records` only.
-- No DB migration, no edits to any other file.
+### Out of scope
+No DB migration, no changes to `ProductMasterTab`, GRN flow, or other procurement pages beyond the sidebar entry and route.

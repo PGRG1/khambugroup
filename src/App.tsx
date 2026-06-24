@@ -40,6 +40,7 @@ import StockCounts from "./pages/procurement/StockCounts";
 import Transfers from "./pages/procurement/Transfers";
 import ProcurementFinance from "./pages/procurement/ProcurementFinance";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
+import SupplierPricing from "./pages/procurement/SupplierPricing";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
@@ -183,6 +184,7 @@ function App() {
                 <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
                 <Route path="/procurement/finance" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance /></ProtectedRoute>} />
                 <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
+                <Route path="/procurement/supplier-pricing" element={<AdminRoute><SupplierPricing /></AdminRoute>} />
 
                 
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
