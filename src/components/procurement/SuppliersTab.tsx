@@ -350,6 +350,21 @@ export default function SuppliersTab() {
               <Label>Name *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
+            <div className="grid gap-1.5">
+              <Label>
+                Supplier code
+                <span className="text-xs text-muted-foreground ml-2">(auto-generated, editable)</span>
+              </Label>
+              <Input
+                placeholder="e.g. JEB-001"
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Unique code for this supplier. Used for reporting and integrations. Cannot be shared with another supplier.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-1.5">
                 <Label>Contact Person</Label>
