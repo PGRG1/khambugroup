@@ -103,6 +103,16 @@ export default function SuppliersTab() {
 
   useEffect(() => { fetchSuppliers(); }, []);
 
+  // Auto-suggest code from name (only when creating and code is empty)
+  useEffect(() => {
+    if (!editingId && form.name && !form.code) {
+      const existingCodes = suppliers.map((s) => s.code || "").filter(Boolean);
+      const suggested = generateCodeSuggestion(form.name, existingCodes);
+      if (suggested) setForm((f) => (f.code ? f : { ...f, code: suggested }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.name]);
+
   const filtered = suppliers.filter((s) => {
     const q = search.toLowerCase();
     return (
