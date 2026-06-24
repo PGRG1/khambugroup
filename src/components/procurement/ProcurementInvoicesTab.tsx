@@ -113,6 +113,10 @@ interface EditableInvoiceLine {
   price_changed: boolean;
   pm_unit_price?: number;
   supplier_entry_id?: string;
+  accepted_price: string;
+  master_price?: number;
+  price_disputed: boolean;
+  is_free_unit_line: boolean;
   accepted_qty: string;
   accepted_qty_touched: boolean;
   receiving_reason: string;
@@ -140,6 +144,9 @@ const emptyEditLine: EditableInvoiceLine = {
   matched_stock_qty_ratio: 1,
   unmatched: false,
   price_changed: false,
+  accepted_price: "",
+  price_disputed: false,
+  is_free_unit_line: false,
   accepted_qty: "1",
   accepted_qty_touched: false,
   receiving_reason: "matched",
@@ -486,6 +493,22 @@ export default function ProcurementInvoicesTab() {
       price_changed: typeof pmPrice === "number" && pmPrice > 0 ? Math.abs(currentPrice - pmPrice) > 0.01 : false,
       pm_unit_price: typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : undefined,
       supplier_entry_id: matchedProduct?.supplier_entry_id,
+      master_price: typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : undefined,
+      accepted_price: (() => {
+        const savedAcc = (line as any).accepted_price;
+        if (savedAcc != null && savedAcc !== "") return String(savedAcc);
+        if (typeof pmPrice === "number" && pmPrice > 0) return String(pmPrice);
+        return priceStr;
+      })(),
+      price_disputed: (() => {
+        const savedAcc = parseFloat(String((line as any).accepted_price ?? ""));
+        const acc = Number.isFinite(savedAcc) && savedAcc > 0
+          ? savedAcc
+          : (typeof pmPrice === "number" && pmPrice > 0 ? pmPrice : currentPrice);
+        if (currentPrice === 0) return false;
+        return Math.round(acc * 100) !== Math.round(currentPrice * 100);
+      })(),
+      is_free_unit_line: !!(line as any).is_free_unit_line || (currentPrice === 0 && (parseFloat(qtyStr) || 0) > 0),
       accepted_qty: acceptedStr,
       accepted_qty_touched: savedAccepted != null,
       receiving_reason: receivingReason,
@@ -641,6 +664,9 @@ export default function ProcurementInvoicesTab() {
         qty_difference: qtyDiff,
         receiving_reason: recvReason,
         receiving_note: recvNote,
+        accepted_price: (() => { const v = parseFloat(line.accepted_price || ""); return Number.isFinite(v) && v >= 0 ? v : null; })(),
+        price_disputed: !!line.price_disputed,
+        is_free_unit_line: !!line.is_free_unit_line,
       } as any;
     });
 
@@ -703,8 +729,15 @@ export default function ProcurementInvoicesTab() {
         }
       }
 
-      if (field === "unit_price" && nextLine.pm_unit_price) {
-        nextLine.price_changed = Math.abs((parseFloat(value) || 0) - nextLine.pm_unit_price) > 0.01;
+      if (field === "unit_price") {
+        const p = parseFloat(value) || 0;
+        if (nextLine.pm_unit_price) {
+          nextLine.price_changed = Math.abs(p - nextLine.pm_unit_price) > 0.01;
+        }
+        const acc = parseFloat(nextLine.accepted_price || "") || 0;
+        nextLine.price_disputed = !nextLine.is_free_unit_line && p > 0 && acc > 0
+          && Math.round(p * 100) !== Math.round(acc * 100);
+        nextLine.is_free_unit_line = p === 0 && (parseFloat(nextLine.quantity) || 0) > 0;
       }
 
       if (field === "item_code" || field === "description") {
@@ -717,6 +750,7 @@ export default function ProcurementInvoicesTab() {
         nextLine.matched_purchase_uom = "";
         nextLine.matched_stock_qty_ratio = 1;
         nextLine.pm_unit_price = undefined;
+        nextLine.master_price = undefined;
         nextLine.price_changed = false;
         nextLine.unmatched = Boolean((nextLine.item_code || "").trim() || (nextLine.description || "").trim());
       }
@@ -750,6 +784,22 @@ export default function ProcurementInvoicesTab() {
     });
   };
 
+  const updateEditLineAcceptedPrice = (idx: number, value: string) => {
+    setEditLines((prev) => {
+      const updated = [...prev];
+      const line = { ...updated[idx] };
+      if (line.is_free_unit_line) return prev;
+      line.accepted_price = value;
+      const acc = parseFloat(value) || 0;
+      const inv = parseFloat(line.unit_price) || 0;
+      line.price_disputed = inv > 0 && acc > 0 && Math.round(acc * 100) !== Math.round(inv * 100);
+      updated[idx] = line;
+      return updated;
+    });
+  };
+
+
+
 
   const selectEditProduct = (idx: number, product: ProductMasterEntry) => {
     setEditLines((prev) => {
@@ -772,8 +822,15 @@ export default function ProcurementInvoicesTab() {
         matched_stock_qty_ratio: product.stock_qty ?? 1,
         unmatched: false,
         pm_unit_price: product.purchase_unit_cost,
+        master_price: typeof product.purchase_unit_cost === "number" && product.purchase_unit_cost > 0 ? product.purchase_unit_cost : undefined,
+        accepted_price: typeof product.purchase_unit_cost === "number" && product.purchase_unit_cost > 0
+          ? String(product.purchase_unit_cost)
+          : (currentLine.accepted_price || currentLine.unit_price || ""),
         supplier_entry_id: product.supplier_entry_id,
         price_changed: typeof product.purchase_unit_cost === "number" && product.purchase_unit_cost > 0
+          ? Math.abs((parseFloat(currentLine.unit_price) || 0) - product.purchase_unit_cost) > 0.01
+          : false,
+        price_disputed: typeof product.purchase_unit_cost === "number" && product.purchase_unit_cost > 0
           ? Math.abs((parseFloat(currentLine.unit_price) || 0) - product.purchase_unit_cost) > 0.01
           : false,
       };
@@ -788,7 +845,7 @@ export default function ProcurementInvoicesTab() {
   const handleEditUpdateMaster = async (idx: number) => {
     const line = editLines[idx];
     if (!line) return;
-    const newPrice = parseFloat(line.unit_price || "");
+    const newPrice = parseFloat(line.accepted_price || line.unit_price || "");
     if (!Number.isFinite(newPrice) || newPrice <= 0) {
       toast.error("Invalid price — enter a positive number first.");
       return;
@@ -819,7 +876,8 @@ export default function ProcurementInvoicesTab() {
         const copy = [...prev];
         const l = { ...copy[idx] };
         l.pm_unit_price = newPrice;
-        l.price_changed = false;
+        l.master_price = newPrice;
+        l.price_changed = Math.abs((parseFloat(l.unit_price) || 0) - newPrice) > 0.01;
         copy[idx] = l;
         return copy;
       });
@@ -1032,6 +1090,7 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[160px] px-1 py-1.5 text-left font-medium text-muted-foreground">Reason</th>
                   <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Note</th>
                   <th className="w-[95px] px-1 py-1.5 text-left font-medium text-muted-foreground">Purch. Cost</th>
+                  <th className="w-[110px] px-1 py-1.5 text-left font-medium text-muted-foreground">Acc. price</th>
                   <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Discount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Invoiced Amount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Accepted Amount</th>
@@ -1048,7 +1107,12 @@ export default function ProcurementInvoicesTab() {
                     const q = parseFloat(l.quantity) || 0;
                     const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                     const invoiced = parseFloat(editRecalc.perLine[i].total) || 0;
-                    const accepted = q > 0 ? invoiced * (a / q) : 0;
+                    const accPrice = parseFloat(l.accepted_price || "");
+                    const invPrice = parseFloat(l.unit_price) || 0;
+                    // If accepted price set & differs, use accepted_price * accepted_qty (proportional discount share via ratio of price * qty)
+                    const grossAcc = (Number.isFinite(accPrice) && accPrice > 0 ? accPrice : invPrice) * a;
+                    const grossInv = invPrice * q;
+                    const accepted = grossInv > 0 ? invoiced * (grossAcc / grossInv) : (q > 0 ? invoiced * (a / q) : 0);
                     return { invoiced, accepted };
                   });
                   return editLines.map((line, index) => {
@@ -1189,23 +1253,63 @@ export default function ProcurementInvoicesTab() {
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateEditLine(index, "unit_price", e.target.value)}
-                            className={`h-8 text-xs min-w-[95px] ${line.price_changed ? "border-primary" : ""}`}
+                            className={`h-8 text-xs min-w-[95px] ${line.price_changed ? "border-primary" : ""} ${line.is_free_unit_line ? "border-blue-500 text-blue-600" : ""}`}
+                            readOnly={line.is_free_unit_line}
                           />
-                          {line.price_changed && line.pm_unit_price !== undefined && (
+                          {line.is_free_unit_line && (
+                            <span className="absolute -top-1 -right-1 inline-flex items-center rounded-md px-1 py-0 text-[9px] font-medium border bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">Deal</span>
+                          )}
+                          {line.price_changed && line.pm_unit_price !== undefined && !line.is_free_unit_line && (
                             <span className="mt-0.5 block whitespace-nowrap text-[9px] text-primary">PM: ${line.pm_unit_price.toFixed(2)}</span>
                           )}
-                          {line.price_changed && line.product_master_id && (
-                            <button
-                              type="button"
-                              disabled={updatingMasterIdx === index}
-                              onClick={() => handleEditUpdateMaster(index)}
-                              className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
-                              title={`Set Items Master price to $${line.unit_price}`}
-                            >
-                              {updatingMasterIdx === index ? "Updating…" : `Update master → $${line.unit_price}`}
-                            </button>
-                          )}
                         </div>
+                      </td>
+                      {/* Acc. price */}
+                      <td className="px-1 py-1 align-top">
+                        {line.is_free_unit_line ? (
+                          <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap">
+                            Zero — unlinked
+                          </div>
+                        ) : line.master_price == null ? (
+                          <div className="h-8 flex flex-col justify-center px-1">
+                            <Input
+                              type="number"
+                              value={line.accepted_price || ""}
+                              onChange={(e) => updateEditLineAcceptedPrice(index, e.target.value)}
+                              className="text-xs h-7 w-full"
+                              placeholder="—"
+                            />
+                            <span className="text-[9px] text-muted-foreground">No master price</span>
+                          </div>
+                        ) : (
+                          (() => {
+                            const accNum = parseFloat(line.accepted_price || "");
+                            const differsFromMaster = Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round((line.master_price as number) * 100);
+                            return (
+                              <div className="h-8 flex flex-col justify-center px-1">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={line.accepted_price || ""}
+                                  onChange={(e) => updateEditLineAcceptedPrice(index, e.target.value)}
+                                  className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
+                                />
+                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">Master: ${(line.master_price as number).toFixed(2)}</span>
+                                {differsFromMaster && line.product_master_id && (
+                                  <button
+                                    type="button"
+                                    disabled={updatingMasterIdx === index}
+                                    onClick={() => handleEditUpdateMaster(index)}
+                                    className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                                    title={`Set Items Master price to $${accNum}`}
+                                  >
+                                    {updatingMasterIdx === index ? "Updating…" : `Update master → $${accNum}`}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()
+                        )}
                       </td>
                       {/* Discount (% or $) */}
                       <td className="px-1 py-1 align-top">
@@ -1360,8 +1464,12 @@ export default function ProcurementInvoicesTab() {
                 const q = parseFloat(l.quantity) || 0;
                 const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                 const invoiced = parseFloat(ftRecalc.perLine[i].total) || 0;
+                const invPrice = parseFloat(l.unit_price) || 0;
+                const accPrice = parseFloat(l.accepted_price || "");
+                const grossInv = invPrice * q;
+                const grossAcc = (Number.isFinite(accPrice) && accPrice > 0 ? accPrice : invPrice) * a;
                 invSub += invoiced;
-                accSub += q > 0 ? invoiced * (a / q) : 0;
+                accSub += grossInv > 0 ? invoiced * (grossAcc / grossInv) : (q > 0 ? invoiced * (a / q) : 0);
               });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
