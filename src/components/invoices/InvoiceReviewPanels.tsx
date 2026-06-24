@@ -182,10 +182,21 @@ export function computeReviewStats(
 
 export function getLineStatus(line: LineForReview): {
   label: string;
-  variant: "matched" | "auto" | "warn" | "block" | "new" | "review";
+  variant: "matched" | "auto" | "warn" | "block" | "new" | "review" | "deal" | "dispute" | "qtyprice";
 } {
   if ((line.review_blocking?.length || 0) > 0) return { label: "Blocking Issue", variant: "block" };
+  if (line.is_free_unit_line) return { label: "Deal — free unit", variant: "deal" };
   if (line.review_status === "new_item") return { label: "New Item", variant: "new" };
+
+  // Qty + price dispute combo
+  const qtyNum = parseFloat(line.quantity || "0") || 0;
+  const accNum = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
+  const qtyDispute = line.accepted_qty != null && accNum !== qtyNum;
+  const priceDispute = !!line.price_disputed;
+  if (qtyDispute && priceDispute) return { label: "Qty + price", variant: "qtyprice" };
+  if (priceDispute) return { label: "Price dispute", variant: "dispute" };
+  if (qtyDispute) return { label: "Qty dispute", variant: "warn" };
+
   if ((line.review_warnings?.length || 0) > 0 || line.price_changed)
     return { label: "Warning", variant: "warn" };
   if ((line.review_corrections?.length || 0) > 0)
@@ -211,6 +222,9 @@ const chipVariants: Record<string, string> = {
   new: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
   review: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30",
   neutral: "bg-muted text-muted-foreground border-border",
+  deal: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  dispute: "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30",
+  qtyprice: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30",
 };
 
 export function LineStatusChip({ variant, label }: { variant: keyof typeof chipVariants; label: string }) {
