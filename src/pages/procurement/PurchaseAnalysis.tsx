@@ -421,6 +421,97 @@ export default function PurchaseAnalysis() {
 
   const categoryTotalSpend = useMemo(() => categoryItems.reduce((s, r) => s + r.spend, 0), [categoryItems]);
 
+  // ---------- Sales / Cost % ----------
+  const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const startISO = useMemo(() => toISO(range.start), [range.start]);
+  const endISO = useMemo(() => toISO(new Date(range.end.getTime() - 86400000)), [range.end]); // inclusive last day
+  const priorStartISO = useMemo(() => toISO(range.priorStart), [range.priorStart]);
+  const priorEndISO = useMemo(() => toISO(new Date(range.priorEnd.getTime() - 86400000)), [range.priorEnd]);
+
+  // venue intentionally not applied to sales (naming may differ from GRN venue)
+  const salesInPeriod = useMemo(
+    () => salesRows.filter((s) => s.date >= startISO && s.date <= endISO),
+    [salesRows, startISO, endISO],
+  );
+  const salesPrior = useMemo(
+    () => salesRows.filter((s) => s.date >= priorStartISO && s.date <= priorEndISO),
+    [salesRows, priorStartISO, priorEndISO],
+  );
+  const hasSalesData = salesInPeriod.length > 0;
+  const totalRevenue = useMemo(() => salesInPeriod.reduce((s, r) => s + Number(r.total_sales || 0), 0), [salesInPeriod]);
+
+  const groupSpend = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const g of COST_GROUPS) {
+      out[g.key] = scoped
+        .filter((it) => g.match(it.product_master?.level1_category || ""))
+        .reduce((s, it) => s + lineValue(it), 0);
+    }
+    return out;
+  }, [scoped]);
+  const activeGroups = useMemo(() => COST_GROUPS.filter((g) => (groupSpend[g.key] || 0) > 0), [groupSpend]);
+  const totalCostPct = totalRevenue > 0 ? (totalSpend / totalRevenue) * 100 : null;
+
+  // ---------- Trend chart data ----------
+  const trend1M = useMemo(() => {
+    if (period !== "1M") return [];
+    const year = range.start.getFullYear();
+    const month = range.start.getMonth() + 1; // 1-indexed
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+    const maxDay = isCurrentMonth ? today.getDate() : daysInMonth;
+    let cumSpend = 0, cumRevenue = 0, cumSpendPrior = 0;
+    const out: any[] = [];
+    for (let i = 0; i < maxDay; i++) {
+      const day = i + 1;
+      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const daySpend = scoped
+        .filter((it) => it.goods_received_notes?.received_date === dateStr)
+        .reduce((s, it) => s + lineValue(it), 0);
+      cumSpend += daySpend;
+      const dayRevenue = salesInPeriod
+        .filter((s) => s.date === dateStr)
+        .reduce((s, r) => s + Number(r.total_sales || 0), 0);
+      cumRevenue += dayRevenue;
+      const priorDate = new Date(year, month - 2, day);
+      const priorStr = toISO(priorDate);
+      const priorDaySpend = scopedPrior
+        .filter((it) => it.goods_received_notes?.received_date === priorStr)
+        .reduce((s, it) => s + lineValue(it), 0);
+      cumSpendPrior += priorDaySpend;
+      out.push({
+        day,
+        cumSpend,
+        cumRevenue: hasSalesData ? cumRevenue : undefined,
+        cumSpendPrior: cumSpendPrior > 0 ? cumSpendPrior : null,
+      });
+    }
+    return out;
+  }, [period, range.start, scoped, scopedPrior, salesInPeriod, hasSalesData]);
+
+  const trendMonthly = useMemo(() => {
+    if (period === "1M") return [];
+    const allGrn = [...scoped, ...scopedPrior];
+    return range.months.map(({ y, m, label }) => {
+      const startOfMonth = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      const endOfMonth = toISO(new Date(y, m + 1, 0));
+      const spend = allGrn
+        .filter((it) => {
+          const d = it.goods_received_notes?.received_date || "";
+          return d >= startOfMonth && d <= endOfMonth;
+        })
+        .reduce((s, it) => s + lineValue(it), 0);
+      const revenue = hasSalesData
+        ? salesRows
+            .filter((s) => s.date >= startOfMonth && s.date <= endOfMonth)
+            .reduce((s, r) => s + Number(r.total_sales || 0), 0)
+        : undefined;
+      return { label, spend, revenue };
+    });
+  }, [period, range.months, scoped, scopedPrior, salesRows, hasSalesData]);
+
+
   // ---------- Virtualized top items ----------
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useVirtualizer({
