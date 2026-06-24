@@ -1750,6 +1750,36 @@ export default function ProcurementInvoicesTab() {
           await fetchAll?.();
         }}
       />
+
+      <MarkResolvedDialog
+        open={resolveOpen}
+        onOpenChange={(o) => { setResolveOpen(o); if (!o) setResolveTarget(null); }}
+        invoiceNumber={resolveTarget?.invoice_number}
+        busy={resolving}
+        onConfirm={async (resolution, note) => {
+          if (!resolveTarget) return;
+          setResolving(true);
+          const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+          const label = resolution === "credit_note" ? "Credit note received"
+            : resolution === "qty_received" ? "Qty received from supplier"
+            : "Resolved (other)";
+          const appended = `Dispute resolved (${stamp}): ${label}${note ? ` — ${note}` : ""}`;
+          const nextNotes = resolveTarget.notes ? `${resolveTarget.notes}\n${appended}` : appended;
+          const { error } = await supabase
+            .from("invoices")
+            .update({ dispute_resolution: resolution, notes: nextNotes } as any)
+            .eq("id", resolveTarget.id);
+          setResolving(false);
+          if (error) {
+            toast.error(`Could not save resolution: ${error.message}`);
+            return;
+          }
+          toast.success(`Invoice ${resolveTarget.invoice_number} marked resolved.`);
+          setResolveOpen(false);
+          setResolveTarget(null);
+          await fetchAll?.();
+        }}
+      />
     </div>
   );
 }
