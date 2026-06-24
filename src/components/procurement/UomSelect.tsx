@@ -18,7 +18,7 @@ interface Props {
  */
 export default function UomSelect({ value, onChange, type, placeholder, legacyValues = [], className }: Props) {
   const { items } = useUomOptions();
-  const merged = mergeWithLegacy(items, type, [...legacyValues, value].filter(Boolean));
+  const merged = mergeWithLegacy(items, type, legacyValues);
   // Radix Select cannot use empty string — use a sentinel for "none".
   const NONE = "__none__";
   const v = value && value.trim() !== "" ? value : NONE;
