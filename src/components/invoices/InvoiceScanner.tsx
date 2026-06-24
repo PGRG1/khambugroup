@@ -2002,14 +2002,68 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             type="number"
                             value={line.unit_price}
                             onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""}`}
+                            className={`text-xs h-8 w-full ${line.price_changed ? "border-blue-500" : ""} ${line.is_free_unit_line ? "border-blue-500 text-blue-600" : ""}`}
+                            readOnly={line.is_free_unit_line}
                           />
-                          {line.price_changed && line.pm_unit_price !== undefined && (
+                          {line.is_free_unit_line && (
+                            <span className="absolute -top-1 -right-1 inline-flex items-center rounded-md px-1 py-0 text-[9px] font-medium border bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">Deal</span>
+                          )}
+                          {line.price_changed && line.pm_unit_price !== undefined && !line.is_free_unit_line && (
                             <span className="block text-[9px] text-blue-600 dark:text-blue-400 mt-0.5 whitespace-nowrap">
                               PM: ${line.pm_unit_price.toFixed(2)}
                             </span>
                           )}
                         </div>
+                      </td>
+                      {/* Accepted Price */}
+                      <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
+                        {line.is_free_unit_line ? (
+                          (() => {
+                            const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
+                            const supName = current?.supplier_name || "";
+                            return (
+                              <div className="h-8 flex items-center px-2 text-[10px] rounded-md border border-input bg-muted/50 text-muted-foreground whitespace-nowrap" title={deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero price — unlinked"}>
+                                {deal ? `${deal.buy_qty}+${deal.free_qty} · ${supName}` : "Zero — unlinked"}
+                              </div>
+                            );
+                          })()
+                        ) : line.master_price == null ? (
+                          <div className="h-8 flex flex-col justify-center px-1">
+                            <Input
+                              type="number"
+                              value={line.accepted_price || ""}
+                              onChange={(e) => updateLineAcceptedPrice(i, e.target.value)}
+                              className="text-xs h-7 w-full"
+                              placeholder="—"
+                            />
+                            <span className="text-[9px] text-muted-foreground">No master price</span>
+                          </div>
+                        ) : (
+                          (() => {
+                            const accNum = parseFloat(line.accepted_price || "");
+                            const differsFromMaster = Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(line.master_price * 100);
+                            const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
+                            let effective: number | null = null;
+                            if (deal && Number.isFinite(accNum)) {
+                              effective = (deal.buy_qty * accNum) / (deal.buy_qty + deal.free_qty);
+                            }
+                            return (
+                              <div className="h-8 flex flex-col justify-center px-1">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={line.accepted_price || ""}
+                                  onChange={(e) => updateLineAcceptedPrice(i, e.target.value)}
+                                  className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
+                                />
+                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">Master: ${line.master_price.toFixed(2)}</span>
+                                {effective !== null && (
+                                  <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">Eff: ${effective.toFixed(2)}</span>
+                                )}
+                              </div>
+                            );
+                          })()
+                        )}
                       </td>
                       {/* Discount (% or $) */}
                       <td style={{ minWidth: 130 }} className="px-1 py-1 align-top">
