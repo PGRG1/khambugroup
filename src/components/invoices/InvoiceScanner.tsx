@@ -1600,7 +1600,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 </tr>
               </thead>
               <tbody>
-                {current.line_items.map((line, i) => {
+                {(() => {
+                  const hModeRow = normalizeDiscountMode(current.invoice_discount_mode);
+                  const hRateRow = current.invoice_discount_rate || "0";
+                  const hFixedRow = current.invoice_discount || "0";
+                  const recalc = recalcAllDiscounts(current.line_items, hModeRow, hRateRow, hFixedRow, currentMode);
+                  const rowAmounts = current.line_items.map((l, i) => {
+                    const q = parseFloat(l.quantity) || 0;
+                    const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+                    const invoiced = parseFloat(recalc.perLine[i].total) || 0;
+                    const accepted = q > 0 ? invoiced * (a / q) : 0;
+                    return { invoiced, accepted };
+                  });
+                  return current.line_items.map((line, i) => {
                   const rowClass = line.unmatched
                     ? "bg-destructive/10 border-l-2 border-l-destructive"
                     : line.sku_mismatch
