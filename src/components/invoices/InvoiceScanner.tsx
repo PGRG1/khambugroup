@@ -1600,7 +1600,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 </tr>
               </thead>
               <tbody>
-                {current.line_items.map((line, i) => {
+                {(() => {
+                  const hModeRow = normalizeDiscountMode(current.invoice_discount_mode);
+                  const hRateRow = current.invoice_discount_rate || "0";
+                  const hFixedRow = current.invoice_discount || "0";
+                  const recalc = recalcAllDiscounts(current.line_items, hModeRow, hRateRow, hFixedRow, currentMode);
+                  const rowAmounts = current.line_items.map((l, i) => {
+                    const q = parseFloat(l.quantity) || 0;
+                    const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+                    const invoiced = parseFloat(recalc.perLine[i].total) || 0;
+                    const accepted = q > 0 ? invoiced * (a / q) : 0;
+                    return { invoiced, accepted };
+                  });
+                  return current.line_items.map((line, i) => {
                   const rowClass = line.unmatched
                     ? "bg-destructive/10 border-l-2 border-l-destructive"
                     : line.sku_mismatch
@@ -1887,9 +1899,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       {/* Invoiced Amount */}
                       <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
                         {(() => {
-                          const q = parseFloat(line.quantity) || 0;
-                          const p = parseFloat(line.unit_price) || 0;
-                          const inv = q * p;
+                          const inv = rowAmounts[i].invoiced;
                           return (
                             <div className="h-8 flex items-center justify-end px-2 font-mono text-xs text-muted-foreground">
                               {inv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1900,11 +1910,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       {/* Accepted Amount */}
                       <td style={{ minWidth: 90 }} className="px-1 py-1 align-top">
                         {(() => {
-                          const q = parseFloat(line.quantity) || 0;
-                          const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
-                          const p = parseFloat(line.unit_price) || 0;
-                          const inv = q * p;
-                          const acc = a * p;
+                          const inv = rowAmounts[i].invoiced;
+                          const acc = rowAmounts[i].accepted;
                           const cls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
                           return (
                             <div className={`h-8 flex items-center justify-end px-2 font-mono text-xs font-medium ${cls}`}>
@@ -1966,7 +1973,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                       </td>
                     </tr>
                   );
-                })}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
@@ -2040,8 +2048,17 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
             })()}
             {(() => {
               const lines = current?.line_items || [];
-              const invSub = lines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
-              const accSub = lines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const hM = normalizeDiscountMode(current?.invoice_discount_mode);
+              const recalc = recalcAllDiscounts(lines, hM, current?.invoice_discount_rate || "0", current?.invoice_discount || "0", currentMode);
+              let invSub = 0;
+              let accSub = 0;
+              lines.forEach((l, i) => {
+                const q = parseFloat(l.quantity) || 0;
+                const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+                const invoiced = parseFloat(recalc.perLine[i].total) || 0;
+                invSub += invoiced;
+                accSub += q > 0 ? invoiced * (a / q) : 0;
+              });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
               return (

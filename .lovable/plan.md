@@ -1,57 +1,39 @@
-## Goal
-Replace the placeholder in `src/pages/procurement/CreditNotes.tsx` with a fully functional Credit & Debit Notes page that lists formal supplier credit notes from the `credit_notes` table, with filters, summary KPIs, a row-click detail Sheet, and reuses `BookCreditNoteDialog` for creation. No backend, sidebar, routing, or shared-component changes.
+## Problem
 
-## Scope
-- Edit only: `src/pages/procurement/CreditNotes.tsx`
-- Reused as-is: `BookCreditNoteDialog`, `APInvoice` type from `usePayables`, `fetchAllRows`, `useActiveTenant`, supabase client, existing shadcn UI primitives.
-- Untouched: `usePayables` hook, Finance → Payables page, `credit_notes` schema, sidebar, routes.
+On line 1 of your screenshot: 8 × 537 = 4,296 with a 30% line discount (−1,288.80) should net 3,007.20. But the "Invoiced Amount" and "Accepted Amount" columns both still show 4,296.00, and the footer "Invoiced subtotal" / "Accepted subtotal" (6,260.00 / 6,260.00) also ignore the discounts. Only "Doc total" (4,382.00) is correct because it's computed separately.
 
-## Page structure
-1. **Header** — title "Credit & Debit Notes", subtitle, amber "+ New credit note" button on the right.
-2. **Summary cards (3-up grid)**
-   - Available credits — sum of `remaining_balance` where status = `approved` (amber tinted card).
-   - Pending review — count where status ∈ {`draft`,`needs_review`}.
-   - Applied this month — sum of `original_amount - remaining_balance` for `fully_applied` rows updated in current month.
-3. **Disputed-invoice banner** — shown only if `disputedCount > 0`, links to the disputed invoices view.
-4. **Filters row** — search input, supplier select, status select, venue select.
-5. **Tabs** — "Credit Notes (N)" and "Debit Notes (0)".
+Root cause: the amount column cells and subtotal aggregators use raw `qty × unit_price`, with no subtraction of `line_discount_amount` or `header_discount_share`. This bug exists in both `InvoiceScanner.tsx` and the Edit dialog inside `ProcurementInvoicesTab.tsx`.
 
-### Credit Notes tab
-- Table with the spec'd columns (CN #, Date, Supplier, Venue, Linked invoice, Original, Applied, Remaining, Status), monospace CN number, right-aligned amounts, amber/bold remaining when > 0.
-- Status badges per spec color map.
-- Row hover: subtle bg + 3px amber left border. Click opens detail Sheet.
-- Empty state: icon + copy + "+ New credit note" button.
+## Fix
 
-### Debit Notes tab
-- Placeholder block: "Debit notes coming soon" + explanation copy.
+Define amounts consistently as **net of all discounts** (matches Doc total math and `net_unit_cost` already persisted):
 
-### Detail Sheet (right side, `sm:max-w-[560px]`)
-- Header: CN number title, supplier + date subtitle.
-- Overview card: supplier, date, venue, linked invoice (text), status badge.
-- Amounts card: original / applied / remaining.
-- Notes block when present.
-- Attachment link (paperclip) when `attachment_url` exists — uses a signed URL via `supabase.storage` if path-like, else plain link. Keep it minimal: render an `<a target="_blank">` to `attachment_url` to match other procurement pages.
-- Footer: Close button.
+- Line gross = `qty × unit_price`
+- Line discount $ = `%` mode → `gross × rate/100`; `$` mode → `discount` field (clamped ≥ 0)
+- Line net after line discount = `max(0, gross − lineDiscount)`
+- Header discount $ = same rule applied to Σ(line net)
+- Header share per line = proportional to line net (use `distributeHeaderDiscount` from `src/utils/invoiceRounding.ts` for consistency with save logic)
+- **Invoiced Amount (per row)** = `gross − lineDiscount − headerShare`
+- **Accepted Amount (per row)** = `Invoiced Amount × (accepted_qty / qty)` (0 when qty = 0)
+- Color rule unchanged: green when accepted > invoiced, red when less, neutral when equal.
 
-## Data fetching (single `fetchData` on mount + after save)
-Use `useActiveTenant()` for `tenantId`; guard until present.
-1. `credit_notes` via `fetchAllRows` with the spec'd column list.
-2. `suppliers` via `fetchAllRows` → build `supplierMap` and `supplierTuples`.
-3. Venues — `fetchAllRows("invoices","venue", …)` then dedupe+sort.
-4. Invoices for dialog — direct supabase select with the AP-shaped fields, ordered by `invoice_date desc`.
-5. Linked invoice numbers — `.in("id", linkedInvoiceIds)` to build `linkedInvoiceMap`.
-6. Disputed count — `select("id", { count: "exact", head: true })` filtered by tenant + `status = "disputed"`.
+Subtotals: `Invoiced subtotal` = Σ row Invoiced Amount, `Accepted subtotal` = Σ row Accepted Amount, `Disputed` = invoiced − accepted. `Doc total` stays as-is.
 
-Loading + error states handled with simple skeleton/spinner and toast.
+## Files
 
-## Filtering (client-side, memoized)
-Matches CN number, supplier name, or linked invoice number on search; equality filters for supplier, status, venue.
+1. `src/components/invoices/InvoiceScanner.tsx`
+   - Replace the per-row Invoiced/Accepted Amount IIFEs (~lines 1887–1915) with the net-of-discount math above.
+   - Replace the footer subtotal IIFE (~lines 2041–2067) to sum the same per-row net values (use `recalcAllDiscounts` once on the lines array, then map).
 
-## New credit note flow
-Amber header button (and empty-state button) set `cnDialogOpen=true`. `BookCreditNoteDialog` receives `suppliers=supplierTuples`, `venues`, `invoices`, and an `onSaved` that closes the dialog and re-runs `fetchData`.
+2. `src/components/procurement/ProcurementInvoicesTab.tsx`
+   - Same change in the Edit dialog: per-row Invoiced/Accepted cells (around the matching JSX in the edit table) and the footer block at ~lines 1281–1327. Reuse the already-imported `recalcAllDiscounts` / `normalizeDiscountMode` (the header math at 1286–1302 is correct; we just need to feed the per-line net back into the row cells and the two subtotals).
 
-## Styling
-Follow existing procurement aesthetic (deep zinc dark, `card-glass`, `chip`, `td-num` for amounts), Tailwind utilities only, currency/date via `@/utils/format`.
+No DB changes, no save-path changes (save already persists correctly via `recalcAllDiscounts`), no changes to GRN/`net_unit_cost`. Only display.
 
-## Out of scope
-No migrations, no edits to `BookCreditNoteDialog`, no Finance/Payables changes, no debit-notes implementation (placeholder only).
+## Verification
+
+Open invoice HKINV-2605661 in the Edit view:
+- Row 1 Invoiced = 3,007.20, Accepted = 3,007.20
+- Row 2 Invoiced = 1,374.80, Accepted = 1,374.80
+- Invoiced subtotal = Accepted subtotal = 4,382.00 = Doc total
+Then test in Scanner with a fresh scan, a `$` line discount, and a header discount, confirming subtotals match Doc total in each case.

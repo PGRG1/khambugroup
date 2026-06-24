@@ -989,7 +989,19 @@ export default function ProcurementInvoicesTab() {
                 </tr>
               </thead>
               <tbody>
-                {editLines.map((line, index) => {
+                {(() => {
+                  const hModeEdit = normalizeDiscountMode((editForm as any).discount_mode);
+                  const hRateEdit = String((editForm as any).discount_rate ?? 0);
+                  const hFixedEdit = String(editForm.discount ?? 0);
+                  const editRecalc = recalcAllDiscounts(editLines as any, hModeEdit, hRateEdit, hFixedEdit, editMode);
+                  const editRowAmounts = editLines.map((l, i) => {
+                    const q = parseFloat(l.quantity) || 0;
+                    const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+                    const invoiced = parseFloat(editRecalc.perLine[i].total) || 0;
+                    const accepted = q > 0 ? invoiced * (a / q) : 0;
+                    return { invoiced, accepted };
+                  });
+                  return editLines.map((line, index) => {
                   const tint = computeEditReceivingTint(line);
                   const rowClass = !tint && line.unmatched && line.description.trim()
                     ? "bg-destructive/10 border-l-2 border-l-destructive"
@@ -1174,11 +1186,8 @@ export default function ProcurementInvoicesTab() {
                         })()}
                       </td>
                       {(() => {
-                        const q = parseFloat(line.quantity) || 0;
-                        const a = parseFloat(line.accepted_qty ?? line.quantity ?? "0") || 0;
-                        const p = parseFloat(line.unit_price) || 0;
-                        const inv = q * p;
-                        const acc = a * p;
+                        const inv = editRowAmounts[index].invoiced;
+                        const acc = editRowAmounts[index].accepted;
                         const accCls = acc === inv ? "text-foreground" : acc < inv ? "text-red-400" : "text-emerald-400";
                         return (
                           <>
@@ -1204,7 +1213,8 @@ export default function ProcurementInvoicesTab() {
                       </td>
                     </tr>
                   );
-                })}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
@@ -1279,27 +1289,22 @@ export default function ProcurementInvoicesTab() {
               );
             })()}
             {(() => {
-              const invSub = editLines.reduce((s, l) => s + ((parseFloat(l.quantity) || 0) * (parseFloat(l.unit_price) || 0)), 0);
-              const accSub = editLines.reduce((s, l) => s + ((parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0) * (parseFloat(l.unit_price) || 0)), 0);
+              const hMode = normalizeDiscountMode((editForm as any).discount_mode);
+              const hRateStr = String((editForm as any).discount_rate ?? 0);
+              const hFixedStr = String(editForm.discount ?? 0);
+              const ftRecalc = recalcAllDiscounts(editLines as any, hMode, hRateStr, hFixedStr, editMode);
+              let invSub = 0;
+              let accSub = 0;
+              editLines.forEach((l, i) => {
+                const q = parseFloat(l.quantity) || 0;
+                const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
+                const invoiced = parseFloat(ftRecalc.perLine[i].total) || 0;
+                invSub += invoiced;
+                accSub += q > 0 ? invoiced * (a / q) : 0;
+              });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
-              const hMode = normalizeDiscountMode((editForm as any).discount_mode);
-              const subtotalAfterLineForTotal = editLines.reduce((s, l) => {
-                const q = parseFloat(l.quantity) || 0;
-                const p = parseFloat(l.unit_price) || 0;
-                const dm = normalizeDiscountMode(l.discount_mode);
-                const rate = parseFloat(l.discount_rate || "0") || 0;
-                const fixed = parseFloat(l.discount || "0") || 0;
-                const gross = q * p;
-                const ld = dm === "percentage" ? (gross * Math.max(0, Math.min(100, rate))) / 100 : Math.max(0, fixed);
-                return s + Math.max(0, gross - ld);
-              }, 0);
-              const hRate = Number((editForm as any).discount_rate ?? 0) || 0;
-              const hFixed = Number(editForm.discount ?? 0) || 0;
-              const headerCalc = hMode === "percentage"
-                ? (subtotalAfterLineForTotal * Math.max(0, Math.min(100, hRate))) / 100
-                : Math.max(0, hFixed);
-              const docTotal = subtotalAfterLineForTotal - headerCalc;
+              const docTotal = invSub;
               return (
                 <>
                   <div>
