@@ -40,6 +40,7 @@ import StockCounts from "./pages/procurement/StockCounts";
 import Transfers from "./pages/procurement/Transfers";
 import ProcurementFinance from "./pages/procurement/ProcurementFinance";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
+import SupplierPricing from "./pages/procurement/SupplierPricing";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
