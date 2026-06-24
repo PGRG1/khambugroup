@@ -24,6 +24,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 
 import UomSelect from "@/components/procurement/UomSelect";
+import SupplierDealDialog, { SupplierDealEditable } from "@/components/procurement/SupplierDealDialog";
+import { formatCurrency } from "@/utils/salesUtils";
+
+interface SupplierDealRow {
+  id: string;
+  supplier_id: string;
+  buy_qty: number;
+  free_qty: number;
+  notes: string | null;
+  is_active: boolean;
+}
 
 const EMPTY_FORM = {
   internal_sku: "", external_sku: "", internal_product_name: "", supplier_product_name: "",
