@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Search, Download, TrendingUp, TrendingDown } from "lucide-react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  ComposedChart, Line, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
@@ -97,6 +97,43 @@ interface GrnItem {
   } | null;
 }
 
+// ---------- cost groups ----------
+type SalesRow = { date: string; total_sales: number | string; venue: string | null };
+
+const COST_GROUPS: { key: string; label: string; color: string; match: (cat: string) => boolean }[] = [
+  { key: "food", label: "Food cost %", color: "#22c55e", match: (c) => c.toLowerCase().includes("food") },
+  {
+    key: "beverage", label: "Bev cost %", color: "#0ea5e9",
+    match: (c) => {
+      const x = c.toLowerCase();
+      return x.includes("bev") || x.includes("drink") || x.includes("liquor") || x.includes("beer") || x.includes("wine");
+    },
+  },
+  {
+    key: "tobacco", label: "Tobacco cost %", color: "#a855f7",
+    match: (c) => {
+      const x = c.toLowerCase();
+      return x.includes("tobacco") || x.includes("smok") || x.includes("cigar");
+    },
+  },
+];
+
+function CostChip({ label, value, color, spend, revenue, hasSalesData }: {
+  label: string; value: number | null; color: string; spend: number; revenue: number; hasSalesData: boolean;
+}) {
+  const pct = value !== null ? `${value.toFixed(1)}%` : "—";
+  return (
+    <div className="bg-card px-4 py-3 flex flex-col gap-1">
+      <span className="text-[11px] text-muted-foreground font-medium">{label}</span>
+      <span className="text-xl font-semibold tabular-nums" style={{ color: value !== null ? color : "hsl(var(--muted-foreground))" }}>{pct}</span>
+      <span className="text-[10.5px] text-muted-foreground">
+        {fmtShort(spend)} spend{hasSalesData ? ` · ${fmtShort(revenue)} revenue` : " · no revenue data"}
+      </span>
+    </div>
+  );
+}
+
+
 // ---------- page ----------
 export default function PurchaseAnalysis() {
   const { tenantId } = useActiveTenant();
@@ -106,6 +143,7 @@ export default function PurchaseAnalysis() {
   const [rows, setRows] = useState<GrnItem[]>([]);
   const [priorRows, setPriorRows] = useState<GrnItem[]>([]);
   const [suppliersMap, setSuppliersMap] = useState<Map<string, string>>(new Map());
+  const [salesRows, setSalesRows] = useState<SalesRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -120,12 +158,16 @@ export default function PurchaseAnalysis() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // suppliers
-      const sups = await fetchAllRows("suppliers", "id, name", undefined, tenantId);
+      // suppliers + sales (parallel)
+      const [sups, sales] = await Promise.all([
+        fetchAllRows("suppliers", "id, name", undefined, tenantId),
+        fetchAllRows("sales_records", "date, total_sales, venue", undefined, tenantId),
+      ]);
       const sm = new Map<string, string>();
       for (const s of sups as any[]) sm.set(s.id, s.name);
       if (cancelled) return;
       setSuppliersMap(sm);
+      setSalesRows(sales as SalesRow[]);
 
       // Fetch all grn_items for tenant (paginated via .range)
       const PAGE = 1000;
@@ -379,6 +421,97 @@ export default function PurchaseAnalysis() {
 
   const categoryTotalSpend = useMemo(() => categoryItems.reduce((s, r) => s + r.spend, 0), [categoryItems]);
 
+  // ---------- Sales / Cost % ----------
+  const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const startISO = useMemo(() => toISO(range.start), [range.start]);
+  const endISO = useMemo(() => toISO(new Date(range.end.getTime() - 86400000)), [range.end]); // inclusive last day
+  const priorStartISO = useMemo(() => toISO(range.priorStart), [range.priorStart]);
+  const priorEndISO = useMemo(() => toISO(new Date(range.priorEnd.getTime() - 86400000)), [range.priorEnd]);
+
+  // venue intentionally not applied to sales (naming may differ from GRN venue)
+  const salesInPeriod = useMemo(
+    () => salesRows.filter((s) => s.date >= startISO && s.date <= endISO),
+    [salesRows, startISO, endISO],
+  );
+  const salesPrior = useMemo(
+    () => salesRows.filter((s) => s.date >= priorStartISO && s.date <= priorEndISO),
+    [salesRows, priorStartISO, priorEndISO],
+  );
+  const hasSalesData = salesInPeriod.length > 0;
+  const totalRevenue = useMemo(() => salesInPeriod.reduce((s, r) => s + Number(r.total_sales || 0), 0), [salesInPeriod]);
+
+  const groupSpend = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const g of COST_GROUPS) {
+      out[g.key] = scoped
+        .filter((it) => g.match(it.product_master?.level1_category || ""))
+        .reduce((s, it) => s + lineValue(it), 0);
+    }
+    return out;
+  }, [scoped]);
+  const activeGroups = useMemo(() => COST_GROUPS.filter((g) => (groupSpend[g.key] || 0) > 0), [groupSpend]);
+  const totalCostPct = totalRevenue > 0 ? (totalSpend / totalRevenue) * 100 : null;
+
+  // ---------- Trend chart data ----------
+  const trend1M = useMemo(() => {
+    if (period !== "1M") return [];
+    const year = range.start.getFullYear();
+    const month = range.start.getMonth() + 1; // 1-indexed
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
+    const maxDay = isCurrentMonth ? today.getDate() : daysInMonth;
+    let cumSpend = 0, cumRevenue = 0, cumSpendPrior = 0;
+    const out: any[] = [];
+    for (let i = 0; i < maxDay; i++) {
+      const day = i + 1;
+      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const daySpend = scoped
+        .filter((it) => it.goods_received_notes?.received_date === dateStr)
+        .reduce((s, it) => s + lineValue(it), 0);
+      cumSpend += daySpend;
+      const dayRevenue = salesInPeriod
+        .filter((s) => s.date === dateStr)
+        .reduce((s, r) => s + Number(r.total_sales || 0), 0);
+      cumRevenue += dayRevenue;
+      const priorDate = new Date(year, month - 2, day);
+      const priorStr = toISO(priorDate);
+      const priorDaySpend = scopedPrior
+        .filter((it) => it.goods_received_notes?.received_date === priorStr)
+        .reduce((s, it) => s + lineValue(it), 0);
+      cumSpendPrior += priorDaySpend;
+      out.push({
+        day,
+        cumSpend,
+        cumRevenue: hasSalesData ? cumRevenue : undefined,
+        cumSpendPrior: cumSpendPrior > 0 ? cumSpendPrior : null,
+      });
+    }
+    return out;
+  }, [period, range.start, scoped, scopedPrior, salesInPeriod, hasSalesData]);
+
+  const trendMonthly = useMemo(() => {
+    if (period === "1M") return [];
+    const allGrn = [...scoped, ...scopedPrior];
+    return range.months.map(({ y, m, label }) => {
+      const startOfMonth = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      const endOfMonth = toISO(new Date(y, m + 1, 0));
+      const spend = allGrn
+        .filter((it) => {
+          const d = it.goods_received_notes?.received_date || "";
+          return d >= startOfMonth && d <= endOfMonth;
+        })
+        .reduce((s, it) => s + lineValue(it), 0);
+      const revenue = hasSalesData
+        ? salesRows
+            .filter((s) => s.date >= startOfMonth && s.date <= endOfMonth)
+            .reduce((s, r) => s + Number(r.total_sales || 0), 0)
+        : undefined;
+      return { label, spend, revenue };
+    });
+  }, [period, range.months, scoped, scopedPrior, salesRows, hasSalesData]);
+
+
   // ---------- Virtualized top items ----------
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useVirtualizer({
@@ -513,29 +646,89 @@ export default function PurchaseAnalysis() {
             <div className="flex items-center justify-between mb-3">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Spend trend</div>
               <div className="flex items-center gap-3 text-[10px]">
-                <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: AMBER }} />Total</span>
-                {categoryAgg.slice(0, 2).map((c) => (
-                  <span key={c.name} className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c.color }} />{c.name}</span>
-                ))}
+                <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: AMBER }} />Spend</span>
+                {hasSalesData && (
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "hsl(175, 55%, 42%)" }} />Revenue</span>
+                )}
+                {period === "1M" && (
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-0.5" style={{ backgroundColor: AMBER, opacity: 0.5 }} />Prior</span>
+                )}
               </div>
             </div>
-            <div style={{ height: 180 }}>
+            <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <YAxis tickFormatter={fmtShort} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => fmtMoney(v)} />
-                  <Line type="monotone" dataKey="total" name="Total" stroke={AMBER} strokeWidth={2} dot={{ r: 3 }} />
-                  {categoryAgg.slice(0, 2).map((c) => (
-                    <Line key={c.name} type="monotone" dataKey={c.name} stroke={c.color} strokeWidth={1.5} strokeDasharray="4 2" dot={false} />
-                  ))}
-                </LineChart>
+                {period === "1M" ? (
+                  <ComposedChart data={trend1M} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="day" tick={{ fontSize: 10 }} className="fill-muted-foreground" tickFormatter={(v) => `${v}`} />
+                    <YAxis tickFormatter={fmtShort} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip
+                      contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                      labelFormatter={(l) => `Day ${l}`}
+                      formatter={(v: any, name: string) => (v === null || v === undefined ? ["—", name] : [fmtMoney(Number(v)), name])}
+                    />
+                    {hasSalesData && (
+                      <Area type="monotone" dataKey="cumRevenue" stroke="hsl(175, 55%, 42%)" strokeWidth={2}
+                        fill="hsl(175, 55%, 42%)" fillOpacity={0.08} name="Cumulative revenue" connectNulls dot={false} />
+                    )}
+                    <Line type="monotone" dataKey="cumSpendPrior" stroke={AMBER} strokeWidth={1.5}
+                      strokeDasharray="5 4" strokeOpacity={0.35} dot={false} name="Prior month spend" connectNulls />
+                    <Area type="monotone" dataKey="cumSpend" stroke={AMBER} strokeWidth={2.5}
+                      fill={AMBER} fillOpacity={0.07} name="Cumulative spend" connectNulls dot={false}
+                      activeDot={{ r: 4, fill: AMBER }} />
+                  </ComposedChart>
+                ) : (
+                  <ComposedChart data={trendMonthly} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <YAxis tickFormatter={fmtShort} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} labelStyle={tooltipLabelStyle}
+                      formatter={(v: any, name: string) => (v === null || v === undefined ? ["—", name] : [fmtMoney(Number(v)), name])} />
+                    {hasSalesData && (
+                      <Bar dataKey="revenue" fill="hsl(175, 55%, 42%)" fillOpacity={0.5} radius={[3, 3, 0, 0]} name="Revenue" />
+                    )}
+                    <Bar dataKey="spend" fill={AMBER} radius={[3, 3, 0, 0]} name="Net spend" />
+                  </ComposedChart>
+                )}
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Cost % metric strip */}
+      <div className="space-y-1">
+        <div
+          className="grid gap-px bg-border rounded-xl overflow-hidden"
+          style={{ gridTemplateColumns: `repeat(${activeGroups.length + 1}, minmax(0, 1fr))` }}
+        >
+          <CostChip
+            label="Total cost %"
+            value={totalCostPct}
+            color={AMBER}
+            spend={totalSpend}
+            revenue={totalRevenue}
+            hasSalesData={hasSalesData}
+          />
+          {activeGroups.map((g) => (
+            <CostChip
+              key={g.key}
+              label={g.label}
+              value={hasSalesData && totalRevenue > 0 ? (groupSpend[g.key] / totalRevenue) * 100 : null}
+              color={g.color}
+              spend={groupSpend[g.key]}
+              revenue={totalRevenue}
+              hasSalesData={hasSalesData}
+            />
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground text-center mt-1">
+          {hasSalesData
+            ? `Cost % = category spend ÷ total revenue (${fmtShort(totalRevenue)}) · Sourced from confirmed GRNs`
+            : "Add revenue data in Sales Records to see cost % figures"}
+        </p>
+      </div>
+
 
       {/* Section 3: Top items */}
       <div className="space-y-3">
