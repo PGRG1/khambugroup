@@ -680,6 +680,7 @@ export default function ProcurementInvoicesTab() {
         accepted_price: (() => { const v = parseFloat(line.accepted_price || ""); return Number.isFinite(v) && v >= 0 ? v : null; })(),
         price_disputed: !!line.price_disputed,
         is_free_unit_line: !!line.is_free_unit_line,
+        deal_id: line.deal_id ?? null,
       } as any;
     });
 
