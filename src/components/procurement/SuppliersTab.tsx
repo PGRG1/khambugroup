@@ -19,6 +19,7 @@ import SupplierSheet from "./SupplierSheet";
 
 interface Supplier {
   id: string;
+  code: string | null;
   name: string;
   contact_person: string | null;
   email: string | null;
@@ -41,6 +42,7 @@ const CATEGORY_OPTIONS = ["Food", "Beverages", "Packaging", "Supplies", "Tobacco
 const DAY_OPTIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const emptyForm = {
+  code: "",
   name: "",
   contact_person: "",
   email: "",
@@ -55,6 +57,24 @@ const emptyForm = {
   moq: 0,
   account_number: "",
 };
+
+function generateCodeSuggestion(name: string, existingCodes: string[]): string {
+  const base = name
+    .replace(/[^a-zA-Z\s]/g, "")
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0] || "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 4);
+  if (!base) return "";
+  const existing = existingCodes
+    .filter((c) => c.startsWith(base + "-"))
+    .map((c) => parseInt(c.split("-")[1] || "0", 10))
+    .filter((n) => !isNaN(n));
+  const next = existing.length > 0 ? Math.max(...existing) + 1 : 1;
+  return `${base}-${String(next).padStart(3, "0")}`;
+}
 
 export default function SuppliersTab() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
