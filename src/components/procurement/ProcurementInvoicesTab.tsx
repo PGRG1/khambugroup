@@ -32,34 +32,16 @@ import { BaniScanSummary } from "@/components/invoices/ai/BaniScanSummary";
 import { runBaniScan } from "@/lib/baniRunScan";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 
-const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed", "voided"];
-const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review", "Disputed"] as const;
-const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
+const STATUS_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "approved", label: "Approved" },
+  { value: "disputed", label: "Disputed" },
+  { value: "voided", label: "Voided" },
+];
 
-const REVIEW_BADGE: Record<string, string> = {
-  "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  "Rejected": "bg-red-500/15 text-red-300 border border-red-500/30",
-  "Under Review": "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-  "Disputed": "bg-orange-500/15 text-orange-300 border border-orange-500/30",
-};
+// Neutral grey fallback chip for any historical status (paid/unpaid/legacy values).
+const NEUTRAL_STATUS_CHIP = "bg-zinc-500/15 text-zinc-300 border border-zinc-500/30";
 
-const EXCEPTION_BADGE: Record<string, string> = {
-  "Credit Note Issued": "bg-sky-500/15 text-sky-300 border border-sky-500/30",
-  "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
-  "-": "bg-transparent text-muted-foreground",
-};
-
-const STATUS_BADGE: Record<string, string> = {
-  pending: "bg-zinc-500/15 text-zinc-300 border border-zinc-500/30",
-  verified: "bg-sky-500/15 text-sky-300 border border-sky-500/30",
-  approved: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  paid: "bg-emerald-600/20 text-emerald-200 border border-emerald-600/40",
-  unpaid: "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20",
-  overdue: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-  cancelled: "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30 line-through",
-  disputed: "bg-red-500/15 text-red-300 border border-red-500/30",
-  voided: "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
-};
+interface DisputeReasonInfo { hasPrice: boolean; hasShortQty: boolean }
 
 const isVoidEligible = (inv: Pick<Invoice, "status" | "approved_at">) => {
   const s = (inv.status || "").toLowerCase();
