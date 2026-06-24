@@ -785,6 +785,52 @@ export default function ProcurementInvoicesTab() {
   const addEditLine = () => setEditLines((prev) => [...prev, { ...emptyEditLine }]);
   const removeEditLine = (idx: number) => setEditLines((prev) => prev.filter((_, lineIdx) => lineIdx !== idx));
 
+  const handleEditUpdateMaster = async (idx: number) => {
+    const line = editLines[idx];
+    if (!line) return;
+    const newPrice = parseFloat(line.unit_price || "");
+    if (!Number.isFinite(newPrice) || newPrice <= 0) {
+      toast.error("Invalid price — enter a positive number first.");
+      return;
+    }
+    if (!tenantId) return;
+    setUpdatingMasterIdx(idx);
+    try {
+      let updated = false;
+      if (line.supplier_entry_id) {
+        const { error } = await supabase
+          .from("product_suppliers" as any)
+          .update({ purchase_unit_cost: newPrice } as any)
+          .eq("id", line.supplier_entry_id)
+          .eq("tenant_id", tenantId);
+        if (error) { toast.error(`Failed to update Items Master: ${error.message}`); return; }
+        updated = true;
+      } else if (line.product_master_id) {
+        const { error } = await supabase
+          .from("product_master" as any)
+          .update({ purchase_unit_cost: newPrice } as any)
+          .eq("id", line.product_master_id)
+          .eq("tenant_id", tenantId);
+        if (error) { toast.error(`Failed to update Items Master: ${error.message}`); return; }
+        updated = true;
+      }
+      if (!updated) { toast.error("This line is not linked to an Items Master entry."); return; }
+      setEditLines((prev) => {
+        const copy = [...prev];
+        const l = { ...copy[idx] };
+        l.pm_unit_price = newPrice;
+        l.price_changed = false;
+        copy[idx] = l;
+        return copy;
+      });
+      try { await loadProductMaster(); } catch {}
+      toast.success(`Items Master updated → $${newPrice}`);
+    } finally {
+      setUpdatingMasterIdx(null);
+    }
+  };
+
+
   const handleDelete = async () => {
     if (!deletingId) return;
     await deleteInvoice(deletingId);
