@@ -4000,6 +4000,7 @@ export type Database = {
           discount_rate: number
           discount_type: string
           dispute_notes: string | null
+          dispute_resolution: string | null
           disputed_amount: number
           due_date: string | null
           entered_by: string
@@ -4048,6 +4049,7 @@ export type Database = {
           discount_rate?: number
           discount_type?: string
           dispute_notes?: string | null
+          dispute_resolution?: string | null
           disputed_amount?: number
           due_date?: string | null
           entered_by: string
@@ -4096,6 +4098,7 @@ export type Database = {
           discount_rate?: number
           discount_type?: string
           dispute_notes?: string | null
+          dispute_resolution?: string | null
           disputed_amount?: number
           due_date?: string | null
           entered_by?: string
