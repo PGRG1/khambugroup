@@ -980,31 +980,63 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     );
   }, [current, activeDeals]);
 
-  const handleUpdateMaster = async () => {
-    if (!masterUpdateBanner) return;
-    const { productMasterId, newPrice, lineIdx } = masterUpdateBanner;
-    const { error } = await supabase
-      .from("product_master")
-      .update({ purchase_unit_cost: newPrice } as any)
-      .eq("id", productMasterId);
-    if (error) {
-      toast({ title: "Failed to update Items Master", description: error.message, variant: "destructive" });
+  const handleUpdateMaster = async (lineIdx: number) => {
+    const line = invoices[currentIdx]?.line_items[lineIdx];
+    if (!line) return;
+    const newPrice = parseFloat(line.accepted_price || "");
+    if (!Number.isFinite(newPrice) || newPrice <= 0) {
+      toast({ title: "Invalid price", description: "Accepted price must be a positive number.", variant: "destructive" });
       return;
     }
-    setInvoices((prev) => {
-      const copy = [...prev];
-      const lines = [...copy[currentIdx].line_items];
-      const line = { ...lines[lineIdx] };
-      line.master_price = newPrice;
-      line.pm_unit_price = newPrice;
-      const invPrice = parseFloat(line.unit_price) || 0;
-      line.price_changed = Math.abs(invPrice - newPrice) > 0.01;
-      lines[lineIdx] = line;
-      copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
-      return copy;
-    });
-    setMasterUpdateBanner(null);
-    toast({ title: "Items Master updated", description: `New price: $${newPrice.toFixed(2)}` });
+    if (!tenantId) return;
+    setUpdatingMasterIdx(lineIdx);
+    try {
+      let updated = false;
+      // Prefer per-supplier row when available so multi-supplier prices stay independent.
+      if (line.supplier_entry_id) {
+        const { error } = await supabase
+          .from("product_suppliers" as any)
+          .update({ purchase_unit_cost: newPrice } as any)
+          .eq("id", line.supplier_entry_id)
+          .eq("tenant_id", tenantId);
+        if (error) {
+          toast({ title: "Failed to update Items Master", description: error.message, variant: "destructive" });
+          return;
+        }
+        updated = true;
+      } else if (line.product_master_id) {
+        const { error } = await supabase
+          .from("product_master" as any)
+          .update({ purchase_unit_cost: newPrice } as any)
+          .eq("id", line.product_master_id)
+          .eq("tenant_id", tenantId);
+        if (error) {
+          toast({ title: "Failed to update Items Master", description: error.message, variant: "destructive" });
+          return;
+        }
+        updated = true;
+      }
+      if (!updated) {
+        toast({ title: "No master record", description: "This line is not linked to an Items Master entry.", variant: "destructive" });
+        return;
+      }
+      setInvoices((prev) => {
+        const copy = [...prev];
+        const lines = [...copy[currentIdx].line_items];
+        const l = { ...lines[lineIdx] };
+        l.master_price = newPrice;
+        l.pm_unit_price = newPrice;
+        const invPrice = parseFloat(l.unit_price) || 0;
+        l.price_changed = Math.abs(invPrice - newPrice) > 0.01;
+        lines[lineIdx] = l;
+        copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+        return copy;
+      });
+      try { await fetchProducts(); } catch {}
+      toast({ title: "Items Master updated", description: `New price: $${newPrice.toFixed(2)}` });
+    } finally {
+      setUpdatingMasterIdx(null);
+    }
   };
 
   const addLine = () => setInvoices((prev) => {
