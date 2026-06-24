@@ -1016,6 +1016,74 @@ export default function ProductMasterTab() {
                       </p>
                     </div>
 
+                    {/* Yield & Waste */}
+                    <div className="col-span-2 border-t pt-3 mt-1 space-y-3">
+                      <div>
+                        <Label className="text-sm font-medium">Yield & Waste</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Account for prep loss and cooking shrinkage. Leave at 100% if there is no waste.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Purchase yield %</Label>
+                          <div className="relative">
+                            <Input
+                              type="number" min={1} max={100} step={0.1}
+                              value={form.purchase_yield}
+                              onChange={e => setForm(f => ({ ...f, purchase_yield: e.target.value }))}
+                              className="pr-8 text-sm h-9"
+                            />
+                            <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Trim, peeling, bone, fat removed before cooking</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Cooking yield %</Label>
+                          <div className="relative">
+                            <Input
+                              type="number" min={1} max={100} step={0.1}
+                              value={form.cooking_yield}
+                              onChange={e => setForm(f => ({ ...f, cooking_yield: e.target.value }))}
+                              className="pr-8 text-sm h-9"
+                            />
+                            <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Moisture and shrinkage lost during cooking</p>
+                        </div>
+                      </div>
+                      {(() => {
+                        const py = parseFloat(form.purchase_yield) || 100;
+                        const cy = parseFloat(form.cooking_yield) || 100;
+                        const totalYield = (py / 100) * (cy / 100) * 100;
+                        const baseCost = parseFloat(form.cost_per_base_unit) || 0;
+                        const effectiveCost = baseCost > 0 && totalYield > 0 ? baseCost / (totalYield / 100) : 0;
+                        return (
+                          <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2 text-sm">
+                            <div className="flex items-center gap-4">
+                              <span className="text-muted-foreground text-xs">
+                                Total yield:
+                                <span className={`ml-1.5 font-medium ${totalYield < 80 ? "text-amber-400" : "text-foreground"}`}>
+                                  {totalYield.toFixed(1)}%
+                                </span>
+                              </span>
+                              {effectiveCost > 0 && (
+                                <span className="text-muted-foreground text-xs">
+                                  Effective cost:
+                                  <span className="ml-1.5 font-medium text-foreground">
+                                    ${effectiveCost.toFixed(4)}/{form.base_unit_type || "unit"}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                            {totalYield < 100 && (
+                              <span className="text-[11px] text-muted-foreground">Recipes use effective cost</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
                     {/* Recipe units */}
                     <div className="col-span-2 border-t pt-3 mt-1">
                       <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
@@ -1026,10 +1094,35 @@ export default function ProductMasterTab() {
                     </div>
                     <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
                     <div className="col-span-2 bg-muted/30 rounded-lg p-2">
-                      <p className="text-xs text-muted-foreground">
-                        Standard Cost per Recipe Unit: <span className="font-mono font-semibold text-foreground">${fmt4(liveCostPerRecipe)}</span>
-                        <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Recipe Qty)</span>
-                      </p>
+                      {(() => {
+                        const py = parseFloat(form.purchase_yield) || 100;
+                        const cy = parseFloat(form.cooking_yield) || 100;
+                        const totalYield = (py / 100) * (cy / 100);
+                        const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
+                        const baseQty = parseFloat(form.base_unit_qty) || 1;
+                        const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
+                        const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
+                        const hasYield = totalYield < 0.9999;
+                        return hasYield ? (
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              Raw cost per {form.base_unit_type || "unit"}:{" "}
+                              <span className="font-mono line-through text-muted-foreground/60">${rawCostPerBase.toFixed(4)}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield):{" "}
+                              <strong className="text-foreground font-mono">${effectiveCostPerBase.toFixed(4)}</strong>
+                              {" "}← used in recipes
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Standard Cost per Recipe Unit:{" "}
+                            <strong className="font-mono">${rawCostPerBase.toFixed(4)}</strong>{" "}
+                            (Purchase Cost ÷ Recipe Qty)
+                          </p>
+                        );
+                      })()}
                     </div>
                   </>
                 )}
