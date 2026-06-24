@@ -613,19 +613,82 @@ export default function ProductMasterTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search SKU, product name, supplier & vendor..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-background/40" />
         </div>
-        <Button size="sm" variant="outline" onClick={() => downloadCSV(filtered.map(r => ({
-          internal_sku: r.internal_sku, external_sku: r.external_sku,
-          internal_product_name: r.internal_product_name, supplier_product_name: r.supplier_product_name,
-          level1_category: r.level1_category, level2_category: r.level2_category, level3_category: r.level3_category,
-          purchase_unit: r.purchase_unit, purchase_unit_cost: r.purchase_unit_cost.toFixed(2),
-          stock_uom: r.stock_uom, stock_qty: r.stock_qty, cost_per_stock_unit: r.cost_per_stock_unit.toFixed(4),
-          base_unit_type: r.base_unit_type, base_unit_qty: r.base_unit_qty,
-          cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
-          supplier: r.supplier, status: r.status,
-          creates_stock_movement: r.creates_stock_movement ? "Yes" : "No",
-          purchase_yield: r.purchase_yield,
-          cooking_yield: r.cooking_yield,
-        })), [...columns.map(c => ({ key: c.key, label: c.label })), { key: "creates_stock_movement", label: "Creates Stock Movement" }, { key: "purchase_yield", label: "Purchase Yield (%)" }, { key: "cooking_yield", label: "Cooking Yield (%)" }], "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
+        <Button size="sm" variant="outline" onClick={() => {
+          const exportRows = filtered.map(r => {
+            const py = Number(r.purchase_yield ?? 100);
+            const cy = Number(r.cooking_yield ?? 100);
+            const totalYield = (py / 100) * (cy / 100) * 100;
+            const effectiveCost = r.cost_per_base_unit > 0 && totalYield > 0
+              ? r.cost_per_base_unit / (totalYield / 100)
+              : r.cost_per_base_unit;
+
+            return {
+              internal_sku:            r.internal_sku,
+              internal_product_name:   r.internal_product_name,
+              supplier:                r.supplier,
+              supplier_product_name:   r.supplier_product_name,
+              external_sku:            r.external_sku,
+              level1_category:         r.level1_category,
+              level2_category:         r.level2_category,
+              level3_category:         r.level3_category,
+              financial_treatment:     (r as any).financial_treatment,
+              coa_account:             (r as any).default_coa_label,
+              mapping_status:          (r as any).mapping_status,
+              creates_stock_movement:  (((r as any).product?.creates_stock_movement ?? true) ? 'Yes' : 'No'),
+              purchase_unit:           r.purchase_unit,
+              purchase_unit_cost:      r.purchase_unit_cost.toFixed(2),
+              stock_uom:               r.stock_uom,
+              stock_qty:               r.stock_qty,
+              cost_per_stock_unit:     r.cost_per_stock_unit.toFixed(4),
+              base_unit_type:          r.base_unit_type,
+              base_unit_qty:           r.base_unit_qty,
+              cost_per_base_unit:      r.cost_per_base_unit.toFixed(4),
+              purchase_yield:          py,
+              cooking_yield:           cy,
+              total_yield:             totalYield.toFixed(1),
+              effective_cost_per_base: effectiveCost.toFixed(4),
+              min_stock_qty:           (r as any).product?.min_stock_qty ?? '',
+              reorder_qty:             (r as any).product?.reorder_qty ?? '',
+              notes:                   (r as any).notes,
+              status:                  r.status,
+            };
+          });
+
+          downloadCSV(
+            exportRows,
+            [
+              { key: 'internal_sku',            label: 'Internal SKU' },
+              { key: 'internal_product_name',   label: 'Product Name' },
+              { key: 'supplier',                label: 'Supplier & Vendor' },
+              { key: 'supplier_product_name',   label: 'Supplier Product Name' },
+              { key: 'external_sku',            label: 'External SKU' },
+              { key: 'level1_category',         label: 'L1' },
+              { key: 'level2_category',         label: 'L2' },
+              { key: 'level3_category',         label: 'L3' },
+              { key: 'financial_treatment',     label: 'Financial Treatment' },
+              { key: 'coa_account',             label: 'COA Account' },
+              { key: 'mapping_status',          label: 'Mapping' },
+              { key: 'creates_stock_movement',  label: 'Creates Stock Movement' },
+              { key: 'purchase_unit',           label: 'Purch. UOM' },
+              { key: 'purchase_unit_cost',      label: 'Purch. Cost' },
+              { key: 'stock_uom',               label: 'Stock UOM' },
+              { key: 'stock_qty',               label: 'Stock Qty' },
+              { key: 'cost_per_stock_unit',     label: 'Cost per Stock Unit' },
+              { key: 'base_unit_type',          label: 'Base/Recipe UOM' },
+              { key: 'base_unit_qty',           label: 'Base/Recipe Qty' },
+              { key: 'cost_per_base_unit',      label: 'Cost per Base Unit' },
+              { key: 'purchase_yield',          label: 'Purchase Yield (%)' },
+              { key: 'cooking_yield',           label: 'Cooking Yield (%)' },
+              { key: 'total_yield',             label: 'Total Yield (%)' },
+              { key: 'effective_cost_per_base', label: 'Effective Cost per Base Unit' },
+              { key: 'min_stock_qty',           label: 'Min Stock Qty' },
+              { key: 'reorder_qty',             label: 'Reorder Qty' },
+              { key: 'notes',                   label: 'Notes' },
+              { key: 'status',                  label: 'Status' },
+            ],
+            `product_master_${new Date().toISOString().slice(0, 10)}`
+          );
+        }} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
         <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
       </div>
 
