@@ -1,39 +1,74 @@
-## Problem
+# Procurement Finance Page
 
-On line 1 of your screenshot: 8 × 537 = 4,296 with a 30% line discount (−1,288.80) should net 3,007.20. But the "Invoiced Amount" and "Accepted Amount" columns both still show 4,296.00, and the footer "Invoiced subtotal" / "Accepted subtotal" (6,260.00 / 6,260.00) also ignore the discounts. Only "Doc total" (4,382.00) is correct because it's computed separately.
+A new read-only page giving procurement staff a complete financial view of supplier activity: spend, payables, and credits — all in one place. No changes to existing Finance pages.
 
-Root cause: the amount column cells and subtotal aggregators use raw `qty × unit_price`, with no subtraction of `line_discount_amount` or `header_discount_share`. This bug exists in both `InvoiceScanner.tsx` and the Edit dialog inside `ProcurementInvoicesTab.tsx`.
+---
 
-## Fix
+## 1. Sidebar (`src/components/AppSidebar.tsx`)
 
-Define amounts consistently as **net of all discounts** (matches Doc total math and `net_unit_cost` already persisted):
+- Import `ReceiptText` from `lucide-react`.
+- Add `procurementFinance` array after `procurementAnalysis`:
+  ```ts
+  const procurementFinance = [
+    { title: "Spend Summary", url: "/procurement/finance", icon: ReceiptText },
+  ];
+  ```
+- Append `{ label: "Finance", items: procurementFinance }` to the procurement sub-group array (line ~345) so it renders below "Analysis" using the existing collapsible/styling pattern — no new markup needed.
 
-- Line gross = `qty × unit_price`
-- Line discount $ = `%` mode → `gross × rate/100`; `$` mode → `discount` field (clamped ≥ 0)
-- Line net after line discount = `max(0, gross − lineDiscount)`
-- Header discount $ = same rule applied to Σ(line net)
-- Header share per line = proportional to line net (use `distributeHeaderDiscount` from `src/utils/invoiceRounding.ts` for consistency with save logic)
-- **Invoiced Amount (per row)** = `gross − lineDiscount − headerShare`
-- **Accepted Amount (per row)** = `Invoiced Amount × (accepted_qty / qty)` (0 when qty = 0)
-- Color rule unchanged: green when accepted > invoiced, red when less, neutral when equal.
+## 2. Route (`src/App.tsx`)
 
-Subtotals: `Invoiced subtotal` = Σ row Invoiced Amount, `Accepted subtotal` = Σ row Accepted Amount, `Disputed` = invoiced − accepted. `Doc total` stays as-is.
+- Import `ProcurementFinance` and add `<Route path="/procurement/finance" element={<ProcurementFinance />} />` alongside the other procurement routes.
 
-## Files
+## 3. New page `src/pages/procurement/ProcurementFinance.tsx`
 
-1. `src/components/invoices/InvoiceScanner.tsx`
-   - Replace the per-row Invoiced/Accepted Amount IIFEs (~lines 1887–1915) with the net-of-discount math above.
-   - Replace the footer subtotal IIFE (~lines 2041–2067) to sum the same per-row net values (use `recalcAllDiscounts` once on the lines array, then map).
+### Header
+- `<PageHeader>` title "Procurement Finance".
+- Period selector: month/year with prev/next arrows, default = current month.
+- Venue dropdown sourced from distinct `goods_received_notes.venue` (default "All venues").
 
-2. `src/components/procurement/ProcurementInvoicesTab.tsx`
-   - Same change in the Edit dialog: per-row Invoiced/Accepted cells (around the matching JSX in the edit table) and the footer block at ~lines 1281–1327. Reuse the already-imported `recalcAllDiscounts` / `normalizeDiscountMode` (the header math at 1286–1302 is correct; we just need to feed the per-line net back into the row cells and the two subtotals).
+### Tabs (shadcn `Tabs`)
+1. **Spend Summary**
+2. **Supplier Payables**
+3. **Credits & Deposits**
 
-No DB changes, no save-path changes (save already persists correctly via `recalcAllDiscounts`), no changes to GRN/`net_unit_cost`. Only display.
+Active tab styled with amber underline + amber text. Section headers inside tabs use the existing uppercase/tracked muted style.
 
-## Verification
+### Tab 1 — Spend Summary
+- **Data**: `grn_items` joined to `goods_received_notes` and `product_master`, scoped by tenant.
+  - **PostgREST join hint**: use the explicit FK hint `goods_received_notes!grn_id` (and `product_master!product_master_id`) when selecting nested relations, to avoid the relationship-conflict issue we fixed earlier.
+  - Net spend: `status='confirmed'`, `received_date` in period, `creates_stock_movement=true`, `financial_treatment NOT ILIKE 'Asset%'`, venue filter when set.
+  - Disputes: same filters but `status='disputed'`.
+  - Deductions: `invoice_line_items` with negative `unit_price` and `creates_stock_movement=false` (refunds), plus `credit_notes` with `status IN ('fully_applied','approved')`, both filtered by date in period.
+  - Last month: rerun the net-spend query for the previous month.
+- **4 KPI cards** (`KpiCard`/`KpiGrid`): Net spend, Refunds & credits (green), Disputes outstanding (amber), vs last month (up red / down green).
+- **Spend by category** table grouped by `product_master.level1_category` with This month / Last month / Change columns. Each row has a thin progress bar showing share of total.
+- **Deductions** section showing refunds and credit notes applied, followed by "NET SPEND <Month>".
+- **Disputes banner** (amber) when value > 0, linking to `/procurement/invoices?status=disputed`.
 
-Open invoice HKINV-2605661 in the Edit view:
-- Row 1 Invoiced = 3,007.20, Accepted = 3,007.20
-- Row 2 Invoiced = 1,374.80, Accepted = 1,374.80
-- Invoiced subtotal = Accepted subtotal = 4,382.00 = Doc total
-Then test in Scanner with a fresh scan, a `$` line discount, and a header discount, confirming subtotals match Doc total in each case.
+### Tab 2 — Supplier Payables
+- Reuse `usePayables` hook as-is.
+- **4 KPI cards**: Total outstanding (amber), Overdue (red), Due this week (sky), Paid this month (green).
+- **Aging breakdown**: horizontal bar with 5 buckets (Current / 1-30 / 31-60 / 61-90 / 90+) coloured green / sky / amber / purple / red. Computed from `usePayables` open invoices using `age_days`.
+- **Supplier table** from `supplierSummary`: Supplier, Outstanding (amber if > 0), Open invoices, Oldest (red if > 60), Last invoice, Action (Pay → `RecordPaymentDialog`).
+- **Footer note** (muted): "Full payment management available in Finance → Accounts Payable →" linking to `/finance/payables`.
+- Mount `RecordPaymentDialog` and `PaymentHistoryDialog` from `@/components/finance/payables/*`.
+
+### Tab 3 — Credits & Deposits
+**Section A — Credit Notes**
+- Fetch with `fetchAllRows('credit_notes', ...)` scoped by tenant.
+- **Also fetch `suppliers` via `fetchAllRows`** and build a `supplierMap` (id → name) to resolve `supplier_id` to a display name in the table — `credit_notes` only stores `supplier_id`.
+- Summary line: "Available credits: $X   Pending review: N".
+- Table: CN #, Supplier (from map), Date, Original, Remaining (amber if > 0), Status badge.
+
+**Section B — Deposit Position** (all-time, not period-filtered)
+- Fetch `invoice_line_items` joined to `product_master` (treatment ILIKE `'Asset - Supplier Deposit%'`) and `invoices` (supplier). Reuse the `supplierMap` from Section A for names.
+- Group by supplier: `paid` = positive line totals; `returned` = abs of negatives; `net` = paid − returned.
+- Summary line + per-supplier table. Net column: amber if > 0, green if 0, red if negative.
+- Footer link → `/procurement/deposit-ledger`.
+
+## Styling & utilities
+- Dark zinc / `card-glass`, currency via `@/utils/format`, `StatusBadge`, `KpiCard`, `PageHeader`.
+- All Supabase reads tenant-scoped via `useActiveTenant` + `fetchAllRows` where pagination matters.
+
+## Out of scope (unchanged)
+`src/pages/finance/Payables.tsx`, `usePayables`, `RecordPaymentDialog`, `PaymentHistoryDialog`, `credit_notes` schema, Deposit Ledger page, Credit & Debit Notes page.

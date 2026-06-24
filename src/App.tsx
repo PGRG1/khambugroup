@@ -38,6 +38,7 @@ import Procurement from "./pages/Procurement";
 import CreditNotes from "./pages/procurement/CreditNotes";
 import StockCounts from "./pages/procurement/StockCounts";
 import Transfers from "./pages/procurement/Transfers";
+import ProcurementFinance from "./pages/procurement/ProcurementFinance";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
@@ -179,6 +180,7 @@ function App() {
                 <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
                 <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
                 <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
+                <Route path="/procurement/finance" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance /></ProtectedRoute>} />
 
                 
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
