@@ -1130,6 +1130,19 @@ export default function ProcurementInvoicesTab() {
             </div>
           )}
 
+          {missingDeals.length > 0 && (
+            <div className="space-y-1">
+              {missingDeals.map((m, idx) => (
+                <div key={idx} className="flex items-start gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    Deal not fully applied: <strong>{m.productName}</strong> — expected {m.expectedFree} free unit{m.expectedFree === 1 ? "" : "s"} ({m.deal.buy_qty}+{m.deal.free_qty} deal with {getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id)}). Check with supplier.
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
             <table className="w-full min-w-[1810px] border-collapse text-xs">
