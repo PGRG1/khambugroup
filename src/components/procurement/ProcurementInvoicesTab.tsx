@@ -360,13 +360,15 @@ export default function ProcurementInvoicesTab() {
     const result = invoices.filter((inv) => {
       if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
+      const sLower = (inv.status || "").toLowerCase();
       if (statusFilter === "disputed") {
         if (!(inv as any).has_disputes) return false;
       } else if (statusFilter === "voided") {
-        if ((inv.status || "").toLowerCase() !== "voided") return false;
+        if (sLower !== "voided") return false;
       } else if (statusFilter === "approved") {
-        if ((inv.status || "").toLowerCase() !== "approved") return false;
+        if (sLower === "voided" || (inv as any).has_disputes) return false;
       }
+
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
