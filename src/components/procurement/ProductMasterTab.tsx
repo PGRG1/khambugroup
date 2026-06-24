@@ -623,7 +623,9 @@ export default function ProductMasterTab() {
           cost_per_base_unit: r.cost_per_base_unit.toFixed(4),
           supplier: r.supplier, status: r.status,
           creates_stock_movement: r.creates_stock_movement ? "Yes" : "No",
-        })), [...columns.map(c => ({ key: c.key, label: c.label })), { key: "creates_stock_movement", label: "Creates Stock Movement" }], "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
+          purchase_yield: r.purchase_yield,
+          cooking_yield: r.cooking_yield,
+        })), [...columns.map(c => ({ key: c.key, label: c.label })), { key: "creates_stock_movement", label: "Creates Stock Movement" }, { key: "purchase_yield", label: "Purchase Yield (%)" }, { key: "cooking_yield", label: "Cooking Yield (%)" }], "product_master")} className="h-9 ml-auto"><Download className="h-4 w-4 mr-1" />Download</Button>
         <Button size="sm" onClick={openCreate} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
       </div>
 
