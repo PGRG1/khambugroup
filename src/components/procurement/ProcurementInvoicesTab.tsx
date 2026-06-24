@@ -1950,6 +1950,20 @@ function InvoiceTableSection({
                     ) : (
                       <span className="text-[10px] text-muted-foreground">—</span>
                     )}
+                    {(inv as any).has_disputes && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className="bg-orange-500/15 text-orange-300 border border-orange-500/30 text-[10px] px-1.5 py-0 cursor-help">
+                              Disputed
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Variance: ${Number((inv as any).disputed_amount || 0).toFixed(2)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                     {invoiceVarianceMap[inv.id] && (
                       <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
                     )}
