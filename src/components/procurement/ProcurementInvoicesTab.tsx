@@ -772,6 +772,7 @@ export default function ProcurementInvoicesTab() {
         matched_stock_qty_ratio: product.stock_qty ?? 1,
         unmatched: false,
         pm_unit_price: product.purchase_unit_cost,
+        supplier_entry_id: product.supplier_entry_id,
         price_changed: typeof product.purchase_unit_cost === "number" && product.purchase_unit_cost > 0
           ? Math.abs((parseFloat(currentLine.unit_price) || 0) - product.purchase_unit_cost) > 0.01
           : false,
