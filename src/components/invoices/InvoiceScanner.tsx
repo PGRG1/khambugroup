@@ -2294,7 +2294,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                 const invoiced = parseFloat(recalc.perLine[i].total) || 0;
                 invSub += invoiced;
-                accSub += q > 0 ? invoiced * (a / q) : 0;
+                const accPrice = parseFloat(l.accepted_price || "");
+                if (Number.isFinite(accPrice)) {
+                  accSub += accPrice * a;
+                } else {
+                  accSub += q > 0 ? invoiced * (a / q) : 0;
+                }
               });
               const disputed = invSub - accSub;
               const accCls = accSub === invSub ? "text-foreground" : accSub < invSub ? "text-red-400" : "text-emerald-400";
