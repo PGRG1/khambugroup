@@ -1166,6 +1166,8 @@ export default function ProcurementInvoicesTab() {
                   <th className="w-[140px] px-1 py-1.5 text-left font-medium text-muted-foreground">Discount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Invoiced Amount</th>
                   <th className="w-[100px] px-1 py-1.5 text-right font-medium text-muted-foreground">Accepted Amount</th>
+                  <th className="w-[100px] px-1 py-1.5 text-left font-medium text-muted-foreground">Status</th>
+                  <th className="w-[80px] px-1 py-1.5 text-left font-medium text-muted-foreground">Action</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
