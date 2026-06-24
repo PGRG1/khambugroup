@@ -228,8 +228,14 @@ export default function ProcurementInvoicesTab() {
   const [voidTarget, setVoidTarget] = useState<Invoice | null>(null);
   const [voiding, setVoiding] = useState(false);
 
-  // Hide voided invoices by default; toggle to surface them.
-  const [showVoided, setShowVoided] = useState(false);
+  // Mark-resolved flow for disputed invoices.
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolveTarget, setResolveTarget] = useState<Invoice | null>(null);
+  const [resolving, setResolving] = useState(false);
+
+  // Per-invoice dispute reason summary (price-only / qty-only / both).
+  const [disputeReasonMap, setDisputeReasonMap] = useState<Record<string, DisputeReasonInfo>>({});
+
 
   useEffect(() => {
     Promise.all([
