@@ -33,7 +33,7 @@ import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, t
 
 
 const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
-const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
+
 
 const REVIEW_BADGE: Record<string, string> = {
   "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
@@ -41,11 +41,6 @@ const REVIEW_BADGE: Record<string, string> = {
   "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
 };
 
-const EXCEPTION_BADGE: Record<string, string> = {
-  "Credit Note Issued": "bg-sky-500/15 text-sky-300 border border-sky-500/30",
-  "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
-  "-": "bg-transparent text-muted-foreground",
-};
 
 
 const STATUS_COLORS: Record<string, string> = {
@@ -195,7 +190,7 @@ export default function ProcurementInvoicesTab() {
   const [venueFilter, setVenueFilter] = useState("all");
   
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
-  const [exceptionNoteFilter, setExceptionNoteFilter] = useState("all");
+  
   const [monthFilter, setMonthFilter] = useState<string>("__latest__");
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
 
@@ -331,7 +326,7 @@ export default function ProcurementInvoicesTab() {
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       
       if (reviewStatusFilter !== "all" && (inv.review_status || "Approved") !== reviewStatusFilter) return false;
-      if (exceptionNoteFilter !== "all" && (inv.exception_note || "-") !== exceptionNoteFilter) return false;
+      
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
 
@@ -340,12 +335,12 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, supplierFilter, venueFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
+  }, [invoices, supplierFilter, venueFilter, reviewStatusFilter, monthFilter, search, sortColumns]);
 
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
     const total = filtered.length;
-    let voided = 0, approved = 0, exceptions = 0, disputed = 0;
+    let voided = 0, approved = 0, disputed = 0;
     let totalValue = 0;
     const dupKey = new Map<string, number>();
     for (const inv of filtered) {
@@ -353,8 +348,6 @@ export default function ProcurementInvoicesTab() {
       if (rs === "Voided") voided++;
       if (rs === "Approved") approved++;
       if (rs === "Disputed") disputed++;
-      const en = inv.exception_note || "-";
-      if (en !== "-") exceptions++;
       totalValue += Number(inv.total_amount) || 0;
       const k = `${inv.supplier_id}::${(inv.invoice_number || "").trim().toLowerCase()}`;
       if (k.trim() !== "::") dupKey.set(k, (dupKey.get(k) || 0) + 1);
@@ -362,7 +355,7 @@ export default function ProcurementInvoicesTab() {
     let duplicates = 0;
     for (const v of dupKey.values()) if (v > 1) duplicates += v;
     const pct = (n: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "0%";
-    return { total, voided, approved, exceptions, disputed, duplicates, totalValue, pct };
+    return { total, voided, approved, disputed, duplicates, totalValue, pct };
   }, [filtered]);
 
   const columns = [
@@ -374,7 +367,6 @@ export default function ProcurementInvoicesTab() {
     { key: "total_amount", label: "Amount", w: "w-[110px]", align: "right" as const },
     
     { key: "review_status", label: "Status", w: "w-[110px]" },
-    { key: "exception_note", label: "Issue / Exception", w: "w-[150px]" },
   ];
 
   const totalAmount = filtered.reduce((s, inv) => s + Number(inv.total_amount), 0);
@@ -1727,8 +1719,6 @@ export default function ProcurementInvoicesTab() {
         setVenueFilter={setVenueFilter}
         reviewStatusFilter={reviewStatusFilter}
         setReviewStatusFilter={setReviewStatusFilter}
-        exceptionNoteFilter={exceptionNoteFilter}
-        setExceptionNoteFilter={setExceptionNoteFilter}
         monthFilter={monthFilter === "__latest__" ? "all" : monthFilter}
         setMonthFilter={setMonthFilter}
         months={months}
@@ -1899,7 +1889,7 @@ interface InvoiceKpis {
   total: number;
   voided: number;
   approved: number;
-  exceptions: number;
+  
   disputed: number;
   duplicates: number;
   totalValue: number;
@@ -1924,8 +1914,6 @@ interface InvoiceTableSectionProps {
   setVenueFilter: (v: string) => void;
   reviewStatusFilter: string;
   setReviewStatusFilter: (v: string) => void;
-  exceptionNoteFilter: string;
-  setExceptionNoteFilter: (v: string) => void;
   monthFilter: string;
   setMonthFilter: (v: string) => void;
   months: string[];
@@ -1942,7 +1930,7 @@ interface InvoiceTableSectionProps {
 function InvoiceTableSection({
   filtered, invoices, suppliers, kpis, totalAmount, columns, sortColumns, toggleSort, SortIcon,
   search, setSearch, supplierFilter, setSupplierFilter, venueFilter, setVenueFilter,
-  reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
+  reviewStatusFilter, setReviewStatusFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
   invoiceVarianceMap,
@@ -1959,15 +1947,12 @@ function InvoiceTableSection({
     { type: "select", key: "review_status", label: "Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
       options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
       allLabel: "All Statuses" },
-    { type: "select", key: "exception_note", label: "Exception Note", value: exceptionNoteFilter, onChange: setExceptionNoteFilter,
-      options: EXCEPTION_NOTES.map(s => ({ value: s, label: s })),
-      allLabel: "All Exceptions" },
     { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
       options: months.map(m => ({ value: m, label: fmtMonth(m) })),
       allLabel: "All Months" },
   ];
 
-  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
+  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setReviewStatusFilter("all"); setMonthFilter("all"); };
 
   const handleDownload = () => downloadCSV(
     filtered.map((inv) => ({
@@ -1978,7 +1963,7 @@ function InvoiceTableSection({
       due_date: fmtDate(inv.due_date || ""),
       total_amount: Number(inv.total_amount).toFixed(2),
       review_status: inv.review_status || "Approved",
-      exception_note: inv.exception_note || "-",
+      
     })),
     columns.map((column) => ({ key: column.key, label: column.label })),
     "invoices",
@@ -1988,7 +1973,7 @@ function InvoiceTableSection({
     { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
     { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-zinc-400", icon: <Ban className="h-4 w-4" />, tone: "text-zinc-400" },
     { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
-    { label: "Exceptions", value: kpis.exceptions.toLocaleString(), sub: kpis.pct(kpis.exceptions), subTone: "text-red-400", icon: <AlertTriangle className="h-4 w-4" />, tone: "text-red-400" },
+    
     { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-orange-400", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-orange-400" },
     { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-violet-400", icon: <CopyIcon className="h-4 w-4" />, tone: "text-violet-400" },
     { label: "Total Value", value: `$${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
@@ -2106,23 +2091,6 @@ function InvoiceTableSection({
                       <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground border-border"}`}>
                         {rs}
                       </span>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-                  {(() => {
-                    const en = inv.exception_note || "-";
-                    return (
-                      <Select value={en} onValueChange={(v) => onUpdateField(inv.id, { exception_note: v as any })}>
-                        <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${en === "-" ? "bg-transparent text-muted-foreground" : (EXCEPTION_BADGE[en] || "bg-muted text-muted-foreground")}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EXCEPTION_NOTES.map((s) => (
-                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                     );
                   })()}
                 </TableCell>
