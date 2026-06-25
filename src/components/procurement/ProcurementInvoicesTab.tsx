@@ -48,16 +48,6 @@ const EXCEPTION_BADGE: Record<string, string> = {
   "-": "bg-transparent text-muted-foreground",
 };
 
-const STATUS_BADGE: Record<string, string> = {
-  pending: "bg-zinc-500/15 text-zinc-300 border border-zinc-500/30",
-  verified: "bg-sky-500/15 text-sky-300 border border-sky-500/30",
-  approved: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  paid: "bg-emerald-600/20 text-emerald-200 border border-emerald-600/40",
-  unpaid: "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20",
-  overdue: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-  cancelled: "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30 line-through",
-  disputed: "bg-red-500/15 text-red-300 border border-red-500/30",
-};
 
 const STATUS_COLORS: Record<string, string> = {
   paid: "bg-green-100 text-green-800 border-green-300",
