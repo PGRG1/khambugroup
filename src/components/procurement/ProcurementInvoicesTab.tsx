@@ -695,6 +695,9 @@ export default function ProcurementInvoicesTab() {
         subtotal: subtotalAmount,
         tax_amount: taxSum,
         total_amount: totalAmount,
+        review_status: (editDisputeStats.hasDispute || editLines.some(l => l.price_disputed))
+          ? "Disputed"
+          : "Approved",
       } as any,
       mappedLines
     );
