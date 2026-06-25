@@ -1,37 +1,22 @@
-## Redesign Acc. price cell in both invoice views
+## Move "Update master" button outside !matchesInvoice condition
 
-Pure UI redesign in two files. No state, handlers, or save logic changes.
+Pure UI change in both files. Update master should render whenever it differs from master, even if accepted equals invoice price.
 
 ### Files
 - `src/components/invoices/InvoiceScanner.tsx`
 - `src/components/procurement/ProcurementInvoicesTab.tsx`
 
-### Changes per file
+### Change
+Replace the three separate subtext blocks (`matchesInvoice`, `!matchesInvoice && master_price != null`, `!matchesInvoice && master_price == null`) in the Acc. price cell with a single unified subtext row:
 
-1. **Replace Acc. price cell content** (non-free-unit branches only) with the new IIFE pattern:
-   - Computes `matchesInvoice` and `differsFromMaster` locally.
-   - Row 1: `<Input>` + conditional blue arrow button (shown when accepted ≠ invoice).
-   - Input gets amber border when `differsFromMaster`.
-   - Row 2 subtext: `= invoice price` / `Master: $X.XX` + Update master link / `No master price`.
-   - Collapses the previous two-branch (`master_price == null` vs `!= null`) split into one unified renderer.
-
-2. **Leave free-unit branch untouched** (zero-price deal lines).
-
-3. **Keep `Eff: $X.XX` label** for deal lines exactly where it currently sits.
-
-4. **Add "Accept all invoice prices" bulk link** immediately before the line items `<table>` (after any warning banners):
-   - Scanner: iterates `current?.line_items`, calls `updateLineAcceptedPrice(i, line.unit_price)`, skips free-unit lines.
-   - Procurement tab: iterates `editLines`, calls `updateEditLineAcceptedPrice(index, line.unit_price)`, skips free-unit lines.
-
-5. **Remove leftover "Master $X.XX" / "Inv $X.XX" chip buttons** if any remain from prior iterations.
+- `= invoice price` — when `matchesInvoice`
+- `Master: $X.XX` — when `master_price != null` (always, independent of match state)
+- `No master price` — when `master_price == null && !matchesInvoice`
+- `Update master` button — when `differsFromMaster && product_master_id` (independent of match state)
 
 ### Handler/index mapping
-| Placeholder | Scanner | Procurement tab |
-|---|---|---|
-| row index | `i` | `index` |
-| update accepted | `updateLineAcceptedPrice` | `updateEditLineAcceptedPrice` |
-| update master | `handleUpdateMaster(i)` | `handleEditUpdateMaster(index)` |
-| updating flag | `updatingMasterIdx` | `updatingMasterIdx` |
+- Scanner: `i` / `handleUpdateMaster(i)` / `updatingMasterIdx === i`
+- Procurement tab: `index` / `handleEditUpdateMaster(index)` / `updatingMasterIdx === index`
 
 ### Not touched
-State, hydration, save logic, deal-line free-unit branch, `Eff:` label, all other columns, footers, and validation.
+Input row, arrow button, `Eff:` label, free-unit branch, state/handlers/save logic.

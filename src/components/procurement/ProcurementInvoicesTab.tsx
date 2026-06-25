@@ -1361,29 +1361,29 @@ export default function ProcurementInvoicesTab() {
                                     </button>
                                   )}
                                 </div>
-                                {matchesInvoice && (
-                                  <span className="text-[10px] text-muted-foreground">= invoice price</span>
-                                )}
-                                {!matchesInvoice && line.master_price != null && (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                  {matchesInvoice && (
+                                    <span className="text-[10px] text-muted-foreground">= invoice price</span>
+                                  )}
+                                  {line.master_price != null && (
                                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                       Master: ${(line.master_price as number).toFixed(2)}
                                     </span>
-                                    {differsFromMaster && line.product_master_id && (
-                                      <button
-                                        type="button"
-                                        disabled={updatingMasterIdx === index}
-                                        onClick={() => handleEditUpdateMaster(index)}
-                                        className="text-[10px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
-                                      >
-                                        {updatingMasterIdx === index ? "Updating…" : "Update master"}
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                {!matchesInvoice && line.master_price == null && (
-                                  <span className="text-[10px] text-muted-foreground">No master price</span>
-                                )}
+                                  )}
+                                  {line.master_price == null && !matchesInvoice && (
+                                    <span className="text-[10px] text-muted-foreground">No master price</span>
+                                  )}
+                                  {differsFromMaster && line.product_master_id && (
+                                    <button
+                                      type="button"
+                                      disabled={updatingMasterIdx === index}
+                                      onClick={() => handleEditUpdateMaster(index)}
+                                      className="text-[10px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                                    >
+                                      {updatingMasterIdx === index ? "Updating…" : "Update master"}
+                                    </button>
+                                  )}
+                                </div>
                                 {effective !== null && (
                                   <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">
                                     Eff: ${effective.toFixed(2)}
