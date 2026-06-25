@@ -153,14 +153,46 @@ export default function ReceivingTab() {
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? "—";
 
+  const months = useMemo(() => {
+    const set = new Set<string>();
+    grns.forEach((g) => { if (g.received_date) set.add(g.received_date.slice(0, 7)); });
+    return Array.from(set).sort().reverse();
+  }, [grns]);
+  const fmtMonth = (m: string) => {
+    const [y, mo] = m.split("-");
+    return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  };
+
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return grns.filter((g) => {
       if (supplierFilter !== "all" && g.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && g.venue !== venueFilter) return false;
       if (statusFilter !== "all" && g.status !== statusFilter) return false;
+      if (monthFilter !== "all" && (!g.received_date || g.received_date.slice(0, 7) !== monthFilter)) return false;
+      if (dateFrom && (!g.received_date || g.received_date < dateFrom)) return false;
+      if (dateTo && (!g.received_date || g.received_date > dateTo)) return false;
+      if (q) {
+        const hay = [
+          g.grn_number,
+          g.suppliers?.name ?? supplierName(g.supplier_id),
+          g.purchase_orders?.po_number ?? "",
+          g.invoices?.invoice_number ?? "",
+          g.venue,
+        ].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [grns, supplierFilter, venueFilter, statusFilter]);
+  }, [grns, suppliers, supplierFilter, venueFilter, statusFilter, monthFilter, dateFrom, dateTo, search]);
+
+  const kpis = useMemo(() => {
+    const total = filtered.length;
+    const confirmed = filtered.filter((g) => g.status === "confirmed").length;
+    const draft = filtered.filter((g) => g.status === "draft").length;
+    const value = filtered.reduce((s, g) => s + (grnTotals[g.id] || 0), 0);
+    return { total, confirmed, draft, value };
+  }, [filtered, grnTotals]);
 
   const resetForm = () => {
     setLinkedPoId(null);
