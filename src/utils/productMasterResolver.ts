@@ -67,43 +67,41 @@ export function resolveProductMatch(
 
   // === PRIORITY 1: Exact External SKU ===
   if (code) {
-    // Prefer supplier-scoped match
     if (invoiceSupplier) {
       const skuSupplierMatch = products.find(
         p => (p.external_sku || "").trim().toLowerCase() === code && supplierMatch(p.supplier, invoiceSupplier)
       );
       if (skuSupplierMatch) return skuSupplierMatch;
+      const segSupplier = products.find(p => {
+        const eSku = (p.external_sku || "").trim().toLowerCase();
+        if (!eSku) return false;
+        const segOk = eSku.split("|").some(seg => seg.trim() === code) || eSku.includes(code) || code.includes(eSku);
+        return segOk && supplierMatch(p.supplier, invoiceSupplier);
+      });
+      if (segSupplier) return segSupplier;
+      // Supplier known — do NOT fall through to a different-supplier SKU match.
+    } else {
+      const skuMatch = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
+      if (skuMatch) return skuMatch;
+      const segmentMatch = products.find(p => {
+        const eSku = (p.external_sku || "").trim().toLowerCase();
+        if (!eSku) return false;
+        return eSku.split("|").some(seg => seg.trim() === code) || eSku.includes(code) || code.includes(eSku);
+      });
+      if (segmentMatch) return segmentMatch;
     }
-    // Fallback: any exact SKU match
-    const skuMatch = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
-    if (skuMatch) return skuMatch;
-
-    // Segment match (pipe-separated SKUs)
-    const segmentMatch = products.find(p => {
-      const eSku = (p.external_sku || "").trim().toLowerCase();
-      if (!eSku) return false;
-      return eSku.split("|").some(seg => seg.trim() === code) || eSku.includes(code) || code.includes(eSku);
-    });
-    if (segmentMatch) return segmentMatch;
   }
 
   // === PRIORITY 2: Exact External Name ===
   if (desc) {
     if (invoiceSupplier) {
+      // Supplier-scoped exact
       const nameSupplierMatch = products.find(p => {
         const spn = (p.supplier_product_name || "").trim().toLowerCase();
         return spn && spn === desc && supplierMatch(p.supplier, invoiceSupplier);
       });
       if (nameSupplierMatch) return nameSupplierMatch;
-    }
-    const nameMatch = products.find(p => {
-      const spn = (p.supplier_product_name || "").trim().toLowerCase();
-      return spn && spn === desc;
-    });
-    if (nameMatch) return nameMatch;
-
-    // Fuzzy name (contains)
-    if (invoiceSupplier) {
+      // Supplier-scoped fuzzy
       const fuzzySupplier = products.find(p => {
         const spn = (p.supplier_product_name || "").trim().toLowerCase();
         const ipn = (p.internal_product_name || "").trim().toLowerCase();
@@ -111,13 +109,21 @@ export function resolveProductMatch(
         return nameOk && supplierMatch(p.supplier, invoiceSupplier);
       });
       if (fuzzySupplier) return fuzzySupplier;
+      // Supplier known — do NOT fall through to a different-supplier name match.
+      // Fall through to PRIORITY 3 (ID hydration) which is also supplier-scoped.
+    } else {
+      const nameMatch = products.find(p => {
+        const spn = (p.supplier_product_name || "").trim().toLowerCase();
+        return spn && spn === desc;
+      });
+      if (nameMatch) return nameMatch;
+      const fuzzy = products.find(p => {
+        const spn = (p.supplier_product_name || "").trim().toLowerCase();
+        const ipn = (p.internal_product_name || "").trim().toLowerCase();
+        return (spn && (desc.includes(spn) || spn.includes(desc))) || (ipn && (desc.includes(ipn) || ipn.includes(desc)));
+      });
+      if (fuzzy) return fuzzy;
     }
-    const fuzzy = products.find(p => {
-      const spn = (p.supplier_product_name || "").trim().toLowerCase();
-      const ipn = (p.internal_product_name || "").trim().toLowerCase();
-      return (spn && (desc.includes(spn) || spn.includes(desc))) || (ipn && (desc.includes(ipn) || ipn.includes(desc)));
-    });
-    if (fuzzy) return fuzzy;
   }
 
   // === PRIORITY 3: Hydration by stored IDs ===
@@ -198,9 +204,11 @@ export function resolveExactMatch(
         p => (p.external_sku || "").trim().toLowerCase() === code && supplierMatch(p.supplier, invoiceSupplier)
       );
       if (m) return m;
+      // supplier known — do not return a different-supplier row
+    } else {
+      const m = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
+      if (m) return m;
     }
-    const m = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
-    if (m) return m;
   }
 
   if (desc) {
@@ -210,9 +218,11 @@ export function resolveExactMatch(
         return spn && spn === desc && supplierMatch(p.supplier, invoiceSupplier);
       });
       if (m) return m;
+      // supplier known — do not return a different-supplier row
+    } else {
+      const m = products.find(p => (p.supplier_product_name || "").trim().toLowerCase() === desc);
+      if (m) return m;
     }
-    const m = products.find(p => (p.supplier_product_name || "").trim().toLowerCase() === desc);
-    if (m) return m;
   }
 
   if (internalSku) {
