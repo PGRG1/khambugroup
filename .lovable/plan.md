@@ -1,33 +1,33 @@
-## Problem
-`useInvoiceData.updateInvoice` deletes all `invoice_line_items` and re-inserts them, so the FK `grn_items.invoice_line_item_id` (ON DELETE SET NULL) is nulled on every save. `syncGrnFromInvoice` then can't match existing GRN rows by line id, so edits become duplicate inserts and the old rows stay as orphans.
+## Add dispute reason tooltip to Disputed status badge
 
-## Fix — rewrite `src/utils/syncGrnFromInvoice.ts` to be authoritative
-Stop relying on `invoice_line_item_id` survival. After the invoice save, the freshly inserted `invoice_line_items` are the source of truth.
+**File:** `src/components/procurement/ProcurementInvoicesTab.tsx` (lines ~2114-2123)
 
-New behaviour:
-1. Look up the GRN for the invoice (same as today). If none, exit.
-2. Re-fetch the current `invoice_line_items` for this invoice from the DB (post-save) — these have the new IDs and the latest accepted_qty / accepted_price / net_unit_cost / etc.
-3. Load `product_master.creates_stock_movement` for those product ids, filter out non-stock lines.
-4. Delete ALL existing `grn_items` for this GRN (tenant-scoped).
-5. Insert one `grn_item` per stock-bearing invoice line, using the same field mapping and cost fallback chain currently in the file (quantity_invoiced, quantity_received = accepted_qty, accepted_qty, accepted_price, qty_difference, unit_cost, description, unit, receiving_reason, receiving_note, invoice_line_item_id pointing at the new line id).
-6. Recompute GRN status: `disputed` if any line has accepted_qty ≠ quantity, else `confirmed`. Update `goods_received_notes.status`.
+Wrap the status badge in a Tooltip only when `review_status === "Disputed"`. Approved/Voided rows render the badge unchanged.
 
-## Caller change — `src/components/procurement/ProcurementInvoicesTab.tsx`
-`handleSaveEdit` no longer needs to pass `editedLines`. Update the call to just:
-
-```ts
-syncGrnFromInvoice(selectedInvoice.id, { tenantId }).catch(() => {});
+```tsx
+<TableCell className="py-2">
+  {(() => {
+    const rs = inv.review_status || "Approved";
+    const badge = (
+      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground border-border"}`}>
+        {rs}
+      </span>
+    );
+    if (rs === "Disputed") {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild><span>{badge}</span></TooltipTrigger>
+            <TooltipContent className="max-w-xs whitespace-pre-line text-xs">
+              {inv.dispute_notes?.trim() ? inv.dispute_notes : "No reason provided"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    return badge;
+  })()}
+</TableCell>
 ```
 
-Update the function signature in `syncGrnFromInvoice.ts` accordingly (drop the `editedLines` argument).
-
-## Why this works
-- Authoritative re-sync means the GRN always matches the saved invoice, regardless of how `updateInvoice` mutates line IDs.
-- No orphan rows, no duplicates.
-- Same field mapping and cost fallback as today, so downstream stock-on-hand math is unchanged.
-- Still fire-and-forget; invoice save is never blocked.
-
-## Out of scope
-- Not changing `useInvoiceData.updateInvoice` (delete+reinsert is used elsewhere and altering it risks regressions).
-- Not changing `autoCreateGrnFromInvoice` (only runs on first save, where the FK is intact).
-- No schema changes.
+Tooltip imports already exist (line 28). `dispute_notes` already exists on the `Invoice` type. No styling, no logic, no other rows affected.
