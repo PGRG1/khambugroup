@@ -373,7 +373,7 @@ export default function ProcurementInvoicesTab() {
     { key: "venue", label: "Venue", w: "w-[90px]" },
     { key: "due_date", label: "Due Date", w: "w-[100px]" },
     { key: "total_amount", label: "Amount", w: "w-[110px]", align: "right" as const },
-    { key: "status", label: "Payment Status", w: "w-[110px]" },
+    
     { key: "review_status", label: "Review Status", w: "w-[130px]" },
     { key: "exception_note", label: "Issue / Exception", w: "w-[150px]" },
   ];
