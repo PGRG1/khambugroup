@@ -31,7 +31,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 
-const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
+
 const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review", "Disputed"] as const;
 const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
 
@@ -48,16 +48,6 @@ const EXCEPTION_BADGE: Record<string, string> = {
   "-": "bg-transparent text-muted-foreground",
 };
 
-const STATUS_BADGE: Record<string, string> = {
-  pending: "bg-zinc-500/15 text-zinc-300 border border-zinc-500/30",
-  verified: "bg-sky-500/15 text-sky-300 border border-sky-500/30",
-  approved: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  paid: "bg-emerald-600/20 text-emerald-200 border border-emerald-600/40",
-  unpaid: "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20",
-  overdue: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-  cancelled: "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30 line-through",
-  disputed: "bg-red-500/15 text-red-300 border border-red-500/30",
-};
 
 const STATUS_COLORS: Record<string, string> = {
   paid: "bg-green-100 text-green-800 border-green-300",
@@ -204,7 +194,7 @@ export default function ProcurementInvoicesTab() {
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [venueFilter, setVenueFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
   const [exceptionNoteFilter, setExceptionNoteFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState<string>("__latest__");
@@ -340,7 +330,7 @@ export default function ProcurementInvoicesTab() {
     const result = invoices.filter((inv) => {
       if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
-      if (statusFilter !== "all" && inv.status !== statusFilter) return false;
+      
       if (reviewStatusFilter !== "all" && (inv.review_status || "Under Review") !== reviewStatusFilter) return false;
       if (exceptionNoteFilter !== "all" && (inv.exception_note || "-") !== exceptionNoteFilter) return false;
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
@@ -351,7 +341,7 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, supplierFilter, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
+  }, [invoices, supplierFilter, venueFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
 
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
@@ -383,7 +373,7 @@ export default function ProcurementInvoicesTab() {
     { key: "venue", label: "Venue", w: "w-[90px]" },
     { key: "due_date", label: "Due Date", w: "w-[100px]" },
     { key: "total_amount", label: "Amount", w: "w-[110px]", align: "right" as const },
-    { key: "status", label: "Payment Status", w: "w-[110px]" },
+    
     { key: "review_status", label: "Review Status", w: "w-[130px]" },
     { key: "exception_note", label: "Issue / Exception", w: "w-[150px]" },
   ];
@@ -1753,8 +1743,6 @@ export default function ProcurementInvoicesTab() {
         setSupplierFilter={setSupplierFilter}
         venueFilter={venueFilter}
         setVenueFilter={setVenueFilter}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
         reviewStatusFilter={reviewStatusFilter}
         setReviewStatusFilter={setReviewStatusFilter}
         exceptionNoteFilter={exceptionNoteFilter}
@@ -1952,8 +1940,6 @@ interface InvoiceTableSectionProps {
   setSupplierFilter: (v: string) => void;
   venueFilter: string;
   setVenueFilter: (v: string) => void;
-  statusFilter: string;
-  setStatusFilter: (v: string) => void;
   reviewStatusFilter: string;
   setReviewStatusFilter: (v: string) => void;
   exceptionNoteFilter: string;
@@ -1973,7 +1959,7 @@ interface InvoiceTableSectionProps {
 
 function InvoiceTableSection({
   filtered, invoices, suppliers, kpis, totalAmount, columns, sortColumns, toggleSort, SortIcon,
-  search, setSearch, supplierFilter, setSupplierFilter, venueFilter, setVenueFilter, statusFilter, setStatusFilter,
+  search, setSearch, supplierFilter, setSupplierFilter, venueFilter, setVenueFilter,
   reviewStatusFilter, setReviewStatusFilter, exceptionNoteFilter, setExceptionNoteFilter,
   monthFilter, setMonthFilter, months, fmtMonth,
   openDetail, openAttachmentViewer, setDeletingId, setDeleteOpen, onUpdateField, onUploadClick,
@@ -1988,9 +1974,6 @@ function InvoiceTableSection({
     { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
       options: [{ value: "Assembly", label: "Assembly" }, { value: "Caliente", label: "Caliente" }, { value: "Hanabi", label: "Hanabi" }],
       allLabel: "All Venues" },
-    { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
-      options: STATUSES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
-      allLabel: "All Statuses" },
     { type: "select", key: "review_status", label: "Review Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
       options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
       allLabel: "All Review Statuses" },
@@ -2002,7 +1985,7 @@ function InvoiceTableSection({
       allLabel: "All Months" },
   ];
 
-  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
+  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
 
   const handleDownload = () => downloadCSV(
     filtered.map((inv) => ({
@@ -2012,7 +1995,6 @@ function InvoiceTableSection({
       venue: inv.venue,
       due_date: fmtDate(inv.due_date || ""),
       total_amount: Number(inv.total_amount).toFixed(2),
-      status: inv.status,
       review_status: inv.review_status || "Under Review",
       exception_note: inv.exception_note || "-",
     })),
@@ -2125,6 +2107,9 @@ function InvoiceTableSection({
                       );
                     })()}
                     {inv.invoice_number}
+                    {invoiceVarianceMap[inv.id] && (
+                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
+                    )}
                   </span>
                 </TableCell>
 
@@ -2132,20 +2117,6 @@ function InvoiceTableSection({
                 <TableCell className="py-2">{inv.venue}</TableCell>
                 <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
                 <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
-                <TableCell className="py-2">
-                  <span className="inline-flex items-center gap-1">
-                    {inv.status ? (
-                      <Badge className={`capitalize px-1.5 py-0 text-[10px] ${STATUS_BADGE[inv.status] || "bg-muted text-muted-foreground"}`}>
-                        {inv.status}
-                      </Badge>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground">—</span>
-                    )}
-                    {invoiceVarianceMap[inv.id] && (
-                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
-                    )}
-                  </span>
-                </TableCell>
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   {(() => {
                     const rs = inv.review_status || "Under Review";
