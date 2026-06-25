@@ -1036,7 +1036,7 @@ export default function ProcurementInvoicesTab() {
         </div>
 
         <div className="rounded-2xl border bg-background p-4 md:p-6 space-y-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs">Supplier</Label>
               <Select value={editForm.supplier_id || ""} onValueChange={(value) => setEditForm((form) => ({ ...form, supplier_id: value }))}>
