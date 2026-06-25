@@ -1768,114 +1768,124 @@ export default function ProcurementInvoicesTab() {
       />
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-          {selectedInvoice && (
-            <>
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  Invoice {selectedInvoice.invoice_number}
-                </SheetTitle>
-              </SheetHeader>
-              <div className="mt-4 space-y-4">
-                <Button size="sm" variant="outline" onClick={startEditing}>
-                  <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
-                </Button>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+          {selectedInvoice && (() => {
+            const rs = selectedInvoice.review_status || "Approved";
+            const giByLine = new Map<string, any>();
+            for (const gi of grnItemsForInvoice) {
+              if (gi.invoice_line_item_id) giByLine.set(gi.invoice_line_item_id, gi);
+            }
+            const hasGrn = grnItemsForInvoice.length > 0;
+            let totalInv = 0, totalRecv = 0;
+            const rows = lineItems.map((line) => {
+              const gi = giByLine.get(line.id);
+              const recvQty = gi ? Number(gi.quantity_received) : null;
+              const recvPrice = gi ? Number((gi as any).accepted_price ?? gi.unit_cost ?? line.unit_price) : null;
+              const invQty = Number(line.quantity);
+              const invTotal = invQty * Number(line.unit_price);
+              const recvTotal = recvQty != null && recvPrice != null ? recvQty * recvPrice : null;
+              const variance = recvQty != null ? recvQty - invQty : null;
+              totalInv += invTotal;
+              if (recvTotal != null) totalRecv += recvTotal;
+              return { line, gi, recvQty, invQty, variance, recvTotal };
+            });
+            const diff = totalRecv - totalInv;
+            return (
+              <>
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2 flex-wrap">
+                    <span>Invoice {selectedInvoice.invoice_number}</span>
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground border-border"}`}>
+                      {rs}
+                    </span>
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={startEditing}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" />Edit Invoice
+                    </Button>
+                    {selectedInvoice.file_url && (
+                      <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
+                        <Eye className="h-3.5 w-3.5 mr-1" />
+                        View Attachments ({selectedInvoice.file_url.split(",").length} {selectedInvoice.file_url.split(",").length === 1 ? "page" : "pages"})
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                    </Button>
+                  </div>
 
-                <BaniScanSummary invoiceId={selectedInvoice.id} />
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div><span className="text-muted-foreground">Supplier:</span> <span className="font-medium">{selectedInvoice.supplier_name}</span></div>
+                    <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
+                    <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{fmtDate(selectedInvoice.invoice_date)}</span></div>
+                    <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{fmtDate(selectedInvoice.due_date || "")}</span></div>
+                    <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">${fmtForSupplier(Number(selectedInvoice.total_amount), selectedInvoice.supplier_name)}</span></div>
+                    <div><span className="text-muted-foreground">ID:</span> <span className="font-mono text-xs text-muted-foreground">{selectedInvoice.id.slice(0, 8)}</span></div>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">Supplier:</span> <span className="font-medium">{selectedInvoice.supplier_name}</span></div>
-                  <div><span className="text-muted-foreground">Venue:</span> <span className="font-medium">{selectedInvoice.venue}</span></div>
-                  <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{fmtDate(selectedInvoice.invoice_date)}</span></div>
-                  <div><span className="text-muted-foreground">Due:</span> <span className="font-medium">{fmtDate(selectedInvoice.due_date || "")}</span></div>
-                  <div><span className="text-muted-foreground">Total:</span> <span className="font-semibold">${fmtForSupplier(Number(selectedInvoice.total_amount), selectedInvoice.supplier_name)}</span></div>
-                  <div><span className="text-muted-foreground">ID:</span> <span className="font-mono text-xs text-muted-foreground">{selectedInvoice.id.slice(0, 8)}</span></div>
-                </div>
+                  {selectedInvoice.verified_at && (
+                    <div className="text-xs text-muted-foreground">Verified: {new Date(selectedInvoice.verified_at).toLocaleString()}</div>
+                  )}
+                  {selectedInvoice.approved_at && (
+                    <div className="text-xs text-muted-foreground">Approved: {new Date(selectedInvoice.approved_at).toLocaleString()}</div>
+                  )}
 
-                {selectedInvoice.verified_at && (
-                  <div className="text-xs text-muted-foreground">Verified: {new Date(selectedInvoice.verified_at).toLocaleString()}</div>
-                )}
-                {selectedInvoice.approved_at && (
-                  <div className="text-xs text-muted-foreground">Approved: {new Date(selectedInvoice.approved_at).toLocaleString()}</div>
-                )}
+                  {selectedInvoice.notes && (
+                    <div className="text-sm"><span className="text-muted-foreground">Notes:</span> {selectedInvoice.notes}</div>
+                  )}
 
-                <div className="flex gap-2 flex-wrap">
-                  <Button size="sm" variant="destructive" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
-                    <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
-                  </Button>
-                </div>
+                  <BaniScanSummary invoiceId={selectedInvoice.id} />
 
-                {selectedInvoice.file_url && (
-                  <Button variant="outline" size="sm" onClick={() => openAttachmentViewer(selectedInvoice.file_url!, selectedInvoice.invoice_number)}>
-                    <Eye className="h-3.5 w-3.5 mr-1" />
-                    View Attachments ({selectedInvoice.file_url.split(",").length} {selectedInvoice.file_url.split(",").length === 1 ? "page" : "pages"})
-                  </Button>
-                )}
-
-                {selectedInvoice.notes && (
-                  <div className="text-sm"><span className="text-muted-foreground">Notes:</span> {selectedInvoice.notes}</div>
-                )}
-
-                <h4 className="pt-2 text-sm font-semibold">Line Items ({lineItems.length})</h4>
-                <div className="space-y-1">
-                  {lineItems.map((line, index) => (
-                    <div key={line.id} className={`grid grid-cols-[1fr_60px_80px_80px] gap-2 rounded px-2 py-1.5 text-xs ${index % 2 === 0 ? "bg-muted/30" : ""}`}>
-                      <div>
-                        <span className="font-medium">{line.description}</span>
-                        
-                      </div>
-                      <div className="text-right tabular-nums">{line.quantity}</div>
-                      <div className="text-right tabular-nums">{fmt(line.unit_price)}</div>
-                      <div className="text-right tabular-nums font-medium">{fmt(line.total)}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {grnItemsForInvoice.length > 0 && (() => {
-                  const giByLine = new Map<string, any>();
-                  for (const gi of grnItemsForInvoice) {
-                    if (gi.invoice_line_item_id) giByLine.set(gi.invoice_line_item_id, gi);
-                  }
-                  let totalInv = 0, totalRecv = 0;
-                  const rows = lineItems.map((line) => {
-                    const gi = giByLine.get(line.id);
-                    const recvQty = gi ? Number(gi.quantity_received) : null;
-                    const invQty = Number(line.quantity);
-                    const variance = recvQty != null ? recvQty - invQty : null;
-                    totalInv += invQty * Number(line.unit_price);
-                    if (recvQty != null) totalRecv += recvQty * Number(line.unit_price);
-                    return { line, gi, recvQty, invQty, variance };
-                  });
-                  const hasVariance = rows.some((r) => r.variance != null && Math.abs(r.variance) > 0.001);
-                  return (
-                    <div className="pt-2 space-y-2">
-                      <h4 className="text-sm font-semibold">GRN Match</h4>
-                      {hasVariance && (
-                        <div className="text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30 rounded p-2">
-                          Quantity discrepancy — review before approving payment.
-                        </div>
-                      )}
-                      <div className="border border-border rounded overflow-hidden text-xs">
-                        <table className="w-full">
-                          <thead className="bg-muted/40">
-                            <tr className="text-left">
-                              <th className="p-1.5">Item</th>
-                              <th className="p-1.5 text-right">Inv Qty</th>
-                              <th className="p-1.5 text-right">Recv Qty</th>
-                              <th className="p-1.5 text-right">Variance</th>
-                              <th className="p-1.5 text-right">Unit Cost</th>
-                              <th className="p-1.5 text-right">Inv Total</th>
-                              <th className="p-1.5 text-right">Recv Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map(({ line, recvQty, invQty, variance }) => (
-                              <tr key={line.id} className="border-t border-border">
-                                <td className="p-1.5">{line.description}</td>
-                                <td className="p-1.5 text-right tabular-nums">{invQty}</td>
+                  <div className="pt-2 space-y-2">
+                    <h4 className="text-sm font-semibold">Line Items ({lineItems.length}){hasGrn ? " + GRN" : ""}</h4>
+                    <div className="border border-border rounded overflow-hidden">
+                      <table className="table-fixed w-full text-xs">
+                        <colgroup>
+                          {hasGrn ? (
+                            <>
+                              <col className="w-[45%]" />
+                              <col className="w-[8%]" />
+                              <col className="w-[12%]" />
+                              <col className="w-[12%]" />
+                              <col className="w-[8%]" />
+                              <col className="w-[8%]" />
+                              <col className="w-[12%]" />
+                            </>
+                          ) : (
+                            <>
+                              <col className="w-[70%]" />
+                              <col className="w-[10%]" />
+                              <col className="w-[10%]" />
+                              <col className="w-[10%]" />
+                            </>
+                          )}
+                        </colgroup>
+                        <thead className="bg-muted/40">
+                          <tr className="text-left">
+                            <th className="p-1.5">Item</th>
+                            <th className="p-1.5 text-right">Qty</th>
+                            <th className="p-1.5 text-right">Unit Price</th>
+                            <th className="p-1.5 text-right">Total</th>
+                            {hasGrn && <th className="p-1.5 text-right">Recv Qty</th>}
+                            {hasGrn && <th className="p-1.5 text-right">Variance</th>}
+                            {hasGrn && <th className="p-1.5 text-right">Recv Total</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map(({ line, recvQty, invQty, variance, recvTotal }, index) => (
+                            <tr key={line.id} className={index % 2 === 0 ? "bg-muted/30" : ""}>
+                              <td className="p-1.5 truncate" title={line.description}>{line.description}</td>
+                              <td className="p-1.5 text-right tabular-nums">{invQty}</td>
+                              <td className="p-1.5 text-right tabular-nums">{fmt(line.unit_price)}</td>
+                              <td className="p-1.5 text-right tabular-nums font-medium">{fmt(invQty * line.unit_price)}</td>
+                              {hasGrn && (
                                 <td className="p-1.5 text-right tabular-nums">{recvQty ?? "—"}</td>
+                              )}
+                              {hasGrn && (
                                 <td className="p-1.5 text-right">
-                                  {variance == null ? "" : Math.abs(variance) < 0.001 ? (
+                                  {variance == null ? "—" : Math.abs(variance) < 0.001 ? (
                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 inline" />
                                   ) : variance < 0 ? (
                                     <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px]">{variance.toFixed(2)}</Badge>
@@ -1883,25 +1893,39 @@ export default function ProcurementInvoicesTab() {
                                     <Badge className="bg-red-500/20 text-red-300 border border-red-500/40 text-[10px]">+{variance.toFixed(2)}</Badge>
                                   )}
                                 </td>
-                                <td className="p-1.5 text-right tabular-nums">{fmt(line.unit_price)}</td>
-                                <td className="p-1.5 text-right tabular-nums">{fmt(invQty * line.unit_price)}</td>
-                                <td className="p-1.5 text-right tabular-nums">{recvQty != null ? fmt(recvQty * line.unit_price) : "—"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
+                              )}
+                              {hasGrn && (
+                                <td className="p-1.5 text-right tabular-nums">{recvTotal != null ? fmt(recvTotal) : "—"}</td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                        {hasGrn && (
                           <tfoot className="bg-muted/30 font-medium">
-                            <tr><td colSpan={5} className="p-1.5 text-right">Invoiced total</td><td className="p-1.5 text-right tabular-nums">{fmt(totalInv)}</td><td /></tr>
-                            <tr><td colSpan={5} className="p-1.5 text-right">Received total</td><td /><td className="p-1.5 text-right tabular-nums">{fmt(totalRecv)}</td></tr>
-                            <tr><td colSpan={5} className="p-1.5 text-right">Difference</td><td colSpan={2} className="p-1.5 text-right tabular-nums">{fmt(totalRecv - totalInv)}</td></tr>
+                            <tr>
+                              <td colSpan={3} className="p-1.5 text-right">Invoiced total</td>
+                              <td className="p-1.5 text-right tabular-nums">{fmt(totalInv)}</td>
+                              <td /><td /><td />
+                            </tr>
+                            <tr>
+                              <td colSpan={3} className="p-1.5 text-right">Received total</td>
+                              <td /><td /><td />
+                              <td className="p-1.5 text-right tabular-nums">{fmt(totalRecv)}</td>
+                            </tr>
+                            <tr>
+                              <td colSpan={3} className="p-1.5 text-right">Difference</td>
+                              <td /><td /><td />
+                              <td className={`p-1.5 text-right tabular-nums ${diff < 0 ? "text-red-400" : Math.abs(diff) < 0.001 ? "text-emerald-400" : ""}`}>{fmt(diff)}</td>
+                            </tr>
                           </tfoot>
-                        </table>
-                      </div>
+                        )}
+                      </table>
                     </div>
-                  );
-                })()}
-              </div>
-            </>
-          )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </SheetContent>
       </Sheet>
 
