@@ -90,20 +90,13 @@ export function resolveProductMatch(
   // === PRIORITY 2: Exact External Name ===
   if (desc) {
     if (invoiceSupplier) {
+      // Supplier-scoped exact
       const nameSupplierMatch = products.find(p => {
         const spn = (p.supplier_product_name || "").trim().toLowerCase();
         return spn && spn === desc && supplierMatch(p.supplier, invoiceSupplier);
       });
       if (nameSupplierMatch) return nameSupplierMatch;
-    }
-    const nameMatch = products.find(p => {
-      const spn = (p.supplier_product_name || "").trim().toLowerCase();
-      return spn && spn === desc;
-    });
-    if (nameMatch) return nameMatch;
-
-    // Fuzzy name (contains)
-    if (invoiceSupplier) {
+      // Supplier-scoped fuzzy
       const fuzzySupplier = products.find(p => {
         const spn = (p.supplier_product_name || "").trim().toLowerCase();
         const ipn = (p.internal_product_name || "").trim().toLowerCase();
@@ -111,13 +104,21 @@ export function resolveProductMatch(
         return nameOk && supplierMatch(p.supplier, invoiceSupplier);
       });
       if (fuzzySupplier) return fuzzySupplier;
+      // Supplier known — do NOT fall through to a different-supplier name match.
+      // Fall through to PRIORITY 3 (ID hydration) which is also supplier-scoped.
+    } else {
+      const nameMatch = products.find(p => {
+        const spn = (p.supplier_product_name || "").trim().toLowerCase();
+        return spn && spn === desc;
+      });
+      if (nameMatch) return nameMatch;
+      const fuzzy = products.find(p => {
+        const spn = (p.supplier_product_name || "").trim().toLowerCase();
+        const ipn = (p.internal_product_name || "").trim().toLowerCase();
+        return (spn && (desc.includes(spn) || spn.includes(desc))) || (ipn && (desc.includes(ipn) || ipn.includes(desc)));
+      });
+      if (fuzzy) return fuzzy;
     }
-    const fuzzy = products.find(p => {
-      const spn = (p.supplier_product_name || "").trim().toLowerCase();
-      const ipn = (p.internal_product_name || "").trim().toLowerCase();
-      return (spn && (desc.includes(spn) || spn.includes(desc))) || (ipn && (desc.includes(ipn) || ipn.includes(desc)));
-    });
-    if (fuzzy) return fuzzy;
   }
 
   // === PRIORITY 3: Hydration by stored IDs ===
