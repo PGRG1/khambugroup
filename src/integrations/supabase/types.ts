@@ -7962,6 +7962,10 @@ export type Database = {
         Args: { p_entry_id: string }
         Returns: Json
       }
+      sync_grn_from_invoice: {
+        Args: { _invoice_id: string; _tenant_id: string }
+        Returns: Json
+      }
       user_has_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
