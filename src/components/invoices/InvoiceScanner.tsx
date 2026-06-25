@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert, Tag } from "lucide-react";
+import { Upload, X, ScanLine, Loader2, Check, Trash2, Plus, ChevronLeft, ChevronRight, Camera, FileText, AlertTriangle, GripVertical, FileSignature, ShieldAlert, Tag, ArrowRight } from "lucide-react";
 import {
   WorkflowStrip,
   CheckCard,
@@ -2061,6 +2061,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           })()
                         ) : line.master_price == null ? (
                           <div className="h-8 flex flex-col justify-center px-1">
+                            <button
+                              type="button"
+                              onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
+                              className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 mb-0.5"
+                              title="Copy purchase cost to accepted price"
+                            >
+                              <ArrowRight className="h-2.5 w-2.5" /> Use invoice price
+                            </button>
                             <Input
                               type="number"
                               value={line.accepted_price || ""}
@@ -2081,6 +2089,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             }
                             return (
                               <div className="h-8 flex flex-col justify-center px-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
+                                  className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 mb-0.5"
+                                  title="Copy purchase cost to accepted price"
+                                >
+                                  <ArrowRight className="h-2.5 w-2.5" /> Use invoice price
+                                </button>
                                 <Input
                                   type="number"
                                   step="0.01"

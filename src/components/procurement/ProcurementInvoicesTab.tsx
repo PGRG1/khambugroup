@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles, MessageSquareWarning, Ban } from "lucide-react";
+import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles, MessageSquareWarning, Ban, ArrowRight } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
@@ -1312,6 +1312,14 @@ export default function ProcurementInvoicesTab() {
                           })()
                         ) : line.master_price == null ? (
                           <div className="h-8 flex flex-col justify-center px-1">
+                            <button
+                              type="button"
+                              onClick={() => updateEditLineAcceptedPrice(index, line.unit_price)}
+                              className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 mb-0.5"
+                              title="Copy purchase cost to accepted price"
+                            >
+                              <ArrowRight className="h-2.5 w-2.5" /> Use invoice price
+                            </button>
                             <Input
                               type="number"
                               value={line.accepted_price || ""}
@@ -1327,6 +1335,14 @@ export default function ProcurementInvoicesTab() {
                             const differsFromMaster = Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round((line.master_price as number) * 100);
                             return (
                               <div className="h-8 flex flex-col justify-center px-1">
+                                <button
+                                  type="button"
+                                  onClick={() => updateEditLineAcceptedPrice(index, line.unit_price)}
+                                  className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 mb-0.5"
+                                  title="Copy purchase cost to accepted price"
+                                >
+                                  <ArrowRight className="h-2.5 w-2.5" /> Use invoice price
+                                </button>
                                 <Input
                                   type="number"
                                   step="0.01"
