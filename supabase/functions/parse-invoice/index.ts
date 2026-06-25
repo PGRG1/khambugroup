@@ -54,7 +54,7 @@ IMPORTANT — LANGUAGE RULES:
 - ALL OTHER text fields MUST be in English. You MUST translate Chinese/non-English text to English. This includes:
   - "unit" field: translate Chinese units to English abbreviations. Common translations: 桶=Bucket, 打=Dozen, 條=Roll, 箱=Case/Box, 瓶=Bottle, 包=Pack, 袋=Bag, 罐=Can, 盒=Box, 支=Piece, 公升=Liter, 磅=LB
   - "description" field: must be in English
-  - "pack_size" field: translate Chinese size units (e.g. "3.8公升/桶" → "3.8L/Bucket", "40p/桶" → "40p/Bucket", "15"/條" → "15"/Roll")
+  
   - "notes" field: must be in English
 
 CRITICAL — NUMBER ACCURACY RULES:
@@ -88,7 +88,7 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
         {
           "item_code": "product/item code if available, otherwise empty string",
           "description": "item description in English (clean product name without pack size info)",
-          "pack_size": "pack/bottle/container size info in English e.g. '4X4LB', '750ml', '3.8L/Bucket', '6X1L'",
+          "pack_size": "always return empty string \"\" — do not extract size info here, keep the full product name including size in the description field",
           "quantity": number (number of units ordered — typically 1-20),
           "unit": "unit of measure in ENGLISH ONLY (Bucket, Dozen, Roll, Case, Box, Pack, Bag, Bottle, Piece, KG, LB, etc.) — NEVER Chinese characters",
           "weight": number or null (actual weight in KG if item is priced per KG, otherwise null),
@@ -338,7 +338,7 @@ ${pmLines}`;
       if (inv.line_items && Array.isArray(inv.line_items)) {
         for (const li of inv.line_items) {
           if (li.unit) li.unit = translateChinese(li.unit);
-          if (li.pack_size) li.pack_size = translateChinese(li.pack_size);
+          
           if (li.description) li.description = translateChinese(li.description);
           if (li.notes) li.notes = translateChinese(li.notes);
 
@@ -581,7 +581,7 @@ Return ONLY by calling the report_review function.`;
                             supplier_product_name: { type: "string" },
                             external_sku: { type: "string" },
                             supplier: { type: "string" },
-                            pack_size: { type: "string" },
+                            
                             purchase_unit: { type: "string" },
                             stock_uom: { type: "string" },
                             purchase_unit_cost: { type: "number" },
@@ -661,7 +661,7 @@ Return ONLY by calling the report_review function.`;
 
     // Apply ALLOWED corrections server-side. Numeric fields are NEVER overwritten.
     const allowedHeaderFields = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "currency"]);
-    const allowedLineFields = new Set(["description", "unit", "pack_size", "item_code", "matched_sku"]);
+    const allowedLineFields = new Set(["description", "unit", "item_code", "matched_sku"]);
     if (review && typeof review === "object") {
       review.header_checks = Array.isArray(review.header_checks) ? review.header_checks : [];
       review.header_corrections = Array.isArray(review.header_corrections) ? review.header_corrections : [];
