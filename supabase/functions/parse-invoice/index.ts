@@ -581,7 +581,7 @@ Return ONLY by calling the report_review function.`;
                             supplier_product_name: { type: "string" },
                             external_sku: { type: "string" },
                             supplier: { type: "string" },
-                            pack_size: { type: "string" },
+                            
                             purchase_unit: { type: "string" },
                             stock_uom: { type: "string" },
                             purchase_unit_cost: { type: "number" },
