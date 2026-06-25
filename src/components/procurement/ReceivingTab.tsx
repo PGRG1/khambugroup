@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -13,10 +14,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, X, Trash2, ChevronsUpDown, Database } from "lucide-react";
+import { Plus, X, Trash2, ChevronsUpDown, Database, ScanLine, Download, PackageCheck, FileText, CheckCircle2, Clock, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { backfillGrnsFromInvoices } from "@/utils/backfillGrnsFromInvoices";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
+import { downloadCSV } from "@/utils/csvDownload";
 
 const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
 type Venue = typeof VENUES[number];
