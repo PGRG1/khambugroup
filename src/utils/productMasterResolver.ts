@@ -143,8 +143,8 @@ export function resolveProductMatch(
       const byInternalAndSupplier = products.find(p => p.internal_sku === internalSku && supplierMatch(p.supplier, invoiceSupplier));
       if (byInternalAndSupplier) return byInternalAndSupplier;
     }
-    const byInternal = products.find(p => p.internal_sku === internalSku);
-    if (byInternal) return byInternal;
+    const allForSku = products.filter(p => p.internal_sku === internalSku);
+    if (allForSku.length === 1) return allForSku[0];
   }
 
   return null;
@@ -205,8 +205,8 @@ export function resolveExactMatch(
       const m = products.find(p => p.internal_sku === internalSku && supplierMatch(p.supplier, invoiceSupplier));
       if (m) return m;
     }
-    const m = products.find(p => p.internal_sku === internalSku);
-    if (m) return m;
+    const allForSku = products.filter(p => p.internal_sku === internalSku);
+    if (allForSku.length === 1) return allForSku[0];
   }
 
   return null;
