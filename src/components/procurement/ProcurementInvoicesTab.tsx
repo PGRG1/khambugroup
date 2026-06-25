@@ -2117,20 +2117,13 @@ function InvoiceTableSection({
                 <TableCell className="py-2">{inv.venue}</TableCell>
                 <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
                 <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
-                <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                <TableCell className="py-2">
                   {(() => {
                     const rs = inv.review_status || "Approved";
                     return (
-                      <Select value={rs} onValueChange={(v) => onUpdateField(inv.id, { review_status: v as any })}>
-                        <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {REVIEW_STATUSES.map((s) => (
-                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground border-border"}`}>
+                        {rs}
+                      </span>
                     );
                   })()}
                 </TableCell>
