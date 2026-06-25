@@ -89,6 +89,11 @@ export default function ReceivingTab() {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [venueFilter, setVenueFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
+  const navigate = useNavigate();
 
   // create dialog
   const [createOpen, setCreateOpen] = useState(false);
