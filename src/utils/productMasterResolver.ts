@@ -204,9 +204,11 @@ export function resolveExactMatch(
         p => (p.external_sku || "").trim().toLowerCase() === code && supplierMatch(p.supplier, invoiceSupplier)
       );
       if (m) return m;
+      // supplier known — do not return a different-supplier row
+    } else {
+      const m = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
+      if (m) return m;
     }
-    const m = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
-    if (m) return m;
   }
 
   if (desc) {
@@ -216,9 +218,11 @@ export function resolveExactMatch(
         return spn && spn === desc && supplierMatch(p.supplier, invoiceSupplier);
       });
       if (m) return m;
+      // supplier known — do not return a different-supplier row
+    } else {
+      const m = products.find(p => (p.supplier_product_name || "").trim().toLowerCase() === desc);
+      if (m) return m;
     }
-    const m = products.find(p => (p.supplier_product_name || "").trim().toLowerCase() === desc);
-    if (m) return m;
   }
 
   if (internalSku) {
