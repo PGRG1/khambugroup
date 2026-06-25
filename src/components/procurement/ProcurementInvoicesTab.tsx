@@ -31,7 +31,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 
-const STATUSES = ["pending", "verified", "approved", "paid", "unpaid", "overdue", "cancelled", "disputed"];
+
 const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review", "Disputed"] as const;
 const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
 
