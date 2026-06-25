@@ -2114,11 +2114,24 @@ function InvoiceTableSection({
                 <TableCell className="py-2">
                   {(() => {
                     const rs = inv.review_status || "Approved";
-                    return (
+                    const badge = (
                       <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground border-border"}`}>
                         {rs}
                       </span>
                     );
+                    if (rs === "Disputed") {
+                      return (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild><span>{badge}</span></TooltipTrigger>
+                            <TooltipContent className="max-w-xs whitespace-pre-line text-xs">
+                              {inv.dispute_notes?.trim() ? inv.dispute_notes : "No reason provided"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    }
+                    return badge;
                   })()}
                 </TableCell>
                 <TableCell className="py-2">
