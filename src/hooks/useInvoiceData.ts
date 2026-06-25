@@ -135,37 +135,6 @@ export function useInvoiceData() {
     }));
   }, [categories, tenantId]);
 
-  const syncLineItemsToInventory = useCallback(async (lineItems: Omit<InvoiceLineItem, "id" | "invoice_id" | "category_name">[]) => {
-    if (!tenantId) return;
-    const invItems = await fetchAllRows("inventory_items", "id, name, current_qty", undefined, tenantId);
-    const itemMap = new Map(invItems.map((i: any) => [i.name.trim().toLowerCase(), i]));
-
-    for (const li of lineItems) {
-      const desc = (li.description || "").trim();
-      if (!desc) continue;
-      const key = desc.toLowerCase();
-      const qty = Number(li.quantity) || 0;
-
-      const existing = itemMap.get(key);
-      if (existing) {
-        await supabase.from("inventory_items").update({
-          current_qty: (Number(existing.current_qty) || 0) + qty,
-        } as any).eq("id", existing.id).eq("tenant_id", tenantId);
-        existing.current_qty = (Number(existing.current_qty) || 0) + qty;
-      } else {
-        const { data: newItem } = await supabase.from("inventory_items").insert({
-          name: desc,
-          unit_of_measure: li.unit || "unit",
-          unit_size: li.pack_size || "",
-          current_qty: qty,
-          category_id: li.category_id || null,
-          is_active: true,
-          tenant_id: tenantId,
-        } as any).select("id, name, current_qty").single();
-        if (newItem) itemMap.set(key, newItem);
-      }
-    }
-  }, [tenantId]);
 
   const matchLineItemsToProductMaster = useCallback(async (lineItems: any[]) => {
     if (!tenantId) return lineItems;
@@ -255,12 +224,10 @@ export function useInvoiceData() {
       );
       const { error: liErr } = await supabase.from("invoice_line_items").insert(matchedItems as any);
       if (liErr) toast({ title: "Error adding line items", description: liErr.message, variant: "destructive" });
-
-      await syncLineItemsToInventory(lineItems);
     }
     await fetchAll();
     return data;
-  }, [fetchAll, toast, syncLineItemsToInventory, matchLineItemsToProductMaster, tenantId]);
+  }, [fetchAll, toast, matchLineItemsToProductMaster, tenantId]);
 
   const updateInvoice = useCallback(async (
     id: string,
