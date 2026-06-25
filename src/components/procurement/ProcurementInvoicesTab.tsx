@@ -345,16 +345,16 @@ export default function ProcurementInvoicesTab() {
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
     const total = filtered.length;
-    let underReview = 0, approved = 0, exceptions = 0, disputed = 0;
+    let voided = 0, approved = 0, exceptions = 0, disputed = 0;
     let totalValue = 0;
     const dupKey = new Map<string, number>();
     for (const inv of filtered) {
-      const rs = inv.review_status || "Under Review";
-      if (rs === "Under Review") underReview++;
+      const rs = inv.review_status || "Approved";
+      if (rs === "Voided") voided++;
       if (rs === "Approved") approved++;
       if (rs === "Disputed") disputed++;
       const en = inv.exception_note || "-";
-      if (en !== "-" || rs === "Rejected") exceptions++;
+      if (en !== "-") exceptions++;
       totalValue += Number(inv.total_amount) || 0;
       const k = `${inv.supplier_id}::${(inv.invoice_number || "").trim().toLowerCase()}`;
       if (k.trim() !== "::") dupKey.set(k, (dupKey.get(k) || 0) + 1);
@@ -362,7 +362,7 @@ export default function ProcurementInvoicesTab() {
     let duplicates = 0;
     for (const v of dupKey.values()) if (v > 1) duplicates += v;
     const pct = (n: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "0%";
-    return { total, underReview, approved, exceptions, disputed, duplicates, totalValue, pct };
+    return { total, voided, approved, exceptions, disputed, duplicates, totalValue, pct };
   }, [filtered]);
 
   const columns = [
