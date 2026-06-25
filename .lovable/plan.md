@@ -1,27 +1,37 @@
-## Add "Use invoice price" shortcut in Acc. price cell
+## Redesign Acc. price cell in both invoice views
 
-Edit two files only — pure UI, no state/logic/save changes.
+Pure UI redesign in two files. No state, handlers, or save logic changes.
 
-### `src/components/invoices/InvoiceScanner.tsx`
-In the Acc. price `<td>`:
-1. Remove the "Master $X.XX" and "Inv $X.XX" chips added previously.
-2. In the two non-free-unit branches (master_price == null and master_price != null), add at the very top of the cell, before the input:
-   ```tsx
-   <button
-     type="button"
-     onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
-     className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 mb-0.5"
-     title="Copy purchase cost to accepted price"
-   >
-     <ArrowRight className="h-2.5 w-2.5" /> Use invoice price
-   </button>
-   ```
-3. Skip the free-unit branch (price always 0).
-4. Leave the "Update master → $X" button and everything else untouched.
+### Files
+- `src/components/invoices/InvoiceScanner.tsx`
+- `src/components/procurement/ProcurementInvoicesTab.tsx`
 
-### `src/components/procurement/ProcurementInvoicesTab.tsx`
-Same change, but handler is `updateEditLineAcceptedPrice(index, line.unit_price)`. Same three rules: remove Master/Inv chips, add button to both non-free-unit branches, skip free-unit branch, keep Update master button.
+### Changes per file
 
-### Notes
-- `ArrowRight` already imported in both files.
-- No changes to state, handlers, save logic, or any other cell.
+1. **Replace Acc. price cell content** (non-free-unit branches only) with the new IIFE pattern:
+   - Computes `matchesInvoice` and `differsFromMaster` locally.
+   - Row 1: `<Input>` + conditional blue arrow button (shown when accepted ≠ invoice).
+   - Input gets amber border when `differsFromMaster`.
+   - Row 2 subtext: `= invoice price` / `Master: $X.XX` + Update master link / `No master price`.
+   - Collapses the previous two-branch (`master_price == null` vs `!= null`) split into one unified renderer.
+
+2. **Leave free-unit branch untouched** (zero-price deal lines).
+
+3. **Keep `Eff: $X.XX` label** for deal lines exactly where it currently sits.
+
+4. **Add "Accept all invoice prices" bulk link** immediately before the line items `<table>` (after any warning banners):
+   - Scanner: iterates `current?.line_items`, calls `updateLineAcceptedPrice(i, line.unit_price)`, skips free-unit lines.
+   - Procurement tab: iterates `editLines`, calls `updateEditLineAcceptedPrice(index, line.unit_price)`, skips free-unit lines.
+
+5. **Remove leftover "Master $X.XX" / "Inv $X.XX" chip buttons** if any remain from prior iterations.
+
+### Handler/index mapping
+| Placeholder | Scanner | Procurement tab |
+|---|---|---|
+| row index | `i` | `index` |
+| update accepted | `updateLineAcceptedPrice` | `updateEditLineAcceptedPrice` |
+| update master | `handleUpdateMaster(i)` | `handleEditUpdateMaster(index)` |
+| updating flag | `updatingMasterIdx` | `updatingMasterIdx` |
+
+### Not touched
+State, hydration, save logic, deal-line free-unit branch, `Eff:` label, all other columns, footers, and validation.

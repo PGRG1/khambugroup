@@ -1105,6 +1105,21 @@ export default function ProcurementInvoicesTab() {
 
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
+            <div className="flex justify-end pb-1">
+              <button
+                type="button"
+                onClick={() => {
+                  editLines.forEach((line, index) => {
+                    if (!line.is_free_unit_line) {
+                      updateEditLineAcceptedPrice(index, line.unit_price);
+                    }
+                  });
+                }}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline transition-colors"
+              >
+                Accept all invoice prices
+              </button>
+            </div>
             <table className="w-full min-w-[1810px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border">
@@ -1310,35 +1325,22 @@ export default function ProcurementInvoicesTab() {
                               </div>
                             );
                           })()
-                        ) : line.master_price == null ? (
-                          <div className="flex items-center gap-1 px-1">
-                            <Input
-                              type="number"
-                              value={line.accepted_price || ""}
-                              onChange={(e) => updateEditLineAcceptedPrice(index, e.target.value)}
-                              className="text-xs h-7 w-full"
-                              placeholder="—"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => updateEditLineAcceptedPrice(index, line.unit_price)}
-                              className="shrink-0 h-7 w-7 flex items-center justify-center rounded border border-input bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                              title={`Use invoice price $${(parseFloat(line.unit_price) || 0).toFixed(2)}`}
-                            >
-                              <ArrowRight className="h-3 w-3" />
-                            </button>
-                          </div>
                         ) : (
                           (() => {
+                            const invPrice = parseFloat(line.unit_price) || 0;
                             const accNum = parseFloat(line.accepted_price || "");
-                            const differsFromMaster = Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round((line.master_price as number) * 100);
+                            const matchesInvoice = Number.isFinite(accNum)
+                              && Math.round(accNum * 100) === Math.round(invPrice * 100);
+                            const differsFromMaster = line.master_price != null
+                              && Number.isFinite(accNum)
+                              && Math.round(accNum * 100) !== Math.round((line.master_price as number) * 100);
                             const deal = line.deal_id ? activeDeals.find((d) => d.id === line.deal_id) : null;
                             let effective: number | null = null;
                             if (deal && Number.isFinite(accNum)) {
                               effective = (deal.buy_qty * accNum) / (deal.buy_qty + deal.free_qty);
                             }
                             return (
-                              <div className="flex flex-col gap-0.5 px-1">
+                              <div className="flex flex-col gap-0.5 px-1 min-w-[110px]">
                                 <div className="flex items-center gap-1">
                                   <Input
                                     type="number"
@@ -1346,19 +1348,25 @@ export default function ProcurementInvoicesTab() {
                                     value={line.accepted_price || ""}
                                     onChange={(e) => updateEditLineAcceptedPrice(index, e.target.value)}
                                     className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
+                                    placeholder="—"
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => updateEditLineAcceptedPrice(index, line.unit_price)}
-                                    className="shrink-0 h-7 w-7 flex items-center justify-center rounded border border-input bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                    title={`Use invoice price $${(parseFloat(line.unit_price) || 0).toFixed(2)}`}
-                                  >
-                                    <ArrowRight className="h-3 w-3" />
-                                  </button>
+                                  {!matchesInvoice && (
+                                    <button
+                                      type="button"
+                                      onClick={() => updateEditLineAcceptedPrice(index, line.unit_price)}
+                                      className="shrink-0 h-7 w-7 flex items-center justify-center rounded border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors"
+                                      title={`Copy invoice price $${invPrice.toFixed(2)}`}
+                                    >
+                                      <ArrowRight className="h-3 w-3" />
+                                    </button>
+                                  )}
                                 </div>
-                                {line.master_price != null && (
-                                  <div className="flex items-center justify-between gap-1">
-                                    <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                {matchesInvoice && (
+                                  <span className="text-[10px] text-muted-foreground">= invoice price</span>
+                                )}
+                                {!matchesInvoice && line.master_price != null && (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                       Master: ${(line.master_price as number).toFixed(2)}
                                     </span>
                                     {differsFromMaster && line.product_master_id && (
@@ -1366,12 +1374,15 @@ export default function ProcurementInvoicesTab() {
                                         type="button"
                                         disabled={updatingMasterIdx === index}
                                         onClick={() => handleEditUpdateMaster(index)}
-                                        className="text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                                        className="text-[10px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
                                       >
                                         {updatingMasterIdx === index ? "Updating…" : "Update master"}
                                       </button>
                                     )}
                                   </div>
+                                )}
+                                {!matchesInvoice && line.master_price == null && (
+                                  <span className="text-[10px] text-muted-foreground">No master price</span>
                                 )}
                                 {effective !== null && (
                                   <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">
