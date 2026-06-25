@@ -629,7 +629,8 @@ export default function ReceivingTab() {
                       {selectedItems.map((it) => (
                         <TableRow key={it.key}>
                           <TableCell>{it.description}</TableCell>
-                          <TableCell className="text-right td-num">{Number(it.quantity_received)}</TableCell>
+                          <TableCell className="text-right td-num">{Number((it as any).accepted_qty ?? it.quantity_received)}</TableCell>
+
                           <TableCell>{it.unit}</TableCell>
                           <TableCell className="text-right td-num">{fmtMoney(Number(it.unit_cost))}</TableCell>
                           <TableCell className="text-right td-num">{fmtMoney(Number(it.quantity_received) * Number(it.unit_cost))}</TableCell>
