@@ -2107,6 +2107,9 @@ function InvoiceTableSection({
                       );
                     })()}
                     {inv.invoice_number}
+                    {invoiceVarianceMap[inv.id] && (
+                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
+                    )}
                   </span>
                 </TableCell>
 
@@ -2114,20 +2117,6 @@ function InvoiceTableSection({
                 <TableCell className="py-2">{inv.venue}</TableCell>
                 <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
                 <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
-                <TableCell className="py-2">
-                  <span className="inline-flex items-center gap-1">
-                    {inv.status ? (
-                      <Badge className={`capitalize px-1.5 py-0 text-[10px] ${STATUS_BADGE[inv.status] || "bg-muted text-muted-foreground"}`}>
-                        {inv.status}
-                      </Badge>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground">—</span>
-                    )}
-                    {invoiceVarianceMap[inv.id] && (
-                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
-                    )}
-                  </span>
-                </TableCell>
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   {(() => {
                     const rs = inv.review_status || "Under Review";
