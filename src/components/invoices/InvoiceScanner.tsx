@@ -2068,16 +2068,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                               className="text-xs h-7 w-full"
                               placeholder="—"
                             />
-                            <button
-                              type="button"
-                              onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
-                              className="text-[9px] px-1.5 py-0.5 rounded border border-blue-500/30 bg-blue-500/5 text-blue-400 hover:bg-blue-500/15 transition-colors whitespace-nowrap mt-0.5 self-start"
-                              title="Use invoice price"
-                            >
-                              Inv ${(parseFloat(line.unit_price) || 0).toFixed(2)}
-                            </button>
+                            <span className="text-[9px] text-muted-foreground">No master price</span>
                           </div>
-
                         ) : (
                           (() => {
                             const accNum = parseFloat(line.accepted_price || "");
@@ -2096,24 +2088,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                                   onChange={(e) => updateLineAcceptedPrice(i, e.target.value)}
                                   className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
                                 />
-                                <div className="flex gap-1.5 mt-0.5 flex-wrap">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateLineAcceptedPrice(i, String(line.master_price))}
-                                    className="text-[9px] px-1.5 py-0.5 rounded border border-muted-foreground/30 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap"
-                                    title="Use master price"
-                                  >
-                                    Master ${(line.master_price as number).toFixed(2)}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
-                                    className="text-[9px] px-1.5 py-0.5 rounded border border-blue-500/30 bg-blue-500/5 text-blue-400 hover:bg-blue-500/15 transition-colors whitespace-nowrap"
-                                    title="Use invoice price"
-                                  >
-                                    Inv ${(parseFloat(line.unit_price) || 0).toFixed(2)}
-                                  </button>
-                                </div>
+                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">Master: ${line.master_price.toFixed(2)}</span>
                                 {effective !== null && (
                                   <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">Eff: ${effective.toFixed(2)}</span>
                                 )}
