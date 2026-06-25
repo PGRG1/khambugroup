@@ -2118,7 +2118,7 @@ function InvoiceTableSection({
                 <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   {(() => {
-                    const rs = inv.review_status || "Under Review";
+                    const rs = inv.review_status || "Approved";
                     return (
                       <Select value={rs} onValueChange={(v) => onUpdateField(inv.id, { review_status: v as any })}>
                         <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
