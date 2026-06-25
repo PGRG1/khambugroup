@@ -224,12 +224,10 @@ export function useInvoiceData() {
       );
       const { error: liErr } = await supabase.from("invoice_line_items").insert(matchedItems as any);
       if (liErr) toast({ title: "Error adding line items", description: liErr.message, variant: "destructive" });
-
-      await syncLineItemsToInventory(lineItems);
     }
     await fetchAll();
     return data;
-  }, [fetchAll, toast, syncLineItemsToInventory, matchLineItemsToProductMaster, tenantId]);
+  }, [fetchAll, toast, matchLineItemsToProductMaster, tenantId]);
 
   const updateInvoice = useCallback(async (
     id: string,
