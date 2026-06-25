@@ -1985,7 +1985,7 @@ function InvoiceTableSection({
       allLabel: "All Months" },
   ];
 
-  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
+  const resetFilters = () => { setSupplierFilter("all"); setVenueFilter("all"); setReviewStatusFilter("all"); setExceptionNoteFilter("all"); setMonthFilter("all"); };
 
   const handleDownload = () => downloadCSV(
     filtered.map((inv) => ({
@@ -1995,7 +1995,6 @@ function InvoiceTableSection({
       venue: inv.venue,
       due_date: fmtDate(inv.due_date || ""),
       total_amount: Number(inv.total_amount).toFixed(2),
-      status: inv.status,
       review_status: inv.review_status || "Under Review",
       exception_note: inv.exception_note || "-",
     })),
