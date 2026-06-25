@@ -693,25 +693,10 @@ export default function ProcurementInvoicesTab() {
     );
 
     if (success) {
-      // Sync changes back to GRN — fire and forget
-      syncGrnFromInvoice(
-        selectedInvoice.id,
-        filteredLines.map((l) => ({
-          id: l.id,
-          product_master_id: l.product_master_id || null,
-          description: l.description,
-          quantity: l.quantity,
-          accepted_qty: l.accepted_qty || l.quantity,
-          unit: l.unit || "each",
-          unit_price: l.unit_price,
-          accepted_price: l.accepted_price || l.unit_price,
-          net_unit_cost: (l as any).net_unit_cost,
-          receiving_reason: l.receiving_reason,
-          receiving_note: l.receiving_note,
-          is_free_unit_line: l.is_free_unit_line,
-        })),
-        { tenantId }
-      ).catch(() => {}); // swallow errors — never block the invoice save
+      // Sync changes back to GRN — fire and forget. Authoritative rebuild
+      // from the freshly saved invoice_line_items, so it works regardless of
+      // delete+reinsert behaviour in updateInvoice.
+      syncGrnFromInvoice(selectedInvoice.id, { tenantId: tenantId as string }).catch(() => {});
 
       setEditing(false);
       setSelectedInvoice(null);
