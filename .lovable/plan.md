@@ -1,33 +1,44 @@
-## Problem
-`useInvoiceData.updateInvoice` deletes all `invoice_line_items` and re-inserts them, so the FK `grn_items.invoice_line_item_id` (ON DELETE SET NULL) is nulled on every save. `syncGrnFromInvoice` then can't match existing GRN rows by line id, so edits become duplicate inserts and the old rows stay as orphans.
+# Rewrite Invoice Detail Side Panel
 
-## Fix — rewrite `src/utils/syncGrnFromInvoice.ts` to be authoritative
-Stop relying on `invoice_line_item_id` survival. After the invoice save, the freshly inserted `invoice_line_items` are the source of truth.
+Single file change: `src/components/procurement/ProcurementInvoicesTab.tsx`, lines ~1770–1906 only. No other components or logic touched.
 
-New behaviour:
-1. Look up the GRN for the invoice (same as today). If none, exit.
-2. Re-fetch the current `invoice_line_items` for this invoice from the DB (post-save) — these have the new IDs and the latest accepted_qty / accepted_price / net_unit_cost / etc.
-3. Load `product_master.creates_stock_movement` for those product ids, filter out non-stock lines.
-4. Delete ALL existing `grn_items` for this GRN (tenant-scoped).
-5. Insert one `grn_item` per stock-bearing invoice line, using the same field mapping and cost fallback chain currently in the file (quantity_invoiced, quantity_received = accepted_qty, accepted_qty, accepted_price, qty_difference, unit_cost, description, unit, receiving_reason, receiving_note, invoice_line_item_id pointing at the new line id).
-6. Recompute GRN status: `disputed` if any line has accepted_qty ≠ quantity, else `confirmed`. Update `goods_received_notes.status`.
+## 1. Sheet width
+Change `sm:max-w-lg` → `sm:max-w-2xl` on `SheetContent`.
 
-## Caller change — `src/components/procurement/ProcurementInvoicesTab.tsx`
-`handleSaveEdit` no longer needs to pass `editedLines`. Update the call to just:
+## 2. New panel layout (top → bottom)
+1. **SheetTitle**: `Invoice {invoice_number}` with the existing `review_status` badge rendered inline next to it (reuse the same badge styling used in the invoice table row).
+2. **Action row** (single flex row, gap-2):
+   - `Edit Invoice` — outline, primary tone (existing `startEditing`)
+   - `View Attachments (N pages)` — outline, only when `selectedInvoice.file_url` exists
+   - Spacer / `ml-auto`
+   - `Delete` — small ghost button with destructive text/icon (not a filled red button)
+3. **Meta grid** — unchanged 2-col grid (Supplier, Venue, Date, Due, Total, ID).
+4. **Verified / Approved timestamps** — unchanged, only when present.
+5. **Notes** — unchanged, only when present.
+6. **BaniScanSummary** — moved here, rendered exactly as-is.
+7. **Unified Line Items + GRN table** (replaces the two existing tables).
 
-```ts
-syncGrnFromInvoice(selectedInvoice.id, { tenantId }).catch(() => {});
-```
+## 3. Unified table
+- Build `giByLine` map keyed by `invoice_line_item_id` (same as today).
+- `hasGrn = grnItemsForInvoice.length > 0`.
+- Columns:
+  - Always: **Item**, **Qty**, **Unit Price**, **Total**
+  - When `hasGrn`: also **Recv Qty**, **Variance**, **Recv Total**
+- For rows with no matching GRN entry, render `—` in the three GRN columns.
+- Variance cell: `✓` emerald icon when zero; amber badge for negative; red badge for positive (existing logic).
+- Footer (only when `hasGrn`), each total aligned under its own column:
+  - Row 1 — label spans Item..Unit Price (`colSpan={3}`), **Invoiced total** value under **Total**, empty cells under Recv Qty/Variance/Recv Total.
+  - Row 2 — label `colSpan={3}`, empty Total + Recv Qty + Variance, **Received total** under **Recv Total**.
+  - Row 3 — label `colSpan={3}`, empty Total + Recv Qty + Variance, **Difference** under **Recv Total**, coloured `text-red-400` if negative, `text-emerald-400` if zero (positive uses default).
 
-Update the function signature in `syncGrnFromInvoice.ts` accordingly (drop the `editedLines` argument).
+## 4. Table styling
+- `<table className="table-fixed w-full text-xs">`
+- `<colgroup>` widths:
+  - No-GRN mode: 70% / 10% / 10% / 10%
+  - GRN mode: Item `w-[45%]`, Qty `w-[8%]`, Unit Price `w-[12%]`, Total `w-[12%]`, Recv Qty `w-[8%]`, Variance `w-[8%]`, Recv Total `w-[12%]`
+- `<thead className="bg-muted/40">` with all column headers.
+- Body rows: alternating `bg-muted/30` on even rows.
+- All numeric cells: `text-right tabular-nums`.
 
-## Why this works
-- Authoritative re-sync means the GRN always matches the saved invoice, regardless of how `updateInvoice` mutates line IDs.
-- No orphan rows, no duplicates.
-- Same field mapping and cost fallback as today, so downstream stock-on-hand math is unchanged.
-- Still fire-and-forget; invoice save is never blocked.
-
-## Out of scope
-- Not changing `useInvoiceData.updateInvoice` (delete+reinsert is used elsewhere and altering it risks regressions).
-- Not changing `autoCreateGrnFromInvoice` (only runs on first save, where the FK is intact).
-- No schema changes.
+## 5. Out of scope
+Do not touch the edit form (`editing` branch), invoice list table, `BaniScanSummary` internals, hooks, or data fetching.
