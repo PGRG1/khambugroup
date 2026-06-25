@@ -1064,27 +1064,6 @@ export default function ProcurementInvoicesTab() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={(editForm.status as string) || ""} onValueChange={(value) => setEditForm((form) => ({ ...form, status: value }))}>
-                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Outstanding</SelectItem>
-                  <SelectItem value="unpaid">Unpaid</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="verified">Under Review</SelectItem>
-                  <SelectItem value="disputed">Disputed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              {editDisputeStats.hasDispute && (
-                <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span>Quantity differences detected — status set to Disputed.</span>
-                </div>
-              )}
-            </div>
-            <div>
               <Label className="text-xs">Invoice Date</Label>
               <Input type="date" value={editForm.invoice_date || ""} onChange={(e) => setEditForm((form) => ({ ...form, invoice_date: e.target.value }))} />
             </div>
