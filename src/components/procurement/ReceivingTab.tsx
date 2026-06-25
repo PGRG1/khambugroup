@@ -632,8 +632,8 @@ export default function ReceivingTab() {
                           <TableCell className="text-right td-num">{Number((it as any).accepted_qty ?? it.quantity_received)}</TableCell>
 
                           <TableCell>{it.unit}</TableCell>
-                          <TableCell className="text-right td-num">{fmtMoney(Number(it.unit_cost))}</TableCell>
-                          <TableCell className="text-right td-num">{fmtMoney(Number(it.quantity_received) * Number(it.unit_cost))}</TableCell>
+                          <TableCell className="text-right td-num">{fmtMoney(Number((it as any).accepted_price > 0 ? (it as any).accepted_price : it.unit_cost))}</TableCell>
+                          <TableCell className="text-right td-num">{fmtMoney(Number((it as any).accepted_qty ?? it.quantity_received) * Number((it as any).accepted_price > 0 ? (it as any).accepted_price : it.unit_cost))}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
