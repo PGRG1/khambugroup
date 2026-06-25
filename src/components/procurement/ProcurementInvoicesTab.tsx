@@ -695,6 +695,9 @@ export default function ProcurementInvoicesTab() {
         subtotal: subtotalAmount,
         tax_amount: taxSum,
         total_amount: totalAmount,
+        review_status: (editDisputeStats.hasDispute || editLines.some(l => l.price_disputed))
+          ? "Disputed"
+          : "Approved",
       } as any,
       mappedLines
     );
@@ -1036,7 +1039,7 @@ export default function ProcurementInvoicesTab() {
         </div>
 
         <div className="rounded-2xl border bg-background p-4 md:p-6 space-y-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <Label className="text-xs">Supplier</Label>
               <Select value={editForm.supplier_id || ""} onValueChange={(value) => setEditForm((form) => ({ ...form, supplier_id: value }))}>
@@ -1062,27 +1065,6 @@ export default function ProcurementInvoicesTab() {
                   <SelectItem value="Hanabi">Hanabi</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={(editForm.status as string) || ""} onValueChange={(value) => setEditForm((form) => ({ ...form, status: value }))}>
-                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Outstanding</SelectItem>
-                  <SelectItem value="unpaid">Unpaid</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="verified">Under Review</SelectItem>
-                  <SelectItem value="disputed">Disputed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              {editDisputeStats.hasDispute && (
-                <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span>Quantity differences detected — status set to Disputed.</span>
-                </div>
-              )}
             </div>
             <div>
               <Label className="text-xs">Invoice Date</Label>
@@ -2117,20 +2099,13 @@ function InvoiceTableSection({
                 <TableCell className="py-2">{inv.venue}</TableCell>
                 <TableCell className="py-2 whitespace-nowrap text-muted-foreground">{fmtDate(inv.due_date || "")}</TableCell>
                 <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
-                <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                <TableCell className="py-2">
                   {(() => {
                     const rs = inv.review_status || "Approved";
                     return (
-                      <Select value={rs} onValueChange={(v) => onUpdateField(inv.id, { review_status: v as any })}>
-                        <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {REVIEW_STATUSES.map((s) => (
-                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium border ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground border-border"}`}>
+                        {rs}
+                      </span>
                     );
                   })()}
                 </TableCell>
