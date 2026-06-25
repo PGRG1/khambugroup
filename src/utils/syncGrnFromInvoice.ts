@@ -17,6 +17,15 @@ export async function syncGrnFromInvoice(
     const { tenantId } = opts;
     if (!invoiceId || !tenantId) return { ok: false, error: "missing invoiceId or tenantId" };
 
+    const { data: rpcResult, error: rpcErr } = await supabase.rpc(
+      "sync_grn_from_invoice" as any,
+      { _invoice_id: invoiceId, _tenant_id: tenantId } as any,
+    );
+
+    if (!rpcErr) return { ok: Boolean((rpcResult as any)?.ok ?? true) };
+
+    console.warn("sync_grn_from_invoice RPC failed; falling back to client sync", rpcErr.message);
+
     // 1. Find the GRN for this invoice
     const { data: grn, error: grnErr } = await supabase
       .from("goods_received_notes" as any)
