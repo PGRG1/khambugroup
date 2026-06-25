@@ -43,9 +43,6 @@ const REVIEW_BADGE: Record<string, string> = {
 
 
 
-const STATUS_COLORS: Record<string, string> = {
-  paid: "bg-green-100 text-green-800 border-green-300",
-};
 
 const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtRound = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -179,7 +176,7 @@ function computeEditReceivingTint(line: EditableInvoiceLine): { bg: string; bord
 
 
 export default function ProcurementInvoicesTab() {
-  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } = useInvoiceData();
+  const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice } = useInvoiceData();
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
 
@@ -1739,9 +1736,6 @@ export default function ProcurementInvoicesTab() {
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   Invoice {selectedInvoice.invoice_number}
-                  {selectedInvoice.status === "paid" && (
-                    <Badge className={`text-[10px] ${STATUS_COLORS.paid}`}>paid</Badge>
-                  )}
                 </SheetTitle>
               </SheetHeader>
               <div className="mt-4 space-y-4">
@@ -1768,11 +1762,6 @@ export default function ProcurementInvoicesTab() {
                 )}
 
                 <div className="flex gap-2 flex-wrap">
-                  {selectedInvoice.status !== "paid" ? (
-                    <Button size="sm" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "paid"); setDrawerOpen(false); }}>Mark Paid</Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => { updateInvoiceStatus(selectedInvoice.id, "unpaid"); setDrawerOpen(false); }}>Mark Unpaid</Button>
-                  )}
                   <Button size="sm" variant="destructive" onClick={() => { setDrawerOpen(false); setDeletingId(selectedInvoice.id); setDeleteOpen(true); }}>
                     <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
                   </Button>
