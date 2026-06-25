@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles, MessageSquareWarning } from "lucide-react";
+import { Search, Trash2, ScanLine, Pencil, Eye, ArrowUpDown, ArrowUp, ArrowDown, X, Download, Plus, AlertTriangle, FileText, Clock, CheckCircle2, Copy as CopyIcon, DollarSign, Sparkles, MessageSquareWarning, Ban } from "lucide-react";
 import InvoiceScanner from "@/components/invoices/InvoiceScanner";
 import ProductAutocomplete from "@/components/invoices/ProductAutocomplete";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
@@ -32,14 +32,13 @@ import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceRevi
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 
 
-const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review", "Disputed"] as const;
+const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
 const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
 
 const REVIEW_BADGE: Record<string, string> = {
   "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  "Rejected": "bg-red-500/15 text-red-300 border border-red-500/30",
-  "Under Review": "bg-amber-500/15 text-amber-300 border border-amber-500/30",
   "Disputed": "bg-orange-500/15 text-orange-300 border border-orange-500/30",
+  "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
 };
 
 const EXCEPTION_BADGE: Record<string, string> = {
@@ -331,7 +330,7 @@ export default function ProcurementInvoicesTab() {
       if (supplierFilter !== "all" && inv.supplier_id !== supplierFilter) return false;
       if (venueFilter !== "all" && inv.venue !== venueFilter) return false;
       
-      if (reviewStatusFilter !== "all" && (inv.review_status || "Under Review") !== reviewStatusFilter) return false;
+      if (reviewStatusFilter !== "all" && (inv.review_status || "Approved") !== reviewStatusFilter) return false;
       if (exceptionNoteFilter !== "all" && (inv.exception_note || "-") !== exceptionNoteFilter) return false;
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!inv.invoice_date || !inv.invoice_date.startsWith(monthFilter))) return false;
       if (!search) return true;
@@ -346,16 +345,16 @@ export default function ProcurementInvoicesTab() {
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
     const total = filtered.length;
-    let underReview = 0, approved = 0, exceptions = 0, disputed = 0;
+    let voided = 0, approved = 0, exceptions = 0, disputed = 0;
     let totalValue = 0;
     const dupKey = new Map<string, number>();
     for (const inv of filtered) {
-      const rs = inv.review_status || "Under Review";
-      if (rs === "Under Review") underReview++;
+      const rs = inv.review_status || "Approved";
+      if (rs === "Voided") voided++;
       if (rs === "Approved") approved++;
       if (rs === "Disputed") disputed++;
       const en = inv.exception_note || "-";
-      if (en !== "-" || rs === "Rejected") exceptions++;
+      if (en !== "-") exceptions++;
       totalValue += Number(inv.total_amount) || 0;
       const k = `${inv.supplier_id}::${(inv.invoice_number || "").trim().toLowerCase()}`;
       if (k.trim() !== "::") dupKey.set(k, (dupKey.get(k) || 0) + 1);
@@ -363,7 +362,7 @@ export default function ProcurementInvoicesTab() {
     let duplicates = 0;
     for (const v of dupKey.values()) if (v > 1) duplicates += v;
     const pct = (n: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "0%";
-    return { total, underReview, approved, exceptions, disputed, duplicates, totalValue, pct };
+    return { total, voided, approved, exceptions, disputed, duplicates, totalValue, pct };
   }, [filtered]);
 
   const columns = [
@@ -374,7 +373,7 @@ export default function ProcurementInvoicesTab() {
     { key: "due_date", label: "Due Date", w: "w-[100px]" },
     { key: "total_amount", label: "Amount", w: "w-[110px]", align: "right" as const },
     
-    { key: "review_status", label: "Review Status", w: "w-[130px]" },
+    { key: "review_status", label: "Status", w: "w-[110px]" },
     { key: "exception_note", label: "Issue / Exception", w: "w-[150px]" },
   ];
 
@@ -1676,6 +1675,7 @@ export default function ProcurementInvoicesTab() {
                 discount: inv.discount ?? 0,
                 discount_type: (inv as any).discount_type === "refund" ? "refund" : "discount",
                 status: inv.status === "paid" ? "paid" : "unpaid",
+                review_status: (inv as any).status === "disputed" ? "Disputed" : "Approved",
                 subtotal: lines.reduce((sum, line) => sum + line.total - line.tax_amount, 0),
                 tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
                 total_amount: lines.reduce((sum, line) => sum + line.total, 0),
@@ -1915,7 +1915,7 @@ export default function ProcurementInvoicesTab() {
 // ----- Invoice table section with pagination & filters -----------
 interface InvoiceKpis {
   total: number;
-  underReview: number;
+  voided: number;
   approved: number;
   exceptions: number;
   disputed: number;
@@ -1974,9 +1974,9 @@ function InvoiceTableSection({
     { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
       options: [{ value: "Assembly", label: "Assembly" }, { value: "Caliente", label: "Caliente" }, { value: "Hanabi", label: "Hanabi" }],
       allLabel: "All Venues" },
-    { type: "select", key: "review_status", label: "Review Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
+    { type: "select", key: "review_status", label: "Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
       options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
-      allLabel: "All Review Statuses" },
+      allLabel: "All Statuses" },
     { type: "select", key: "exception_note", label: "Exception Note", value: exceptionNoteFilter, onChange: setExceptionNoteFilter,
       options: EXCEPTION_NOTES.map(s => ({ value: s, label: s })),
       allLabel: "All Exceptions" },
@@ -1995,7 +1995,7 @@ function InvoiceTableSection({
       venue: inv.venue,
       due_date: fmtDate(inv.due_date || ""),
       total_amount: Number(inv.total_amount).toFixed(2),
-      review_status: inv.review_status || "Under Review",
+      review_status: inv.review_status || "Approved",
       exception_note: inv.exception_note || "-",
     })),
     columns.map((column) => ({ key: column.key, label: column.label })),
@@ -2004,7 +2004,7 @@ function InvoiceTableSection({
 
   const kpiCards: Array<{ label: string; value: string; sub: string; subTone?: string; icon: React.ReactNode; tone: string }> = [
     { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Under Review", value: kpis.underReview.toLocaleString(), sub: kpis.pct(kpis.underReview), subTone: "text-amber-400", icon: <Clock className="h-4 w-4" />, tone: "text-amber-400" },
+    { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-zinc-400", icon: <Ban className="h-4 w-4" />, tone: "text-zinc-400" },
     { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
     { label: "Exceptions", value: kpis.exceptions.toLocaleString(), sub: kpis.pct(kpis.exceptions), subTone: "text-red-400", icon: <AlertTriangle className="h-4 w-4" />, tone: "text-red-400" },
     { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-orange-400", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-orange-400" },
@@ -2119,7 +2119,7 @@ function InvoiceTableSection({
                 <TableCell className="py-2 text-right font-semibold tabular-nums">{fmtForSupplier(Number(inv.total_amount), inv.supplier_name)}</TableCell>
                 <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                   {(() => {
-                    const rs = inv.review_status || "Under Review";
+                    const rs = inv.review_status || "Approved";
                     return (
                       <Select value={rs} onValueChange={(v) => onUpdateField(inv.id, { review_status: v as any })}>
                         <SelectTrigger className={`h-7 px-2 text-[10px] border-0 ${REVIEW_BADGE[rs] || "bg-muted text-muted-foreground"}`}>
