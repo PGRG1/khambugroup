@@ -341,7 +341,7 @@ export default function ProcurementInvoicesTab() {
     });
 
     return sortRows(result, sortColumns);
-  }, [invoices, supplierFilter, venueFilter, statusFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
+  }, [invoices, supplierFilter, venueFilter, reviewStatusFilter, exceptionNoteFilter, monthFilter, search, sortColumns]);
 
   // KPI computation across FILTERED invoices — reflects active filters
   const kpis = useMemo(() => {
