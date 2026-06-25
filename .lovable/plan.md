@@ -1,22 +1,22 @@
-## Move "Update master" button outside !matchesInvoice condition
+## Edit `src/utils/productMasterResolver.ts`
 
-Pure UI change in both files. Update master should render whenever it differs from master, even if accepted equals invoice price.
+In both `resolveProductMatch` and `resolveExactMatch`, locate the final internal_sku fallback:
 
-### Files
-- `src/components/invoices/InvoiceScanner.tsx`
-- `src/components/procurement/ProcurementInvoicesTab.tsx`
+```ts
+const byInternal = products.find(p => p.internal_sku === internalSku);
+if (byInternal) return byInternal;
+```
+and
+```ts
+const m = products.find(p => p.internal_sku === internalSku);
+if (m) return m;
+```
 
-### Change
-Replace the three separate subtext blocks (`matchesInvoice`, `!matchesInvoice && master_price != null`, `!matchesInvoice && master_price == null`) in the Acc. price cell with a single unified subtext row:
+Replace each with:
 
-- `= invoice price` — when `matchesInvoice`
-- `Master: $X.XX` — when `master_price != null` (always, independent of match state)
-- `No master price` — when `master_price == null && !matchesInvoice`
-- `Update master` button — when `differsFromMaster && product_master_id` (independent of match state)
+```ts
+const allForSku = products.filter(p => p.internal_sku === internalSku);
+if (allForSku.length === 1) return allForSku[0];
+```
 
-### Handler/index mapping
-- Scanner: `i` / `handleUpdateMaster(i)` / `updatingMasterIdx === i`
-- Procurement tab: `index` / `handleEditUpdateMaster(index)` / `updatingMasterIdx === index`
-
-### Not touched
-Input row, arrow button, `Eff:` label, free-unit branch, state/handlers/save logic.
+This makes the internal_sku fallback only return a match when exactly one PM entry shares that internal_sku, avoiding ambiguous hydration when multiple supplier rows share it. No other files or logic touched.
