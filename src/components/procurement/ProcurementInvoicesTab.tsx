@@ -692,33 +692,33 @@ export default function ProcurementInvoicesTab() {
       mappedLines
     );
 
-    setSaving(false);
-
     if (success) {
-      if (tenantId) {
-        syncGrnFromInvoice(
-          selectedInvoice.id,
-          filteredLines.map((line) => ({
-            id: line.id,
-            product_master_id: line.product_master_id || null,
-            description: line.description,
-            quantity: line.quantity,
-            accepted_qty: line.accepted_qty || line.quantity,
-            unit: line.unit,
-            unit_price: line.unit_price,
-            accepted_price: line.accepted_price || line.unit_price,
-            net_unit_cost: (line as any).net_unit_cost,
-            receiving_reason: line.receiving_reason,
-            receiving_note: line.receiving_note,
-            is_free_unit_line: line.is_free_unit_line,
-          })),
-          { tenantId }
-        ).catch((e) => console.warn("[syncGrnFromInvoice] failed:", e));
-      }
+      // Sync changes back to GRN — fire and forget
+      syncGrnFromInvoice(
+        selectedInvoice.id,
+        filteredLines.map((l) => ({
+          id: l.id,
+          product_master_id: l.product_master_id || null,
+          description: l.description,
+          quantity: l.quantity,
+          accepted_qty: l.accepted_qty || l.quantity,
+          unit: l.unit || "each",
+          unit_price: l.unit_price,
+          accepted_price: l.accepted_price || l.unit_price,
+          net_unit_cost: (l as any).net_unit_cost,
+          receiving_reason: l.receiving_reason,
+          receiving_note: l.receiving_note,
+          is_free_unit_line: l.is_free_unit_line,
+        })),
+        { tenantId }
+      ).catch(() => {}); // swallow errors — never block the invoice save
+
       setEditing(false);
       setSelectedInvoice(null);
       setLineItems([]);
     }
+
+    setSaving(false);
   };
 
   const updateEditLine = (idx: number, field: keyof EditableInvoiceLine, value: string) => {
