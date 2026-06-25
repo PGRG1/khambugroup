@@ -661,7 +661,7 @@ Return ONLY by calling the report_review function.`;
 
     // Apply ALLOWED corrections server-side. Numeric fields are NEVER overwritten.
     const allowedHeaderFields = new Set(["supplier_name", "venue", "invoice_number", "invoice_date", "due_date", "currency"]);
-    const allowedLineFields = new Set(["description", "unit", "pack_size", "item_code", "matched_sku"]);
+    const allowedLineFields = new Set(["description", "unit", "item_code", "matched_sku"]);
     if (review && typeof review === "object") {
       review.header_checks = Array.isArray(review.header_checks) ? review.header_checks : [];
       review.header_corrections = Array.isArray(review.header_corrections) ? review.header_corrections : [];
