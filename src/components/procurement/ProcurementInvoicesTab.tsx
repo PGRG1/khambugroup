@@ -1914,7 +1914,7 @@ export default function ProcurementInvoicesTab() {
 // ----- Invoice table section with pagination & filters -----------
 interface InvoiceKpis {
   total: number;
-  underReview: number;
+  voided: number;
   approved: number;
   exceptions: number;
   disputed: number;
