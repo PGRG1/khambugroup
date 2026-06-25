@@ -512,25 +512,40 @@ export default function ProcurementInvoicesTab() {
     setSelectedInvoice(inv);
     const items = await fetchLineItems(inv.id);
     setLineItems(items);
-    // Load GRN items linked to this invoice (from confirmed GRNs only)
-    const { data: grnRows } = await supabase
-      .from("goods_received_notes" as any)
-      .select("id, status")
-      .eq("invoice_id", inv.id)
-      .eq("status", "confirmed");
-    const grnIds = ((grnRows ?? []) as any[]).map((g) => g.id);
-    if (grnIds.length > 0) {
+    // Load GRN items linked to this invoice (confirmed or disputed GRNs)
+    const loadGrn = async () => {
+      const { data: grnRows } = await supabase
+        .from("goods_received_notes" as any)
+        .select("id, status")
+        .eq("invoice_id", inv.id)
+        .in("status", ["confirmed", "disputed"]);
+      const grnIds = ((grnRows ?? []) as any[]).map((g) => g.id);
+      if (grnIds.length === 0) return [] as any[];
       const { data: giData } = await supabase
         .from("grn_items" as any)
         .select("*")
         .in("grn_id", grnIds);
-      setGrnItemsForInvoice((giData ?? []) as any[]);
-    } else {
-      setGrnItemsForInvoice([]);
+      return (giData ?? []) as any[];
+    };
+    let gi = await loadGrn();
+    // Auto-heal: if GRN items exist but none link to current invoice lines,
+    // re-link via RPC and reload.
+    if (gi.length > 0 && items.length > 0) {
+      const lineIds = new Set(items.map((l) => l.id));
+      const anyLinked = gi.some((g: any) => g.invoice_line_item_id && lineIds.has(g.invoice_line_item_id));
+      if (!anyLinked && tenantId) {
+        const { error: rpcErr } = await supabase.rpc(
+          "sync_grn_from_invoice" as any,
+          { _invoice_id: inv.id, _tenant_id: tenantId } as any,
+        );
+        if (!rpcErr) gi = await loadGrn();
+      }
     }
+    setGrnItemsForInvoice(gi);
     setEditing(false);
     setDrawerOpen(true);
   };
+
 
   // Load variance map for invoice list badges
   useEffect(() => {
