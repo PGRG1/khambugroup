@@ -1940,8 +1940,6 @@ interface InvoiceTableSectionProps {
   setSupplierFilter: (v: string) => void;
   venueFilter: string;
   setVenueFilter: (v: string) => void;
-  statusFilter: string;
-  setStatusFilter: (v: string) => void;
   reviewStatusFilter: string;
   setReviewStatusFilter: (v: string) => void;
   exceptionNoteFilter: string;
