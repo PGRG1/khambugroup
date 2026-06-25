@@ -79,6 +79,7 @@ export default function ReceivingTab() {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
   const [grnTotals, setGrnTotals] = useState<Record<string, number>>({});
+  const [assetProductIds, setAssetProductIds] = useState<Set<string>>(new Set());
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [pos, setPos] = useState<PORow[]>([]);
