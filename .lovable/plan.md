@@ -1,8 +1,9 @@
-Edit only `src/hooks/useInvoiceData.ts`:
+## Plan
 
-1. Delete the entire `syncLineItemsToInventory` `useCallback` (declaration and body).
-2. In `createInvoice`, remove the `await syncLineItemsToInventory(lineItems);` call.
-3. Remove `syncLineItemsToInventory` from `createInvoice`'s dependency array.
-4. It is not present in the hook's return object, so no change needed there.
+Create `src/utils/syncGrnFromInvoice.ts` with the exact content provided in the request.
 
-No other files or logic touched. Rationale: inventory is now sourced from GRNs, so the legacy direct inventory sync on invoice creation is obsolete.
+Edit `src/components/procurement/ProcurementInvoicesTab.tsx`:
+1. Add `import { syncGrnFromInvoice } from "@/utils/syncGrnFromInvoice";` to the imports.
+2. In `handleSaveEdit`, after the `updateInvoice(...)` call resolves successfully, invoke `syncGrnFromInvoice(selectedInvoice.id, filteredLines.map(...), { tenantId })` using the field mapping provided. Fire-and-forget — any error is swallowed and does not block the save.
+
+No other files touched.
