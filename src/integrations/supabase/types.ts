@@ -2446,6 +2446,7 @@ export type Database = {
       }
       grn_items: {
         Row: {
+          accepted_price: number | null
           accepted_qty: number | null
           created_at: string
           description: string
@@ -2466,6 +2467,7 @@ export type Database = {
           unit_cost: number
         }
         Insert: {
+          accepted_price?: number | null
           accepted_qty?: number | null
           created_at?: string
           description: string
@@ -2486,6 +2488,7 @@ export type Database = {
           unit_cost?: number
         }
         Update: {
+          accepted_price?: number | null
           accepted_qty?: number | null
           created_at?: string
           description?: string

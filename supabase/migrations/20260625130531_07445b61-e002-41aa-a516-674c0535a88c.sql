@@ -1,0 +1,1 @@
+ALTER TABLE public.grn_items ADD COLUMN IF NOT EXISTS accepted_price numeric(12,4);
