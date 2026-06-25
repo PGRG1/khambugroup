@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { autoCreateGrnFromInvoice } from "@/utils/autoCreateGrnFromInvoice";
+import { syncGrnFromInvoice } from "@/utils/syncGrnFromInvoice";
 import { useInvoiceData, Invoice, InvoiceLineItem } from "@/hooks/useInvoiceData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -694,6 +695,26 @@ export default function ProcurementInvoicesTab() {
     setSaving(false);
 
     if (success) {
+      if (tenantId) {
+        syncGrnFromInvoice(
+          selectedInvoice.id,
+          filteredLines.map((line) => ({
+            id: line.id,
+            product_master_id: line.product_master_id || null,
+            description: line.description,
+            quantity: line.quantity,
+            accepted_qty: line.accepted_qty || line.quantity,
+            unit: line.unit,
+            unit_price: line.unit_price,
+            accepted_price: line.accepted_price || line.unit_price,
+            net_unit_cost: (line as any).net_unit_cost,
+            receiving_reason: line.receiving_reason,
+            receiving_note: line.receiving_note,
+            is_free_unit_line: line.is_free_unit_line,
+          })),
+          { tenantId }
+        ).catch((e) => console.warn("[syncGrnFromInvoice] failed:", e));
+      }
       setEditing(false);
       setSelectedInvoice(null);
       setLineItems([]);
