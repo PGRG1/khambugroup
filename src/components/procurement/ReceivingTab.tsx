@@ -353,91 +353,137 @@ export default function ReceivingTab() {
     loadAll();
   };
 
+  const filterFields: FilterField[] = [
+    { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
+      options: suppliers.map((s) => ({ value: s.id, label: s.name })), allLabel: "All Suppliers" },
+    { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
+      options: VENUES.map((v) => ({ value: v, label: v })), allLabel: "All Venues" },
+    { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
+      options: [
+        { value: "draft", label: "Draft" },
+        { value: "confirmed", label: "Confirmed" },
+        { value: "disputed", label: "Disputed" },
+      ], allLabel: "All Statuses" },
+    { type: "select", key: "month", label: "Month", value: monthFilter, onChange: setMonthFilter,
+      options: months.map((m) => ({ value: m, label: fmtMonth(m) })), allLabel: "All Months" },
+    { type: "date", key: "dateFrom", label: "From", value: dateFrom, onChange: setDateFrom },
+    { type: "date", key: "dateTo", label: "To", value: dateTo, onChange: setDateTo },
+  ];
+  const resetFilters = () => {
+    setSupplierFilter("all"); setVenueFilter("all"); setStatusFilter("all");
+    setMonthFilter("all"); setDateFrom(""); setDateTo("");
+  };
+
+  const handleDownload = () => downloadCSV(
+    filtered.map((g) => ({
+      grn_number: g.grn_number,
+      supplier: g.suppliers?.name ?? supplierName(g.supplier_id),
+      venue: g.venue,
+      linked_po: g.purchase_orders?.po_number ?? "",
+      linked_invoice: g.invoices?.invoice_number ?? "",
+      received_date: fmtDate(g.received_date),
+      status: g.status,
+      total_value: (grnTotals[g.id] || 0).toFixed(2),
+    })),
+    [
+      { key: "grn_number", label: "GRN Number" },
+      { key: "supplier", label: "Supplier" },
+      { key: "venue", label: "Venue" },
+      { key: "linked_po", label: "Linked PO" },
+      { key: "linked_invoice", label: "Linked Invoice" },
+      { key: "received_date", label: "Received Date" },
+      { key: "status", label: "Status" },
+      { key: "total_value", label: "Total Value" },
+    ],
+    "grns",
+  );
+
+  const pag = usePagination(filtered, 25);
+
+  const kpiCards = [
+    { label: "Total GRNs", value: kpis.total.toLocaleString(), icon: <PackageCheck className="h-4 w-4" />, tone: "text-foreground" },
+    { label: "Confirmed", value: kpis.confirmed.toLocaleString(), icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
+    { label: "Draft", value: kpis.draft.toLocaleString(), icon: <Clock className="h-4 w-4" />, tone: "text-amber-400" },
+    { label: "Total Value", value: fmtMoney(kpis.value), icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 items-end justify-between">
-        <div className="flex flex-wrap gap-2 items-end">
-          <div className="w-48">
-            <Label className="text-xs">Supplier</Label>
-            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All suppliers</SelectItem>
-                {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {kpiCards.map((k) => (
+          <div key={k.label} className="card-glass rounded-lg p-3 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className={`text-[11px] font-medium ${k.tone}`}>{k.label}</div>
+              <div className="td-num text-xl font-bold mt-1 truncate">{k.value}</div>
+            </div>
+            <div className={`rounded-full p-2 bg-muted/40 ${k.tone}`}>{k.icon}</div>
           </div>
-          <div className="w-40">
-            <Label className="text-xs">Venue</Label>
-            <Select value={venueFilter} onValueChange={setVenueFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All venues</SelectItem>
-                {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-40">
-            <Label className="text-xs">Status</Label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="disputed">Disputed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {isAdmin && (
-            <Button
-              variant="outline"
-              disabled={backfilling || !tenantId || !user}
-              onClick={async () => {
-                if (!tenantId || !user) return;
-                if (!window.confirm("Backfill GRNs for every invoice without one? This is a one-off historical migration.")) return;
-                setBackfilling(true);
-                setBackfillProgress({ done: 0, total: 0 });
-                try {
-                  const summary = await backfillGrnsFromInvoices({
-                    tenantId,
-                    userId: user.id,
-                    onProgress: (done, total) => setBackfillProgress({ done, total }),
-                  });
-                  toast.success(
-                    `Backfill complete: ${summary.created} created, ${summary.skipped} skipped, ${summary.failed} failed. ` +
-                    `Remaining without GRN: ${summary.remainingWithoutGrn}. Total GRNs: ${summary.grnCount}.`,
-                    { duration: 10000 },
-                  );
-                  if (summary.failed > 0) {
-                    console.error("Backfill failures:", summary.failures);
-                  }
-                  loadAll();
-                } catch (e: any) {
-                  toast.error(`Backfill failed: ${e?.message || String(e)}`);
-                } finally {
-                  setBackfilling(false);
-                  setBackfillProgress(null);
-                }
-              }}
-            >
-              <Database className="h-4 w-4 mr-1" />
-              {backfilling
-                ? backfillProgress && backfillProgress.total > 0
-                  ? `Backfilling ${backfillProgress.done}/${backfillProgress.total}…`
-                  : "Backfilling…"
-                : "Backfill GRNs from invoices"}
-            </Button>
-          )}
-          <Button onClick={() => { resetForm(); setCreateOpen(true); }} disabled={!canManage}>
-            <Plus className="h-4 w-4 mr-1" /> New GRN
-          </Button>
-        </div>
+        ))}
       </div>
 
-      <div className="border border-border rounded-md overflow-hidden">
+      <DataTableShell
+        search={{ value: search, onChange: setSearch, placeholder: "Search GRN #, supplier, PO #, invoice #..." }}
+        filters={{ fields: filterFields, onReset: resetFilters }}
+        resultCount={<>Showing {filtered.length} of {grns.length} GRNs · Total: <span className="font-semibold">{fmtMoney(kpis.value)}</span></>}
+        toolbarRight={
+          <>
+            <Button size="sm" variant="outline" onClick={() => navigate("/procurement/invoices?scan=1")} className="h-9">
+              <ScanLine className="h-4 w-4 mr-1" /> Scan Invoice
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleDownload} className="h-9">
+              <Download className="h-4 w-4 mr-1" /> Download
+            </Button>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9"
+                disabled={backfilling || !tenantId || !user}
+                onClick={async () => {
+                  if (!tenantId || !user) return;
+                  if (!window.confirm("Backfill GRNs for every invoice without one? This is a one-off historical migration.")) return;
+                  setBackfilling(true);
+                  setBackfillProgress({ done: 0, total: 0 });
+                  try {
+                    const summary = await backfillGrnsFromInvoices({
+                      tenantId, userId: user.id,
+                      onProgress: (done, total) => setBackfillProgress({ done, total }),
+                    });
+                    toast.success(
+                      `Backfill complete: ${summary.created} created, ${summary.skipped} skipped, ${summary.failed} failed. ` +
+                      `Remaining without GRN: ${summary.remainingWithoutGrn}. Total GRNs: ${summary.grnCount}.`,
+                      { duration: 10000 },
+                    );
+                    if (summary.failed > 0) console.error("Backfill failures:", summary.failures);
+                    loadAll();
+                  } catch (e: any) {
+                    toast.error(`Backfill failed: ${e?.message || String(e)}`);
+                  } finally {
+                    setBackfilling(false);
+                    setBackfillProgress(null);
+                  }
+                }}
+              >
+                <Database className="h-4 w-4 mr-1" />
+                {backfilling
+                  ? backfillProgress && backfillProgress.total > 0
+                    ? `Backfilling ${backfillProgress.done}/${backfillProgress.total}…`
+                    : "Backfilling…"
+                  : "Backfill"}
+              </Button>
+            )}
+            <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true); }} disabled={!canManage} className="h-9">
+              <Plus className="h-4 w-4 mr-1" /> New GRN
+            </Button>
+          </>
+        }
+        pagination={{
+          page: pag.page, pageSize: pag.pageSize, totalPages: pag.totalPages,
+          rangeStart: pag.rangeStart, rangeEnd: pag.rangeEnd, total: pag.total,
+          onPageChange: pag.setPage, onPageSizeChange: pag.setPageSize,
+          pageSizeOptions: [10, 25, 50, 100, "all"],
+        }}
+      >
         <Table>
           <TableHeader>
             <TableRow>
@@ -454,9 +500,9 @@ export default function ReceivingTab() {
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
+            ) : pag.pageItems.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No goods received notes</TableCell></TableRow>
-            ) : filtered.map((g) => (
+            ) : pag.pageItems.map((g) => (
               <TableRow key={g.id} className="cursor-pointer" onClick={() => openDetail(g)}>
                 <TableCell className="font-mono">{g.grn_number}</TableCell>
                 <TableCell>{g.suppliers?.name ?? supplierName(g.supplier_id)}</TableCell>
@@ -470,7 +516,8 @@ export default function ReceivingTab() {
             ))}
           </TableBody>
         </Table>
-      </div>
+      </DataTableShell>
+
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) resetForm(); }}>
