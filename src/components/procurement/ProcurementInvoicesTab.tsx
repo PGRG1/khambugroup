@@ -1675,6 +1675,7 @@ export default function ProcurementInvoicesTab() {
                 discount: inv.discount ?? 0,
                 discount_type: (inv as any).discount_type === "refund" ? "refund" : "discount",
                 status: inv.status === "paid" ? "paid" : "unpaid",
+                review_status: (inv as any).status === "disputed" ? "Disputed" : "Approved",
                 subtotal: lines.reduce((sum, line) => sum + line.total - line.tax_amount, 0),
                 tax_amount: lines.reduce((sum, line) => sum + line.tax_amount, 0),
                 total_amount: lines.reduce((sum, line) => sum + line.total, 0),
