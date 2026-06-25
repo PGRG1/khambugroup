@@ -50,7 +50,7 @@ export async function autoCreateGrnFromInvoice(
       .from("invoice_line_items")
       .select(
         "id, description, unit, quantity, unit_price, normalized_unit_cost, total, discount, " +
-        "product_master_id, accepted_qty, qty_difference, receiving_reason, receiving_note, " +
+        "product_master_id, accepted_qty, accepted_price, qty_difference, receiving_reason, receiving_note, " +
         "net_unit_cost, line_discount_amount, header_discount_share"
       )
       .eq("invoice_id", invoiceId)
