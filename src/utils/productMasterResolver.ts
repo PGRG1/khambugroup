@@ -67,24 +67,29 @@ export function resolveProductMatch(
 
   // === PRIORITY 1: Exact External SKU ===
   if (code) {
-    // Prefer supplier-scoped match
     if (invoiceSupplier) {
       const skuSupplierMatch = products.find(
         p => (p.external_sku || "").trim().toLowerCase() === code && supplierMatch(p.supplier, invoiceSupplier)
       );
       if (skuSupplierMatch) return skuSupplierMatch;
+      const segSupplier = products.find(p => {
+        const eSku = (p.external_sku || "").trim().toLowerCase();
+        if (!eSku) return false;
+        const segOk = eSku.split("|").some(seg => seg.trim() === code) || eSku.includes(code) || code.includes(eSku);
+        return segOk && supplierMatch(p.supplier, invoiceSupplier);
+      });
+      if (segSupplier) return segSupplier;
+      // Supplier known — do NOT fall through to a different-supplier SKU match.
+    } else {
+      const skuMatch = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
+      if (skuMatch) return skuMatch;
+      const segmentMatch = products.find(p => {
+        const eSku = (p.external_sku || "").trim().toLowerCase();
+        if (!eSku) return false;
+        return eSku.split("|").some(seg => seg.trim() === code) || eSku.includes(code) || code.includes(eSku);
+      });
+      if (segmentMatch) return segmentMatch;
     }
-    // Fallback: any exact SKU match
-    const skuMatch = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
-    if (skuMatch) return skuMatch;
-
-    // Segment match (pipe-separated SKUs)
-    const segmentMatch = products.find(p => {
-      const eSku = (p.external_sku || "").trim().toLowerCase();
-      if (!eSku) return false;
-      return eSku.split("|").some(seg => seg.trim() === code) || eSku.includes(code) || code.includes(eSku);
-    });
-    if (segmentMatch) return segmentMatch;
   }
 
   // === PRIORITY 2: Exact External Name ===
