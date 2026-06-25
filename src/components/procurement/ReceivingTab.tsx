@@ -209,9 +209,9 @@ export default function ReceivingTab() {
       description: it.description || "",
       quantity_invoiced: Number(it.quantity),
       quantity_ordered: null,
-      quantity_received: Number(it.quantity),
+      quantity_received: it.accepted_qty != null ? Number(it.accepted_qty) : Number(it.quantity),
       unit: it.unit || "each",
-      unit_cost: Number(it.unit_price),
+      unit_cost: Number(it.net_unit_cost) > 0 ? Number(it.net_unit_cost) : Number(it.unit_price),
     }));
     setItems(lines);
     setHasPrefilled(true);
