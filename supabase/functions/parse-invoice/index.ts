@@ -338,7 +338,7 @@ ${pmLines}`;
       if (inv.line_items && Array.isArray(inv.line_items)) {
         for (const li of inv.line_items) {
           if (li.unit) li.unit = translateChinese(li.unit);
-          if (li.pack_size) li.pack_size = translateChinese(li.pack_size);
+          
           if (li.description) li.description = translateChinese(li.description);
           if (li.notes) li.notes = translateChinese(li.notes);
 
