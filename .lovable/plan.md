@@ -1,16 +1,14 @@
-## Audit result for `src/components/procurement/ProcurementInvoicesTab.tsx`
+Apply the 10 specified edits to `src/components/procurement/ProcurementInvoicesTab.tsx`:
 
-All checks pass. No fixes required.
+1. Update `REVIEW_STATUSES` to `["Approved", "Disputed", "Voided"]`.
+2. Replace `REVIEW_BADGE` with 3-entry map (emerald / orange / zinc).
+3. Add `Ban` to the existing `lucide-react` import.
+4. Rename column `"Review Status"` → `"Status"`, width `w-[110px]`.
+5. Replace all four `|| "Under Review"` fallbacks with `|| "Approved"` (filtered, kpis, CSV, table row).
+6. In `kpis` useMemo: swap `underReview` for `voided`; drop the `rs === "Rejected"` branch from exceptions; update returned object.
+7. `InvoiceKpis` interface: `underReview` → `voided`.
+8. Replace "Under Review" KPI card with "Voided" using `Ban` icon and zinc tones.
+9. In `filterFields`, rename `"Review Status"` → `"Status"`.
+10. In the `<InvoiceScanner>` `onSave` `createInvoice` call, add `review_status: (inv as any).status === "disputed" ? "Disputed" : "Approved"`.
 
-| Check | Status |
-|---|---|
-| `STATUSES`, `STATUS_BADGE`, `statusFilter`, `setStatusFilter` fully removed | ✅ Gone (only `REVIEW_STATUSES` remains, which is unrelated) |
-| `STATUS_COLORS` retained (line 52) | ✅ Present |
-| `updateInvoiceStatus` retained (line 188) | ✅ Present |
-| Mark Paid / Mark Unpaid buttons retained (lines 1800, 1802) | ✅ Present |
-| `editForm.status` retained (lines 997–1069, edit dialog Select) | ✅ Present |
-| `filtered` useMemo no longer references `statusFilter` | ✅ Confirmed |
-| `InvoiceTableSectionProps` / `InvoiceTableSection` signature free of status filter props | ✅ Confirmed |
-| `invoiceVarianceMap[inv.id]` GRN variance badge rendered inside Invoice # `<TableCell>` | ✅ Present at line 2110, inside the Invoice # cell, immediately after `{inv.invoice_number}` |
-
-No build, runtime, or lint issues introduced by the previous edit. Nothing to change.
+No other files touched.
