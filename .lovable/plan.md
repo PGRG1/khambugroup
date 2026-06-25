@@ -1,20 +1,8 @@
-## Stop extracting pack_size in invoice parser; hide it in detail drawer
+Edit only `src/hooks/useInvoiceData.ts`:
 
-### supabase/functions/parse-invoice/index.ts
-1. Delete the bullet in extraction instructions:
-   `- "pack_size" field: translate Chinese size units (e.g. "3.8公升/桶" → "3.8L/Bucket"...)`
-2. In the JSON schema, replace the `pack_size` field definition with:
-   `"pack_size": "always return empty string \"\" — do not extract size info here, keep the full product name including size in the description field"`
-3. Remove from post-processing:
-   `if (li.pack_size) li.pack_size = translateChinese(li.pack_size);`
-4. Remove `"pack_size"` from the `allowedLineFields` Set.
-5. Remove `pack_size` from the reviewer schema properties.
+1. Delete the entire `syncLineItemsToInventory` `useCallback` (declaration and body).
+2. In `createInvoice`, remove the `await syncLineItemsToInventory(lineItems);` call.
+3. Remove `syncLineItemsToInventory` from `createInvoice`'s dependency array.
+4. It is not present in the hook's return object, so no change needed there.
 
-### src/components/procurement/ProcurementInvoicesTab.tsx
-1. Remove from the detail drawer line items list:
-   `{line.pack_size && <span className="ml-1 text-muted-foreground">[{line.pack_size}]</span>}`
-
-### Preserved
-- Existing `pack_size: ""` lines in keg mapping logic
-- `pack_size` field across interfaces, save payloads, and the DB column (historical data retained)
-- All other logic in both files
+No other files or logic touched. Rationale: inventory is now sourced from GRNs, so the legacy direct inventory sync on invoice creation is obsolete.
