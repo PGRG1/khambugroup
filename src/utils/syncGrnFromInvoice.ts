@@ -96,6 +96,7 @@ export async function syncGrnFromInvoice(
             quantity_invoiced: qtyInv,
             quantity_received: qtyAcc,
             accepted_qty: qtyAcc,
+            accepted_price: Number(line.accepted_price) > 0 ? Number(line.accepted_price) : resolveUnitCost(line),
             qty_difference: diff,
             unit_cost: unitCost,
             description: line.description,
