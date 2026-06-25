@@ -355,7 +355,11 @@ export default function ReceivingTab() {
   const openDetail = async (g: GRN) => {
     setSelected(g);
     const { data } = await supabase.from("grn_items" as any).select("*").eq("grn_id", g.id);
-    setSelectedItems(((data ?? []) as any[]).map((r) => ({ ...r, key: r.id })));
+    // Exclude balance-sheet (deposit/asset) items — they belong in the Deposit Ledger
+    const rows = ((data ?? []) as any[]).filter(
+      (r) => !r.product_master_id || !assetProductIds.has(r.product_master_id)
+    );
+    setSelectedItems(rows.map((r) => ({ ...r, key: r.id })));
   };
 
   const confirmReceiptFromPanel = async () => {
