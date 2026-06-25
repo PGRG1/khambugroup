@@ -88,7 +88,7 @@ Return ONLY valid JSON with this exact structure — always an array, even if th
         {
           "item_code": "product/item code if available, otherwise empty string",
           "description": "item description in English (clean product name without pack size info)",
-          "pack_size": "pack/bottle/container size info in English e.g. '4X4LB', '750ml', '3.8L/Bucket', '6X1L'",
+          "pack_size": "always return empty string \"\" — do not extract size info here, keep the full product name including size in the description field",
           "quantity": number (number of units ordered — typically 1-20),
           "unit": "unit of measure in ENGLISH ONLY (Bucket, Dozen, Roll, Case, Box, Pack, Bag, Bottle, Piece, KG, LB, etc.) — NEVER Chinese characters",
           "weight": number or null (actual weight in KG if item is priced per KG, otherwise null),
