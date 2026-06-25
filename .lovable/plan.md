@@ -1,16 +1,16 @@
-Apply the 12 specified edits to `src/components/procurement/ProcurementInvoicesTab.tsx` to remove the Payment Status column from the Invoices table:
+## Audit result for `src/components/procurement/ProcurementInvoicesTab.tsx`
 
-1. Delete `STATUSES` constant
-2. Delete `STATUS_BADGE` constant (keep `STATUS_COLORS`)
-3. Remove `statusFilter` state
-4. Remove statusFilter condition + dep from `filtered` useMemo
-5. Remove `status` entry from columns array
-6. Remove `statusFilter`/`setStatusFilter` props passed to `<InvoiceTableSection>`
-7. Remove `status` from CSV download mapping
-8. Remove from `InvoiceTableSectionProps` interface
-9. Remove from destructured function params
-10. Remove status entry from `filterFields`
-11. Remove `setStatusFilter("all")` from resetFilters chain
-12. Delete Payment Status `<TableCell>`; move the `invoiceVarianceMap[inv.id]` GRN variance badge into the Invoice # cell after the invoice number
+All checks pass. No fixes required.
 
-Keep: `STATUS_COLORS`, `updateInvoiceStatus`, Mark Paid/Unpaid buttons in detail Sheet, `status` field in editForm/startEditing, and all other filters.
+| Check | Status |
+|---|---|
+| `STATUSES`, `STATUS_BADGE`, `statusFilter`, `setStatusFilter` fully removed | ✅ Gone (only `REVIEW_STATUSES` remains, which is unrelated) |
+| `STATUS_COLORS` retained (line 52) | ✅ Present |
+| `updateInvoiceStatus` retained (line 188) | ✅ Present |
+| Mark Paid / Mark Unpaid buttons retained (lines 1800, 1802) | ✅ Present |
+| `editForm.status` retained (lines 997–1069, edit dialog Select) | ✅ Present |
+| `filtered` useMemo no longer references `statusFilter` | ✅ Confirmed |
+| `InvoiceTableSectionProps` / `InvoiceTableSection` signature free of status filter props | ✅ Confirmed |
+| `invoiceVarianceMap[inv.id]` GRN variance badge rendered inside Invoice # `<TableCell>` | ✅ Present at line 2110, inside the Invoice # cell, immediately after `{inv.invoice_number}` |
+
+No build, runtime, or lint issues introduced by the previous edit. Nothing to change.
