@@ -32,14 +32,13 @@ import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceRevi
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 
 
-const REVIEW_STATUSES = ["Approved", "Rejected", "Under Review", "Disputed"] as const;
+const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
 const EXCEPTION_NOTES = ["Credit Note Issued", "Voided", "-"] as const;
 
 const REVIEW_BADGE: Record<string, string> = {
   "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  "Rejected": "bg-red-500/15 text-red-300 border border-red-500/30",
-  "Under Review": "bg-amber-500/15 text-amber-300 border border-amber-500/30",
   "Disputed": "bg-orange-500/15 text-orange-300 border border-orange-500/30",
+  "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
 };
 
 const EXCEPTION_BADGE: Record<string, string> = {
