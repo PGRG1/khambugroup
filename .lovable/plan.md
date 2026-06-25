@@ -1,3 +1,7 @@
-Apply all 14 deletions in `src/components/procurement/ProcurementInvoicesTab.tsx` exactly as specified to fully remove the Issue/Exception column, filter, KPI, and state.
+Edit only `src/components/procurement/ProcurementInvoicesTab.tsx`:
 
-No other files are touched. The `exception_note` field remains in the DB; only its UI surface in this tab is removed.
+1. Delete the `STATUS_COLORS` constant.
+2. Remove `updateInvoiceStatus` from the `useInvoiceData` destructure.
+3. In the detail Sheet, remove the "paid" Badge using `STATUS_COLORS.paid`.
+4. In the detail Sheet, remove the entire Mark Paid / Mark Unpaid ternary button block.
+5. Leave the `status: inv.status === "paid" ? "paid" : "unpaid"` line inside `createInvoice` untouched.
