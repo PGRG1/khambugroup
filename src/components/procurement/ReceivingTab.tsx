@@ -116,18 +116,31 @@ export default function ReceivingTab() {
     setLoading(true);
     const [grnRows, allItems, supRes, prodRes, poRes, invRes] = await Promise.all([
       fetchAllRows("goods_received_notes", "*, suppliers(name), purchase_orders(po_number), invoices!invoice_id(invoice_number)", { col: "created_at", asc: false }, tenantId),
-      fetchAllRows("grn_items", "grn_id, total", undefined, tenantId),
+      fetchAllRows("grn_items", "grn_id, total, product_master_id", undefined, tenantId),
       supabase.from("suppliers").select("id,name,is_active").order("name"),
-      supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").order("internal_product_name"),
+      supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost, financial_treatment").order("internal_product_name"),
       supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
       supabase.from("invoices").select("id, invoice_number, supplier_id, venue").order("created_at", { ascending: false }).limit(500),
     ]);
-    setGrns((grnRows ?? []) as any);
+    // Identify balance-sheet (Asset) product IDs — these belong in the Deposit Ledger, not GRNs
+    const assetIds = new Set<string>(
+      ((prodRes.data ?? []) as any[])
+        .filter((p) => typeof p.financial_treatment === "string" && p.financial_treatment.startsWith("Asset"))
+        .map((p) => p.id)
+    );
+    // Per-GRN totals AND non-asset item counts (used to hide deposit-only GRNs)
     const totals: Record<string, number> = {};
+    const nonAssetCounts: Record<string, number> = {};
     for (const r of (allItems ?? []) as any[]) {
+      if (r.product_master_id && assetIds.has(r.product_master_id)) continue;
       totals[r.grn_id] = (totals[r.grn_id] || 0) + Number(r.total || 0);
+      nonAssetCounts[r.grn_id] = (nonAssetCounts[r.grn_id] || 0) + 1;
     }
+    // Hide GRNs that contain only deposit/asset items
+    const visibleGrns = ((grnRows ?? []) as any[]).filter((g) => (nonAssetCounts[g.id] || 0) > 0);
+    setGrns(visibleGrns as any);
     setGrnTotals(totals);
+    setAssetProductIds(assetIds);
     const sups = (supRes.data ?? []) as Supplier[];
     setSuppliers(sups);
     setProducts((prodRes.data ?? []) as Product[]);
