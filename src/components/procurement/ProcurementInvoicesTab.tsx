@@ -1105,6 +1105,21 @@ export default function ProcurementInvoicesTab() {
 
           <h4 className="text-sm font-semibold">Line Items ({editLines.length})</h4>
           <div className="overflow-x-auto -mx-2">
+            <div className="flex justify-end pb-1">
+              <button
+                type="button"
+                onClick={() => {
+                  editLines.forEach((line, index) => {
+                    if (!line.is_free_unit_line) {
+                      updateEditLineAcceptedPrice(index, line.unit_price);
+                    }
+                  });
+                }}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline transition-colors"
+              >
+                Accept all invoice prices
+              </button>
+            </div>
             <table className="w-full min-w-[1810px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border">
