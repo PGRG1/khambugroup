@@ -123,7 +123,16 @@ export function resolveProductMatch(
   // === PRIORITY 3: Hydration by stored IDs ===
   if (supplierEntryId) {
     const byEntryId = products.find(p => p.supplier_entry_id === supplierEntryId);
-    if (byEntryId) return byEntryId;
+    if (byEntryId) {
+      if (!invoiceSupplier || supplierMatch(byEntryId.supplier, invoiceSupplier)) return byEntryId;
+      // Stored entry belongs to a different supplier than the current invoice.
+      // Prefer a sibling row on the same product_master with the matching supplier.
+      const supplierSibling = products.find(
+        p => p.id === byEntryId.id && supplierMatch(p.supplier, invoiceSupplier)
+      );
+      if (supplierSibling) return supplierSibling;
+      return byEntryId;
+    }
   }
   if (productMasterId) {
     // When hydrating by product_master_id, still prefer the one matching the SKU or supplier
@@ -134,18 +143,24 @@ export function resolveProductMatch(
     if (invoiceSupplier) {
       const byIdAndSupplier = products.find(p => p.id === productMasterId && supplierMatch(p.supplier, invoiceSupplier));
       if (byIdAndSupplier) return byIdAndSupplier;
+      // When we know the invoice supplier, do NOT fall through to an un-scoped
+      // product_master_id hit — that would return a different supplier's row.
+    } else {
+      const byId = products.find(p => p.id === productMasterId);
+      if (byId) return byId;
     }
-    const byId = products.find(p => p.id === productMasterId);
-    if (byId) return byId;
   }
   if (internalSku) {
     if (invoiceSupplier) {
       const byInternalAndSupplier = products.find(p => p.internal_sku === internalSku && supplierMatch(p.supplier, invoiceSupplier));
       if (byInternalAndSupplier) return byInternalAndSupplier;
+      // When invoice supplier is known, do not return a different-supplier row.
+    } else {
+      const allForSku = products.filter(p => p.internal_sku === internalSku);
+      if (allForSku.length === 1) return allForSku[0];
     }
-    const allForSku = products.filter(p => p.internal_sku === internalSku);
-    if (allForSku.length === 1) return allForSku[0];
   }
+
 
   return null;
 }
