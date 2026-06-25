@@ -1743,8 +1743,6 @@ export default function ProcurementInvoicesTab() {
         setSupplierFilter={setSupplierFilter}
         venueFilter={venueFilter}
         setVenueFilter={setVenueFilter}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
         reviewStatusFilter={reviewStatusFilter}
         setReviewStatusFilter={setReviewStatusFilter}
         exceptionNoteFilter={exceptionNoteFilter}
