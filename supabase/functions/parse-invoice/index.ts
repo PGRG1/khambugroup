@@ -54,7 +54,7 @@ IMPORTANT — LANGUAGE RULES:
 - ALL OTHER text fields MUST be in English. You MUST translate Chinese/non-English text to English. This includes:
   - "unit" field: translate Chinese units to English abbreviations. Common translations: 桶=Bucket, 打=Dozen, 條=Roll, 箱=Case/Box, 瓶=Bottle, 包=Pack, 袋=Bag, 罐=Can, 盒=Box, 支=Piece, 公升=Liter, 磅=LB
   - "description" field: must be in English
-  - "pack_size" field: translate Chinese size units (e.g. "3.8公升/桶" → "3.8L/Bucket", "40p/桶" → "40p/Bucket", "15"/條" → "15"/Roll")
+  
   - "notes" field: must be in English
 
 CRITICAL — NUMBER ACCURACY RULES:
