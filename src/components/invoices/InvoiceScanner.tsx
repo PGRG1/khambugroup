@@ -2060,15 +2060,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                             );
                           })()
                         ) : line.master_price == null ? (
-                          <div className="h-8 flex flex-col justify-center px-1">
-                            <button
-                              type="button"
-                              onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
-                              className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 mb-0.5"
-                              title="Copy purchase cost to accepted price"
-                            >
-                              <ArrowRight className="h-2.5 w-2.5" /> Use invoice price
-                            </button>
+                          <div className="flex items-center gap-1 px-1">
                             <Input
                               type="number"
                               value={line.accepted_price || ""}
@@ -2076,7 +2068,14 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                               className="text-xs h-7 w-full"
                               placeholder="—"
                             />
-                            <span className="text-[9px] text-muted-foreground">No master price</span>
+                            <button
+                              type="button"
+                              onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
+                              className="shrink-0 h-7 w-7 flex items-center justify-center rounded border border-input bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title={`Use invoice price $${(parseFloat(line.unit_price) || 0).toFixed(2)}`}
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                            </button>
                           </div>
                         ) : (
                           (() => {
@@ -2088,36 +2087,45 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                               effective = (deal.buy_qty * accNum) / (deal.buy_qty + deal.free_qty);
                             }
                             return (
-                              <div className="h-8 flex flex-col justify-center px-1">
-                                <button
-                                  type="button"
-                                  onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
-                                  className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 mb-0.5"
-                                  title="Copy purchase cost to accepted price"
-                                >
-                                  <ArrowRight className="h-2.5 w-2.5" /> Use invoice price
-                                </button>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  value={line.accepted_price || ""}
-                                  onChange={(e) => updateLineAcceptedPrice(i, e.target.value)}
-                                  className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
-                                />
-                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">Master: ${line.master_price.toFixed(2)}</span>
-                                {effective !== null && (
-                                  <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">Eff: ${effective.toFixed(2)}</span>
-                                )}
-                                {differsFromMaster && line.product_master_id && (
+                              <div className="flex flex-col gap-0.5 px-1">
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={line.accepted_price || ""}
+                                    onChange={(e) => updateLineAcceptedPrice(i, e.target.value)}
+                                    className={`text-xs h-7 w-full ${differsFromMaster ? "border-amber-500 bg-amber-500/5" : ""}`}
+                                  />
                                   <button
                                     type="button"
-                                    disabled={updatingMasterIdx === i}
-                                    onClick={() => handleUpdateMaster(i)}
-                                    className="mt-0.5 self-start text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
-                                    title={`Set Items Master price to $${accNum}`}
+                                    onClick={() => updateLineAcceptedPrice(i, line.unit_price)}
+                                    className="shrink-0 h-7 w-7 flex items-center justify-center rounded border border-input bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                    title={`Use invoice price $${(parseFloat(line.unit_price) || 0).toFixed(2)}`}
                                   >
-                                    {updatingMasterIdx === i ? "Updating…" : `Update master → $${accNum}`}
+                                    <ArrowRight className="h-3 w-3" />
                                   </button>
+                                </div>
+                                {line.master_price != null && (
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                      Master: ${(line.master_price as number).toFixed(2)}
+                                    </span>
+                                    {differsFromMaster && line.product_master_id && (
+                                      <button
+                                        type="button"
+                                        disabled={updatingMasterIdx === i}
+                                        onClick={() => handleUpdateMaster(i)}
+                                        className="text-[9px] underline text-amber-600 dark:text-amber-400 hover:text-amber-700 disabled:opacity-50 whitespace-nowrap"
+                                      >
+                                        {updatingMasterIdx === i ? "Updating…" : "Update master"}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                {effective !== null && (
+                                  <span className="text-[9px] text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                                    Eff: ${effective.toFixed(2)}
+                                  </span>
                                 )}
                               </div>
                             );
