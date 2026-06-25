@@ -1757,6 +1757,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
           <div className="overflow-x-auto w-full -mx-2">
 
+            <div className="flex justify-end pb-1">
+              <button
+                type="button"
+                onClick={() => {
+                  current?.line_items.forEach((line, i) => {
+                    if (!line.is_free_unit_line) {
+                      updateLineAcceptedPrice(i, line.unit_price);
+                    }
+                  });
+                }}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline transition-colors"
+              >
+                Accept all invoice prices
+              </button>
+            </div>
             <table className="w-max min-w-full text-xs border-collapse table-auto">
               <thead>
                 <tr className="border-b border-border">
