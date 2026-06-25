@@ -1816,7 +1816,7 @@ export default function ProcurementInvoicesTab() {
                     <div key={line.id} className={`grid grid-cols-[1fr_60px_80px_80px] gap-2 rounded px-2 py-1.5 text-xs ${index % 2 === 0 ? "bg-muted/30" : ""}`}>
                       <div>
                         <span className="font-medium">{line.description}</span>
-                        {line.pack_size && <span className="ml-1 text-muted-foreground">[{line.pack_size}]</span>}
+                        
                       </div>
                       <div className="text-right tabular-nums">{line.quantity}</div>
                       <div className="text-right tabular-nums">{fmt(line.unit_price)}</div>
