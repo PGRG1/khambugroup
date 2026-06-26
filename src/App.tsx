@@ -44,6 +44,7 @@ import OpenPayablesPage from "./pages/procurement/OpenPayables";
 import SupplierAccountPage from "./pages/procurement/SupplierAccount";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
 import SupplierPricing from "./pages/procurement/SupplierPricing";
+import OpeningBalances from "./pages/procurement/OpeningBalances";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
