@@ -107,7 +107,7 @@ const procurementAnalysis = [
 ];
 
 const procurementFinance = [
-  { title: "Spend Summary", url: "/procurement/finance", icon: ReceiptText },
+  { title: "Spend Summary", url: "/procurement/finance/spend", icon: ReceiptText },
   { title: "Supplier Accounts", url: "/procurement/finance/suppliers", icon: Building2 },
   { title: "Open Payables", url: "/procurement/finance/payables", icon: CreditCard },
   { title: "Payments", url: "/procurement/finance/payments", icon: Wallet, disabled: true },

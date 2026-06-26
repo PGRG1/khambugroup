@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,15 @@ function KCard({ label, value, tone = "default", sub }: { label: string; value: 
 
 export default function SupplierAccountPage() {
   const { supplierId = "" } = useParams<{ supplierId: string }>();
+  const location = useLocation();
+  const navState = (location.state || {}) as { openTab?: string; highlightInvoiceId?: string };
+  const [activeTab, setActiveTab] = useState<string>(navState.openTab || "statement");
+  const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(navState.highlightInvoiceId || null);
+  useEffect(() => {
+    if (!highlightInvoiceId) return;
+    const t = setTimeout(() => setHighlightInvoiceId(null), 2000);
+    return () => clearTimeout(t);
+  }, [highlightInvoiceId]);
   const { tenantId } = useActiveTenant();
   const { invoices, creditNotes, creditNotesAvailable, bankAccounts, loading: payLoading, refresh } = usePayables();
 
@@ -425,7 +434,7 @@ export default function SupplierAccountPage() {
         <KCard label="Deposits outstanding" value={fmtMoney(depositsOutstanding)} tone="sky" />
       </div>
 
-      <Tabs defaultValue="statement" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">
           {[
             { v: "statement", l: "Statement" },

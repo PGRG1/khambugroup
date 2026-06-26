@@ -1,139 +1,99 @@
+## Procurement Finance — Four standalone pages
 
-# Procurement Finance — Supplier Accounts
+Replace the tabbed `ProcurementFinance.tsx` shell with four dedicated, admin-protected pages. Each sidebar link goes to its own route; no shared container.
 
-Build out Procurement Finance with two new tabs (Supplier Accounts, Open Payables), a full Supplier Account page, and an expanded sidebar Finance section. Reuse existing hooks, queries, and styling. No new tables or migrations.
+### Step 1 — Sidebar & routing
 
-## 1. Sidebar (`src/components/AppSidebar.tsx`)
+**`src/components/AppSidebar.tsx`** — under Procurement → FINANCE, replace the single Spend Summary link with four items:
+- Spend Summary → `/procurement/finance/spend`
+- Supplier Accounts → `/procurement/finance/suppliers`
+- Open Payables → `/procurement/finance/payables`
+- Payments → `/procurement/finance/payments` *(disabled, greyed-out pattern)*
 
-Replace the single "Spend Summary" link under Procurement → FINANCE with:
+**`src/App.tsx`** — replace existing `/procurement/finance*` routes with:
+- `/procurement/finance` → `<Navigate to="/procurement/finance/spend" replace />`
+- `/procurement/finance/spend` → `<SpendSummaryPage />` (AdminRoute)
+- `/procurement/finance/suppliers` → `<SupplierAccountsPage />` (AdminRoute)
+- `/procurement/finance/payables` → `<OpenPayablesPage />` (AdminRoute)
+- `/procurement/finance/suppliers/:supplierId` → `<SupplierAccountPage />` (AdminRoute, already exists — keep)
 
-```text
-FINANCE
-  Spend Summary      /procurement/finance
-  Supplier Accounts  /procurement/finance/suppliers
-  Open Payables      /procurement/finance/payables
-  Payments           /procurement/finance/payments   (disabled stub)
-```
+Remove the `defaultTab` prop usage. Drop the import of `ProcurementFinance`.
 
-Use the existing `disabled` pattern already in the Procurement sub-groups for the Payments stub.
+### Step 2 — `src/pages/procurement/SpendSummary.tsx` (new)
 
-## 2. Routing (`src/App.tsx`)
+Lift `SpendSummaryTab` out of `ProcurementFinance.tsx` verbatim (data logic, KPIs, charts, tables unchanged). Wrap in a page shell with:
+- Title **"Spend Summary"**, subtitle "Procurement cost by category and supplier for the selected period"
+- Month navigator + venue filter on the right (reuse current state from ProcurementFinance)
 
-Add admin-protected routes:
+### Step 3 — `src/pages/procurement/SupplierAccounts.tsx` (new)
 
-- `/procurement/finance/suppliers` → `<ProcurementFinance defaultTab="suppliers" />`
-- `/procurement/finance/payables` → `<ProcurementFinance defaultTab="open-payables" />`
-- `/procurement/finance/suppliers/:supplierId` → `<SupplierAccountPage />` (via thin route wrapper)
+Lift `SupplierAccountsTab` into its own page.
+- Header: title **"Supplier Accounts"**, subtitle "Current balance, credits, and payment position for each supplier", search + venue filter right
+- 4 KPI cards: Total outstanding (amber) · Total overdue (red) · Available credits (emerald) · Unallocated payments (amber)
+- Whole row clickable → `navigate('/procurement/finance/suppliers/:id')`. No side panel.
+- Overdue rows: `border-l-2 border-amber-400`; hover bg change
+- Payments query is best-effort: on failure or empty, render rows with `—` in Unallocated Payments; never block render
 
-Extend `ProcurementFinance` to accept a `defaultTab` prop controlling the initial Tabs value.
+### Step 4 — `src/pages/procurement/OpenPayables.tsx` (new)
 
-## 3. `ProcurementFinance.tsx` — two new tabs
+Lift `OpenPayablesTab` into its own page.
+- Header: title **"Open Payables"**, subtitle "All outstanding supplier invoices awaiting payment", venue + supplier filter right
+- 4 KPI cards: Outstanding (amber) · Overdue (red) · Due this week (sky) · Available credits to apply (emerald)
+- Ageing pills: All · Current · 1–30 · 31–60 · 61–90 · 90+ (single-select, default All)
+- Columns: Supplier | Invoice # | Venue | Invoice Date | Due Date | Total | Paid | Outstanding | Days Overdue | Status | Actions
+- Row actions:
+  - **Pay** → opens `RecordPaymentDialog` pre-filled; on save mutate row inline (no reload)
+  - **View** → `navigate('/procurement/finance/suppliers/:id', { state: { openTab: 'open-docs', highlightInvoiceId } })`
+- Supplier name in row is a link to the supplier page
 
-Existing tabs (`spend | payables | credits`) unchanged. Add:
+### Step 5 — `src/pages/procurement/SupplierAccount.tsx` (rewrite as full page)
 
-- `suppliers` — "Supplier Accounts"
-- `open-payables` — "Open Payables"
+The existing file is currently a thin wrapper around `SupplierLedgerSheet`. Replace with a real page component (do **not** modify `SupplierLedgerSheet.tsx`).
 
-### Supplier Accounts tab
+**Header**
+- Back link `← Supplier Accounts` → `/procurement/finance/suppliers`
+- Page title = supplier name; supplier ID in muted monospace below
+- Top-right actions: Record Payment (primary) · Apply Credit · Book Credit Note · Add Charge · Record Refund · Export
 
-Tenant-scoped via `useActiveTenant`. Sources:
-- `invoices`, `credit_notes` — via `usePayables()` (already tenant-scoped).
-- `payments`, `payment_allocations` — fetched via `fetchAllRows` **without** `tenant_id` filter (those tables have no `tenant_id` column). Filter client-side by `payment.supplier_id ∈ supplierIds-from-tenant-scoped-invoices/CNs`.
+**KPIs (5 cards)**: Outstanding (amber) · Overdue (red) · Available Credits (emerald) · Unallocated Payments (amber) · Deposits Outstanding (muted if zero)
 
-Aggregate per supplier:
-- `current_balance` = Σ outstanding invoice amounts
-- `overdue_balance` = Σ outstanding where `due_date < today`
-- `available_credits` = Σ `remaining_balance` on approved CNs
-- `unallocated_payments` = Σ (payment.amount − Σ allocations) > 0
-- `last_transaction_date` = max date across invoices/payments/CNs
-- `open_invoice_count`
+**Tabs** (amber underline, default Statement): Statement · Open Documents · Payments · Credits & Adjustments · Incentives · Deposits
 
-Show only suppliers with at least one invoice/payment/CN.
+Read `useLocation().state` for `openTab` + `highlightInvoiceId`; if `highlightInvoiceId` set, scroll into view and apply `bg-amber-400/20` for 2s then fade.
 
-KPI cards (KCard): Total outstanding · Total overdue · Total available credits · Total unallocated payments.
-
-Table columns: Supplier | Balance | Overdue | Available Credits | Unallocated Payments | Open Invoices | Last Activity | Actions.
-
-Row styling:
-- Overdue > 0 → `border-l-2 border-amber-400`
-- Credits > 0 → `text-emerald-400` on credits cell
-- Unallocated > 0 → amber "Unallocated" chip
-
-Action: "View Account" → `/procurement/finance/suppliers/:supplierId`.
-
-### Open Payables tab
-
-Filter: `outstanding_amount > 0 AND payment_status !== 'voided' AND review_status === 'Approved'`.
-
-Ageing filter pills: Current · 1–30 · 31–60 · 61–90 · 90+ (single-select with "All").
-
-Columns: Supplier | Invoice # | Venue | Invoice Date | Due Date | Total | Paid | Outstanding | Days Overdue | Status | Actions.
-
-Row styling:
-- `days_overdue > 60` → `text-red-400` on Days Overdue
-- `days_overdue > 0` → `text-amber-400`
-- Disputed → `border-l-2 border-amber-400`
-
-Actions: Pay (existing `RecordPaymentDialog`), View (existing invoice detail).
-
-KPI cards: Total outstanding · Total overdue · Due this week · Available credits.
-
-## 4. `SupplierAccountPage.tsx` (new)
-
-Promoted from `SupplierLedgerSheet` content. **Do not modify `SupplierLedgerSheet.tsx`.**
-
-Layout:
-- Back link → `/procurement/finance/suppliers`
-- Header: supplier name + ID
-- Summary bar (KCards): Outstanding · Overdue · Available Credits · Unallocated Payments · Deposits Outstanding
-- Action buttons: Record Payment · Apply Credit · Book Credit Note · Add Charge · Record Refund · Export
-- Tabs (amber underline convention):
-
-**Statement** — running ledger. Extend local `LedgerType` with `refund | incentive | deposit | deposit_refund`. Columns: Date | Type | Reference | Description | Venue | Charges | Credits | Balance. Balance Dr/Cr colouring per spec. Period filter (All / This month / Last 3m / This year). CSV export. Badge colours per spec.
-
-Refund entries: join `invoice_line_items` → `product_master` (for `financial_treatment`) and `invoices` (for `supplier_id`, `invoice_date`, `venue`, `discount_type`). Filter client-side where `product_master.financial_treatment = 'Supplier Refund'` OR `invoices.discount_type = 'refund'`, then scope to current supplier via `invoices.supplier_id`. Appear as credit entries.
+**Statement** — running ledger (date asc, running balance). Period filter left, Export CSV right. Cols: Date | Type | Reference | Description | Venue | Charges | Credits | Balance. Type badges per spec. Balance positive=amber "Dr", negative=emerald "Cr". Invoice row click → existing invoice detail panel (reuse). Payment row click → inline expand showing allocations. Footer totals row.
 
 **Open Documents** — three sub-sections:
-1. Unpaid invoices (this supplier subset) — Pay action.
-2. Unapplied credits — approved CNs with `remaining_balance > 0`. Actions: Exercise (`ExerciseCreditDialog`), Void.
-3. Unallocated payments — Allocate (`AllocatePaymentDialog`). Filter client-side via supplier match.
+- Unpaid invoices — "Pay this" → `RecordPaymentDialog`
+- Unapplied credits — Exercise (`ExerciseCreditDialog`) / Void
+- Unallocated payments — Allocate (`AllocatePaymentDialog`)
+- Empty sub-sections: one-line message, no spinner
 
-**Payments** — full history newest first (filtered client-side by `supplier_id`). Columns + status badges (`awaiting_bank_match` / `matched` / `not_required`). Expandable row showing allocations. Top button: Record Payment (pre-selected supplier).
+**Payments** — newest first; "Record Payment" top-right. Cols: Date | Amount | Method | Reference | Invoices Settled | CN Applied | Bank Status | Actions. Bank status badges: `awaiting_bank_match`=amber "Awaiting match", `matched`=emerald "Cleared", `not_required`=muted. Row expand → inline allocation detail.
 
-**Credits & Adjustments** — Available · Pending · Refunds received · Historical sections. Top button: Book Credit Note (pre-filled supplier).
+**Credits & Adjustments** — "Book Credit Note" top-right. Sub-sections: Available (Exercise/Void) · Pending (Approve/Void) · Refunds received (with banner) · Historical (read-only). Refunds source: `invoice_line_items` joined to `product_master!product_master_id(financial_treatment)` and `invoices!invoice_id(supplier_id, discount_type)`, client-filter where `financial_treatment = 'Supplier Refund'` OR `discount_type = 'refund'`, scoped to current supplier.
 
-**Incentives** — Two sections:
+**Incentives** — two sub-sections:
+- Buy-X-Get-Y-Free deals: query `item_supplier_deals` by `supplier_id + tenant_id`. Cols: Deal Type | Product | Buy Qty | Free Qty | Notes | Active | Actions. "Add Deal" top-right inserts new row (`deal_type='buy_x_get_y_free'`, product from `product_master` lookup). Banner above table per spec.
+- Other Incentives & Rebates: notes table from `supplier_incentive_notes` if it exists (try/catch on query); otherwise empty state. **No migrations.**
 
-1. *Buy-X-Get-Y-Free Deals* — query `item_supplier_deals` filtered by `supplier_id` + `tenant_id`. Table:
-   `Deal Type | Product | Buy Qty | Free Qty | Notes | Active | Actions`
-   Banner above table:
-   > "Rebates, volume incentives, and milestone rewards are recorded manually. Use the Book Credit Note workflow to record an earned incentive when received from the supplier. Incentive tracking and auto-calculation are not yet available."
-   Top button: **Add Deal** → simple dialog inserting an `item_supplier_deals` row (`deal_type` fixed to `buy_x_get_y_free`, product lookup from `product_master`, `buy_qty`, `free_qty`, `notes`, `is_active` toggle).
+**Deposits** — join `invoice_line_items` → `product_master` → `invoices`, filter where `product_master.financial_treatment` matches "Asset - Supplier Deposit", scoped via `invoices.supplier_id`. Cols: Date | Invoice # | Description | Charged | Returned | Net Outstanding | Status. Totals row. Footnote per spec.
 
-2. *Other Incentives & Rebates* — manual notes table:
-   `Date Recorded | Type | Description | Amount | Status | Linked Credit Note | Actions (Edit / Delete)`
-   Source from `supplier_incentive_notes` if it exists; otherwise UI-only empty state. **No migrations.** Footnote: "Earned incentives should be settled via a credit note booked in Credits & Adjustments."
+### Data rules (enforced across all four pages)
 
-**Deposits** — same join pattern: `invoice_line_items` ⨝ `product_master` ⨝ `invoices`. Filter where `product_master.financial_treatment` matches `Asset - Supplier Deposit`, scoped to current supplier. Columns + totals row + footnote: "Deposits are balance sheet items and do not affect procurement cost or inventory."
+- `payments` and `payment_allocations` — never filter by `tenant_id`. Fetch all, then client-filter by `supplier_id ∈ tenant-scoped supplier IDs`.
+- All other tables: `.eq('tenant_id', tenantId)` from `useActiveTenant()`.
+- `financial_treatment` lives on `product_master` — always join, never read off `invoice_line_items`.
+- Never block page render on a single query failure — show `—` in affected columns.
+- Reuse without modification: `usePayables()`, `RecordPaymentDialog`, `AllocatePaymentDialog`, `BookCreditNoteDialog`, `ExerciseCreditDialog`, `AddChargeDialog`, `SupplierLedgerSheet`.
 
-## 5. Data + tenancy rules
+### Cleanup
 
-- Tenant-aware tables (`invoices`, `credit_notes`, `invoice_line_items`, `item_supplier_deals`, `product_master`, `suppliers`): `.eq('tenant_id', tenantId)` from `useActiveTenant()`.
-- **Non-tenant tables** (`payments`, `payment_allocations`): fetch without `tenant_id`; scope client-side via supplier IDs derived from tenant-scoped `usePayables()` data.
-- `financial_treatment` lives on `product_master` — never query it on `invoice_line_items`. Always join via `product_master_id`.
-- `discount_type` lives on `invoices`.
-- No schema changes. No edits to `SupplierLedgerSheet.tsx`.
+- Delete `src/pages/procurement/ProcurementFinance.tsx` (no remaining importers after sidebar/routes updated).
+- Keep `SupplierLedgerSheet.tsx` untouched (still used elsewhere if referenced; otherwise leave as dead code per spec).
 
-## 6. Styling
+### Files touched
 
-Match existing `ProcurementFinance.tsx`: `card-glass`, `KCard`, `SectionLabel`, amber underline tabs, `td-num tabular-nums`, `HK$` 2dp via `@/utils/format`.
-
-## Technical notes
-
-- `ProcurementFinance` becomes prop-driven: `defaultTab?: string`.
-- New files:
-  - `src/components/procurement/SupplierAccountPage.tsx`
-  - `src/pages/procurement/SupplierAccount.tsx` (thin route wrapper under `AdminRoute`)
-- Reused dialogs: `RecordPaymentDialog`, `AllocatePaymentDialog`, `BookCreditNoteDialog`, `ExerciseCreditDialog`, `AddChargeDialog`.
-- Ageing computed client-side from `due_date` vs today; "Due this week" = due within next 7 days, outstanding > 0.
-- CSV export reuses `csvDownload` util with UTF-8 BOM.
+- Edit: `src/components/AppSidebar.tsx`, `src/App.tsx`, `src/pages/procurement/SupplierAccount.tsx`
+- Create: `src/pages/procurement/SpendSummary.tsx`, `src/pages/procurement/SupplierAccounts.tsx`, `src/pages/procurement/OpenPayables.tsx`
+- Delete: `src/pages/procurement/ProcurementFinance.tsx`
