@@ -33,10 +33,12 @@ const fmtDate = (d?: string | null) => {
 };
 
 type LedgerType =
+  | "opening_balance"
   | "invoice" | "payment" | "credit_note" | "credit_applied" | "charge"
   | "refund" | "incentive" | "deposit" | "deposit_refund";
 
 const TYPE_CONFIG: Record<LedgerType, { label: string; className: string }> = {
+  opening_balance:{ label: "Opening bal",  className: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30" },
   invoice:        { label: "Invoice",       className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   payment:        { label: "Payment",       className: "bg-green-500/15 text-green-400 border-green-500/30" },
   credit_note:    { label: "Credit note",   className: "bg-sky-500/15 text-sky-400 border-sky-500/30" },
@@ -101,6 +103,8 @@ export default function SupplierAccountPage() {
   const [allocs, setAllocs] = useState<any[]>([]);
   const [refundLines, setRefundLines] = useState<any[]>([]);
   const [depositLines, setDepositLines] = useState<any[]>([]);
+  const [openingBalances, setOpeningBalances] = useState<any[]>([]);
+  const [openingDeposits, setOpeningDeposits] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string; internal_sku: string | null }[]>([]);
   const [period, setPeriod] = useState("all");
@@ -187,6 +191,22 @@ export default function SupplierAccountPage() {
       // Products for deal picker
       const prodRows = await fetchAllRows("product_master", "id, name, internal_sku", { col: "name", asc: true }, tenantId);
       setProducts(prodRows as any[]);
+
+      // Opening balances (supplier payables + deposits)
+      const [{ data: obRows }, { data: odRows }] = await Promise.all([
+        (supabase as any)
+          .from("supplier_opening_balances")
+          .select("id, as_of_date, amount, venue, notes")
+          .eq("supplier_id", supplierId)
+          .eq("tenant_id", tenantId),
+        (supabase as any)
+          .from("deposit_opening_balances")
+          .select("id, as_of_date, sku, description, quantity, unit_value, total_value, venue, notes")
+          .eq("supplier_id", supplierId)
+          .eq("tenant_id", tenantId),
+      ]);
+      setOpeningBalances(obRows || []);
+      setOpeningDeposits(odRows || []);
     })();
   }, [tenantId, supplierId, refreshKey]);
 
