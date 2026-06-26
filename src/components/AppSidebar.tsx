@@ -110,6 +110,7 @@ const procurementFinance = [
   { title: "Spend Summary", url: "/procurement/finance/spend", icon: ReceiptText },
   { title: "Supplier Accounts", url: "/procurement/finance/suppliers", icon: Building2 },
   { title: "Open Payables", url: "/procurement/finance/payables", icon: CreditCard },
+  { title: "Opening Balances", url: "/procurement/finance/onboarding", icon: ClipboardCheck },
   { title: "Payments", url: "/procurement/finance/payments", icon: Wallet, disabled: true },
 ];
 
