@@ -107,10 +107,12 @@ export default function ProcurementFinance({ defaultTab = "spend" }: { defaultTa
         </div>
       </div>
 
-      <Tabs defaultValue="spend" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">
           {[
             { v: "spend", l: "Spend Summary" },
+            { v: "suppliers", l: "Supplier Accounts" },
+            { v: "open-payables", l: "Open Payables" },
             { v: "payables", l: "Supplier Payables" },
             { v: "credits", l: "Credits & Deposits" },
           ].map((t) => (
@@ -134,6 +136,14 @@ export default function ProcurementFinance({ defaultTab = "spend" }: { defaultTa
             prevEnd={pmEnd}
             label={`${MONTHS_LONG[month]} ${year}`}
           />
+        </TabsContent>
+
+        <TabsContent value="suppliers" className="mt-6">
+          <SupplierAccountsTab tenantId={tenantId} />
+        </TabsContent>
+
+        <TabsContent value="open-payables" className="mt-6">
+          <OpenPayablesTab tenantId={tenantId} venues={venues} />
         </TabsContent>
 
         <TabsContent value="payables" className="mt-6">
