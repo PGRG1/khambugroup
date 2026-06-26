@@ -250,6 +250,18 @@ export default function SupplierAccountPage() {
 
   const ledger = useMemo<Entry[]>(() => {
     const entries: Entry[] = [];
+    openingBalances.forEach((row) => {
+      entries.push({
+        id: `ob-${row.id}`,
+        date: row.as_of_date,
+        type: "opening_balance",
+        reference: "Opening balance",
+        description: (row.notes && String(row.notes).trim()) || `Opening balance as of ${fmtDate(row.as_of_date)}`,
+        venue: row.venue || "",
+        debit: Number(row.amount) || 0,
+        credit: 0,
+      });
+    });
     supplierInvoices.forEach((inv) => {
       const isCharge = inv.invoice_number?.startsWith("CHARGE-");
       entries.push({
