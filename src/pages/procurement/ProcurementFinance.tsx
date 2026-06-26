@@ -55,7 +55,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 // ---------- main ----------
-export default function ProcurementFinance() {
+export default function ProcurementFinance({ defaultTab = "spend" }: { defaultTab?: string } = {}) {
   const { tenantId } = useActiveTenant();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
