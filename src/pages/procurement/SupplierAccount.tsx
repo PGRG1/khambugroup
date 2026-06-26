@@ -348,13 +348,17 @@ export default function SupplierAccountPage() {
       });
     });
 
-    const sorted = entries.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const sorted = entries.sort((a, b) => {
+      if (a.type === "opening_balance" && b.type !== "opening_balance") return -1;
+      if (b.type === "opening_balance" && a.type !== "opening_balance") return 1;
+      return (a.date || "").localeCompare(b.date || "");
+    });
     let balance = 0;
     return sorted.map((e) => {
       balance = balance + (e.debit || 0) - (e.credit || 0);
       return { ...e, balance };
     });
-  }, [supplierInvoices, supplierPayments, supplierCNs, refundLines, depositLines]);
+  }, [supplierInvoices, supplierPayments, supplierCNs, refundLines, depositLines, openingBalances]);
 
   const filteredLedger = useMemo(() => {
     const start = periodStart(period);
