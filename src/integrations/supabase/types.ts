@@ -1110,6 +1110,7 @@ export type Database = {
           credit_note_date: string
           credit_note_number: string
           id: string
+          is_opening_balance: boolean
           notes: string
           original_amount: number
           remaining_balance: number
@@ -1127,6 +1128,7 @@ export type Database = {
           credit_note_date?: string
           credit_note_number?: string
           id?: string
+          is_opening_balance?: boolean
           notes?: string
           original_amount: number
           remaining_balance?: number
@@ -1144,6 +1146,7 @@ export type Database = {
           credit_note_date?: string
           credit_note_number?: string
           id?: string
+          is_opening_balance?: boolean
           notes?: string
           original_amount?: number
           remaining_balance?: number
@@ -1178,6 +1181,89 @@ export type Database = {
           },
           {
             foreignKeyName: "credit_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deposit_opening_balances: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          notes: string
+          product_master_id: string | null
+          quantity: number
+          sku: string
+          supplier_id: string
+          tenant_id: string
+          total_value: number | null
+          unit_value: number
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          as_of_date?: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          notes?: string
+          product_master_id?: string | null
+          quantity?: number
+          sku?: string
+          supplier_id: string
+          tenant_id: string
+          total_value?: number | null
+          unit_value: number
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          notes?: string
+          product_master_id?: string | null
+          quantity?: number
+          sku?: string
+          supplier_id?: string
+          tenant_id?: string
+          total_value?: number | null
+          unit_value?: number
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposit_opening_balances_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_opening_balances_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_opening_balances_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_opening_balances_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -7014,6 +7100,60 @@ export type Database = {
           },
           {
             foreignKeyName: "supplier_item_mappings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_opening_balances: {
+        Row: {
+          amount: number
+          as_of_date: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string
+          supplier_id: string
+          tenant_id: string
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          amount: number
+          as_of_date?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string
+          supplier_id: string
+          tenant_id: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          amount?: number
+          as_of_date?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string
+          supplier_id?: string
+          tenant_id?: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_opening_balances_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_opening_balances_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
