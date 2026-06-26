@@ -851,36 +851,82 @@ export default function SupplierAccountPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {depositLines.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No deposit transactions.</td></tr>
-                    ) : depositLines.map((l) => {
-                      const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
-                      const charged = total >= 0 ? total : 0;
-                      const returned = total < 0 ? Math.abs(total) : 0;
+                    {(() => {
+                      type DRow = { key: string; date: string; invoiceNo: string; description: string; charged: number; returned: number; net: number; isOpening: boolean };
+                      const invRows: DRow[] = depositLines.map((l) => {
+                        const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
+                        return {
+                          key: `dep-${l.id}`,
+                          date: l.invoices?.invoice_date || "",
+                          invoiceNo: l.invoices?.invoice_number || "—",
+                          description: l.product_master?.name || l.description || "—",
+                          charged: total >= 0 ? total : 0,
+                          returned: total < 0 ? Math.abs(total) : 0,
+                          net: total,
+                          isOpening: false,
+                        };
+                      });
+                      const obRows: DRow[] = openingDeposits.map((d) => {
+                        const total = Number(d.total_value) || (Number(d.quantity) || 0) * (Number(d.unit_value) || 0);
+                        return {
+                          key: `od-${d.id}`,
+                          date: d.as_of_date || "",
+                          invoiceNo: "Opening",
+                          description: d.description || "—",
+                          charged: total,
+                          returned: 0,
+                          net: total,
+                          isOpening: true,
+                        };
+                      });
+                      const rows = [...invRows, ...obRows].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+                      const totalCharged = rows.reduce((s, r) => s + r.charged, 0);
+                      const totalReturned = rows.reduce((s, r) => s + r.returned, 0);
+                      const totalNet = totalCharged - totalReturned;
                       return (
-                        <tr key={l.id} className="border-b border-border/30">
-                          <td className="py-2 pr-4">{fmtDate(l.invoices?.invoice_date)}</td>
-                          <td className="py-2 pr-4 font-mono text-xs">{l.invoices?.invoice_number || "—"}</td>
-                          <td className="py-2 pr-4">{l.product_master?.name || l.description || "—"}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums">{charged > 0 ? fmt(charged) : "—"}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{returned > 0 ? fmt(returned) : "—"}</td>
-                          <td className={`py-2 pr-4 text-right td-num tabular-nums ${total > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(total)}</td>
-                          <td className="py-2"><Badge variant="outline" className="text-[10px]">{total > 0 ? "Outstanding" : "Returned"}</Badge></td>
-                        </tr>
+                        <>
+                          {rows.length === 0 ? (
+                            <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No deposit transactions.</td></tr>
+                          ) : rows.map((r) => (
+                            <tr key={r.key} className="border-b border-border/30">
+                              <td className="py-2 pr-4">{fmtDate(r.date)}</td>
+                              <td className="py-2 pr-4 font-mono text-xs">{r.invoiceNo}</td>
+                              <td className="py-2 pr-4">{r.description}</td>
+                              <td className="py-2 pr-4 text-right td-num tabular-nums">{r.charged > 0 ? fmt(r.charged) : "—"}</td>
+                              <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{r.returned > 0 ? fmt(r.returned) : "—"}</td>
+                              <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.net > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(r.net)}</td>
+                              <td className="py-2">
+                                {r.isOpening ? (
+                                  <Badge variant="outline" className="text-[10px] bg-zinc-500/15 text-zinc-300 border-zinc-500/30">Opening</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px]">{r.net > 0 ? "Outstanding" : "Returned"}</Badge>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </>
                       );
-                    })}
+                    })()}
                   </tbody>
-                  {depositLines.length > 0 && (
-                    <tfoot>
-                      <tr className="border-t border-border bg-muted/20 text-sm font-semibold">
-                        <td colSpan={3} className="py-2 pr-4 text-right text-muted-foreground">Totals</td>
-                        <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t > 0 ? t : 0); }, 0))}</td>
-                        <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t < 0 ? Math.abs(t) : 0); }, 0))}</td>
-                        <td className={`py-2 pr-4 text-right td-num tabular-nums ${depositsOutstanding > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(depositsOutstanding)}</td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  )}
+                  {(depositLines.length > 0 || openingDeposits.length > 0) && (() => {
+                    const invCharged = depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t > 0 ? t : 0); }, 0);
+                    const invReturned = depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t < 0 ? Math.abs(t) : 0); }, 0);
+                    const obCharged = openingDeposits.reduce((s, d) => s + (Number(d.total_value) || (Number(d.quantity) || 0) * (Number(d.unit_value) || 0)), 0);
+                    const tCharged = invCharged + obCharged;
+                    const tReturned = invReturned;
+                    const tNet = tCharged - tReturned;
+                    return (
+                      <tfoot>
+                        <tr className="border-t border-border bg-muted/20 text-sm font-semibold">
+                          <td colSpan={3} className="py-2 pr-4 text-right text-muted-foreground">Totals</td>
+                          <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(tCharged)}</td>
+                          <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(tReturned)}</td>
+                          <td className={`py-2 pr-4 text-right td-num tabular-nums ${tNet > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(tNet)}</td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    );
+                  })()}
                 </table>
               </div>
             </CardContent>
