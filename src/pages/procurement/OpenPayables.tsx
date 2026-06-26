@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { usePayables, type APInvoice } from "@/hooks/usePayables";
-import { RecordPaymentDialog } from "@/components/finance/payables/RecordPaymentDialog";
+import { usePayables } from "@/hooks/usePayables";
+
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -47,12 +47,12 @@ const AGEING_BUCKETS = [
 export default function OpenPayablesPage() {
   const navigate = useNavigate();
   const { tenantId } = useActiveTenant();
-  const { invoices, creditNotesAvailable, bankAccounts, loading, refresh } = usePayables();
+  const { invoices, creditNotesAvailable, loading } = usePayables();
   const [bucket, setBucket] = useState("all");
   const [venueFilter, setVenueFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [payInvoice, setPayInvoice] = useState<APInvoice | null>(null);
   const [venues, setVenues] = useState<string[]>([]);
+
 
   useEffect(() => {
     if (!tenantId) return;
@@ -154,9 +154,14 @@ export default function OpenPayablesPage() {
         ))}
       </div>
 
+      <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        To record a payment, open the supplier account and use Record Payment.
+      </div>
+
       <Card className="card-glass">
         <CardContent className="p-5">
           <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Open invoices ({bucketed.length})</div>
+
           {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : bucketed.length === 0 ? (
             <div className="text-sm text-muted-foreground">No invoices in this bucket.</div>
           ) : (
@@ -199,8 +204,7 @@ export default function OpenPayablesPage() {
                       <td className="py-2 pr-4">
                         <Badge variant="outline" className="text-[10px]">{inv.payment_status}</Badge>
                       </td>
-                      <td className="py-2 text-right space-x-1">
-                        <Button size="sm" variant="outline" onClick={() => setPayInvoice(inv)}>Pay</Button>
+                      <td className="py-2 text-right">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -217,16 +221,7 @@ export default function OpenPayablesPage() {
           )}
         </CardContent>
       </Card>
-
-      <RecordPaymentDialog
-        open={!!payInvoice}
-        onOpenChange={(o) => { if (!o) setPayInvoice(null); }}
-        invoice={payInvoice}
-        supplierInvoices={invoices}
-        bankAccounts={bankAccounts}
-        creditNotes={creditNotesAvailable}
-        onSaved={() => { setPayInvoice(null); refresh(); }}
-      />
     </div>
   );
 }
+
