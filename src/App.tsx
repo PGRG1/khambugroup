@@ -39,6 +39,7 @@ import CreditNotes from "./pages/procurement/CreditNotes";
 import StockCounts from "./pages/procurement/StockCounts";
 import Transfers from "./pages/procurement/Transfers";
 import ProcurementFinance from "./pages/procurement/ProcurementFinance";
+import SupplierAccountPage from "./pages/procurement/SupplierAccount";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
 import SupplierPricing from "./pages/procurement/SupplierPricing";
 
