@@ -83,6 +83,15 @@ function KCard({ label, value, tone = "default", sub }: { label: string; value: 
 
 export default function SupplierAccountPage() {
   const { supplierId = "" } = useParams<{ supplierId: string }>();
+  const location = useLocation();
+  const navState = (location.state || {}) as { openTab?: string; highlightInvoiceId?: string };
+  const [activeTab, setActiveTab] = useState<string>(navState.openTab || "statement");
+  const [highlightInvoiceId, setHighlightInvoiceId] = useState<string | null>(navState.highlightInvoiceId || null);
+  useEffect(() => {
+    if (!highlightInvoiceId) return;
+    const t = setTimeout(() => setHighlightInvoiceId(null), 2000);
+    return () => clearTimeout(t);
+  }, [highlightInvoiceId]);
   const { tenantId } = useActiveTenant();
   const { invoices, creditNotes, creditNotesAvailable, bankAccounts, loading: payLoading, refresh } = usePayables();
 
