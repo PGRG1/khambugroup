@@ -185,10 +185,12 @@ function App() {
                 <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
                 <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
                 <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
-                <Route path="/procurement/finance" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance /></ProtectedRoute>} />
-                <Route path="/procurement/finance/suppliers" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance defaultTab="suppliers" /></ProtectedRoute>} />
-                <Route path="/procurement/finance/payables" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance defaultTab="open-payables" /></ProtectedRoute>} />
+                <Route path="/procurement/finance" element={<Navigate to="/procurement/finance/spend" replace />} />
+                <Route path="/procurement/finance/spend" element={<ProtectedRoute pageKey="invoices"><SpendSummaryPage /></ProtectedRoute>} />
+                <Route path="/procurement/finance/suppliers" element={<ProtectedRoute pageKey="invoices"><SupplierAccountsPage /></ProtectedRoute>} />
+                <Route path="/procurement/finance/payables" element={<ProtectedRoute pageKey="invoices"><OpenPayablesPage /></ProtectedRoute>} />
                 <Route path="/procurement/finance/suppliers/:supplierId" element={<ProtectedRoute pageKey="invoices"><SupplierAccountPage /></ProtectedRoute>} />
+
                 <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
                 <Route path="/procurement/supplier-pricing" element={<AdminRoute><SupplierPricing /></AdminRoute>} />
 
