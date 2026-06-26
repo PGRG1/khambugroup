@@ -65,9 +65,9 @@ export default function OpeningBalances() {
   const reload = useCallback(async () => {
     if (!tenantId) return;
     const [sups, sob, cn, dob] = await Promise.all([
-      supabase.from("suppliers").select("id,name").eq("tenant_id", tenantId).order("name"),
+      (supabase.from("suppliers") as any).select("id,name").eq("tenant_id", tenantId).order("name"),
       (supabase.from("supplier_opening_balances" as any) as any).select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false }),
-      supabase.from("credit_notes").select("id,supplier_id,credit_note_number,credit_note_date,original_amount,remaining_balance,status,venue,notes").eq("tenant_id", tenantId).eq("is_opening_balance" as any, true).order("credit_note_date", { ascending: false }),
+      (supabase.from("credit_notes") as any).select("id,supplier_id,credit_note_number,credit_note_date,original_amount,remaining_balance,status,venue,notes").eq("tenant_id", tenantId).eq("is_opening_balance", true).order("credit_note_date", { ascending: false }),
       (supabase.from("deposit_opening_balances" as any) as any).select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false }),
     ]);
     setSuppliers(((sups.data as any) || []) as Supplier[]);
