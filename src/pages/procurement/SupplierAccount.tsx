@@ -33,10 +33,12 @@ const fmtDate = (d?: string | null) => {
 };
 
 type LedgerType =
+  | "opening_balance"
   | "invoice" | "payment" | "credit_note" | "credit_applied" | "charge"
   | "refund" | "incentive" | "deposit" | "deposit_refund";
 
 const TYPE_CONFIG: Record<LedgerType, { label: string; className: string }> = {
+  opening_balance:{ label: "Opening bal",  className: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30" },
   invoice:        { label: "Invoice",       className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   payment:        { label: "Payment",       className: "bg-green-500/15 text-green-400 border-green-500/30" },
   credit_note:    { label: "Credit note",   className: "bg-sky-500/15 text-sky-400 border-sky-500/30" },
@@ -101,6 +103,8 @@ export default function SupplierAccountPage() {
   const [allocs, setAllocs] = useState<any[]>([]);
   const [refundLines, setRefundLines] = useState<any[]>([]);
   const [depositLines, setDepositLines] = useState<any[]>([]);
+  const [openingBalances, setOpeningBalances] = useState<any[]>([]);
+  const [openingDeposits, setOpeningDeposits] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string; internal_sku: string | null }[]>([]);
   const [period, setPeriod] = useState("all");
@@ -187,6 +191,22 @@ export default function SupplierAccountPage() {
       // Products for deal picker
       const prodRows = await fetchAllRows("product_master", "id, name, internal_sku", { col: "name", asc: true }, tenantId);
       setProducts(prodRows as any[]);
+
+      // Opening balances (supplier payables + deposits)
+      const [{ data: obRows }, { data: odRows }] = await Promise.all([
+        (supabase as any)
+          .from("supplier_opening_balances")
+          .select("id, as_of_date, amount, venue, notes")
+          .eq("supplier_id", supplierId)
+          .eq("tenant_id", tenantId),
+        (supabase as any)
+          .from("deposit_opening_balances")
+          .select("id, as_of_date, sku, description, quantity, unit_value, total_value, venue, notes")
+          .eq("supplier_id", supplierId)
+          .eq("tenant_id", tenantId),
+      ]);
+      setOpeningBalances(obRows || []);
+      setOpeningDeposits(odRows || []);
     })();
   }, [tenantId, supplierId, refreshKey]);
 
@@ -230,6 +250,18 @@ export default function SupplierAccountPage() {
 
   const ledger = useMemo<Entry[]>(() => {
     const entries: Entry[] = [];
+    openingBalances.forEach((row) => {
+      entries.push({
+        id: `ob-${row.id}`,
+        date: row.as_of_date,
+        type: "opening_balance",
+        reference: "Opening balance",
+        description: (row.notes && String(row.notes).trim()) || `Opening balance as of ${fmtDate(row.as_of_date)}`,
+        venue: row.venue || "",
+        debit: Number(row.amount) || 0,
+        credit: 0,
+      });
+    });
     supplierInvoices.forEach((inv) => {
       const isCharge = inv.invoice_number?.startsWith("CHARGE-");
       entries.push({
@@ -316,13 +348,17 @@ export default function SupplierAccountPage() {
       });
     });
 
-    const sorted = entries.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const sorted = entries.sort((a, b) => {
+      if (a.type === "opening_balance" && b.type !== "opening_balance") return -1;
+      if (b.type === "opening_balance" && a.type !== "opening_balance") return 1;
+      return (a.date || "").localeCompare(b.date || "");
+    });
     let balance = 0;
     return sorted.map((e) => {
       balance = balance + (e.debit || 0) - (e.credit || 0);
       return { ...e, balance };
     });
-  }, [supplierInvoices, supplierPayments, supplierCNs, refundLines, depositLines]);
+  }, [supplierInvoices, supplierPayments, supplierCNs, refundLines, depositLines, openingBalances]);
 
   const filteredLedger = useMemo(() => {
     const start = periodStart(period);
@@ -815,36 +851,82 @@ export default function SupplierAccountPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {depositLines.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No deposit transactions.</td></tr>
-                    ) : depositLines.map((l) => {
-                      const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
-                      const charged = total >= 0 ? total : 0;
-                      const returned = total < 0 ? Math.abs(total) : 0;
+                    {(() => {
+                      type DRow = { key: string; date: string; invoiceNo: string; description: string; charged: number; returned: number; net: number; isOpening: boolean };
+                      const invRows: DRow[] = depositLines.map((l) => {
+                        const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
+                        return {
+                          key: `dep-${l.id}`,
+                          date: l.invoices?.invoice_date || "",
+                          invoiceNo: l.invoices?.invoice_number || "—",
+                          description: l.product_master?.name || l.description || "—",
+                          charged: total >= 0 ? total : 0,
+                          returned: total < 0 ? Math.abs(total) : 0,
+                          net: total,
+                          isOpening: false,
+                        };
+                      });
+                      const obRows: DRow[] = openingDeposits.map((d) => {
+                        const total = Number(d.total_value) || (Number(d.quantity) || 0) * (Number(d.unit_value) || 0);
+                        return {
+                          key: `od-${d.id}`,
+                          date: d.as_of_date || "",
+                          invoiceNo: "Opening",
+                          description: d.description || "—",
+                          charged: total,
+                          returned: 0,
+                          net: total,
+                          isOpening: true,
+                        };
+                      });
+                      const rows = [...invRows, ...obRows].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+                      const totalCharged = rows.reduce((s, r) => s + r.charged, 0);
+                      const totalReturned = rows.reduce((s, r) => s + r.returned, 0);
+                      const totalNet = totalCharged - totalReturned;
                       return (
-                        <tr key={l.id} className="border-b border-border/30">
-                          <td className="py-2 pr-4">{fmtDate(l.invoices?.invoice_date)}</td>
-                          <td className="py-2 pr-4 font-mono text-xs">{l.invoices?.invoice_number || "—"}</td>
-                          <td className="py-2 pr-4">{l.product_master?.name || l.description || "—"}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums">{charged > 0 ? fmt(charged) : "—"}</td>
-                          <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{returned > 0 ? fmt(returned) : "—"}</td>
-                          <td className={`py-2 pr-4 text-right td-num tabular-nums ${total > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(total)}</td>
-                          <td className="py-2"><Badge variant="outline" className="text-[10px]">{total > 0 ? "Outstanding" : "Returned"}</Badge></td>
-                        </tr>
+                        <>
+                          {rows.length === 0 ? (
+                            <tr><td colSpan={7} className="text-center text-muted-foreground py-6">No deposit transactions.</td></tr>
+                          ) : rows.map((r) => (
+                            <tr key={r.key} className="border-b border-border/30">
+                              <td className="py-2 pr-4">{fmtDate(r.date)}</td>
+                              <td className="py-2 pr-4 font-mono text-xs">{r.invoiceNo}</td>
+                              <td className="py-2 pr-4">{r.description}</td>
+                              <td className="py-2 pr-4 text-right td-num tabular-nums">{r.charged > 0 ? fmt(r.charged) : "—"}</td>
+                              <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{r.returned > 0 ? fmt(r.returned) : "—"}</td>
+                              <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.net > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(r.net)}</td>
+                              <td className="py-2">
+                                {r.isOpening ? (
+                                  <Badge variant="outline" className="text-[10px] bg-zinc-500/15 text-zinc-300 border-zinc-500/30">Opening</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px]">{r.net > 0 ? "Outstanding" : "Returned"}</Badge>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </>
                       );
-                    })}
+                    })()}
                   </tbody>
-                  {depositLines.length > 0 && (
-                    <tfoot>
-                      <tr className="border-t border-border bg-muted/20 text-sm font-semibold">
-                        <td colSpan={3} className="py-2 pr-4 text-right text-muted-foreground">Totals</td>
-                        <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t > 0 ? t : 0); }, 0))}</td>
-                        <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t < 0 ? Math.abs(t) : 0); }, 0))}</td>
-                        <td className={`py-2 pr-4 text-right td-num tabular-nums ${depositsOutstanding > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(depositsOutstanding)}</td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  )}
+                  {(depositLines.length > 0 || openingDeposits.length > 0) && (() => {
+                    const invCharged = depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t > 0 ? t : 0); }, 0);
+                    const invReturned = depositLines.reduce((s, l) => { const t = Number(l.total) || 0; return s + (t < 0 ? Math.abs(t) : 0); }, 0);
+                    const obCharged = openingDeposits.reduce((s, d) => s + (Number(d.total_value) || (Number(d.quantity) || 0) * (Number(d.unit_value) || 0)), 0);
+                    const tCharged = invCharged + obCharged;
+                    const tReturned = invReturned;
+                    const tNet = tCharged - tReturned;
+                    return (
+                      <tfoot>
+                        <tr className="border-t border-border bg-muted/20 text-sm font-semibold">
+                          <td colSpan={3} className="py-2 pr-4 text-right text-muted-foreground">Totals</td>
+                          <td className="py-2 pr-4 text-right td-num tabular-nums">{fmt(tCharged)}</td>
+                          <td className="py-2 pr-4 text-right td-num tabular-nums text-emerald-400">{fmt(tReturned)}</td>
+                          <td className={`py-2 pr-4 text-right td-num tabular-nums ${tNet > 0 ? "text-amber-400" : "text-emerald-400"}`}>{fmt(tNet)}</td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    );
+                  })()}
                 </table>
               </div>
             </CardContent>
