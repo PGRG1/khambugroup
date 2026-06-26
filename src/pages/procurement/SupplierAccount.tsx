@@ -434,7 +434,7 @@ export default function SupplierAccountPage() {
         <KCard label="Deposits outstanding" value={fmtMoney(depositsOutstanding)} tone="sky" />
       </div>
 
-      <Tabs defaultValue="statement" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">
           {[
             { v: "statement", l: "Statement" },
