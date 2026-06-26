@@ -44,6 +44,7 @@ import OpenPayablesPage from "./pages/procurement/OpenPayables";
 import SupplierAccountPage from "./pages/procurement/SupplierAccount";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
 import SupplierPricing from "./pages/procurement/SupplierPricing";
+import OpeningBalances from "./pages/procurement/OpeningBalances";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
@@ -189,6 +190,7 @@ function App() {
                 <Route path="/procurement/finance/spend" element={<ProtectedRoute pageKey="invoices"><SpendSummaryPage /></ProtectedRoute>} />
                 <Route path="/procurement/finance/suppliers" element={<ProtectedRoute pageKey="invoices"><SupplierAccountsPage /></ProtectedRoute>} />
                 <Route path="/procurement/finance/payables" element={<ProtectedRoute pageKey="invoices"><OpenPayablesPage /></ProtectedRoute>} />
+                <Route path="/procurement/finance/onboarding" element={<ProtectedRoute pageKey="invoices"><OpeningBalances /></ProtectedRoute>} />
                 <Route path="/procurement/finance/suppliers/:supplierId" element={<ProtectedRoute pageKey="invoices"><SupplierAccountPage /></ProtectedRoute>} />
 
                 <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
