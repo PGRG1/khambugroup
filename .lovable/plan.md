@@ -1,32 +1,55 @@
-## Procurement Opening Balances — implementation
+Modify only `src/pages/procurement/SupplierAccount.tsx`.
 
-Migration already executed:
-- ✅ `supplier_opening_balances` (tenant-scoped, unique on tenant+supplier+as_of_date)
-- ✅ `deposit_opening_balances` (tenant-scoped, `total_value` generated as qty × unit_value)
-- ✅ `credit_notes.is_opening_balance boolean default false`
-- ✅ RLS: tenant members can view; only `admin` / `manager` roles can insert / update / delete
+## 1. Types & badge config
 
-Remaining work (build mode):
+- Extend `LedgerType` union with `"opening_balance"`.
+- Add to `TYPE_CONFIG`:
+  `opening_balance: { label: "Opening bal", className: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30" }`.
 
-### 1. `src/pages/procurement/OpeningBalances.tsx` (new)
-- Page header + go-live date picker (defaults to today; drives `as_of_date` / `credit_note_date` on every insert)
-- Three `card-glass` sections:
-  - **Supplier Payables** — table (Supplier · Amount · Venue · As of Date · Notes · Actions) with Add/Edit/Delete dialog writing to `supplier_opening_balances`
-  - **Credit Notes** — table of `credit_notes WHERE is_opening_balance=true` (Supplier · CN # · Amount · Remaining · Date · Notes · Status · Void). Add dialog inserts with `status='approved'`, `remaining_balance=amount`, `source_invoice_id=null`, `is_opening_balance=true`, `credit_note_date=goLiveDate`
-  - **Deposits** — table (Supplier · SKU · Description · Qty · Unit Value · Total · Venue · Actions). Add/Edit dialog with SKU free-text that queries `product_master.internal_sku` on change and auto-fills description + unit value (overridable). Total shown read-only as qty × unit value
-- All reads/writes `.eq('tenant_id', tenantId)` from `useActiveTenant()`; suppliers list also tenant-scoped
+## 2. State + data fetch
 
-### 2. `src/App.tsx`
-Add route under existing finance routes:
+- Add `const [openingBalances, setOpeningBalances] = useState<any[]>([]);`
+- Add `const [openingDeposits, setOpeningDeposits] = useState<any[]>([]);`
+- Inside the existing `useEffect` (the `tenantId && supplierId` loader), after the current queries, fetch in parallel:
+  - `supplier_opening_balances` where `supplier_id = supplierId` and `tenant_id = tenantId` → `setOpeningBalances(...)`.
+  - `deposit_opening_balances` where `supplier_id = supplierId` and `tenant_id = tenantId` → `setOpeningDeposits(...)`.
+
+## 3. Statement tab (ledger memo)
+
+In the `ledger` `useMemo`, before the existing `entries.push` loops, push one entry per opening balance row:
+
 ```
-<Route path="/procurement/finance/onboarding"
-  element={<ProtectedRoute pageKey="invoices"><OpeningBalances /></ProtectedRoute>} />
+{
+  id: `ob-${row.id}`,
+  date: row.as_of_date,
+  type: "opening_balance",
+  reference: "Opening balance",
+  description: row.notes?.trim() || `Opening balance as of ${fmtDate(row.as_of_date)}`,
+  venue: row.venue || "",
+  debit: Number(row.amount) || 0,
+  credit: 0,
+}
 ```
 
-### 3. `src/components/AppSidebar.tsx`
-Add to `procurementFinance` array, directly below "Open Payables":
+Change the sort so opening_balance entries always come first regardless of date:
+
 ```
-{ title: "Opening Balances", url: "/procurement/finance/onboarding", icon: ClipboardCheck },
+entries.sort((a, b) => {
+  if (a.type === "opening_balance" && b.type !== "opening_balance") return -1;
+  if (b.type === "opening_balance" && a.type !== "opening_balance") return 1;
+  return (a.date || "").localeCompare(b.date || "");
+});
 ```
 
-No other files modified.
+Add `openingBalances` to the memo dependency array. Opening balances flow through the existing running-balance and CSV export logic unchanged.
+
+## 4. Deposits tab
+
+Locate the deposits table render (built from `depositLines`). Build a combined array:
+
+- Invoice-line deposits: existing mapping (Date = `invoices.invoice_date`, Invoice # = `invoices.invoice_number`, Charged / Returned split by sign of `total`, Net = Charged − Returned, Status = current badge).
+- Opening deposits from `openingDeposits`: Date = `as_of_date`, Invoice # = `"Opening"`, Description = `description`, Charged = `Number(total_value) || 0`, Returned = `0`, Net Outstanding = Charged, Status = `<Badge>` with gray styling (`bg-zinc-500/15 text-zinc-300 border-zinc-500/30`) labelled `"Opening"`.
+
+Concatenate then sort by date ascending. Update the totals row to sum Charged / Returned / Net across the combined array so opening deposits are included.
+
+No other tab, query, or file changes.
