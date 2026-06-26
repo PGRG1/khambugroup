@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, AlertTriangle, ArrowUpRight, ArrowDownRight, Receipt } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, AlertTriangle, ArrowUpRight, ArrowDownRight, Receipt, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,7 +55,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 // ---------- main ----------
-export default function ProcurementFinance() {
+export default function ProcurementFinance({ defaultTab = "spend" }: { defaultTab?: string } = {}) {
   const { tenantId } = useActiveTenant();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -107,10 +107,12 @@ export default function ProcurementFinance() {
         </div>
       </div>
 
-      <Tabs defaultValue="spend" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">
           {[
             { v: "spend", l: "Spend Summary" },
+            { v: "suppliers", l: "Supplier Accounts" },
+            { v: "open-payables", l: "Open Payables" },
             { v: "payables", l: "Supplier Payables" },
             { v: "credits", l: "Credits & Deposits" },
           ].map((t) => (
@@ -134,6 +136,14 @@ export default function ProcurementFinance() {
             prevEnd={pmEnd}
             label={`${MONTHS_LONG[month]} ${year}`}
           />
+        </TabsContent>
+
+        <TabsContent value="suppliers" className="mt-6">
+          <SupplierAccountsTab tenantId={tenantId} />
+        </TabsContent>
+
+        <TabsContent value="open-payables" className="mt-6">
+          <OpenPayablesTab tenantId={tenantId} venues={venues} />
         </TabsContent>
 
         <TabsContent value="payables" className="mt-6">
@@ -767,6 +777,324 @@ function CreditsDepositsTab({ tenantId }: { tenantId: string | null }) {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// =================== TAB — SUPPLIER ACCOUNTS ===================
+
+function SupplierAccountsTab({ tenantId }: { tenantId: string | null }) {
+  const navigate = useNavigate();
+  const { invoices, creditNotesAvailable, loading } = usePayables();
+  const [payments, setPayments] = useState<any[]>([]);
+  const [allocs, setAllocs] = useState<any[]>([]);
+  const [supplierMap, setSupplierMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      // payments & payment_allocations have no tenant_id — fetch all, filter client-side
+      const [pays, alcs, sups] = await Promise.all([
+        fetchAllRows("payments", "id, payment_date, amount, supplier_id"),
+        fetchAllRows("payment_allocations", "id, payment_id, amount_allocated"),
+        fetchAllRows("suppliers", "id, name", undefined, tenantId),
+      ]);
+      setPayments(pays);
+      setAllocs(alcs);
+      const m = new Map<string, string>();
+      for (const s of sups as any[]) m.set(s.id, s.name || "—");
+      setSupplierMap(m);
+    })();
+  }, [tenantId]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const rows = useMemo(() => {
+    const tenantSupplierIds = new Set(
+      invoices.map((i) => i.supplier_id).filter(Boolean) as string[]
+    );
+    for (const cn of creditNotesAvailable) tenantSupplierIds.add(cn.supplier_id);
+
+    const allocSumByPayment = new Map<string, number>();
+    for (const a of allocs) {
+      allocSumByPayment.set(a.payment_id, (allocSumByPayment.get(a.payment_id) || 0) + (Number(a.amount_allocated) || 0));
+    }
+
+    type Agg = {
+      supplier_id: string;
+      supplier_name: string;
+      current_balance: number;
+      overdue_balance: number;
+      available_credits: number;
+      unallocated_payments: number;
+      open_invoice_count: number;
+      last_transaction_date: string | null;
+    };
+    const m = new Map<string, Agg>();
+    const get = (sid: string): Agg => {
+      let a = m.get(sid);
+      if (!a) {
+        a = {
+          supplier_id: sid,
+          supplier_name: supplierMap.get(sid) || "—",
+          current_balance: 0, overdue_balance: 0, available_credits: 0,
+          unallocated_payments: 0, open_invoice_count: 0, last_transaction_date: null,
+        };
+        m.set(sid, a);
+      }
+      return a;
+    };
+
+    for (const inv of invoices) {
+      if (!inv.supplier_id) continue;
+      const a = get(inv.supplier_id);
+      if (!a.supplier_name || a.supplier_name === "—") a.supplier_name = inv.supplier_name;
+      if (inv.outstanding_amount > 0 && inv.payment_status !== "voided") {
+        a.current_balance += inv.outstanding_amount;
+        a.open_invoice_count += 1;
+        if (inv.due_date && inv.due_date < todayStr) a.overdue_balance += inv.outstanding_amount;
+      }
+      if (!a.last_transaction_date || (inv.invoice_date || "") > a.last_transaction_date) {
+        a.last_transaction_date = inv.invoice_date;
+      }
+    }
+    for (const cn of creditNotesAvailable) {
+      const a = get(cn.supplier_id);
+      a.available_credits += cn.remaining_balance;
+      if (!a.last_transaction_date || (cn.credit_note_date || "") > a.last_transaction_date) {
+        a.last_transaction_date = cn.credit_note_date;
+      }
+    }
+    for (const p of payments) {
+      if (!p.supplier_id || !tenantSupplierIds.has(p.supplier_id)) continue;
+      const a = get(p.supplier_id);
+      const amt = Number(p.amount) || 0;
+      const allocated = allocSumByPayment.get(p.id) || 0;
+      const unalloc = Math.max(0, amt - allocated);
+      if (unalloc > 0.01) a.unallocated_payments += unalloc;
+      if (!a.last_transaction_date || (p.payment_date || "") > a.last_transaction_date) {
+        a.last_transaction_date = p.payment_date;
+      }
+    }
+    return Array.from(m.values()).sort((a, b) => b.current_balance - a.current_balance);
+  }, [invoices, creditNotesAvailable, payments, allocs, supplierMap, todayStr]);
+
+  const totals = useMemo(() => {
+    let outstanding = 0, overdue = 0, credits = 0, unalloc = 0;
+    for (const r of rows) {
+      outstanding += r.current_balance;
+      overdue += r.overdue_balance;
+      credits += r.available_credits;
+      unalloc += r.unallocated_payments;
+    }
+    return { outstanding, overdue, credits, unalloc };
+  }, [rows]);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <KCard label="Total outstanding" value={fmtMoney(totals.outstanding)} tone={totals.outstanding > 0 ? "amber" : "default"} />
+        <KCard label="Total overdue" value={fmtMoney(totals.overdue)} tone="red" />
+        <KCard label="Available credits" value={fmtMoney(totals.credits)} tone="green" />
+        <KCard label="Unallocated payments" value={fmtMoney(totals.unalloc)} tone={totals.unalloc > 0 ? "amber" : "default"} />
+      </div>
+
+      <Card className="card-glass">
+        <CardContent className="p-5">
+          <SectionLabel>Suppliers ({rows.length})</SectionLabel>
+          {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : rows.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No supplier activity yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                    <th className="text-left py-2 pr-4">Supplier</th>
+                    <th className="text-right py-2 pr-4">Balance</th>
+                    <th className="text-right py-2 pr-4">Overdue</th>
+                    <th className="text-right py-2 pr-4">Available credits</th>
+                    <th className="text-right py-2 pr-4">Unallocated payments</th>
+                    <th className="text-right py-2 pr-4">Open invoices</th>
+                    <th className="text-left py-2 pr-4">Last activity</th>
+                    <th className="text-right py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.supplier_id} className={`border-b border-border/40 ${r.overdue_balance > 0 ? "border-l-2 border-l-amber-400" : ""}`}>
+                      <td className="py-2 pr-4 font-semibold">{r.supplier_name}</td>
+                      <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.current_balance > 0 ? "text-amber-400" : ""}`}>{fmtMoney(r.current_balance)}</td>
+                      <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.overdue_balance > 0 ? "text-red-400" : "text-muted-foreground/60"}`}>{r.overdue_balance > 0 ? fmtMoney(r.overdue_balance) : "—"}</td>
+                      <td className={`py-2 pr-4 text-right td-num tabular-nums ${r.available_credits > 0 ? "text-emerald-400" : "text-muted-foreground/60"}`}>{r.available_credits > 0 ? fmtMoney(r.available_credits) : "—"}</td>
+                      <td className="py-2 pr-4 text-right td-num tabular-nums">
+                        {r.unallocated_payments > 0 ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-400 border-amber-500/30">Unallocated</Badge>
+                            {fmtMoney(r.unallocated_payments)}
+                          </span>
+                        ) : <span className="text-muted-foreground/60">—</span>}
+                      </td>
+                      <td className="py-2 pr-4 text-right td-num">{r.open_invoice_count}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">{fmtDate(r.last_transaction_date)}</td>
+                      <td className="py-2 text-right">
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/procurement/finance/suppliers/${r.supplier_id}`)}>
+                          View account <ExternalLink className="h-3 w-3 ml-1" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// =================== TAB — OPEN PAYABLES ===================
+
+const AGEING_BUCKETS = [
+  { v: "all", l: "All" },
+  { v: "current", l: "Current" },
+  { v: "1-30", l: "1–30 days" },
+  { v: "31-60", l: "31–60 days" },
+  { v: "61-90", l: "61–90 days" },
+  { v: "90+", l: "90+ days" },
+];
+
+function OpenPayablesTab({ tenantId: _t, venues }: { tenantId: string | null; venues: string[] }) {
+  const { invoices, creditNotesAvailable, bankAccounts, loading, refresh } = usePayables();
+  const [bucket, setBucket] = useState("all");
+  const [payInvoice, setPayInvoice] = useState<APInvoice | null>(null);
+
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const inSevenDays = new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+
+  const openInvoices = useMemo(() => {
+    return invoices.filter((i) => i.outstanding_amount > 0 && i.payment_status !== "voided");
+    // usePayables already filters to review_status === Approved
+  }, [invoices]);
+
+  const withAging = useMemo(() => openInvoices.map((i) => {
+    const due = i.due_date || i.invoice_date;
+    const daysOverdue = due ? Math.floor((today.getTime() - new Date(due).getTime()) / 86400000) : 0;
+    return { inv: i, daysOverdue: Math.max(0, daysOverdue), isOverdue: daysOverdue > 0 };
+  }), [openInvoices, todayStr]);
+
+  const bucketed = useMemo(() => withAging.filter(({ daysOverdue, inv }) => {
+    if (bucket === "all") return true;
+    if (bucket === "current") return !inv.due_date || inv.due_date >= todayStr;
+    if (bucket === "1-30") return daysOverdue >= 1 && daysOverdue <= 30;
+    if (bucket === "31-60") return daysOverdue >= 31 && daysOverdue <= 60;
+    if (bucket === "61-90") return daysOverdue >= 61 && daysOverdue <= 90;
+    if (bucket === "90+") return daysOverdue > 90;
+    return true;
+  }), [withAging, bucket, todayStr]);
+
+  const totals = useMemo(() => {
+    let outstanding = 0, overdue = 0, dueWeek = 0;
+    for (const i of openInvoices) {
+      outstanding += i.outstanding_amount;
+      if (i.due_date && i.due_date < todayStr) overdue += i.outstanding_amount;
+      if (i.due_date && i.due_date >= todayStr && i.due_date <= inSevenDays) dueWeek += i.outstanding_amount;
+    }
+    const credits = creditNotesAvailable.reduce((s, c) => s + c.remaining_balance, 0);
+    return { outstanding, overdue, dueWeek, credits };
+  }, [openInvoices, creditNotesAvailable, todayStr, inSevenDays]);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <KCard label="Total outstanding" value={fmtMoney(totals.outstanding)} tone={totals.outstanding > 0 ? "amber" : "default"} />
+        <KCard label="Total overdue" value={fmtMoney(totals.overdue)} tone="red" />
+        <KCard label="Due this week" value={fmtMoney(totals.dueWeek)} tone="sky" />
+        <KCard label="Available credits" value={fmtMoney(totals.credits)} tone="green" />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {AGEING_BUCKETS.map((b) => (
+          <button
+            key={b.v}
+            onClick={() => setBucket(b.v)}
+            className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${bucket === b.v ? "bg-amber-400/15 border-amber-400 text-amber-400" : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            {b.l}
+          </button>
+        ))}
+      </div>
+
+      <Card className="card-glass">
+        <CardContent className="p-5">
+          <SectionLabel>Open invoices ({bucketed.length})</SectionLabel>
+          {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : bucketed.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No invoices in this bucket.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                    <th className="text-left py-2 pr-4">Supplier</th>
+                    <th className="text-left py-2 pr-4">Invoice #</th>
+                    <th className="text-left py-2 pr-4">Venue</th>
+                    <th className="text-left py-2 pr-4">Invoice date</th>
+                    <th className="text-left py-2 pr-4">Due date</th>
+                    <th className="text-right py-2 pr-4">Total</th>
+                    <th className="text-right py-2 pr-4">Paid</th>
+                    <th className="text-right py-2 pr-4">Outstanding</th>
+                    <th className="text-right py-2 pr-4">Days overdue</th>
+                    <th className="text-left py-2 pr-4">Status</th>
+                    <th className="text-right py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bucketed.map(({ inv, daysOverdue }) => {
+                    const disputed = inv.payment_status === "disputed" || inv.raw_payment_status === "disputed";
+                    return (
+                      <tr key={inv.id} className={`border-b border-border/40 ${disputed ? "border-l-2 border-l-amber-400" : ""}`}>
+                        <td className="py-2 pr-4">{inv.supplier_name}</td>
+                        <td className="py-2 pr-4 font-mono text-xs">{inv.invoice_number}</td>
+                        <td className="py-2 pr-4">{inv.venue || "—"}</td>
+                        <td className="py-2 pr-4">{fmtDate(inv.invoice_date)}</td>
+                        <td className="py-2 pr-4">{fmtDate(inv.due_date)}</td>
+                        <td className="py-2 pr-4 text-right td-num tabular-nums">{fmtMoney(inv.total_amount)}</td>
+                        <td className="py-2 pr-4 text-right td-num tabular-nums text-muted-foreground">{fmtMoney(inv.amount_paid)}</td>
+                        <td className="py-2 pr-4 text-right td-num tabular-nums text-amber-400">{fmtMoney(inv.outstanding_amount)}</td>
+                        <td className={`py-2 pr-4 text-right td-num tabular-nums ${daysOverdue > 60 ? "text-red-400" : daysOverdue > 0 ? "text-amber-400" : "text-muted-foreground/60"}`}>{daysOverdue > 0 ? `${daysOverdue}d` : "—"}</td>
+                        <td className="py-2 pr-4">
+                          <Badge variant="outline" className="text-[10px]">{inv.payment_status}</Badge>
+                        </td>
+                        <td className="py-2 text-right space-x-1">
+                          <Button size="sm" variant="outline" onClick={() => setPayInvoice(inv)}>Pay</Button>
+                          {inv.file_url && (
+                            <Button size="sm" variant="ghost" asChild>
+                              <a href={inv.file_url} target="_blank" rel="noreferrer">View</a>
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <RecordPaymentDialog
+        open={!!payInvoice}
+        onOpenChange={(o) => { if (!o) setPayInvoice(null); }}
+        invoice={payInvoice}
+        supplierInvoices={invoices}
+        bankAccounts={bankAccounts}
+        creditNotes={creditNotesAvailable}
+        onSaved={() => { setPayInvoice(null); refresh(); }}
+      />
+      {/* venues prop reserved for future filter UI */}
+      <span className="hidden">{venues.length}</span>
     </div>
   );
 }

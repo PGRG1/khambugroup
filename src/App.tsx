@@ -39,6 +39,7 @@ import CreditNotes from "./pages/procurement/CreditNotes";
 import StockCounts from "./pages/procurement/StockCounts";
 import Transfers from "./pages/procurement/Transfers";
 import ProcurementFinance from "./pages/procurement/ProcurementFinance";
+import SupplierAccountPage from "./pages/procurement/SupplierAccount";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
 import SupplierPricing from "./pages/procurement/SupplierPricing";
 
@@ -183,6 +184,9 @@ function App() {
                 <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
                 <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
                 <Route path="/procurement/finance" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance /></ProtectedRoute>} />
+                <Route path="/procurement/finance/suppliers" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance defaultTab="suppliers" /></ProtectedRoute>} />
+                <Route path="/procurement/finance/payables" element={<ProtectedRoute pageKey="invoices"><ProcurementFinance defaultTab="open-payables" /></ProtectedRoute>} />
+                <Route path="/procurement/finance/suppliers/:supplierId" element={<ProtectedRoute pageKey="invoices"><SupplierAccountPage /></ProtectedRoute>} />
                 <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
                 <Route path="/procurement/supplier-pricing" element={<AdminRoute><SupplierPricing /></AdminRoute>} />
 
