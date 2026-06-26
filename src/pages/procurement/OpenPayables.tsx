@@ -199,8 +199,7 @@ export default function OpenPayablesPage() {
                       <td className="py-2 pr-4">
                         <Badge variant="outline" className="text-[10px]">{inv.payment_status}</Badge>
                       </td>
-                      <td className="py-2 text-right space-x-1">
-                        <Button size="sm" variant="outline" onClick={() => setPayInvoice(inv)}>Pay</Button>
+                      <td className="py-2 text-right">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -217,16 +216,7 @@ export default function OpenPayablesPage() {
           )}
         </CardContent>
       </Card>
-
-      <RecordPaymentDialog
-        open={!!payInvoice}
-        onOpenChange={(o) => { if (!o) setPayInvoice(null); }}
-        invoice={payInvoice}
-        supplierInvoices={invoices}
-        bankAccounts={bankAccounts}
-        creditNotes={creditNotesAvailable}
-        onSaved={() => { setPayInvoice(null); refresh(); }}
-      />
     </div>
   );
 }
+
