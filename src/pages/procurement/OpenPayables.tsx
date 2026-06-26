@@ -47,12 +47,12 @@ const AGEING_BUCKETS = [
 export default function OpenPayablesPage() {
   const navigate = useNavigate();
   const { tenantId } = useActiveTenant();
-  const { invoices, creditNotesAvailable, bankAccounts, loading, refresh } = usePayables();
+  const { invoices, creditNotesAvailable, loading } = usePayables();
   const [bucket, setBucket] = useState("all");
   const [venueFilter, setVenueFilter] = useState("all");
   const [supplierFilter, setSupplierFilter] = useState("all");
-  const [payInvoice, setPayInvoice] = useState<APInvoice | null>(null);
   const [venues, setVenues] = useState<string[]>([]);
+
 
   useEffect(() => {
     if (!tenantId) return;
