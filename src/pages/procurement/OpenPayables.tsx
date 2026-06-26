@@ -154,9 +154,14 @@ export default function OpenPayablesPage() {
         ))}
       </div>
 
+      <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        To record a payment, open the supplier account and use Record Payment.
+      </div>
+
       <Card className="card-glass">
         <CardContent className="p-5">
           <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2">Open invoices ({bucketed.length})</div>
+
           {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : bucketed.length === 0 ? (
             <div className="text-sm text-muted-foreground">No invoices in this bucket.</div>
           ) : (
