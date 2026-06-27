@@ -45,6 +45,7 @@ import SupplierAccountPage from "./pages/procurement/SupplierAccount";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
 import SupplierPricing from "./pages/procurement/SupplierPricing";
 import OpeningBalances from "./pages/procurement/OpeningBalances";
+import WastePage from "./pages/procurement/Waste";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
