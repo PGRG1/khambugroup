@@ -45,6 +45,7 @@ import SupplierAccountPage from "./pages/procurement/SupplierAccount";
 import PurchaseAnalysis from "./pages/procurement/PurchaseAnalysis";
 import SupplierPricing from "./pages/procurement/SupplierPricing";
 import OpeningBalances from "./pages/procurement/OpeningBalances";
+import WastePage from "./pages/procurement/Waste";
 
 import Cashflow from "./pages/finance/Cashflow";
 import CashflowLedger from "./pages/finance/CashflowLedger";
@@ -186,6 +187,8 @@ function App() {
                 <Route path="/procurement/credit-notes" element={<AdminRoute><CreditNotes /></AdminRoute>} />
                 <Route path="/procurement/stock-counts" element={<AdminRoute><StockCounts /></AdminRoute>} />
                 <Route path="/procurement/transfers" element={<AdminRoute><Transfers /></AdminRoute>} />
+                <Route path="/procurement/waste" element={<AdminRoute><WastePage /></AdminRoute>} />
+
                 <Route path="/procurement/finance" element={<Navigate to="/procurement/finance/spend" replace />} />
                 <Route path="/procurement/finance/spend" element={<ProtectedRoute pageKey="invoices"><SpendSummaryPage /></ProtectedRoute>} />
                 <Route path="/procurement/finance/suppliers" element={<ProtectedRoute pageKey="invoices"><SupplierAccountsPage /></ProtectedRoute>} />

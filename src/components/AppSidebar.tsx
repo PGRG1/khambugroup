@@ -92,7 +92,7 @@ const procurementInventory = [
   { title: "Stock Counts", url: "/procurement/stock-counts", icon: ClipboardCheck, disabled: false },
   { title: "Stock Movements", url: "/procurement/stock-movements", icon: ArrowLeftRight, disabled: true },
   { title: "Transfers", url: "/procurement/transfers", icon: ArrowRightLeft, disabled: false },
-  { title: "Waste & Adjustments", url: "/procurement/waste", icon: Trash2, disabled: true },
+  { title: "Waste & Adjustments", url: "/procurement/waste", icon: Trash2, disabled: false },
 ];
 
 const procurementCosting = [
