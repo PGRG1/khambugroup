@@ -1,55 +1,8 @@
-Modify only `src/pages/procurement/SupplierAccount.tsx`.
+No code changes needed. Validation of `src/pages/procurement/SupplierAccount.tsx` confirms `deposit_opening_balances` are correctly merged into the Deposits tab:
 
-## 1. Types & badge config
+1. **Row mapping** (lines 869-881): each opening deposit becomes a `DRow` with `invoiceNo = "Opening"`, `charged = total_value` (with fallback to `quantity × unit_value`), `returned = 0`, `net = total_value`, `isOpening = true`.
+2. **Combine + sort** (line 882): invoice deposits and opening deposits concatenated and sorted by date ascending.
+3. **Status badge** (line 900): gray "Opening" badge styled `bg-zinc-500/15 text-zinc-300 border-zinc-500/30`.
+4. **Totals row** (lines 911-928): `tCharged = invCharged + obCharged` and `tNet = tCharged − tReturned`, so opening deposits flow into both Charged and Net Outstanding totals. Footer renders whenever either source has rows.
 
-- Extend `LedgerType` union with `"opening_balance"`.
-- Add to `TYPE_CONFIG`:
-  `opening_balance: { label: "Opening bal", className: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30" }`.
-
-## 2. State + data fetch
-
-- Add `const [openingBalances, setOpeningBalances] = useState<any[]>([]);`
-- Add `const [openingDeposits, setOpeningDeposits] = useState<any[]>([]);`
-- Inside the existing `useEffect` (the `tenantId && supplierId` loader), after the current queries, fetch in parallel:
-  - `supplier_opening_balances` where `supplier_id = supplierId` and `tenant_id = tenantId` → `setOpeningBalances(...)`.
-  - `deposit_opening_balances` where `supplier_id = supplierId` and `tenant_id = tenantId` → `setOpeningDeposits(...)`.
-
-## 3. Statement tab (ledger memo)
-
-In the `ledger` `useMemo`, before the existing `entries.push` loops, push one entry per opening balance row:
-
-```
-{
-  id: `ob-${row.id}`,
-  date: row.as_of_date,
-  type: "opening_balance",
-  reference: "Opening balance",
-  description: row.notes?.trim() || `Opening balance as of ${fmtDate(row.as_of_date)}`,
-  venue: row.venue || "",
-  debit: Number(row.amount) || 0,
-  credit: 0,
-}
-```
-
-Change the sort so opening_balance entries always come first regardless of date:
-
-```
-entries.sort((a, b) => {
-  if (a.type === "opening_balance" && b.type !== "opening_balance") return -1;
-  if (b.type === "opening_balance" && a.type !== "opening_balance") return 1;
-  return (a.date || "").localeCompare(b.date || "");
-});
-```
-
-Add `openingBalances` to the memo dependency array. Opening balances flow through the existing running-balance and CSV export logic unchanged.
-
-## 4. Deposits tab
-
-Locate the deposits table render (built from `depositLines`). Build a combined array:
-
-- Invoice-line deposits: existing mapping (Date = `invoices.invoice_date`, Invoice # = `invoices.invoice_number`, Charged / Returned split by sign of `total`, Net = Charged − Returned, Status = current badge).
-- Opening deposits from `openingDeposits`: Date = `as_of_date`, Invoice # = `"Opening"`, Description = `description`, Charged = `Number(total_value) || 0`, Returned = `0`, Net Outstanding = Charged, Status = `<Badge>` with gray styling (`bg-zinc-500/15 text-zinc-300 border-zinc-500/30`) labelled `"Opening"`.
-
-Concatenate then sort by date ascending. Update the totals row to sum Charged / Returned / Net across the combined array so opening deposits are included.
-
-No other tab, query, or file changes.
+Implementation matches the spec — no plan to execute. Approve to close out.
