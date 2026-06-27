@@ -3762,6 +3762,81 @@ export type Database = {
           },
         ]
       }
+      inventory_movements_waste: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_date: string
+          entry_type: string
+          id: string
+          notes: string | null
+          product_master_id: string | null
+          quantity: number
+          reason: string
+          sku: string | null
+          tenant_id: string
+          total_value: number | null
+          unit_cost: number
+          uom: string | null
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description: string
+          entry_date?: string
+          entry_type: string
+          id?: string
+          notes?: string | null
+          product_master_id?: string | null
+          quantity: number
+          reason: string
+          sku?: string | null
+          tenant_id: string
+          total_value?: number | null
+          unit_cost?: number
+          uom?: string | null
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_date?: string
+          entry_type?: string
+          id?: string
+          notes?: string | null
+          product_master_id?: string | null
+          quantity?: number
+          reason?: string
+          sku?: string | null
+          tenant_id?: string
+          total_value?: number | null
+          unit_cost?: number
+          uom?: string | null
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_waste_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "product_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_waste_product_master_id_fkey"
+            columns: ["product_master_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_periods: {
         Row: {
           created_at: string
