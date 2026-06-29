@@ -15,6 +15,7 @@ import { toast } from "sonner";
 interface Supplier {
   id: string;
   name: string;
+  vendor_id: string | null;
   vendor_type: "procurement" | "expense" | "both";
   payment_terms_id: string | null;
   contact_person: string | null;
@@ -86,6 +87,7 @@ export default function ExpenseVendorsPage() {
     if (!editing.name) { toast.error("Name is required"); return; }
     const payload: any = {
       name: editing.name,
+      vendor_id: editing.vendor_id || null,
       vendor_type: editing.vendor_type || "expense",
       payment_terms_id: editing.payment_terms_id || null,
       contact_person: editing.contact_person || null,
@@ -135,7 +137,7 @@ export default function ExpenseVendorsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              {["Name","Payment Terms","Contact","Email","Phone","Active",""].map((h) => (
+            {["Vendor ID","Name","Payment Terms","Contact","Email","Phone","Active",""].map((h) => (
                 <TableHead key={h} className="text-[11px] uppercase tracking-wider text-muted-foreground">{h}</TableHead>
               ))}
             </TableRow>
@@ -145,6 +147,7 @@ export default function ExpenseVendorsPage() {
               const term = terms.find((t) => t.id === v.payment_terms_id);
               return (
                 <TableRow key={v.id} className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/20`}>
+                  <TableCell className="py-2 px-3 font-mono text-muted-foreground">{v.vendor_id || "—"}</TableCell>
                   <TableCell className="py-2 px-3 font-medium">{v.name}</TableCell>
 
                   <TableCell className="py-2 px-3">{term?.name || "—"}</TableCell>
@@ -168,7 +171,7 @@ export default function ExpenseVendorsPage() {
             })}
             {!vendors.length && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
 
                   No expense vendors added yet. Add your first vendor to start tracking bills and payments.
                 </TableCell>
@@ -185,6 +188,10 @@ export default function ExpenseVendorsPage() {
             <div>
               <Label>Name *</Label>
               <Input value={editing.name || ""} onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Vendor ID</Label>
+              <Input value={editing.vendor_id || ""} onChange={(e) => setEditing((p) => ({ ...p, vendor_id: e.target.value }))} />
             </div>
             <div>
 

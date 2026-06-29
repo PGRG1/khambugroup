@@ -7308,6 +7308,7 @@ export type Database = {
           phone: string | null
           tenant_id: string
           updated_at: string
+          vendor_id: string | null
           vendor_type: string
         }
         Insert: {
@@ -7330,6 +7331,7 @@ export type Database = {
           phone?: string | null
           tenant_id?: string
           updated_at?: string
+          vendor_id?: string | null
           vendor_type?: string
         }
         Update: {
@@ -7352,6 +7354,7 @@ export type Database = {
           phone?: string | null
           tenant_id?: string
           updated_at?: string
+          vendor_id?: string | null
           vendor_type?: string
         }
         Relationships: [
