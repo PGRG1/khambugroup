@@ -15,6 +15,7 @@ import { toast } from "sonner";
 interface Supplier {
   id: string;
   name: string;
+  vendor_id: string | null;
   vendor_type: "procurement" | "expense" | "both";
   payment_terms_id: string | null;
   contact_person: string | null;
