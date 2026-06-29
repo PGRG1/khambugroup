@@ -215,6 +215,8 @@ function App() {
                 <Route path="/expenses/bank-detected" element={<AdminRoute><BankDetectedExpensesPage /></AdminRoute>} />
                 <Route path="/expenses/recurring" element={<AdminRoute><RecurringExpensesPage /></AdminRoute>} />
                 <Route path="/expenses/categories" element={<AdminRoute><ExpenseCategoriesPage /></AdminRoute>} />
+                <Route path="/expenses/vendors" element={<AdminRoute><ExpenseVendorsPage /></AdminRoute>} />
+                <Route path="/expenses/payment-terms" element={<AdminRoute><ExpensePaymentTermsPage /></AdminRoute>} />
                 <Route path="/expenses/approvals" element={<AdminRoute><ExpenseApprovalsPage /></AdminRoute>} />
                 <Route path="/expenses/analytics" element={<AdminRoute><ExpenseAnalyticsPage /></AdminRoute>} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
