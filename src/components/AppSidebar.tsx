@@ -351,7 +351,48 @@ export function AppSidebar() {
             defaultOpen={groupState.expenses}
             onOpenChange={(o) => setGroup("expenses", o)}
           >
-            <SidebarMenu>{expensesItems.map(renderLink)}</SidebarMenu>
+            <SidebarMenu>{renderLink(expensesOverview)}</SidebarMenu>
+
+            {[
+              { label: "Master Data", items: expensesMasterData },
+              { label: "Bills & Vendors", items: expensesBillsVendors },
+              { label: "Approvals", items: expensesApprovals },
+              { label: "Analytics", items: expensesAnalytics },
+              { label: "Finance", items: expensesFinance },
+            ].map((sub) => (
+              <React.Fragment key={sub.label}>
+                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                      <span className="flex items-center gap-2">
+                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                        {sub.label}
+                      </span>
+                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                      <SidebarMenu>
+                        {sub.items.map((item: any) =>
+                          item.disabled ? (
+                            <SidebarMenuItem key={item.title}>
+                              <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground opacity-40 pointer-events-none">
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </div>
+                            </SidebarMenuItem>
+                          ) : (
+                            renderLink(item)
+                          )
+                        )}
+                      </SidebarMenu>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </React.Fragment>
+            ))}
           </CollapsibleNavGroup>
         )}
 
