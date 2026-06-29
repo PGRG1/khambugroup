@@ -87,6 +87,7 @@ export default function ExpenseVendorsPage() {
     if (!editing.name) { toast.error("Name is required"); return; }
     const payload: any = {
       name: editing.name,
+      vendor_id: editing.vendor_id || null,
       vendor_type: editing.vendor_type || "expense",
       payment_terms_id: editing.payment_terms_id || null,
       contact_person: editing.contact_person || null,
