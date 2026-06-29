@@ -1,64 +1,44 @@
-## Waste & Adjustments — Procurement
+# Expenses — Master Data (code phase)
 
-Build a new page at `/procurement/waste` covering **Wastage** (spoilage, breakage, expiry) and **Internal Consumption** (staff meals, marketing, R&D). Entries deduct from Stock on Hand the same way GRNs add to it.
+Migration already applied successfully:
+- `expense_categories`: added `parent_category_id`, `is_active` (skipped pre-existing `default_account_id`, `tenant_id`)
+- `suppliers`: added `vendor_type` (default 'procurement'), `payment_terms_id` (FK to new table)
+- New `expense_payment_terms` table with tenant-scoped RLS
 
-### 1. Database (migration)
+Now the code changes. Approve to switch to build mode.
 
-New table `inventory_movements_waste`:
-- `tenant_id`, `venue`, `entry_date`
-- `entry_type` enum: `waste` | `consumption`
-- `reason` text (free-form, with suggested presets per type)
-- `product_master_id` (FK), `sku`, `description`, `quantity`, `uom`
-- `unit_cost`, `total_value` (generated: `quantity * unit_cost`)
-- `notes`, `created_by`, `created_at`, `updated_at`
+## 1. `src/components/AppSidebar.tsx`
+- Import `Clock` icon
+- Split `expensesItems` into a standalone `expensesOverview` plus five labelled sub-group arrays (MASTER DATA, BILLS & VENDORS, APPROVALS, ANALYTICS, FINANCE)
+- Replace the flat Expenses `CollapsibleNavGroup` render with the same JSX pattern Procurement uses (overview link + mapped sub-groups, disabled items rendered with muted/pointer-events-none style)
+- FINANCE entries (`Spend Summary`, `Vendor Accounts`, `Open Payables`) all disabled
 
-RLS: tenant-scoped select for `authenticated`; insert/update/delete for `admin` + `manager`. GRANT to authenticated and service_role. Standard updated_at trigger.
+## 2. `src/App.tsx`
+- Import `ExpenseVendorsPage` and `ExpensePaymentTermsPage`
+- Add two `AdminRoute` routes: `/expenses/vendors`, `/expenses/payment-terms`
 
-### 2. Stock-on-Hand integration
+## 3. `src/pages/expenses/Categories.tsx` (enhance, keep all existing logic)
+- `useActiveTenant` → include `tenant_id` in insert payload
+- Edit Sheet adds "Sub-category of" Select (excludes self on edit) and "Active" toggle (default true)
+- Table gets an Active column with click-to-toggle badge between the existing Description column and the delete action
+- Parents render first; children render indented (`pl-6`) with `└ ` prefix beneath their parent
 
-Extend `InventoryOnHandTab` / `get_inventory_aggregates` logic to subtract `SUM(quantity)` from `inventory_movements_waste` (filtered by tenant, venue, and post–last-count date), mirroring the existing GRN add path. Only items with `creates_stock_movement = true` are affected.
+## 4. `src/pages/expenses/ExpenseVendors.tsx` (new)
+- Fetch `suppliers WHERE vendor_type IN ('expense','both')`, `expense_bills`, tenant-scoped `expense_payment_terms`
+- KPIs: Total active vendors, With open bills, With overdue bills (all `card-glass` `KCard`-style)
+- Table: Name · Type (sky "Expense only" / amber "Procurement & Expense") · Payment Terms · Contact · Email · Phone · Active (click toggle) · Edit
+- Add/Edit side Sheet: Name, Type (only "Expense only" / "Procurement & Expense"), Payment Terms, Contact, Email, Phone, Address, Notes
+- Empty state copy as specified
 
-### 3. Page `src/pages/procurement/Waste.tsx`
+## 5. `src/pages/expenses/ExpensePaymentTerms.tsx` (new)
+- All queries `.eq('tenant_id', tenantId)`
+- Table: Name · Days (right-aligned `tabular-nums`) · Description · Active (click toggle) · Edit/Delete
+- Delete blocked when any `suppliers.payment_terms_id` references the row, with toast: "This payment term is used by [N] vendors and cannot be deleted."
+- Compact inline Dialog (not Sheet) for add/edit: Name, Days (min 0), Description, Active toggle
+- No auto-seed
 
-Header: `PageHeader` "Waste & Adjustments" + period filter (All time / This month / Custom) + venue chip filter + "New entry" button.
+## Design
+All three pages strictly match Procurement Finance dark theme: `card-glass`, `text-2xl font-display font-semibold tracking-tight` titles, `text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40` table headers, alternating `bg-muted/30` rows, emerald/amber/sky/muted badge palette, `sonner` toasts, HK$ formatting.
 
-**KPI row** (4 cards via `KpiGrid`):
-- Total waste value (period)
-- Waste % of purchases (waste $ ÷ net invoice spend same period)
-- Top wasted item (name + value)
-- Top reason (label + value)
-
-**Charts row**:
-- Bar: Waste by venue
-- Bar: Top 10 wasted items / Top reasons (toggle)
-
-**Table** (`DataTableShell`): Date · Venue · Type chip (Waste/Consumption) · SKU · Item · Qty · UOM · Unit cost · Total value · Reason · Notes · Recorded by · Actions (Edit / Delete).
-Global search, date range, type filter, venue filter, sortable columns, CSV export (UTF-8 BOM, current filters/sorting), uses `fetchAllRows`.
-
-**Entry dialog** (Add/Edit):
-- Date (defaults today), Venue (tenant venues), Type (Waste/Consumption)
-- SKU autocomplete from `product_master` (tenant-scoped) → auto-fills description, UOM, unit_cost (editable)
-- Quantity, UOM (preselected, editable from `uom_options`)
-- Reason — `Select` populated with preset list per type (Waste: Spoilage / Expiry / Breakage / Quality / Over-prep / Other; Consumption: Staff meal / Marketing / R&D / Tasting / Comp / Other), filtered to remove empty strings
-- Notes textarea
-- Read-only Total value preview (qty × unit cost)
-- Zod validation; admin/manager only
-
-### 4. Wiring
-
-- `src/App.tsx`: register route `/procurement/waste` → `Waste` page, wrapped in `ProtectedRoute` with `pageKey="invoices"` (matches sibling procurement pages).
-- `src/components/AppSidebar.tsx`: remove `disabled: true` from the existing "Waste & Adjustments" entry.
-
-### 5. Conventions applied
-
-- Tenant filter on every query via `useActiveTenant`.
-- Currency/date/qty via `@/utils/format`; `card-glass`, chips, `KpiCard`, `StatusBadge`, `JetBrains Mono` numerics.
-- All select dropdowns sanitize empty strings (Radix constraint).
-- CSV export with UTF-8 BOM.
-- Audit row written to `audit_log` on insert/update/delete.
-
-### Out of scope
-
-- Stock adjustments / corrections (not requested).
-- Approval workflow (single-step, recorded-by only).
-- Photo attachments.
+## Out of scope
+Expense Bills, Statements, Recurring, Bank-Detected, Approvals, Analytics, Finance pages, Procurement Suppliers page — all untouched.
