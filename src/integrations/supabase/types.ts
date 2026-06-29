@@ -1844,7 +1844,9 @@ export type Database = {
           default_account_id: string | null
           description: string | null
           id: string
+          is_active: boolean
           name: string
+          parent_category_id: string | null
           tenant_id: string
           updated_at: string
         }
@@ -1853,7 +1855,9 @@ export type Database = {
           default_account_id?: string | null
           description?: string | null
           id?: string
+          is_active?: boolean
           name: string
+          parent_category_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
@@ -1862,7 +1866,9 @@ export type Database = {
           default_account_id?: string | null
           description?: string | null
           id?: string
+          is_active?: boolean
           name?: string
+          parent_category_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
@@ -1896,7 +1902,52 @@ export type Database = {
             referencedColumns: ["account_id"]
           },
           {
+            foreignKeyName: "expense_categories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "expense_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_payment_terms: {
+        Row: {
+          created_at: string
+          days: number
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          days?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          days?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_payment_terms_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -7253,9 +7304,11 @@ export type Database = {
           name: string
           notes: string | null
           payment_terms: string | null
+          payment_terms_id: string | null
           phone: string | null
           tenant_id: string
           updated_at: string
+          vendor_type: string
         }
         Insert: {
           account_number?: string
@@ -7273,9 +7326,11 @@ export type Database = {
           name: string
           notes?: string | null
           payment_terms?: string | null
+          payment_terms_id?: string | null
           phone?: string | null
           tenant_id?: string
           updated_at?: string
+          vendor_type?: string
         }
         Update: {
           account_number?: string
@@ -7293,11 +7348,20 @@ export type Database = {
           name?: string
           notes?: string | null
           payment_terms?: string | null
+          payment_terms_id?: string | null
           phone?: string | null
           tenant_id?: string
           updated_at?: string
+          vendor_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "suppliers_payment_terms_fk"
+            columns: ["payment_terms_id"]
+            isOneToOne: false
+            referencedRelation: "expense_payment_terms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "suppliers_tenant_id_fkey"
             columns: ["tenant_id"]
