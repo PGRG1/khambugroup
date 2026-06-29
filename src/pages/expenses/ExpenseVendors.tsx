@@ -147,6 +147,7 @@ export default function ExpenseVendorsPage() {
               const term = terms.find((t) => t.id === v.payment_terms_id);
               return (
                 <TableRow key={v.id} className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/20`}>
+                  <TableCell className="py-2 px-3 font-mono text-muted-foreground">{v.vendor_id || "—"}</TableCell>
                   <TableCell className="py-2 px-3 font-medium">{v.name}</TableCell>
 
                   <TableCell className="py-2 px-3">{term?.name || "—"}</TableCell>
