@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown, ReceiptText } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown, ReceiptText, Clock } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -43,15 +43,33 @@ const financeItems = [
   { title: "Bank Reconciliation", url: "/finance/bank-reconciliation", icon: Landmark },
 ];
 
-const expensesItems = [
-  { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true },
-  { title: "Expense Bills", url: "/expenses/bills", icon: Receipt },
-  { title: "Vendor Statements", url: "/expenses/statements", icon: FileStack },
-  { title: "Bank-Detected", url: "/expenses/bank-detected", icon: Landmark },
-  { title: "Recurring Expenses", url: "/expenses/recurring", icon: Repeat },
-  { title: "Categories", url: "/expenses/categories", icon: Tags },
-  { title: "Approvals", url: "/expenses/approvals", icon: CheckCircle2 },
-  { title: "Analytics", url: "/expenses/analytics", icon: BarChart3 },
+const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
+
+const expensesMasterData = [
+  { title: "Categories", url: "/expenses/categories", icon: Tags, disabled: false },
+  { title: "Vendors", url: "/expenses/vendors", icon: Building2, disabled: false },
+  { title: "Payment Terms", url: "/expenses/payment-terms", icon: Clock, disabled: false },
+];
+
+const expensesBillsVendors = [
+  { title: "Expense Bills", url: "/expenses/bills", icon: Receipt, disabled: false },
+  { title: "Vendor Statements", url: "/expenses/statements", icon: FileStack, disabled: false },
+  { title: "Recurring Expenses", url: "/expenses/recurring", icon: Repeat, disabled: false },
+  { title: "Bank-Detected", url: "/expenses/bank-detected", icon: Landmark, disabled: false },
+];
+
+const expensesApprovals = [
+  { title: "Approvals", url: "/expenses/approvals", icon: CheckCircle2, disabled: false },
+];
+
+const expensesAnalytics = [
+  { title: "Analytics", url: "/expenses/analytics", icon: BarChart3, disabled: false },
+];
+
+const expensesFinance = [
+  { title: "Spend Summary", url: "/expenses/finance/spend", icon: ReceiptText, disabled: true },
+  { title: "Vendor Accounts", url: "/expenses/finance/vendors", icon: Building2, disabled: true },
+  { title: "Open Payables", url: "/expenses/finance/payables", icon: CreditCard, disabled: true },
 ];
 
 const financeReportsItems = [
@@ -333,7 +351,48 @@ export function AppSidebar() {
             defaultOpen={groupState.expenses}
             onOpenChange={(o) => setGroup("expenses", o)}
           >
-            <SidebarMenu>{expensesItems.map(renderLink)}</SidebarMenu>
+            <SidebarMenu>{renderLink(expensesOverview)}</SidebarMenu>
+
+            {[
+              { label: "Master Data", items: expensesMasterData },
+              { label: "Bills & Vendors", items: expensesBillsVendors },
+              { label: "Approvals", items: expensesApprovals },
+              { label: "Analytics", items: expensesAnalytics },
+              { label: "Finance", items: expensesFinance },
+            ].map((sub) => (
+              <React.Fragment key={sub.label}>
+                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                      <span className="flex items-center gap-2">
+                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                        {sub.label}
+                      </span>
+                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                      <SidebarMenu>
+                        {sub.items.map((item: any) =>
+                          item.disabled ? (
+                            <SidebarMenuItem key={item.title}>
+                              <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground opacity-40 pointer-events-none">
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </div>
+                            </SidebarMenuItem>
+                          ) : (
+                            renderLink(item)
+                          )
+                        )}
+                      </SidebarMenu>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </React.Fragment>
+            ))}
           </CollapsibleNavGroup>
         )}
 
