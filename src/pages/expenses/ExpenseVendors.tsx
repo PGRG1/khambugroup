@@ -171,7 +171,7 @@ export default function ExpenseVendorsPage() {
             })}
             {!vendors.length && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
 
                   No expense vendors added yet. Add your first vendor to start tracking bills and payments.
                 </TableCell>
