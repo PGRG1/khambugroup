@@ -43,15 +43,33 @@ const financeItems = [
   { title: "Bank Reconciliation", url: "/finance/bank-reconciliation", icon: Landmark },
 ];
 
-const expensesItems = [
-  { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true },
-  { title: "Expense Bills", url: "/expenses/bills", icon: Receipt },
-  { title: "Vendor Statements", url: "/expenses/statements", icon: FileStack },
-  { title: "Bank-Detected", url: "/expenses/bank-detected", icon: Landmark },
-  { title: "Recurring Expenses", url: "/expenses/recurring", icon: Repeat },
-  { title: "Categories", url: "/expenses/categories", icon: Tags },
-  { title: "Approvals", url: "/expenses/approvals", icon: CheckCircle2 },
-  { title: "Analytics", url: "/expenses/analytics", icon: BarChart3 },
+const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
+
+const expensesMasterData = [
+  { title: "Categories", url: "/expenses/categories", icon: Tags, disabled: false },
+  { title: "Vendors", url: "/expenses/vendors", icon: Building2, disabled: false },
+  { title: "Payment Terms", url: "/expenses/payment-terms", icon: Clock, disabled: false },
+];
+
+const expensesBillsVendors = [
+  { title: "Expense Bills", url: "/expenses/bills", icon: Receipt, disabled: false },
+  { title: "Vendor Statements", url: "/expenses/statements", icon: FileStack, disabled: false },
+  { title: "Recurring Expenses", url: "/expenses/recurring", icon: Repeat, disabled: false },
+  { title: "Bank-Detected", url: "/expenses/bank-detected", icon: Landmark, disabled: false },
+];
+
+const expensesApprovals = [
+  { title: "Approvals", url: "/expenses/approvals", icon: CheckCircle2, disabled: false },
+];
+
+const expensesAnalytics = [
+  { title: "Analytics", url: "/expenses/analytics", icon: BarChart3, disabled: false },
+];
+
+const expensesFinance = [
+  { title: "Spend Summary", url: "/expenses/finance/spend", icon: ReceiptText, disabled: true },
+  { title: "Vendor Accounts", url: "/expenses/finance/vendors", icon: Building2, disabled: true },
+  { title: "Open Payables", url: "/expenses/finance/payables", icon: CreditCard, disabled: true },
 ];
 
 const financeReportsItems = [
