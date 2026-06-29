@@ -79,6 +79,8 @@ import VendorStatementsPage from "./pages/expenses/VendorStatements";
 import BankDetectedExpensesPage from "./pages/expenses/BankDetectedExpenses";
 import RecurringExpensesPage from "./pages/expenses/RecurringExpenses";
 import ExpenseCategoriesPage from "./pages/expenses/Categories";
+import ExpenseVendorsPage from "./pages/expenses/ExpenseVendors";
+import ExpensePaymentTermsPage from "./pages/expenses/ExpensePaymentTerms";
 import ExpenseApprovalsPage from "./pages/expenses/Approvals";
 import ExpenseAnalyticsPage from "./pages/expenses/Analytics";
 
