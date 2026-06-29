@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 interface Supplier {
   id: string;
   name: string;
+  vendor_code: string | null;
   vendor_type: "procurement" | "expense" | "both";
   payment_terms_id: string | null;
   contact_person: string | null;
@@ -29,6 +30,20 @@ interface PaymentTerm { id: string; name: string; }
 interface ExpenseBill { supplier_id: string | null; payment_status: string | null; due_date: string | null; }
 
 const NONE = "__none__";
+
+function generateVendorCode(name: string, seq: number): string {
+  const clean = (name || "").trim();
+  if (!clean) return "";
+  const words = clean.split(/\s+/).filter(Boolean);
+  let prefix = "";
+  if (words.length === 1) {
+    prefix = words[0].slice(0, 6).toUpperCase();
+  } else {
+    prefix = words.map((w) => w.slice(0, 3)).join("").toUpperCase();
+  }
+  prefix = prefix.replace(/[^A-Z0-9]/g, "");
+  return `${prefix}-${String(seq).padStart(4, "0")}`;
+}
 
 function KCard({ label, value, tone = "default" }: { label: string; value: string | number; tone?: "default" | "amber" | "sky" | "red" }) {
   const toneCls =
@@ -49,22 +64,28 @@ function KCard({ label, value, tone = "default" }: { label: string; value: strin
 export default function ExpenseVendorsPage() {
   const { tenantId } = useActiveTenant();
   const [vendors, setVendors] = useState<Supplier[]>([]);
+  const [allSupplierCount, setAllSupplierCount] = useState(0);
   const [terms, setTerms] = useState<PaymentTerm[]>([]);
   const [bills, setBills] = useState<ExpenseBill[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<Supplier>>({});
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = async () => {
-    const [v, t, b] = await Promise.all([
+    const [v, t, b, cnt] = await Promise.all([
       supabase.from("suppliers").select("*").in("vendor_type", ["expense", "both"]).order("name"),
       tenantId
         ? supabase.from("expense_payment_terms").select("id,name").eq("tenant_id", tenantId).order("name")
         : Promise.resolve({ data: [] as any }),
       supabase.from("expense_bills").select("supplier_id,payment_status,due_date"),
+      supabase.from("suppliers").select("id", { count: "exact", head: true }),
     ]);
     setVendors((v.data || []) as any);
     setTerms((t.data || []) as any);
     setBills((b.data || []) as any);
+    setAllSupplierCount((cnt as any).count || 0);
   };
 
   useEffect(() => { load(); }, [tenantId]);
@@ -82,10 +103,38 @@ export default function ExpenseVendorsPage() {
     return { active, open: openSet.size, overdue: overdueSet.size };
   }, [vendors, bills]);
 
+  // Auto-generate vendor code from name (debounced 300ms) when not in edit mode and not manually edited
+  useEffect(() => {
+    if (editing.id) return; // edit mode — don't auto-generate
+    if (codeManuallyEdited) return;
+    if (!editing.name) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const code = generateVendorCode(editing.name || "", allSupplierCount + 1);
+      setEditing((p) => ({ ...p, vendor_code: code }));
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [editing.name, editing.id, codeManuallyEdited, allSupplierCount]);
+
+  const checkCodeUniqueness = async (code: string) => {
+    if (!code) { setCodeError(null); return; }
+    const q = supabase.from("suppliers").select("id").eq("vendor_code", code);
+    if (editing.id) q.neq("id", editing.id);
+    const { data } = await q.limit(1);
+    setCodeError(data && data.length ? "This code is already in use" : null);
+  };
+
+  const editingVendorHasBills = useMemo(() => {
+    if (!editing.id) return false;
+    return bills.some((b) => b.supplier_id === editing.id);
+  }, [editing.id, bills]);
+
   const save = async () => {
     if (!editing.name) { toast.error("Name is required"); return; }
+    if (codeError) { toast.error(codeError); return; }
     const payload: any = {
       name: editing.name,
+      vendor_code: editing.vendor_code?.trim() || null,
       vendor_type: editing.vendor_type || "expense",
       payment_terms_id: editing.payment_terms_id || null,
       contact_person: editing.contact_person || null,
@@ -113,6 +162,20 @@ export default function ExpenseVendorsPage() {
     else load();
   };
 
+  const openNew = () => {
+    setEditing({ vendor_type: "expense" });
+    setCodeError(null);
+    setCodeManuallyEdited(false);
+    setOpen(true);
+  };
+
+  const openEdit = (v: Supplier) => {
+    setEditing(v);
+    setCodeError(null);
+    setCodeManuallyEdited(true); // existing — don't auto-overwrite
+    setOpen(true);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between">
@@ -120,7 +183,7 @@ export default function ExpenseVendorsPage() {
           <h1 className="text-2xl font-display font-semibold tracking-tight">Vendors</h1>
           <p className="text-sm text-muted-foreground">Companies and service providers used for operational expenses.</p>
         </div>
-        <Button onClick={() => { setEditing({ vendor_type: "expense" }); setOpen(true); }}>
+        <Button onClick={openNew}>
           <Plus className="h-4 w-4 mr-1" /> Add Vendor
         </Button>
       </div>
@@ -135,7 +198,7 @@ export default function ExpenseVendorsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              {["Name","Payment Terms","Contact","Email","Phone","Active",""].map((h) => (
+              {["Name","Vendor Code","Payment Terms","Contact","Email","Phone","Active",""].map((h) => (
                 <TableHead key={h} className="text-[11px] uppercase tracking-wider text-muted-foreground">{h}</TableHead>
               ))}
             </TableRow>
@@ -146,7 +209,7 @@ export default function ExpenseVendorsPage() {
               return (
                 <TableRow key={v.id} className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/20`}>
                   <TableCell className="py-2 px-3 font-medium">{v.name}</TableCell>
-
+                  <TableCell className="py-2 px-3 font-mono text-xs text-muted-foreground">{v.vendor_code || "—"}</TableCell>
                   <TableCell className="py-2 px-3">{term?.name || "—"}</TableCell>
                   <TableCell className="py-2 px-3">{v.contact_person || "—"}</TableCell>
                   <TableCell className="py-2 px-3">{v.email || "—"}</TableCell>
@@ -159,7 +222,7 @@ export default function ExpenseVendorsPage() {
                     )}
                   </TableCell>
                   <TableCell className="py-2 px-3">
-                    <Button variant="ghost" size="icon" onClick={() => { setEditing(v); setOpen(true); }}>
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(v)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -168,8 +231,7 @@ export default function ExpenseVendorsPage() {
             })}
             {!vendors.length && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
-
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                   No expense vendors added yet. Add your first vendor to start tracking bills and payments.
                 </TableCell>
               </TableRow>
@@ -187,7 +249,23 @@ export default function ExpenseVendorsPage() {
               <Input value={editing.name || ""} onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))} />
             </div>
             <div>
-
+              <Label>Vendor Code</Label>
+              <Input
+                className="font-mono"
+                placeholder="Auto-generated from name"
+                value={editing.vendor_code || ""}
+                onChange={(e) => {
+                  setCodeManuallyEdited(true);
+                  setEditing((p) => ({ ...p, vendor_code: e.target.value.toUpperCase() }));
+                }}
+                onBlur={(e) => checkCodeUniqueness(e.target.value.trim())}
+              />
+              {codeError && <p className="text-xs text-red-400 mt-1">{codeError}</p>}
+              {editing.id && editingVendorHasBills && (
+                <p className="text-xs text-muted-foreground mt-1">Changing this code will affect historical references.</p>
+              )}
+            </div>
+            <div>
               <Label>Payment Terms</Label>
               <Select
                 value={editing.payment_terms_id || NONE}
@@ -222,7 +300,7 @@ export default function ExpenseVendorsPage() {
             </div>
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={save}>Save</Button>
+              <Button onClick={save} disabled={!!codeError}>Save</Button>
             </div>
           </div>
         </SheetContent>
