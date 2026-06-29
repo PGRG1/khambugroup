@@ -187,19 +187,7 @@ export default function ExpenseVendorsPage() {
               <Input value={editing.name || ""} onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))} />
             </div>
             <div>
-              <Label>Type</Label>
-              <Select
-                value={editing.vendor_type === "both" ? "both" : "expense"}
-                onValueChange={(v) => setEditing((p) => ({ ...p, vendor_type: v as any }))}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="expense">Expense only</SelectItem>
-                  <SelectItem value="both">Procurement & Expense</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
+
               <Label>Payment Terms</Label>
               <Select
                 value={editing.payment_terms_id || NONE}
