@@ -135,7 +135,7 @@ export default function ExpenseVendorsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              {["Name","Type","Payment Terms","Contact","Email","Phone","Active",""].map((h) => (
+              {["Name","Payment Terms","Contact","Email","Phone","Active",""].map((h) => (
                 <TableHead key={h} className="text-[11px] uppercase tracking-wider text-muted-foreground">{h}</TableHead>
               ))}
             </TableRow>
@@ -146,15 +146,7 @@ export default function ExpenseVendorsPage() {
               return (
                 <TableRow key={v.id} className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/20`}>
                   <TableCell className="py-2 px-3 font-medium">{v.name}</TableCell>
-                  <TableCell className="py-2 px-3">
-                    {v.vendor_type === "both" ? (
-                      <Badge className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/25">Procurement & Expense</Badge>
-                    ) : v.vendor_type === "expense" ? (
-                      <Badge className="bg-sky-500/15 text-sky-400 hover:bg-sky-500/25">Expense only</Badge>
-                    ) : (
-                      <Badge variant="secondary">Procurement</Badge>
-                    )}
-                  </TableCell>
+
                   <TableCell className="py-2 px-3">{term?.name || "—"}</TableCell>
                   <TableCell className="py-2 px-3">{v.contact_person || "—"}</TableCell>
                   <TableCell className="py-2 px-3">{v.email || "—"}</TableCell>
