@@ -137,7 +137,7 @@ export default function ExpenseVendorsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              {["Name","Payment Terms","Contact","Email","Phone","Active",""].map((h) => (
+            {["Vendor ID","Name","Payment Terms","Contact","Email","Phone","Active",""].map((h) => (
                 <TableHead key={h} className="text-[11px] uppercase tracking-wider text-muted-foreground">{h}</TableHead>
               ))}
             </TableRow>
