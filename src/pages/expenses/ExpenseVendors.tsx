@@ -190,6 +190,10 @@ export default function ExpenseVendorsPage() {
               <Input value={editing.name || ""} onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))} />
             </div>
             <div>
+              <Label>Vendor ID</Label>
+              <Input value={editing.vendor_id || ""} onChange={(e) => setEditing((p) => ({ ...p, vendor_id: e.target.value }))} />
+            </div>
+            <div>
 
               <Label>Payment Terms</Label>
               <Select
