@@ -132,6 +132,21 @@ const procurementFinance = [
   { title: "Payments", url: "/procurement/finance/payments", icon: Wallet, disabled: true },
 ];
 
+const bankItems = [
+  { title: "Dashboard", url: "/bank/dashboard", icon: LayoutDashboard },
+  { title: "Bank Accounts", url: "/bank/accounts", icon: Landmark },
+  { title: "Transactions", url: "/bank/transactions", icon: ListChecks },
+  { title: "Bank Reconciliation", url: "/bank/reconciliation", icon: CheckCircle2 },
+  { title: "Incoming Deposits", url: "/bank/incoming", icon: Wallet },
+  { title: "Outgoing Payments", url: "/bank/outgoing", icon: CreditCard },
+  { title: "Payment Matching", url: "/bank/matching", icon: ArrowLeftRight },
+  { title: "Transfers", url: "/bank/transfers", icon: ArrowRightLeft },
+  { title: "FX & Multi-Currency", url: "/bank/fx", icon: Repeat },
+  { title: "Bank Rules", url: "/bank/rules", icon: SlidersHorizontal },
+  { title: "Bank Fees & Charges", url: "/bank/fees", icon: ReceiptText },
+  { title: "Unmatched Transactions", url: "/bank/unmatched", icon: FileMinus },
+];
+
 
 const hrItems = [
   { title: "Employee Directory", url: "/hr/employees", icon: Users },
