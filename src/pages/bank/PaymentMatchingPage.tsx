@@ -44,13 +44,13 @@ export default function PaymentMatchingPage() {
       ]);
       const supMap = new Map((sups as any[]).map((s: any) => [s.id, s.name]));
       const a: OpenDoc[] = (inv as any[]).map((r) => ({
-        id: r.id, source: "supplier_invoice", reference: r.invoice_number,
+        id: r.id, source: "supplier_invoice" as const, reference: r.invoice_number,
         vendor: supMap.get(r.supplier_id) || "—", date: r.invoice_date,
         amount: Number(r.total_amount), paid: Number(r.amount_paid),
         remaining: Number(r.total_amount) - Number(r.amount_paid), currency: "HKD",
       })).filter((d) => d.remaining > 0.01);
       const b: OpenDoc[] = (bills as any[]).map((r) => ({
-        id: r.id, source: "expense_bill", reference: r.bill_number || "(no #)",
+        id: r.id, source: "expense_bill" as const, reference: r.bill_number || "(no #)",
         vendor: r.vendor_name || supMap.get(r.supplier_id) || "—", date: r.bill_date,
         amount: Number(r.total_amount), paid: Number(r.paid_amount),
         remaining: Number(r.total_amount) - Number(r.paid_amount), currency: r.currency || "HKD",
