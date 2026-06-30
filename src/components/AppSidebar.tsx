@@ -132,6 +132,21 @@ const procurementFinance = [
   { title: "Payments", url: "/procurement/finance/payments", icon: Wallet, disabled: true },
 ];
 
+const bankItems = [
+  { title: "Dashboard", url: "/bank/dashboard", icon: LayoutDashboard },
+  { title: "Bank Accounts", url: "/bank/accounts", icon: Landmark },
+  { title: "Transactions", url: "/bank/transactions", icon: ListChecks },
+  { title: "Bank Reconciliation", url: "/bank/reconciliation", icon: CheckCircle2 },
+  { title: "Incoming Deposits", url: "/bank/incoming", icon: Wallet },
+  { title: "Outgoing Payments", url: "/bank/outgoing", icon: CreditCard },
+  { title: "Payment Matching", url: "/bank/matching", icon: ArrowLeftRight },
+  { title: "Transfers", url: "/bank/transfers", icon: ArrowRightLeft },
+  { title: "FX & Multi-Currency", url: "/bank/fx", icon: Repeat },
+  { title: "Bank Rules", url: "/bank/rules", icon: SlidersHorizontal },
+  { title: "Bank Fees & Charges", url: "/bank/fees", icon: ReceiptText },
+  { title: "Unmatched Transactions", url: "/bank/unmatched", icon: FileMinus },
+];
+
 
 const hrItems = [
   { title: "Employee Directory", url: "/hr/employees", icon: Users },
@@ -152,14 +167,13 @@ const kpiAdminItems = [
 
 const STORAGE_KEY = "khambu.sidebar.groups";
 
-type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "hr" | "admin" | "platform";
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "bank" | "hr" | "admin" | "platform";
 
 function loadGroupState(): Record<GroupKey, boolean> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return { revenue: true, kpi: true, finance: true, expenses: true, procurement: true, hr: true, admin: true, platform: true };
+  const def: Record<GroupKey, boolean> = { revenue: true, kpi: true, finance: true, expenses: true, procurement: true, bank: true, hr: true, admin: true, platform: true };
+  if (typeof window === "undefined") return def;
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return { ...def, ...JSON.parse(raw) }; } catch { /* */ }
+  return def;
 }
 
 function CollapsibleNavGroup({
@@ -236,6 +250,7 @@ export function AppSidebar() {
   const showFinance = isAdmin && !isPreviewActive;
   const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
   const showHR = isAdmin && !isPreviewActive;
+  const showBank = isAdmin && !isPreviewActive;
   const showAdmin = isAdmin && !isPreviewActive;
   const { isPlatformAdmin } = usePlatformAdmin();
   const showPlatform = isPlatformAdmin && !isPreviewActive;
@@ -446,6 +461,17 @@ export function AppSidebar() {
                 </Collapsible>
               </React.Fragment>
             ))}
+          </CollapsibleNavGroup>
+        )}
+
+        {showBank && (
+          <CollapsibleNavGroup
+            groupKey="bank"
+            label="Bank"
+            defaultOpen={groupState.bank}
+            onOpenChange={(o) => setGroup("bank", o)}
+          >
+            <SidebarMenu>{bankItems.map(renderLink)}</SidebarMenu>
           </CollapsibleNavGroup>
         )}
 
