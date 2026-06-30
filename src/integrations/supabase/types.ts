@@ -652,6 +652,42 @@ export type Database = {
           },
         ]
       }
+      bank_fx_rates: {
+        Row: {
+          created_at: string
+          from_currency: string
+          id: string
+          notes: string | null
+          rate: number
+          rate_date: string
+          source: string | null
+          tenant_id: string
+          to_currency: string
+        }
+        Insert: {
+          created_at?: string
+          from_currency: string
+          id?: string
+          notes?: string | null
+          rate: number
+          rate_date: string
+          source?: string | null
+          tenant_id: string
+          to_currency: string
+        }
+        Update: {
+          created_at?: string
+          from_currency?: string
+          id?: string
+          notes?: string | null
+          rate?: number
+          rate_date?: string
+          source?: string | null
+          tenant_id?: string
+          to_currency?: string
+        }
+        Relationships: []
+      }
       bank_recon_rules: {
         Row: {
           created_at: string
@@ -864,16 +900,70 @@ export type Database = {
           },
         ]
       }
+      bank_transaction_matches: {
+        Row: {
+          amount: number
+          confidence: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          matched_id: string
+          matched_type: string
+          notes: string | null
+          tenant_id: string
+          txn_id: string
+        }
+        Insert: {
+          amount: number
+          confidence?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          matched_id: string
+          matched_type: string
+          notes?: string | null
+          tenant_id: string
+          txn_id: string
+        }
+        Update: {
+          amount?: number
+          confidence?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          matched_id?: string
+          matched_type?: string
+          notes?: string | null
+          tenant_id?: string
+          txn_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transaction_matches_txn_id_fkey"
+            columns: ["txn_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_transactions: {
         Row: {
+          attachment_urls: string[] | null
           bank_account_id: string
+          category_account_id: string | null
           counterparty: string
           created_at: string
+          currency: string | null
           description: string
           expense_posted_bill_id: string | null
           extraction_confidence: number | null
+          fx_gain_loss: number | null
+          fx_rate: number | null
           id: string
           import_id: string | null
+          is_manual: boolean | null
+          is_transfer: boolean | null
           journal_entry_id: string | null
           match_confidence: string | null
           matched_record_id: string | null
@@ -881,6 +971,7 @@ export type Database = {
           money_in: number
           money_out: number
           notes: string
+          parent_txn_id: string | null
           reference: string
           running_balance: number | null
           source_page: number | null
@@ -889,19 +980,27 @@ export type Database = {
           suggested_match_id: string | null
           suggested_type: string | null
           tenant_id: string
+          transfer_pair_id: string | null
           txn_date: string
           updated_at: string
           value_date: string | null
         }
         Insert: {
+          attachment_urls?: string[] | null
           bank_account_id: string
+          category_account_id?: string | null
           counterparty?: string
           created_at?: string
+          currency?: string | null
           description?: string
           expense_posted_bill_id?: string | null
           extraction_confidence?: number | null
+          fx_gain_loss?: number | null
+          fx_rate?: number | null
           id?: string
           import_id?: string | null
+          is_manual?: boolean | null
+          is_transfer?: boolean | null
           journal_entry_id?: string | null
           match_confidence?: string | null
           matched_record_id?: string | null
@@ -909,6 +1008,7 @@ export type Database = {
           money_in?: number
           money_out?: number
           notes?: string
+          parent_txn_id?: string | null
           reference?: string
           running_balance?: number | null
           source_page?: number | null
@@ -917,19 +1017,27 @@ export type Database = {
           suggested_match_id?: string | null
           suggested_type?: string | null
           tenant_id?: string
+          transfer_pair_id?: string | null
           txn_date: string
           updated_at?: string
           value_date?: string | null
         }
         Update: {
+          attachment_urls?: string[] | null
           bank_account_id?: string
+          category_account_id?: string | null
           counterparty?: string
           created_at?: string
+          currency?: string | null
           description?: string
           expense_posted_bill_id?: string | null
           extraction_confidence?: number | null
+          fx_gain_loss?: number | null
+          fx_rate?: number | null
           id?: string
           import_id?: string | null
+          is_manual?: boolean | null
+          is_transfer?: boolean | null
           journal_entry_id?: string | null
           match_confidence?: string | null
           matched_record_id?: string | null
@@ -937,6 +1045,7 @@ export type Database = {
           money_in?: number
           money_out?: number
           notes?: string
+          parent_txn_id?: string | null
           reference?: string
           running_balance?: number | null
           source_page?: number | null
@@ -945,6 +1054,7 @@ export type Database = {
           suggested_match_id?: string | null
           suggested_type?: string | null
           tenant_id?: string
+          transfer_pair_id?: string | null
           txn_date?: string
           updated_at?: string
           value_date?: string | null
@@ -958,6 +1068,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bank_transactions_category_account_id_fkey"
+            columns: ["category_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_category_account_id_fkey"
+            columns: ["category_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_category_account_id_fkey"
+            columns: ["category_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_category_account_id_fkey"
+            columns: ["category_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
             foreignKeyName: "bank_transactions_expense_posted_bill_id_fkey"
             columns: ["expense_posted_bill_id"]
             isOneToOne: false
@@ -969,6 +1107,13 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "bank_statement_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_parent_txn_id_fkey"
+            columns: ["parent_txn_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
             referencedColumns: ["id"]
           },
           {
