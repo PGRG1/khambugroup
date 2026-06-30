@@ -62,6 +62,18 @@ import Payables from "./pages/finance/Payables";
 import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
 import FinanceDashboard from "./pages/finance/Dashboard";
 import BankReconciliation from "./pages/finance/BankReconciliation";
+import BankDashboard from "./pages/bank/BankDashboard";
+import BankAccountsPage from "./pages/bank/BankAccountsPage";
+import BankTransactionsPage from "./pages/bank/BankTransactionsPage";
+import BankReconciliationPage from "./pages/bank/BankReconciliationPage";
+import IncomingDepositsPage from "./pages/bank/IncomingDepositsPage";
+import OutgoingPaymentsPage from "./pages/bank/OutgoingPaymentsPage";
+import PaymentMatchingPage from "./pages/bank/PaymentMatchingPage";
+import TransfersPage from "./pages/bank/TransfersPage";
+import FxMultiCurrencyPage from "./pages/bank/FxMultiCurrencyPage";
+import BankRulesPage from "./pages/bank/BankRulesPage";
+import BankFeesPage from "./pages/bank/BankFeesPage";
+import UnmatchedTransactionsPage from "./pages/bank/UnmatchedTransactionsPage";
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
 import BillsExpenses from "./pages/finance/BillsExpenses";
@@ -200,6 +212,22 @@ function App() {
 
                 <Route path="/procurement/purchase-analysis" element={<AdminRoute><PurchaseAnalysis /></AdminRoute>} />
                 <Route path="/procurement/supplier-pricing" element={<AdminRoute><SupplierPricing /></AdminRoute>} />
+
+                <Route path="/bank" element={<Navigate to="/bank/dashboard" replace />} />
+                <Route path="/bank/dashboard" element={<AdminRoute><BankDashboard /></AdminRoute>} />
+                <Route path="/bank/accounts" element={<AdminRoute><BankAccountsPage /></AdminRoute>} />
+                <Route path="/bank/transactions" element={<AdminRoute><BankTransactionsPage /></AdminRoute>} />
+                <Route path="/bank/reconciliation" element={<AdminRoute><BankReconciliationPage /></AdminRoute>} />
+                <Route path="/bank/incoming" element={<AdminRoute><IncomingDepositsPage /></AdminRoute>} />
+                <Route path="/bank/outgoing" element={<AdminRoute><OutgoingPaymentsPage /></AdminRoute>} />
+                <Route path="/bank/matching" element={<AdminRoute><PaymentMatchingPage /></AdminRoute>} />
+                <Route path="/bank/transfers" element={<AdminRoute><TransfersPage /></AdminRoute>} />
+                <Route path="/bank/fx" element={<AdminRoute><FxMultiCurrencyPage /></AdminRoute>} />
+                <Route path="/bank/rules" element={<AdminRoute><BankRulesPage /></AdminRoute>} />
+                <Route path="/bank/fees" element={<AdminRoute><BankFeesPage /></AdminRoute>} />
+                <Route path="/bank/unmatched" element={<AdminRoute><UnmatchedTransactionsPage /></AdminRoute>} />
+
+                
 
                 
                 <Route path="/hr" element={<Navigate to="/hr/employees" replace />} />
