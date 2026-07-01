@@ -276,6 +276,7 @@ export function AppSidebar() {
   const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
   const showHR = isAdmin && !isPreviewActive;
   const showBank = isAdmin && !isPreviewActive;
+  const showPayments = isAdmin && !isPreviewActive;
   const showAdmin = isAdmin && !isPreviewActive;
   const { isPlatformAdmin } = usePlatformAdmin();
   const showPlatform = isPlatformAdmin && !isPreviewActive;
