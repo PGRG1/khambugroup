@@ -20,9 +20,10 @@ import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 const CCYS = ["HKD", "USD", "CNY", "EUR", "GBP", "SGD", "JPY"];
 
 export default function BankAccountsPage() {
-  const { accounts, transactions, imports, coa, currentBalanceFor, ledgerBalanceFor, saveAccount } = useBankModule();
+  const { accounts, transactions, imports, coa, currentBalanceFor, ledgerBalanceFor, saveAccount, reload } = useBankModule();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Partial<BankAccount> | null>(null);
+  const [delAccount, setDelAccount] = useState<BankAccount | null>(null);
 
   const startAdd = () =>
     (setEdit({
