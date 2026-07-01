@@ -120,6 +120,7 @@ export function ParseSettlementModal({
   processor,
   imp,
   merchants,
+  tenantId,
   onCommitted,
 }: {
   open: boolean;
@@ -127,6 +128,7 @@ export function ParseSettlementModal({
   processor: PaymentProcessor | null;
   imp: SettlementImport | null;
   merchants: ProcessorMerchant[];
+  tenantId: string | null;
   onCommitted: () => void;
 }) {
   const [loading, setLoading] = useState(false);
