@@ -40,7 +40,7 @@ const financeItems = [
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
   { title: "Payments & Settlements", url: "/finance/payments-settlements", icon: TrendingUp },
-  { title: "Bank Reconciliation", url: "/finance/bank-reconciliation", icon: Landmark },
+  
 ];
 
 const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
@@ -132,19 +132,28 @@ const procurementFinance = [
   { title: "Payments", url: "/procurement/finance/payments", icon: Wallet, disabled: true },
 ];
 
-const bankItems = [
-  { title: "Dashboard", url: "/bank/dashboard", icon: LayoutDashboard },
+const bankOverview = { title: "Dashboard", url: "/bank/dashboard", icon: LayoutDashboard };
+
+const bankAccounts = [
   { title: "Bank Accounts", url: "/bank/accounts", icon: Landmark },
-  { title: "Transactions", url: "/bank/transactions", icon: ListChecks },
-  { title: "Bank Reconciliation", url: "/bank/reconciliation", icon: CheckCircle2 },
-  { title: "Incoming Deposits", url: "/bank/incoming", icon: Wallet },
-  { title: "Outgoing Payments", url: "/bank/outgoing", icon: CreditCard },
-  { title: "Payment Matching", url: "/bank/matching", icon: ArrowLeftRight },
   { title: "Transfers", url: "/bank/transfers", icon: ArrowRightLeft },
   { title: "FX & Multi-Currency", url: "/bank/fx", icon: Repeat },
-  { title: "Bank Rules", url: "/bank/rules", icon: SlidersHorizontal },
-  { title: "Bank Fees & Charges", url: "/bank/fees", icon: ReceiptText },
-  { title: "Unmatched Transactions", url: "/bank/unmatched", icon: FileMinus },
+];
+
+const bankTransactions = [
+  { title: "All Transactions", url: "/bank/transactions", icon: ListChecks },
+  { title: "Incoming", url: "/bank/incoming", icon: Wallet },
+  { title: "Outgoing", url: "/bank/outgoing", icon: CreditCard },
+];
+
+const bankReconciliation = [
+  { title: "Reconciliation", url: "/bank/reconciliation", icon: CheckCircle2 },
+  { title: "Payment Matching", url: "/bank/matching", icon: ArrowLeftRight },
+  { title: "Rules", url: "/bank/rules", icon: SlidersHorizontal },
+];
+
+const bankReporting = [
+  { title: "Bank Fees", url: "/bank/fees", icon: ReceiptText },
 ];
 
 
@@ -471,7 +480,34 @@ export function AppSidebar() {
             defaultOpen={groupState.bank}
             onOpenChange={(o) => setGroup("bank", o)}
           >
-            <SidebarMenu>{bankItems.map(renderLink)}</SidebarMenu>
+            <SidebarMenu>{renderLink(bankOverview)}</SidebarMenu>
+
+            {[
+              { label: "Accounts", items: bankAccounts },
+              { label: "Transactions", items: bankTransactions },
+              { label: "Reconciliation", items: bankReconciliation },
+              { label: "Reporting", items: bankReporting },
+            ].map((sub) => (
+              <React.Fragment key={sub.label}>
+                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                      <span className="flex items-center gap-2">
+                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                        {sub.label}
+                      </span>
+                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                      <SidebarMenu>{sub.items.map(renderLink)}</SidebarMenu>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </React.Fragment>
+            ))}
           </CollapsibleNavGroup>
         )}
 

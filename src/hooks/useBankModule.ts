@@ -92,16 +92,23 @@ export function useBankModule() {
   const [matches, setMatches] = useState<any[]>([]);
 
   const load = useCallback(async () => {
+    if (!tenantId) {
+      setAccounts([]); setTransactions([]); setImports([]); setCoa([]);
+      setRules([]); setReconRules([]); setFxRates([]); setMatches([]);
+      setLedgerByAccount({});
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const [a, t, i, c, jl, r, fx, mt] = await Promise.all([
-      fetchAllRows("bank_accounts", "*", { col: "sort_order", asc: true }),
-      fetchAllRows("bank_transactions", "*", { col: "txn_date", asc: false }),
-      fetchAllRows("bank_statement_imports", "*", { col: "uploaded_at", asc: false }),
+      fetchAllRows("bank_accounts", "*", { col: "sort_order", asc: true }, tenantId),
+      fetchAllRows("bank_transactions", "*", { col: "txn_date", asc: false }, tenantId),
+      fetchAllRows("bank_statement_imports", "*", { col: "uploaded_at", asc: false }, tenantId),
       fetchAllRows("chart_of_accounts", "id, code, name, is_cash", { col: "code", asc: true }),
       fetchAllRows("journal_lines", "account_id, debit, credit"),
-      fetchAllRows("bank_recon_rules", "*", { col: "sort_order", asc: true }),
-      fetchAllRows("bank_fx_rates", "*", { col: "rate_date", asc: false }),
-      fetchAllRows("bank_transaction_matches", "*"),
+      fetchAllRows("bank_recon_rules", "*", { col: "sort_order", asc: true }, tenantId),
+      fetchAllRows("bank_fx_rates", "*", { col: "rate_date", asc: false }, tenantId),
+      fetchAllRows("bank_transaction_matches", "*", undefined, tenantId),
     ]);
     setAccounts(a as BankAccount[]);
     setTransactions(t as BankTxn[]);
@@ -128,7 +135,7 @@ export function useBankModule() {
     }
     setLedgerByAccount(ledger);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
     load();
