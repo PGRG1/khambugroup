@@ -111,6 +111,7 @@ export type FeeRateRow = {
 };
 
 export function usePaymentSettlements() {
+  const { tenantId } = useActiveTenant();
   const [loading, setLoading] = useState(true);
   const [processors, setProcessors] = useState<PaymentProcessor[]>([]);
   const [merchants, setMerchants] = useState<ProcessorMerchant[]>([]);
@@ -121,12 +122,13 @@ export function usePaymentSettlements() {
   const [feeRates, setFeeRates] = useState<FeeRateRow[]>([]);
 
   const load = useCallback(async () => {
+    if (!tenantId) { setLoading(false); return; }
     setLoading(true);
     const [p, m, i, b, l, t, fr] = await Promise.all([
-      fetchAllRows("payment_processors", "*", { col: "sort_order", asc: true }),
+      fetchAllRows("payment_processors", "*", { col: "sort_order", asc: true }, tenantId),
       fetchAllRows("payment_processor_merchants", "*", { col: "sort_order", asc: true }),
-      fetchAllRows("payment_settlement_imports", "*", { col: "uploaded_at", asc: false }),
-      fetchAllRows("payment_settlement_batches", "*", { col: "settlement_date", asc: false }),
+      fetchAllRows("payment_settlement_imports", "*", { col: "uploaded_at", asc: false }, tenantId),
+      fetchAllRows("payment_settlement_batches", "*", { col: "settlement_date", asc: false }, tenantId),
       fetchAllRows("payment_settlement_lines", "*"),
       fetchAllRows("payment_settlement_transactions", "*", { col: "transaction_time", asc: false }),
       fetchAllRows("payment_processor_fee_rates", "*"),
@@ -139,9 +141,9 @@ export function usePaymentSettlements() {
     setTransactions(t as SettlementTransaction[]);
     setFeeRates(fr as FeeRateRow[]);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => { load(); }, [load]);
 
-  return { loading, processors, merchants, imports, batches, lines, transactions, feeRates, reload: load, supabase };
+  return { loading, tenantId, processors, merchants, imports, batches, lines, transactions, feeRates, reload: load, supabase };
 }
