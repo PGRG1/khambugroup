@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown, ReceiptText, Clock } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown, ReceiptText, Clock, Store, Percent, Upload, Layers, ShieldCheck, CheckSquare } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
@@ -39,8 +39,24 @@ const financeItems = [
   { title: "Documents & Bills", url: "/finance/documents-bills", icon: FileStack },
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
-  { title: "Payments & Settlements", url: "/finance/payments-settlements", icon: TrendingUp },
-  
+];
+
+const paymentsOverview = { title: "Dashboard", url: "/payments", icon: LayoutDashboard, end: true };
+
+const paymentsMasterData = [
+  { title: "Processors", url: "/payments?tab=processors", icon: Building2 },
+  { title: "Merchants", url: "/payments?tab=merchants", icon: Store },
+  { title: "Fee Rates", url: "/payments?tab=fee-rates", icon: Percent },
+];
+
+const paymentsOperations = [
+  { title: "Imports", url: "/payments?tab=imports", icon: Upload },
+  { title: "Settlement Batches", url: "/payments?tab=batches", icon: Layers },
+  { title: "Fee Audit", url: "/payments?tab=details-audit", icon: ShieldCheck },
+];
+
+const paymentsReconciliation = [
+  { title: "Monthly Check", url: "/payments?tab=monthly-recon", icon: CheckSquare },
 ];
 
 const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
@@ -176,10 +192,10 @@ const kpiAdminItems = [
 
 const STORAGE_KEY = "khambu.sidebar.groups";
 
-type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "bank" | "hr" | "admin" | "platform";
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "bank" | "payments" | "hr" | "admin" | "platform";
 
 function loadGroupState(): Record<GroupKey, boolean> {
-  const def: Record<GroupKey, boolean> = { revenue: true, kpi: true, finance: true, expenses: true, procurement: true, bank: true, hr: true, admin: true, platform: true };
+  const def: Record<GroupKey, boolean> = { revenue: true, kpi: true, finance: true, expenses: true, procurement: true, bank: true, payments: true, hr: true, admin: true, platform: true };
   if (typeof window === "undefined") return def;
   try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return { ...def, ...JSON.parse(raw) }; } catch { /* */ }
   return def;
@@ -260,6 +276,7 @@ export function AppSidebar() {
   const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
   const showHR = isAdmin && !isPreviewActive;
   const showBank = isAdmin && !isPreviewActive;
+  const showPayments = isAdmin && !isPreviewActive;
   const showAdmin = isAdmin && !isPreviewActive;
   const { isPlatformAdmin } = usePlatformAdmin();
   const showPlatform = isPlatformAdmin && !isPreviewActive;
@@ -510,6 +527,45 @@ export function AppSidebar() {
             ))}
           </CollapsibleNavGroup>
         )}
+
+        {showPayments && (
+          <CollapsibleNavGroup
+            groupKey="payments"
+            label="Payments"
+            defaultOpen={groupState.payments}
+            onOpenChange={(o) => setGroup("payments", o)}
+          >
+            <SidebarMenu>{renderLink(paymentsOverview)}</SidebarMenu>
+
+            {[
+              { label: "Master Data", items: paymentsMasterData },
+              { label: "Operations", items: paymentsOperations },
+              { label: "Reconciliation", items: paymentsReconciliation },
+            ].map((sub) => (
+              <React.Fragment key={sub.label}>
+                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                      <span className="flex items-center gap-2">
+                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                        {sub.label}
+                      </span>
+                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                      <SidebarMenu>{sub.items.map(renderLink)}</SidebarMenu>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </React.Fragment>
+            ))}
+          </CollapsibleNavGroup>
+        )}
+
+
 
 
         {showHR && (

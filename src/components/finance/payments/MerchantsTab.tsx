@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { PaymentProcessor, ProcessorMerchant } from "@/hooks/usePaymentSettlements";
-import type { BankAccount } from "@/hooks/useBankReconciliation";
+import type { BankAccount } from "@/hooks/useBankModule";
 import { useVenues } from "@/hooks/useVenues";
 
 type Props = {
@@ -37,7 +37,7 @@ export function MerchantsTab({ processor, merchants, bankAccounts, onChanged }: 
   const handleSave = async (m: Partial<ProcessorMerchant>) => {
     if (!processor) return;
     if (!m.merchant_number || !m.display_name) {
-      toast({ title: "Merchant # and name are required", variant: "destructive" });
+      toast.error("Merchant # and name are required");
       return;
     }
     const payload: any = {
@@ -54,12 +54,12 @@ export function MerchantsTab({ processor, merchants, bankAccounts, onChanged }: 
     };
     if (editing?.id) {
       const { error } = await supabase.from("payment_processor_merchants" as any).update(payload).eq("id", editing.id);
-      if (error) return toast({ title: error.message, variant: "destructive" });
+      if (error) return toast.error(error.message);
     } else {
       const { error } = await supabase.from("payment_processor_merchants" as any).insert(payload);
-      if (error) return toast({ title: error.message, variant: "destructive" });
+      if (error) return toast.error(error.message);
     }
-    toast({ title: "Saved" });
+    toast.success("Saved");
     setEditing(null);
     setCreating(false);
     onChanged();
@@ -68,8 +68,8 @@ export function MerchantsTab({ processor, merchants, bankAccounts, onChanged }: 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this merchant? Settlement batches linked to it will fail to insert.")) return;
     const { error } = await supabase.from("payment_processor_merchants" as any).delete().eq("id", id);
-    if (error) return toast({ title: error.message, variant: "destructive" });
-    toast({ title: "Deleted" });
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
     onChanged();
   };
 

@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { PaymentProcessor, ProcessorMerchant, SettlementImport } from "@/hooks/usePaymentSettlements";
 const fmtMoney = (v: number) =>
@@ -120,6 +120,7 @@ export function ParseSettlementModal({
   processor,
   imp,
   merchants,
+  tenantId,
   onCommitted,
 }: {
   open: boolean;
@@ -127,6 +128,7 @@ export function ParseSettlementModal({
   processor: PaymentProcessor | null;
   imp: SettlementImport | null;
   merchants: ProcessorMerchant[];
+  tenantId: string | null;
   onCommitted: () => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -200,6 +202,7 @@ export function ParseSettlementModal({
 
   const commit = async () => {
     if (!processor || !imp || !canCommit) return;
+    if (!tenantId) { toast.error("No active tenant"); return; }
     setCommitting(true);
     try {
       for (const b of batches) {
@@ -208,6 +211,7 @@ export function ParseSettlementModal({
         const { data: inserted, error: be } = await supabase
           .from("payment_settlement_batches" as any)
           .insert({
+            tenant_id: tenantId,
             import_id: imp.id,
             processor_id: processor.id,
             merchant_id: merchant.id,
@@ -276,15 +280,16 @@ export function ParseSettlementModal({
         }
       }
       await supabase.from("payment_settlement_imports" as any).update({ status: "parsed" }).eq("id", imp.id);
-      toast({ title: "Settlement imported", description: `${batches.length} batches saved.` });
+      toast.success(`Settlement imported — ${batches.length} batches saved.`);
       onCommitted();
       onOpenChange(false);
     } catch (e: any) {
-      toast({ title: e.message || "Commit failed", variant: "destructive" });
+      toast.error(e.message || "Commit failed");
     } finally {
       setCommitting(false);
     }
   };
+
 
   const detailsAnomalies = (audit?.transactions_flagged || 0) > 0;
   const reconAnomalies = (audit?.reconciliation_off || 0) > 0;

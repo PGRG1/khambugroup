@@ -11,7 +11,7 @@ import type {
   SettlementLine,
   SettlementTransaction,
 } from "@/hooks/usePaymentSettlements";
-import type { BankAccount, BankTxn } from "@/hooks/useBankReconciliation";
+import type { BankAccount, BankTxn } from "@/hooks/useBankModule";
 import { AiMatchModal } from "./AiMatchModal";
 
 const fmtMoney = (v: number) =>

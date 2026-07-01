@@ -3,10 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Sparkles, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { PaymentProcessor, ProcessorMerchant, SettlementBatch } from "@/hooks/usePaymentSettlements";
-import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
+import type { BankTxn, BankAccount } from "@/hooks/useBankModule";
 
 const fmtMoney = (v: number) =>
   Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -81,9 +81,9 @@ export function AiMatchModal({
       setSuggestions(ss);
       // Pre-select all high-confidence suggestions
       setSelected(new Set(ss.filter((s) => s.bank_transaction_id && s.confidence === "high").map((s) => s.batch_id)));
-      toast({ title: "AI matching complete", description: `${ss.filter((s) => s.bank_transaction_id).length} of ${ss.length} batches matched.` });
+      toast.success(`AI matching complete — ${ss.filter((s) => s.bank_transaction_id).length} of ${ss.length} batches matched.`);
     } catch (e) {
-      toast({ title: "Matching failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+      toast.error(`Matching failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setRunning(false);
     }
@@ -98,11 +98,11 @@ export function AiMatchModal({
         body: { apply: true, suggestions: toApply },
       });
       if (error) throw error;
-      toast({ title: "Matches applied", description: `${(data as any)?.applied ?? 0} batches linked to bank deposits.` });
+      toast.success(`Matches applied — ${(data as any)?.applied ?? 0} batches linked to bank deposits.`);
       onApplied();
       onOpenChange(false);
     } catch (e) {
-      toast({ title: "Apply failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+      toast.error(`Apply failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setApplying(false);
     }
