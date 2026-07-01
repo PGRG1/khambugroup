@@ -12,15 +12,18 @@ import {
 } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 
 const CCYS = ["HKD", "USD", "CNY", "EUR", "GBP", "SGD", "JPY"];
 
 export default function BankAccountsPage() {
-  const { accounts, transactions, imports, coa, currentBalanceFor, ledgerBalanceFor, saveAccount } = useBankModule();
+  const { accounts, transactions, imports, coa, currentBalanceFor, ledgerBalanceFor, saveAccount, reload } = useBankModule();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Partial<BankAccount> | null>(null);
+  const [delAccount, setDelAccount] = useState<BankAccount | null>(null);
 
   const startAdd = () =>
     (setEdit({
@@ -40,6 +43,23 @@ export default function BankAccountsPage() {
       toast.success("Saved");
       setOpen(false);
     } catch (e: any) { toast.error(e.message || "Failed"); }
+  };
+
+  const doDelete = async () => {
+    if (!delAccount) return;
+    const { error } = await supabase.from("bank_accounts").delete().eq("id", delAccount.id);
+    if (error) {
+      if (error.code === "23503" || (error.message || "").toLowerCase().includes("foreign key")) {
+        toast.error("Cannot delete — this account has linked transactions. Remove those first.");
+      } else {
+        toast.error(error.message || "Failed to delete account");
+      }
+      setDelAccount(null);
+      return;
+    }
+    toast.success("Account deleted");
+    setDelAccount(null);
+    await reload();
   };
 
   const totalCash = accounts.reduce((s, a) => s + currentBalanceFor(a.id), 0);
@@ -93,6 +113,7 @@ export default function BankAccountsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="icon" variant="ghost" onClick={() => startEdit(a)}><Pencil className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDelAccount(a)}><Trash2 className="h-4 w-4" /></Button>
                   </TableCell>
                 </TableRow>
               );
@@ -159,6 +180,14 @@ export default function BankAccountsPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <DeleteConfirmDialog
+        open={!!delAccount}
+        onOpenChange={(o) => !o && setDelAccount(null)}
+        onConfirm={doDelete}
+        title="Delete this account?"
+        description="This action cannot be undone."
+      />
     </BankPageShell>
   );
 }
