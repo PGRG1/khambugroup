@@ -1,81 +1,52 @@
+## Prompt 1 — Bank module tenant scoping + sidebar restructure (verified)
 
-# Bank Module — Implementation Plan
+### Verification done
+- **RLS helpers actually in use** (checked `invoices`/`expense_bills`): `is_super_admin(auth.uid())`, `user_has_tenant(auth.uid(), tenant_id)`, `user_has_venue(auth.uid(), venue_id)`. There is no `is_tenant_member` or `is_tenant_admin_or_manager` in this DB — use the real helpers. Bank tables have no `venue_id`, so venue check is omitted.
+- **Current `journal_entries.source_type` allowed values** (from live constraint): `sales, sales_summary, invoice, invoice_payment, payroll_accrual, payroll_payment, mpf_payment, settlement_fee, settlement_clearing, bank_fee, bank_txn, manual, adjustment, opening`. New constraint will preserve all 14 and add `bank_transaction`, `expense_bill` (16 total).
 
-A new top-level **Bank** navigation group with 12 dedicated pages, all reading/writing the same underlying `bank_transactions` and `bank_accounts` tables already in the database. No duplicate datasets — every page is a filtered view / workflow over the shared data.
+### 1. Migration (single idempotent SQL)
 
-## Sidebar & Routing
+**Tenant scoping for `bank_accounts`, `bank_transactions`, `bank_statement_imports`:**
+- `ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE`
+- `DROP POLICY IF EXISTS` on existing open policies (both SELECT and ALL variants — will drop by name after listing them in the migration)
+- Create policies mirroring `invoices` pattern exactly:
+  - SELECT: `is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id)`
+  - ALL (WITH CHECK): same expression
+- `GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated`; `GRANT ALL ... TO service_role`
 
-- Add **Bank** as a top-level item in `AppSidebar.tsx` (icon: `Landmark`), grouped like Procurement/Expenses.
-- Routes under `/bank/*` registered in `App.tsx` as `AdminRoute`.
+**Column additions:**
+- `bank_transactions.source text NOT NULL DEFAULT 'statement' CHECK (source IN ('statement','manual','system'))` — done via `ADD COLUMN IF NOT EXISTS` then `UPDATE ... SET source='manual' WHERE is_manual=true` (backfill runs even if column already existed, guarded by `WHERE source <> 'manual'`)
+- `chart_of_accounts.cash_flow_category text CHECK (... IN ('operating','investing','financing'))` nullable, `ADD COLUMN IF NOT EXISTS`
 
-```text
-/bank/dashboard           Dashboard
-/bank/accounts            Bank Accounts
-/bank/transactions        Transactions (master ledger)
-/bank/reconciliation      Bank Reconciliation
-/bank/incoming            Incoming Deposits   (filter: money_in > 0)
-/bank/outgoing            Outgoing Payments   (filter: money_out > 0)
-/bank/matching            Payment Matching
-/bank/transfers           Transfers
-/bank/fx                  FX & Multi-Currency
-/bank/rules               Bank Rules
-/bank/fees                Bank Fees & Charges (filter: bank_fee/service)
-/bank/unmatched           Unmatched Transactions (status=unmatched / low conf)
-```
+**Constraint changes:**
+- `journal_entries_source_type_check`: `DROP CONSTRAINT IF EXISTS` then `ADD CONSTRAINT` with the full list of 16 values above
+- `bank_transactions.journal_entry_id` FK: `DROP CONSTRAINT IF EXISTS bank_transactions_journal_entry_id_fkey` then `ADD CONSTRAINT ... FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE SET NULL`
 
-## Shared data layer
+All wrapped in `DO $$ ... $$` blocks where needed for idempotency.
 
-Single hook `src/hooks/useBankModule.ts` extending the existing `useBankReconciliation.ts`. It exposes:
-- `accounts`, `transactions`, `imports`, `rules`, `coa`
-- helpers: `ledgerBalanceFor`, `statementBalanceFor`, `byCurrency`, `unmatched`, `pendingMatches`, `feesAndCharges`, `incoming`, `outgoing`, `transfers`
-- mutations: `updateTxn`, `categoriseTxn`, `splitTxn`, `attachDoc`, `manualTxn`, `approveTxn`, `runRules`
+### 2. `src/hooks/useBankModule.ts`
 
-All pages import this hook — no duplicate fetches.
+- Pass `tenantId` as 4th arg to `fetchAllRows` for: `bank_accounts`, `bank_transactions`, `bank_statement_imports`, `bank_recon_rules`, `bank_fx_rates`, `bank_transaction_matches`
+- Leave `chart_of_accounts` and `journal_lines` unchanged (no tenant_id column)
+- `saveAccount` insert: add `tenant_id: tenantId`
+- Gate `load()` on `tenantId` presence (early-return + include `tenantId` in `useCallback` deps and `useEffect`)
 
-## Schema additions (one migration)
+### 3. `src/components/AppSidebar.tsx`
 
-Existing tables already cover most needs: `bank_accounts` (20 cols), `bank_transactions` (26 cols incl. `match_confidence`, `matched_record_type/id`, `status`), `bank_statement_imports`, `bank_reconciliation_periods`, `bank_recon_rules`, `bank_audit_trail`.
+- Replace flat `bankItems` render with:
+  - Standalone: **Dashboard** → `/bank/dashboard`
+  - `CollapsibleNavGroup` sections (Procurement/Expenses pattern):
+    - **ACCOUNTS** — Bank Accounts, Transfers, FX & Multi-Currency
+    - **TRANSACTIONS** — All Transactions, Incoming, Outgoing
+    - **RECONCILIATION** — Reconciliation, Payment Matching, Rules
+    - **REPORTING** — Bank Fees
+- Remove the single "Bank Reconciliation" object from `financeItems` (line 43); leave rest intact
 
-New additions:
-- `bank_transactions.value_date date`, `currency text`, `category_account_id uuid`, `attachment_urls text[]`, `parent_txn_id uuid` (for splits), `is_transfer bool`, `transfer_pair_id uuid`, `fx_rate numeric`, `fx_gain_loss numeric`.
-- New table `bank_transaction_matches` (txn_id, matched_type, matched_id, amount, confidence, created_by) — supports one-to-many matching.
-- New table `bank_fx_rates` (date, from_ccy, to_ccy, rate).
-- Extend `bank_recon_rules` if needed for merchant/regex matching (already has match_contains).
-- Storage bucket `bank-attachments` (private, RLS by tenant).
+### 4. `src/App.tsx`
 
-All new tables: tenant_id, RLS via `has_role`/tenant membership, GRANTs to authenticated + service_role.
+- Remove import + route: `BankReconciliation` (`/finance/bank-reconciliation`)
+- Remove import + route: `UnmatchedTransactionsPage` (`/bank/unmatched`)
+- Leave page files on disk; leave `/bank/reconciliation` → `BankReconciliationPage`
 
-## Page-by-page
-
-1. **Dashboard** — KPI grid (total cash by account/currency), cards: reconciliations needing attention, unmatched count, pending matches, recent imports/recons, 30-day cash movement chart, alerts list.
-2. **Bank Accounts** — table + sheet editor (extends existing `bank_accounts` admin patterns). Shows opening/current/reconciled/last-import/last-recon.
-3. **Transactions** — full ledger `DataTableShell` with global search, account/date/status filters, inline categorise, split modal, notes, attach docs, manual txn, bulk approve.
-4. **Bank Reconciliation** — reuse `src/pages/finance/BankReconciliation.tsx` structure; full workflow with progress meter, matched/outstanding tabs, complete-period action writing to `bank_reconciliation_periods`.
-5. **Incoming Deposits** — filtered view (`money_in > 0`); match-to dropdown: revenue/AR/processor settlement/other.
-6. **Outgoing Payments** — filtered view (`money_out > 0`); match-to: supplier invoices/expense bills/payroll/tax/other.
-7. **Payment Matching** — split-pane: unmatched txns ↔ candidate documents; AI suggestion list with confidence; supports 1-1, 1-N, N-1 via `bank_transaction_matches`.
-8. **Transfers** — list `is_transfer=true`; new-transfer dialog creates a paired in/out txn linked via `transfer_pair_id`; auto journal post on approve.
-9. **FX & Multi-Currency** — balances by currency, FX rate table editor (`bank_fx_rates`), realised/unrealised gain-loss calc, conversion history.
-10. **Bank Rules** — CRUD on `bank_recon_rules` + new categorisation rules (extends `bankTxnRules.ts`); test-rule preview.
-11. **Bank Fees & Charges** — filtered view using `classifyTxn` → `bank_fee` / merchant fees / interest; bulk categorise + post.
-12. **Unmatched Transactions** — filter `status='unmatched' OR match_confidence='low' OR no attachment`; quick actions: match, categorise, note, request doc, approve, send to reconciliation.
-
-## Design
-
-- Bani dark theme, `card-glass`, `PageHeader`, `KpiCard`, `StatusBadge`, `@/utils/format`, `JetBrains Mono` numerics.
-- Chips for status: matched / partial / unmatched / reconciled / disputed.
-- All currency via `formatCurrency` honoring account currency.
-
-## Out of scope (explicit)
-
-- No new accounting posting engine — transfers/fees post via existing `journal_entries`/`journal_lines` patterns.
-- No bank API integrations (Plaid etc.); imports continue via the existing statement-upload flow.
-- No mobile-only layouts beyond existing responsive primitives.
-
-## Execution order
-
-1. Migration (schema additions + new tables + storage bucket + RLS/GRANTs).
-2. Shared hook `useBankModule.ts`.
-3. Sidebar + routes.
-4. Pages in order: Accounts → Transactions → Dashboard → Reconciliation → Incoming/Outgoing/Fees/Unmatched (thin filtered views) → Matching → Transfers → FX → Rules.
-5. Typecheck + smoke navigate each route.
+### Out of scope
+No page-level UI changes; no page-file deletion.
