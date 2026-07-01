@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { PaymentProcessor, ProcessorMerchant } from "@/hooks/usePaymentSettlements";
-import type { BankAccount } from "@/hooks/useBankReconciliation";
+import type { BankAccount } from "@/hooks/useBankModule";
 import { useVenues } from "@/hooks/useVenues";
 
 type Props = {
