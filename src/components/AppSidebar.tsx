@@ -39,8 +39,24 @@ const financeItems = [
   { title: "Documents & Bills", url: "/finance/documents-bills", icon: FileStack },
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
-  { title: "Payments & Settlements", url: "/finance/payments-settlements", icon: TrendingUp },
-  
+];
+
+const paymentsOverview = { title: "Dashboard", url: "/payments", icon: LayoutDashboard, end: true };
+
+const paymentsMasterData = [
+  { title: "Processors", url: "/payments?tab=processors", icon: Building2 },
+  { title: "Merchants", url: "/payments?tab=merchants", icon: Store },
+  { title: "Fee Rates", url: "/payments?tab=fee-rates", icon: Percent },
+];
+
+const paymentsOperations = [
+  { title: "Imports", url: "/payments?tab=imports", icon: Upload },
+  { title: "Settlement Batches", url: "/payments?tab=batches", icon: Layers },
+  { title: "Fee Audit", url: "/payments?tab=details-audit", icon: ShieldCheck },
+];
+
+const paymentsReconciliation = [
+  { title: "Monthly Check", url: "/payments?tab=monthly-recon", icon: CheckSquare },
 ];
 
 const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
