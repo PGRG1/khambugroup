@@ -40,7 +40,7 @@ const financeItems = [
   { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
   { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
   { title: "Payments & Settlements", url: "/finance/payments-settlements", icon: TrendingUp },
-  { title: "Bank Reconciliation", url: "/finance/bank-reconciliation", icon: Landmark },
+  
 ];
 
 const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
@@ -132,19 +132,28 @@ const procurementFinance = [
   { title: "Payments", url: "/procurement/finance/payments", icon: Wallet, disabled: true },
 ];
 
-const bankItems = [
-  { title: "Dashboard", url: "/bank/dashboard", icon: LayoutDashboard },
+const bankOverview = { title: "Dashboard", url: "/bank/dashboard", icon: LayoutDashboard };
+
+const bankAccounts = [
   { title: "Bank Accounts", url: "/bank/accounts", icon: Landmark },
-  { title: "Transactions", url: "/bank/transactions", icon: ListChecks },
-  { title: "Bank Reconciliation", url: "/bank/reconciliation", icon: CheckCircle2 },
-  { title: "Incoming Deposits", url: "/bank/incoming", icon: Wallet },
-  { title: "Outgoing Payments", url: "/bank/outgoing", icon: CreditCard },
-  { title: "Payment Matching", url: "/bank/matching", icon: ArrowLeftRight },
   { title: "Transfers", url: "/bank/transfers", icon: ArrowRightLeft },
   { title: "FX & Multi-Currency", url: "/bank/fx", icon: Repeat },
-  { title: "Bank Rules", url: "/bank/rules", icon: SlidersHorizontal },
-  { title: "Bank Fees & Charges", url: "/bank/fees", icon: ReceiptText },
-  { title: "Unmatched Transactions", url: "/bank/unmatched", icon: FileMinus },
+];
+
+const bankTransactions = [
+  { title: "All Transactions", url: "/bank/transactions", icon: ListChecks },
+  { title: "Incoming", url: "/bank/incoming", icon: Wallet },
+  { title: "Outgoing", url: "/bank/outgoing", icon: CreditCard },
+];
+
+const bankReconciliation = [
+  { title: "Reconciliation", url: "/bank/reconciliation", icon: CheckCircle2 },
+  { title: "Payment Matching", url: "/bank/matching", icon: ArrowLeftRight },
+  { title: "Rules", url: "/bank/rules", icon: SlidersHorizontal },
+];
+
+const bankReporting = [
+  { title: "Bank Fees", url: "/bank/fees", icon: ReceiptText },
 ];
 
 
