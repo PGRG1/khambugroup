@@ -61,7 +61,7 @@ import Receivables from "./pages/finance/Receivables";
 import Payables from "./pages/finance/Payables";
 import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
 import FinanceDashboard from "./pages/finance/Dashboard";
-import BankReconciliation from "./pages/finance/BankReconciliation";
+
 import BankDashboard from "./pages/bank/BankDashboard";
 import BankAccountsPage from "./pages/bank/BankAccountsPage";
 import BankTransactionsPage from "./pages/bank/BankTransactionsPage";
@@ -73,7 +73,7 @@ import TransfersPage from "./pages/bank/TransfersPage";
 import FxMultiCurrencyPage from "./pages/bank/FxMultiCurrencyPage";
 import BankRulesPage from "./pages/bank/BankRulesPage";
 import BankFeesPage from "./pages/bank/BankFeesPage";
-import UnmatchedTransactionsPage from "./pages/bank/UnmatchedTransactionsPage";
+
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
 import BillsExpenses from "./pages/finance/BillsExpenses";
@@ -173,7 +173,7 @@ function App() {
                 <Route path="/finance/receivables" element={<AdminRoute><Receivables /></AdminRoute>} />
                 <Route path="/finance/payables" element={<AdminRoute><Payables /></AdminRoute>} />
                 <Route path="/finance/ledger-audit" element={<AdminRoute><LedgerAuditLog /></AdminRoute>} />
-                <Route path="/finance/bank-reconciliation" element={<AdminRoute><BankReconciliation /></AdminRoute>} />
+                
                 <Route path="/finance/document-centre" element={<AdminRoute><DocumentCentre /></AdminRoute>} />
                 <Route path="/finance/documents-bills" element={<AdminRoute><DocumentsBills /></AdminRoute>} />
                 <Route path="/finance/bills-expenses" element={<AdminRoute><BillsExpenses /></AdminRoute>} />
@@ -225,7 +225,7 @@ function App() {
                 <Route path="/bank/fx" element={<AdminRoute><FxMultiCurrencyPage /></AdminRoute>} />
                 <Route path="/bank/rules" element={<AdminRoute><BankRulesPage /></AdminRoute>} />
                 <Route path="/bank/fees" element={<AdminRoute><BankFeesPage /></AdminRoute>} />
-                <Route path="/bank/unmatched" element={<AdminRoute><UnmatchedTransactionsPage /></AdminRoute>} />
+                
 
                 
 
