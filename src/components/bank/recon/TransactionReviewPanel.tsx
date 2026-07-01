@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
+import type { BankTxn, BankAccount } from "@/hooks/useBankModule";
 import { formatCurrency } from "@/utils/salesUtils";
 import { classifyTxn, SUGGESTED_TYPE_LABEL, type UserRule } from "@/utils/bankTxnRules";
 import { matchReconRule, type ReconMappingRule } from "@/utils/reconciliationMappingRules";

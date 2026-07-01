@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2, Upload, ArrowRight, CheckCircle2 } from "lucide-react";
 import { classifyTxn } from "@/utils/bankTxnRules";
 import { loadReconMappingRules, matchReconRule } from "@/utils/reconciliationMappingRules";
-import type { BankAccount } from "@/hooks/useBankReconciliation";
+import type { BankAccount } from "@/hooks/useBankModule";
 import { formatCurrency } from "@/utils/salesUtils";
 
 type ExtractedTxn = {

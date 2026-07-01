@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/utils/salesUtils";
-import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
+import type { BankTxn, BankAccount } from "@/hooks/useBankModule";
 import { SUGGESTED_TYPE_LABEL } from "@/utils/bankTxnRules";
 
 export function FilteredTxnList({
