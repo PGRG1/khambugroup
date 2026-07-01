@@ -135,7 +135,7 @@ export function useBankModule() {
     }
     setLedgerByAccount(ledger);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
     load();
