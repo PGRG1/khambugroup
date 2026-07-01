@@ -45,6 +45,23 @@ export default function BankAccountsPage() {
     } catch (e: any) { toast.error(e.message || "Failed"); }
   };
 
+  const doDelete = async () => {
+    if (!delAccount) return;
+    const { error } = await supabase.from("bank_accounts").delete().eq("id", delAccount.id);
+    if (error) {
+      if (error.code === "23503" || (error.message || "").toLowerCase().includes("foreign key")) {
+        toast.error("Cannot delete — this account has linked transactions. Remove those first.");
+      } else {
+        toast.error(error.message || "Failed to delete account");
+      }
+      setDelAccount(null);
+      return;
+    }
+    toast.success("Account deleted");
+    setDelAccount(null);
+    await reload();
+  };
+
   const totalCash = accounts.reduce((s, a) => s + currentBalanceFor(a.id), 0);
 
   return (
