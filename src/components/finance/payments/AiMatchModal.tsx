@@ -81,9 +81,9 @@ export function AiMatchModal({
       setSuggestions(ss);
       // Pre-select all high-confidence suggestions
       setSelected(new Set(ss.filter((s) => s.bank_transaction_id && s.confidence === "high").map((s) => s.batch_id)));
-      toast({ title: "AI matching complete", description: `${ss.filter((s) => s.bank_transaction_id).length} of ${ss.length} batches matched.` });
+      toast.success(`AI matching complete — ${ss.filter((s) => s.bank_transaction_id).length} of ${ss.length} batches matched.`);
     } catch (e) {
-      toast({ title: "Matching failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+      toast.error(`Matching failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setRunning(false);
     }
