@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, Download, Trash2, FileText, ScanLine } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ParseSettlementModal } from "./ParseSettlementModal";
 const formatDate = (s: string) => {
@@ -18,11 +18,13 @@ export function ImportsTab({
   processor,
   imports,
   merchants,
+  tenantId,
   onChanged,
 }: {
   processor: PaymentProcessor | null;
   imports: SettlementImport[];
   merchants: ProcessorMerchant[];
+  tenantId: string | null;
   onChanged: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -33,8 +35,9 @@ export function ImportsTab({
 
   const handleUpload = async (file: File) => {
     if (!processor) return;
+    if (!tenantId) { toast.error("No active tenant"); return; }
     if (file.size > MAX_SIZE) {
-      toast({ title: "File too large (max 100 MB)", variant: "destructive" });
+      toast.error("File too large (max 100 MB)");
       return;
     }
     setBusy(true);
@@ -58,6 +61,7 @@ export function ImportsTab({
       }
 
       const { error } = await supabase.from("payment_settlement_imports" as any).insert({
+        tenant_id: tenantId,
         processor_id: processor.id,
         period_start: periodStart,
         period_end: periodEnd,
@@ -68,10 +72,10 @@ export function ImportsTab({
         status: "uploaded",
       });
       if (error) throw error;
-      toast({ title: "Statement uploaded", description: "Parsing will be added in the next phase." });
+      toast.success("Statement uploaded");
       onChanged();
     } catch (e: any) {
-      toast({ title: e.message || "Upload failed", variant: "destructive" });
+      toast.error(e.message || "Upload failed");
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -88,8 +92,8 @@ export function ImportsTab({
     if (!confirm("Delete this import? Linked batches and lines will be removed.")) return;
     if (imp.file_url) await supabase.storage.from("payment-statements").remove([imp.file_url]);
     const { error } = await supabase.from("payment_settlement_imports" as any).delete().eq("id", imp.id);
-    if (error) return toast({ title: error.message, variant: "destructive" });
-    toast({ title: "Deleted" });
+    if (error) return toast.error(error.message);
+    toast.success("Deleted");
     onChanged();
   };
 
@@ -162,6 +166,7 @@ export function ImportsTab({
         processor={processor}
         imp={parseTarget}
         merchants={merchants}
+        tenantId={tenantId}
         onCommitted={onChanged}
       />
     </div>
