@@ -48,13 +48,14 @@ type ExtractedStatement = {
 type Mapping = { bank_account_id: string | "__create__" | "__skip__"; new_account_name?: string };
 
 export function StatementUploadFlow({
-  open, onClose, onCommitted, accounts, reload,
+  open, onClose, onCommitted, accounts, reload, tenantId,
 }: {
   open: boolean;
   onClose: () => void;
   onCommitted: () => void;
   accounts: BankAccount[];
   reload: () => void;
+  tenantId: string | null;
 }) {
   const [step, setStep] = useState<"upload" | "preview" | "saving" | "done">("upload");
   const [file, setFile] = useState<File | null>(null);
@@ -146,6 +147,7 @@ export function StatementUploadFlow({
               currency: a.currency,
               opening_balance: a.opening_balance || 0,
               opening_date: extracted.statement_date,
+              tenant_id: tenantId,
             } as any)
             .select("id")
             .single();
@@ -178,7 +180,8 @@ export function StatementUploadFlow({
             file_url: filePath,
             file_name: file?.name || null,
             status: "imported",
-          })
+            tenant_id: tenantId,
+          } as any)
           .select("id")
           .single();
         if (iErr || !imp) throw new Error(`Import row failed: ${iErr?.message}`);
@@ -202,6 +205,7 @@ export function StatementUploadFlow({
               suggested_type: rec?.suggested_type || cls?.suggested_type || null,
               suggested_category: rec?.suggested_category || cls?.suggested_category || null,
               status: "unmatched",
+              tenant_id: tenantId,
             } as any;
           });
           // Batch insert in chunks
