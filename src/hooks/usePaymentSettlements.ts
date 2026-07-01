@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type PaymentProcessor = {
   id: string;
