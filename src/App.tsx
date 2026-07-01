@@ -77,7 +77,7 @@ import BankFeesPage from "./pages/bank/BankFeesPage";
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
 import BillsExpenses from "./pages/finance/BillsExpenses";
-import PaymentsSettlements from "./pages/finance/PaymentsSettlements";
+import PaymentsPage from "./pages/payments/PaymentsPage";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HROrgChart from "./pages/hr/HROrgChart";
