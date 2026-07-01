@@ -98,11 +98,11 @@ export function AiMatchModal({
         body: { apply: true, suggestions: toApply },
       });
       if (error) throw error;
-      toast({ title: "Matches applied", description: `${(data as any)?.applied ?? 0} batches linked to bank deposits.` });
+      toast.success(`Matches applied — ${(data as any)?.applied ?? 0} batches linked to bank deposits.`);
       onApplied();
       onOpenChange(false);
     } catch (e) {
-      toast({ title: "Apply failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+      toast.error(`Apply failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setApplying(false);
     }
