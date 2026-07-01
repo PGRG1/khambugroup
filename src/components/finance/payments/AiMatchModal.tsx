@@ -3,10 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Sparkles, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { PaymentProcessor, ProcessorMerchant, SettlementBatch } from "@/hooks/usePaymentSettlements";
-import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
+import type { BankTxn, BankAccount } from "@/hooks/useBankModule";
 
 const fmtMoney = (v: number) =>
   Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
