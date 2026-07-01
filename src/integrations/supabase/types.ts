@@ -974,6 +974,7 @@ export type Database = {
           parent_txn_id: string | null
           reference: string
           running_balance: number | null
+          source: string
           source_page: number | null
           status: string
           suggested_category: string | null
@@ -1011,6 +1012,7 @@ export type Database = {
           parent_txn_id?: string | null
           reference?: string
           running_balance?: number | null
+          source?: string
           source_page?: number | null
           status?: string
           suggested_category?: string | null
@@ -1048,6 +1050,7 @@ export type Database = {
           parent_txn_id?: string | null
           reference?: string
           running_balance?: number | null
+          source?: string
           source_page?: number | null
           status?: string
           suggested_category?: string | null
@@ -1110,6 +1113,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bank_transactions_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
             foreignKeyName: "bank_transactions_parent_txn_id_fkey"
             columns: ["parent_txn_id"]
             isOneToOne: false
@@ -1166,6 +1190,7 @@ export type Database = {
       chart_of_accounts: {
         Row: {
           account_type: string
+          cash_flow_category: string | null
           code: string
           created_at: string
           description: string | null
@@ -1181,6 +1206,7 @@ export type Database = {
         }
         Insert: {
           account_type: string
+          cash_flow_category?: string | null
           code: string
           created_at?: string
           description?: string | null
@@ -1196,6 +1222,7 @@ export type Database = {
         }
         Update: {
           account_type?: string
+          cash_flow_category?: string | null
           code?: string
           created_at?: string
           description?: string | null
