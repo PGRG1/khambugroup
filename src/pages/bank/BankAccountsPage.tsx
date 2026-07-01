@@ -12,8 +12,10 @@ import {
 } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 
 const CCYS = ["HKD", "USD", "CNY", "EUR", "GBP", "SGD", "JPY"];
 
