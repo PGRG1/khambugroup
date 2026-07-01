@@ -180,6 +180,14 @@ export default function BankAccountsPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <DeleteConfirmDialog
+        open={!!delAccount}
+        onOpenChange={(o) => !o && setDelAccount(null)}
+        onConfirm={doDelete}
+        title="Delete this account?"
+        description="This action cannot be undone."
+      />
     </BankPageShell>
   );
 }
