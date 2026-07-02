@@ -139,8 +139,8 @@ const RevenueTargetPanel = ({ salesData, allForecasts, allVenues }: RevenueTarge
     let failed = 0;
 
     for (const { venue, result } of perVenue) {
-      if (venue === "Events") continue; // Events is not a forecast venue
-      const v = venue as "Assembly" | "Caliente" | "Hanabi";
+      const v = venue;
+
 
       for (const day of result.rows) {
         if (day.isActual) continue; // Don't overwrite actual days
