@@ -1,63 +1,47 @@
-# Split Payments & Petty Cash into standalone pages
+# Multi-Tenancy Migration — Prompt 1: Core Financial Tables
 
-Extract each tab block from the two aggregate pages into its own route-backed page. No shared TABS array, no `useSearchParams`, no tab bar in any new file.
+Single idempotent migration adding `tenant_id` + tenant-scoped RLS to 6 tables, matching the `bank_transactions` pattern.
 
-## 1. Read source files
-- `src/pages/payments/PaymentsPage.tsx` — extract 8 tab blocks verbatim (including local state, dialogs, handlers used only inside each block).
-- `src/pages/petty-cash/PettyCashPage.tsx` — extract 5 tab blocks verbatim.
-- `src/components/AppSidebar.tsx` — locate the payments/petty-cash nav entries currently using `?tab=` query strings.
+## Tables covered
 
-## 2. Create new Payments pages
-Each file: standalone component, calls `usePaymentSettlements()` and `useBankModule()` as needed, owns its own local state (processor selector, dialog open flags, form state). Imports the existing tab components unchanged.
+1. `invoices`
+2. `invoice_line_items`
+3. `invoice_payments`
+4. `sales_records`
+5. `expense_bills`
+6. `journal_lines`
 
-- `src/pages/payments/PaymentsDashboardPage.tsx` ← `overview` block (processor selector + KPIs + workflow stepper + processor cards + recent batches).
-- `src/pages/payments/PaymentsBatchesPage.tsx` ← `batches` block → `<SettlementBatchesTab>`.
-- `src/pages/payments/PaymentsFeeAuditPage.tsx` ← `details-audit` block → `<SettlementDetailsAuditTab>`.
-- `src/pages/payments/PaymentsMonthlyPage.tsx` ← `monthly-recon` block → `<MonthlyReconciliationTab>`.
-- `src/pages/payments/PaymentsProcessorsPage.tsx` ← `processors` block (CRUD table + dialog).
-- `src/pages/payments/PaymentsMerchantsPage.tsx` ← `merchants` block → `<MerchantsTab>`.
-- `src/pages/payments/PaymentsFeeRatesPage.tsx` ← `fee-rates` block → `<FeeRatesTab>`.
-- `src/pages/payments/PaymentsImportsPage.tsx` ← `imports` block → `<ImportsTab>`.
+## Per-table steps (applied to each)
 
-Delete `src/pages/payments/PaymentsPage.tsx`.
+1. `ALTER TABLE ... ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE`
+2. `UPDATE ... SET tenant_id = '00000000-0000-0000-0000-00000000beef' WHERE tenant_id IS NULL` (KHAMBU backfill)
+3. `CREATE INDEX IF NOT EXISTS <table>_tenant_id_idx ON public.<table>(tenant_id)` for query performance
+4. `DROP POLICY IF EXISTS ...` for every legacy open policy listed below
+5. `CREATE POLICY "<table>_tenant_select" FOR SELECT USING (is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id))`
+6. `CREATE POLICY "<table>_tenant_all" FOR ALL USING (same + admin/manager) WITH CHECK (same)`
+7. `GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO authenticated; GRANT ALL ON public.<table> TO service_role`
 
-### Processor selector state — confirmed behaviour
-Each new Payments page that renders a processor selector owns its **own independent** `processorId` state. Selecting a processor on `PaymentsBatchesPage` does NOT affect `PaymentsDashboardPage` or any other page. This is the intended behaviour of the split.
+## Policies dropped per table
 
-Additionally, **every** page that renders a processor selector must include the `didInit` initialisation logic from the original `PaymentsPage.tsx`:
+- **invoices**: "Authenticated can read invoices", "Authorized can insert invoices", "Authorized can update invoices", "Admins can delete invoices"
+- **invoice_line_items**: "Authenticated can read line items", "Authorized can insert line items", "Authorized can update line items", "Admins can delete line items"
+- **invoice_payments**: "Authenticated can read invoice_payments"
+- **sales_records**: "Allow public read", "Allow public insert", "Allow public update", "Allow public delete"
+- **expense_bills**: "Authenticated read expense_bills", "Authenticated insert expense_bills", "Authenticated update expense_bills", "Admin delete expense_bills", "tenant_venue_select"
+- **journal_lines**: "Authenticated can read journal_lines", "Authorized can manage journal_lines", "tenant_venue_select", "tenant_venue_write"
 
-```ts
-const kpay = processors.find(p => /kpay/i.test(p.name)) || processors[0];
-if (kpay) setProcessorId(kpay.id);
-setDidInit(true);
-```
+Any additional legacy policies discovered on these tables that use `USING (true)` or equivalent open predicates will also be dropped in the same migration so no open path remains.
 
-This must be present in — do not omit from — any of:
-`PaymentsDashboardPage`, `PaymentsBatchesPage`, `PaymentsFeeAuditPage`, `PaymentsMonthlyPage`, `PaymentsMerchantsPage`, `PaymentsFeeRatesPage`, `PaymentsImportsPage`.
+## Verification (post-migration read-only checks)
 
-Pages that don't need a processor context (`PaymentsProcessorsPage`) skip this.
+- Each of the 6 tables has a `tenant_id` column
+- No legacy open policies remain on the 6 tables
+- New `_tenant_select` and `_tenant_all` policies exist on each
+- Row counts where `tenant_id = KHAMBU UUID` are non-zero (backfill succeeded)
 
-## 3. Create new Petty Cash pages
-Each file calls `usePettyCash()` directly.
+## Out of scope for this prompt
 
-- `src/pages/petty-cash/PettyCashOverviewPage.tsx` ← `overview`.
-- `src/pages/petty-cash/PettyCashReceiptsPage.tsx` ← `receipts`.
-- `src/pages/petty-cash/PettyCashFloatsPage.tsx` ← `floats`.
-- `src/pages/petty-cash/PettyCashClassificationsPage.tsx` ← `classifications`.
-- `src/pages/petty-cash/PettyCashReplenishmentsPage.tsx` ← `replenishments`.
+- No application/code changes (inserts will begin failing RLS if callers don't set `tenant_id`; addressed in a later prompt).
+- Remaining tables (bank_*, expense_* siblings, petty_cash_*, payments_*, procurement master data, HR, etc.) come in Prompts 2–4.
 
-Delete `src/pages/petty-cash/PettyCashPage.tsx`.
-
-## 4. Update routing — `src/App.tsx`
-Replace the single `/payments` route with 8 `<AdminRoute>` routes and the single `/petty-cash` route with 5 `<AdminRoute>` routes, using the paths in the request. Update imports accordingly.
-
-## 5. Update sidebar — `src/components/AppSidebar.tsx`
-Swap `?tab=` URLs for canonical routes:
-
-- Payments: Overview `/payments`; Master `/payments/processors`, `/payments/merchants`, `/payments/fee-rates`; Ops `/payments/imports`, `/payments/batches`, `/payments/fee-audit`; Recon `/payments/monthly`.
-- Petty Cash: Overview `/petty-cash`; Ops `/petty-cash/receipts`, `/petty-cash/replenishments`; Master `/petty-cash/floats`, `/petty-cash/classifications`.
-
-No other sidebar changes.
-
-## Out of scope
-No changes to `SettlementBatchesTab`, `MerchantsTab`, `FeeRatesTab`, `ImportsTab`, `SettlementDetailsAuditTab`, `MonthlyReconciliationTab`, `usePaymentSettlements`, `usePettyCash`, or any other pages.
+Approve to run the migration.
