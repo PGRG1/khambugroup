@@ -7,7 +7,7 @@ import {
   DistributedDay,
 } from "./forecastDistribution";
 
-export type ForecastVenue = "Assembly" | "Caliente" | "Hanabi" | "Events";
+export type ForecastVenue = string;
 
 export interface ForecastTableRow extends DistributedDay {
   /** Uniform avg-target-spend per guest (same for every row) */
