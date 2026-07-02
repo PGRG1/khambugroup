@@ -7508,6 +7508,7 @@ export type Database = {
           notes: string | null
           product_master_id: string
           session_id: string
+          tenant_id: string | null
           unit: string
           unit_cost: number
           updated_at: string
@@ -7523,6 +7524,7 @@ export type Database = {
           notes?: string | null
           product_master_id: string
           session_id: string
+          tenant_id?: string | null
           unit?: string
           unit_cost?: number
           updated_at?: string
@@ -7538,6 +7540,7 @@ export type Database = {
           notes?: string | null
           product_master_id?: string
           session_id?: string
+          tenant_id?: string | null
           unit?: string
           unit_cost?: number
           updated_at?: string
@@ -7569,6 +7572,13 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "stock_count_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -7634,6 +7644,7 @@ export type Database = {
           reference_mode: string
           session_number: string
           status: string
+          tenant_id: string | null
           updated_at: string
           venue: string
         }
@@ -7649,6 +7660,7 @@ export type Database = {
           reference_mode?: string
           session_number?: string
           status?: string
+          tenant_id?: string | null
           updated_at?: string
           venue: string
         }
@@ -7664,10 +7676,19 @@ export type Database = {
           reference_mode?: string
           session_number?: string
           status?: string
+          tenant_id?: string | null
           updated_at?: string
           venue?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stock_count_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_locations: {
         Row: {
