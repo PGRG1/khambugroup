@@ -415,6 +415,28 @@ const ForecastInput = () => {
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          {/* Month navigator */}
+          <div className="flex items-center rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => goToMonth(-1)}
+              className="px-2 py-2 bg-secondary text-secondary-foreground hover:bg-muted border-r border-border"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-3 py-2 text-sm font-medium td-num min-w-[140px] text-center bg-secondary">
+              {monthName(selectedMonth)} {selectedYear}
+            </span>
+            <button
+              type="button"
+              onClick={() => goToMonth(1)}
+              className="px-2 py-2 bg-secondary text-secondary-foreground hover:bg-muted border-l border-border"
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
           <div className="flex flex-wrap rounded-lg border border-border overflow-hidden">
             <button
               type="button"
@@ -453,10 +475,46 @@ const ForecastInput = () => {
       {/* Period Filter */}
       {!hideDateRange && <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} />}
 
-      {/* Monthly Revenue Target */}
+      {/* Three-way Summary */}
+      <ThreeWaySummary
+        year={selectedYear}
+        month={selectedMonth}
+        selectedVenues={orderedSelection}
+        salesData={salesData}
+        forecasts={forecasts}
+        target={getTargetForMonth(selectedYear, selectedMonth)}
+      />
+
+      {/* Three-way Chart (Manager vs Actual) */}
+      <ThreeWayChart
+        year={selectedYear}
+        month={selectedMonth}
+        selectedVenues={orderedSelection}
+        salesData={salesData}
+        forecasts={forecasts}
+      />
+
+      {/* Venue breakdown */}
+      <VenueBreakdownTable
+        year={selectedYear}
+        month={selectedMonth}
+        selectedVenues={orderedSelection}
+        salesData={salesData}
+        forecasts={forecasts}
+      />
+
+      {/* Monthly Revenue Target (controlled) */}
       {canCreate && activeVenues.length > 0 && (
-        <RevenueTargetPanel salesData={salesData} allForecasts={forecasts} allVenues={activeVenueNames} />
+        <RevenueTargetPanel
+          salesData={salesData}
+          allForecasts={forecasts}
+          allVenues={activeVenueNames}
+          year={selectedYear}
+          month={selectedMonth}
+          onMonthChange={(y, m) => { setSelectedYear(y); setSelectedMonth(m); }}
+        />
       )}
+
 
       {/* Input Form */}
       {showEntry && canCreate && (
