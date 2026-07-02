@@ -12,6 +12,7 @@ import {
 import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useVenues } from "@/hooks/useVenues";
 import { useForecastData } from "@/hooks/useForecastData";
 import { useForecastPermissions } from "@/hooks/useForecastPermissions";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
@@ -25,55 +26,75 @@ import { SalesRecord } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 
-type ForecastVenue = "Assembly" | "Caliente" | "Hanabi" | "Events";
-const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"];
+type ForecastVenue = string;
 
 const VENUES_STORAGE_KEY = "forecast.selectedVenues";
 
-const parseVenueParam = (v: string | undefined): ForecastVenue => {
-  const map: Record<string, ForecastVenue> = {
-    assembly: "Assembly",
-    caliente: "Caliente",
-    hanabi: "Hanabi",
-    events: "Events",
-  };
-  return (v && map[v.toLowerCase()]) || "Assembly";
-};
+const normalise = (s: string) => s.toLowerCase().trim();
 
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
-  const initialVenue = parseVenueParam(venue);
   const { user } = useAuth();
+
+  const { venues, loading: venuesLoading } = useVenues();
+  const activeVenues = useMemo(
+    () =>
+      [...venues]
+        .filter((v) => v.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
+    [venues],
+  );
+  const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
+
+  const routeInitialVenue = useMemo(() => {
+    if (activeVenueNames.length === 0) return null;
+    if (venue) {
+      const target = normalise(venue);
+      const match = activeVenueNames.find((n) => normalise(n) === target);
+      if (match) return match;
+    }
+    return activeVenueNames[0];
+  }, [venue, activeVenueNames]);
 
   const { forecasts, loading: forecastsLoading, addForecast, updateForecast, deleteForecast, approveForecast, rejectForecast, approvePostEventNotes, rejectPostEventNotes } = useForecastData();
   const { canCreate, canApprove, canEditFigures, isApprover, loading: permLoading } = useForecastPermissions();
   const { isActionHidden } = usePagePermissions();
 
-  // Multi-venue selection — persisted across reloads
-  const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>(() => {
+  // Multi-venue selection — persisted across reloads, validated against active Admin venues
+  const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>([]);
+  const [venuesHydrated, setVenuesHydrated] = useState(false);
+
+  useEffect(() => {
+    if (venuesLoading) return;
+    let next: ForecastVenue[] = [];
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(VENUES_STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw) as ForecastVenue[];
-          const filtered = parsed.filter((v) => ALL_VENUES.includes(v));
-          if (filtered.length > 0) return filtered;
+          next = parsed.filter((v) => activeVenueNames.includes(v));
         }
       } catch {}
     }
-    return [initialVenue];
-  });
+    if (next.length === 0 && routeInitialVenue) next = [routeInitialVenue];
+    setSelectedVenues(next);
+    setVenuesHydrated(true);
+  }, [venuesLoading, activeVenueNames, routeInitialVenue]);
+
   useEffect(() => {
+    if (!venuesHydrated) return;
     localStorage.setItem(VENUES_STORAGE_KEY, JSON.stringify(selectedVenues));
-  }, [selectedVenues]);
+  }, [selectedVenues, venuesHydrated]);
 
   const orderedSelection = useMemo(
-    () => ALL_VENUES.filter((v) => selectedVenues.includes(v)),
-    [selectedVenues],
+    () => activeVenueNames.filter((v) => selectedVenues.includes(v)),
+    [selectedVenues, activeVenueNames],
   );
-  const isAllVenues = orderedSelection.length === ALL_VENUES.length;
+  const isAllVenues = activeVenueNames.length > 0 && orderedSelection.length === activeVenueNames.length;
   const isMulti = orderedSelection.length > 1;
-  const venueLabel = isAllVenues ? "All Venues" : orderedSelection.join(" + ");
+  const venueLabel = orderedSelection.length === 0
+    ? "No venues"
+    : isAllVenues ? "All Venues" : orderedSelection.join(" + ");
   // Single venue used as default for legacy single-venue contexts (KPI seats etc.)
   const primaryVenue = orderedSelection[0];
 
@@ -346,8 +367,22 @@ const ForecastInput = () => {
     return <div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Loading...</p></div>;
   }
 
+  if (!venuesLoading && activeVenues.length === 0) {
+    return (
+      <div className="w-full mx-auto p-8">
+        <div className="card-glass rounded-xl p-8 text-center">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Targets unavailable</h2>
+          <p className="text-sm text-muted-foreground">
+            No active venues have been configured. Add a venue in Platform Admin before creating revenue targets.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full mx-auto space-y-6">
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -365,12 +400,12 @@ const ForecastInput = () => {
           <div className="flex flex-wrap rounded-lg border border-border overflow-hidden">
             <button
               type="button"
-              onClick={() => setSelectedVenues(ALL_VENUES)}
+              onClick={() => setSelectedVenues(activeVenueNames)}
               className={`px-3 py-2 text-sm font-medium transition-colors border-r border-border ${isAllVenues ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
             >
               All
             </button>
-            {ALL_VENUES.map((v) => {
+            {activeVenueNames.map((v) => {
               const active = selectedVenues.includes(v) && !isAllVenues;
               return (
                 <button
@@ -401,7 +436,9 @@ const ForecastInput = () => {
       {!hideDateRange && <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} />}
 
       {/* Monthly Revenue Target */}
-      {canCreate && <RevenueTargetPanel salesData={salesData} allForecasts={forecasts} />}
+      {canCreate && activeVenues.length > 0 && (
+        <RevenueTargetPanel salesData={salesData} allForecasts={forecasts} allVenues={activeVenueNames} />
+      )}
 
       {/* Input Form */}
       {showEntry && canCreate && (
@@ -645,7 +682,7 @@ const ForecastInput = () => {
       {vizMode === "charts" ? (
         <ForecastCharts data={filteredData} />
       ) : (
-        <ForecastTableViewWrapper salesData={salesData} defaultVenues={orderedSelection} />
+        <ForecastTableViewWrapper salesData={salesData} defaultVenues={orderedSelection} allVenues={activeVenueNames} />
       )}
 
 
@@ -661,7 +698,7 @@ const ForecastInput = () => {
 };
 
 // Resolves the current month's saved revenue target and passes it to the table view.
-const ForecastTableViewWrapper = ({ salesData, defaultVenues }: { salesData: SalesRecord[]; defaultVenues?: ("Assembly" | "Caliente" | "Hanabi" | "Events")[] }) => {
+const ForecastTableViewWrapper = ({ salesData, defaultVenues, allVenues }: { salesData: SalesRecord[]; defaultVenues?: string[]; allVenues: string[] }) => {
   const { getTarget } = useRevenueTargets();
   const today = new Date();
   const year = today.getFullYear();
@@ -671,7 +708,8 @@ const ForecastTableViewWrapper = ({ salesData, defaultVenues }: { salesData: Sal
     <ForecastTableView
       salesData={salesData}
       monthlyTarget={target?.targetAmount ?? 0}
-      targetVenues={(target?.venues ?? []) as ("Assembly" | "Caliente" | "Hanabi" | "Events")[]}
+      allVenues={allVenues}
+      targetVenues={target?.venues ?? []}
       defaultVenues={defaultVenues}
       initialYear={year}
       initialMonth={month}

@@ -11,11 +11,10 @@ import {
   ForecastVenue,
 } from "@/utils/forecastTableData";
 
-const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"];
-
 interface ForecastTableViewProps {
   salesData: SalesRecord[];
   monthlyTarget: number;
+  allVenues: ForecastVenue[];
   targetVenues?: ForecastVenue[];
   defaultVenue?: ForecastVenue;
   defaultVenues?: ForecastVenue[];
@@ -37,6 +36,7 @@ const sameSet = (a: ForecastVenue[], b: ForecastVenue[]) =>
 const ForecastTableView = ({
   salesData,
   monthlyTarget,
+  allVenues,
   targetVenues,
   defaultVenue,
   defaultVenues,
@@ -51,10 +51,19 @@ const ForecastTableView = ({
       ? defaultVenues
       : defaultVenue
       ? [defaultVenue]
-      : ALL_VENUES,
+      : allVenues,
   );
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+
+  // Drop selections that no longer exist as active Admin venues
+  useEffect(() => {
+    setSelectedVenues((prev) => {
+      const filtered = prev.filter((v) => allVenues.includes(v));
+      if (filtered.length === prev.length) return prev;
+      return filtered.length > 0 ? filtered : allVenues;
+    });
+  }, [allVenues]);
 
   const monthOptions = useMemo(() => {
     const opts: { y: number; m: number; label: string }[] = [];
@@ -69,12 +78,12 @@ const ForecastTableView = ({
 
   // Order venues canonically (so labels are stable)
   const orderedSelection = useMemo(
-    () => ALL_VENUES.filter((v) => selectedVenues.includes(v)),
+    () => allVenues.filter((v) => selectedVenues.includes(v)),
     [selectedVenues],
   );
 
   const effectiveTargetVenues = useMemo<ForecastVenue[]>(
-    () => (targetVenues && targetVenues.length > 0 ? targetVenues : ALL_VENUES),
+    () => (targetVenues && targetVenues.length > 0 ? targetVenues : allVenues),
     [targetVenues],
   );
 
@@ -140,7 +149,7 @@ const ForecastTableView = ({
     });
   };
 
-  const isAllSelected = sameSet(orderedSelection, ALL_VENUES);
+  const isAllSelected = sameSet(orderedSelection, allVenues);
 
   const titleLabel = isAllSelected
     ? "All Venues"
@@ -200,7 +209,7 @@ const ForecastTableView = ({
         {/* Venue multi-select chips */}
         <div className="flex flex-wrap gap-1.5 items-center">
           <button
-            onClick={() => setSelectedVenues(ALL_VENUES)}
+            onClick={() => setSelectedVenues(allVenues)}
             className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
               isAllSelected
                 ? "border-primary bg-primary/15 text-primary"
@@ -210,7 +219,7 @@ const ForecastTableView = ({
             All Venues
           </button>
           <span className="mx-1 text-muted-foreground/50 text-xs">|</span>
-          {ALL_VENUES.map((v) => {
+          {allVenues.map((v) => {
             const active = selectedVenues.includes(v);
             return (
               <button
