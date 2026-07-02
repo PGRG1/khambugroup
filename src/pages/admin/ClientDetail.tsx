@@ -303,20 +303,16 @@ export default function ClientDetail() {
             <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="text-left px-3 py-2 font-medium">Name</th>
-                <th className="text-left px-3 py-2 font-medium">Currency</th>
-                <th className="text-left px-3 py-2 font-medium">Timezone</th>
                 <th className="text-right px-3 py-2 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {venues.length === 0 && (
-                <tr><td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">No venues yet.</td></tr>
+                <tr><td colSpan={2} className="px-3 py-6 text-center text-muted-foreground">No venues yet.</td></tr>
               )}
               {venues.map((v, idx) => (
                 <tr key={v.id} className={`border-t border-border/40 ${idx % 2 === 1 ? "bg-muted/10" : ""}`}>
                   <td className="px-3 py-2 font-medium">{v.name}</td>
-                  <td className="px-3 py-2 td-num">{v.base_currency ?? "—"}</td>
-                  <td className="px-3 py-2">{v.timezone ?? "—"}</td>
                   <td className="px-3 py-2 text-right">
                     <Button size="sm" variant="ghost" onClick={() => handleDeleteVenue(v.id, v.name)}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
