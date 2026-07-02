@@ -1,4 +1,5 @@
 export interface SalesRecord {
+  id?: string;
   date: string;
   day: string;
   venue: "Assembly" | "Caliente" | "Hanabi" | "Events";
