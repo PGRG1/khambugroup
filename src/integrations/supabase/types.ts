@@ -7214,6 +7214,9 @@ export type Database = {
           id: string
           month: number
           notes: string | null
+          statistical_generated_at: string | null
+          statistical_model: string | null
+          statistical_target_amount: number | null
           target_amount: number
           tenant_id: string
           updated_at: string
@@ -7226,6 +7229,9 @@ export type Database = {
           id?: string
           month: number
           notes?: string | null
+          statistical_generated_at?: string | null
+          statistical_model?: string | null
+          statistical_target_amount?: number | null
           target_amount?: number
           tenant_id?: string
           updated_at?: string
@@ -7238,6 +7244,9 @@ export type Database = {
           id?: string
           month?: number
           notes?: string | null
+          statistical_generated_at?: string | null
+          statistical_model?: string | null
+          statistical_target_amount?: number | null
           target_amount?: number
           tenant_id?: string
           updated_at?: string
