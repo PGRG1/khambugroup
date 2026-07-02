@@ -76,6 +76,7 @@ const ForecastInput = () => {
 
   const { forecasts, loading: forecastsLoading, addForecast, updateForecast, deleteForecast, approveForecast, rejectForecast, approvePostEventNotes, rejectPostEventNotes } = useForecastData();
   const { canCreate, canApprove, canEditFigures, isApprover, loading: permLoading } = useForecastPermissions();
+  const { getTarget: getTargetForMonth } = useRevenueTargets();
   const { isActionHidden } = usePagePermissions();
 
   // Multi-venue selection — persisted across reloads, validated against active Admin venues
