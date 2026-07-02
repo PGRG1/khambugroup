@@ -255,7 +255,7 @@ const RevenueTargetPanel = ({
               value={`${year}-${month}`}
               onChange={(e) => {
                 const [y, m] = e.target.value.split("-").map(Number);
-                setYear(y); setMonth(m);
+                onMonthChange?.(y, m);
               }}
               className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
@@ -273,7 +273,34 @@ const RevenueTargetPanel = ({
               onChange={(e) => setTargetAmount(parseInt(e.target.value) || 0)}
               className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
+            <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px]">
+              <span className="text-muted-foreground truncate">
+                {statisticalTotal != null ? (
+                  <>
+                    Statistical baseline:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(statisticalTotal)}
+                    </span>
+                    {statisticalModel ? ` · ${statisticalModel}` : ""}
+                  </>
+                ) : (
+                  <span className="italic">Statistical target not generated yet</span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (statisticalTotal != null) setTargetAmount(Math.round(statisticalTotal));
+                }}
+                disabled={statisticalTotal == null}
+                className="shrink-0 px-2 py-1 rounded border border-border bg-secondary text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                title={statisticalTotal == null ? "No statistical target available" : "Copy statistical amount into Manager Target"}
+              >
+                Accept statistical
+              </button>
+            </div>
           </div>
+
 
           <div className="md:col-span-4">
             <label className="text-xs text-muted-foreground block mb-1">Responsible Venues</label>
