@@ -277,6 +277,7 @@ export function AppSidebar() {
   const showHR = isAdmin && !isPreviewActive;
   const showBank = isAdmin && !isPreviewActive;
   const showPayments = isAdmin && !isPreviewActive;
+  const showPettyCash = isAdmin && !isPreviewActive;
   const showAdmin = isAdmin && !isPreviewActive;
   const { isPlatformAdmin } = usePlatformAdmin();
   const showPlatform = isPlatformAdmin && !isPreviewActive;
