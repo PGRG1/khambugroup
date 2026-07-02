@@ -44,29 +44,29 @@ const financeItems = [
 const paymentsOverview = { title: "Dashboard", url: "/payments", icon: LayoutDashboard, end: true };
 
 const paymentsMasterData = [
-  { title: "Processors", url: "/payments?tab=processors", icon: Building2 },
-  { title: "Merchants", url: "/payments?tab=merchants", icon: Store },
-  { title: "Fee Rates", url: "/payments?tab=fee-rates", icon: Percent },
+  { title: "Processors", url: "/payments/processors", icon: Building2 },
+  { title: "Merchants", url: "/payments/merchants", icon: Store },
+  { title: "Fee Rates", url: "/payments/fee-rates", icon: Percent },
 ];
 
 const paymentsOperations = [
-  { title: "Imports", url: "/payments?tab=imports", icon: Upload },
-  { title: "Settlement Batches", url: "/payments?tab=batches", icon: Layers },
-  { title: "Fee Audit", url: "/payments?tab=details-audit", icon: ShieldCheck },
+  { title: "Imports", url: "/payments/imports", icon: Upload },
+  { title: "Settlement Batches", url: "/payments/batches", icon: Layers },
+  { title: "Fee Audit", url: "/payments/fee-audit", icon: ShieldCheck },
 ];
 
 const paymentsReconciliation = [
-  { title: "Monthly Check", url: "/payments?tab=monthly-recon", icon: CheckSquare },
+  { title: "Monthly Check", url: "/payments/monthly", icon: CheckSquare },
 ];
 
 const pettyCashOverview = { title: "Overview", url: "/petty-cash", icon: LayoutDashboard, end: true };
 const pettyCashOps = [
-  { title: "Receipts", url: "/petty-cash?tab=receipts", icon: Receipt },
-  { title: "Replenishments", url: "/petty-cash?tab=replenishments", icon: RefreshCw },
+  { title: "Receipts", url: "/petty-cash/receipts", icon: Receipt },
+  { title: "Replenishments", url: "/petty-cash/replenishments", icon: RefreshCw },
 ];
 const pettyCashMaster = [
-  { title: "Floats", url: "/petty-cash?tab=floats", icon: Wallet },
-  { title: "Classifications", url: "/petty-cash?tab=classifications", icon: Tags },
+  { title: "Floats", url: "/petty-cash/floats", icon: Wallet },
+  { title: "Classifications", url: "/petty-cash/classifications", icon: Tags },
 ];
 
 const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
