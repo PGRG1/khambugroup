@@ -27,9 +27,10 @@ const navItems = [
 ];
 
 const revenueItems = [
-  { title: "Overview", url: "/revenue", icon: BarChart3, pageKey: "revenue" },
-  { title: "Sales Data", url: "/sales-data", icon: Database, pageKey: "revenue" },
-  { title: "Target Tracking", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
+  { title: "Overview", url: "/revenue", icon: BarChart3, pageKey: "revenue", end: true },
+  { title: "Daily Sales", url: "/sales-data", icon: Database, pageKey: "revenue" },
+  { title: "Targets", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
+  { title: "Reconciliation", url: "/revenue/reconciliation", icon: Scale, pageKey: "revenue" },
 ];
 
 
