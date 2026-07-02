@@ -19,8 +19,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 213 62% 16%;
 
-    /* Brand — Copper */
-    --primary: 27 60% 46%;               /* #B87333 */
+    /* Brand — Sage */
+    --primary: 72 20% 38%;               /* #71764F */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 213 30% 93%;
@@ -29,7 +29,7 @@
     --muted: 214 32% 94%;                /* #F1F5F9-ish */
     --muted-foreground: 210 17% 49%;     /* #627D98 */
 
-    --accent: 32 39% 36%;                /* #7C5C3B secondary copper */
+    --accent: 76 15% 51%;                /* #8B9370 lighter sage */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 48%;            /* #C53030 */
@@ -41,7 +41,7 @@
 
     --border: 213 32% 88%;               /* #D9E2EC */
     --input: 213 32% 88%;
-    --ring: 27 60% 46%;
+    --ring: 72 20% 38%;
 
     --radius: 0.75rem;
 
@@ -49,12 +49,12 @@
     --surface-panel: 0 0% 100%;
     --surface-muted: 214 32% 94%;
 
-    /* Charts */
-    --chart-1: 27 60% 46%;   /* copper */
-    --chart-2: 217 91% 51%;  /* blue   #2563EB */
-    --chart-3: 175 64% 26%;  /* teal   #0F766E */
-    --chart-4: 145 47% 35%;  /* green  #2F855A */
-    --chart-5: 262 78% 58%;  /* purple #7C3AED */
+    /* Charts — cohesive sage family */
+    --chart-1: 72 20% 38%;   /* sage        #71764F */
+    --chart-2: 18 37% 48%;   /* clay        #A66B4E */
+    --chart-3: 36 7% 51%;    /* warm stone  #8B8579 */
+    --chart-4: 76 24% 20%;   /* deep moss   #383E28 */
+    --chart-5: 36 33% 53%;   /* dusty gold  #B39257 */
     --chart-6: 0 62% 48%;    /* rose   #C53030 */
     --chart-7: 32 95% 44%;   /* gold   #D97706 */
     --chart-8: 215 16% 47%;  /* slate  #64748B */
@@ -63,16 +63,16 @@
     /* Sidebar — Dusty navy with light text */
     --sidebar-background: 213 62% 16%;       /* #102A43 */
     --sidebar-foreground: 213 30% 88%;
-    --sidebar-primary: 27 60% 56%;           /* copper accent */
+    --sidebar-primary: 72 20% 38%;           /* sage accent */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 211 37% 23%;           /* #243B53 */
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 211 37% 23%;
-    --sidebar-ring: 27 60% 56%;
+    --sidebar-ring: 72 20% 38%;
 
-    --gradient-gold: linear-gradient(135deg, hsl(27 60% 46%), hsl(32 39% 36%));
+    --gradient-gold: linear-gradient(135deg, hsl(72 20% 38%), hsl(76 24% 20%));
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(214 32% 97%));
-    --shadow-glow: 0 0 20px -5px hsl(27 60% 46% / 0.18);
+    --shadow-glow: 0 0 20px -5px hsl(72 20% 38% / 0.18);
     --shadow-card: 0 4px 24px -8px hsl(213 62% 16% / 0.08);
   }
 
