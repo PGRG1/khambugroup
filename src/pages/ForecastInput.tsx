@@ -517,70 +517,83 @@ const ForecastInput = () => {
       )}
 
 
-      {/* Input Form */}
-      {showEntry && canCreate && (
-        <div className="card-glass rounded-xl p-6 animate-fade-in">
-          <h3 className="text-sm font-display font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Plus className="h-4 w-4 text-primary" />New Forecast Entry
-          </h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isMulti && (
-              <div className="flex flex-wrap items-center gap-2 -mt-2">
-                <label className="text-xs text-muted-foreground">Venue for this entry:</label>
-                <select
-                  value={entryVenue}
-                  onChange={(e) => setEntryVenue(e.target.value as ForecastVenue)}
-                  className="px-3 py-1.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                >
-                  {orderedSelection.map((v) => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Date</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Forecasted Customers</label>
-                <input type="number" min={0} value={customers || ""} onChange={(e) => setCustomers(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Forecasted Avg Spend / Customer</label>
-                <input type="number" min={0} value={avgSpend || ""} onChange={(e) => setAvgSpend(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
-              </div>
-              <div className="flex flex-col justify-end">
-                <div className="text-xs text-muted-foreground mb-1">Preview</div>
-                <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm space-y-0.5">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Gross Sales</span><span className="font-medium">{formatCurrency(preview.grossSales)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">+ SC (10%)</span><span className="font-medium">{formatCurrency(preview.serviceCharge)}</span></div>
-                  <div className="flex justify-between border-t border-border pt-0.5"><span className="text-muted-foreground font-semibold">Total Sales</span><span className="font-bold text-primary">{formatCurrency(preview.totalSales)}</span></div>
+      {/* Input Form — collapsed accordion, opened via the "New Entry" button */}
+      {canCreate && !hideNewEntry && (
+        <Accordion
+          type="single"
+          collapsible
+          value={showEntry ? "entry" : ""}
+          onValueChange={(v) => setShowEntry(v === "entry")}
+          className="card-glass rounded-xl px-6"
+        >
+          <AccordionItem value="entry" className="border-b-0">
+            <AccordionTrigger className="text-sm font-display font-semibold text-foreground py-4">
+              <span className="flex items-center gap-2">
+                <Plus className="h-4 w-4 text-primary" />New Forecast Entry
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {isMulti && (
+                  <div className="flex flex-wrap items-center gap-2 -mt-2">
+                    <label className="text-xs text-muted-foreground">Venue for this entry:</label>
+                    <select
+                      value={entryVenue}
+                      onChange={(e) => setEntryVenue(e.target.value as ForecastVenue)}
+                      className="px-3 py-1.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    >
+                      {orderedSelection.map((v) => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Date</label>
+                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Forecasted Customers</label>
+                    <input type="number" min={0} value={customers || ""} onChange={(e) => setCustomers(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Forecasted Avg Spend / Customer</label>
+                    <input type="number" min={0} value={avgSpend || ""} onChange={(e) => setAvgSpend(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="text-xs text-muted-foreground mb-1">Preview</div>
+                    <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm space-y-0.5">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Gross Sales</span><span className="font-medium">{formatCurrency(preview.grossSales)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">+ SC (10%)</span><span className="font-medium">{formatCurrency(preview.serviceCharge)}</span></div>
+                      <div className="flex justify-between border-t border-border pt-0.5"><span className="text-muted-foreground font-semibold">Total Sales</span><span className="font-bold text-primary">{formatCurrency(preview.totalSales)}</span></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Forecast Notes <span className="text-[10px] text-muted-foreground/70">(pre-event)</span></label>
-                <textarea value={forecastNotes} onChange={(e) => setForecastNotes(e.target.value)} placeholder="e.g. Expected busy night due to live music event..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Post-Event Notes <span className="text-[10px] text-muted-foreground/70">(after the event)</span></label>
-                <textarea value={postEventNotes} onChange={(e) => setPostEventNotes(e.target.value)} placeholder="e.g. Rain reduced footfall..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> General Comment</label>
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Any other notes..." rows={1} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
-            </div>
-            <div className="flex items-center gap-3">
-              <button type="submit" className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">Submit for Approval</button>
-              <span className="text-[10px] text-muted-foreground">Forecast will be reviewed by an approver before it becomes active.</span>
-            </div>
-          </form>
-        </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Forecast Notes <span className="text-[10px] text-muted-foreground/70">(pre-event)</span></label>
+                    <textarea value={forecastNotes} onChange={(e) => setForecastNotes(e.target.value)} placeholder="e.g. Expected busy night due to live music event..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Post-Event Notes <span className="text-[10px] text-muted-foreground/70">(after the event)</span></label>
+                    <textarea value={postEventNotes} onChange={(e) => setPostEventNotes(e.target.value)} placeholder="e.g. Rain reduced footfall..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> General Comment</label>
+                  <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Any other notes..." rows={1} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button type="submit" className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">Submit for Approval</button>
+                  <span className="text-[10px] text-muted-foreground">Forecast will be reviewed by an approver before it becomes active.</span>
+                </div>
+              </form>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
+
 
       {/* Data Table */}
       {showTable && (
