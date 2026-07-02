@@ -36,6 +36,7 @@ const sameSet = (a: ForecastVenue[], b: ForecastVenue[]) =>
 const ForecastTableView = ({
   salesData,
   monthlyTarget,
+  allVenues,
   targetVenues,
   defaultVenue,
   defaultVenues,
@@ -50,8 +51,19 @@ const ForecastTableView = ({
       ? defaultVenues
       : defaultVenue
       ? [defaultVenue]
-      : ALL_VENUES,
+      : allVenues,
   );
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
+
+  // Drop selections that no longer exist as active Admin venues
+  useEffect(() => {
+    setSelectedVenues((prev) => {
+      const filtered = prev.filter((v) => allVenues.includes(v));
+      if (filtered.length === prev.length) return prev;
+      return filtered.length > 0 ? filtered : allVenues;
+    });
+  }, [allVenues]);
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
 
