@@ -11,11 +11,10 @@ import {
   ForecastVenue,
 } from "@/utils/forecastTableData";
 
-const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"];
-
 interface ForecastTableViewProps {
   salesData: SalesRecord[];
   monthlyTarget: number;
+  allVenues: ForecastVenue[];
   targetVenues?: ForecastVenue[];
   defaultVenue?: ForecastVenue;
   defaultVenues?: ForecastVenue[];
