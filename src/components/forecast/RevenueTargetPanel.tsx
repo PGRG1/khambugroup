@@ -38,7 +38,7 @@ interface VenueDistribution {
   noHistory: boolean;
 }
 
-const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps) => {
+const RevenueTargetPanel = ({ salesData, allForecasts, allVenues }: RevenueTargetPanelProps) => {
   const { user } = useAuth();
   const { getTarget, upsertTarget } = useRevenueTargets();
   const { addForecast, updateForecast } = useForecastData();
@@ -47,7 +47,7 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [targetAmount, setTargetAmount] = useState<number>(0);
-  const [selectedVenues, setSelectedVenues] = useState<Venue[]>(["Assembly", "Caliente"]);
+  const [selectedVenues, setSelectedVenues] = useState<Venue[]>(allVenues);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [perVenue, setPerVenue] = useState<VenueDistribution[]>([]);
   const [applying, setApplying] = useState(false);
@@ -58,12 +58,13 @@ const RevenueTargetPanel = ({ salesData, allForecasts }: RevenueTargetPanelProps
     const existing = getTarget(year, month);
     if (existing) {
       setTargetAmount(existing.targetAmount);
-      const v = existing.venues.filter((x): x is Venue => (ALL_VENUES as readonly string[]).includes(x));
-      if (v.length) setSelectedVenues(v);
+      const v = existing.venues.filter((x) => allVenues.includes(x));
+      setSelectedVenues(v.length ? v : allVenues);
     } else {
       setTargetAmount(0);
+      setSelectedVenues(allVenues);
     }
-  }, [year, month, getTarget]);
+  }, [year, month, getTarget, allVenues]);
 
   const monthOptions = useMemo(() => {
     const opts: { year: number; month: number; label: string }[] = [];
