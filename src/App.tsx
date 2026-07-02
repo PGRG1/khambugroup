@@ -15,6 +15,7 @@ import Index from "./pages/Index";
 import Home from "./pages/Home";
 
 import DataPage from "./pages/DataPage";
+import SalesRecordDetail from "./pages/SalesRecordDetail";
 import Notifications from "./pages/Notifications";
 import MyKpis from "./pages/kpis/MyKpis";
 import KpiAssignmentBoard from "./pages/kpis/KpiAssignmentBoard";
@@ -166,6 +167,7 @@ function App() {
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/revenue" element={<ProtectedRoute pageKey="revenue"><Index /></ProtectedRoute>} />
                 <Route path="/sales-data" element={<ProtectedRoute pageKey="revenue"><DataPage /></ProtectedRoute>} />
+                <Route path="/sales-data/:id" element={<ProtectedRoute pageKey="revenue"><SalesRecordDetail /></ProtectedRoute>} />
 
                 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
