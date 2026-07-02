@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, forwardRef } from "react";
 import { useParams } from "react-router-dom";
-import { Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList, ShieldCheck, ShieldX, Clock, Lock, BarChart3, Table as TableIcon } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList, ShieldCheck, ShieldX, Clock, Lock, BarChart3, Table as TableIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { ForecastRecord } from "@/types/forecast";
 import {
@@ -21,6 +22,9 @@ import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
 import ForecastTableView from "@/components/forecast/ForecastTableView";
 import RevenueTargetPanel from "@/components/forecast/RevenueTargetPanel";
+import ThreeWaySummary from "@/components/forecast/ThreeWaySummary";
+import ThreeWayChart from "@/components/forecast/ThreeWayChart";
+import VenueBreakdownTable from "@/components/forecast/VenueBreakdownTable";
 import DateFilter from "@/components/dashboard/DateFilter";
 import { SalesRecord } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
