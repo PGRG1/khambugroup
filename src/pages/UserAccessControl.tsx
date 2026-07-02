@@ -7,17 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus, Shield, Eye } from "lucide-react";
+import { Search, UserPlus, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { POSITIONS, ALL_PAGES, type UserAccessRecord, type UserPosition, type UserStatus } from "@/utils/permissions";
 import { UserEditorPanel } from "@/components/access-control/UserEditorPanel";
 import { CreateUserDialog } from "@/components/access-control/CreateUserDialog";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 const UserAccessControl = () => {
   const { isAdmin } = useAuth();
   const { setPreviewUser } = usePreviewMode();
+  const { tenantId } = useActiveTenant();
   const [users, setUsers] = useState<UserAccessRecord[]>([]);
+  const [venueNameMap, setVenueNameMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState<string>("all");
@@ -27,7 +30,6 @@ const UserAccessControl = () => {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
-    // Get emails from edge function
     const emailRes = await supabase.functions.invoke("list-users");
     const emailMap = new Map<string, string>();
     if (emailRes.data?.users) {
@@ -36,12 +38,29 @@ const UserAccessControl = () => {
       }
     }
 
-    const [{ data: profiles }, { data: accessRecords }, { data: pagePerms }, { data: approvers }] = await Promise.all([
+    const [{ data: profiles }, { data: accessRecords }, { data: pagePerms }, { data: approvers }, { data: venueAccess }, { data: allVenues }] = await Promise.all([
       supabase.from("profiles").select("user_id, display_name"),
       supabase.from("user_access_control").select("*"),
       supabase.from("user_page_permissions").select("*"),
       supabase.from("forecast_approvers").select("user_id"),
+      tenantId
+        ? supabase.from("user_venue_access").select("user_id, venue_id").eq("tenant_id", tenantId)
+        : Promise.resolve({ data: [] as any[] }),
+      tenantId
+        ? supabase.from("venues").select("id, name").eq("tenant_id", tenantId)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
+
+    const vMap: Record<string, string> = {};
+    for (const v of (allVenues || [])) vMap[v.id] = v.name;
+    setVenueNameMap(vMap);
+
+    const venueByUser = new Map<string, string[]>();
+    for (const row of (venueAccess || [])) {
+      const arr = venueByUser.get(row.user_id) || [];
+      arr.push(row.venue_id);
+      venueByUser.set(row.user_id, arr);
+    }
 
     const approverIds = new Set((approvers || []).map(a => a.user_id));
     const userMap = new Map<string, UserAccessRecord>();
@@ -55,6 +74,7 @@ const UserAccessControl = () => {
         status: "active",
         is_approver: approverIds.has(p.user_id),
         pages: [],
+        venue_ids: venueByUser.get(p.user_id) || [],
       });
     }
 
@@ -81,7 +101,7 @@ const UserAccessControl = () => {
 
     setUsers(Array.from(userMap.values()));
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -90,7 +110,7 @@ const UserAccessControl = () => {
   if (!isAdmin) return <Navigate to="/" replace />;
 
   const filtered = users.filter(u => {
-    const matchSearch = !search || 
+    const matchSearch = !search ||
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       (u.display_name || "").toLowerCase().includes(search.toLowerCase());
     const matchPosition = positionFilter === "all" || u.position === positionFilter;
@@ -101,6 +121,20 @@ const UserAccessControl = () => {
   const handlePreviewAs = (user: UserAccessRecord) => {
     setPreviewUser(user.user_id, user.email);
     toast({ title: "Preview Mode", description: `Now previewing as ${user.display_name || user.email}` });
+  };
+
+  const renderVenueBadge = (u: UserAccessRecord) => {
+    if (!u.venue_ids || u.venue_ids.length === 0) {
+      return <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30">All venues</Badge>;
+    }
+    const names = u.venue_ids.map(id => venueNameMap[id]).filter(Boolean);
+    const shown = names.slice(0, 2).join(", ");
+    const extra = names.length > 2 ? ` + ${names.length - 2} more` : "";
+    return (
+      <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">
+        {shown}{extra}
+      </Badge>
+    );
   };
 
   return (
@@ -160,23 +194,25 @@ const UserAccessControl = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Pages</TableHead>
-                <TableHead>Approver</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">User</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Name</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Position</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Venues</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Pages</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Approver</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(user => (
-                <TableRow key={user.user_id}>
+              {filtered.map((user, idx) => (
+                <TableRow key={user.user_id} className={idx % 2 === 1 ? "bg-muted/30" : undefined}>
                   <TableCell className="font-mono text-xs">{user.email}</TableCell>
                   <TableCell>{user.display_name || "—"}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="capitalize">{user.position}</Badge>
                   </TableCell>
+                  <TableCell>{renderVenueBadge(user)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {user.pages.filter(p => p.can_access).map(p => (
@@ -215,7 +251,7 @@ const UserAccessControl = () => {
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No users found
                   </TableCell>
                 </TableRow>
@@ -229,6 +265,7 @@ const UserAccessControl = () => {
       {editingUser && (
         <UserEditorPanel
           user={editingUser}
+          tenantId={tenantId || undefined}
           onClose={() => setEditingUser(null)}
           onSaved={() => { setEditingUser(null); fetchUsers(); }}
         />
@@ -238,6 +275,7 @@ const UserAccessControl = () => {
       <CreateUserDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
+        tenantId={tenantId || undefined}
         onCreated={fetchUsers}
       />
     </div>
