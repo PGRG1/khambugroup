@@ -6145,6 +6145,341 @@ export type Database = {
           },
         ]
       }
+      petty_cash_classifications: {
+        Row: {
+          color: string
+          created_at: string
+          financial_type: string
+          gl_account_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          tenant_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          financial_type: string
+          gl_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          tenant_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          financial_type?: string
+          gl_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "petty_cash_classifications_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_classifications_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_classifications_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_classifications_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_classifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      petty_cash_floats: {
+        Row: {
+          created_at: string
+          float_amount: number
+          gl_account_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          replenish_threshold: number
+          tenant_id: string
+          venue: string
+        }
+        Insert: {
+          created_at?: string
+          float_amount?: number
+          gl_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          replenish_threshold?: number
+          tenant_id: string
+          venue: string
+        }
+        Update: {
+          created_at?: string
+          float_amount?: number
+          gl_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          replenish_threshold?: number
+          tenant_id?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "petty_cash_floats_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_floats_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_floats_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_floats_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_floats_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      petty_cash_receipts: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          classification_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          float_id: string
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          receipt_date: string
+          receipt_path: string | null
+          receipt_url: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          classification_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          float_id: string
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          receipt_date: string
+          receipt_path?: string | null
+          receipt_url?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          classification_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          float_id?: string
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          receipt_date?: string
+          receipt_path?: string | null
+          receipt_url?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "petty_cash_receipts_classification_id_fkey"
+            columns: ["classification_id"]
+            isOneToOne: false
+            referencedRelation: "petty_cash_classifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_receipts_float_id_fkey"
+            columns: ["float_id"]
+            isOneToOne: false
+            referencedRelation: "petty_cash_floats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_receipts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_receipts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_receipts_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_receipts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      petty_cash_replenishments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          float_id: string
+          from_bank_account_id: string | null
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          reference: string | null
+          replenishment_date: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          float_id: string
+          from_bank_account_id?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          reference?: string | null
+          replenishment_date: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          float_id?: string
+          from_bank_account_id?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          reference?: string | null
+          replenishment_date?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "petty_cash_replenishments_float_id_fkey"
+            columns: ["float_id"]
+            isOneToOne: false
+            referencedRelation: "petty_cash_floats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_replenishments_from_bank_account_id_fkey"
+            columns: ["from_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_replenishments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "petty_cash_replenishments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_replenishments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "petty_cash_replenishments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pl_manual_lines: {
         Row: {
           amount: number
