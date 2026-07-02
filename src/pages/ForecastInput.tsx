@@ -36,9 +36,23 @@ const VENUES_STORAGE_KEY = "forecast.selectedVenues";
 
 const normalise = (s: string) => s.toLowerCase().trim();
 
+const monthName = (m: number) =>
+  new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
+
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
   const { user } = useAuth();
+
+  // Single source of truth for the currently viewed month across the whole page.
+  const todayForInit = useMemo(() => new Date(), []);
+  const [selectedYear, setSelectedYear] = useState(todayForInit.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(todayForInit.getMonth() + 1);
+  const goToMonth = (delta: number) => {
+    const d = new Date(selectedYear, selectedMonth - 1 + delta, 1);
+    setSelectedYear(d.getFullYear());
+    setSelectedMonth(d.getMonth() + 1);
+  };
+
 
   const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(
