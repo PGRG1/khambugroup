@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
@@ -595,8 +595,5 @@ const DataTable = ({ data }: DataTableProps) => {
     </>
   );
 };
-
-// React import used for Fragment
-import React from "react";
 
 export default DataTable;
