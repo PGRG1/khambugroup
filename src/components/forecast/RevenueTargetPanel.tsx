@@ -20,12 +20,12 @@ import {
   DistributionResult,
 } from "@/utils/forecastDistribution";
 
-const ALL_VENUES = ["Assembly", "Caliente", "Hanabi", "Events"] as const;
-type Venue = (typeof ALL_VENUES)[number];
+type Venue = string;
 
 interface RevenueTargetPanelProps {
   salesData: SalesRecord[];
   allForecasts: ForecastRecord[];
+  allVenues: string[];
 }
 
 const monthName = (m: number) => new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
