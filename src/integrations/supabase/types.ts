@@ -6925,6 +6925,7 @@ export type Database = {
           po_id: string
           product_master_id: string
           quantity_ordered: number
+          tenant_id: string | null
           total: number | null
           unit: string
           unit_price: number
@@ -6936,6 +6937,7 @@ export type Database = {
           po_id: string
           product_master_id: string
           quantity_ordered?: number
+          tenant_id?: string | null
           total?: number | null
           unit?: string
           unit_price?: number
@@ -6947,6 +6949,7 @@ export type Database = {
           po_id?: string
           product_master_id?: string
           quantity_ordered?: number
+          tenant_id?: string | null
           total?: number | null
           unit?: string
           unit_price?: number
@@ -6973,6 +6976,13 @@ export type Database = {
             referencedRelation: "v_product_mapping_status"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "purchase_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       purchase_orders: {
@@ -6986,6 +6996,7 @@ export type Database = {
           requested_date: string | null
           status: string
           supplier_id: string
+          tenant_id: string | null
           total_amount: number
           updated_at: string
           venue: string
@@ -7000,6 +7011,7 @@ export type Database = {
           requested_date?: string | null
           status?: string
           supplier_id: string
+          tenant_id?: string | null
           total_amount?: number
           updated_at?: string
           venue: string
@@ -7014,6 +7026,7 @@ export type Database = {
           requested_date?: string | null
           status?: string
           supplier_id?: string
+          tenant_id?: string | null
           total_amount?: number
           updated_at?: string
           venue?: string
@@ -7024,6 +7037,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
