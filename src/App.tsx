@@ -77,8 +77,19 @@ import BankFeesPage from "./pages/bank/BankFeesPage";
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
 import BillsExpenses from "./pages/finance/BillsExpenses";
-import PaymentsPage from "./pages/payments/PaymentsPage";
-import PettyCashPage from "./pages/petty-cash/PettyCashPage";
+import PaymentsDashboardPage from "./pages/payments/PaymentsDashboardPage";
+import PaymentsBatchesPage from "./pages/payments/PaymentsBatchesPage";
+import PaymentsFeeAuditPage from "./pages/payments/PaymentsFeeAuditPage";
+import PaymentsMonthlyPage from "./pages/payments/PaymentsMonthlyPage";
+import PaymentsProcessorsPage from "./pages/payments/PaymentsProcessorsPage";
+import PaymentsMerchantsPage from "./pages/payments/PaymentsMerchantsPage";
+import PaymentsFeeRatesPage from "./pages/payments/PaymentsFeeRatesPage";
+import PaymentsImportsPage from "./pages/payments/PaymentsImportsPage";
+import PettyCashOverviewPage from "./pages/petty-cash/PettyCashOverviewPage";
+import PettyCashReceiptsPage from "./pages/petty-cash/PettyCashReceiptsPage";
+import PettyCashReplenishmentsPage from "./pages/petty-cash/PettyCashReplenishmentsPage";
+import PettyCashFloatsPage from "./pages/petty-cash/PettyCashFloatsPage";
+import PettyCashClassificationsPage from "./pages/petty-cash/PettyCashClassificationsPage";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HROrgChart from "./pages/hr/HROrgChart";
@@ -178,8 +189,19 @@ function App() {
                 <Route path="/finance/document-centre" element={<AdminRoute><DocumentCentre /></AdminRoute>} />
                 <Route path="/finance/documents-bills" element={<AdminRoute><DocumentsBills /></AdminRoute>} />
                 <Route path="/finance/bills-expenses" element={<AdminRoute><BillsExpenses /></AdminRoute>} />
-                <Route path="/payments" element={<AdminRoute><PaymentsPage /></AdminRoute>} />
-                <Route path="/petty-cash" element={<AdminRoute><PettyCashPage /></AdminRoute>} />
+                <Route path="/payments" element={<AdminRoute><PaymentsDashboardPage /></AdminRoute>} />
+                <Route path="/payments/batches" element={<AdminRoute><PaymentsBatchesPage /></AdminRoute>} />
+                <Route path="/payments/fee-audit" element={<AdminRoute><PaymentsFeeAuditPage /></AdminRoute>} />
+                <Route path="/payments/monthly" element={<AdminRoute><PaymentsMonthlyPage /></AdminRoute>} />
+                <Route path="/payments/processors" element={<AdminRoute><PaymentsProcessorsPage /></AdminRoute>} />
+                <Route path="/payments/merchants" element={<AdminRoute><PaymentsMerchantsPage /></AdminRoute>} />
+                <Route path="/payments/fee-rates" element={<AdminRoute><PaymentsFeeRatesPage /></AdminRoute>} />
+                <Route path="/payments/imports" element={<AdminRoute><PaymentsImportsPage /></AdminRoute>} />
+                <Route path="/petty-cash" element={<AdminRoute><PettyCashOverviewPage /></AdminRoute>} />
+                <Route path="/petty-cash/receipts" element={<AdminRoute><PettyCashReceiptsPage /></AdminRoute>} />
+                <Route path="/petty-cash/replenishments" element={<AdminRoute><PettyCashReplenishmentsPage /></AdminRoute>} />
+                <Route path="/petty-cash/floats" element={<AdminRoute><PettyCashFloatsPage /></AdminRoute>} />
+                <Route path="/petty-cash/classifications" element={<AdminRoute><PettyCashClassificationsPage /></AdminRoute>} />
                 <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
