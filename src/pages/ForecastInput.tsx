@@ -12,6 +12,7 @@ import {
 import { formatCurrency, getMonthKey, getMonthLabel } from "@/utils/salesUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useVenues } from "@/hooks/useVenues";
 import { useForecastData } from "@/hooks/useForecastData";
 import { useForecastPermissions } from "@/hooks/useForecastPermissions";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
