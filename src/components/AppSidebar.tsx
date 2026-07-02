@@ -576,7 +576,41 @@ export function AppSidebar() {
           </CollapsibleNavGroup>
         )}
 
+        {showPettyCash && (
+          <CollapsibleNavGroup
+            groupKey="pettycash"
+            label="Petty Cash"
+            defaultOpen={groupState.pettycash}
+            onOpenChange={(o) => setGroup("pettycash", o)}
+          >
+            <SidebarMenu>{renderLink(pettyCashOverview)}</SidebarMenu>
 
+            {[
+              { label: "Operations", items: pettyCashOps },
+              { label: "Master Data", items: pettyCashMaster },
+            ].map((sub) => (
+              <React.Fragment key={sub.label}>
+                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
+                      <span className="flex items-center gap-2">
+                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
+                        {sub.label}
+                      </span>
+                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
+                      <SidebarMenu>{sub.items.map(renderLink)}</SidebarMenu>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </React.Fragment>
+            ))}
+          </CollapsibleNavGroup>
+        )}
 
 
         {showHR && (
