@@ -59,6 +59,16 @@ const paymentsReconciliation = [
   { title: "Monthly Check", url: "/payments?tab=monthly-recon", icon: CheckSquare },
 ];
 
+const pettyCashOverview = { title: "Overview", url: "/petty-cash", icon: LayoutDashboard, end: true };
+const pettyCashOps = [
+  { title: "Receipts", url: "/petty-cash?tab=receipts", icon: Receipt },
+  { title: "Replenishments", url: "/petty-cash?tab=replenishments", icon: RefreshCw },
+];
+const pettyCashMaster = [
+  { title: "Floats", url: "/petty-cash?tab=floats", icon: Wallet },
+  { title: "Classifications", url: "/petty-cash?tab=classifications", icon: Tags },
+];
+
 const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
 
 const expensesMasterData = [
