@@ -1,93 +1,102 @@
-# Platform Admin & User Access Control System
 
-Build venue-scoped access control, expanded page permissions, and a full Client Detail page for platform admins.
+# Sales Data Page Overhaul
 
-## 1. Database migration
+All new queries scope to the active tenant via `useActiveTenant()` / `tenantSelect` — never rely on RLS alone. `AccountingMappingSummary` internals stay untouched.
 
-Create `user_venue_access`:
-- `id`, `tenant_id` FK tenants CASCADE, `user_id` FK auth.users CASCADE, `venue_id` FK venues CASCADE, `created_at`
-- UNIQUE (tenant_id, user_id, venue_id)
-- GRANT SELECT/INSERT/UPDATE/DELETE to `authenticated`, ALL to `service_role`
-- RLS SELECT: `is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id)`
-- RLS ALL: same + `has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager')`
+## Pre-flight verification (already done)
 
-Add to `tenants`: `cost_reporting_mode text NOT NULL DEFAULT 'combined' CHECK (cost_reporting_mode IN ('combined','by_venue'))`.
+- `sales_records.date` is `text`; **all 547 rows** match `^\d{4}-\d{2}-\d{2}$`. Month bucketing via `date.slice(0, 7)` is safe today.
+- Even so, month bucketing goes through one helper `monthKey(dateStr)` in `src/utils/format.ts`: returns `dateStr.slice(0,7)` when the regex matches, else `new Date(dateStr).toISOString().slice(0,7)`, else `"unknown"` (records with `"unknown"` are grouped last under an "Unknown date" header so nothing silently disappears). Single source of truth for the group + subtotal logic.
 
-**Data backfill for renamed page key** (idempotent):
-```sql
-UPDATE public.user_page_permissions SET page_key = 'kpis' WHERE page_key = 'kpi-management';
-UPDATE public.user_page_permissions SET page_key = 'kpis' WHERE page_key = 'kpis'; -- no-op, keeps idempotent
+## 1. Record ID (foundational)
+
+**`src/types/sales.ts`** — add `id: string` to `SalesRecord`.
+
+**`src/hooks/useSalesData.ts`**
+- `fromDbRecord`: include `id: r.id`.
+- `toDbRecord`: unchanged (no id on insert).
+- `updateRecord(old, next)`: `.eq("tenant_id", tenantId).eq("id", old.id)`.
+- `deleteRecord(rec)`: `.eq("tenant_id", tenantId).eq("id", rec.id)`.
+- `attachReceipt`: switch match to `id`.
+- Add `getRecordById(id)`: check cached `data` first; fallback tenant-scoped Supabase fetch `.eq("id", id).eq("tenant_id", tenantId).maybeSingle()`.
+
+Thread `id` through `DataTable` row keys and the new detail route.
+
+## 2. `DataPage.tsx` button styling
+
+- "Upload Data" → primary filled.
+- "Manual Entry" & "Scan Receipt" → secondary outlined.
+- No behavior change.
+
+## 3. `DataTable.tsx` — filters, grouping, URL state
+
+### Remove
+- Venue entry from ExcelFilterPopover column list (header loses filter icon).
+- Any `columnFilters["venue"]` read/write.
+- 25-per-page pagination.
+- Internal `SalesDetailModal` state.
+
+### Add
+- **DateFilter** in toolbar between venue pills and search. AND-combined with all other filters.
+- **`NumericRangeFilterPopover`** (new small component) for orders, guests, subtotal, serviceCharge, discount, totalSales. State `{ min?: number; max?: number }`; empty=unfiltered, only min=`≥`, only max=`≤`, both=inclusive. Day keeps the checkbox popover.
+- **`uniqueValues`** recomputed against the dataset with all *other* active filters applied (excluding the column itself), live.
+- **Active filter chip strip** above the table, only when any filter is active. One removable pill per active filter with a short label; "Clear all" resets state and clears the query string.
+- **Reconciliation banner** above chips (only when `mismatchCount > 0` or `unmappedCount > 0`; show only the relevant half if one is zero):
+  - Left half click → sets `recon=1` in URL, filters view to mismatched rows.
+  - Right half click → `navigate("/finance/chart-of-accounts")`.
+  - `unmappedCount` sourced from a new tiny hook `useUnmappedVenues()` that reuses the exact lookup rules already in `AccountingMappingSummary` (does not mutate that file).
+- **Month grouping** using `monthKey()`:
+  - Group filtered+sorted rows by month, most recent first.
+  - Collapsible header: chevron, `"May 2026"`, record count.
+  - Bold subtotal row summing orders, guests, subtotal, serviceCharge, discount, totalSales.
+  - Current month expanded; others collapsed. Collapsed months **do not render** inner rows or subtotal (conditional render, not CSS).
+  - Months with zero matching records are not rendered.
+  - Row click (outside receipt eye) → `navigate("/sales-data/" + row.id)`.
+- **Cell styling**: `discount < 0` → destructive; `totalSales` on mismatched rows → destructive (kept); numeric cell equal to 0 → `text-muted-foreground`.
+- **"Mapping" text button** next to CSV export → opens Dialog wrapping `<AccountingMappingSummary />`.
+- **CSV export**: non-blocking `toast()` stating record count + short active-filter summary, then immediate download.
+
+### URL-sync spec (concrete, not a hand-wave)
+
+Single source of truth is React component state. URL is a *projection* of state, and the URL is only read once on initial mount. Loop is broken structurally, not with heuristics.
+
+```text
+mount:
+  read searchParams once → hydrate state (initialFromUrl)
+
+on every state change:
+  next = buildParams(state)          // deterministic serializer
+  if next.toString() !== currentSearchParams.toString():
+    setSearchParams(next, { replace: true })
+
+on searchParams change:
+  no-op   ← we do NOT re-derive state from the URL after mount
+           (browser back/forward for this page is out of scope;
+            the detail route handles its own back navigation)
 ```
 
-## 2. `src/utils/permissions.ts`
+Keys: `venue`, `from`, `to`, `q`, `sort`, `dir`, `d_<col>` (CSV of checked values), `n_<col>` (`min:max`, either side may be empty), `recon`.
 
-Replace `ALL_PAGES` with 10 sections: revenue, kpis, finance, procurement, expenses, payments, bank, pettycash, people, admin. Rewrite `PAGE_ACTIONS` (kpi actions move under `kpis`; admin `[]`). Add `venue_ids: string[]` to `UserAccessRecord`.
+The equality check on serialized strings guarantees no feedback loop even if React double-renders. No `useRef` sentinel needed; the guard is that we never listen to `searchParams` after mount.
 
-## 3. `supabase/functions/provision-tenant/index.ts`
+## 4. Remove `AccountingMappingSummary` from `DataPage.tsx`
 
-Replace `DEFAULT_PAGES` with the 10 new keys. Provisioned admin gets `show_in_sidebar: true, can_access: true, authority: 'admin', hidden_actions: []` for each.
+Delete the always-visible render. Access is now only via the "Mapping" dialog in the toolbar.
 
-## 4. `src/components/AppSidebar.tsx`
+## 5. Detail route `/sales-data/:id`
 
-Add helper:
-```
-const canSeeSection = (pageKey: string) => {
-  if (isPlatformAdmin) return true;
-  if (isAdmin && !isPreviewActive) return true;
-  return showInSidebar(pageKey);
-};
-```
-Replace `showFinance/showProcurement/showBank/showPayments/showPettyCash/showHR` with `canSeeSection("finance"|"procurement"|"bank"|"payments"|"pettycash"|"people")`. Keep `showAdmin` and `showPlatform` unchanged.
+**New `src/pages/SalesRecordDetail.tsx`**
+- `useParams<{ id: string }>()`, `useActiveTenant()`, `useSalesData()`.
+- Fetch via `getRecordById(id)` (tenant-scoped fallback). If not found → "Record not found" + back button.
+- Full-page layout mirroring `SalesDetailModal` sections (General / Sales Breakdown / Payment Methods / totals & mismatch banners).
+- Inline Edit → `updateRecord`, stay on page, `toast.success("Record updated")`.
+- Delete → confirm dialog → `deleteRecord`, `navigate("/sales-data")`, toast.
+- Receipt view/attach preserved.
 
-## 5. `src/pages/admin/Clients.tsx`
+**`src/App.tsx`** — route `/sales-data/:id` → `SalesRecordDetail` inside the same auth/layout wrapper as `/sales-data`.
 
-- Rows: `onClick` → `/admin/clients/:id`, cursor-pointer + hover bg.
-- Batched per-tenant fetches: user count, bank account count, invoice count.
-- New "Setup" column between Users and Status: 4-point score (venues>0, users>1, banks>0, invoices>0). `w-20 h-1.5` progress bar, amber fill if <3 else emerald; `N/4 steps` in 10px muted below.
-- Ghost "Manage →" button in Actions.
-- KPI cards above table: Total clients · Active · In setup · Total venues.
+**`DataTable.tsx`** — remove modal usage; row click uses `useNavigate()`.
 
-## 6. `src/pages/admin/ClientDetail.tsx` (new) + route in `App.tsx`
+## 6. Multi-tenancy audit
 
-Route `/admin/clients/:tenantId`. Gate with `usePlatformAdmin`; redirect to `/` otherwise.
-
-Fetch: tenant, venues, users (profiles + user_access_control + tenant_members scoped to tenant), COA count, bank accounts count, suppliers count, invoices count + last invoice date, opening balances count, payment processors count.
-
-Header: back "← Clients", tenant name, subtitle `slug · currency · timezone`, status badge; "Edit details" sheet (name, legal entity, country, currency, timezone, FY start) + red ghost "Suspend" with confirm.
-
-Amber-underline tabs: Overview / Venues / Users / Settings.
-
-**Overview** — two columns:
-- Left card-glass "Setup checklist" — 8 items (Tenant created ✓, Venues, COA, Bank accounts, Suppliers, Users >1, Opening balances, Payment processors). ✓ or amber with "Complete" button linking to System Configuration or switching tab.
-- Right: "Key stats" (venues, users, invoices, last invoice date) + "Quick actions" ghost buttons: Add user, Add venue, View as client admin (toast stub), View activity log (stub).
-
-**Venues** — "Add venue" primary button opens dialog: Name (required), Type Select (Restaurant/Bar/Cafe/Other), Seats (optional). Insert with `tenant_id`; sonner toast. List venues card-glass with Edit (prefill) and Deactivate (`is_active=false`).
-
-**Users** — "Add user" opens `CreateUserDialog` with new `tenantId` prop. Table: User (name+email) | Position | Venues (names from `user_venue_access` else "All venues") | Status | Actions. "Edit access" opens `UserEditorPanel` with `tenantId` prop.
-
-**Settings** — two side-by-side card-glass:
-- Tenant details table + "Edit details" (same sheet as header).
-- "Cost reporting mode" radio (Combined group-level / By venue allocated) writing to `tenants.cost_reporting_mode` immediately on change.
-
-## 7. `src/components/access-control/UserEditorPanel.tsx`
-
-Add `tenantId: string` prop. Fetch venues for that tenant and existing `user_venue_access` for `(user_id, tenant_id)`.
-
-Top "Venue access" section with 11px muted subtitle. Checkbox per venue. When none checked, show muted "No restrictions — user sees all venues."
-
-On save (after page permissions): `delete user_venue_access where user_id=... AND tenant_id=...`, then insert one row per checked venue (none checked → insert nothing).
-
-Update pages list to iterate the new 10-item `ALL_PAGES`. Per section: name, "Show in sidebar" toggle, Authority select, Hidden actions checkboxes from `PAGE_ACTIONS[key]`; skip actions row when empty.
-
-## 8. `src/pages/UserAccessControl.tsx`
-
-Add "Venues" column between Position and Status. Fetch `user_venue_access` joined to venues: none → emerald "All venues" badge; else amber badge with up to 2 venue names + "+ N more". Pass `tenantId` from `useActiveTenant()` into `CreateUserDialog` and downstream create-user body.
-
-## Design
-
-`card-glass`, amber underline tabs, `text-[11px] uppercase tracking-wider text-muted-foreground` headers, alternating `bg-muted/30` rows, sonner toasts, `← Label` back links.
-
-## Files
-
-**Created**: `src/pages/admin/ClientDetail.tsx` + migration.
-**Modified**: `permissions.ts`, `admin/Clients.tsx`, `UserEditorPanel.tsx`, `UserAccessControl.tsx`, `AppSidebar.tsx`, `App.tsx`, `provision-tenant/index.ts`.
+Every new Supabase read (`getRecordById`, `useUnmappedVenues`) explicitly filters by `tenant_id` in addition to any other key.

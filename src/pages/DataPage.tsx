@@ -6,12 +6,10 @@ import DataUpload from "@/components/dashboard/DataUpload";
 import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DataTable from "@/components/dashboard/DataTable";
-
-import AccountingMappingSummary from "@/components/dashboard/AccountingMappingSummary";
 import { Upload, PenLine, ScanLine } from "lucide-react";
 
 const DataPage = () => {
-  const { data, loading, uploadRecords, addRecord, updateRecord, deleteRecord, attachReceipt, refetch } = useSalesData();
+  const { data, loading, uploadRecords, addRecord } = useSalesData();
   const { isAdmin } = useAuth();
   const { isActionHidden } = usePagePermissions();
   const [showUpload, setShowUpload] = useState(false);
@@ -21,19 +19,6 @@ const DataPage = () => {
   const hideUpload = isActionHidden("data.upload");
   const hideScanReceipt = isActionHidden("data.scan_receipt");
   const hideManualEntry = isActionHidden("data.manual_entry");
-  const hideEditRows = isActionHidden("data.edit_rows");
-  const hideDeleteRows = isActionHidden("data.delete_rows");
-  
-
-  const handleUpdateRecord = async (index: number, record: typeof data[0]) => {
-    const oldRecord = data[index];
-    if (oldRecord) await updateRecord(oldRecord, record);
-  };
-
-  const handleDeleteRecord = async (index: number) => {
-    const record = data[index];
-    if (record) await deleteRecord(record);
-  };
 
   if (loading) {
     return (
@@ -43,8 +28,10 @@ const DataPage = () => {
     );
   }
 
-  const canEdit = isAdmin && !hideEditRows;
-  const canDelete = isAdmin && !hideDeleteRows;
+  const primaryBtn = "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity";
+  const primaryBtnActive = "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-primary/80 text-primary-foreground ring-2 ring-primary/40";
+  const secondaryBtn = "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-transparent text-foreground hover:bg-muted transition-colors";
+  const secondaryBtnActive = "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-primary text-primary bg-primary/10";
 
   return (
     <div className="w-full mx-auto space-y-6">
@@ -60,9 +47,7 @@ const DataPage = () => {
             {!hideUpload && (
               <button
                 onClick={() => { setShowUpload(!showUpload); setShowManual(false); setShowScanner(false); }}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                  showUpload ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
-                }`}
+                className={showUpload ? primaryBtnActive : primaryBtn}
               >
                 <Upload className="h-4 w-4" />
                 Upload Data
@@ -71,9 +56,7 @@ const DataPage = () => {
             {!hideScanReceipt && (
               <button
                 onClick={() => { setShowScanner(!showScanner); setShowUpload(false); setShowManual(false); }}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                  showScanner ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
-                }`}
+                className={showScanner ? secondaryBtnActive : secondaryBtn}
               >
                 <ScanLine className="h-4 w-4" />
                 Scan Receipt
@@ -82,9 +65,7 @@ const DataPage = () => {
             {!hideManualEntry && (
               <button
                 onClick={() => { setShowManual(!showManual); setShowUpload(false); setShowScanner(false); }}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                  showManual ? "border-primary bg-primary/10 text-primary" : "border-border bg-secondary text-secondary-foreground hover:bg-muted"
-                }`}
+                className={showManual ? secondaryBtnActive : secondaryBtn}
               >
                 <PenLine className="h-4 w-4" />
                 Manual Entry
@@ -104,14 +85,7 @@ const DataPage = () => {
         <ManualInput onAdd={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowManual(false)} />
       )}
 
-      {isAdmin && <AccountingMappingSummary />}
-
-      <DataTable
-        data={data}
-        onUpdate={canEdit ? handleUpdateRecord : undefined}
-        onDelete={canDelete ? handleDeleteRecord : undefined}
-        onAttachReceipt={canEdit ? attachReceipt : undefined}
-      />
+      <DataTable data={data} />
     </div>
   );
 };
