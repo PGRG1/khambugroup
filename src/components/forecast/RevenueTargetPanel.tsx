@@ -262,7 +262,7 @@ const RevenueTargetPanel = ({ salesData, allForecasts, allVenues }: RevenueTarge
           <div className="md:col-span-4">
             <label className="text-xs text-muted-foreground block mb-1">Responsible Venues</label>
             <div className="flex flex-wrap gap-1.5">
-              {ALL_VENUES.map((v) => {
+              {allVenues.map((v) => {
                 const active = selectedVenues.includes(v);
                 return (
                   <button
