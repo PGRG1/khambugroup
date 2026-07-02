@@ -16,17 +16,28 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller is admin
-    const authHeader = req.headers.get("Authorization")!;
+    // Verify caller is admin (signing-keys compatible)
+    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+    if (!authHeader?.toLowerCase().startsWith("bearer ")) throw new Error("Unauthorized");
+    const token = authHeader.replace(/^[Bb]earer\s+/, "");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const callerClient = createClient(supabaseUrl, anonKey);
-    const { data: { user: caller } } = await callerClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!caller) throw new Error("Unauthorized");
+    let callerId: string | null = null;
+    const anySb = callerClient.auth as any;
+    if (typeof anySb.getClaims === "function") {
+      const { data, error } = await anySb.getClaims(token);
+      if (error || !data?.claims?.sub) throw new Error("Unauthorized");
+      callerId = data.claims.sub;
+    } else {
+      const { data, error } = await callerClient.auth.getUser(token);
+      if (error || !data?.user) throw new Error("Unauthorized");
+      callerId = data.user.id;
+    }
 
     const { data: roleCheck } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", caller.id)
+      .eq("user_id", callerId)
       .eq("role", "admin");
     if (!roleCheck || roleCheck.length === 0) throw new Error("Admin only");
 
