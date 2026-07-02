@@ -78,6 +78,7 @@ import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
 import BillsExpenses from "./pages/finance/BillsExpenses";
 import PaymentsPage from "./pages/payments/PaymentsPage";
+import PettyCashPage from "./pages/petty-cash/PettyCashPage";
 
 import HREmployees from "./pages/hr/HREmployees";
 import HROrgChart from "./pages/hr/HROrgChart";
