@@ -207,6 +207,7 @@ function App() {
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
                 <Route path="/admin/clients" element={<AdminRoute><Clients /></AdminRoute>} />
+                <Route path="/admin/clients/:tenantId" element={<AdminRoute><ClientDetail /></AdminRoute>} />
 
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 
