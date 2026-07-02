@@ -28,6 +28,7 @@ import Settings from "./pages/Settings";
 import SystemConfiguration from "./pages/admin/SystemConfiguration";
 import AiRules from "./pages/admin/AiRules";
 import Clients from "./pages/admin/Clients";
+import ClientDetail from "./pages/admin/ClientDetail";
 
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
