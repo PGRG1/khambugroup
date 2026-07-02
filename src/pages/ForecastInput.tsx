@@ -422,7 +422,9 @@ const ForecastInput = () => {
       {!hideDateRange && <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} />}
 
       {/* Monthly Revenue Target */}
-      {canCreate && <RevenueTargetPanel salesData={salesData} allForecasts={forecasts} />}
+      {canCreate && activeVenues.length > 0 && (
+        <RevenueTargetPanel salesData={salesData} allForecasts={forecasts} allVenues={activeVenueNames} />
+      )}
 
       {/* Input Form */}
       {showEntry && canCreate && (
