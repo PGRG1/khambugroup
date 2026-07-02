@@ -34,38 +34,67 @@ const normalise = (s: string) => s.toLowerCase().trim();
 
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
-  const initialVenue = parseVenueParam(venue);
   const { user } = useAuth();
+
+  const { venues, loading: venuesLoading } = useVenues();
+  const activeVenues = useMemo(
+    () =>
+      [...venues]
+        .filter((v) => v.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
+    [venues],
+  );
+  const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
+
+  const routeInitialVenue = useMemo(() => {
+    if (activeVenueNames.length === 0) return null;
+    if (venue) {
+      const target = normalise(venue);
+      const match = activeVenueNames.find((n) => normalise(n) === target);
+      if (match) return match;
+    }
+    return activeVenueNames[0];
+  }, [venue, activeVenueNames]);
 
   const { forecasts, loading: forecastsLoading, addForecast, updateForecast, deleteForecast, approveForecast, rejectForecast, approvePostEventNotes, rejectPostEventNotes } = useForecastData();
   const { canCreate, canApprove, canEditFigures, isApprover, loading: permLoading } = useForecastPermissions();
   const { isActionHidden } = usePagePermissions();
 
-  // Multi-venue selection — persisted across reloads
-  const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>(() => {
+  // Multi-venue selection — persisted across reloads, validated against active Admin venues
+  const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>([]);
+  const [venuesHydrated, setVenuesHydrated] = useState(false);
+
+  useEffect(() => {
+    if (venuesLoading) return;
+    let next: ForecastVenue[] = [];
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(VENUES_STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw) as ForecastVenue[];
-          const filtered = parsed.filter((v) => ALL_VENUES.includes(v));
-          if (filtered.length > 0) return filtered;
+          next = parsed.filter((v) => activeVenueNames.includes(v));
         }
       } catch {}
     }
-    return [initialVenue];
-  });
+    if (next.length === 0 && routeInitialVenue) next = [routeInitialVenue];
+    setSelectedVenues(next);
+    setVenuesHydrated(true);
+  }, [venuesLoading, activeVenueNames, routeInitialVenue]);
+
   useEffect(() => {
+    if (!venuesHydrated) return;
     localStorage.setItem(VENUES_STORAGE_KEY, JSON.stringify(selectedVenues));
-  }, [selectedVenues]);
+  }, [selectedVenues, venuesHydrated]);
 
   const orderedSelection = useMemo(
-    () => ALL_VENUES.filter((v) => selectedVenues.includes(v)),
-    [selectedVenues],
+    () => activeVenueNames.filter((v) => selectedVenues.includes(v)),
+    [selectedVenues, activeVenueNames],
   );
-  const isAllVenues = orderedSelection.length === ALL_VENUES.length;
+  const isAllVenues = activeVenueNames.length > 0 && orderedSelection.length === activeVenueNames.length;
   const isMulti = orderedSelection.length > 1;
-  const venueLabel = isAllVenues ? "All Venues" : orderedSelection.join(" + ");
+  const venueLabel = orderedSelection.length === 0
+    ? "No venues"
+    : isAllVenues ? "All Venues" : orderedSelection.join(" + ");
   // Single venue used as default for legacy single-venue contexts (KPI seats etc.)
   const primaryVenue = orderedSelection[0];
 
