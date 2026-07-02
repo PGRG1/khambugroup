@@ -26,20 +26,11 @@ import { SalesRecord } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 
-type ForecastVenue = "Assembly" | "Caliente" | "Hanabi" | "Events";
-const ALL_VENUES: ForecastVenue[] = ["Assembly", "Caliente", "Hanabi", "Events"];
+type ForecastVenue = string;
 
 const VENUES_STORAGE_KEY = "forecast.selectedVenues";
 
-const parseVenueParam = (v: string | undefined): ForecastVenue => {
-  const map: Record<string, ForecastVenue> = {
-    assembly: "Assembly",
-    caliente: "Caliente",
-    hanabi: "Hanabi",
-    events: "Events",
-  };
-  return (v && map[v.toLowerCase()]) || "Assembly";
-};
+const normalise = (s: string) => s.toLowerCase().trim();
 
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
