@@ -60,7 +60,7 @@ export default function ClientDetail() {
     setLoading(true);
     const [{ data: t }, { data: vs }, { data: bs }, { data: is }, { data: members }, { data: pageRows }, { data: acRows }, { data: profileRows }, { data: venueAccess }, emailRes] = await Promise.all([
       supabase.from("tenants").select("*").eq("id", tenantId).maybeSingle(),
-      supabase.from("venues").select("id, name, timezone, base_currency").eq("tenant_id", tenantId).order("name"),
+      supabase.from("venues").select("id, name").eq("tenant_id", tenantId).order("name"),
       supabase.from("bank_accounts").select("id").eq("tenant_id", tenantId),
       supabase.from("invoices").select("id").eq("tenant_id", tenantId),
       supabase.from("tenant_members").select("user_id, role").eq("tenant_id", tenantId),
