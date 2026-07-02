@@ -28,6 +28,7 @@ import Settings from "./pages/Settings";
 import SystemConfiguration from "./pages/admin/SystemConfiguration";
 import AiRules from "./pages/admin/AiRules";
 import Clients from "./pages/admin/Clients";
+import ClientDetail from "./pages/admin/ClientDetail";
 
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -206,6 +207,7 @@ function App() {
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
                 <Route path="/admin/clients" element={<AdminRoute><Clients /></AdminRoute>} />
+                <Route path="/admin/clients/:tenantId" element={<AdminRoute><ClientDetail /></AdminRoute>} />
 
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 

@@ -6,26 +6,31 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { POSITIONS, type UserPosition } from "@/utils/permissions";
 import { toast } from "@/hooks/use-toast";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  /** Explicit tenant override. Falls back to the caller's active tenant. */
+  tenantId?: string;
 }
 
-export function CreateUserDialog({ open, onOpenChange, onCreated }: Props) {
+export function CreateUserDialog({ open, onOpenChange, onCreated, tenantId }: Props) {
+  const { tenantId: activeTenantId } = useActiveTenant();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [position, setPosition] = useState<UserPosition>("viewer");
   const [loading, setLoading] = useState(false);
 
+  const targetTenantId = tenantId || activeTenantId || undefined;
+
   const handleCreate = async () => {
     if (!email) return;
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("create-user", {
-        body: { email, displayName, position },
+        body: { email, displayName, position, tenant_id: targetTenantId },
       });
 
       if (res.error) throw res.error;

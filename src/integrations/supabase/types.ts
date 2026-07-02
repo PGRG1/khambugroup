@@ -7959,6 +7959,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          cost_reporting_mode: string
           created_at: string
           id: string
           name: string
@@ -7968,6 +7969,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cost_reporting_mode?: string
           created_at?: string
           id?: string
           name: string
@@ -7977,6 +7979,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cost_reporting_mode?: string
           created_at?: string
           id?: string
           name?: string
@@ -8280,6 +8283,45 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_venue_access: {
+        Row: {
+          created_at: string
+          id: string
+          tenant_id: string
+          user_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tenant_id: string
+          user_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tenant_id?: string
+          user_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_venue_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_venue_access_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       venue_memberships: {
         Row: {

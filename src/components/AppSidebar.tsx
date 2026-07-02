@@ -282,15 +282,22 @@ export function AppSidebar() {
     return showInSidebar(item.pageKey);
   });
 
-  const showFinance = isAdmin && !isPreviewActive;
-  const showProcurement = isAdmin && !isPreviewActive ? true : showInSidebar("invoices");
-  const showHR = isAdmin && !isPreviewActive;
-  const showBank = isAdmin && !isPreviewActive;
-  const showPayments = isAdmin && !isPreviewActive;
-  const showPettyCash = isAdmin && !isPreviewActive;
-  const showAdmin = isAdmin && !isPreviewActive;
   const { isPlatformAdmin } = usePlatformAdmin();
-  const showPlatform = isPlatformAdmin && !isPreviewActive;
+
+  const canSeeSection = (pageKey: string): boolean => {
+    if (isPlatformAdmin) return true;
+    if (isAdmin && !isPreviewActive) return true;
+    return showInSidebar(pageKey);
+  };
+
+  const showFinance     = canSeeSection("finance");
+  const showProcurement = canSeeSection("procurement");
+  const showHR          = canSeeSection("people");
+  const showBank        = canSeeSection("bank");
+  const showPayments    = canSeeSection("payments");
+  const showPettyCash   = canSeeSection("pettycash");
+  const showAdmin       = isAdmin && !isPreviewActive;
+  const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
 
   const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (

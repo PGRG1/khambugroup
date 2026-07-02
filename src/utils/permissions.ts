@@ -1,20 +1,20 @@
-// Page definitions
+// Page definitions — top-level sections mirroring the sidebar layout.
 export const ALL_PAGES = [
-  { key: "revenue", label: "Revenue" },
-  { key: "forecast", label: "Forecast vs Actual" },
-  { key: "data", label: "Data" },
-  { key: "activity-log", label: "Activity Log" },
-  { key: "pl-report", label: "P&L Report" },
-  { key: "invoices", label: "Invoices" },
-  { key: "inventory", label: "Inventory" },
-  { key: "notifications", label: "Notifications" },
-  { key: "kpis", label: "My KPI Cards" },
-  { key: "kpi-management", label: "KPI Management (Admin)" },
+  { key: "revenue",     label: "Revenue" },
+  { key: "kpis",        label: "KPI Management" },
+  { key: "finance",     label: "Finance" },
+  { key: "procurement", label: "Procurement" },
+  { key: "expenses",    label: "Expenses" },
+  { key: "payments",    label: "Payments & Settlements" },
+  { key: "bank",        label: "Bank" },
+  { key: "pettycash",   label: "Petty Cash" },
+  { key: "people",      label: "People & HR" },
+  { key: "admin",       label: "Admin" },
 ] as const;
 
 export type PageKey = (typeof ALL_PAGES)[number]["key"];
 
-// Per-page actions
+// Per-page actions surfaced in the User Editor as "hide-able" toggles.
 export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
   revenue: [
     { key: "revenue.generate_report", label: "Generate Report (PDF)" },
@@ -22,53 +22,43 @@ export const PAGE_ACTIONS: Record<PageKey, { key: string; label: string }[]> = {
     { key: "revenue.venue_filter", label: "Venue Filter" },
     { key: "revenue.view_toggle", label: "Daily / Monthly Toggle" },
   ],
-  forecast: [
-    { key: "forecast.new_entry", label: "New Forecast Entry" },
-    { key: "forecast.view_data", label: "View Data Table" },
-    { key: "forecast.edit_inputs", label: "Edit Forecast Inputs" },
-    { key: "forecast.edit_notes", label: "Edit Forecast Notes" },
-    { key: "forecast.edit_post_event", label: "Edit Post-Event Notes" },
-    { key: "forecast.edit_comment", label: "Edit General Comment" },
-    { key: "forecast.delete", label: "Delete Forecast" },
-    { key: "forecast.date_range", label: "Date Range Picker" },
-  ],
-  data: [
-    { key: "data.upload", label: "Upload Data" },
-    { key: "data.scan_receipt", label: "Scan Receipt" },
-    { key: "data.manual_entry", label: "Manual Entry" },
-    { key: "data.edit_rows", label: "Edit Rows" },
-    { key: "data.delete_rows", label: "Delete Rows" },
-    { key: "data.reset", label: "Master Reset" },
-  ],
-  "activity-log": [],
-  "pl-report": [
-    { key: "pl-report.edit_values", label: "Edit P&L Values" },
-    { key: "pl-report.add_line_item", label: "Add Line Item" },
-  ],
-  invoices: [
-    { key: "invoices.create", label: "Create Invoice" },
-    { key: "invoices.update_status", label: "Update Invoice Status" },
-    { key: "invoices.add_supplier", label: "Add Supplier" },
-    { key: "invoices.add_category", label: "Add Category" },
-  ],
-  inventory: [
-    { key: "inventory.add_item", label: "Add Inventory Item" },
-    { key: "inventory.new_period", label: "Create Period" },
-    { key: "inventory.edit_counts", label: "Edit Counts" },
-    { key: "inventory.close_period", label: "Close Period" },
-  ],
-  notifications: [
-    { key: "notifications.manage_rules", label: "Manage Alert Rules" },
-    { key: "notifications.enable_device", label: "Enable Push on Device" },
-  ],
   kpis: [
     { key: "kpis.update_actual", label: "Update Actual Value" },
+    { key: "kpis.create_card", label: "Create KPI Card" },
+    { key: "kpis.assign", label: "Assign KPI Card" },
+    { key: "kpis.set_target", label: "Set / Edit Targets" },
   ],
-  "kpi-management": [
-    { key: "kpi-management.create_card", label: "Create KPI Card" },
-    { key: "kpi-management.assign", label: "Assign KPI Card" },
-    { key: "kpi-management.set_target", label: "Set / Edit Targets" },
+  finance: [
+    { key: "finance.post_journal", label: "Post journal entries" },
+    { key: "finance.export", label: "Export reports" },
   ],
+  procurement: [
+    { key: "procurement.approve_invoice", label: "Approve invoices" },
+    { key: "procurement.delete_invoice", label: "Delete invoices" },
+    { key: "procurement.manage_suppliers", label: "Manage suppliers" },
+  ],
+  expenses: [
+    { key: "expenses.approve_bill", label: "Approve bills" },
+    { key: "expenses.delete_bill", label: "Delete bills" },
+  ],
+  payments: [
+    { key: "payments.import", label: "Import statements" },
+    { key: "payments.match", label: "Match to bank" },
+  ],
+  bank: [
+    { key: "bank.reconcile", label: "Reconcile periods" },
+    { key: "bank.close_period", label: "Close reconciliation period" },
+  ],
+  pettycash: [
+    { key: "pettycash.approve", label: "Approve receipts" },
+    { key: "pettycash.post", label: "Post to GL" },
+    { key: "pettycash.replenish", label: "Record replenishments" },
+  ],
+  people: [
+    { key: "people.manage_payroll", label: "Manage payroll" },
+    { key: "people.view_salary", label: "View salary information" },
+  ],
+  admin: [],
 };
 
 export type Authority = "view_only" | "edit" | "admin";
@@ -105,4 +95,5 @@ export interface UserAccessRecord {
   status: UserStatus;
   is_approver: boolean;
   pages: UserPagePermission[];
+  venue_ids: string[];
 }
