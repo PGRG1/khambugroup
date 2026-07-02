@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { X, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { logAuditEvent } from "@/utils/auditLog";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import {
   ALL_PAGES, PAGE_ACTIONS, POSITIONS, AUTHORITIES,
   type UserAccessRecord, type UserPosition, type UserStatus, type Authority, type PageKey,
@@ -18,9 +18,16 @@ interface Props {
   user: UserAccessRecord;
   onClose: () => void;
   onSaved: () => void;
+  /** Tenant scope for venue-access and page-permission writes. Falls back to active tenant. */
+  tenantId?: string;
 }
 
-export function UserEditorPanel({ user, onClose, onSaved }: Props) {
+type VenueRow = { id: string; name: string };
+
+export function UserEditorPanel({ user, onClose, onSaved, tenantId }: Props) {
+  const { tenantId: activeTenantId } = useActiveTenant();
+  const effectiveTenantId = tenantId || activeTenantId || null;
+
   const [displayName, setDisplayName] = useState(user.display_name || "");
   const [position, setPosition] = useState<UserPosition>(user.position);
   const [status, setStatus] = useState<UserStatus>(user.status);
@@ -37,8 +44,21 @@ export function UserEditorPanel({ user, onClose, onSaved }: Props) {
       };
     })
   );
+  const [venues, setVenues] = useState<VenueRow[]>([]);
+  const [venueSelection, setVenueSelection] = useState<Set<string>>(new Set(user.venue_ids || []));
   const [saving, setSaving] = useState(false);
-  const [selectedPageForActions, setSelectedPageForActions] = useState<PageKey>("revenue");
+
+  useEffect(() => {
+    if (!effectiveTenantId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("venues")
+        .select("id, name")
+        .eq("tenant_id", effectiveTenantId)
+        .order("name");
+      setVenues((data as VenueRow[]) || []);
+    })();
+  }, [effectiveTenantId]);
 
   const updatePage = (pageKey: string, field: string, value: any) => {
     setPages(prev => prev.map(p => p.page_key === pageKey ? { ...p, [field]: value } : p));
@@ -54,43 +74,70 @@ export function UserEditorPanel({ user, onClose, onSaved }: Props) {
     }));
   };
 
+  const toggleVenue = (venueId: string) => {
+    setVenueSelection(prev => {
+      const next = new Set(prev);
+      if (next.has(venueId)) next.delete(venueId); else next.add(venueId);
+      return next;
+    });
+  };
+
   const handleSave = async () => {
+    if (!effectiveTenantId) {
+      toast({ title: "Missing tenant", description: "No active tenant to save against.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
-      // Update display name
       await supabase.from("profiles").update({ display_name: displayName }).eq("user_id", user.user_id);
 
-      // Update access control
-      await supabase.from("user_access_control").update({ position, status }).eq("user_id", user.user_id);
+      await supabase.from("user_access_control")
+        .update({ position, status })
+        .eq("user_id", user.user_id)
+        .eq("tenant_id", effectiveTenantId);
 
-      // Update page permissions
       for (const p of pages) {
         await supabase.from("user_page_permissions").upsert({
           user_id: user.user_id,
+          tenant_id: effectiveTenantId,
           page_key: p.page_key,
           show_in_sidebar: p.show_in_sidebar,
           can_access: p.can_access,
           authority: p.authority,
           hidden_actions: p.hidden_actions,
-        }, { onConflict: "user_id,page_key" });
+        }, { onConflict: "user_id,tenant_id,page_key" });
       }
 
-      // Handle approver toggle
+      // Replace venue access rows for this (user, tenant)
+      await supabase.from("user_venue_access")
+        .delete()
+        .eq("user_id", user.user_id)
+        .eq("tenant_id", effectiveTenantId);
+      const selected = Array.from(venueSelection);
+      if (selected.length > 0) {
+        await supabase.from("user_venue_access").insert(
+          selected.map(venue_id => ({
+            user_id: user.user_id,
+            tenant_id: effectiveTenantId,
+            venue_id,
+          }))
+        );
+      }
+
       if (isApprover && !user.is_approver) {
         await supabase.from("forecast_approvers").insert({ user_id: user.user_id });
       } else if (!isApprover && user.is_approver) {
         await supabase.from("forecast_approvers").delete().eq("user_id", user.user_id);
       }
 
-      // Audit log
       await logAuditEvent({
         action: "update",
-        entityType: "sales_record", // reusing existing type
+        entityType: "sales_record",
         entityId: user.user_id,
         details: {
           type: "user_access_change",
           target_user: user.email,
-          changes: { position, status, isApprover, pages },
+          changes: { position, status, isApprover, pages, venue_ids: selected },
         },
       });
 
@@ -101,9 +148,6 @@ export function UserEditorPanel({ user, onClose, onSaved }: Props) {
     }
     setSaving(false);
   };
-
-  const currentPageActions = PAGE_ACTIONS[selectedPageForActions] || [];
-  const currentPagePerms = pages.find(p => p.page_key === selectedPageForActions);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
@@ -150,12 +194,40 @@ export function UserEditorPanel({ user, onClose, onSaved }: Props) {
             </div>
           </section>
 
-          {/* Page Access */}
+          {/* Venue Access */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Venue Access</h3>
+            <p className="text-[11px] text-muted-foreground">
+              Which venues can this user see? Leave all unchecked to grant access to all venues.
+            </p>
+            <div className="border border-border rounded-lg p-3 space-y-2">
+              {venues.length === 0 && (
+                <div className="text-xs text-muted-foreground">No venues in this client.</div>
+              )}
+              {venues.map(v => (
+                <label key={v.id} className="flex items-center gap-3 p-1.5 rounded-md hover:bg-muted/40 cursor-pointer">
+                  <Checkbox
+                    checked={venueSelection.has(v.id)}
+                    onCheckedChange={() => toggleVenue(v.id)}
+                  />
+                  <span className="text-sm">{v.name}</span>
+                </label>
+              ))}
+              {venueSelection.size === 0 && venues.length > 0 && (
+                <div className="text-[11px] text-muted-foreground pt-1 border-t border-border/60 mt-2">
+                  No restrictions — user sees all venues.
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Page Access & Actions */}
           <section className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Page Access</h3>
             <div className="space-y-3">
               {ALL_PAGES.map(page => {
                 const perm = pages.find(p => p.page_key === page.key)!;
+                const actions = PAGE_ACTIONS[page.key] || [];
                 return (
                   <div key={page.key} className="border border-border rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
@@ -188,32 +260,26 @@ export function UserEditorPanel({ user, onClose, onSaved }: Props) {
                         </Select>
                       </div>
                     )}
+                    {perm.can_access && actions.length > 0 && (
+                      <div className="pt-2 border-t border-border/60 space-y-1">
+                        <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+                          Hide actions
+                        </div>
+                        {actions.map(action => (
+                          <label key={action.key} className="flex items-center gap-3 p-1 rounded-md hover:bg-muted/40 cursor-pointer">
+                            <Checkbox
+                              checked={perm.hidden_actions.includes(action.key)}
+                              onCheckedChange={() => toggleAction(page.key, action.key)}
+                            />
+                            <span className="text-sm">{action.label}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono ml-auto">{action.key}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
-            </div>
-          </section>
-
-          {/* Hidden Actions */}
-          <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Functions / Buttons to Hide</h3>
-            <Select value={selectedPageForActions} onValueChange={v => setSelectedPageForActions(v as PageKey)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ALL_PAGES.map(p => <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <div className="space-y-2 mt-2">
-              {currentPageActions.map(action => (
-                <label key={action.key} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer">
-                  <Checkbox
-                    checked={currentPagePerms?.hidden_actions.includes(action.key) || false}
-                    onCheckedChange={() => toggleAction(selectedPageForActions, action.key)}
-                  />
-                  <span className="text-sm">{action.label}</span>
-                  <span className="text-[10px] text-muted-foreground font-mono ml-auto">{action.key}</span>
-                </label>
-              ))}
             </div>
           </section>
         </div>
