@@ -64,8 +64,6 @@ const ForecastTableView = ({
       return filtered.length > 0 ? filtered : allVenues;
     });
   }, [allVenues]);
-  const [from, setFrom] = useState<string>("");
-  const [to, setTo] = useState<string>("");
 
   const monthOptions = useMemo(() => {
     const opts: { y: number; m: number; label: string }[] = [];
