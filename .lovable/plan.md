@@ -1,43 +1,37 @@
-## Prompt 3 — Inventory & Menu Tenant Migration
+## Prompt 4 — KPIs, Transfers & Remaining Tables
 
-Single idempotent migration covering 7 tables. Same pattern as Prompts 1 & 2.
+Single idempotent migration covering 8 tables. Same pattern as Prompts 1–3.
 
 ### Tables
-1. `stock_count_sessions`
-2. `stock_count_items`
-3. `inventory_periods`
-4. `inventory_items`
-5. `inventory_counts`
-6. `menu_items`
-7. `menu_item_ingredients`
+1. `kpi_cards`
+2. `kpi_actuals`
+3. `kpi_targets`
+4. `transfers`
+5. `transfer_items`
+6. `bank_reconciliation_periods`
+7. `revenue_targets`
+8. `forecasts`
 
 ### Per-table steps
 1. `ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE`
-2. Backfill: `UPDATE ... SET tenant_id = '00000000-0000-0000-0000-00000000beef' WHERE tenant_id IS NULL`
+2. Backfill NULLs to `00000000-0000-0000-0000-00000000beef`
 3. Add index on `tenant_id`
-4. `DROP POLICY IF EXISTS` on the legacy policies listed per table (plus residual `tenant_select`/`tenant_write`/`tenant_venue_*` variants)
-5. `ENABLE ROW LEVEL SECURITY`
-6. Create canonical `<table>_tenant_select` and `<table>_tenant_all` policies:
-   - SELECT: `is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id)`
-   - ALL: same + `(has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager'))`
+4. `ENABLE ROW LEVEL SECURITY`
+5. Drop ALL existing policies on the table (idempotent sweep — covers listed legacy names plus any residual open policies)
+6. Create canonical policies:
+   - `<table>_tenant_select` — SELECT: `is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id)`
+   - `<table>_tenant_all` — ALL: same + `(has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager'))`
 7. `GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated; GRANT ALL ... TO service_role`
 
-### Legacy policies to drop per table
-- **stock_count_sessions**: `"stock_count_sessions select"`, `"stock_count_sessions write"`
-- **stock_count_items**: `"stock_count_items select"`, `"stock_count_items write"`
-- **inventory_periods**: `"Authenticated can read periods"`, `"Authorized can manage periods"`
-- **inventory_items**: `"Authenticated can read inventory items"`, `"Authorized can manage inventory items"`
-- **inventory_counts**: `"Authenticated can read counts"`, `"Authorized can manage counts"`
-- **menu_items**: none known — drop any residual open policies discovered
-- **menu_item_ingredients**: none known — drop any residual open policies discovered
+### Legacy policies (per user's list, all cleared by the sweep)
+- **kpi_cards**: "Admins manage kpi_cards", "Users read active kpi_cards they own"
+- **kpi_actuals**: "Admins manage kpi_actuals", "Users read/insert/update kpi_actuals for owned cards"
+- **kpi_targets**: "Admins manage kpi_targets", "Users read kpi_targets for owned cards"
+- **transfers**, **transfer_items**, **revenue_targets**, **forecasts**: none listed
+- **bank_reconciliation_periods**: "Authenticated can read bank_recon_periods", "Authorized can manage bank_recon_periods"
 
-Plus a defensive sweep on all 7 tables for residual `tenant_select` / `tenant_write` / `tenant_venue_*` policies (as done in Prompts 1 & 2).
+### Verification
+- Per table: `tenant_id` present, row/NULL counts, exactly 2 canonical policies remain
+- **Final global check**: count remaining `USING (true)` policies across `pg_policies` in `public` schema and report the number (expected significantly lower than 106 baseline)
 
-### Verification (post-migration)
-For each of the 7 tables confirm:
-- `tenant_id` column exists (non-null after backfill)
-- Row count and NULL count reported
-- Exactly the two canonical tenant-scoped policies remain
-- Legacy policies dropped
-
-No application code changes in this prompt — schema/RLS only.
+No application code changes — schema/RLS only.

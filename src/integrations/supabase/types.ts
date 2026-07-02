@@ -7995,6 +7995,7 @@ export type Database = {
           product_master_id: string
           quantity_received: number | null
           quantity_sent: number
+          tenant_id: string | null
           transfer_id: string
           unit: string
           unit_cost: number
@@ -8007,6 +8008,7 @@ export type Database = {
           product_master_id: string
           quantity_received?: number | null
           quantity_sent?: number
+          tenant_id?: string | null
           transfer_id: string
           unit?: string
           unit_cost?: number
@@ -8019,6 +8021,7 @@ export type Database = {
           product_master_id?: string
           quantity_received?: number | null
           quantity_sent?: number
+          tenant_id?: string | null
           transfer_id?: string
           unit?: string
           unit_cost?: number
@@ -8037,6 +8040,13 @@ export type Database = {
             columns: ["product_master_id"]
             isOneToOne: false
             referencedRelation: "v_product_mapping_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
@@ -8059,6 +8069,7 @@ export type Database = {
           received_at: string | null
           received_by: string | null
           status: string
+          tenant_id: string | null
           to_location_id: string | null
           to_venue: string
           transfer_date: string
@@ -8075,6 +8086,7 @@ export type Database = {
           received_at?: string | null
           received_by?: string | null
           status?: string
+          tenant_id?: string | null
           to_location_id?: string | null
           to_venue: string
           transfer_date?: string
@@ -8091,6 +8103,7 @@ export type Database = {
           received_at?: string | null
           received_by?: string | null
           status?: string
+          tenant_id?: string | null
           to_location_id?: string | null
           to_venue?: string
           transfer_date?: string
@@ -8103,6 +8116,13 @@ export type Database = {
             columns: ["from_location_id"]
             isOneToOne: false
             referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
