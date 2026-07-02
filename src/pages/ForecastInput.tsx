@@ -367,8 +367,22 @@ const ForecastInput = () => {
     return <div className="flex items-center justify-center py-20"><p className="text-muted-foreground">Loading...</p></div>;
   }
 
+  if (!venuesLoading && activeVenues.length === 0) {
+    return (
+      <div className="w-full mx-auto p-8">
+        <div className="card-glass rounded-xl p-8 text-center">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Targets unavailable</h2>
+          <p className="text-sm text-muted-foreground">
+            No active venues have been configured. Add a venue in Platform Admin before creating revenue targets.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full mx-auto space-y-6">
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
