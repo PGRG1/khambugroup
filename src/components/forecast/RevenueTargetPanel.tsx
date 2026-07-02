@@ -26,6 +26,9 @@ interface RevenueTargetPanelProps {
   salesData: SalesRecord[];
   allForecasts: ForecastRecord[];
   allVenues: string[];
+  year: number;
+  month: number;
+  onMonthChange?: (year: number, month: number) => void;
 }
 
 const monthName = (m: number) => new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
@@ -38,21 +41,34 @@ interface VenueDistribution {
   noHistory: boolean;
 }
 
-const RevenueTargetPanel = ({ salesData, allForecasts, allVenues }: RevenueTargetPanelProps) => {
+const RevenueTargetPanel = ({
+  salesData,
+  allForecasts,
+  allVenues,
+  year,
+  month,
+  onMonthChange,
+}: RevenueTargetPanelProps) => {
   const { user } = useAuth();
   const { getTarget, upsertTarget } = useRevenueTargets();
   const { addForecast, updateForecast } = useForecastData();
 
   const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
   const [targetAmount, setTargetAmount] = useState<number>(0);
+  // Target-scoped venue selection — independent of the page-level analytical chips.
+  // Seeded from the saved target's venues (or all active venues when none saved),
+  // and only mutated inside this panel. Saving Save/Apply is the only path that
+  // updates the venues stored on the Manager Target.
   const [selectedVenues, setSelectedVenues] = useState<Venue[]>(allVenues);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [perVenue, setPerVenue] = useState<VenueDistribution[]>([]);
   const [applying, setApplying] = useState(false);
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
+
+  const existingTarget = getTarget(year, month);
+  const statisticalTotal = existingTarget?.statisticalTargetAmount ?? null;
+  const statisticalModel = existingTarget?.statisticalModel ?? null;
 
   useEffect(() => {
     const existing = getTarget(year, month);
