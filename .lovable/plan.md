@@ -1,102 +1,90 @@
+## Goal
+Update Revenue sidebar labels, add a Reconciliation page shell, and wire the new route — without touching any existing Revenue functionality, data, or database.
 
-# Sales Data Page Overhaul
+## Verified checks
 
-All new queries scope to the active tenant via `useActiveTenant()` / `tenantSelect` — never rely on RLS alone. `AccountingMappingSummary` internals stay untouched.
+### 1. PageHeader API
+The existing `PageHeader` component (used across the app, e.g. in payments pages) accepts:
+- `title: string`
+- `subtitle?: string`
+- `right?: React.ReactNode`
 
-## Pre-flight verification (already done)
+The Reconciliation page shell will use `subtitle` (not `description`). No PageHeader modification needed.
 
-- `sales_records.date` is `text`; **all 547 rows** match `^\d{4}-\d{2}-\d{2}$`. Month bucketing via `date.slice(0, 7)` is safe today.
-- Even so, month bucketing goes through one helper `monthKey(dateStr)` in `src/utils/format.ts`: returns `dateStr.slice(0,7)` when the regex matches, else `new Date(dateStr).toISOString().slice(0,7)`, else `"unknown"` (records with `"unknown"` are grouped last under an "Unknown date" header so nothing silently disappears). Single source of truth for the group + subtotal logic.
+### 2. Sidebar active-state matching
+The sidebar uses `NavLink` with `end={item.end ?? item.url === "/"}`.
 
-## 1. Record ID (foundational)
+Current `revenueItems` Overview has no `end` prop, so `end` defaults to `false`. This causes `/revenue` to match `/revenue/reconciliation` via prefix matching, incorrectly highlighting Overview when Reconciliation is active.
 
-**`src/types/sales.ts`** — add `id: string` to `SalesRecord`.
+Fix: Add `end: true` to the Overview revenue item so it matches exact `/revenue` only.
 
-**`src/hooks/useSalesData.ts`**
-- `fromDbRecord`: include `id: r.id`.
-- `toDbRecord`: unchanged (no id on insert).
-- `updateRecord(old, next)`: `.eq("tenant_id", tenantId).eq("id", old.id)`.
-- `deleteRecord(rec)`: `.eq("tenant_id", tenantId).eq("id", rec.id)`.
-- `attachReceipt`: switch match to `id`.
-- Add `getRecordById(id)`: check cached `data` first; fallback tenant-scoped Supabase fetch `.eq("id", id).eq("tenant_id", tenantId).maybeSingle()`.
+After the fix:
+- `/revenue` → Overview highlighted
+- `/revenue/reconciliation` → Reconciliation highlighted
+- `/sales-data` → Daily Sales highlighted
+- `/forecast/assembly` → Targets highlighted
 
-Thread `id` through `DataTable` row keys and the new detail route.
+## Changes
 
-## 2. `DataPage.tsx` button styling
+### 1. `src/components/AppSidebar.tsx`
+Update the `revenueItems` array (line 29):
 
-- "Upload Data" → primary filled.
-- "Manual Entry" & "Scan Receipt" → secondary outlined.
-- No behavior change.
+- Overview: add `end: true` to prevent prefix-match bleed into nested route
+- Rename "Sales Data" → "Daily Sales" (keep `/sales-data`)
+- Rename "Target Tracking" → "Targets" (keep `/forecast/assembly`)
+- Add new item: `{ title: "Reconciliation", url: "/revenue/reconciliation", icon: Scale, pageKey: "revenue" }`
 
-## 3. `DataTable.tsx` — filters, grouping, URL state
+Order after change:
+1. Overview (`/revenue`, `end: true`)
+2. Daily Sales (`/sales-data`)
+3. Targets (`/forecast/assembly`)
+4. Reconciliation (`/revenue/reconciliation`)
 
-### Remove
-- Venue entry from ExcelFilterPopover column list (header loses filter icon).
-- Any `columnFilters["venue"]` read/write.
-- 25-per-page pagination.
-- Internal `SalesDetailModal` state.
+The `Scale` icon is already imported in AppSidebar.
 
-### Add
-- **DateFilter** in toolbar between venue pills and search. AND-combined with all other filters.
-- **`NumericRangeFilterPopover`** (new small component) for orders, guests, subtotal, serviceCharge, discount, totalSales. State `{ min?: number; max?: number }`; empty=unfiltered, only min=`≥`, only max=`≤`, both=inclusive. Day keeps the checkbox popover.
-- **`uniqueValues`** recomputed against the dataset with all *other* active filters applied (excluding the column itself), live.
-- **Active filter chip strip** above the table, only when any filter is active. One removable pill per active filter with a short label; "Clear all" resets state and clears the query string.
-- **Reconciliation banner** above chips (only when `mismatchCount > 0` or `unmappedCount > 0`; show only the relevant half if one is zero):
-  - Left half click → sets `recon=1` in URL, filters view to mismatched rows.
-  - Right half click → `navigate("/finance/chart-of-accounts")`.
-  - `unmappedCount` sourced from a new tiny hook `useUnmappedVenues()` that reuses the exact lookup rules already in `AccountingMappingSummary` (does not mutate that file).
-- **Month grouping** using `monthKey()`:
-  - Group filtered+sorted rows by month, most recent first.
-  - Collapsible header: chevron, `"May 2026"`, record count.
-  - Bold subtotal row summing orders, guests, subtotal, serviceCharge, discount, totalSales.
-  - Current month expanded; others collapsed. Collapsed months **do not render** inner rows or subtotal (conditional render, not CSS).
-  - Months with zero matching records are not rendered.
-  - Row click (outside receipt eye) → `navigate("/sales-data/" + row.id)`.
-- **Cell styling**: `discount < 0` → destructive; `totalSales` on mismatched rows → destructive (kept); numeric cell equal to 0 → `text-muted-foreground`.
-- **"Mapping" text button** next to CSV export → opens Dialog wrapping `<AccountingMappingSummary />`.
-- **CSV export**: non-blocking `toast()` stating record count + short active-filter summary, then immediate download.
+### 2. New file: `src/pages/revenue/Reconciliation.tsx`
+Create a clean page shell using the existing BANI design system.
 
-### URL-sync spec (concrete, not a hand-wave)
+Content:
+- **PageHeader** (title: "Revenue Reconciliation", subtitle: "Compare reported revenue with the customer payment methods recorded for each business date and venue.")
+- Empty-state card with text: "Revenue reconciliation has not been configured yet."
+- Disabled button: "Set Up Reconciliation"
 
-Single source of truth is React component state. URL is a *projection* of state, and the URL is only read once on initial mount. Loop is broken structurally, not with heuristics.
+No data fetching, no queries, no mock data, no KPIs, no charts.
 
-```text
-mount:
-  read searchParams once → hydrate state (initialFromUrl)
+### 3. `src/App.tsx`
+Add import for the new `Reconciliation` page.
 
-on every state change:
-  next = buildParams(state)          // deterministic serializer
-  if next.toString() !== currentSearchParams.toString():
-    setSearchParams(next, { replace: true })
-
-on searchParams change:
-  no-op   ← we do NOT re-derive state from the URL after mount
-           (browser back/forward for this page is out of scope;
-            the detail route handles its own back navigation)
+Add route (placed with existing Revenue routes, before catch-all):
+```tsx
+<Route
+  path="/revenue/reconciliation"
+  element={
+    <ProtectedRoute pageKey="revenue">
+      <Reconciliation />
+    </ProtectedRoute>
+  }
+/>
 ```
 
-Keys: `venue`, `from`, `to`, `q`, `sort`, `dir`, `d_<col>` (CSV of checked values), `n_<col>` (`min:max`, either side may be empty), `recon`.
+## Pre-implementation checks
 
-The equality check on serialized strings guarantees no feedback loop even if React double-renders. No `useRef` sentinel needed; the guard is that we never listen to `searchParams` after mount.
+Before editing:
+1. The existing PageHeader uses `subtitle` — no prop changes needed.
+2. The AppSidebar active-route logic requires `end: true` on the Overview item to prevent incorrect prefix matching on `/revenue/reconciliation`.
+3. The new route will be placed alongside existing Revenue routes and before any catch-all.
+4. TypeScript/build checks will be run after implementation.
 
-## 4. Remove `AccountingMappingSummary` from `DataPage.tsx`
+## What will NOT change
+- Revenue Overview (`/revenue`) and its Daily/Monthly toggle
+- Sales Data (`/sales-data`, `/sales-data/:id`) and DataPage
+- Forecast/Targets (`/forecast/:venue`) and ForecastInput
+- Any calculations, charts, database tables, or other modules
 
-Delete the always-visible render. Access is now only via the "Mapping" dialog in the toolbar.
-
-## 5. Detail route `/sales-data/:id`
-
-**New `src/pages/SalesRecordDetail.tsx`**
-- `useParams<{ id: string }>()`, `useActiveTenant()`, `useSalesData()`.
-- Fetch via `getRecordById(id)` (tenant-scoped fallback). If not found → "Record not found" + back button.
-- Full-page layout mirroring `SalesDetailModal` sections (General / Sales Breakdown / Payment Methods / totals & mismatch banners).
-- Inline Edit → `updateRecord`, stay on page, `toast.success("Record updated")`.
-- Delete → confirm dialog → `deleteRecord`, `navigate("/sales-data")`, toast.
-- Receipt view/attach preserved.
-
-**`src/App.tsx`** — route `/sales-data/:id` → `SalesRecordDetail` inside the same auth/layout wrapper as `/sales-data`.
-
-**`DataTable.tsx`** — remove modal usage; row click uses `useNavigate()`.
-
-## 6. Multi-tenancy audit
-
-Every new Supabase read (`getRecordById`, `useUnmappedVenues`) explicitly filters by `tenant_id` in addition to any other key.
+## Post-implementation report
+- **Routes added**: `/revenue/reconciliation`
+- **Nav labels changed**: Sales Data → Daily Sales, Target Tracking → Targets
+- **Files changed**: `src/components/AppSidebar.tsx`, `src/App.tsx`
+- **New files created**: `src/pages/revenue/Reconciliation.tsx`
+- **Existing pages reused**: `Index` (Overview), `DataPage` (Daily Sales), `ForecastInput` (Targets)
+- **Confirmation**: No Revenue functionality, calculations, data, or database structures will be modified.
