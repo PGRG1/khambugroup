@@ -1,93 +1,45 @@
-# Platform Admin & User Access Control System
+## Rebrand: Copper/Gold → Sage + Inter Typography
 
-Build venue-scoped access control, expanded page permissions, and a full Client Detail page for platform admins.
+Scope: purely token-level changes in `src/index.css` and `tailwind.config.ts`, plus swap the Google Fonts import to Inter. No component logic touched.
 
-## 1. Database migration
+### 1. `src/index.css` — Light mode tokens
+- `--primary`: `27 60% 46%` → `72 20% 38%` (#71764F)
+- `--ring`: same → `72 20% 38%`
+- `--sidebar-primary`: `27 60% 56%` → `72 20% 38%`
+- `--sidebar-ring`: → `72 20% 38%`
+- `--accent`: `32 39% 36%` → `76 15% 51%` (#8B9370)
+- `--gradient-gold`: `linear-gradient(135deg, hsl(72 20% 38%), hsl(76 24% 20%))` (#71764F → #383E28)
+- `--shadow-glow`: swap the copper hsl for the new sage hsl (same alpha/spread)
 
-Create `user_venue_access`:
-- `id`, `tenant_id` FK tenants CASCADE, `user_id` FK auth.users CASCADE, `venue_id` FK venues CASCADE, `created_at`
-- UNIQUE (tenant_id, user_id, venue_id)
-- GRANT SELECT/INSERT/UPDATE/DELETE to `authenticated`, ALL to `service_role`
-- RLS SELECT: `is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id)`
-- RLS ALL: same + `has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager')`
+### 2. `src/index.css` — Dark mode tokens
+- `--primary`: → `68 18% 66%` (#B4B899)
+- `--ring` / `--sidebar-primary` / `--sidebar-ring`: → `68 18% 66%`
+- `--accent`: → `70 16% 60%` (#A3A88A)
+- `--gradient-gold`: `linear-gradient(135deg, hsl(68 18% 66%), hsl(74 19% 74%))` (#B4B899 → #C2C9B1)
+- `--shadow-glow`: swap to new sage hsl
 
-Add to `tenants`: `cost_reporting_mode text NOT NULL DEFAULT 'combined' CHECK (cost_reporting_mode IN ('combined','by_venue'))`.
+### 3. Chart palette (both modes, in `src/index.css`)
+Reassign the first five chart tokens to the cohesive sage family; leave `--chart-6/7/8` and `--chart-grid` alone. Keep `--success`, `--warning`, `--info` untouched so "on target" green stays visually distinct.
 
-**Data backfill for renamed page key** (idempotent):
-```sql
-UPDATE public.user_page_permissions SET page_key = 'kpis' WHERE page_key = 'kpi-management';
-UPDATE public.user_page_permissions SET page_key = 'kpis' WHERE page_key = 'kpis'; -- no-op, keeps idempotent
-```
+- `--chart-1`: sage `72 20% 38%` (#71764F)
+- `--chart-2`: clay/terracotta `18 37% 48%` (#A66B4E)
+- `--chart-3`: warm stone gray `36 7% 51%` (#8B8579)
+- `--chart-4`: deep moss `76 24% 20%` (#383E28)
+- `--chart-5`: dusty gold `36 33% 53%` (#B39257)
 
-## 2. `src/utils/permissions.ts`
+Dark mode uses the same five hues (they read well on the dark navy card surface); if any single one looks muddy in QA we'll lift its lightness by ~10%, but no structural change.
 
-Replace `ALL_PAGES` with 10 sections: revenue, kpis, finance, procurement, expenses, payments, bank, pettycash, people, admin. Rewrite `PAGE_ACTIONS` (kpi actions move under `kpis`; admin `[]`). Add `venue_ids: string[]` to `UserAccessRecord`.
+### 4. Typography — single-font Inter
+- Google Fonts `@import` in `src/index.css`: replace DM Sans + Space Grotesk with Inter (weights 400/500/600/700).
+- `body { font-family: 'Inter', sans-serif; }`
+- `h1..h6 { font-family: 'Inter', sans-serif; }` (hierarchy from size/weight only)
+- `tailwind.config.ts` `fontFamily`: both `sans` and `display` map to `["Inter", "sans-serif"]` so existing `font-display` classes across the app keep working — just render in Inter.
 
-## 3. `supabase/functions/provision-tenant/index.ts`
+### 5. Explicit non-changes
+- `--background`, `--card`, `--border`, `--muted`, `--sidebar-background`, `--sidebar-accent` — untouched.
+- `--success` / `--warning` / `--info` — untouched (keeps "on target" green distinct from sage).
+- `ThemeProvider` / `ThemeSwitcher` — untouched.
+- No component files edited; the gradient class `text-gradient-gold` keeps its name, only its colors change.
 
-Replace `DEFAULT_PAGES` with the 10 new keys. Provisioned admin gets `show_in_sidebar: true, can_access: true, authority: 'admin', hidden_actions: []` for each.
-
-## 4. `src/components/AppSidebar.tsx`
-
-Add helper:
-```
-const canSeeSection = (pageKey: string) => {
-  if (isPlatformAdmin) return true;
-  if (isAdmin && !isPreviewActive) return true;
-  return showInSidebar(pageKey);
-};
-```
-Replace `showFinance/showProcurement/showBank/showPayments/showPettyCash/showHR` with `canSeeSection("finance"|"procurement"|"bank"|"payments"|"pettycash"|"people")`. Keep `showAdmin` and `showPlatform` unchanged.
-
-## 5. `src/pages/admin/Clients.tsx`
-
-- Rows: `onClick` → `/admin/clients/:id`, cursor-pointer + hover bg.
-- Batched per-tenant fetches: user count, bank account count, invoice count.
-- New "Setup" column between Users and Status: 4-point score (venues>0, users>1, banks>0, invoices>0). `w-20 h-1.5` progress bar, amber fill if <3 else emerald; `N/4 steps` in 10px muted below.
-- Ghost "Manage →" button in Actions.
-- KPI cards above table: Total clients · Active · In setup · Total venues.
-
-## 6. `src/pages/admin/ClientDetail.tsx` (new) + route in `App.tsx`
-
-Route `/admin/clients/:tenantId`. Gate with `usePlatformAdmin`; redirect to `/` otherwise.
-
-Fetch: tenant, venues, users (profiles + user_access_control + tenant_members scoped to tenant), COA count, bank accounts count, suppliers count, invoices count + last invoice date, opening balances count, payment processors count.
-
-Header: back "← Clients", tenant name, subtitle `slug · currency · timezone`, status badge; "Edit details" sheet (name, legal entity, country, currency, timezone, FY start) + red ghost "Suspend" with confirm.
-
-Amber-underline tabs: Overview / Venues / Users / Settings.
-
-**Overview** — two columns:
-- Left card-glass "Setup checklist" — 8 items (Tenant created ✓, Venues, COA, Bank accounts, Suppliers, Users >1, Opening balances, Payment processors). ✓ or amber with "Complete" button linking to System Configuration or switching tab.
-- Right: "Key stats" (venues, users, invoices, last invoice date) + "Quick actions" ghost buttons: Add user, Add venue, View as client admin (toast stub), View activity log (stub).
-
-**Venues** — "Add venue" primary button opens dialog: Name (required), Type Select (Restaurant/Bar/Cafe/Other), Seats (optional). Insert with `tenant_id`; sonner toast. List venues card-glass with Edit (prefill) and Deactivate (`is_active=false`).
-
-**Users** — "Add user" opens `CreateUserDialog` with new `tenantId` prop. Table: User (name+email) | Position | Venues (names from `user_venue_access` else "All venues") | Status | Actions. "Edit access" opens `UserEditorPanel` with `tenantId` prop.
-
-**Settings** — two side-by-side card-glass:
-- Tenant details table + "Edit details" (same sheet as header).
-- "Cost reporting mode" radio (Combined group-level / By venue allocated) writing to `tenants.cost_reporting_mode` immediately on change.
-
-## 7. `src/components/access-control/UserEditorPanel.tsx`
-
-Add `tenantId: string` prop. Fetch venues for that tenant and existing `user_venue_access` for `(user_id, tenant_id)`.
-
-Top "Venue access" section with 11px muted subtitle. Checkbox per venue. When none checked, show muted "No restrictions — user sees all venues."
-
-On save (after page permissions): `delete user_venue_access where user_id=... AND tenant_id=...`, then insert one row per checked venue (none checked → insert nothing).
-
-Update pages list to iterate the new 10-item `ALL_PAGES`. Per section: name, "Show in sidebar" toggle, Authority select, Hidden actions checkboxes from `PAGE_ACTIONS[key]`; skip actions row when empty.
-
-## 8. `src/pages/UserAccessControl.tsx`
-
-Add "Venues" column between Position and Status. Fetch `user_venue_access` joined to venues: none → emerald "All venues" badge; else amber badge with up to 2 venue names + "+ N more". Pass `tenantId` from `useActiveTenant()` into `CreateUserDialog` and downstream create-user body.
-
-## Design
-
-`card-glass`, amber underline tabs, `text-[11px] uppercase tracking-wider text-muted-foreground` headers, alternating `bg-muted/30` rows, sonner toasts, `← Label` back links.
-
-## Files
-
-**Created**: `src/pages/admin/ClientDetail.tsx` + migration.
-**Modified**: `permissions.ts`, `admin/Clients.tsx`, `UserEditorPanel.tsx`, `UserAccessControl.tsx`, `AppSidebar.tsx`, `App.tsx`, `provision-tenant/index.ts`.
+### Verification
+After the change: load `/` in both light and dark, confirm sidebar active state, primary buttons, "Revenue Overview" gradient heading, KPI positive chips (still green, not sage), and a chart-heavy page (Dashboard) all render correctly.
