@@ -386,12 +386,12 @@ const ForecastInput = () => {
           <div className="flex flex-wrap rounded-lg border border-border overflow-hidden">
             <button
               type="button"
-              onClick={() => setSelectedVenues(ALL_VENUES)}
+              onClick={() => setSelectedVenues(activeVenueNames)}
               className={`px-3 py-2 text-sm font-medium transition-colors border-r border-border ${isAllVenues ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-muted"}`}
             >
               All
             </button>
-            {ALL_VENUES.map((v) => {
+            {activeVenueNames.map((v) => {
               const active = selectedVenues.includes(v) && !isAllVenues;
               return (
                 <button
