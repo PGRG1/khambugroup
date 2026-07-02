@@ -1,52 +1,43 @@
-# Multi-Tenancy Migration — Prompt 2: Procurement & HR
+## Prompt 3 — Inventory & Menu Tenant Migration
 
-Single idempotent migration. Same pattern as Prompt 1.
+Single idempotent migration covering 7 tables. Same pattern as Prompts 1 & 2.
 
-## Tables (7 unique)
+### Tables
+1. `stock_count_sessions`
+2. `stock_count_items`
+3. `inventory_periods`
+4. `inventory_items`
+5. `inventory_counts`
+6. `menu_items`
+7. `menu_item_ingredients`
 
-1. `purchase_orders`
-2. `purchase_order_items`
-3. `hr_departments`
-4. `hr_leave_types`
-5. `hr_leave_requests`
-6. `hr_leave_balances`
-7. `hr_payroll`
-
-(Note: `hr_leave_types` was listed twice in the prompt — handled once.)
-
-## Per-table steps
-
+### Per-table steps
 1. `ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE`
-2. Backfill NULLs to KHAMBU `00000000-0000-0000-0000-00000000beef`
-3. `CREATE INDEX IF NOT EXISTS <t>_tenant_id_idx`
-4. `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`
-5. `DROP POLICY IF EXISTS` for every legacy policy listed
-6. Create `<t>_tenant_select` (SELECT) — `is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id)`
-7. Create `<t>_tenant_all` (ALL) — same + `has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager')`, both USING and WITH CHECK
-8. `GRANT SELECT, INSERT, UPDATE, DELETE ON <t> TO authenticated; GRANT ALL ... TO service_role`
+2. Backfill: `UPDATE ... SET tenant_id = '00000000-0000-0000-0000-00000000beef' WHERE tenant_id IS NULL`
+3. Add index on `tenant_id`
+4. `DROP POLICY IF EXISTS` on the legacy policies listed per table (plus residual `tenant_select`/`tenant_write`/`tenant_venue_*` variants)
+5. `ENABLE ROW LEVEL SECURITY`
+6. Create canonical `<table>_tenant_select` and `<table>_tenant_all` policies:
+   - SELECT: `is_super_admin(auth.uid()) OR user_has_tenant(auth.uid(), tenant_id)`
+   - ALL: same + `(has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager'))`
+7. `GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated; GRANT ALL ... TO service_role`
 
-## Legacy policies dropped
+### Legacy policies to drop per table
+- **stock_count_sessions**: `"stock_count_sessions select"`, `"stock_count_sessions write"`
+- **stock_count_items**: `"stock_count_items select"`, `"stock_count_items write"`
+- **inventory_periods**: `"Authenticated can read periods"`, `"Authorized can manage periods"`
+- **inventory_items**: `"Authenticated can read inventory items"`, `"Authorized can manage inventory items"`
+- **inventory_counts**: `"Authenticated can read counts"`, `"Authorized can manage counts"`
+- **menu_items**: none known — drop any residual open policies discovered
+- **menu_item_ingredients**: none known — drop any residual open policies discovered
 
-- **purchase_orders / purchase_order_items**: none (per prompt); also DROP IF EXISTS any residual `tenant_*` / `tenant_venue_*` policies as a safety net
-- **hr_departments**: "Authenticated can read departments", "Admins/managers can manage departments"
-- **hr_leave_types**: "Authenticated can read leave types", "Admins/managers can manage leave types"
-- **hr_leave_requests**: "Authenticated can read leave requests", "Admins/managers can manage leave requests", "Admins/managers can read leave requests"
-- **hr_leave_balances**: "Authenticated can read leave balances", "Admins/managers can manage leave balances", "Admins/managers can read leave balances"
-- **hr_payroll**: "Authenticated can read payroll", "Admins/managers can manage payroll", "Admins/managers can read payroll", "Admin/manager read batches", "Admin write batches"
+Plus a defensive sweep on all 7 tables for residual `tenant_select` / `tenant_write` / `tenant_venue_*` policies (as done in Prompts 1 & 2).
 
-Any residual `tenant_venue_*` / `tenant_select` / `tenant_write` policies discovered on these tables will also be dropped to prevent OR-widening of the new admin/manager write restriction.
+### Verification (post-migration)
+For each of the 7 tables confirm:
+- `tenant_id` column exists (non-null after backfill)
+- Row count and NULL count reported
+- Exactly the two canonical tenant-scoped policies remain
+- Legacy policies dropped
 
-## Verification
-
-Post-migration read-only checks confirming:
-
-- Each of 7 tables has `tenant_id`
-- Only `<t>_tenant_select` and `<t>_tenant_all` policies remain
-- Row counts backfilled where tables have data (empty tables report 0, expected)
-
-## Out of scope
-
-- No code changes. Inserts from client code must set `tenant_id` — will be addressed later.
-- Remaining tables come in Prompts 3–4.
-
-Approve to run.
+No application code changes in this prompt — schema/RLS only.
