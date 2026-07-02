@@ -772,7 +772,7 @@ const ForecastInput = () => {
       {vizMode === "charts" ? (
         <ForecastCharts data={filteredData} />
       ) : (
-        <ForecastTableViewWrapper salesData={salesData} defaultVenues={orderedSelection} allVenues={activeVenueNames} />
+        <ForecastTableViewWrapper salesData={salesData} defaultVenues={orderedSelection} allVenues={activeVenueNames} year={selectedYear} month={selectedMonth} />
       )}
 
 
