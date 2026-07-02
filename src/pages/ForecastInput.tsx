@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, forwardRef } from "react";
 import { useParams } from "react-router-dom";
-import { Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList, ShieldCheck, ShieldX, Clock, Lock, BarChart3, Table as TableIcon } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, MessageSquare, TrendingUp, TrendingDown, Minus, Database, ClipboardList, ShieldCheck, ShieldX, Clock, Lock, BarChart3, Table as TableIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { ForecastRecord } from "@/types/forecast";
 import {
@@ -21,6 +22,9 @@ import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
 import ForecastTableView from "@/components/forecast/ForecastTableView";
 import RevenueTargetPanel from "@/components/forecast/RevenueTargetPanel";
+import ThreeWaySummary from "@/components/forecast/ThreeWaySummary";
+import ThreeWayChart from "@/components/forecast/ThreeWayChart";
+import VenueBreakdownTable from "@/components/forecast/VenueBreakdownTable";
 import DateFilter from "@/components/dashboard/DateFilter";
 import { SalesRecord } from "@/types/sales";
 import { Badge } from "@/components/ui/badge";
@@ -32,9 +36,23 @@ const VENUES_STORAGE_KEY = "forecast.selectedVenues";
 
 const normalise = (s: string) => s.toLowerCase().trim();
 
+const monthName = (m: number) =>
+  new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
+
 const ForecastInput = () => {
   const { venue } = useParams<{ venue: string }>();
   const { user } = useAuth();
+
+  // Single source of truth for the currently viewed month across the whole page.
+  const todayForInit = useMemo(() => new Date(), []);
+  const [selectedYear, setSelectedYear] = useState(todayForInit.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(todayForInit.getMonth() + 1);
+  const goToMonth = (delta: number) => {
+    const d = new Date(selectedYear, selectedMonth - 1 + delta, 1);
+    setSelectedYear(d.getFullYear());
+    setSelectedMonth(d.getMonth() + 1);
+  };
+
 
   const { venues, loading: venuesLoading } = useVenues();
   const activeVenues = useMemo(
@@ -58,6 +76,7 @@ const ForecastInput = () => {
 
   const { forecasts, loading: forecastsLoading, addForecast, updateForecast, deleteForecast, approveForecast, rejectForecast, approvePostEventNotes, rejectPostEventNotes } = useForecastData();
   const { canCreate, canApprove, canEditFigures, isApprover, loading: permLoading } = useForecastPermissions();
+  const { getTarget: getTargetForMonth } = useRevenueTargets();
   const { isActionHidden } = usePagePermissions();
 
   // Multi-venue selection — persisted across reloads, validated against active Admin venues
@@ -397,6 +416,28 @@ const ForecastInput = () => {
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          {/* Month navigator */}
+          <div className="flex items-center rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => goToMonth(-1)}
+              className="px-2 py-2 bg-secondary text-secondary-foreground hover:bg-muted border-r border-border"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-3 py-2 text-sm font-medium td-num min-w-[140px] text-center bg-secondary">
+              {monthName(selectedMonth)} {selectedYear}
+            </span>
+            <button
+              type="button"
+              onClick={() => goToMonth(1)}
+              className="px-2 py-2 bg-secondary text-secondary-foreground hover:bg-muted border-l border-border"
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
           <div className="flex flex-wrap rounded-lg border border-border overflow-hidden">
             <button
               type="button"
@@ -435,75 +476,124 @@ const ForecastInput = () => {
       {/* Period Filter */}
       {!hideDateRange && <DateFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} months={months.map((m) => m.label)} onPeriodSelect={handlePeriodSelect} />}
 
-      {/* Monthly Revenue Target */}
+      {/* Three-way Summary */}
+      <ThreeWaySummary
+        year={selectedYear}
+        month={selectedMonth}
+        selectedVenues={orderedSelection}
+        salesData={salesData}
+        forecasts={forecasts}
+        target={getTargetForMonth(selectedYear, selectedMonth)}
+      />
+
+      {/* Three-way Chart (Manager vs Actual) */}
+      <ThreeWayChart
+        year={selectedYear}
+        month={selectedMonth}
+        selectedVenues={orderedSelection}
+        salesData={salesData}
+        forecasts={forecasts}
+      />
+
+      {/* Venue breakdown */}
+      <VenueBreakdownTable
+        year={selectedYear}
+        month={selectedMonth}
+        selectedVenues={orderedSelection}
+        salesData={salesData}
+        forecasts={forecasts}
+      />
+
+      {/* Monthly Revenue Target (controlled) */}
       {canCreate && activeVenues.length > 0 && (
-        <RevenueTargetPanel salesData={salesData} allForecasts={forecasts} allVenues={activeVenueNames} />
+        <RevenueTargetPanel
+          salesData={salesData}
+          allForecasts={forecasts}
+          allVenues={activeVenueNames}
+          year={selectedYear}
+          month={selectedMonth}
+          onMonthChange={(y, m) => { setSelectedYear(y); setSelectedMonth(m); }}
+        />
       )}
 
-      {/* Input Form */}
-      {showEntry && canCreate && (
-        <div className="card-glass rounded-xl p-6 animate-fade-in">
-          <h3 className="text-sm font-display font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Plus className="h-4 w-4 text-primary" />New Forecast Entry
-          </h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isMulti && (
-              <div className="flex flex-wrap items-center gap-2 -mt-2">
-                <label className="text-xs text-muted-foreground">Venue for this entry:</label>
-                <select
-                  value={entryVenue}
-                  onChange={(e) => setEntryVenue(e.target.value as ForecastVenue)}
-                  className="px-3 py-1.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                >
-                  {orderedSelection.map((v) => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Date</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Forecasted Customers</label>
-                <input type="number" min={0} value={customers || ""} onChange={(e) => setCustomers(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Forecasted Avg Spend / Customer</label>
-                <input type="number" min={0} value={avgSpend || ""} onChange={(e) => setAvgSpend(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
-              </div>
-              <div className="flex flex-col justify-end">
-                <div className="text-xs text-muted-foreground mb-1">Preview</div>
-                <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm space-y-0.5">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Gross Sales</span><span className="font-medium">{formatCurrency(preview.grossSales)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">+ SC (10%)</span><span className="font-medium">{formatCurrency(preview.serviceCharge)}</span></div>
-                  <div className="flex justify-between border-t border-border pt-0.5"><span className="text-muted-foreground font-semibold">Total Sales</span><span className="font-bold text-primary">{formatCurrency(preview.totalSales)}</span></div>
+
+      {/* Input Form — collapsed accordion, opened via the "New Entry" button */}
+      {canCreate && !hideNewEntry && (
+        <Accordion
+          type="single"
+          collapsible
+          value={showEntry ? "entry" : ""}
+          onValueChange={(v) => setShowEntry(v === "entry")}
+          className="card-glass rounded-xl px-6"
+        >
+          <AccordionItem value="entry" className="border-b-0">
+            <AccordionTrigger className="text-sm font-display font-semibold text-foreground py-4">
+              <span className="flex items-center gap-2">
+                <Plus className="h-4 w-4 text-primary" />New Forecast Entry
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {isMulti && (
+                  <div className="flex flex-wrap items-center gap-2 -mt-2">
+                    <label className="text-xs text-muted-foreground">Venue for this entry:</label>
+                    <select
+                      value={entryVenue}
+                      onChange={(e) => setEntryVenue(e.target.value as ForecastVenue)}
+                      className="px-3 py-1.5 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    >
+                      {orderedSelection.map((v) => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Date</label>
+                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Forecasted Customers</label>
+                    <input type="number" min={0} value={customers || ""} onChange={(e) => setCustomers(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Forecasted Avg Spend / Customer</label>
+                    <input type="number" min={0} value={avgSpend || ""} onChange={(e) => setAvgSpend(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="text-xs text-muted-foreground mb-1">Preview</div>
+                    <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm space-y-0.5">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Gross Sales</span><span className="font-medium">{formatCurrency(preview.grossSales)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">+ SC (10%)</span><span className="font-medium">{formatCurrency(preview.serviceCharge)}</span></div>
+                      <div className="flex justify-between border-t border-border pt-0.5"><span className="text-muted-foreground font-semibold">Total Sales</span><span className="font-bold text-primary">{formatCurrency(preview.totalSales)}</span></div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Forecast Notes <span className="text-[10px] text-muted-foreground/70">(pre-event)</span></label>
-                <textarea value={forecastNotes} onChange={(e) => setForecastNotes(e.target.value)} placeholder="e.g. Expected busy night due to live music event..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Post-Event Notes <span className="text-[10px] text-muted-foreground/70">(after the event)</span></label>
-                <textarea value={postEventNotes} onChange={(e) => setPostEventNotes(e.target.value)} placeholder="e.g. Rain reduced footfall..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> General Comment</label>
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Any other notes..." rows={1} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
-            </div>
-            <div className="flex items-center gap-3">
-              <button type="submit" className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">Submit for Approval</button>
-              <span className="text-[10px] text-muted-foreground">Forecast will be reviewed by an approver before it becomes active.</span>
-            </div>
-          </form>
-        </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Forecast Notes <span className="text-[10px] text-muted-foreground/70">(pre-event)</span></label>
+                    <textarea value={forecastNotes} onChange={(e) => setForecastNotes(e.target.value)} placeholder="e.g. Expected busy night due to live music event..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Post-Event Notes <span className="text-[10px] text-muted-foreground/70">(after the event)</span></label>
+                    <textarea value={postEventNotes} onChange={(e) => setPostEventNotes(e.target.value)} placeholder="e.g. Rain reduced footfall..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> General Comment</label>
+                  <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Any other notes..." rows={1} className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none placeholder:text-muted-foreground" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button type="submit" className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">Submit for Approval</button>
+                  <span className="text-[10px] text-muted-foreground">Forecast will be reviewed by an approver before it becomes active.</span>
+                </div>
+              </form>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
+
 
       {/* Data Table */}
       {showTable && (
@@ -682,7 +772,7 @@ const ForecastInput = () => {
       {vizMode === "charts" ? (
         <ForecastCharts data={filteredData} />
       ) : (
-        <ForecastTableViewWrapper salesData={salesData} defaultVenues={orderedSelection} allVenues={activeVenueNames} />
+        <ForecastTableViewWrapper salesData={salesData} defaultVenues={orderedSelection} allVenues={activeVenueNames} year={selectedYear} month={selectedMonth} />
       )}
 
 
@@ -697,12 +787,9 @@ const ForecastInput = () => {
   );
 };
 
-// Resolves the current month's saved revenue target and passes it to the table view.
-const ForecastTableViewWrapper = ({ salesData, defaultVenues, allVenues }: { salesData: SalesRecord[]; defaultVenues?: string[]; allVenues: string[] }) => {
+// Resolves the selected month's saved revenue target and passes it to the table view.
+const ForecastTableViewWrapper = ({ salesData, defaultVenues, allVenues, year, month }: { salesData: SalesRecord[]; defaultVenues?: string[]; allVenues: string[]; year: number; month: number }) => {
   const { getTarget } = useRevenueTargets();
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
   const target = getTarget(year, month);
   return (
     <ForecastTableView
@@ -716,5 +803,6 @@ const ForecastTableViewWrapper = ({ salesData, defaultVenues, allVenues }: { sal
     />
   );
 };
+
 
 export default ForecastInput;
