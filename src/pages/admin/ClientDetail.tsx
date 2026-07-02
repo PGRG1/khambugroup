@@ -30,7 +30,7 @@ type Tenant = {
   created_at: string;
 };
 
-type Venue = { id: string; name: string; timezone?: string | null; base_currency?: string | null };
+type Venue = { id: string; name: string };
 
 const COST_MODES: { value: "single_venue" | "multi_venue"; label: string; desc: string }[] = [
   { value: "single_venue", label: "Single Venue", desc: "One venue for the whole client. Simplifies COGS/inventory reporting." },
