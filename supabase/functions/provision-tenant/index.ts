@@ -57,15 +57,16 @@ const DEFAULT_COA: Array<{code:string; name:string; account_type:string; normal_
 ];
 
 const DEFAULT_PAGES = [
-  { key:"revenue", label:"Revenue" },
-  { key:"forecast", label:"Forecast vs Actual" },
-  { key:"data", label:"Data" },
-  { key:"activity-log", label:"Activity Log" },
-  { key:"pl-report", label:"P&L Report" },
-  { key:"invoices", label:"Invoices" },
-  { key:"inventory", label:"Inventory" },
-  { key:"notifications", label:"Notifications" },
-  { key:"kpis", label:"My KPI Cards" },
+  { key:"revenue",     label:"Revenue" },
+  { key:"kpis",        label:"KPI Management" },
+  { key:"finance",     label:"Finance" },
+  { key:"procurement", label:"Procurement" },
+  { key:"expenses",    label:"Expenses" },
+  { key:"payments",    label:"Payments & Settlements" },
+  { key:"bank",        label:"Bank" },
+  { key:"pettycash",   label:"Petty Cash" },
+  { key:"people",      label:"People & HR" },
+  { key:"admin",       label:"Admin" },
 ];
 
 const DEFAULT_DEPARTMENTS = ["Management","Operations","Service","Kitchen","Bar","Admin & Finance"];
