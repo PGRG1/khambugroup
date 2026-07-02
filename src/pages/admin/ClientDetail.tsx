@@ -134,8 +134,6 @@ export default function ClientDetail() {
     const { error } = await supabase.from("venues").insert({
       tenant_id: tenantId,
       name: newVenueName.trim(),
-      base_currency: tenant?.base_currency ?? "HKD",
-      timezone: tenant?.timezone ?? "Asia/Hong_Kong",
     });
     if (error) {
       toast({ title: "Failed to add venue", description: error.message, variant: "destructive" });
