@@ -1455,6 +1455,7 @@ function DailyRegister(props: DailyRegisterProps) {
                               lines={opLines.filter((l) => l.lineType === "service_period")}
                               periods={periods}
                               stat={stat}
+                              act={act}
                               canEdit={canEdit}
                               onEdit={onEdit}
                               onApplyStatistical={onApplyStatistical}
@@ -1492,8 +1493,8 @@ function DailyRegister(props: DailyRegisterProps) {
   );
 }
 
-function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStatistical, onLineStatus, requestReason }: {
-  lines: ManagerTargetLine[]; periods: VenueServicePeriod[]; stat: any; canEdit: boolean;
+function ServicePeriodTable({ lines, periods, stat, act, canEdit, onEdit, onApplyStatistical, onLineStatus, requestReason }: {
+  lines: ManagerTargetLine[]; periods: VenueServicePeriod[]; stat: any; act: any; canEdit: boolean;
   onEdit: (id: string, patch: Partial<ManagerTargetLine>) => void;
   onApplyStatistical: (line: ManagerTargetLine, stat: { rev: number | null; g: number | null; spg: number | null }) => Promise<void>;
   onLineStatus: (line: ManagerTargetLine, s: any, reason?: string) => Promise<void>;
@@ -1564,9 +1565,9 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
               <td className="text-right px-2 font-semibold">
                 {rev == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(rev)}
               </td>
-              <td className="text-right px-2 text-muted-foreground">Unavailable</td>
-              <td className="text-right px-2 text-muted-foreground">Unavailable</td>
-              <td className="text-right px-2 text-muted-foreground">Unavailable</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && act?.guests != null ? fmtInt(act.guests) : <span className="text-muted-foreground">Unavailable</span>}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && act && act.guests > 0 ? fmtHKD(act.revenue / act.guests) : <span className="text-muted-foreground">Unavailable</span>}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && act?.revenue != null ? fmtHKD(act.revenue) : <span className="text-muted-foreground">Unavailable</span>}</td>
               <td className="py-1.5 px-2">
                 {l.lineStatus === "operating"
                   ? <Badge variant="secondary" className="text-[10px]">Operating</Badge>
