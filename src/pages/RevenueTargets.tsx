@@ -1445,30 +1445,27 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
       <tbody className="tabular-nums">
         {lines.map((l) => {
           const p = periods.find((pp) => pp.id === l.servicePeriodId);
-          // Per-period Statistical: only if a service-period-scoped statistical row exists (never derived from Full-Day).
-          const statForPeriod = stat && stat.servicePeriodId === l.servicePeriodId ? stat : null;
-          const canUseStat = !!statForPeriod;
+          const isSinglePeriodVenue = periods.filter(
+            (pp) => pp.venueId === l.venueId && pp.isActive && !pp.isRollupOnly,
+          ).length === 1;
+          const canUseStat = isSinglePeriodVenue
+            && stat?.statisticalGuestTarget != null
+            && stat?.statisticalSpendPerGuest != null;
           const rev = managerRevenue(l);
           const notOperating = l.lineStatus !== "operating";
-          const venueOpPeriodCount = periods.filter(
-            (pp) => pp.venueId === l.venueId && pp.isActive && !pp.isRollupOnly,
-          ).length;
-          const effGuest = l.managerGuestTarget ?? statForPeriod?.statisticalGuestTarget ?? null;
-          const effSpg = l.managerSpendPerGuestTarget ?? statForPeriod?.statisticalSpendPerGuest ?? null;
-          const guestIsPrefill = l.managerGuestTarget == null && statForPeriod?.statisticalGuestTarget != null;
-          const spgIsPrefill = l.managerSpendPerGuestTarget == null && statForPeriod?.statisticalSpendPerGuest != null;
-          const showMultiPeriodHint =
-            !notOperating
-            && l.managerSource !== "statistical_default"
-            && !statForPeriod
-            && venueOpPeriodCount > 1
-            && (l.managerGuestTarget == null || l.managerSpendPerGuestTarget == null);
+          const effGuest = l.managerGuestTarget ?? (isSinglePeriodVenue ? stat?.statisticalGuestTarget ?? null : null);
+          const effSpg = l.managerSpendPerGuestTarget ?? (isSinglePeriodVenue ? stat?.statisticalSpendPerGuest ?? null : null);
+          const guestIsPrefill = l.managerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalGuestTarget != null;
+          const spgIsPrefill = l.managerSpendPerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalSpendPerGuest != null;
+          const statTooltip = !isSinglePeriodVenue
+            ? "No per-period benchmark — this venue has multiple service periods"
+            : (!canUseStat ? "Statistical benchmark unavailable for this day" : "");
           return (
             <tr key={l.id} className={`border-b border-border/40 ${notOperating ? "opacity-60" : ""}`}>
               <td className="py-1.5 px-2 font-medium">{p?.name ?? "—"}</td>
-              <td className="text-right px-2">{statForPeriod ? fmtHKD(statForPeriod.statisticalTargetAmount) : <span className="text-muted-foreground">Unavailable</span>}</td>
-              <td className="text-right px-2">{statForPeriod?.statisticalGuestTarget != null ? fmtInt(statForPeriod.statisticalGuestTarget) : "—"}</td>
-              <td className="text-right px-2">{statForPeriod?.statisticalSpendPerGuest != null ? fmtHKD(statForPeriod.statisticalSpendPerGuest) : "—"}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && stat ? fmtHKD(stat.statisticalTargetAmount) : <span className="text-muted-foreground">—</span>}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && stat?.statisticalGuestTarget != null ? fmtInt(stat.statisticalGuestTarget) : "—"}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && stat?.statisticalSpendPerGuest != null ? fmtHKD(stat.statisticalSpendPerGuest) : "—"}</td>
               <td className="text-right px-2">
                 {canEdit && !notOperating ? (
                   <Input type="number"
@@ -1490,16 +1487,7 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                     : <span className={spgIsPrefill ? "text-muted-foreground" : undefined}>{fmtHKD(effSpg)}</span>)}
               </td>
               <td className="text-right px-2 font-semibold">
-                {rev == null ? (
-                  <div className="flex flex-col items-end">
-                    <span className="text-muted-foreground italic">Not set</span>
-                    {showMultiPeriodHint && (
-                      <span className="mt-1 text-[10px] text-muted-foreground text-right max-w-[220px] leading-tight normal-case">
-                        No automatic benchmark — this venue has multiple service periods. Set manually or click Use Statistical if a period-level benchmark exists.
-                      </span>
-                    )}
-                  </div>
-                ) : fmtHKD(rev)}
+                {rev == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(rev)}
               </td>
               <td className="text-right px-2 text-muted-foreground">Unavailable</td>
               <td className="text-right px-2 text-muted-foreground">Unavailable</td>
@@ -1514,16 +1502,16 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                   <div className="flex items-center gap-1">
                     {l.lineStatus === "operating" && (
                       l.managerSource === "manual"
-                        ? <Badge variant="default" className="text-[10px]">Manager override</Badge>
+                        ? <Badge variant="default" className="text-[10px]">Manager Adjusted</Badge>
                         : <Badge variant="outline" className="text-[10px]">Statistical</Badge>
                     )}
                     <Button size="sm" variant="ghost" className="h-6 text-[10px]"
                       disabled={!canUseStat}
-                      title={canUseStat ? "" : "Full-Day benchmark cannot be applied to a service period"}
+                      title={statTooltip}
                       onClick={() => onApplyStatistical(l, {
-                        rev: statForPeriod?.statisticalTargetAmount ?? null,
-                        g: statForPeriod?.statisticalGuestTarget ?? null,
-                        spg: statForPeriod?.statisticalSpendPerGuest ?? null,
+                        rev: stat?.statisticalTargetAmount ?? null,
+                        g: stat?.statisticalGuestTarget ?? null,
+                        spg: stat?.statisticalSpendPerGuest ?? null,
                       })}>
                       <Sparkles className="h-3 w-3 mr-1" /> Use Statistical
                     </Button>
