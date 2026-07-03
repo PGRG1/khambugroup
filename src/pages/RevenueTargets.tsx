@@ -248,7 +248,7 @@ export default function RevenueTargets() {
     useRevenueManagerTargetLines(year, month, effectiveVenueIds);
   const { rows: statistical, generate: generateStatistical, generating: generatingStat } =
     useRevenueStatisticalTargetsDaily(year, month, effectiveVenueIds);
-  const { rows: actuals } = useRevenueTargetActuals(year, month, effectiveVenueIds);
+  const { rows: actuals, byPeriod: actualsByPeriod } = useRevenueTargetActuals(year, month, effectiveVenueIds);
   const mutations = useRevenueTargetMutations();
 
   // Filter operating statuses at dailyPoint level via revenue_target_days lookup
