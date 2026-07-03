@@ -1565,9 +1565,9 @@ function ServicePeriodTable({ lines, periods, stat, act, canEdit, onEdit, onAppl
               <td className="text-right px-2 font-semibold">
                 {rev == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(rev)}
               </td>
-              <td className="text-right px-2 text-muted-foreground">Unavailable</td>
-              <td className="text-right px-2 text-muted-foreground">Unavailable</td>
-              <td className="text-right px-2 text-muted-foreground">Unavailable</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && act?.guests != null ? fmtInt(act.guests) : <span className="text-muted-foreground">Unavailable</span>}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && act && act.guests > 0 ? fmtHKD(act.revenue / act.guests) : <span className="text-muted-foreground">Unavailable</span>}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && act?.revenue != null ? fmtHKD(act.revenue) : <span className="text-muted-foreground">Unavailable</span>}</td>
               <td className="py-1.5 px-2">
                 {l.lineStatus === "operating"
                   ? <Badge variant="secondary" className="text-[10px]">Operating</Badge>
