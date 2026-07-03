@@ -569,9 +569,20 @@ export default function RevenueTargets() {
   const saveDay = async (venueId: string, date: string) => {
     const targets = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date && pendingEdits[l.id]);
     if (!targets.length) return;
-    const needsReason = varianceExceedsThreshold(venueId, date, targets) || divergesFromStatSeed(targets);
-    if (needsReason) {
+    if (varianceExceedsThreshold(venueId, date, targets)) {
       requestReason("variance_threshold", async (reason) => {
+        setReasonReq(null);
+        await performSaveDay(venueId, date, targets, reason);
+      });
+      return;
+    }
+    const hasManualOverrideTransition = targets.some((t) => {
+      const original = managerLines.find((l) => l.id === t.id);
+      const wasDefault = !original || original.managerSource == null || original.managerSource === "statistical_default";
+      return wasDefault && resolveManagerSource(t) === "manual";
+    });
+    if (hasManualOverrideTransition) {
+      requestReason("manual_override", async (reason) => {
         setReasonReq(null);
         await performSaveDay(venueId, date, targets, reason);
       });
