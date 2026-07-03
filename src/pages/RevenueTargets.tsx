@@ -1287,6 +1287,8 @@ function DailyRegister(props: DailyRegisterProps) {
               <th className="text-right py-2 px-2">Mgr SPG</th>
               <th className="text-right py-2 px-2">Act SPG</th>
               <th className="text-right py-2 px-2">Act vs Mgr</th>
+              <th className="text-right py-2 px-2">Act vs Stat</th>
+              <th className="text-left py-2 px-2">Performance</th>
               <th className="text-left py-2 px-2">Line</th>
             </tr>
           </thead>
@@ -1304,8 +1306,37 @@ function DailyRegister(props: DailyRegisterProps) {
               const hasPending = lns.some((l) => pendingIds.has(l.id));
               const anyDraft = lns.some((l) => l.status === "draft" && l.lineStatus === "operating"
                 && (l.managerGuestTarget == null || l.managerSpendPerGuestTarget == null));
-              const mgrRev = agg.revenue;
+
+              // Single-period venue detection for inline editing on the main row.
+              const venueOpPeriods = periods.filter(
+                (p) => p.venueId === r.venueId && p.isActive && !p.isRollupOnly,
+              );
+              const isSinglePeriodVenue = venueOpPeriods.length === 1;
+              const spLine = isSinglePeriodVenue
+                ? opLines.find((l) => l.lineType === "service_period") ?? null
+                : null;
+              const canInlineEdit = canEdit && !!spLine && spLine.lineStatus === "operating";
+
+              const effGuest = spLine
+                ? (spLine.managerGuestTarget ?? stat?.statisticalGuestTarget ?? null)
+                : null;
+              const effSpg = spLine
+                ? (spLine.managerSpendPerGuestTarget ?? stat?.statisticalSpendPerGuest ?? null)
+                : null;
+              const guestPrefill = !!spLine && spLine.managerGuestTarget == null && stat?.statisticalGuestTarget != null;
+              const spgPrefill = !!spLine && spLine.managerSpendPerGuestTarget == null && stat?.statisticalSpendPerGuest != null;
+
+              const inlineMgrRev = isSinglePeriodVenue && effGuest != null && effSpg != null
+                ? Number(effGuest) * Number(effSpg)
+                : null;
+              const mgrRev = isSinglePeriodVenue && inlineMgrRev != null ? inlineMgrRev : agg.revenue;
               const actRev = act?.revenue ?? null;
+              const statRev = stat?.statisticalTargetAmount ?? null;
+              const perfBadge = actRev == null
+                ? <Badge variant="outline" className="text-[10px] text-muted-foreground">Future</Badge>
+                : (actRev >= mgrRev
+                  ? <Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30">On / above</Badge>
+                  : <Badge className="text-[10px] bg-rose-500/15 text-rose-500 border-rose-500/30">Below</Badge>);
 
               return (
                 <React.Fragment key={k}>
@@ -1323,16 +1354,60 @@ function DailyRegister(props: DailyRegisterProps) {
                     <td className="py-1.5 px-2 text-muted-foreground">{WEEKDAYS[wd]}</td>
                     <td className="py-1.5 px-2 font-medium">{r.venueName}</td>
                     <td className="py-1.5 px-2"><StatusChip s={status} /></td>
-                    <td className="text-right px-2">{stat ? fmtHKD(stat.statisticalTargetAmount) : "—"}</td>
-                    <td className="text-right px-2 font-semibold">{anyDraft ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(mgrRev)}</td>
+                    <td className="text-right px-2">
+                      {stat ? (
+                        <div className="flex flex-col items-end">
+                          <span>{fmtHKD(statRev)}</span>
+                          <span className="text-[10px] text-muted-foreground">Median of prior {WEEKDAYS[wd]}s</span>
+                        </div>
+                      ) : "—"}
+                    </td>
+                    <td className="text-right px-2 font-semibold">
+                      {isSinglePeriodVenue && spLine ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span>{inlineMgrRev != null ? fmtHKD(inlineMgrRev) : <span className="text-muted-foreground italic">Not set</span>}</span>
+                          {spLine.lineStatus === "operating" && (
+                            spLine.managerSource === "manual"
+                              ? <Badge variant="default" className="text-[10px]">Manager Adjusted</Badge>
+                              : <Badge variant="outline" className="text-[10px]">Statistical</Badge>
+                          )}
+                        </div>
+                      ) : (anyDraft ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(mgrRev))}
+                    </td>
                     <td className="text-right px-2">{fmtHKD(actRev)}</td>
-                    <td className="text-right px-2">{fmtInt(agg.guests)}</td>
+                    <td className="text-right px-2">
+                      {canInlineEdit ? (
+                        <Input type="number"
+                          className={`h-7 w-20 text-right text-xs ml-auto ${guestPrefill ? "text-muted-foreground" : "text-foreground"}`}
+                          value={effGuest ?? ""} placeholder="—"
+                          onChange={(e) => onEdit(spLine!.id, { managerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
+                      ) : (
+                        isSinglePeriodVenue && effGuest != null
+                          ? <span className={guestPrefill ? "text-muted-foreground" : undefined}>{fmtInt(effGuest)}</span>
+                          : fmtInt(agg.guests)
+                      )}
+                    </td>
                     <td className="text-right px-2">{fmtInt(act?.guests ?? null)}</td>
-                    <td className="text-right px-2">{fmtHKD(agg.spendPerGuest)}</td>
+                    <td className="text-right px-2">
+                      {canInlineEdit ? (
+                        <Input type="number" step="0.01"
+                          className={`h-7 w-20 text-right text-xs ml-auto ${spgPrefill ? "text-muted-foreground" : "text-foreground"}`}
+                          value={effSpg ?? ""} placeholder="—"
+                          onChange={(e) => onEdit(spLine!.id, { managerSpendPerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
+                      ) : (
+                        isSinglePeriodVenue && effSpg != null
+                          ? <span className={spgPrefill ? "text-muted-foreground" : undefined}>{fmtHKD(effSpg)}</span>
+                          : fmtHKD(agg.spendPerGuest)
+                      )}
+                    </td>
                     <td className="text-right px-2">{act && act.guests > 0 ? fmtHKD(act.revenue / act.guests) : "—"}</td>
                     <td className={`text-right px-2 ${actRev != null ? (actRev - mgrRev >= 0 ? "text-emerald-500" : "text-rose-500") : ""}`}>
                       {actRev != null ? fmtHKD(actRev - mgrRev) : "—"}
                     </td>
+                    <td className={`text-right px-2 ${actRev != null && statRev != null ? (actRev - statRev >= 0 ? "text-emerald-500" : "text-rose-500") : ""}`}>
+                      {actRev != null && statRev != null ? fmtHKD(actRev - statRev) : "—"}
+                    </td>
+                    <td className="py-1.5 px-2">{perfBadge}</td>
                     <td className="py-1.5 px-2">
                       <div className="flex items-center gap-1">
                         {canEdit && hasPending && (
@@ -1364,7 +1439,7 @@ function DailyRegister(props: DailyRegisterProps) {
                   </tr>
                   {isOpen && (
                     <tr>
-                      <td colSpan={14} className="bg-muted/20 p-3 border-b border-border/50">
+                      <td colSpan={16} className="bg-muted/20 p-3 border-b border-border/50">
                         {opLines.length === 0 ? (
                           <div className="text-muted-foreground text-xs">
                             No service-period rows for this day. {canEdit && (
@@ -1445,30 +1520,27 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
       <tbody className="tabular-nums">
         {lines.map((l) => {
           const p = periods.find((pp) => pp.id === l.servicePeriodId);
-          // Per-period Statistical: only if a service-period-scoped statistical row exists (never derived from Full-Day).
-          const statForPeriod = stat && stat.servicePeriodId === l.servicePeriodId ? stat : null;
-          const canUseStat = !!statForPeriod;
+          const isSinglePeriodVenue = periods.filter(
+            (pp) => pp.venueId === l.venueId && pp.isActive && !pp.isRollupOnly,
+          ).length === 1;
+          const canUseStat = isSinglePeriodVenue
+            && stat?.statisticalGuestTarget != null
+            && stat?.statisticalSpendPerGuest != null;
           const rev = managerRevenue(l);
           const notOperating = l.lineStatus !== "operating";
-          const venueOpPeriodCount = periods.filter(
-            (pp) => pp.venueId === l.venueId && pp.isActive && !pp.isRollupOnly,
-          ).length;
-          const effGuest = l.managerGuestTarget ?? statForPeriod?.statisticalGuestTarget ?? null;
-          const effSpg = l.managerSpendPerGuestTarget ?? statForPeriod?.statisticalSpendPerGuest ?? null;
-          const guestIsPrefill = l.managerGuestTarget == null && statForPeriod?.statisticalGuestTarget != null;
-          const spgIsPrefill = l.managerSpendPerGuestTarget == null && statForPeriod?.statisticalSpendPerGuest != null;
-          const showMultiPeriodHint =
-            !notOperating
-            && l.managerSource !== "statistical_default"
-            && !statForPeriod
-            && venueOpPeriodCount > 1
-            && (l.managerGuestTarget == null || l.managerSpendPerGuestTarget == null);
+          const effGuest = l.managerGuestTarget ?? (isSinglePeriodVenue ? stat?.statisticalGuestTarget ?? null : null);
+          const effSpg = l.managerSpendPerGuestTarget ?? (isSinglePeriodVenue ? stat?.statisticalSpendPerGuest ?? null : null);
+          const guestIsPrefill = l.managerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalGuestTarget != null;
+          const spgIsPrefill = l.managerSpendPerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalSpendPerGuest != null;
+          const statTooltip = !isSinglePeriodVenue
+            ? "No per-period benchmark — this venue has multiple service periods"
+            : (!canUseStat ? "Statistical benchmark unavailable for this day" : "");
           return (
             <tr key={l.id} className={`border-b border-border/40 ${notOperating ? "opacity-60" : ""}`}>
               <td className="py-1.5 px-2 font-medium">{p?.name ?? "—"}</td>
-              <td className="text-right px-2">{statForPeriod ? fmtHKD(statForPeriod.statisticalTargetAmount) : <span className="text-muted-foreground">Unavailable</span>}</td>
-              <td className="text-right px-2">{statForPeriod?.statisticalGuestTarget != null ? fmtInt(statForPeriod.statisticalGuestTarget) : "—"}</td>
-              <td className="text-right px-2">{statForPeriod?.statisticalSpendPerGuest != null ? fmtHKD(statForPeriod.statisticalSpendPerGuest) : "—"}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && stat ? fmtHKD(stat.statisticalTargetAmount) : <span className="text-muted-foreground">—</span>}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && stat?.statisticalGuestTarget != null ? fmtInt(stat.statisticalGuestTarget) : "—"}</td>
+              <td className="text-right px-2">{isSinglePeriodVenue && stat?.statisticalSpendPerGuest != null ? fmtHKD(stat.statisticalSpendPerGuest) : "—"}</td>
               <td className="text-right px-2">
                 {canEdit && !notOperating ? (
                   <Input type="number"
@@ -1490,16 +1562,7 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                     : <span className={spgIsPrefill ? "text-muted-foreground" : undefined}>{fmtHKD(effSpg)}</span>)}
               </td>
               <td className="text-right px-2 font-semibold">
-                {rev == null ? (
-                  <div className="flex flex-col items-end">
-                    <span className="text-muted-foreground italic">Not set</span>
-                    {showMultiPeriodHint && (
-                      <span className="mt-1 text-[10px] text-muted-foreground text-right max-w-[220px] leading-tight normal-case">
-                        No automatic benchmark — this venue has multiple service periods. Set manually or click Use Statistical if a period-level benchmark exists.
-                      </span>
-                    )}
-                  </div>
-                ) : fmtHKD(rev)}
+                {rev == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(rev)}
               </td>
               <td className="text-right px-2 text-muted-foreground">Unavailable</td>
               <td className="text-right px-2 text-muted-foreground">Unavailable</td>
@@ -1514,16 +1577,16 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                   <div className="flex items-center gap-1">
                     {l.lineStatus === "operating" && (
                       l.managerSource === "manual"
-                        ? <Badge variant="default" className="text-[10px]">Manager override</Badge>
+                        ? <Badge variant="default" className="text-[10px]">Manager Adjusted</Badge>
                         : <Badge variant="outline" className="text-[10px]">Statistical</Badge>
                     )}
                     <Button size="sm" variant="ghost" className="h-6 text-[10px]"
                       disabled={!canUseStat}
-                      title={canUseStat ? "" : "Full-Day benchmark cannot be applied to a service period"}
+                      title={statTooltip}
                       onClick={() => onApplyStatistical(l, {
-                        rev: statForPeriod?.statisticalTargetAmount ?? null,
-                        g: statForPeriod?.statisticalGuestTarget ?? null,
-                        spg: statForPeriod?.statisticalSpendPerGuest ?? null,
+                        rev: stat?.statisticalTargetAmount ?? null,
+                        g: stat?.statisticalGuestTarget ?? null,
+                        spg: stat?.statisticalSpendPerGuest ?? null,
                       })}>
                       <Sparkles className="h-3 w-3 mr-1" /> Use Statistical
                     </Button>
