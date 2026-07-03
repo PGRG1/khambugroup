@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { useVenues } from "@/hooks/useVenues";
+import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getPaymentTotal } from "@/utils/salesUtils";
 import { ArrowLeft, Pencil, Trash2, Eye, Paperclip, Save, X } from "lucide-react";
@@ -11,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
+
 
 const SalesRecordDetail = () => {
   const { id } = useParams<{ id: string }>();
