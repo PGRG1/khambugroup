@@ -4,8 +4,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, Cell,
 } from "recharts";
 import {
-  Calendar, ChevronLeft, ChevronRight, Download, Save, Settings2,
-  ChevronDown, ChevronRight as ChevronR, Plus, Sparkles,
+  Calendar, ChevronLeft, ChevronRight, Download, Save,
+  ChevronDown, ChevronRight as ChevronR, Plus, Sparkles, RefreshCw,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from "@/components/ui/sheet";
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
@@ -49,13 +49,13 @@ import { AdjustmentReasonDialog, type AdjustmentReasonKind } from "@/components/
 
 // ---------- Design tokens (semantic HSL only) ----------
 const C = {
-  stat: "hsl(45 96% 60%)",       // Statistical — yellow
-  manager: "hsl(152 76% 50%)",   // Manager — emerald
-  actual: "hsl(199 90% 55%)",    // Actual — sky
-  pos: "hsl(152 76% 50%)",
-  neg: "hsl(0 78% 62%)",
-  grid: "hsl(var(--border))",
-  muted: "hsl(var(--muted-foreground))",
+  stat:    "hsl(var(--chart-8))",   // slate — reference, recedes
+  manager: "hsl(var(--primary))",   // copper — brand, our plan
+  actual:  "hsl(var(--chart-3))",   // teal — verified reality
+  pos:     "hsl(var(--success))",
+  neg:     "hsl(var(--destructive))",
+  grid:    "hsl(var(--border))",
+  muted:   "hsl(var(--muted-foreground))",
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -106,6 +106,23 @@ function KpiCard({
       </div>
       <div className="mt-1 text-2xl font-bold tabular-nums text-foreground">{value}</div>
       {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
+    </Card>
+  );
+}
+
+function KpiCardDot({
+  dot, label, value, hint,
+}: { dot: string; label: string; value: React.ReactNode; hint?: React.ReactNode }) {
+  return (
+    <Card className="p-3 border-border bg-card">
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <div className="mt-1 text-xl font-bold tabular-nums text-foreground">{value}</div>
+      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>}
     </Card>
   );
 }
@@ -213,7 +230,8 @@ export default function RevenueTargets() {
     useRevenueTargetDays(year, month, effectiveVenueIds);
   const { rows: managerLines, refetch: refetchLines, ensureMonth } =
     useRevenueManagerTargetLines(year, month, effectiveVenueIds);
-  const { rows: statistical } = useRevenueStatisticalTargetsDaily(year, month, effectiveVenueIds);
+  const { rows: statistical, generate: generateStatistical, generating: generatingStat } =
+    useRevenueStatisticalTargetsDaily(year, month, effectiveVenueIds);
   const { rows: actuals } = useRevenueTargetActuals(year, month, effectiveVenueIds);
   const mutations = useRevenueTargetMutations();
 
@@ -429,6 +447,25 @@ export default function RevenueTargets() {
     if (r.ok) toast({ title: "Draft rows initialized", description: `${r.inserted ?? 0} inserted.` });
   }, [effectiveVenueIds, ensureMonth]);
 
+  const handleRecomputeStat = useCallback(async () => {
+    if (!effectiveVenueIds.length) return;
+    const g = await generateStatistical(effectiveVenueIds);
+    if (g.ok) toast({ title: "Benchmarks recomputed" });
+    else toast({ title: "Recompute failed", description: g.error, variant: "destructive" });
+  }, [effectiveVenueIds, generateStatistical]);
+
+  const handleSetUpMonth = useCallback(async () => {
+    if (!effectiveVenueIds.length) return;
+    const g = await generateStatistical(effectiveVenueIds);
+    if (!g.ok) { toast({ title: "Set-up failed", description: g.error, variant: "destructive" }); return; }
+    const r = await ensureMonth(effectiveVenueIds);
+    if (!r.ok) { toast({ title: "Set-up failed", description: "Draft row initialization failed.", variant: "destructive" }); return; }
+    toast({
+      title: "Month set up",
+      description: `Benchmarks generated · ${r.inserted ?? 0} draft target rows created.`,
+    });
+  }, [effectiveVenueIds, generateStatistical, ensureMonth]);
+
   const [pendingEdits, setPendingEdits] = useState<Record<string, Partial<ManagerTargetLine>>>({});
   const editLine = (id: string, patch: Partial<ManagerTargetLine>) =>
     setPendingEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -496,10 +533,27 @@ export default function RevenueTargets() {
     return delta > 0.15;
   };
 
+  // Detect whether any pending edit diverges from the statistical_default seed baseline
+  // (guest target or SPG changed compared to the seeded stat values).
+  const divergesFromStatSeed = (targets: ManagerTargetLine[]) => {
+    for (const t of targets) {
+      const original = managerLines.find((l) => l.id === t.id);
+      if (!original) continue;
+      if (original.managerSource !== "statistical_default") continue;
+      const gChanged = t.managerGuestTarget != null
+        && Number(t.managerGuestTarget) !== Number(original.managerGuestTarget ?? NaN);
+      const spgChanged = t.managerSpendPerGuestTarget != null
+        && Math.abs(Number(t.managerSpendPerGuestTarget) - Number(original.managerSpendPerGuestTarget ?? NaN)) > 0.01;
+      if (gChanged || spgChanged) return true;
+    }
+    return false;
+  };
+
   const saveDay = async (venueId: string, date: string) => {
     const targets = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date && pendingEdits[l.id]);
     if (!targets.length) return;
-    if (varianceExceedsThreshold(venueId, date, targets)) {
+    const needsReason = varianceExceedsThreshold(venueId, date, targets) || divergesFromStatSeed(targets);
+    if (needsReason) {
       requestReason("variance_threshold", async (reason) => {
         setReasonReq(null);
         await performSaveDay(venueId, date, targets, reason);
@@ -601,7 +655,7 @@ export default function RevenueTargets() {
 
   // -------------------- Render --------------------
   return (
-    <div className="mx-auto px-6 lg:px-7 py-5 max-w-[1600px] space-y-3.5">
+    <div className="mx-auto px-6 lg:px-7 py-5 max-w-[1600px] space-y-4">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
         <div>
@@ -611,12 +665,6 @@ export default function RevenueTargets() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <ServicePeriodSetupSheet
-            venues={activeVenues}
-            periods={allPeriods}
-            canEdit={perms.canApprove || canEdit}
-            onChange={refetchPeriods}
-          />
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download className="h-4 w-4 mr-1.5" /> Export
           </Button>
@@ -668,35 +716,62 @@ export default function RevenueTargets() {
             options={STATUSES.map((s) => ({ value: s, label: s.replace("_", " ") }))}
             onChange={setStatuses}
           />
-          {managerLines.length === 0 && effectiveVenueIds.length > 0 && (
-            <Button size="sm" variant="outline" onClick={handleEnsureMonth}>
-              <Plus className="h-4 w-4 mr-1.5" /> Initialize draft rows
-            </Button>
+          {effectiveVenueIds.length > 0 && (
+            managerLines.length === 0 ? (
+              <Button size="sm" variant="default" onClick={handleSetUpMonth} disabled={generatingStat}>
+                <Sparkles className="h-4 w-4 mr-1.5" /> Set Up This Month
+              </Button>
+            ) : (
+              <Button size="icon" variant="outline" className="h-9 w-9"
+                onClick={handleRecomputeStat} disabled={generatingStat}
+                title="Recompute benchmarks only">
+                <RefreshCw className={`h-4 w-4 ${generatingStat ? "animate-spin" : ""}`} />
+              </Button>
+            )
           )}
         </div>
       </SectionCard>
 
       {/* KPI CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
-        <KpiCard label="Statistical Revenue" value={fmtHKD(monthly.statRevenue)}
-          hint={`${filteredPoints.filter((p) => p.statistical).length} days benchmarked`} />
-        <KpiCard label="Manager Revenue" tone="primary" value={fmtHKD(monthly.managerRevenue)}
-          hint={monthly.statRevenue > 0
-            ? `${((monthly.managerRevenue / monthly.statRevenue - 1) * 100).toFixed(1)}% vs statistical`
-            : "No benchmark"} />
-        <KpiCard label="Actual Revenue" value={fmtHKD(monthly.actualRevenue)}
-          hint={monthly.managerRevenue > 0
-            ? `${((monthly.actualRevenue / monthly.managerRevenue - 1) * 100).toFixed(1)}% vs manager`
-            : "—"} />
-        <KpiCard label="Manager Guests" value={fmtInt(monthly.managerGuests)}
-          hint={`${completedDays}/${completedDays + remainingDays} days completed`} />
-        <KpiCard label="Actual Guests" value={fmtInt(monthly.actualGuests)}
-          hint={monthly.managerGuests > 0
-            ? `${(monthly.actualGuests / monthly.managerGuests * 100).toFixed(1)}% of target`
-            : "—"} />
-        <KpiCard label="Actual Spend / Guest" value={fmtHKD(monthly.actualSpg)}
-          hint={monthly.managerSpg != null ? `Mgr: ${fmtHKD(monthly.managerSpg)}` : "—"} />
-      </div>
+      {(() => {
+        const avm = monthly.managerRevenue > 0
+          ? (monthly.actualRevenue / monthly.managerRevenue - 1) * 100
+          : null;
+        const avmColor = avm == null ? "text-muted-foreground" : avm >= 0 ? "" : "";
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-6 gap-2.5">
+            {/* Headline: Actual vs Manager */}
+            <Card className="p-4 border-2 border-primary/30 bg-primary/5 lg:col-span-2 flex flex-col justify-between">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Actual vs Manager
+              </div>
+              <div
+                className="mt-1 text-4xl font-bold tabular-nums"
+                style={{ color: avm == null ? undefined : avm >= 0 ? C.pos : C.neg }}
+              >
+                {avm == null ? "—" : `${avm >= 0 ? "+" : ""}${avm.toFixed(1)}%`}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {fmtHKD(monthly.actualRevenue)} of {fmtHKD(monthly.managerRevenue)} planned
+              </div>
+            </Card>
+            <KpiCardDot dot={C.stat} label="Statistical Revenue" value={fmtHKD(monthly.statRevenue)}
+              hint={`${filteredPoints.filter((p) => p.statistical).length} days benchmarked`} />
+            <KpiCardDot dot={C.manager} label="Manager Revenue" value={fmtHKD(monthly.managerRevenue)}
+              hint={monthly.statRevenue > 0
+                ? `${((monthly.managerRevenue / monthly.statRevenue - 1) * 100).toFixed(1)}% vs statistical`
+                : "No benchmark"} />
+            <KpiCardDot dot={C.actual} label="Actual Revenue" value={fmtHKD(monthly.actualRevenue)}
+              hint={`${completedDays}/${completedDays + remainingDays} days completed`} />
+            <KpiCardDot dot={C.manager} label="Manager Guests" value={fmtInt(monthly.managerGuests)}
+              hint="—" />
+            <KpiCardDot dot={C.actual} label="Actual Guests" value={fmtInt(monthly.actualGuests)}
+              hint={monthly.managerGuests > 0
+                ? `${(monthly.actualGuests / monthly.managerGuests * 100).toFixed(1)}% of target`
+                : "—"} />
+          </div>
+        );
+      })()}
 
       {/* SECTION 4: Daily performance + summary */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-3.5">
@@ -714,9 +789,9 @@ export default function RevenueTargets() {
                   formatter={(v: any) => fmtHKD(Number(v))}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
                 <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.5} dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} />
               </ComposedChart>
             </ResponsiveContainer>
           )}
@@ -761,9 +836,9 @@ export default function RevenueTargets() {
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
                   formatter={(v: any) => fmtHKD(Number(v))} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
                 <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.5} dot={false} connectNulls={false} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} connectNulls={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -789,8 +864,8 @@ export default function RevenueTargets() {
         </SectionCard>
       </div>
 
-      {/* SECTION 6: Drivers */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+      {/* SECTION 6: Guest + SPG (variance drivers moved into Detailed Analytics) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard title="Guest Performance">
           {guestData.length === 0 ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={240}>
@@ -800,9 +875,9 @@ export default function RevenueTargets() {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeDasharray="4 3" strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
                 <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.5} dot={false} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -817,129 +892,141 @@ export default function RevenueTargets() {
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
                   formatter={(v: any) => v == null ? "—" : fmtHKD(Number(v))} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeDasharray="4 3" strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
                 <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.5} dot={false} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} />
               </LineChart>
             </ResponsiveContainer>
           )}
         </SectionCard>
-        <SectionCard title="Revenue Variance Drivers">
-          {monthly.actualRevenue === 0 && monthly.managerRevenue === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={varianceDrivers} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={110} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <ReferenceLine x={0} stroke={C.grid} />
-                <Bar dataKey="value" radius={[0, 2, 2, 0]}>
-                  {varianceDrivers.map((d, i) => (
-                    <Cell key={i} fill={d.value >= 0 ? C.pos : C.neg} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </SectionCard>
       </div>
 
-      {/* SECTION 7: Weekday */}
-      <SectionCard title="Day-of-Week Analysis">
-        {weekdayRows.length === 0 ? <EmptyChart /> : (
-          <>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={weekdayRows.map((r) => ({ ...r, name: WEEKDAYS[r.weekday] }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="avgStat" name="Avg Statistical" fill={C.stat} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="avgMgr" name="Avg Manager" fill={C.manager} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="avgAct" name="Avg Actual" fill={C.actual} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-muted-foreground border-b border-border">
-                    <th className="text-left py-2 px-2">Weekday</th>
-                    <th className="text-right py-2 px-2">Occ.</th>
-                    <th className="text-right py-2 px-2">Avg Stat Rev</th>
-                    <th className="text-right py-2 px-2">Avg Mgr Rev</th>
-                    <th className="text-right py-2 px-2">Avg Act Rev</th>
-                    <th className="text-right py-2 px-2">Avg Mgr Guests</th>
-                    <th className="text-right py-2 px-2">Avg Act Guests</th>
-                    <th className="text-right py-2 px-2">Mgr SPG</th>
-                    <th className="text-right py-2 px-2">Act SPG</th>
-                    <th className="text-right py-2 px-2">Var vs Mgr</th>
-                    <th className="text-right py-2 px-2">Achv.</th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {weekdayRows.map((r) => (
-                    <tr key={r.weekday} className="border-b border-border/50">
-                      <td className="py-2 px-2 font-medium">{WEEKDAY_LONG[r.weekday]}</td>
-                      <td className="text-right px-2">{r.occurrences}</td>
-                      <td className="text-right px-2">{fmtHKD(r.avgStat)}</td>
-                      <td className="text-right px-2">{fmtHKD(r.avgMgr)}</td>
-                      <td className="text-right px-2">{fmtHKD(r.avgAct)}</td>
-                      <td className="text-right px-2">{fmtInt(r.avgMgrG)}</td>
-                      <td className="text-right px-2">{fmtInt(r.avgActG)}</td>
-                      <td className="text-right px-2">{fmtHKD(r.mgrSpg)}</td>
-                      <td className="text-right px-2">{fmtHKD(r.actSpg)}</td>
-                      <td className={`text-right px-2 ${r.varVsMgr != null ? (r.varVsMgr >= 0 ? "text-emerald-500" : "text-rose-500") : ""}`}>
-                        {fmtHKD(r.varVsMgr)}
-                      </td>
-                      <td className="text-right px-2">{fmtPct(r.achievement)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* SECTIONS 7 + 8: Detailed Analytics (collapsed by default) */}
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="detail" className="border border-border rounded-lg bg-card">
+          <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
+            Detailed Analytics
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <div className="space-y-4">
+              <SectionCard title="Revenue Variance Drivers">
+                {monthly.actualRevenue === 0 && monthly.managerRevenue === 0 ? <EmptyChart /> : (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={varianceDrivers} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                      <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={110} />
+                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                        formatter={(v: any) => fmtHKD(Number(v))} />
+                      <ReferenceLine x={0} stroke={C.grid} />
+                      <Bar dataKey="value" radius={[0, 2, 2, 0]}>
+                        {varianceDrivers.map((d, i) => (
+                          <Cell key={i} fill={d.value >= 0 ? C.pos : C.neg} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </SectionCard>
+
+              <SectionCard title="Day-of-Week Analysis">
+                {weekdayRows.length === 0 ? <EmptyChart /> : (
+                  <>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={weekdayRows.map((r) => ({ ...r, name: WEEKDAYS[r.weekday] }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                          formatter={(v: any) => fmtHKD(Number(v))} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="avgStat" name="Avg Statistical" fill={C.stat} radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="avgMgr" name="Avg Manager" fill={C.manager} radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="avgAct" name="Avg Actual" fill={C.actual} radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground border-b border-border">
+                            <th className="text-left py-2 px-2">Weekday</th>
+                            <th className="text-right py-2 px-2">Occ.</th>
+                            <th className="text-right py-2 px-2">Avg Stat Rev</th>
+                            <th className="text-right py-2 px-2">Avg Mgr Rev</th>
+                            <th className="text-right py-2 px-2">Avg Act Rev</th>
+                            <th className="text-right py-2 px-2">Avg Mgr Guests</th>
+                            <th className="text-right py-2 px-2">Avg Act Guests</th>
+                            <th className="text-right py-2 px-2">Mgr SPG</th>
+                            <th className="text-right py-2 px-2">Act SPG</th>
+                            <th className="text-right py-2 px-2">Var vs Mgr</th>
+                            <th className="text-right py-2 px-2">Achv.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="tabular-nums">
+                          {weekdayRows.map((r) => (
+                            <tr key={r.weekday} className="border-b border-border/50">
+                              <td className="py-2 px-2 font-medium">{WEEKDAY_LONG[r.weekday]}</td>
+                              <td className="text-right px-2">{r.occurrences}</td>
+                              <td className="text-right px-2">{fmtHKD(r.avgStat)}</td>
+                              <td className="text-right px-2">{fmtHKD(r.avgMgr)}</td>
+                              <td className="text-right px-2">{fmtHKD(r.avgAct)}</td>
+                              <td className="text-right px-2">{fmtInt(r.avgMgrG)}</td>
+                              <td className="text-right px-2">{fmtInt(r.avgActG)}</td>
+                              <td className="text-right px-2">{fmtHKD(r.mgrSpg)}</td>
+                              <td className="text-right px-2">{fmtHKD(r.actSpg)}</td>
+                              <td className={`text-right px-2 ${r.varVsMgr != null ? (r.varVsMgr >= 0 ? "text-emerald-500" : "text-rose-500") : ""}`}>
+                                {fmtHKD(r.varVsMgr)}
+                              </td>
+                              <td className="text-right px-2">{fmtPct(r.achievement)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </SectionCard>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <SectionCard title="Venue Target Performance">
+                  {venueRows.length === 0 ? <EmptyChart /> : (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={venueRows}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                          formatter={(v: any) => fmtHKD(Number(v))} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="stat" name="Statistical" fill={C.stat} radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="mgr" name="Manager" fill={C.manager} radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="act" name="Actual" fill={C.actual} radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </SectionCard>
+                <SectionCard title="Service-Period Revenue Mix" right={
+                  <span className="text-[11px] text-muted-foreground">Manager totals · Actuals unavailable per period</span>
+                }>
+                  {servicePeriodMix.length === 0 ? <EmptyChart label="No configured service periods." /> : (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={servicePeriodMix} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
+                        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                          formatter={(v: any) => fmtHKD(Number(v))} />
+                        <Bar dataKey="mgr" name="Manager Revenue" fill={C.manager} radius={[0, 2, 2, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </SectionCard>
+              </div>
             </div>
-          </>
-        )}
-      </SectionCard>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
-      {/* SECTION 8: Venue + service-period mix */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-        <SectionCard title="Venue Target Performance">
-          {venueRows.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={venueRows}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="stat" name="Statistical" fill={C.stat} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="mgr" name="Manager" fill={C.manager} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="act" name="Actual" fill={C.actual} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </SectionCard>
-        <SectionCard title="Service-Period Revenue Mix" right={
-          <span className="text-[11px] text-muted-foreground">Manager totals · Actuals unavailable per period</span>
-        }>
-          {servicePeriodMix.length === 0 ? <EmptyChart label="No configured service periods." /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={servicePeriodMix} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <Bar dataKey="mgr" name="Manager Revenue" fill={C.manager} radius={[0, 2, 2, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </SectionCard>
-      </div>
 
       {/* SECTION 9: Target Intelligence */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -1326,6 +1413,15 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
           const canUseStat = !!statForPeriod;
           const rev = managerRevenue(l);
           const notOperating = l.lineStatus !== "operating";
+          const venueOpPeriodCount = periods.filter(
+            (pp) => pp.venueId === l.venueId && pp.isActive && !pp.isRollupOnly,
+          ).length;
+          const showMultiPeriodHint =
+            !notOperating
+            && l.managerSource !== "statistical_default"
+            && !statForPeriod
+            && venueOpPeriodCount > 1
+            && (l.managerGuestTarget == null || l.managerSpendPerGuestTarget == null);
           return (
             <tr key={l.id} className={`border-b border-border/40 ${notOperating ? "opacity-60" : ""}`}>
               <td className="py-1.5 px-2 font-medium">{p?.name ?? "—"}</td>
@@ -1347,7 +1443,16 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                 ) : (l.managerSpendPerGuestTarget == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(l.managerSpendPerGuestTarget))}
               </td>
               <td className="text-right px-2 font-semibold">
-                {rev == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(rev)}
+                {rev == null ? (
+                  <div className="flex flex-col items-end">
+                    <span className="text-muted-foreground italic">Not set</span>
+                    {showMultiPeriodHint && (
+                      <span className="mt-1 text-[10px] text-muted-foreground text-right max-w-[220px] leading-tight normal-case">
+                        No automatic benchmark — this venue has multiple service periods. Set manually or click Use Stat if a period-level benchmark exists.
+                      </span>
+                    )}
+                  </div>
+                ) : fmtHKD(rev)}
               </td>
               <td className="text-right px-2 text-muted-foreground">Unavailable</td>
               <td className="text-right px-2 text-muted-foreground">Unavailable</td>
@@ -1550,129 +1655,5 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
   );
 }
 
-// ---------- Service Period Setup Sheet ----------
-function ServicePeriodSetupSheet({ venues, periods, canEdit, onChange }: {
-  venues: { id: string; name: string }[];
-  periods: VenueServicePeriod[];
-  canEdit: boolean;
-  onChange: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const mutations = useRevenueTargetMutations();
-  const [venueId, setVenueId] = useState<string>(venues[0]?.id ?? "");
-  const [form, setForm] = useState<Partial<VenueServicePeriod>>({
-    name: "", startTime: "18:00", endTime: "23:00",
-    applicableWeekdays: [0, 1, 2, 3, 4, 5, 6], isActive: true, sortOrder: 0,
-    effectiveFrom: new Date().toISOString().slice(0, 10),
-  });
-  const vPeriods = periods.filter((p) => p.venueId === venueId);
-  const submit = async () => {
-    if (!venueId || !form.name?.trim()) return;
-    const r = await mutations.upsertServicePeriod({ ...(form as any), venueId, name: form.name!.trim() });
-    if (r.ok) { toast({ title: "Service period saved" }); onChange(); setForm({ ...form, name: "" }); }
-  };
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Settings2 className="h-4 w-4 mr-1.5" /> Service Period Setup
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="w-[500px] sm:w-[500px] max-w-full overflow-y-auto">
-        <SheetHeader><SheetTitle>Service Period Setup</SheetTitle></SheetHeader>
-        <div className="mt-4 space-y-3">
-          <div>
-            <Label className="text-xs">Venue</Label>
-            <Select value={venueId} onValueChange={setVenueId}>
-              <SelectTrigger><SelectValue placeholder="Select venue" /></SelectTrigger>
-              <SelectContent>
-                {venues.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="border border-border rounded-md p-3">
-            <div className="text-xs font-semibold mb-2 text-muted-foreground">Existing periods</div>
-            {vPeriods.length === 0 ? (
-              <div className="text-xs text-muted-foreground">None configured.</div>
-            ) : (
-              <ul className="space-y-1">
-                {vPeriods.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between text-xs">
-                    <span>
-                      {p.name}
-                      {p.isRollupOnly && <Badge variant="outline" className="ml-2 text-[9px]">rollup</Badge>}
-                      {!p.isActive && <Badge variant="outline" className="ml-2 text-[9px]">inactive</Badge>}
-                    </span>
-                    <span className="text-muted-foreground tabular-nums">{p.startTime} – {p.endTime}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="border border-border rounded-md p-3 space-y-3">
-            <div className="text-xs font-semibold text-muted-foreground">Add / edit period</div>
-            <div>
-              <Label className="text-xs">Name</Label>
-              <Input value={form.name ?? ""} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Lunch, Dinner, Happy Hour…" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Start</Label>
-                <Input type="time" value={form.startTime ?? ""} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-              </div>
-              <div>
-                <Label className="text-xs">End</Label>
-                <Input type="time" value={form.endTime ?? ""} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Weekdays</Label>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {WEEKDAYS.map((w, i) => {
-                  const on = form.applicableWeekdays?.includes(i);
-                  return (
-                    <button key={i} type="button"
-                      className={`px-2 py-1 rounded text-[11px] border ${on ? "bg-primary text-primary-foreground border-primary" : "bg-transparent border-border text-muted-foreground"}`}
-                      onClick={() => {
-                        const cur = new Set(form.applicableWeekdays ?? []);
-                        cur.has(i) ? cur.delete(i) : cur.add(i);
-                        setForm({ ...form, applicableWeekdays: Array.from(cur).sort() });
-                      }}>{w}</button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Effective from</Label>
-                <Input type="date" value={form.effectiveFrom ?? ""} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} />
-              </div>
-              <div>
-                <Label className="text-xs">Effective to</Label>
-                <Input type="date" value={form.effectiveTo ?? ""} onChange={(e) => setForm({ ...form, effectiveTo: e.target.value || null })} />
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-xs">
-                <Checkbox checked={!!form.crossesMidnight}
-                  onCheckedChange={(v) => setForm({ ...form, crossesMidnight: !!v })} />
-                Crosses midnight
-              </label>
-              <label className="flex items-center gap-2 text-xs">
-                <Checkbox checked={form.isActive ?? true}
-                  onCheckedChange={(v) => setForm({ ...form, isActive: !!v })} />
-                Active
-              </label>
-            </div>
-            <div>
-              <Label className="text-xs">Sort order</Label>
-              <Input type="number" value={form.sortOrder ?? 0} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} />
-            </div>
-            <Button onClick={submit} disabled={!canEdit || !form.name?.trim()} className="w-full">Save Period</Button>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
+// ServicePeriodSetupSheet removed — now owned by /revenue/service-periods.
+
