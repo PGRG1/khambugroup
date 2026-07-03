@@ -7640,7 +7640,7 @@ export type Database = {
             foreignKeyName: "sales_records_service_period_id_fkey"
             columns: ["service_period_id"]
             isOneToOne: false
-            referencedRelation: "service_periods"
+            referencedRelation: "venue_service_periods"
             referencedColumns: ["id"]
           },
           {
@@ -8917,7 +8917,7 @@ export type Database = {
             foreignKeyName: "sales_records_service_period_id_fkey"
             columns: ["service_period_id"]
             isOneToOne: false
-            referencedRelation: "service_periods"
+            referencedRelation: "venue_service_periods"
             referencedColumns: ["id"]
           },
           {
