@@ -30,6 +30,7 @@ const revenueItems = [
   { title: "Overview", url: "/revenue", icon: BarChart3, pageKey: "revenue", end: true },
   { title: "Daily Sales", url: "/sales-data", icon: Database, pageKey: "revenue" },
   { title: "Targets", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
+  { title: "Service Periods", url: "/revenue/service-periods", icon: Clock, pageKey: "revenue" },
   { title: "Reconciliation", url: "/revenue/reconciliation", icon: Scale, pageKey: "revenue" },
 ];
 
