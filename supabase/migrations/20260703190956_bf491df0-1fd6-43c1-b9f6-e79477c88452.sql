@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.sync_sales_records_venue_id() FROM PUBLIC, anon, authenticated;
