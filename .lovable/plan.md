@@ -1,65 +1,68 @@
-## Goal
+# Revenue Targets — Finish Pass
 
-Move venue service period configuration out of the Targets flow into a dedicated `/revenue/service-periods` page.
+Scope: `src/pages/RevenueTargets.tsx` only. No backend, no theme, no other pages.
 
-## New route & navigation
+## Part 1 — Functional fixes
 
-**`src/App.tsx`** — add import `ServicePeriods from "./pages/revenue/ServicePeriods"` and route:
-```tsx
-<Route path="/revenue/service-periods"
-  element={<ProtectedRoute pageKey="revenue"><ServicePeriods /></ProtectedRoute>} />
-```
+**1a. Drop duplicate Service Period Setup**
+- Remove `<ServicePeriodSetupSheet ... />` from header (line ~614) and delete the `ServicePeriodSetupSheet` component block (function runs from ~1554 to end of file).
+- Drop now-unused imports: `Settings2` from lucide-react, `Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger`.
 
-**`src/components/AppSidebar.tsx`** — extend `revenueItems` (line 29), placed after Targets and before Reconciliation:
+**1b. Unify Generate → Initialize into "Set Up This Month"**
+- Add handler `handleSetUpMonth`: `await generateStatistical(effectiveVenueIds); const r = await ensureMonth(effectiveVenueIds);` then single toast: `"Benchmarks generated · {r.inserted} draft target rows created"`.
+- In the filter bar (replacing the current `Initialize draft rows` block at ~671):
+  - If `managerLines.length === 0 && effectiveVenueIds.length > 0` → show prominent primary button `Set Up This Month` (Sparkles/Plus icon).
+  - Else → show small icon-only outline button (RefreshCw icon) with `title="Recompute benchmarks only"` that calls `generateStatistical` alone.
+- Remove any standalone "Generate Statistical" button rendered elsewhere in header/filter row.
+
+**1c. Multi-period venue hint in `ServicePeriodTable`**
+- When rendering a line whose `managerSource !== 'statistical_default'` AND no `stat` value exists for that (venue, period, date), render a muted inline note under the empty target input: *"No automatic benchmark — this venue has multiple service periods. Set manually or click Apply Statistical if a period-level benchmark exists."*
+- Detection: venue has >1 operational period in `allPeriods` for that venue.
+
+**1d. Override reason dialog coverage**
+- Currently `requestReason` only fires for `not_operating` status changes and a variance-threshold check. Extend to every manual cell edit path in `ServicePeriodTable` (revenue / guests / SPG commits + Apply Statistical revert) so any commit whose value diverges from the `statistical_default` seed triggers the dialog.
+
+## Part 2 — Visual pass (brand tokens only)
+
+**2a. Recolor `C` constant** (top of file, ~line 51):
 ```ts
-{ title: "Service Periods", url: "/revenue/service-periods", icon: Clock, pageKey: "revenue" }
+const C = {
+  stat:    "hsl(var(--chart-8))",
+  manager: "hsl(var(--primary))",
+  actual:  "hsl(var(--chart-3))",
+  pos:     "hsl(var(--success))",
+  neg:     "hsl(var(--destructive))",
+  grid:    "hsl(var(--border))",
+};
 ```
-`Clock` is already in the lucide-react import on line 1 — do not duplicate.
 
-## New page: `src/pages/revenue/ServicePeriods.tsx`
+**2b. Line hierarchy — apply to every chart in the page** (Daily Revenue Performance, Cumulative Pace, Daily Variance, Guest Performance, Spend/Guest, and any variance/driver line charts):
+- Statistical: `strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6}`
+- Manager: `strokeWidth={2} dot={false}`
+- Actual: `strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }}`
 
-Hand-rolled header (h1 + muted subtitle) matching `RevenueTargets.tsx` / `DataPage.tsx`. Card containers use `card-glass`. Status uses inline `Badge` from `@/components/ui/badge`.
+**2c. KPI hierarchy**
+- Replace current single 6-card grid with two rows:
+  - Row 1: one emphasized card "Actual vs Manager" showing `((actual/manager)-1)*100%`, colored via `C.pos`/`C.neg`, styled `border-2 border-primary/30` with larger value text.
+  - Row 2 (`grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5`): Statistical Revenue, Manager Revenue, Actual Revenue, Manager Guests, Actual Guests. Drop Actual SPG (already surfaced in Target Summary via RollupCell).
+- Every KPI label gets a leading 4px `<span className="inline-block h-1 w-1 rounded-full mr-1.5" style={{ background: C.stat|C.manager|C.actual }} />` matching its data source (skip for the emphasized delta card).
 
-**Top bar**
-- Venue selector (`Select` from `@/components/ui/select`) populated from `useVenues()` (filter `is_active`). Selection stored in local state; defaults to the first active venue.
+**2d. Collapse deep analytics**
+- Wrap the sections currently at ~849 (Day-of-Week Analysis), ~827 (Revenue Variance Drivers), and ~909–941 (Venue Target Performance + Service-Period Revenue Mix) in a shadcn `<Accordion type="single" collapsible>` with a single item `Detailed Analytics`, collapsed by default.
+- Keep visible above the fold: header, filter bar, KPI row, Daily Revenue Performance + Target Summary, Cumulative Pace, Guest/SPG pair, then Daily Target Register.
 
-**Periods table** (card-glass)
-- Fetch via `useVenueServicePeriods([selectedVenueId])`, use its `rows`, `loading`, `refetch`.
-- Columns: Name (with "Auto-managed rollup" note when `isRollupOnly`) · Time (`HH:mm – HH:mm`, `+1d` when `crossesMidnight`) · Weekdays (formatted from `applicableWeekdays`; "Every day" when all 7) · Effective range · Sort · Status (Active/Inactive Badge + Rollup-only Badge) · Actions.
-- Actions column only rendered when `canEditManagerTargets`: Edit (populates form), Deactivate (opens `AlertDialog`, then calls `deactivateServicePeriod(id)`). Rollup-only rows hide both actions.
-- Empty and loading states.
+**2e. Rhythm**
+- Root container: change `space-y-3.5` → `space-y-4`.
+- Ensure the emphasized "Actual vs Manager" card + Daily Revenue Performance chart fit within a 1440×900 viewport with no scroll on load (tighten KPI row to a single line height; hero chart height stays 320).
 
-**Add / Edit form** (inline card-glass block that appears when Add clicked or a row edited)
-Fields with `Input`/`Checkbox`/`Label`:
-- Name (required)
-- Sort order (number)
-- Start time / End time (`type="time"`)
-- Effective from (default today) / Effective to (optional)
-- Applicable weekdays: 7 pill buttons rendered **Sunday-first** in the order Sun, Mon, Tue, Wed, Thu, Fri, Sat. The button values and stored `applicableWeekdays` remain the canonical Postgres `EXTRACT(DOW …)` numbers **0=Sunday, 1=Mon, …, 6=Saturday** — no Monday-first remapping. The weekday label used in the table also follows this Sunday-first order.
-- Crosses midnight checkbox
-- Active checkbox (default true)
-
-Submit calls `upsertServicePeriod({ id?, venueId: selectedVenueId, name, startTime, endTime, crossesMidnight, applicableWeekdays, isActive, sortOrder, effectiveFrom, effectiveTo })` from `useRevenueTargetMutations`. On success: toast, `refetch()`, close form. Validates non-empty name and at least one weekday. Never sets `isRollupOnly`.
-
-**Permissions**
-- Reuse `useRevenueTargetPermissions()`. `canEditManagerTargets` gates the Add button, row actions, and the form itself. Everyone with route access sees the list.
-
-## Explicit non-goals
-
-- Do not modify `src/pages/RevenueTargets.tsx`.
-- Do not add mutation methods to `useVenueServicePeriods`; writes go through `useRevenueTargetMutations`.
-- Do not touch `useServicePeriods` / `service_periods` (System Configuration).
-- No hard delete.
-
-## Files touched
-
-- **New**: `src/pages/revenue/ServicePeriods.tsx`
-- **Edit**: `src/App.tsx` (import + route)
-- **Edit**: `src/components/AppSidebar.tsx` (one entry in `revenueItems`)
+## Non-goals
+No changes to `src/index.css`, `tailwind.config.ts`, backend RPCs, `/revenue/service-periods`, or other pages. No new design tokens.
 
 ## Verification
-
-- TypeScript passes.
-- Sidebar shows "Service Periods" under Revenue for users with `revenue` access.
-- Selecting a venue lists its periods; add/edit/deactivate refresh the table.
-- Read-only users see the list without Add/Edit/Deactivate controls.
+- `npm run build` completes without TypeScript errors.
+- Empty month → only "Set Up This Month" visible; click generates + seeds with one combined toast.
+- Populated month → small "Recompute benchmarks" icon button instead.
+- No occurrences of `hsl(45 96%`, `hsl(152 76%`, or `hsl(199 90%` remain in this file.
+- "Actual vs Manager" is the visually dominant KPI.
+- Day-of-Week, Variance Drivers, Venue/Period Mix collapsed under "Detailed Analytics" by default.
+- 1440px viewport: KPI row + hero chart visible without scroll.
