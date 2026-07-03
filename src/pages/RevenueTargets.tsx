@@ -433,6 +433,17 @@ export default function RevenueTargets() {
   const editLine = (id: string, patch: Partial<ManagerTargetLine>) =>
     setPendingEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
 
+  // ---- Reason dialog state (replaces window.prompt) ----
+  const [reasonReq, setReasonReq] = useState<{
+    kind: AdjustmentReasonKind;
+    onConfirm: (reason: string) => void | Promise<void>;
+  } | null>(null);
+  const requestReason = useCallback(
+    (kind: AdjustmentReasonKind, onConfirm: (reason: string) => void | Promise<void>) =>
+      setReasonReq({ kind, onConfirm }),
+    [],
+  );
+
   const linesWithEdits = useMemo(() =>
     managerLines.map((l) => ({ ...l, ...pendingEdits[l.id] })),
     [managerLines, pendingEdits]);
