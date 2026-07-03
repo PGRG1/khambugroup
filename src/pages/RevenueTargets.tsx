@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   ResponsiveContainer, ComposedChart, LineChart, BarChart, Line, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, Cell,
@@ -1202,7 +1202,7 @@ function DailyRegister(props: DailyRegisterProps) {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>
