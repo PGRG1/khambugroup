@@ -14,6 +14,7 @@ import {
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
+import { StatisticalDailyRow } from "@/hooks/useStatisticalRevenueTargets";
 
 interface Props {
   year: number;
@@ -21,7 +22,9 @@ interface Props {
   selectedVenues: string[];
   salesData: SalesRecord[];
   forecasts: ForecastRecord[];
+  statisticalDaily: StatisticalDailyRow[];
 }
+
 
 const MANAGER_COLOR = "hsl(152 76% 50%)";
 const ACTUAL_COLOR = "hsl(199 90% 55%)";
