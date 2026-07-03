@@ -520,10 +520,30 @@ export default function RevenueTargets() {
     editLine(line.id, { managerGuestTarget: Math.round(stat.g), managerSpendPerGuestTarget: Number(stat.spg.toFixed(2)) });
   };
 
-  const setOperatingStatus = async (venueId: string, date: string, status: OperatingStatus, notes?: string) => {
-    const r = await mutations.upsertOperatingStatus(venueId, date, status, notes);
-    if (r.ok) { await refetchDays(); toast({ title: "Operating status updated" }); }
-  };
+  const setOperatingStatus = useCallback(async (venueId: string, date: string, status: OperatingStatus, notes?: string) => {
+    // Non-normal statuses require a reason via the reason dialog
+    const needsReason = status === "events_only" || status === "closed";
+    const commit = async (reason?: string) => {
+      const r = await mutations.upsertOperatingStatus(venueId, date, status, reason ?? notes ?? null);
+      if (r.ok) { await refetchDays(); toast({ title: "Operating status updated" }); }
+    };
+    if (needsReason && !notes) {
+      const kind: AdjustmentReasonKind = status === "closed" ? "closed" : "events_only";
+      requestReason(kind, (reason) => { setReasonReq(null); return commit(reason); });
+      return;
+    }
+    await commit();
+  }, [mutations, refetchDays, requestReason]);
+
+  // Approve saved lines for a day (canApprove only)
+  const approveDay = useCallback(async (venueId: string, date: string) => {
+    const ids = managerLines
+      .filter((l) => l.venueId === venueId && l.targetDate === date && l.status === "saved")
+      .map((l) => l.id);
+    if (!ids.length) { toast({ title: "Nothing to approve", description: "Save the day first." }); return; }
+    const r = await mutations.approveLines(ids);
+    if (r.ok) await refetchLines();
+  }, [managerLines, mutations, refetchLines]);
 
   const exportCsv = () => {
     const header = ["Date", "Weekday", "Venue", "Statistical Revenue", "Manager Revenue", "Actual Revenue",
