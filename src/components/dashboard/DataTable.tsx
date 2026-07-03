@@ -532,7 +532,7 @@ const DataTable = ({ data }: DataTableProps) => {
                     className="bg-muted/40 hover:bg-muted/60 cursor-pointer border-t-2 border-border/60"
                     onClick={() => toggleMonth(key)}
                   >
-                    <TableCell colSpan={3} className="text-xs font-semibold py-2">
+                    <TableCell colSpan={4} className="text-xs font-semibold py-2">
                       <div className="flex items-center gap-2">
                         {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                         <span>{monthLabelSafe(key)}</span>
