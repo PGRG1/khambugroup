@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { X, Plus, Paperclip } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { getPaymentTotal } from "@/utils/salesUtils";
+import { useVenues } from "@/hooks/useVenues";
+import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 
 interface ManualInputProps {
   onAdd: (record: SalesRecord, file?: File | null) => void;
   onClose: () => void;
 }
 
-const emptyRecord = {
-  date: "", day: "", venue: "Assembly" as const, reportNumber: "",
+const emptyRecord: SalesRecord = {
+  date: "", day: "", venue: "Assembly", reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0,
   totalSales: 0, visa: 0, mastercard: 0, amex: 0, unionPay: 0,
   jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, cardTips: 0,
+  servicePeriodId: null,
 };
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -21,31 +24,59 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const [form, setForm] = useState<SalesRecord>(emptyRecord);
   const [file, setFile] = useState<File | null>(null);
 
-  const set = (key: keyof SalesRecord, value: string | number) =>
+  const { venues } = useVenues();
+  const venueId = useMemo(
+    () => venues.find((v) => v.name === form.venue)?.id ?? null,
+    [venues, form.venue],
+  );
+  const venueIdList = useMemo(() => (venueId ? [venueId] : []), [venueId]);
+  const { operational: periods } = useVenueServicePeriods(venueIdList);
+
+  const set = (key: keyof SalesRecord, value: string | number | null) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  // Clear servicePeriodId when venue changes so it doesn't leak across venues.
+  useEffect(() => {
+    setForm((f) => ({ ...f, servicePeriodId: null }));
+  }, [form.venue]);
+
+  // Auto-tag the single-period case (submit-time behavior handled below too,
+  // but reflecting it in state keeps the UI honest).
+  useEffect(() => {
+    if (periods.length === 1) {
+      setForm((f) => (f.servicePeriodId === periods[0].id ? f : { ...f, servicePeriodId: periods[0].id }));
+    }
+  }, [periods]);
 
   const handleDateChange = (date: string) => {
     const d = new Date(date);
-    const dayName = days[(d.getDay() + 6) % 7]; // Monday=0
+    const dayName = days[(d.getDay() + 6) % 7];
     set("date", date);
     set("day", dayName);
   };
 
-  // Auto-calculate expected total
   const normalizedDiscount = -Math.abs(form.discount);
   const normalizedCardTips = -Math.abs(form.cardTips);
   const expectedTotal = form.subtotal + form.serviceCharge + normalizedDiscount;
   const totalMismatch = form.totalSales !== 0 && Math.abs(form.totalSales - expectedTotal) > 0.01;
 
-  // Payment method validation (uses normalized negative cardTips)
   const paymentTotal = getPaymentTotal({ ...form, cardTips: normalizedCardTips });
   const paymentMismatch = form.totalSales !== 0 && paymentTotal !== 0 && Math.abs(paymentTotal - form.totalSales) > 0.01;
+
+  const periodRequired = periods.length >= 2;
+  const periodMissing = periodRequired && !form.servicePeriodId;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.date || !form.venue) return;
-    // Normalize discount and card tips to negative before saving
-    onAdd({ ...form, discount: normalizedDiscount, cardTips: normalizedCardTips }, file);
+    if (periodMissing) return;
+    // Resolve auto-tag at submit as a safety net (state already reflects it for 1-period).
+    let servicePeriodId = form.servicePeriodId ?? null;
+    if (!servicePeriodId && periods.length === 1) servicePeriodId = periods[0].id;
+    onAdd(
+      { ...form, discount: normalizedDiscount, cardTips: normalizedCardTips, servicePeriodId },
+      file,
+    );
     setForm(emptyRecord);
     setFile(null);
   };
@@ -61,6 +92,8 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
       />
     </div>
   );
+
+  const autoTaggedPeriodName = periods.length === 1 ? periods[0].name : null;
 
   return (
     <div className="card-glass rounded-xl p-6 animate-fade-in">
@@ -109,6 +142,34 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
           </div>
           {numField("Orders", "orders")}
         </div>
+
+        {/* Service period tagging */}
+        {periods.length > 0 && (
+          <div>
+            <label className="text-xs text-muted-foreground">Service Period</label>
+            {autoTaggedPeriodName ? (
+              <div className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-secondary/40 text-muted-foreground">
+                <span className="text-foreground font-medium">{autoTaggedPeriodName}</span>
+                <span className="ml-2 text-[11px] italic">(auto-tagged)</span>
+              </div>
+            ) : (
+              <select
+                value={form.servicePeriodId ?? ""}
+                onChange={(e) => set("servicePeriodId", e.target.value || null)}
+                required
+                className={`w-full px-3 py-1.5 text-sm rounded-md border bg-secondary text-foreground focus:outline-none focus:ring-1 focus:ring-primary ${
+                  periodMissing ? "border-destructive" : "border-border"
+                }`}
+              >
+                <option value="" disabled>Select a period…</option>
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {numField("Guests", "guests")}
           {numField("Subtotal", "subtotal")}
@@ -168,9 +229,10 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
         </div>
         <button
           type="submit"
-          className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
+          disabled={periodMissing}
+          className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Add Record
+          {periodMissing ? "Select a service period" : "Add Record"}
         </button>
       </form>
     </div>

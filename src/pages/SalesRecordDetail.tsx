@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { useVenues } from "@/hooks/useVenues";
+import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import { SalesRecord } from "@/types/sales";
 import { formatCurrency, getPaymentTotal } from "@/utils/salesUtils";
 import { ArrowLeft, Pencil, Trash2, Eye, Paperclip, Save, X } from "lucide-react";
@@ -11,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
+
 
 const SalesRecordDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,8 +31,18 @@ const SalesRecordDetail = () => {
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { venues } = useVenues();
+  const activeVenueName = (editing && draft ? draft : record)?.venue ?? "";
+  const venueId = useMemo(
+    () => venues.find((v) => v.name === activeVenueName)?.id ?? null,
+    [venues, activeVenueName],
+  );
+  const venueIdList = useMemo(() => (venueId ? [venueId] : []), [venueId]);
+  const { operational: periods } = useVenueServicePeriods(venueIdList);
+
   const canEdit = isAdmin && !isActionHidden("data.edit_rows");
   const canDelete = isAdmin && !isActionHidden("data.delete_rows");
+
 
   useEffect(() => {
     let cancelled = false;
@@ -63,10 +76,11 @@ const SalesRecordDetail = () => {
 
   const startEdit = () => { setDraft({ ...record }); setEditing(true); };
   const cancelEdit = () => { setDraft(null); setEditing(false); };
-  const setField = (k: keyof SalesRecord, v: string | number) => {
+  const setField = (k: keyof SalesRecord, v: string | number | null) => {
     if (!draft) return;
     setDraft({ ...draft, [k]: v });
   };
+
 
   const save = async () => {
     if (!draft) return;
@@ -215,10 +229,33 @@ const SalesRecordDetail = () => {
           <Row label="Date" value={active.date} fieldKey="date" />
           <Row label="Day" value={active.day} fieldKey="day" />
           <Row label="Venue" value={active.venue} fieldKey="venue" />
+          {/* Service period: edit = selector; read = resolved name / "Not tagged". */}
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm text-muted-foreground">Service Period</span>
+            {editing && draft ? (
+              <select
+                value={draft.servicePeriodId ?? ""}
+                onChange={(e) => setField("servicePeriodId" as keyof SalesRecord, e.target.value || (null as any))}
+                className="w-40 px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
+              >
+                <option value="">Not tagged</option>
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span className={`text-sm font-medium ${active.servicePeriodId ? "text-foreground" : "text-muted-foreground italic"}`}>
+                {active.servicePeriodId
+                  ? (periods.find((p) => p.id === active.servicePeriodId)?.name ?? "Unknown period")
+                  : "Not tagged"}
+              </span>
+            )}
+          </div>
           <Row label="Report #" value={active.reportNumber || "—"} fieldKey="reportNumber" />
           <Row label="Orders" value={active.orders} fieldKey="orders" isCurrency={false} />
           <Row label="Guests" value={active.guests} fieldKey="guests" isCurrency={false} />
         </Section>
+
 
         <Section title="Sales Breakdown">
           <Row label="Subtotal" value={active.subtotal} fieldKey="subtotal" />

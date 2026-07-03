@@ -248,7 +248,7 @@ export default function RevenueTargets() {
     useRevenueManagerTargetLines(year, month, effectiveVenueIds);
   const { rows: statistical, generate: generateStatistical, generating: generatingStat } =
     useRevenueStatisticalTargetsDaily(year, month, effectiveVenueIds);
-  const { rows: actuals } = useRevenueTargetActuals(year, month, effectiveVenueIds);
+  const { rows: actuals, byPeriod: actualsByPeriod } = useRevenueTargetActuals(year, month, effectiveVenueIds);
   const mutations = useRevenueTargetMutations();
 
   // Filter operating statuses at dailyPoint level via revenue_target_days lookup
@@ -1242,6 +1242,8 @@ export default function RevenueTargets() {
         lines={linesWithEdits}
         statistical={statistical}
         actuals={actuals}
+        actualsByPeriod={actualsByPeriod}
+
         pendingIds={new Set(Object.keys(pendingEdits))}
         canEdit={canEdit}
         canApprove={perms.canApprove}
@@ -1355,6 +1357,7 @@ interface DailyRegisterProps {
   lines: ManagerTargetLine[];
   statistical: any[];
   actuals: any[];
+  actualsByPeriod: Map<string, { revenue: number; guests: number; spendPerGuest: number | null }>;
   pendingIds: Set<string>;
   canEdit: boolean;
   canApprove: boolean;
@@ -1373,10 +1376,11 @@ interface DailyRegisterProps {
 }
 
 function DailyRegister(props: DailyRegisterProps) {
-  const { year, month, venues, periods, opPeriods, days, lines, statistical, actuals,
+  const { year, month, venues, periods, opPeriods, days, lines, statistical, actuals, actualsByPeriod,
     pendingIds, canEdit, canApprove, onEdit, onSaveDay, onApproveDay, onApplyStatistical,
     onSetStatus, onLineStatus, requestReason } = props;
   void opPeriods;
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -1529,6 +1533,11 @@ function DailyRegister(props: DailyRegisterProps) {
                   )}
                   {isOpen && spLines.map((l) => {
                     const p = periods.find((pp) => pp.id === l.servicePeriodId);
+                    const periodLabel = p?.name
+                      ?? <span className="italic text-muted-foreground">Untagged</span>;
+                    const periodActual = l.servicePeriodId
+                      ? actualsByPeriod.get(`${l.venueId}__${l.targetDate}__${l.servicePeriodId}`) ?? null
+                      : null;
                     const canUseStat = isSinglePeriodVenue
                       && stat?.statisticalGuestTarget != null
                       && stat?.statisticalSpendPerGuest != null;
@@ -1538,16 +1547,14 @@ function DailyRegister(props: DailyRegisterProps) {
                     const guestIsPrefill = l.managerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalGuestTarget != null;
                     const spgIsPrefill = l.managerSpendPerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalSpendPerGuest != null;
                     const lineRev = managerRevenue(l);
-                    const statTooltip = !isSinglePeriodVenue
-                      ? "No per-period benchmark — this venue has multiple service periods"
-                      : (!canUseStat ? "Statistical benchmark unavailable for this day" : "");
+                    void canUseStat;
                     const inputCls = "h-7 w-24 text-right text-xs border-border/60 focus-visible:ring-1 focus-visible:ring-primary/40 bg-background [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
                     return (
                       <tr key={l.id} className={`border-b border-border/40 bg-muted/10 ${notOperating ? "opacity-60" : ""}`}>
                         <td className="w-6"></td>
                         <td colSpan={4} className="py-1.5 pl-6 pr-2 border-l-2 border-primary/30 text-muted-foreground text-[11px]">
                           <span className="mr-1">└─</span>
-                          <span className="text-foreground font-medium">{p?.name ?? "Full Day"}</span>
+                          <span className="text-foreground font-medium">{periodLabel}</span>
                         </td>
                         <td className="text-right px-2 tabular-nums">
                           {isSinglePeriodVenue && stat ? fmtHKD(stat.statisticalTargetAmount) : <span className="text-muted-foreground">—</span>}
@@ -1556,7 +1563,7 @@ function DailyRegister(props: DailyRegisterProps) {
                           {lineRev == null ? <span className="text-muted-foreground italic font-normal">Not set</span> : fmtHKD(lineRev)}
                         </td>
                         <td className="text-right px-2 tabular-nums">
-                          {isSinglePeriodVenue && act?.revenue != null ? fmtHKD(act.revenue) : <span className="text-muted-foreground">—</span>}
+                          {periodActual ? fmtHKD(periodActual.revenue) : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="text-right px-2 tabular-nums">
                           {canEdit && !notOperating ? (
@@ -1569,7 +1576,7 @@ function DailyRegister(props: DailyRegisterProps) {
                               : <span className={guestIsPrefill ? "text-muted-foreground" : undefined}>{fmtInt(effGuest)}</span>)}
                         </td>
                         <td className="text-right px-2 tabular-nums">
-                          {isSinglePeriodVenue && act?.guests != null ? fmtInt(act.guests) : <span className="text-muted-foreground">—</span>}
+                          {periodActual ? fmtInt(periodActual.guests) : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="text-right px-2 tabular-nums">
                           {canEdit && !notOperating ? (
@@ -1582,7 +1589,9 @@ function DailyRegister(props: DailyRegisterProps) {
                               : <span className={spgIsPrefill ? "text-muted-foreground" : undefined}>{fmtHKD(effSpg)}</span>)}
                         </td>
                         <td className="text-right px-2 tabular-nums">
-                          {isSinglePeriodVenue && act && act.guests > 0 ? fmtHKD(act.revenue / act.guests) : <span className="text-muted-foreground">—</span>}
+                          {periodActual && periodActual.spendPerGuest != null
+                            ? fmtHKD(periodActual.spendPerGuest)
+                            : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="text-right px-2 text-muted-foreground">—</td>
                         <td className="text-right px-2 text-muted-foreground">—</td>
@@ -1590,6 +1599,7 @@ function DailyRegister(props: DailyRegisterProps) {
                       </tr>
                     );
                   })}
+
                 </React.Fragment>
               );
             })}
