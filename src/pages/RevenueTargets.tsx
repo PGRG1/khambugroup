@@ -144,53 +144,60 @@ function StatusChip({ s }: { s: OperatingStatus }) {
   );
 }
 
-// ---------- Multi-select popover ----------
-function MultiSelect<T extends string | number>({
-  label, options, values, onChange, formatLabel,
-}: {
-  label: string; options: { value: T; label: string }[]; values: T[];
-  onChange: (v: T[]) => void; formatLabel?: (n: number) => string;
-}) {
-  const [open, setOpen] = useState(false);
-  const summary = values.length === 0
-    ? "All"
-    : formatLabel ? formatLabel(values.length) : `${values.length} selected`;
+// ---------- Toolbar primitives (private) ----------
+function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 justify-between min-w-[160px]">
-          <span className="text-xs text-muted-foreground">{label}:</span>
-          <span className="ml-2 text-sm truncate">{summary}</span>
-          <ChevronDown className="h-3.5 w-3.5 ml-2 opacity-70" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-2" align="start">
-        <div className="flex items-center justify-between mb-2">
-          <button className="text-xs text-primary" onClick={() => onChange([])}>Clear</button>
-          <button className="text-xs text-muted-foreground"
-            onClick={() => onChange(options.map((o) => o.value))}>Select all</button>
-        </div>
-        <div className="max-h-72 overflow-auto space-y-1">
-          {options.map((o) => {
-            const checked = values.includes(o.value);
-            return (
-              <label key={String(o.value)} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer">
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(v) => {
-                    if (v) onChange([...values, o.value]);
-                    else onChange(values.filter((x) => x !== o.value));
-                  }}
-                />
-                <span className="text-sm">{o.label}</span>
-              </label>
-            );
-          })}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <span className="text-[11px] text-muted-foreground uppercase tracking-wide mr-1">
+      {children}
+    </span>
   );
 }
+
+function ToolbarDivider() {
+  return <span className="h-5 w-px bg-border mx-1" aria-hidden />;
+}
+
+function PillToggle({
+  active, onClick, variant = "outlined", children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  variant?: "outlined" | "filled";
+  children: React.ReactNode;
+}) {
+  const base = "h-7 px-2.5 rounded-full border text-xs font-medium transition-colors whitespace-nowrap";
+  const styles = variant === "filled"
+    ? (active
+        ? "bg-primary text-primary-foreground border-primary"
+        : "bg-transparent border-border text-muted-foreground hover:text-foreground")
+    : (active
+        ? "border-primary text-primary bg-primary/10"
+        : "border-border text-muted-foreground hover:text-foreground");
+  return (
+    <button type="button" onClick={onClick} className={`${base} ${styles}`}>
+      {children}
+    </button>
+  );
+}
+
+function LinkToggle({
+  active, onClick, children,
+}: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-xs whitespace-nowrap transition-colors ${
+        active
+          ? "text-primary font-medium underline underline-offset-4"
+          : "text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 
 // ---------- Main page ----------
 export default function RevenueTargets() {
