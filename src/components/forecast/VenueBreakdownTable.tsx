@@ -80,7 +80,10 @@ const VenueBreakdownTable = ({
 
   const totalMgr = rows.reduce((s, r) => s + (r.managerSum ?? 0), 0);
   const totalAct = rows.reduce((s, r) => s + r.actual, 0);
+  const totalStat = rows.reduce((s, r) => s + (r.statistical ?? 0), 0);
   const anyMgr = rows.some((r) => r.managerSum != null);
+  const anyStat = rows.some((r) => r.statistical != null);
+
 
   return (
     <div className="card-glass rounded-xl p-4 overflow-x-auto">
@@ -105,9 +108,10 @@ const VenueBreakdownTable = ({
               className="border-b border-border/40 hover:bg-muted/30 transition-colors"
             >
               <td className="py-2 px-2 font-medium">{r.venue}</td>
-              <td className="py-2 px-2 text-right td-num text-muted-foreground">
-                —
+              <td className="py-2 px-2 text-right td-num">
+                {r.statistical != null ? formatCurrency(r.statistical) : <span className="text-muted-foreground">—</span>}
               </td>
+
               <td className="py-2 px-2 text-right td-num">
                 {r.managerSum != null ? formatCurrency(r.managerSum) : "—"}
               </td>
@@ -147,9 +151,10 @@ const VenueBreakdownTable = ({
           ))}
           <tr className="border-t-2 border-border font-semibold">
             <td className="py-2 px-2">Total</td>
-            <td className="py-2 px-2 text-right td-num text-muted-foreground">
-              —
+            <td className="py-2 px-2 text-right td-num">
+              {anyStat ? formatCurrency(totalStat) : <span className="text-muted-foreground">—</span>}
             </td>
+
             <td className="py-2 px-2 text-right td-num">
               {anyMgr ? formatCurrency(totalMgr) : "—"}
             </td>
