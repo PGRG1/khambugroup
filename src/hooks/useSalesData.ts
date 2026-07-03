@@ -30,6 +30,7 @@ function toDbRecord(r: SalesRecord, tenantId?: string | null) {
     card_tips: -Math.abs(r.cardTips), // always store as negative (mirrors discount)
     receipt_file_url: r.receiptFileUrl ?? null,
     receipt_file_name: r.receiptFileName ?? null,
+    service_period_id: r.servicePeriodId ?? null,
   };
 }
 
