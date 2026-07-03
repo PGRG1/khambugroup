@@ -1056,15 +1056,19 @@ interface DailyRegisterProps {
   actuals: any[];
   pendingIds: Set<string>;
   canEdit: boolean;
+  canApprove: boolean;
   onEdit: (id: string, patch: Partial<ManagerTargetLine>) => void;
   onSaveDay: (venueId: string, date: string) => Promise<void>;
+  onApproveDay: (venueId: string, date: string) => Promise<void>;
   onApplyStatistical: (line: ManagerTargetLine, stat: { rev: number | null; g: number | null; spg: number | null }) => Promise<void>;
   onSetStatus: (venueId: string, date: string, s: OperatingStatus, notes?: string) => Promise<void>;
   onLineStatus: (line: ManagerTargetLine, s: any, reason?: string) => Promise<void>;
   onAddEvent: (venueId: string, date: string, ev: {
     name: string; mode: EventMode; replacesServicePeriodId?: string | null;
     guests?: number | null; spg?: number | null; contractedRevenue?: number | null;
+    reason?: string | null;
   }) => Promise<void>;
+  requestReason: (kind: AdjustmentReasonKind, onConfirm: (reason: string) => void | Promise<void>) => void;
 }
 
 function DailyRegister(props: DailyRegisterProps) {
