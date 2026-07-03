@@ -9114,6 +9114,22 @@ export type Database = {
       }
     }
     Functions: {
+      add_revenue_event_with_replacement: {
+        Args: {
+          p_event_mode: string
+          p_event_name: string
+          p_manager_guest_target: number
+          p_manager_revenue_override: number
+          p_manager_spend_per_guest_target: number
+          p_notes: string
+          p_replaces_service_period_id: string
+          p_target_date: string
+          p_target_input_mode: string
+          p_tenant_id: string
+          p_venue_id: string
+        }
+        Returns: string
+      }
       compute_ai_rule_key: {
         Args: { _action: Json; _pattern: Json }
         Returns: string
