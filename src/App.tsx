@@ -23,6 +23,7 @@ import KpiTargets from "./pages/kpis/KpiTargets";
 import KpiPlanner from "./pages/kpis/KpiPlanner";
 
 import ForecastInput from "./pages/ForecastInput";
+import RevenueTargets from "./pages/RevenueTargets";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
 import Settings from "./pages/Settings";
@@ -171,7 +172,9 @@ function App() {
                 <Route path="/sales-data/:id" element={<ProtectedRoute pageKey="revenue"><SalesRecordDetail /></ProtectedRoute>} />
                 <Route path="/revenue/reconciliation" element={<ProtectedRoute pageKey="revenue"><Reconciliation /></ProtectedRoute>} />
 
-                <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
+                <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><RevenueTargets /></ProtectedRoute>} />
+                <Route path="/forecast-legacy/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
+
                 <Route path="/activity-log" element={<ProtectedRoute pageKey="activity-log"><AuditLog /></ProtectedRoute>} />
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
                 <Route path="/finance" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
