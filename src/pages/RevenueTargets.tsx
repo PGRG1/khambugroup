@@ -1378,6 +1378,28 @@ function DailyRegister(props: DailyRegisterProps) {
                       {deltaStat != null ? fmtHKD(deltaStat) : "—"}
                     </td>
                     <td className="py-1.5 px-2">{perfBadge}</td>
+                    <td className="py-1.5 px-2">
+                      <div className="flex items-center gap-1">
+                        {canEdit && hasPending && (
+                          <Button size="sm" variant="outline" className="h-6 text-[11px]"
+                            onClick={() => onSaveDay(r.venueId, r.date)}>Save</Button>
+                        )}
+                        {canApprove && lns.some((l) => l.status === "saved") && (
+                          <Button size="sm" variant="default" className="h-6 text-[11px]"
+                            onClick={() => onApproveDay(r.venueId, r.date)}>Approve</Button>
+                        )}
+                        {canEdit && (
+                          <Select value={status} onValueChange={(v) => onSetStatus(r.venueId, r.date, v as OperatingStatus)}>
+                            <SelectTrigger className="h-6 w-[90px] text-[11px] border-none bg-transparent px-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATUSES.map((s) => <SelectItem key={s} value={s} className="text-xs">{s.replace("_", " ")}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                   {isOpen && spLines.length === 0 && (
                     <tr className="border-b border-border/50">
