@@ -485,6 +485,23 @@ export default function RevenueTargets() {
     managerLines.map((l) => ({ ...l, ...pendingEdits[l.id] })),
     [managerLines, pendingEdits]);
 
+  const EPS = 0.01;
+  const resolveManagerSource = (t: ManagerTargetLine): "manual" | "statistical_default" => {
+    const s: any = statistical.find(
+      (r: any) =>
+        r.venueId === t.venueId &&
+        r.targetDate === t.targetDate &&
+        r.servicePeriodId === t.servicePeriodId,
+    );
+    const sg = s?.statisticalGuestTarget ?? null;
+    const ss = s?.statisticalSpendPerGuest ?? null;
+    const g = t.managerGuestTarget;
+    const p = t.managerSpendPerGuestTarget;
+    const gMatches = g == null || (sg != null && Math.abs(Number(g) - Number(sg)) <= EPS);
+    const pMatches = p == null || (ss != null && Math.abs(Number(p) - Number(ss)) <= EPS);
+    return gMatches && pMatches ? "statistical_default" : "manual";
+  };
+
   const performSaveDay = async (
     venueId: string, date: string, targets: ManagerTargetLine[], adjustmentReason?: string | null,
   ) => {
