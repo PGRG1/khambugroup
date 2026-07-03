@@ -1425,6 +1425,7 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
   onSubmit: (ev: {
     name: string; mode: EventMode; replacesServicePeriodId?: string | null;
     guests?: number | null; spg?: number | null; contractedRevenue?: number | null;
+    reason?: string | null;
   }) => Promise<void>;
 }) {
   const [name, setName] = useState("");
@@ -1433,10 +1434,16 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
   const [guests, setGuests] = useState<string>("");
   const [spg, setSpg] = useState<string>("");
   const [contracted, setContracted] = useState<string>("");
+  const [reason, setReason] = useState<string>("");
+  const reasonRequired = mode === "replaces_period" || mode === "events_only";
   const submit = async () => {
     if (!name.trim()) { toast({ title: "Event name required", variant: "destructive" }); return; }
     if (mode === "replaces_period" && !replacesId) {
       toast({ title: "Select the service period being replaced", variant: "destructive" }); return;
+    }
+    if (reasonRequired && reason.trim().length < 3) {
+      toast({ title: "Reason required", description: "Explain why this event replaces normal service.", variant: "destructive" });
+      return;
     }
     await onSubmit({
       name: name.trim(), mode,
@@ -1444,6 +1451,7 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
       guests: guests ? Number(guests) : null,
       spg: spg ? Number(spg) : null,
       contractedRevenue: contracted ? Number(contracted) : null,
+      reason: reasonRequired ? reason.trim() : null,
     });
   };
   return (
