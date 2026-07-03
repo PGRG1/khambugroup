@@ -1293,7 +1293,7 @@ function DailyRegister(props: DailyRegisterProps) {
               <th className="text-right py-2 px-2">Act vs Mgr</th>
               <th className="text-right py-2 px-2">Act vs Stat</th>
               <th className="text-left py-2 px-2">Performance</th>
-              <th className="text-left py-2 px-2">Actions</th>
+              
             </tr>
           </thead>
           <tbody className="tabular-nums">
@@ -1378,33 +1378,11 @@ function DailyRegister(props: DailyRegisterProps) {
                       {deltaStat != null ? fmtHKD(deltaStat) : "—"}
                     </td>
                     <td className="py-1.5 px-2">{perfBadge}</td>
-                    <td className="py-1.5 px-2">
-                      <div className="flex items-center gap-1">
-                        {canEdit && hasPending && (
-                          <Button size="sm" variant="outline" className="h-6 text-[11px]"
-                            onClick={() => onSaveDay(r.venueId, r.date)}>Save</Button>
-                        )}
-                        {canApprove && lns.some((l) => l.status === "saved") && (
-                          <Button size="sm" variant="default" className="h-6 text-[11px]"
-                            onClick={() => onApproveDay(r.venueId, r.date)}>Approve</Button>
-                        )}
-                        {canEdit && (
-                          <Select value={status} onValueChange={(v) => onSetStatus(r.venueId, r.date, v as OperatingStatus)}>
-                            <SelectTrigger className="h-6 w-[90px] text-[11px] border-none bg-transparent px-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {STATUSES.map((s) => <SelectItem key={s} value={s} className="text-xs">{s.replace("_", " ")}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                    </td>
                   </tr>
                   {isOpen && spLines.length === 0 && (
                     <tr className="border-b border-border/50">
                       <td className="w-6"></td>
-                      <td colSpan={15} className="py-1.5 px-2 border-l-2 border-primary/30 pl-6 text-muted-foreground text-xs">
+                      <td colSpan={14} className="py-1.5 px-2 border-l-2 border-primary/30 pl-6 text-muted-foreground text-xs">
                         No service-period rows for this day.
                       </td>
                     </tr>
@@ -1474,38 +1452,6 @@ function DailyRegister(props: DailyRegisterProps) {
                         <td className="text-right px-2 text-muted-foreground">—</td>
                         <td className="text-right px-2 text-muted-foreground">—</td>
                         <td className="py-1.5 px-2 text-muted-foreground">—</td>
-                        <td className="py-1.5 px-2">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {l.lineStatus === "operating" && (
-                              l.managerSource === "manual"
-                                ? <Badge className="text-[10px] bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] border border-[hsl(var(--primary)/0.3)]">Manager Adjusted</Badge>
-                                : <Badge variant="outline" className="text-[10px] text-muted-foreground border-border">Statistical</Badge>
-                            )}
-                            {canEdit && (
-                              <>
-                                <Button size="sm" variant="ghost" className="h-6 text-[10px]"
-                                  disabled={!canUseStat}
-                                  title={statTooltip}
-                                  onClick={() => onApplyStatistical(l, {
-                                    rev: stat?.statisticalTargetAmount ?? null,
-                                    g: stat?.statisticalGuestTarget ?? null,
-                                    spg: stat?.statisticalSpendPerGuest ?? null,
-                                  })}>
-                                  <Sparkles className="h-3 w-3 mr-1" /> Use Statistical
-                                </Button>
-                                {l.lineStatus === "operating" ? (
-                                  <Button size="sm" variant="ghost" className="h-6 text-[10px] text-[hsl(var(--destructive))]"
-                                    onClick={() => {
-                                      requestReason("not_operating", (reason) => onLineStatus(l, "not_operating", reason));
-                                    }}>Not Op</Button>
-                                ) : (
-                                  <Button size="sm" variant="ghost" className="h-6 text-[10px] text-[hsl(var(--success))]"
-                                    onClick={() => onLineStatus(l, "operating")}>Reactivate</Button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </td>
                       </tr>
                     );
                   })}
