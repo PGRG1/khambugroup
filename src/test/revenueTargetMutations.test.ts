@@ -120,7 +120,7 @@ describe("useRevenueTargetMutations — draft Manager save", () => {
       expect(r.ok).toBe(true);
     });
     expect(insertMock).toHaveBeenCalledOnce();
-    const payload = insertMock.mock.calls[0][0];
+    const payload = (insertMock.mock.calls[0] as any)[0];
     expect(payload.status).toBe("draft");
     expect(payload.tenant_id).toBe(T);
     expect(payload.manager_guest_target).toBe(100);
@@ -135,7 +135,7 @@ describe("useRevenueTargetMutations — approval transition", () => {
       expect(r.ok).toBe(true);
     });
     expect(updateMock).toHaveBeenCalledOnce();
-    expect(updateMock.mock.calls[0][0]).toEqual({ status: "approved" });
+    expect((updateMock.mock.calls[0] as any)[0]).toEqual({ status: "approved" });
   });
 });
 
@@ -150,7 +150,7 @@ describe("useRevenueTargetMutations — additive event", () => {
       });
     });
     expect(rpcMock).toHaveBeenCalledOnce();
-    const [, args] = rpcMock.mock.calls[0];
+    const [, args] = (rpcMock.mock.calls[0] as any);
     expect(args.p_event_mode).toBe("additive");
     expect(args.p_replaces_service_period_id).toBeNull();
   });
@@ -199,7 +199,7 @@ describe("useRevenueTargetMutations — events-only event", () => {
         managerGuestTarget: 80, managerSpendPerGuestTarget: 1200,
       });
     });
-    expect(rpcMock.mock.calls[0][1].p_event_mode).toBe("events_only");
+    expect(((rpcMock.mock.calls[0] as any) as any)[1].p_event_mode).toBe("events_only");
   });
 });
 
@@ -214,7 +214,7 @@ describe("useRevenueTargetMutations — Not Operating and reactivation", () => {
       });
     });
     expect(updateMock).toHaveBeenCalledOnce();
-    const patch = updateMock.mock.calls[0][0];
+    const patch = (updateMock.mock.calls[0] as any)[0];
     expect(patch.line_status).toBe("not_operating");
     expect(patch.zero_reason).toBe("Deep clean scheduled");
   });
@@ -228,7 +228,7 @@ describe("useRevenueTargetMutations — Not Operating and reactivation", () => {
         zeroReason: null,
       });
     });
-    const patch = updateMock.mock.calls[0][0];
+    const patch = (updateMock.mock.calls[0] as any)[0];
     expect(patch.line_status).toBe("operating");
     expect(patch.zero_reason).toBeNull();
   });
