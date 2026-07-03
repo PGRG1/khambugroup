@@ -533,10 +533,27 @@ export default function RevenueTargets() {
     return delta > 0.15;
   };
 
+  // Detect whether any pending edit diverges from the statistical_default seed baseline
+  // (guest target or SPG changed compared to the seeded stat values).
+  const divergesFromStatSeed = (targets: ManagerTargetLine[]) => {
+    for (const t of targets) {
+      const original = managerLines.find((l) => l.id === t.id);
+      if (!original) continue;
+      if (original.managerSource !== "statistical_default") continue;
+      const gChanged = t.managerGuestTarget != null
+        && Number(t.managerGuestTarget) !== Number(original.managerGuestTarget ?? NaN);
+      const spgChanged = t.managerSpendPerGuestTarget != null
+        && Math.abs(Number(t.managerSpendPerGuestTarget) - Number(original.managerSpendPerGuestTarget ?? NaN)) > 0.01;
+      if (gChanged || spgChanged) return true;
+    }
+    return false;
+  };
+
   const saveDay = async (venueId: string, date: string) => {
     const targets = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date && pendingEdits[l.id]);
     if (!targets.length) return;
-    if (varianceExceedsThreshold(venueId, date, targets)) {
+    const needsReason = varianceExceedsThreshold(venueId, date, targets) || divergesFromStatSeed(targets);
+    if (needsReason) {
       requestReason("variance_threshold", async (reason) => {
         setReasonReq(null);
         await performSaveDay(venueId, date, targets, reason);
