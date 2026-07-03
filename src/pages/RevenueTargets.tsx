@@ -110,6 +110,23 @@ function KpiCard({
   );
 }
 
+function KpiCardDot({
+  dot, label, value, hint,
+}: { dot: string; label: string; value: React.ReactNode; hint?: React.ReactNode }) {
+  return (
+    <Card className="p-3 border-border bg-card">
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <div className="mt-1 text-xl font-bold tabular-nums text-foreground">{value}</div>
+      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>}
+    </Card>
+  );
+}
+
 function StatusChip({ s }: { s: OperatingStatus }) {
   const map: Record<OperatingStatus, string> = {
     normal: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
