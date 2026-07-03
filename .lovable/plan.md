@@ -1,81 +1,60 @@
 ## Scope
-`src/pages/RevenueTargets.tsx` (DailyRegister + ServicePeriodTable) and `src/components/revenue-targets/AdjustmentReasonDialog.tsx`. No backend changes. `EventTable`/`EventDialog` remain defined but unrendered.
+`src/pages/RevenueTargets.tsx` only — `DailyRegister` main row + expanded section + `ServicePeriodTable`. No backend changes. `EventTable` / `EventDialog` stay defined but unused.
 
-## 1. Fix "Use Statistical" (structural bug)
+## 1. Main row: fully read-only aggregate
+Remove the `isSinglePeriodVenue` inline-edit branch from the main row entirely:
+- Delete `spLine`, `canInlineEdit`, `effGuest/effSpg`, `guestPrefill/spgPrefill`, `inlineMgrRev` scoped to the main row. Keep `agg`, `stat`, `act`, `actRev`, `statRev`.
+- Mgr Rev cell → `fmtHKD(agg.revenue)` (or "Not set" only when `anyDraft`). No badge.
+- Mgr Guests cell → `fmtInt(agg.guests)`. No `<Input>`.
+- Mgr SPG cell → `fmtHKD(agg.spendPerGuest)`. No `<Input>`.
+- `mgrRev` used by performance/deltas = `agg.revenue`.
 
-The current guard `stat.servicePeriodId === l.servicePeriodId` never matches because the Full-Day stat row's `servicePeriodId` is the venue rollup, not an operational period. Replace with a single-period-venue check driven by `periods`:
+## 2. Remove "+ Event" button
+Delete the `<Button …>+ Event</Button>` JSX and remove the `eventFor` state, `setEventFor`, and `<EventDialog>` render since nothing else opens it. **Keep the `Plus` import** — it's used elsewhere in this file (e.g. Set Up / Initialize draft rows action).
 
-```ts
-const isSinglePeriodVenue = periods.filter(
-  (p) => p.venueId === l.venueId && p.isActive && !p.isRollupOnly,
-).length === 1;
-const canUseStat = isSinglePeriodVenue
-  && stat?.statisticalGuestTarget != null
-  && stat?.statisticalSpendPerGuest != null;
+## 3. Expanded section: nested sub-rows, not a boxed sub-table
+Replace the `<tr><td colSpan={16}>…ServicePeriodTable…</td></tr>` wrapper with per-period sub-rows rendered directly inside the parent `<tbody>` so columns align with the parent header:
+
+```text
+[ ] 01 Mon  Assembly  Normal   Stat…   Mgr…   Act…   MgrG   ActG   MgrSPG  ActSPG  ΔMgr  ΔStat  Perf   [Save/Approve/Status]
+              └─ Full Day        —       …      …      [inp]  …     [inp]   …      —     —     —      [badge] [Use Stat] [Not Op]
 ```
 
-Wherever the ServicePeriodTable currently reads `statForPeriod.*` for Stat Rev / Guests / SPG, read from `stat` directly and gate display on `isSinglePeriodVenue` (else render `"—"`). The `Use Statistical` button is disabled unless `canUseStat`; tooltip is:
-- multi-period: `"No per-period benchmark — this venue has multiple service periods"`
-- single-period, no benchmark: `"Statistical benchmark unavailable for this day"`
+Structure per expanded parent row: one leading empty `<td>` (chevron gutter), then a colSpan-2 sub-label cell ("Full Day" / period name) styled `border-l-2 border-primary/30 pl-6`, then aligned data cells reusing the parent columns. Density: `py-1.5`, no `p-3` wrapper, no "Normal Service" header when only service-period lines exist and no events.
 
-## 2. Prefill Guest / SPG from statistical, muted until edited
+Inline `ServicePeriodTable`'s per-line rendering directly into the parent map rather than keeping it as a standalone component with its own `<thead>` — guarantees column alignment and removes the duplicate header. Each period renders as its own indented sub-row; editing (Guest/SPG inputs, source badge, Use Statistical, Not Op / Reactivate) lives only on these sub-rows.
 
-In both `ServicePeriodTable` rows and the new single-period main row (see §3):
+## 4. Token-driven badge styling
+- **Operating Status chip**: `variant="outline" text-muted-foreground border-border` — fades into background.
+- **Performance badge**:
+  - Future: `variant="outline" text-muted-foreground border-border`
+  - On / above: `bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))] border-[hsl(var(--success)/0.3)]`
+  - Below: `bg-[hsl(var(--destructive)/0.12)] text-[hsl(var(--destructive))] border-[hsl(var(--destructive)/0.3)]`
+- **Source badge** (only inside expanded sub-row):
+  - Statistical: `variant="outline" text-muted-foreground border-border`
+  - Manager Adjusted: `bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] border-[hsl(var(--primary)/0.3)]`
 
-```ts
-const effGuest = l.managerGuestTarget ?? stat?.statisticalGuestTarget ?? null;
-const effSpg   = l.managerSpendPerGuestTarget ?? stat?.statisticalSpendPerGuest ?? null;
-const guestPrefill = l.managerGuestTarget == null && stat?.statisticalGuestTarget != null;
-const spgPrefill   = l.managerSpendPerGuestTarget == null && stat?.statisticalSpendPerGuest != null;
-```
+Delta columns (`Act vs Mgr`, `Act vs Stat`) swap `text-emerald-500` / `text-rose-500` → `text-[hsl(var(--success))]` / `text-[hsl(var(--destructive))]` for consistency.
 
-Bind inputs to `effGuest ?? ""` / `effSpg ?? ""`, styled `text-muted-foreground` when the prefill flag is true, otherwise `text-foreground`. Clearing an input writes `null`, restoring the muted prefill. Revenue is always `Guest × SPG`, read-only, no direct input.
+## 5. Input styling
+Sub-row Guest/SPG `<Input>`s use:
+`className="h-7 w-24 text-right text-xs border-border/60 focus-visible:ring-1 focus-visible:ring-primary/40 bg-background [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"`
+Prefill state keeps `text-muted-foreground`; edited state → `text-foreground`.
 
-## 3. Main row: inline-editable for single-period venues
-
-In `DailyRegister`'s main row per (venue, date):
-
-- **Single-period venue** (`opLines.length === 1` and that line is operational): render Mgr Guests / Mgr SPG as `<Input>`s with the §2 prefill/muted behavior, wired to `onEdit(opLines[0].id, …)`. Mgr Rev = `Guest × SPG` computed, read-only.
-- **Multi-period venue**: leave the row exactly as today (read-only aggregate); editing happens inside the expanded ServicePeriodTable.
-
-## 4. Source badge — Statistical vs Manager Adjusted
-
-`resolveManagerSource` already exists near `performSaveDay` and both `managerSource: resolveManagerSource(t),` payload replacements are already in place — no changes needed there.
-
-Render a badge:
-- `"statistical_default"` or null → `<Badge variant="outline" className="text-[10px]">Statistical</Badge>`
-- `"manual"` → `<Badge variant="default" className="text-[10px]">Manager Adjusted</Badge>`
-
-Placement: on every ServicePeriodTable row (in the Actions cell — replace the existing "Statistical / Manager override" badge with the new label wording), and on the main DailyRegister row **only when single-period** (next to the Mgr Rev cell). No badge on multi-period main rows.
-
-## 5. Reason-dialog trigger for real overrides
-
-In `AdjustmentReasonDialog.tsx`, `manual_override` kind is already registered (previous work). Confirm the HEADING/HINT copy matches the spec; adjust if drifted.
-
-In `saveDay`, the trigger order is already: `varianceExceedsThreshold` → `manual_override` transition → save. Verify the `hasManualOverrideTransition` computation matches the spec exactly (using `original.managerSource == null || === "statistical_default"`) and that no reference to any invented function remains.
-
-## 6. New columns + performance badge in main row
-
-Header changes (`<thead>`): after `Act vs Mgr` add columns `Act vs Stat` and `Performance` (distinct from the existing operating-status `StatusChip`, which stays).
-
-Row rendering:
-- Stat Rev cell: value on line 1, `<div className="text-[10px] text-muted-foreground">Median of prior {WEEKDAYS[wd]}s</div>` beneath (only when `stat` is present).
-- Act vs Stat: `actRev != null && stat ? fmtHKD(actRev - stat.statisticalTargetAmount) : "—"`, coloured `text-emerald-500` if `>= 0`, `text-rose-500` if `< 0` (mirrors Act vs Mgr).
-- Performance badge:
-  - `actRev == null` → `<Badge variant="outline" className="text-[10px] text-muted-foreground">Future</Badge>`
-  - `actRev >= mgrRev` → `<Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30">On / above</Badge>`
-  - else → `<Badge className="text-[10px] bg-rose-500/15 text-rose-500 border-rose-500/30">Below</Badge>`
+## 6. Alignment & type polish
+- Date cell (`{r.date.slice(8)}`): `text-foreground font-medium` — kill any inherited link-blue styling.
+- Every numeric column cell gets `tabular-nums` — audit to ensure no override strips it, especially on delta cells wrapped in template-string classNames.
+- Right-aligned numeric columns already use `text-right px-2`; keep.
 
 ## Non-goals
-- No backend/RPC/schema changes.
-- Don't touch `EventTable`/`EventDialog` definitions or re-enable their rendering.
-- Don't alter the existing operating-status `StatusChip` / status `Select`.
+- No changes to `--primary` / `--chart-N` / `--success` / `--destructive` definitions in `index.css`.
+- No Event UI reintroduction.
+- No backend / RPC / schema changes.
+- Monthly rollup KPIs, ServicePeriods page, `StatusChip` elsewhere unaffected.
 
 ## Verification
-- Untouched day: Guest/SPG show muted prefilled statistical values; badge "Statistical"; save fires no dialog.
-- Edit + save: text weight normal; DB `manager_source = "manual"`; badge flips to "Manager Adjusted"; first divergence fires `manual_override` dialog.
-- Aggregate day variance >15% still independently fires the existing `variance_threshold` dialog.
-- Single-period venue: main row is inline-editable; "Use Statistical" applies real numbers.
-- Multi-period venue: main row read-only, no badge; per-period editing/badges/"Use Statistical" all work inside the expanded ServicePeriodTable.
-- `Act vs Stat` and Performance badge render correctly across Future / On-above / Below.
-- Typecheck passes: `bunx tsgo --noEmit`, or `npm run build` as fallback if tsgo isn't available.
+- Collapsed row for every venue/day: no `<Input>`, no source badge, no "+ Event" button.
+- Expanding any row (single-period Assembly OR multi-period venue): editable Guest/SPG appear only inside indented sub-rows, each with its own source badge and "Use Statistical" / "Not Op" action.
+- Performance badge renders in success/destructive/muted token colors across Future / On-above / Below.
+- Sub-rows visually attach to parent (left border accent + indent), column-aligned with the parent header — no duplicate `<thead>`, no boxed background card.
+- `npm run build` completes without TypeScript errors.

@@ -1224,9 +1224,9 @@ interface DailyRegisterProps {
 function DailyRegister(props: DailyRegisterProps) {
   const { year, month, venues, periods, opPeriods, days, lines, statistical, actuals,
     pendingIds, canEdit, canApprove, onEdit, onSaveDay, onApproveDay, onApplyStatistical,
-    onSetStatus, onLineStatus, onAddEvent, requestReason } = props;
+    onSetStatus, onLineStatus, requestReason } = props;
+  void opPeriods;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [eventFor, setEventFor] = useState<{ venueId: string; date: string } | null>(null);
 
   const daysInMonth = new Date(year, month, 0).getDate();
   const dates = Array.from({ length: daysInMonth }, (_, i) => isoDate(year, month, i + 1));
@@ -1264,6 +1264,10 @@ function DailyRegister(props: DailyRegisterProps) {
   const rows: { venueId: string; venueName: string; date: string }[] = [];
   for (const v of venues) for (const d of dates) rows.push({ venueId: v.id, venueName: v.name, date: d });
 
+  const statusLabel: Record<OperatingStatus, string> = {
+    normal: "Normal", mixed: "Mixed", events_only: "Events Only", closed: "Closed",
+  };
+
   return (
     <SectionCard title="Daily Target Register" right={
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1298,6 +1302,7 @@ function DailyRegister(props: DailyRegisterProps) {
               const status = dayStatus.get(k) ?? "normal";
               const lns = linesByDay.get(k) ?? [];
               const opLines = lns.filter((l) => isOperationalLine(l, periods));
+              const spLines = opLines.filter((l) => l.lineType === "service_period");
               const agg = aggregateManager(lns, periods);
               const stat = statByDay.get(k);
               const act = actByDay.get(k);
@@ -1307,36 +1312,24 @@ function DailyRegister(props: DailyRegisterProps) {
               const anyDraft = lns.some((l) => l.status === "draft" && l.lineStatus === "operating"
                 && (l.managerGuestTarget == null || l.managerSpendPerGuestTarget == null));
 
-              // Single-period venue detection for inline editing on the main row.
               const venueOpPeriods = periods.filter(
                 (p) => p.venueId === r.venueId && p.isActive && !p.isRollupOnly,
               );
               const isSinglePeriodVenue = venueOpPeriods.length === 1;
-              const spLine = isSinglePeriodVenue
-                ? opLines.find((l) => l.lineType === "service_period") ?? null
-                : null;
-              const canInlineEdit = canEdit && !!spLine && spLine.lineStatus === "operating";
 
-              const effGuest = spLine
-                ? (spLine.managerGuestTarget ?? stat?.statisticalGuestTarget ?? null)
-                : null;
-              const effSpg = spLine
-                ? (spLine.managerSpendPerGuestTarget ?? stat?.statisticalSpendPerGuest ?? null)
-                : null;
-              const guestPrefill = !!spLine && spLine.managerGuestTarget == null && stat?.statisticalGuestTarget != null;
-              const spgPrefill = !!spLine && spLine.managerSpendPerGuestTarget == null && stat?.statisticalSpendPerGuest != null;
-
-              const inlineMgrRev = isSinglePeriodVenue && effGuest != null && effSpg != null
-                ? Number(effGuest) * Number(effSpg)
-                : null;
-              const mgrRev = isSinglePeriodVenue && inlineMgrRev != null ? inlineMgrRev : agg.revenue;
+              const mgrRev = agg.revenue;
               const actRev = act?.revenue ?? null;
               const statRev = stat?.statisticalTargetAmount ?? null;
               const perfBadge = actRev == null
-                ? <Badge variant="outline" className="text-[10px] text-muted-foreground">Future</Badge>
+                ? <Badge variant="outline" className="text-[10px] text-muted-foreground border-border">Future</Badge>
                 : (actRev >= mgrRev
-                  ? <Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30">On / above</Badge>
-                  : <Badge className="text-[10px] bg-rose-500/15 text-rose-500 border-rose-500/30">Below</Badge>);
+                  ? <Badge className="text-[10px] bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))] border border-[hsl(var(--success)/0.3)]">On / above</Badge>
+                  : <Badge className="text-[10px] bg-[hsl(var(--destructive)/0.12)] text-[hsl(var(--destructive))] border border-[hsl(var(--destructive)/0.3)]">Below</Badge>);
+
+              const deltaMgr = actRev != null ? actRev - mgrRev : null;
+              const deltaStat = actRev != null && statRev != null ? actRev - statRev : null;
+              const deltaMgrClass = deltaMgr == null ? "" : (deltaMgr >= 0 ? "text-[hsl(var(--success))]" : "text-[hsl(var(--destructive))]");
+              const deltaStatClass = deltaStat == null ? "" : (deltaStat >= 0 ? "text-[hsl(var(--success))]" : "text-[hsl(var(--destructive))]");
 
               return (
                 <React.Fragment key={k}>
@@ -1350,11 +1343,15 @@ function DailyRegister(props: DailyRegisterProps) {
                         {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronR className="h-3.5 w-3.5" />}
                       </button>
                     </td>
-                    <td className="py-1.5 px-2">{r.date.slice(8)}</td>
+                    <td className="py-1.5 px-2 text-foreground font-medium tabular-nums">{r.date.slice(8)}</td>
                     <td className="py-1.5 px-2 text-muted-foreground">{WEEKDAYS[wd]}</td>
                     <td className="py-1.5 px-2 font-medium">{r.venueName}</td>
-                    <td className="py-1.5 px-2"><StatusChip s={status} /></td>
-                    <td className="text-right px-2">
+                    <td className="py-1.5 px-2">
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground border-border font-normal">
+                        {statusLabel[status]}
+                      </Badge>
+                    </td>
+                    <td className="text-right px-2 tabular-nums">
                       {stat ? (
                         <div className="flex flex-col items-end">
                           <span>{fmtHKD(statRev)}</span>
@@ -1362,50 +1359,23 @@ function DailyRegister(props: DailyRegisterProps) {
                         </div>
                       ) : "—"}
                     </td>
-                    <td className="text-right px-2 font-semibold">
-                      {isSinglePeriodVenue && spLine ? (
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span>{inlineMgrRev != null ? fmtHKD(inlineMgrRev) : <span className="text-muted-foreground italic">Not set</span>}</span>
-                          {spLine.lineStatus === "operating" && (
-                            spLine.managerSource === "manual"
-                              ? <Badge variant="default" className="text-[10px]">Manager Adjusted</Badge>
-                              : <Badge variant="outline" className="text-[10px]">Statistical</Badge>
-                          )}
-                        </div>
-                      ) : (anyDraft ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(mgrRev))}
+                    <td className="text-right px-2 font-semibold tabular-nums">
+                      {anyDraft ? <span className="text-muted-foreground italic font-normal">Not set</span> : fmtHKD(mgrRev)}
                     </td>
-                    <td className="text-right px-2">{fmtHKD(actRev)}</td>
-                    <td className="text-right px-2">
-                      {canInlineEdit ? (
-                        <Input type="number"
-                          className={`h-7 w-20 text-right text-xs ml-auto ${guestPrefill ? "text-muted-foreground" : "text-foreground"}`}
-                          value={effGuest ?? ""} placeholder="—"
-                          onChange={(e) => onEdit(spLine!.id, { managerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
-                      ) : (
-                        isSinglePeriodVenue && effGuest != null
-                          ? <span className={guestPrefill ? "text-muted-foreground" : undefined}>{fmtInt(effGuest)}</span>
-                          : fmtInt(agg.guests)
-                      )}
+                    <td className="text-right px-2 tabular-nums">{fmtHKD(actRev)}</td>
+                    <td className="text-right px-2 tabular-nums">
+                      {anyDraft ? <span className="text-muted-foreground italic">Not set</span> : fmtInt(agg.guests)}
                     </td>
-                    <td className="text-right px-2">{fmtInt(act?.guests ?? null)}</td>
-                    <td className="text-right px-2">
-                      {canInlineEdit ? (
-                        <Input type="number" step="0.01"
-                          className={`h-7 w-20 text-right text-xs ml-auto ${spgPrefill ? "text-muted-foreground" : "text-foreground"}`}
-                          value={effSpg ?? ""} placeholder="—"
-                          onChange={(e) => onEdit(spLine!.id, { managerSpendPerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
-                      ) : (
-                        isSinglePeriodVenue && effSpg != null
-                          ? <span className={spgPrefill ? "text-muted-foreground" : undefined}>{fmtHKD(effSpg)}</span>
-                          : fmtHKD(agg.spendPerGuest)
-                      )}
+                    <td className="text-right px-2 tabular-nums">{fmtInt(act?.guests ?? null)}</td>
+                    <td className="text-right px-2 tabular-nums">
+                      {anyDraft ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(agg.spendPerGuest)}
                     </td>
-                    <td className="text-right px-2">{act && act.guests > 0 ? fmtHKD(act.revenue / act.guests) : "—"}</td>
-                    <td className={`text-right px-2 ${actRev != null ? (actRev - mgrRev >= 0 ? "text-emerald-500" : "text-rose-500") : ""}`}>
-                      {actRev != null ? fmtHKD(actRev - mgrRev) : "—"}
+                    <td className="text-right px-2 tabular-nums">{act && act.guests > 0 ? fmtHKD(act.revenue / act.guests) : "—"}</td>
+                    <td className={`text-right px-2 tabular-nums ${deltaMgrClass}`}>
+                      {deltaMgr != null ? fmtHKD(deltaMgr) : "—"}
                     </td>
-                    <td className={`text-right px-2 ${actRev != null && statRev != null ? (actRev - statRev >= 0 ? "text-emerald-500" : "text-rose-500") : ""}`}>
-                      {actRev != null && statRev != null ? fmtHKD(actRev - statRev) : "—"}
+                    <td className={`text-right px-2 tabular-nums ${deltaStatClass}`}>
+                      {deltaStat != null ? fmtHKD(deltaStat) : "—"}
                     </td>
                     <td className="py-1.5 px-2">{perfBadge}</td>
                     <td className="py-1.5 px-2">
@@ -1417,12 +1387,6 @@ function DailyRegister(props: DailyRegisterProps) {
                         {canApprove && lns.some((l) => l.status === "saved") && (
                           <Button size="sm" variant="default" className="h-6 text-[11px]"
                             onClick={() => onApproveDay(r.venueId, r.date)}>Approve</Button>
-                        )}
-                        {canEdit && (
-                          <Button size="sm" variant="ghost" className="h-6 text-[11px]"
-                            onClick={() => setEventFor({ venueId: r.venueId, date: r.date })}>
-                            <Plus className="h-3 w-3" /> Event
-                          </Button>
                         )}
                         {canEdit && (
                           <Select value={status} onValueChange={(v) => onSetStatus(r.venueId, r.date, v as OperatingStatus)}>
@@ -1437,179 +1401,126 @@ function DailyRegister(props: DailyRegisterProps) {
                       </div>
                     </td>
                   </tr>
-                  {isOpen && (
-                    <tr>
-                      <td colSpan={16} className="bg-muted/20 p-3 border-b border-border/50">
-                        {opLines.length === 0 ? (
-                          <div className="text-muted-foreground text-xs">
-                            No service-period rows for this day. {canEdit && (
-                              <button className="text-primary underline" onClick={() => {
-                                // Nothing to initialize automatically; ensureMonth handles it upstream.
-                              }}>Configure periods above</button>
-                            )}
-                          </div>
-                        ) : (
-                          <>
-                            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Normal Service</div>
-                            <ServicePeriodTable
-                              lines={opLines.filter((l) => l.lineType === "service_period")}
-                              periods={periods}
-                              stat={stat}
-                              act={act}
-                              canEdit={canEdit}
-                              onEdit={onEdit}
-                              onApplyStatistical={onApplyStatistical}
-                              onLineStatus={onLineStatus}
-                              requestReason={requestReason}
-                            />
-                            {opLines.some((l) => l.lineType === "event") && (
-                              <>
-                                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-4 mb-2">Events</div>
-                                <EventTable lines={opLines.filter((l) => l.lineType === "event")} canEdit={canEdit}
-                                  onEdit={onEdit} onLineStatus={onLineStatus} />
-                              </>
-                            )}
-                          </>
-                        )}
+                  {isOpen && spLines.length === 0 && (
+                    <tr className="border-b border-border/50">
+                      <td className="w-6"></td>
+                      <td colSpan={15} className="py-1.5 px-2 border-l-2 border-primary/30 pl-6 text-muted-foreground text-xs">
+                        No service-period rows for this day.
                       </td>
                     </tr>
                   )}
+                  {isOpen && spLines.map((l) => {
+                    const p = periods.find((pp) => pp.id === l.servicePeriodId);
+                    const canUseStat = isSinglePeriodVenue
+                      && stat?.statisticalGuestTarget != null
+                      && stat?.statisticalSpendPerGuest != null;
+                    const notOperating = l.lineStatus !== "operating";
+                    const effGuest = l.managerGuestTarget ?? (isSinglePeriodVenue ? stat?.statisticalGuestTarget ?? null : null);
+                    const effSpg = l.managerSpendPerGuestTarget ?? (isSinglePeriodVenue ? stat?.statisticalSpendPerGuest ?? null : null);
+                    const guestIsPrefill = l.managerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalGuestTarget != null;
+                    const spgIsPrefill = l.managerSpendPerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalSpendPerGuest != null;
+                    const lineRev = managerRevenue(l);
+                    const statTooltip = !isSinglePeriodVenue
+                      ? "No per-period benchmark — this venue has multiple service periods"
+                      : (!canUseStat ? "Statistical benchmark unavailable for this day" : "");
+                    const inputCls = "h-7 w-24 text-right text-xs border-border/60 focus-visible:ring-1 focus-visible:ring-primary/40 bg-background [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+                    return (
+                      <tr key={l.id} className={`border-b border-border/40 bg-muted/10 ${notOperating ? "opacity-60" : ""}`}>
+                        <td className="w-6"></td>
+                        <td colSpan={3} className="py-1.5 pl-6 pr-2 border-l-2 border-primary/30 text-muted-foreground text-[11px]">
+                          <span className="mr-1">└─</span>
+                          <span className="text-foreground font-medium">{p?.name ?? "Full Day"}</span>
+                        </td>
+                        <td className="py-1.5 px-2">
+                          {notOperating
+                            ? <Badge variant="outline" className="text-[10px] text-muted-foreground border-border font-normal">{l.lineStatus.replace(/_/g, " ")}</Badge>
+                            : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="text-right px-2 tabular-nums">
+                          {isSinglePeriodVenue && stat ? fmtHKD(stat.statisticalTargetAmount) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="text-right px-2 font-semibold tabular-nums">
+                          {lineRev == null ? <span className="text-muted-foreground italic font-normal">Not set</span> : fmtHKD(lineRev)}
+                        </td>
+                        <td className="text-right px-2 tabular-nums">
+                          {isSinglePeriodVenue && act?.revenue != null ? fmtHKD(act.revenue) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="text-right px-2 tabular-nums">
+                          {canEdit && !notOperating ? (
+                            <Input type="number"
+                              className={`${inputCls} ml-auto ${guestIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
+                              value={effGuest ?? ""} placeholder="—"
+                              onChange={(e) => onEdit(l.id, { managerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
+                          ) : (effGuest == null
+                              ? <span className="text-muted-foreground italic">Not set</span>
+                              : <span className={guestIsPrefill ? "text-muted-foreground" : undefined}>{fmtInt(effGuest)}</span>)}
+                        </td>
+                        <td className="text-right px-2 tabular-nums">
+                          {isSinglePeriodVenue && act?.guests != null ? fmtInt(act.guests) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="text-right px-2 tabular-nums">
+                          {canEdit && !notOperating ? (
+                            <Input type="number" step="0.01"
+                              className={`${inputCls} ml-auto ${spgIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
+                              value={effSpg ?? ""} placeholder="—"
+                              onChange={(e) => onEdit(l.id, { managerSpendPerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
+                          ) : (effSpg == null
+                              ? <span className="text-muted-foreground italic">Not set</span>
+                              : <span className={spgIsPrefill ? "text-muted-foreground" : undefined}>{fmtHKD(effSpg)}</span>)}
+                        </td>
+                        <td className="text-right px-2 tabular-nums">
+                          {isSinglePeriodVenue && act && act.guests > 0 ? fmtHKD(act.revenue / act.guests) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="text-right px-2 text-muted-foreground">—</td>
+                        <td className="text-right px-2 text-muted-foreground">—</td>
+                        <td className="py-1.5 px-2 text-muted-foreground">—</td>
+                        <td className="py-1.5 px-2">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {l.lineStatus === "operating" && (
+                              l.managerSource === "manual"
+                                ? <Badge className="text-[10px] bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--primary))] border border-[hsl(var(--primary)/0.3)]">Manager Adjusted</Badge>
+                                : <Badge variant="outline" className="text-[10px] text-muted-foreground border-border">Statistical</Badge>
+                            )}
+                            {canEdit && (
+                              <>
+                                <Button size="sm" variant="ghost" className="h-6 text-[10px]"
+                                  disabled={!canUseStat}
+                                  title={statTooltip}
+                                  onClick={() => onApplyStatistical(l, {
+                                    rev: stat?.statisticalTargetAmount ?? null,
+                                    g: stat?.statisticalGuestTarget ?? null,
+                                    spg: stat?.statisticalSpendPerGuest ?? null,
+                                  })}>
+                                  <Sparkles className="h-3 w-3 mr-1" /> Use Statistical
+                                </Button>
+                                {l.lineStatus === "operating" ? (
+                                  <Button size="sm" variant="ghost" className="h-6 text-[10px] text-[hsl(var(--destructive))]"
+                                    onClick={() => {
+                                      requestReason("not_operating", (reason) => onLineStatus(l, "not_operating", reason));
+                                    }}>Not Op</Button>
+                                ) : (
+                                  <Button size="sm" variant="ghost" className="h-6 text-[10px] text-[hsl(var(--success))]"
+                                    onClick={() => onLineStatus(l, "operating")}>Reactivate</Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </React.Fragment>
               );
             })}
           </tbody>
         </table>
       </div>
-
-      {eventFor && (
-        <EventDialog
-          open={!!eventFor}
-          onClose={() => setEventFor(null)}
-          periods={opPeriods.filter((p) => p.venueId === eventFor.venueId)}
-          onSubmit={async (ev) => { await onAddEvent(eventFor.venueId, eventFor.date, ev); setEventFor(null); }}
-        />
-      )}
     </SectionCard>
   );
 }
 
-function ServicePeriodTable({ lines, periods, stat, act, canEdit, onEdit, onApplyStatistical, onLineStatus, requestReason }: {
-  lines: ManagerTargetLine[]; periods: VenueServicePeriod[]; stat: any; act: any; canEdit: boolean;
-  onEdit: (id: string, patch: Partial<ManagerTargetLine>) => void;
-  onApplyStatistical: (line: ManagerTargetLine, stat: { rev: number | null; g: number | null; spg: number | null }) => Promise<void>;
-  onLineStatus: (line: ManagerTargetLine, s: any, reason?: string) => Promise<void>;
-  requestReason: (kind: AdjustmentReasonKind, onConfirm: (reason: string) => void | Promise<void>) => void;
-}) {
-  return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="text-muted-foreground border-b border-border/70">
-          <th className="text-left py-1.5 px-2">Service Period</th>
-          <th className="text-right py-1.5 px-2">Stat Rev</th>
-          <th className="text-right py-1.5 px-2">Stat Guests</th>
-          <th className="text-right py-1.5 px-2">Stat SPG</th>
-          <th className="text-right py-1.5 px-2">Mgr Guests</th>
-          <th className="text-right py-1.5 px-2">Mgr SPG</th>
-          <th className="text-right py-1.5 px-2">Mgr Rev</th>
-          <th className="text-right py-1.5 px-2">Act Guests</th>
-          <th className="text-right py-1.5 px-2">Act SPG</th>
-          <th className="text-right py-1.5 px-2">Act Rev</th>
-          <th className="text-left py-1.5 px-2">Line Status</th>
-          <th className="text-left py-1.5 px-2">Actions</th>
-        </tr>
-      </thead>
-      <tbody className="tabular-nums">
-        {lines.map((l) => {
-          const p = periods.find((pp) => pp.id === l.servicePeriodId);
-          const isSinglePeriodVenue = periods.filter(
-            (pp) => pp.venueId === l.venueId && pp.isActive && !pp.isRollupOnly,
-          ).length === 1;
-          const canUseStat = isSinglePeriodVenue
-            && stat?.statisticalGuestTarget != null
-            && stat?.statisticalSpendPerGuest != null;
-          const rev = managerRevenue(l);
-          const notOperating = l.lineStatus !== "operating";
-          const effGuest = l.managerGuestTarget ?? (isSinglePeriodVenue ? stat?.statisticalGuestTarget ?? null : null);
-          const effSpg = l.managerSpendPerGuestTarget ?? (isSinglePeriodVenue ? stat?.statisticalSpendPerGuest ?? null : null);
-          const guestIsPrefill = l.managerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalGuestTarget != null;
-          const spgIsPrefill = l.managerSpendPerGuestTarget == null && isSinglePeriodVenue && stat?.statisticalSpendPerGuest != null;
-          const statTooltip = !isSinglePeriodVenue
-            ? "No per-period benchmark — this venue has multiple service periods"
-            : (!canUseStat ? "Statistical benchmark unavailable for this day" : "");
-          return (
-            <tr key={l.id} className={`border-b border-border/40 ${notOperating ? "opacity-60" : ""}`}>
-              <td className="py-1.5 px-2 font-medium">{p?.name ?? "—"}</td>
-              <td className="text-right px-2">{isSinglePeriodVenue && stat ? fmtHKD(stat.statisticalTargetAmount) : <span className="text-muted-foreground">—</span>}</td>
-              <td className="text-right px-2">{isSinglePeriodVenue && stat?.statisticalGuestTarget != null ? fmtInt(stat.statisticalGuestTarget) : "—"}</td>
-              <td className="text-right px-2">{isSinglePeriodVenue && stat?.statisticalSpendPerGuest != null ? fmtHKD(stat.statisticalSpendPerGuest) : "—"}</td>
-              <td className="text-right px-2">
-                {canEdit && !notOperating ? (
-                  <Input type="number"
-                    className={`h-7 w-20 text-right text-xs ml-auto ${guestIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
-                    value={effGuest ?? ""} placeholder="—"
-                    onChange={(e) => onEdit(l.id, { managerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
-                ) : (effGuest == null
-                    ? <span className="text-muted-foreground italic">Not set</span>
-                    : <span className={guestIsPrefill ? "text-muted-foreground" : undefined}>{fmtInt(effGuest)}</span>)}
-              </td>
-              <td className="text-right px-2">
-                {canEdit && !notOperating ? (
-                  <Input type="number" step="0.01"
-                    className={`h-7 w-20 text-right text-xs ml-auto ${spgIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
-                    value={effSpg ?? ""} placeholder="—"
-                    onChange={(e) => onEdit(l.id, { managerSpendPerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
-                ) : (effSpg == null
-                    ? <span className="text-muted-foreground italic">Not set</span>
-                    : <span className={spgIsPrefill ? "text-muted-foreground" : undefined}>{fmtHKD(effSpg)}</span>)}
-              </td>
-              <td className="text-right px-2 font-semibold">
-                {rev == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(rev)}
-              </td>
-              <td className="text-right px-2">{isSinglePeriodVenue && act?.guests != null ? fmtInt(act.guests) : <span className="text-muted-foreground">Unavailable</span>}</td>
-              <td className="text-right px-2">{isSinglePeriodVenue && act && act.guests > 0 ? fmtHKD(act.revenue / act.guests) : <span className="text-muted-foreground">Unavailable</span>}</td>
-              <td className="text-right px-2">{isSinglePeriodVenue && act?.revenue != null ? fmtHKD(act.revenue) : <span className="text-muted-foreground">Unavailable</span>}</td>
-              <td className="py-1.5 px-2">
-                {l.lineStatus === "operating"
-                  ? <Badge variant="secondary" className="text-[10px]">Operating</Badge>
-                  : <Badge variant="outline" className="text-[10px]">{l.lineStatus.replace(/_/g, " ")}</Badge>}
-              </td>
-              <td className="py-1.5 px-2">
-                {canEdit && (
-                  <div className="flex items-center gap-1">
-                    {l.lineStatus === "operating" && (
-                      l.managerSource === "manual"
-                        ? <Badge variant="default" className="text-[10px]">Manager Adjusted</Badge>
-                        : <Badge variant="outline" className="text-[10px]">Statistical</Badge>
-                    )}
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px]"
-                      disabled={!canUseStat}
-                      title={statTooltip}
-                      onClick={() => onApplyStatistical(l, {
-                        rev: stat?.statisticalTargetAmount ?? null,
-                        g: stat?.statisticalGuestTarget ?? null,
-                        spg: stat?.statisticalSpendPerGuest ?? null,
-                      })}>
-                      <Sparkles className="h-3 w-3 mr-1" /> Use Statistical
-                    </Button>
-                    {l.lineStatus === "operating" ? (
-                      <Button size="sm" variant="ghost" className="h-6 text-[10px] text-rose-500"
-                        onClick={() => {
-                          requestReason("not_operating", (reason) => onLineStatus(l, "not_operating", reason));
-                        }}>Not Op</Button>
-                    ) : (
-                      <Button size="sm" variant="ghost" className="h-6 text-[10px] text-emerald-500"
-                        onClick={() => onLineStatus(l, "operating")}>Reactivate</Button>
-                    )}
-                  </div>
-                )}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
-}
+
+
 
 function EventTable({ lines, canEdit, onEdit, onLineStatus }: {
   lines: ManagerTargetLine[]; canEdit: boolean;
