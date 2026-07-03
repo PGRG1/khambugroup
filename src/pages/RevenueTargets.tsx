@@ -638,7 +638,7 @@ export default function RevenueTargets() {
 
   // -------------------- Render --------------------
   return (
-    <div className="mx-auto px-6 lg:px-7 py-5 max-w-[1600px] space-y-3.5">
+    <div className="mx-auto px-6 lg:px-7 py-5 max-w-[1600px] space-y-4">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
         <div>
