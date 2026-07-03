@@ -1,54 +1,66 @@
-## Scope
-Database migration only — add a trigger to `sales_records` so `venue_id` is always populated server-side, plus a one-time backfill for any rows currently sitting with `venue_id IS NULL`. No frontend changes.
+## Goal
 
-## Why
-`sales_records.venue_id` was only backfilled once, historically. No trigger exists to populate it on new inserts (confirmed against the current migration history — the existing `cascade_venue_rename` trigger only fires when a venue is renamed, not on sales inserts). Every insert path (Manual Input, bulk upload, future APIs) writes only the text `venue` column. Since `useRevenueTargetActuals` filters strictly by `venue_id`, any post-backfill rows with `venue_id = NULL` are silently excluded from every Revenue Targets "Actual" figure.
+Make Daily Register expanded sub-rows show real period names and real per-period Actual Revenue / Guests / SPG, by tagging `sales_records` with a `venue_service_periods` row at entry time and reading those tags back on the Revenue Targets page.
 
-## Migration
+## Key decision
 
-Guard `OLD` behind `TG_OP` so the same function works for both INSERT and UPDATE without Postgres complaining:
+Reuse the existing `sales_records.service_period_id` column — it already FKs to `venue_service_periods(id) ON DELETE SET NULL` and is already indexed. **No migration needed.** Skip step 1 of the original scope entirely.
 
-```sql
-CREATE OR REPLACE FUNCTION public.sync_sales_records_venue_id()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    IF NEW.venue IS NOT NULL AND NEW.venue_id IS NULL THEN
-      SELECT id INTO NEW.venue_id FROM public.venues WHERE name = NEW.venue LIMIT 1;
-    END IF;
-  ELSIF TG_OP = 'UPDATE' THEN
-    IF NEW.venue IS NOT NULL
-       AND (NEW.venue_id IS NULL OR NEW.venue IS DISTINCT FROM OLD.venue) THEN
-      SELECT id INTO NEW.venue_id FROM public.venues WHERE name = NEW.venue LIMIT 1;
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$;
+## Changes
 
-DROP TRIGGER IF EXISTS trg_sync_sales_records_venue_id ON public.sales_records;
-CREATE TRIGGER trg_sync_sales_records_venue_id
-  BEFORE INSERT OR UPDATE ON public.sales_records
-  FOR EACH ROW EXECUTE FUNCTION public.sync_sales_records_venue_id();
+### 1. Types + mapping — `src/hooks/useSalesData.ts`
+- Add `servicePeriodId?: string | null` to the `SalesRecord` type (if not already present).
+- `toDbRecord`: include `service_period_id: r.servicePeriodId ?? null`.
+- `fromDbRecord`: `servicePeriodId: r.service_period_id ?? null`.
+- Leave the legacy free-text `service_period` string field untouched.
 
--- One-time backfill for rows inserted after the original backfill
-UPDATE public.sales_records sr
-SET venue_id = v.id
-FROM public.venues v
-WHERE v.name = sr.venue AND sr.venue_id IS NULL;
-```
+### 2. `src/pages/DataPage.tsx`
+- Plumb `servicePeriodId` through `addRecord` so every entry path persists it.
 
-No RLS/GRANT changes — trigger is `SECURITY DEFINER` and reads `public.venues`, which is already accessible to authenticated roles.
+### 3. `src/components/dashboard/ManualInput.tsx`
+- Resolve venue id from the selected venue via `useVenues()`.
+- Load operational periods with `useVenueServicePeriods([venueId])`, filtered to `isActive && !isRollupOnly`.
+- Behavior by count:
+  - **0 periods** → save untagged (backwards compatible, no UI).
+  - **1 period** → auto-set `servicePeriodId` at submit; render read-only `Period: <name> (auto-tagged)`.
+  - **2+ periods** → required `<Select>`; block submit until picked; clear selection when venue changes.
+
+### 4. `src/pages/SalesRecordDetail.tsx`
+- **Edit mode**: Service Period `<Select>` right after Venue, bound to `draft.servicePeriodId`. Options from `useVenueServicePeriods([draft.venueId])` filtered the same way. Always include a "Not tagged" option so users can clear.
+- **Read-only mode**: display resolved period name, or `"Not tagged"` when null. Never render the raw uuid.
+
+### 5. `src/hooks/useRevenueTargetActuals.ts`
+- Extend the underlying select to include `service_period_id`.
+- Keep the existing full-day rows/return shape exactly as-is (no breaking change for current consumers).
+- Add a new `byPeriod: Map<string, { revenue: number; guests: number; spendPerGuest: number }>` keyed by `${venueId}__${date}__${servicePeriodId}`. Rows with `service_period_id IS NULL` are not aggregated into `byPeriod`; they stay in full-day totals as before.
+- `spendPerGuest = guests > 0 ? revenue / guests : 0`.
+
+### 6. `src/pages/RevenueTargets.tsx` — DailyRegister expanded sub-rows
+- Replace the hardcoded `"Full Day"` label with the real `venue_service_periods.name` looked up from `useVenueServicePeriods([venueId])`.
+- Read per-period Act Rev / Guests / SPG from the new `byPeriod` map instead of showing `"Unavailable"`.
+- If a period has no matching sales row for that date, render an em-dash (`—`), not the string "Unavailable".
 
 ## Non-goals
-- No changes to `sales_records` columns, indexes, or the existing `cascade_venue_rename` behavior.
-- No client-side changes; the fix is intentionally server-side so every insert path is covered uniformly.
 
-## Verification
-1. Insert a new sales record via Manual Input for any venue → confirm `venue_id` is populated (query `sales_records` right after).
-2. Re-run the backfill query → should report `UPDATE 0` (proves the trigger handles new rows going forward).
-3. On the Revenue Targets page, a venue/date you just entered sales for now shows a real "Actual Revenue" instead of "—".
+- No new column, no new index, no migration.
+- No automatic time-of-day backfill — historical untagged rows stay untagged until edited via SalesRecordDetail.
+- `service_periods` (GL-mapping) and any code that references it stays untouched.
+- No changes to the free-text `service_period` string column.
+
+## Verification I will run and report back in chat
+
+1. `SELECT COUNT(*) FROM sales_records WHERE service_period_id IS NULL;` before and after tagging a test record via ManualInput.
+2. Create a sales record for a single-period venue (e.g. Hanabi or Arca) → confirm no selector is shown and the resulting row has `service_period_id` populated.
+3. **Multi-period path**: temporarily `UPDATE venue_service_periods SET is_active = true WHERE id = '73a04371-1621-45f3-83d2-9f9518c886b5'` (Assembly "Full Day"), confirm ManualInput now renders the required `<Select>` for Assembly and blocks submit until a period is chosen, then revert with `UPDATE ... SET is_active = false`.
+4. Pick a recent date with a newly tagged Assembly row and query it joined to `venue_service_periods`; report the period name and per-period Act Rev / Guests / SPG numbers to confirm they replace the old "Full Day" / "Unavailable" placeholders in the expanded DailyRegister row.
+
+## Technical notes
+
+- Actual venues in DB (confirmed): Test Venue, Assembly, Caliente, Hanabi, Off-Site / Stall (inactive), Arca. No "Events" row — earlier draft was wrong.
+- Every currently active venue has exactly **one** active non-rollup period today:
+  - Assembly → Late Operation (Full Day inactive, Full Day (Benchmark) rollup-only)
+  - Caliente → Late Operation (Full Day (Benchmark) rollup-only)
+  - Hanabi, Arca, Test Venue → Full Day
+- Result: the required `<Select>` branch in ManualInput is **dormant with today's data** — every entry auto-tags. The branch still needs to exist for future multi-period configurations.
+- Rollup-only periods are excluded from ManualInput/SalesRecordDetail selectors and DailyRegister expanded lists (existing `isRollupOnly` semantics).
+- Keep the `service_period_id` FK's `ON DELETE SET NULL` behavior — deleting a period detags sales rows rather than deleting them.
