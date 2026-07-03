@@ -1493,8 +1493,8 @@ function DailyRegister(props: DailyRegisterProps) {
   );
 }
 
-function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStatistical, onLineStatus, requestReason }: {
-  lines: ManagerTargetLine[]; periods: VenueServicePeriod[]; stat: any; canEdit: boolean;
+function ServicePeriodTable({ lines, periods, stat, act, canEdit, onEdit, onApplyStatistical, onLineStatus, requestReason }: {
+  lines: ManagerTargetLine[]; periods: VenueServicePeriod[]; stat: any; act: any; canEdit: boolean;
   onEdit: (id: string, patch: Partial<ManagerTargetLine>) => void;
   onApplyStatistical: (line: ManagerTargetLine, stat: { rev: number | null; g: number | null; spg: number | null }) => Promise<void>;
   onLineStatus: (line: ManagerTargetLine, s: any, reason?: string) => Promise<void>;
