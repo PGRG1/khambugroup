@@ -1267,11 +1267,12 @@ function DailyRegister(props: DailyRegisterProps) {
   );
 }
 
-function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStatistical, onLineStatus }: {
+function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStatistical, onLineStatus, requestReason }: {
   lines: ManagerTargetLine[]; periods: VenueServicePeriod[]; stat: any; canEdit: boolean;
   onEdit: (id: string, patch: Partial<ManagerTargetLine>) => void;
   onApplyStatistical: (line: ManagerTargetLine, stat: { rev: number | null; g: number | null; spg: number | null }) => Promise<void>;
   onLineStatus: (line: ManagerTargetLine, s: any, reason?: string) => Promise<void>;
+  requestReason: (kind: AdjustmentReasonKind, onConfirm: (reason: string) => void | Promise<void>) => void;
 }) {
   return (
     <table className="w-full text-xs">
