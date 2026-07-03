@@ -1264,10 +1264,6 @@ function DailyRegister(props: DailyRegisterProps) {
   const rows: { venueId: string; venueName: string; date: string }[] = [];
   for (const v of venues) for (const d of dates) rows.push({ venueId: v.id, venueName: v.name, date: d });
 
-  const statusLabel: Record<OperatingStatus, string> = {
-    normal: "Normal", mixed: "Mixed", events_only: "Events Only", closed: "Closed",
-  };
-
   return (
     <SectionCard title="Daily Target Register" right={
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1282,7 +1278,6 @@ function DailyRegister(props: DailyRegisterProps) {
               <th className="text-left py-2 px-2">Date</th>
               <th className="text-left py-2 px-2">Weekday</th>
               <th className="text-left py-2 px-2">Venue</th>
-              <th className="text-left py-2 px-2">Status</th>
               <th className="text-right py-2 px-2">Stat Rev</th>
               <th className="text-right py-2 px-2">Mgr Rev</th>
               <th className="text-right py-2 px-2">Act Rev</th>
@@ -1299,7 +1294,6 @@ function DailyRegister(props: DailyRegisterProps) {
           <tbody className="tabular-nums">
             {rows.map((r) => {
               const k = key(r.venueId, r.date);
-              const status = dayStatus.get(k) ?? "normal";
               const lns = linesByDay.get(k) ?? [];
               const opLines = lns.filter((l) => isOperationalLine(l, periods));
               const spLines = opLines.filter((l) => l.lineType === "service_period");
@@ -1345,12 +1339,7 @@ function DailyRegister(props: DailyRegisterProps) {
                     </td>
                     <td className="py-1.5 px-2 text-foreground font-medium tabular-nums">{r.date.slice(8)}</td>
                     <td className="py-1.5 px-2 text-muted-foreground">{WEEKDAYS[wd]}</td>
-                    <td className="py-1.5 px-2 font-medium">{r.venueName}</td>
-                    <td className="py-1.5 px-2">
-                      <Badge variant="outline" className="text-[10px] text-muted-foreground border-border font-normal">
-                        {statusLabel[status]}
-                      </Badge>
-                    </td>
+                    <td className="py-1.5 px-2 font-medium">{r.venueName:Name}</td>
                     <td className="text-right px-2 tabular-nums">
                       {stat ? (
                         <div className="flex flex-col items-end">
