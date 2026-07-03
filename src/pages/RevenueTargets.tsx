@@ -524,7 +524,7 @@ export default function RevenueTargets() {
         zeroReason: adjustmentReason ?? t.zeroReason,
         status: "saved",
         notes: t.notes,
-        managerSource: "manual",
+        managerSource: resolveManagerSource(t),
       })),
     );
     if (r.ok) {
@@ -614,7 +614,7 @@ export default function RevenueTargets() {
         zeroReason: t.zeroReason,
         status: "saved",
         notes: t.notes,
-        managerSource: "manual",
+        managerSource: resolveManagerSource(t),
       })),
     );
     if (r.ok) { setPendingEdits({}); await refetchLines(); }
