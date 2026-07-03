@@ -79,6 +79,13 @@ const RevenueTargetPanel = ({
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
 
+  // Statistical-generation dialogs
+  const [confirmGenOpen, setConfirmGenOpen] = useState(false);
+  const [insufficientOpen, setInsufficientOpen] = useState(false);
+  const [insufficientMissing, setInsufficientMissing] = useState<
+    { venue_name: string; weekday: number }[]
+  >([]);
+
   const existingTarget = getTarget(year, month);
   const statisticalTotal = existingTarget?.statisticalTargetAmount ?? null;
   const statisticalModel = existingTarget?.statisticalModel ?? null;
@@ -86,7 +93,7 @@ const RevenueTargetPanel = ({
   useEffect(() => {
     const existing = getTarget(year, month);
     if (existing) {
-      setTargetAmount(existing.targetAmount);
+      setTargetAmount(existing.targetAmount ?? 0);
       const v = existing.venues.filter((x) => allVenues.includes(x));
       setSelectedVenues(v.length ? v : allVenues);
     } else {
@@ -94,6 +101,49 @@ const RevenueTargetPanel = ({
       setSelectedVenues(allVenues);
     }
   }, [year, month, getTarget, allVenues]);
+
+  const monthStart = useMemo(() => new Date(year, month - 1, 1), [year, month]);
+  const lookbackEnd = useMemo(() => {
+    const d = new Date(monthStart);
+    d.setDate(d.getDate() - 1);
+    return d;
+  }, [monthStart]);
+  const lookbackStart = useMemo(() => {
+    const d = new Date(lookbackEnd);
+    d.setDate(d.getDate() - (12 * 7 - 1));
+    return d;
+  }, [lookbackEnd]);
+  const fmtDate = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+  const monthHasStatRows = statisticalDaily.some(
+    (r) => r.targetDate.startsWith(`${year}-${String(month).padStart(2, "0")}`),
+  );
+  const weekdayLabel = (w: number) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][w] ?? String(w);
+
+  const runGenerate = async () => {
+    setConfirmGenOpen(false);
+    const venueIds = selectedVenues
+      .map((n) => venueIdByName[n])
+      .filter((v): v is string => !!v);
+    if (venueIds.length === 0) {
+      toast({ title: "Select at least one Responsible Venue", variant: "destructive" });
+      return;
+    }
+    const res = await generateStatistical({ year, month, venueIds });
+    if (res.ok) {
+      toast({
+        title: monthHasStatRows ? "Statistical target regenerated" : "Statistical target generated",
+        description: `${res.inserted} daily rows · monthly total ${formatCurrency(res.monthly_total)}`,
+      });
+      onStatisticalGenerated?.();
+    } else if (res.reason === "insufficient_history") {
+      setInsufficientMissing(res.missing.map((m) => ({ venue_name: m.venue_name, weekday: m.weekday })));
+      setInsufficientOpen(true);
+    } else {
+      toast({ title: "Failed to generate statistical target", description: res.message, variant: "destructive" });
+    }
+  };
+
 
   const monthOptions = useMemo(() => {
     const opts: { year: number; month: number; label: string }[] = [];
