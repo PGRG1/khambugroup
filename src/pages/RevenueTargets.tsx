@@ -1117,8 +1117,8 @@ function DailyRegister(props: DailyRegisterProps) {
               const actRev = act?.revenue ?? null;
 
               return (
-                <>
-                  <tr key={k} className={`border-b border-border/50 hover:bg-muted/30 ${hasPending ? "bg-primary/5" : ""}`}>
+                <React.Fragment key={k}>
+                  <tr className={`border-b border-border/50 hover:bg-muted/30 ${hasPending ? "bg-primary/5" : ""}`}>
                     <td className="py-1.5 px-1">
                       <button onClick={() => {
                         const n = new Set(expanded);
