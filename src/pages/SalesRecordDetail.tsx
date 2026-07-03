@@ -228,10 +228,33 @@ const SalesRecordDetail = () => {
           <Row label="Date" value={active.date} fieldKey="date" />
           <Row label="Day" value={active.day} fieldKey="day" />
           <Row label="Venue" value={active.venue} fieldKey="venue" />
+          {/* Service period: edit = selector; read = resolved name / "Not tagged". */}
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm text-muted-foreground">Service Period</span>
+            {editing && draft ? (
+              <select
+                value={draft.servicePeriodId ?? ""}
+                onChange={(e) => setField("servicePeriodId" as keyof SalesRecord, e.target.value || (null as any))}
+                className="w-40 px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
+              >
+                <option value="">Not tagged</option>
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span className={`text-sm font-medium ${active.servicePeriodId ? "text-foreground" : "text-muted-foreground italic"}`}>
+                {active.servicePeriodId
+                  ? (periods.find((p) => p.id === active.servicePeriodId)?.name ?? "Unknown period")
+                  : "Not tagged"}
+              </span>
+            )}
+          </div>
           <Row label="Report #" value={active.reportNumber || "—"} fieldKey="reportNumber" />
           <Row label="Orders" value={active.orders} fieldKey="orders" isCurrency={false} />
           <Row label="Guests" value={active.guests} fieldKey="guests" isCurrency={false} />
         </Section>
+
 
         <Section title="Sales Breakdown">
           <Row label="Subtotal" value={active.subtotal} fieldKey="subtotal" />
