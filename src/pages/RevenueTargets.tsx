@@ -1347,12 +1347,11 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                     {l.lineStatus === "operating" ? (
                       <Button size="sm" variant="ghost" className="h-6 text-[10px] text-rose-500"
                         onClick={() => {
-                          const reason = window.prompt("Reason for setting as Not Operating:");
-                          if (reason) onLineStatus(l, "not_operating", reason);
+                          requestReason("not_operating", (reason) => onLineStatus(l, "not_operating", reason));
                         }}>Not Op</Button>
                     ) : (
                       <Button size="sm" variant="ghost" className="h-6 text-[10px] text-emerald-500"
-                        onClick={() => onLineStatus(l, "operating", null as any)}>Reactivate</Button>
+                        onClick={() => onLineStatus(l, "operating")}>Reactivate</Button>
                     )}
                   </div>
                 )}
