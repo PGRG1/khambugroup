@@ -36,6 +36,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
 import Reconciliation from "./pages/revenue/Reconciliation";
+import ServicePeriods from "./pages/revenue/ServicePeriods";
 import AccessDenied from "./pages/AccessDenied";
 
 import Procurement from "./pages/Procurement";
