@@ -137,12 +137,14 @@ const RevenueTargetPanel = ({
       });
       onStatisticalGenerated?.();
     } else if (res.reason === "insufficient_history") {
-      setInsufficientMissing(res.missing.map((m) => ({ venue_name: m.venue_name, weekday: m.weekday })));
+      const miss = res.missing;
+      setInsufficientMissing(miss.map((m) => ({ venue_name: m.venue_name, weekday: m.weekday })));
       setInsufficientOpen(true);
     } else {
       toast({ title: "Failed to generate statistical target", description: res.message, variant: "destructive" });
     }
   };
+
 
 
   const monthOptions = useMemo(() => {
