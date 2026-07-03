@@ -1287,6 +1287,8 @@ function DailyRegister(props: DailyRegisterProps) {
               <th className="text-right py-2 px-2">Mgr SPG</th>
               <th className="text-right py-2 px-2">Act SPG</th>
               <th className="text-right py-2 px-2">Act vs Mgr</th>
+              <th className="text-right py-2 px-2">Act vs Stat</th>
+              <th className="text-left py-2 px-2">Performance</th>
               <th className="text-left py-2 px-2">Line</th>
             </tr>
           </thead>
