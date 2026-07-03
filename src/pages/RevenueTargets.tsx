@@ -268,9 +268,14 @@ export default function RevenueTargets() {
     });
   }, [analytics.points, operatingStatuses, dayStatusByKey]);
 
+  const asOf = today.toISOString().slice(0, 10);
+  const completedDays = filteredPoints.filter((p) => p.date <= asOf).length;
+  const remainingDays = filteredPoints.filter((p) => p.date > asOf).length;
+
   // Rebuild rollups after status filter
   const monthly = useMemo(() => {
     let mRev = 0, mG = 0, aRev = 0, aG = 0, sRev = 0, sG = 0;
+    let mRevToDate = 0, mGToDate = 0, sRevToDate = 0, sGToDate = 0;
     for (const p of filteredPoints) {
       mRev += p.managerRevenue; mG += p.managerGuests;
       if (p.actual) { aRev += p.actual.revenue; aG += p.actual.guests; }
@@ -278,22 +283,33 @@ export default function RevenueTargets() {
         sRev += Number(p.statistical.statisticalTargetAmount ?? 0);
         sG += Number(p.statistical.statisticalGuestTarget ?? 0);
       }
+      if (p.date <= asOf) {
+        mRevToDate += p.managerRevenue;
+        mGToDate += p.managerGuests;
+        if (p.statistical) {
+          sRevToDate += Number(p.statistical.statisticalTargetAmount ?? 0);
+          sGToDate += Number(p.statistical.statisticalGuestTarget ?? 0);
+        }
+      }
     }
+    const actualSpg = aG > 0 ? aRev / aG : null;
     return {
       managerRevenue: mRev, managerGuests: mG,
       actualRevenue: aRev, actualGuests: aG,
       statRevenue: sRev, statGuests: sG,
-      actualSpg: aG > 0 ? aRev / aG : null,
+      actualSpg,
       managerSpg: mG > 0 ? mRev / mG : null,
       statSpg: sG > 0 ? sRev / sG : null,
+      managerRevenueToDate: mRevToDate,
+      managerGuestsToDate: mGToDate,
+      statRevenueToDate: sRevToDate,
+      statGuestsToDate: sGToDate,
+      actualSpgToDate: actualSpg,
+      statSpgToDate: sGToDate > 0 ? sRevToDate / sGToDate : null,
     };
-  }, [filteredPoints]);
+  }, [filteredPoints, asOf]);
 
   const isFiltered = weekdays.length > 0 || servicePeriodIds.length > 0 || operatingStatuses.length > 0;
-
-  const asOf = today.toISOString().slice(0, 10);
-  const completedDays = filteredPoints.filter((p) => p.date <= asOf).length;
-  const remainingDays = filteredPoints.filter((p) => p.date > asOf).length;
 
   // ---- Section: chart data builders ----
   const dailyChartData = useMemo(() => {
