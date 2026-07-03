@@ -1,68 +1,88 @@
-# Revenue Targets — Finish Pass
+## Scope
+All changes are in `src/pages/RevenueTargets.tsx` plus a small addition to `src/components/revenue-targets/AdjustmentReasonDialog.tsx` to register a new `"manual_override"` kind. Frontend only — no backend/RPC/schema changes. `EventTable` is untouched.
 
-Scope: `src/pages/RevenueTargets.tsx` only. No backend, no theme, no other pages.
+## 1. Pre-fill Guest / SPG inputs from statistical benchmark
 
-## Part 1 — Functional fixes
+In `ServicePeriodTable`, compute effective display values for the two editable cells:
 
-**1a. Drop duplicate Service Period Setup**
-- Remove `<ServicePeriodSetupSheet ... />` from header (line ~614) and delete the `ServicePeriodSetupSheet` component block (function runs from ~1554 to end of file).
-- Drop now-unused imports: `Settings2` from lucide-react, `Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger`.
-
-**1b. Unify Generate → Initialize into "Set Up This Month"**
-- Add handler `handleSetUpMonth`: `await generateStatistical(effectiveVenueIds); const r = await ensureMonth(effectiveVenueIds);` then single toast: `"Benchmarks generated · {r.inserted} draft target rows created"`.
-- In the filter bar (replacing the current `Initialize draft rows` block at ~671):
-  - If `managerLines.length === 0 && effectiveVenueIds.length > 0` → show prominent primary button `Set Up This Month` (Sparkles/Plus icon).
-  - Else → show small icon-only outline button (RefreshCw icon) with `title="Recompute benchmarks only"` that calls `generateStatistical` alone.
-- Remove any standalone "Generate Statistical" button rendered elsewhere in header/filter row.
-
-**1c. Multi-period venue hint in `ServicePeriodTable`**
-- When rendering a line whose `managerSource !== 'statistical_default'` AND no `stat` value exists for that (venue, period, date), render a muted inline note under the empty target input: *"No automatic benchmark — this venue has multiple service periods. Set manually or click Apply Statistical if a period-level benchmark exists."*
-- Detection: venue has >1 operational period in `allPeriods` for that venue.
-
-**1d. Override reason dialog coverage**
-- Currently `requestReason` only fires for `not_operating` status changes and a variance-threshold check. Extend to every manual cell edit path in `ServicePeriodTable` (revenue / guests / SPG commits + Apply Statistical revert) so any commit whose value diverges from the `statistical_default` seed triggers the dialog.
-
-## Part 2 — Visual pass (brand tokens only)
-
-**2a. Recolor `C` constant** (top of file, ~line 51):
 ```ts
-const C = {
-  stat:    "hsl(var(--chart-8))",
-  manager: "hsl(var(--primary))",
-  actual:  "hsl(var(--chart-3))",
-  pos:     "hsl(var(--success))",
-  neg:     "hsl(var(--destructive))",
-  grid:    "hsl(var(--border))",
+const effGuest = l.managerGuestTarget ?? statForPeriod?.statisticalGuestTarget ?? null;
+const effSpg   = l.managerSpendPerGuestTarget ?? statForPeriod?.statisticalSpendPerGuest ?? null;
+const guestIsPrefill = l.managerGuestTarget == null && statForPeriod?.statisticalGuestTarget != null;
+const spgIsPrefill   = l.managerSpendPerGuestTarget == null && statForPeriod?.statisticalSpendPerGuest != null;
+```
+
+Bind the two `<Input>`s to `effGuest ?? ""` / `effSpg ?? ""`. When the prefill flag is true, add `text-muted-foreground` to the input's className; otherwise leave normal `text-foreground`. Read-only fallback (non-edit mode) uses the same effective value with matching muted styling when it is a prefill.
+
+`onChange` still writes to `managerGuestTarget` / `managerSpendPerGuestTarget` in `pendingEdits`. Clearing the input writes `null`, reverting to the statistical prefill.
+
+## 2. Correct `managerSource` on save; add independent manual_override trigger
+
+Add helper above `performSaveDay`:
+
+```ts
+const EPS = 0.01;
+const resolveManagerSource = (t: ManagerTargetLine): "manual" | "statistical_default" => {
+  const s = statistical.find((r: any) =>
+    r.venueId === t.venueId && r.targetDate === t.targetDate && r.servicePeriodId === t.servicePeriodId);
+  const sg = s?.statisticalGuestTarget ?? null;
+  const ss = s?.statisticalSpendPerGuest ?? null;
+  const g  = t.managerGuestTarget;
+  const p  = t.managerSpendPerGuestTarget;
+  const gMatches = g == null || (sg != null && Math.abs(Number(g) - Number(sg)) <= EPS);
+  const pMatches = p == null || (ss != null && Math.abs(Number(p) - Number(ss)) <= EPS);
+  return gMatches && pMatches ? "statistical_default" : "manual";
 };
 ```
 
-**2b. Line hierarchy — apply to every chart in the page** (Daily Revenue Performance, Cumulative Pace, Daily Variance, Guest Performance, Spend/Guest, and any variance/driver line charts):
-- Statistical: `strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6}`
-- Manager: `strokeWidth={2} dot={false}`
-- Actual: `strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }}`
+Replace both literal `managerSource: "manual",` occurrences with `managerSource: resolveManagerSource(t),` — locate by string match: one inside `performSaveDay`'s payload builder, one inside `saveAll`'s payload builder.
 
-**2c. KPI hierarchy**
-- Replace current single 6-card grid with two rows:
-  - Row 1: one emphasized card "Actual vs Manager" showing `((actual/manager)-1)*100%`, colored via `C.pos`/`C.neg`, styled `border-2 border-primary/30` with larger value text.
-  - Row 2 (`grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5`): Statistical Revenue, Manager Revenue, Actual Revenue, Manager Guests, Actual Guests. Drop Actual SPG (already surfaced in Target Summary via RollupCell).
-- Every KPI label gets a leading 4px `<span className="inline-block h-1 w-1 rounded-full mr-1.5" style={{ background: C.stat|C.manager|C.actual }} />` matching its data source (skip for the emphasized delta card).
+**Do not touch** `varianceExceedsThreshold` or the existing `requestReason("variance_threshold", …)` flow.
 
-**2d. Collapse deep analytics**
-- Wrap the sections currently at ~849 (Day-of-Week Analysis), ~827 (Revenue Variance Drivers), and ~909–941 (Venue Target Performance + Service-Period Revenue Mix) in a shadcn `<Accordion type="single" collapsible>` with a single item `Detailed Analytics`, collapsed by default.
-- Keep visible above the fold: header, filter bar, KPI row, Daily Revenue Performance + Target Summary, Cumulative Pace, Guest/SPG pair, then Daily Target Register.
+**New independent trigger — per-line default → manual transition.** In `saveDay`, compute:
 
-**2e. Rhythm**
-- Root container: change `space-y-3.5` → `space-y-4`.
-- Ensure the emphasized "Actual vs Manager" card + Daily Revenue Performance chart fit within a 1440×900 viewport with no scroll on load (tighten KPI row to a single line height; hero chart height stays 320).
+```ts
+const hasManualOverrideTransition = targets.some((t) => {
+  const original = managerLines.find((l) => l.id === t.id);
+  const wasDefault = !original || original.managerSource == null || original.managerSource === "statistical_default";
+  return wasDefault && resolveManagerSource(t) === "manual";
+});
+```
 
-## Non-goals
-No changes to `src/index.css`, `tailwind.config.ts`, backend RPCs, `/revenue/service-periods`, or other pages. No new design tokens.
+Trigger order in `saveDay`:
+1. If `varianceExceedsThreshold(venueId, date, targets)` → `requestReason("variance_threshold", …)` (existing, unchanged).
+2. Else if `hasManualOverrideTransition` → `requestReason("manual_override", async (reason) => { setReasonReq(null); await performSaveDay(venueId, date, targets, reason); })`.
+3. Else → `performSaveDay(...)` with no reason.
+
+**Register the new kind** in `src/components/revenue-targets/AdjustmentReasonDialog.tsx`:
+- Extend `AdjustmentReasonKind` union with `"manual_override"`.
+- Add to `HEADINGS`: `manual_override: "Reason: Manager Override"`.
+- Add to `HINTS`: `manual_override: "You're overriding the statistical benchmark for this line — add a note explaining why."`.
+
+## 3. Per-row source badge
+
+In `ServicePeriodTable`, render one small badge in the Actions cell per row, driven by `l.managerSource`:
+
+- `"statistical_default"` (or null) → `<Badge variant="outline" className="text-[10px]">Statistical</Badge>`
+- `"manual"` → `<Badge variant="default" className="text-[10px]">Manager override</Badge>`
+
+Only render when `l.lineStatus === "operating"`.
+
+## 4. Rename "Use Stat" → "Use Statistical"
+
+In `ServicePeriodTable`, locate the button by its JSX text `Use Stat` and rename the visible label to `Use Statistical`. Leave the existing disabled-state tooltip `"Full-Day benchmark cannot be applied to a service period"` unchanged. No behavior change.
+
+## 5. Revenue stays computed (no change)
+
+`Mgr Rev` cell continues to render `managerRevenue(l)` read-only. No input added anywhere.
 
 ## Verification
-- `npm run build` completes without TypeScript errors.
-- Empty month → only "Set Up This Month" visible; click generates + seeds with one combined toast.
-- Populated month → small "Recompute benchmarks" icon button instead.
-- No occurrences of `hsl(45 96%`, `hsl(152 76%`, or `hsl(199 90%` remain in this file.
-- "Actual vs Manager" is the visually dominant KPI.
-- Day-of-Week, Variance Drivers, Venue/Period Mix collapsed under "Detailed Analytics" by default.
-- 1440px viewport: KPI row + hero chart visible without scroll.
+
+- `npx tsc --noEmit` passes.
+- Fresh day: Guest/SPG inputs display statistical values in muted text; badge = "Statistical".
+- Typing a new value: text switches to normal weight; on save, DB `manager_source` = `"manual"`, badge → "Manager override".
+- Save without touching anything (or re-typing to match stat within 0.01): `manager_source` stays `"statistical_default"`, badge stays "Statistical", no reason dialog appears.
+- **Independence A**: aggregate day variance <15% but one line's Guest/SPG changed from statistical default → `manual_override` reason dialog fires (new kind, distinct copy).
+- **Independence B**: aggregate variance >15% still fires `variance_threshold` dialog exactly as before.
+- `Mgr Rev` column has no `<input>` and continues showing `Guest × SPG`.
+- `EventTable` unchanged.

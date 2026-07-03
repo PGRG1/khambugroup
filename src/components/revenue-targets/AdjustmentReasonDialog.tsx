@@ -12,7 +12,8 @@ export type AdjustmentReasonKind =
   | "closed"
   | "events_only"
   | "replaced_by_event"
-  | "variance_threshold";
+  | "variance_threshold"
+  | "manual_override";
 
 const HEADINGS: Record<AdjustmentReasonKind, string> = {
   not_operating: "Reason: Not Operating",
@@ -21,6 +22,7 @@ const HEADINGS: Record<AdjustmentReasonKind, string> = {
   events_only: "Reason: Day marked Events Only",
   replaced_by_event: "Reason: Period replaced by Event",
   variance_threshold: "Reason: Adjustment exceeds ±15% of Statistical",
+  manual_override: "Reason: Manager Override",
 };
 
 const HINTS: Record<AdjustmentReasonKind, string> = {
@@ -31,6 +33,8 @@ const HINTS: Record<AdjustmentReasonKind, string> = {
   replaced_by_event: "Describe the event replacing this period, and any operational impact.",
   variance_threshold:
     "Manager Revenue differs from the reliable Statistical benchmark by more than 15%. Please justify.",
+  manual_override:
+    "You're overriding the statistical benchmark for this line — add a note explaining why.",
 };
 
 export interface AdjustmentReasonDialogProps {
