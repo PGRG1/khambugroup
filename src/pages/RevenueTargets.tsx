@@ -611,12 +611,6 @@ export default function RevenueTargets() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <ServicePeriodSetupSheet
-            venues={activeVenues}
-            periods={allPeriods}
-            canEdit={perms.canApprove || canEdit}
-            onChange={refetchPeriods}
-          />
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download className="h-4 w-4 mr-1.5" /> Export
           </Button>
