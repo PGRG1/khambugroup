@@ -18,6 +18,8 @@ import { useForecastData } from "@/hooks/useForecastData";
 import { useForecastPermissions } from "@/hooks/useForecastPermissions";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
+import { useStatisticalRevenueTargets } from "@/hooks/useStatisticalRevenueTargets";
+
 import ForecastCharts from "@/components/forecast/ForecastCharts";
 import ForecastKPICards from "@/components/forecast/ForecastKPICards";
 import ForecastTableView from "@/components/forecast/ForecastTableView";
@@ -77,7 +79,14 @@ const ForecastInput = () => {
   const { forecasts, loading: forecastsLoading, addForecast, updateForecast, deleteForecast, approveForecast, rejectForecast, approvePostEventNotes, rejectPostEventNotes } = useForecastData();
   const { canCreate, canApprove, canEditFigures, isApprover, loading: permLoading } = useForecastPermissions();
   const { getTarget: getTargetForMonth } = useRevenueTargets();
+  const {
+    rows: statisticalDaily,
+    generate: generateStatistical,
+    generating: generatingStatistical,
+    refetch: refetchStatistical,
+  } = useStatisticalRevenueTargets(selectedYear, selectedMonth);
   const { isActionHidden } = usePagePermissions();
+
 
   // Multi-venue selection — persisted across reloads, validated against active Admin venues
   const [selectedVenues, setSelectedVenues] = useState<ForecastVenue[]>([]);
@@ -484,15 +493,17 @@ const ForecastInput = () => {
         salesData={salesData}
         forecasts={forecasts}
         target={getTargetForMonth(selectedYear, selectedMonth)}
+        statisticalDaily={statisticalDaily}
       />
 
-      {/* Three-way Chart (Manager vs Actual) */}
+      {/* Three-way Chart (Statistical + Manager vs Actual) */}
       <ThreeWayChart
         year={selectedYear}
         month={selectedMonth}
         selectedVenues={orderedSelection}
         salesData={salesData}
         forecasts={forecasts}
+        statisticalDaily={statisticalDaily}
       />
 
       {/* Venue breakdown */}
@@ -502,6 +513,7 @@ const ForecastInput = () => {
         selectedVenues={orderedSelection}
         salesData={salesData}
         forecasts={forecasts}
+        statisticalDaily={statisticalDaily}
       />
 
       {/* Monthly Revenue Target (controlled) */}
@@ -510,11 +522,17 @@ const ForecastInput = () => {
           salesData={salesData}
           allForecasts={forecasts}
           allVenues={activeVenueNames}
+          venueIdByName={Object.fromEntries(activeVenues.map((v) => [v.name, v.id]))}
           year={selectedYear}
           month={selectedMonth}
           onMonthChange={(y, m) => { setSelectedYear(y); setSelectedMonth(m); }}
+          onStatisticalGenerated={refetchStatistical}
+          generateStatistical={generateStatistical}
+          generatingStatistical={generatingStatistical}
+          statisticalDaily={statisticalDaily}
         />
       )}
+
 
 
       {/* Input Form — collapsed accordion, opened via the "New Entry" button */}
