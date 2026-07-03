@@ -772,9 +772,9 @@ export default function RevenueTargets() {
                   formatter={(v: any) => fmtHKD(Number(v))}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
                 <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.5} dot={{ r: 2 }} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} />
               </ComposedChart>
             </ResponsiveContainer>
           )}
@@ -819,9 +819,9 @@ export default function RevenueTargets() {
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
                   formatter={(v: any) => fmtHKD(Number(v))} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
                 <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.5} dot={false} connectNulls={false} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} connectNulls={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -858,9 +858,9 @@ export default function RevenueTargets() {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeDasharray="4 3" strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
                 <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.5} dot={false} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -875,9 +875,9 @@ export default function RevenueTargets() {
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
                   formatter={(v: any) => v == null ? "—" : fmtHKD(Number(v))} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeDasharray="4 3" strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey="stat" name="Statistical" stroke={C.stat} strokeWidth={1.5} strokeDasharray="4 3" dot={false} opacity={0.6} />
                 <Line type="monotone" dataKey="mgr" name="Manager" stroke={C.manager} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.5} dot={false} />
+                <Line type="monotone" dataKey="act" name="Actual" stroke={C.actual} strokeWidth={2.75} dot={{ r: 3, strokeWidth: 0, fill: "hsl(var(--chart-3))" }} />
               </LineChart>
             </ResponsiveContainer>
           )}
