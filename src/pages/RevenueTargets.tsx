@@ -784,41 +784,99 @@ export default function RevenueTargets() {
 
       {/* KPI CARDS */}
       {(() => {
-        const avm = monthly.managerRevenue > 0
-          ? (monthly.actualRevenue / monthly.managerRevenue - 1) * 100
+        const avm = monthly.managerRevenueToDate > 0
+          ? (monthly.actualRevenue / monthly.managerRevenueToDate - 1) * 100
           : null;
-        const avmColor = avm == null ? "text-muted-foreground" : avm >= 0 ? "" : "";
+        const avs = monthly.statRevenueToDate > 0
+          ? (monthly.actualRevenue / monthly.statRevenueToDate - 1) * 100
+          : null;
+        const spgPct = monthly.statSpgToDate && monthly.actualSpgToDate != null
+          ? (monthly.actualSpgToDate / monthly.statSpgToDate - 1) * 100
+          : null;
+        const remaining = monthly.managerRevenue - monthly.actualRevenue;
+
+        const paceValue =
+          remainingDays === 0 ? "HK$ 0"
+          : remaining <= 0 ? "HK$ 0"
+          : `${fmtHKD(remaining / remainingDays)}/day`;
+        const paceHint =
+          remainingDays === 0 ? "Month complete"
+          : remaining <= 0 ? `Target already exceeded · ${remainingDays} days left`
+          : `${fmtHKD(remaining)} remaining · ${remainingDays} days left`;
+
+        const pctFmt = (v: number | null) =>
+          v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+        const pctColor = (v: number | null) =>
+          v == null ? undefined : v >= 0 ? C.pos : C.neg;
+
+        const HeadlineCard = ({ label, value, hint, color }: {
+          label: string; value: React.ReactNode; hint: React.ReactNode; color?: string;
+        }) => (
+          <Card className="p-4 border-border bg-card flex flex-col justify-between">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {label}
+            </div>
+            <div className="mt-1 text-3xl font-bold tabular-nums" style={{ color }}>
+              {value}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
+          </Card>
+        );
+
+        const SecondaryCard = ({ dot, label, value }: {
+          dot: string; label: string; value: React.ReactNode;
+        }) => (
+          <Card className="p-2.5 border-border bg-card">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                {label}
+              </span>
+            </div>
+            <div className="mt-0.5 text-base font-semibold tabular-nums text-foreground/90">{value}</div>
+          </Card>
+        );
+
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-2.5">
-            {/* Headline: Actual vs Manager */}
-            <Card className="p-4 border-2 border-primary/30 bg-primary/5 lg:col-span-2 flex flex-col justify-between">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Actual vs Manager
-              </div>
-              <div
-                className="mt-1 text-4xl font-bold tabular-nums"
-                style={{ color: avm == null ? undefined : avm >= 0 ? C.pos : C.neg }}
-              >
-                {avm == null ? "—" : `${avm >= 0 ? "+" : ""}${avm.toFixed(1)}%`}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {fmtHKD(monthly.actualRevenue)} of {fmtHKD(monthly.managerRevenue)} planned
-              </div>
-            </Card>
-            <KpiCardDot dot={C.stat} label="Statistical Revenue" value={fmtHKD(monthly.statRevenue)}
-              hint={`${filteredPoints.filter((p) => p.statistical).length} days benchmarked`} />
-            <KpiCardDot dot={C.manager} label="Manager Revenue" value={fmtHKD(monthly.managerRevenue)}
-              hint={monthly.statRevenue > 0
-                ? `${((monthly.managerRevenue / monthly.statRevenue - 1) * 100).toFixed(1)}% vs statistical`
-                : "No benchmark"} />
-            <KpiCardDot dot={C.actual} label="Actual Revenue" value={fmtHKD(monthly.actualRevenue)}
-              hint={`${completedDays}/${completedDays + remainingDays} days completed`} />
-            <KpiCardDot dot={C.manager} label="Manager Guests" value={fmtInt(monthly.managerGuests)}
-              hint="—" />
-            <KpiCardDot dot={C.actual} label="Actual Guests" value={fmtInt(monthly.actualGuests)}
-              hint={monthly.managerGuests > 0
-                ? `${(monthly.actualGuests / monthly.managerGuests * 100).toFixed(1)}% of target`
-                : "—"} />
+          <div className="space-y-2.5">
+            {/* Row 1: 4 equal-weight headline cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              <HeadlineCard
+                label="Actual vs Manager"
+                value={pctFmt(avm)}
+                color={pctColor(avm)}
+                hint={`${fmtHKD(monthly.actualRevenue)} of ${fmtHKD(monthly.managerRevenueToDate)} planned to date`}
+              />
+              <HeadlineCard
+                label="Actual vs Statistical"
+                value={pctFmt(avs)}
+                color={pctColor(avs)}
+                hint={`Model accuracy — ${completedDays} days tracked`}
+              />
+              <HeadlineCard
+                label="Required Daily Pace"
+                value={paceValue}
+                color="hsl(var(--primary))"
+                hint={paceHint}
+              />
+              <HeadlineCard
+                label="Actual SPG vs Statistical SPG"
+                value={pctFmt(spgPct)}
+                color={pctColor(spgPct)}
+                hint={monthly.actualSpgToDate != null && monthly.statSpgToDate != null
+                  ? `HK$ ${monthly.actualSpgToDate.toFixed(0)} vs HK$ ${monthly.statSpgToDate.toFixed(0)} model`
+                  : "—"}
+              />
+            </div>
+
+            {/* Row 2: secondary reference row */}
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5">
+              <SecondaryCard dot={C.stat} label="Statistical Revenue" value={fmtHKD(monthly.statRevenue)} />
+              <SecondaryCard dot={C.manager} label="Manager Revenue" value={fmtHKD(monthly.managerRevenue)} />
+              <SecondaryCard dot={C.actual} label="Actual Revenue" value={fmtHKD(monthly.actualRevenue)} />
+              <SecondaryCard dot={C.manager} label="Manager Guests" value={fmtInt(monthly.managerGuests)} />
+              <SecondaryCard dot={C.actual} label="Actual Guests" value={fmtInt(monthly.actualGuests)} />
+            </div>
           </div>
         );
       })()}
