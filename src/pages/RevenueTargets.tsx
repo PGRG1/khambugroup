@@ -1189,6 +1189,10 @@ function DailyRegister(props: DailyRegisterProps) {
                           <Button size="sm" variant="outline" className="h-6 text-[11px]"
                             onClick={() => onSaveDay(r.venueId, r.date)}>Save</Button>
                         )}
+                        {canApprove && lns.some((l) => l.status === "saved") && (
+                          <Button size="sm" variant="default" className="h-6 text-[11px]"
+                            onClick={() => onApproveDay(r.venueId, r.date)}>Approve</Button>
+                        )}
                         {canEdit && (
                           <Button size="sm" variant="ghost" className="h-6 text-[11px]"
                             onClick={() => setEventFor({ venueId: r.venueId, date: r.date })}>
