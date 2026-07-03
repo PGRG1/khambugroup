@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
+import { StatisticalDailyRow } from "@/hooks/useStatisticalRevenueTargets";
 
 interface Props {
   year: number;
@@ -9,7 +10,9 @@ interface Props {
   selectedVenues: string[];
   salesData: SalesRecord[];
   forecasts: ForecastRecord[];
+  statisticalDaily: StatisticalDailyRow[];
 }
+
 
 const VenueBreakdownTable = ({
   year,
@@ -17,13 +20,24 @@ const VenueBreakdownTable = ({
   selectedVenues,
   salesData,
   forecasts,
+  statisticalDaily,
 }: Props) => {
+
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const today = new Date();
   const isCurrentMonth =
     today.getFullYear() === year && today.getMonth() + 1 === month;
   const daysInMonth = new Date(year, month, 0).getDate();
   const daysElapsed = isCurrentMonth ? today.getDate() : daysInMonth;
+
+  const statByVenue = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of statisticalDaily) {
+      if (!r.targetDate.startsWith(monthStr)) continue;
+      m.set(r.venueName, (m.get(r.venueName) ?? 0) + r.amount);
+    }
+    return m;
+  }, [statisticalDaily, monthStr]);
 
   const rows = useMemo(() => {
     return selectedVenues.map((venue) => {
@@ -48,21 +62,28 @@ const VenueBreakdownTable = ({
             )
           : null;
 
+      const stat = statByVenue.has(venue) ? statByVenue.get(venue)! : null;
+
       return {
         venue,
+        statistical: stat,
         managerSum: hasManagerRows ? managerSum : null,
         actual,
         delta,
         pace,
       };
     });
-  }, [selectedVenues, forecasts, salesData, monthStr, daysInMonth, daysElapsed]);
+  }, [selectedVenues, forecasts, salesData, statByVenue, monthStr, daysInMonth, daysElapsed]);
+
 
   if (rows.length === 0) return null;
 
   const totalMgr = rows.reduce((s, r) => s + (r.managerSum ?? 0), 0);
   const totalAct = rows.reduce((s, r) => s + r.actual, 0);
+  const totalStat = rows.reduce((s, r) => s + (r.statistical ?? 0), 0);
   const anyMgr = rows.some((r) => r.managerSum != null);
+  const anyStat = rows.some((r) => r.statistical != null);
+
 
   return (
     <div className="card-glass rounded-xl p-4 overflow-x-auto">
@@ -87,9 +108,10 @@ const VenueBreakdownTable = ({
               className="border-b border-border/40 hover:bg-muted/30 transition-colors"
             >
               <td className="py-2 px-2 font-medium">{r.venue}</td>
-              <td className="py-2 px-2 text-right td-num text-muted-foreground">
-                —
+              <td className="py-2 px-2 text-right td-num">
+                {r.statistical != null ? formatCurrency(r.statistical) : <span className="text-muted-foreground">—</span>}
               </td>
+
               <td className="py-2 px-2 text-right td-num">
                 {r.managerSum != null ? formatCurrency(r.managerSum) : "—"}
               </td>
@@ -129,9 +151,10 @@ const VenueBreakdownTable = ({
           ))}
           <tr className="border-t-2 border-border font-semibold">
             <td className="py-2 px-2">Total</td>
-            <td className="py-2 px-2 text-right td-num text-muted-foreground">
-              —
+            <td className="py-2 px-2 text-right td-num">
+              {anyStat ? formatCurrency(totalStat) : <span className="text-muted-foreground">—</span>}
             </td>
+
             <td className="py-2 px-2 text-right td-num">
               {anyMgr ? formatCurrency(totalMgr) : "—"}
             </td>

@@ -4,6 +4,7 @@ import { formatCurrency } from "@/utils/salesUtils";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import { RevenueTarget } from "@/hooks/useRevenueTargets";
+import { StatisticalDailyRow } from "@/hooks/useStatisticalRevenueTargets";
 
 interface Props {
   year: number;
@@ -12,6 +13,7 @@ interface Props {
   salesData: SalesRecord[];
   forecasts: ForecastRecord[];
   target: RevenueTarget | null;
+  statisticalDaily: StatisticalDailyRow[];
 }
 
 const ThreeWaySummary = ({
@@ -21,14 +23,29 @@ const ThreeWaySummary = ({
   salesData,
   forecasts,
   target,
+  statisticalDaily,
 }: Props) => {
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const today = new Date();
   const isCurrentMonth =
     today.getFullYear() === year && today.getMonth() + 1 === month;
 
-  const managerTotal = target?.targetAmount ?? null;
-  const statisticalTotal = target?.statisticalTargetAmount ?? null;
+  const managerTotal =
+    target?.targetAmount != null && target.targetAmount > 0 ? target.targetAmount : null;
+
+  const filteredStat = useMemo(
+    () => statisticalDaily.filter((r) => selectedVenues.includes(r.venueName)),
+    [statisticalDaily, selectedVenues],
+  );
+  const statisticalTotal = filteredStat.length > 0
+    ? filteredStat.reduce((s, r) => s + r.amount, 0)
+    : null;
+  const statisticalVenues = useMemo(
+    () => Array.from(new Set(filteredStat.map((r) => r.venueName))),
+    [filteredStat],
+  );
+  const statisticalGeneratedAt = target?.statisticalGeneratedAt ?? null;
+  const statisticalModel = target?.statisticalModel ?? null;
 
   const actual = useMemo(
     () =>
@@ -39,6 +56,7 @@ const ThreeWaySummary = ({
         .reduce((sum, s) => sum + Number(s.totalSales || 0), 0),
     [salesData, monthStr, selectedVenues],
   );
+
 
   const forecastRowsSum = useMemo(
     () =>
@@ -77,11 +95,17 @@ const ThreeWaySummary = ({
             <div className="text-2xl font-bold td-num text-foreground">
               {formatCurrency(statisticalTotal)}
             </div>
-            {target?.statisticalModel && (
-              <div className="text-[10px] text-muted-foreground mt-1">
-                Model: {target.statisticalModel}
-              </div>
-            )}
+            <div className="text-[10px] text-muted-foreground mt-1 flex flex-wrap gap-x-2">
+              {statisticalModel && <span>Model: {statisticalModel}</span>}
+              {statisticalGeneratedAt && (
+                <span>
+                  Generated {new Date(statisticalGeneratedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                </span>
+              )}
+              {statisticalVenues.length > 0 && (
+                <span>{statisticalVenues.length} venue{statisticalVenues.length === 1 ? "" : "s"}</span>
+              )}
+            </div>
           </>
         ) : (
           <>
@@ -93,6 +117,7 @@ const ThreeWaySummary = ({
             </span>
           </>
         )}
+
       </div>
 
       {/* Manager */}

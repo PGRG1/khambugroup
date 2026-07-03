@@ -14,6 +14,7 @@ import {
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
+import { StatisticalDailyRow } from "@/hooks/useStatisticalRevenueTargets";
 
 interface Props {
   year: number;
@@ -21,10 +22,14 @@ interface Props {
   selectedVenues: string[];
   salesData: SalesRecord[];
   forecasts: ForecastRecord[];
+  statisticalDaily: StatisticalDailyRow[];
 }
+
 
 const MANAGER_COLOR = "hsl(152 76% 50%)";
 const ACTUAL_COLOR = "hsl(199 90% 55%)";
+const STAT_COLOR = "hsl(45 96% 60%)";
+
 
 const ThreeWayChart = ({
   year,
@@ -32,7 +37,9 @@ const ThreeWayChart = ({
   selectedVenues,
   salesData,
   forecasts,
+  statisticalDaily,
 }: Props) => {
+
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const daysInMonth = new Date(year, month, 0).getDate();
   const today = new Date();
@@ -63,22 +70,35 @@ const ThreeWayChart = ({
       );
     }
 
+    const dailyStat = new Map<number, number>();
+    for (const r of statisticalDaily) {
+      if (!r.targetDate.startsWith(monthStr)) continue;
+      if (!selectedVenues.includes(r.venueName)) continue;
+      const day = parseInt(r.targetDate.split("-")[2], 10);
+      dailyStat.set(day, (dailyStat.get(day) ?? 0) + r.amount);
+    }
+
     const hasAnyManager = dailyManager.size > 0;
     const hasAnyActual = dailyActual.size > 0;
+    const hasAnyStat = dailyStat.size > 0;
 
     let cumMgr = 0;
     let cumAct = 0;
+    let cumStat = 0;
     const rows: {
       day: number;
       label: string;
       manager: number | null;
       actual: number | null;
+      statistical: number | null;
     }[] = [];
     for (let d = 1; d <= daysInMonth; d++) {
       const mgrDay = dailyManager.get(d);
       const actDay = dailyActual.get(d);
+      const statDay = dailyStat.get(d);
       if (mgrDay != null) cumMgr += mgrDay;
       if (actDay != null) cumAct += actDay;
+      if (statDay != null) cumStat += statDay;
 
       // For current month, stop actual line at today.
       const showActual =
@@ -86,18 +106,21 @@ const ThreeWayChart = ({
           ? cumAct
           : null;
       const showManager = hasAnyManager ? cumMgr : null;
+      const showStat = hasAnyStat ? cumStat : null;
 
       rows.push({
         day: d,
         label: String(d),
         manager: showManager,
         actual: showActual,
+        statistical: showStat,
       });
     }
-    return { rows, hasAnyManager, hasAnyActual };
-  }, [forecasts, salesData, monthStr, selectedVenues, daysInMonth, todayDay]);
+    return { rows, hasAnyManager, hasAnyActual, hasAnyStat };
+  }, [forecasts, salesData, statisticalDaily, monthStr, selectedVenues, daysInMonth, todayDay]);
 
-  if (!chartData.hasAnyManager && !chartData.hasAnyActual) {
+  if (!chartData.hasAnyManager && !chartData.hasAnyActual && !chartData.hasAnyStat) {
+
     return (
       <div className="card-glass rounded-xl p-8 text-center">
         <p className="text-sm text-muted-foreground">
@@ -111,11 +134,9 @@ const ThreeWayChart = ({
     <div className="card-glass rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-display font-semibold">
-          Cumulative Revenue — Manager vs Actual
+          Cumulative Revenue — Statistical vs Manager vs Actual
         </h3>
-        <span className="text-[10px] text-muted-foreground">
-          Statistical series will appear when generation is enabled
-        </span>
+
       </div>
       <div style={{ width: "100%", height: 320 }}>
         <ResponsiveContainer>
@@ -195,6 +216,18 @@ const ThreeWayChart = ({
                 dot={false}
               />
             )}
+            {chartData.hasAnyStat && (
+              <Line
+                type="monotone"
+                dataKey="statistical"
+                name="Statistical (cum.)"
+                stroke={STAT_COLOR}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+              />
+            )}
+
           </ComposedChart>
         </ResponsiveContainer>
       </div>

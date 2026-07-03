@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Target, Save, Sparkles, AlertTriangle, Check, Camera, Download } from "lucide-react";
+import { Target, Save, Sparkles, AlertTriangle, Check, Camera, Download, Loader2 } from "lucide-react";
 import { toPng } from "html-to-image";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { useForecastData } from "@/hooks/useForecastData";
+import type { GenerateArgs, GenerateResult, StatisticalDailyRow } from "@/hooks/useStatisticalRevenueTargets";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
@@ -26,10 +27,16 @@ interface RevenueTargetPanelProps {
   salesData: SalesRecord[];
   allForecasts: ForecastRecord[];
   allVenues: string[];
+  venueIdByName: Record<string, string>;
   year: number;
   month: number;
   onMonthChange?: (year: number, month: number) => void;
+  generateStatistical: (args: GenerateArgs) => Promise<GenerateResult>;
+  generatingStatistical: boolean;
+  onStatisticalGenerated?: () => void;
+  statisticalDaily: StatisticalDailyRow[];
 }
+
 
 const monthName = (m: number) => new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
 
@@ -45,10 +52,16 @@ const RevenueTargetPanel = ({
   salesData,
   allForecasts,
   allVenues,
+  venueIdByName,
   year,
   month,
   onMonthChange,
+  generateStatistical,
+  generatingStatistical,
+  onStatisticalGenerated,
+  statisticalDaily,
 }: RevenueTargetPanelProps) => {
+
   const { user } = useAuth();
   const { getTarget, upsertTarget } = useRevenueTargets();
   const { addForecast, updateForecast } = useForecastData();
@@ -66,6 +79,13 @@ const RevenueTargetPanel = ({
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
 
+  // Statistical-generation dialogs
+  const [confirmGenOpen, setConfirmGenOpen] = useState(false);
+  const [insufficientOpen, setInsufficientOpen] = useState(false);
+  const [insufficientMissing, setInsufficientMissing] = useState<
+    { venue_name: string; weekday: number }[]
+  >([]);
+
   const existingTarget = getTarget(year, month);
   const statisticalTotal = existingTarget?.statisticalTargetAmount ?? null;
   const statisticalModel = existingTarget?.statisticalModel ?? null;
@@ -73,7 +93,7 @@ const RevenueTargetPanel = ({
   useEffect(() => {
     const existing = getTarget(year, month);
     if (existing) {
-      setTargetAmount(existing.targetAmount);
+      setTargetAmount(existing.targetAmount ?? 0);
       const v = existing.venues.filter((x) => allVenues.includes(x));
       setSelectedVenues(v.length ? v : allVenues);
     } else {
@@ -81,6 +101,54 @@ const RevenueTargetPanel = ({
       setSelectedVenues(allVenues);
     }
   }, [year, month, getTarget, allVenues]);
+
+  const monthStart = useMemo(() => new Date(year, month - 1, 1), [year, month]);
+  const lookbackEnd = useMemo(() => {
+    const d = new Date(monthStart);
+    d.setDate(d.getDate() - 1);
+    return d;
+  }, [monthStart]);
+  const lookbackStart = useMemo(() => {
+    const d = new Date(lookbackEnd);
+    d.setDate(d.getDate() - (12 * 7 - 1));
+    return d;
+  }, [lookbackEnd]);
+  const fmtDate = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+  const monthHasStatRows = statisticalDaily.some(
+    (r) => r.targetDate.startsWith(`${year}-${String(month).padStart(2, "0")}`),
+  );
+  const weekdayLabel = (w: number) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][w] ?? String(w);
+
+  const runGenerate = async () => {
+    setConfirmGenOpen(false);
+    const venueIds = selectedVenues
+      .map((n) => venueIdByName[n])
+      .filter((v): v is string => !!v);
+    if (venueIds.length === 0) {
+      toast({ title: "Select at least one Responsible Venue", variant: "destructive" });
+      return;
+    }
+    const res: GenerateResult = await generateStatistical({ year, month, venueIds });
+    // NOTE: TS discriminated-union narrowing on `res.ok` — cast to `any` for the branch access.
+    const r: any = res;
+    if (r.ok === true) {
+      toast({
+        title: monthHasStatRows ? "Statistical target regenerated" : "Statistical target generated",
+        description: `${r.inserted} daily rows · monthly total ${formatCurrency(r.monthly_total)}`,
+      });
+      onStatisticalGenerated?.();
+    } else if (r.reason === "insufficient_history") {
+      const miss = (r.missing ?? []) as { venue_name: string; weekday: number }[];
+      setInsufficientMissing(miss.map((m) => ({ venue_name: m.venue_name, weekday: m.weekday })));
+      setInsufficientOpen(true);
+    } else {
+      toast({ title: "Failed to generate statistical target", description: r.message ?? "Unknown error", variant: "destructive" });
+    }
+  };
+
+
+
 
   const monthOptions = useMemo(() => {
     const opts: { year: number; month: number; label: string }[] = [];
@@ -287,18 +355,31 @@ const RevenueTargetPanel = ({
                   <span className="italic">Statistical target not generated yet</span>
                 )}
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (statisticalTotal != null) setTargetAmount(Math.round(statisticalTotal));
-                }}
-                disabled={statisticalTotal == null}
-                className="shrink-0 px-2 py-1 rounded border border-border bg-secondary text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-                title={statisticalTotal == null ? "No statistical target available" : "Copy statistical amount into Manager Target"}
-              >
-                Accept statistical
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setConfirmGenOpen(true)}
+                  disabled={generatingStatistical || selectedVenues.length === 0}
+                  className="px-2 py-1 rounded border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                  title={selectedVenues.length === 0 ? "Select Responsible Venues first" : "Generate statistical target from historical revenue"}
+                >
+                  {generatingStatistical ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {monthHasStatRows ? "Regenerate…" : "Generate"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (statisticalTotal != null) setTargetAmount(Math.round(statisticalTotal));
+                  }}
+                  disabled={statisticalTotal == null}
+                  className="px-2 py-1 rounded border border-border bg-secondary text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={statisticalTotal == null ? "No statistical target available" : "Copy statistical amount into Manager Target"}
+                >
+                  Accept statistical
+                </button>
+              </div>
             </div>
+
           </div>
 
 
@@ -412,9 +493,66 @@ const RevenueTargetPanel = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Generate/Regenerate */}
+      <Dialog open={confirmGenOpen} onOpenChange={setConfirmGenOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              {monthHasStatRows ? "Regenerate Statistical Target" : "Generate Statistical Target"}
+            </DialogTitle>
+            <DialogDescription>
+              {monthHasStatRows
+                ? "This will overwrite the existing statistical target for this month."
+                : "Deterministic model using historical Actual Revenue."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-xs space-y-1.5 rounded-md border border-border bg-secondary/50 p-3">
+            <div><span className="text-muted-foreground">Model: </span><span className="font-medium">Same-Weekday Median (12 weeks)</span></div>
+            <div><span className="text-muted-foreground">Month: </span><span className="font-medium">{new Date(year, month - 1, 1).toLocaleString("en-GB", { month: "long", year: "numeric" })}</span></div>
+            <div><span className="text-muted-foreground">Lookback: </span><span className="font-medium">{fmtDate(lookbackStart)} → {fmtDate(lookbackEnd)}</span></div>
+            <div><span className="text-muted-foreground">Venues: </span><span className="font-medium">{selectedVenues.join(", ") || "—"}</span></div>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setConfirmGenOpen(false)} className="px-3 py-2 text-sm rounded-lg border border-border bg-secondary hover:bg-muted">Cancel</button>
+            <button onClick={runGenerate} disabled={generatingStatistical} className="px-3 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1">
+              {generatingStatistical && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {monthHasStatRows ? "Regenerate" : "Generate"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Insufficient history error */}
+      <Dialog open={insufficientOpen} onOpenChange={setInsufficientOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-4 w-4" />
+              Insufficient historical data
+            </DialogTitle>
+            <DialogDescription>
+              A minimum of 4 same-weekday historical rows are required per venue over the last 12 weeks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-xs rounded-md border border-border bg-secondary/50 p-3 max-h-56 overflow-auto">
+            <div className="text-muted-foreground mb-1.5">Missing coverage:</div>
+            <ul className="space-y-0.5">
+              {insufficientMissing.map((m, i) => (
+                <li key={i} className="font-mono">• {m.venue_name} — {weekdayLabel(m.weekday)}</li>
+              ))}
+            </ul>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setInsufficientOpen(false)} className="px-3 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Close</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
+
 
 // ---------- Sub-components ----------
 

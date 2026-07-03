@@ -6,7 +6,8 @@ export interface RevenueTarget {
   id: string;
   year: number;
   month: number;
-  targetAmount: number;
+  /** Manager Target amount. `null` means "not set" — a row can exist purely for statistical data. */
+  targetAmount: number | null;
   statisticalTargetAmount: number | null;
   statisticalModel: string | null;
   statisticalGeneratedAt: string | null;
@@ -22,7 +23,7 @@ function fromDb(r: any): RevenueTarget {
     id: r.id,
     year: Number(r.year),
     month: Number(r.month),
-    targetAmount: Number(r.target_amount),
+    targetAmount: r.target_amount == null ? null : Number(r.target_amount),
     statisticalTargetAmount:
       r.statistical_target_amount == null ? null : Number(r.statistical_target_amount),
     statisticalModel: r.statistical_model ?? null,
@@ -34,6 +35,7 @@ function fromDb(r: any): RevenueTarget {
     updatedAt: r.updated_at,
   };
 }
+
 
 export interface UpsertTargetInput {
   year: number;
