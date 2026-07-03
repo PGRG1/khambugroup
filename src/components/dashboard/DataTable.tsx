@@ -364,6 +364,13 @@ const DataTable = ({ data }: DataTableProps) => {
     });
   });
 
+  const { rows: allServicePeriods } = useVenueServicePeriods();
+  const servicePeriodNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    allServicePeriods.forEach((p) => m.set(p.id, p.name));
+    return m;
+  }, [allServicePeriods]);
+
   const columns: [SortKey, string][] = [
     ["date", "Date"], ["day", "Day"], ["venue", "Venue"],
     ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
