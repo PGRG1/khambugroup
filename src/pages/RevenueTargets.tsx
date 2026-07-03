@@ -208,17 +208,26 @@ export default function RevenueTargets() {
     [venues],
   );
 
-  // Hydrate default venue selection from route or first active.
+  // Empty venueIds ("All" in the filter) = every active venue. The route slug
+  // is only used to seed the initial single-venue selection once, via the effect below.
   const effectiveVenueIds = useMemo(() => {
     if (venueIds.length) return venueIds;
-    if (!activeVenues.length) return [];
-    if (routeVenue) {
-      const match = activeVenues.find((v) =>
-        v.name.toLowerCase().replace(/\s+/g, "-") === routeVenue.toLowerCase());
-      if (match) return [match.id];
+    return activeVenues.map((v) => v.id);
+  }, [venueIds, activeVenues]);
+
+  // Seed venueIds from the route slug once venues have loaded, so the picker
+  // reflects the venue in the URL. User can then switch to "All" to clear it.
+  const seededFromRoute = React.useRef(false);
+  React.useEffect(() => {
+    if (seededFromRoute.current) return;
+    if (!activeVenues.length || !routeVenue || venueIds.length) return;
+    const match = activeVenues.find((v) =>
+      v.name.toLowerCase().replace(/\s+/g, "-") === routeVenue.toLowerCase());
+    if (match) {
+      setVenues([match.id]);
+      seededFromRoute.current = true;
     }
-    return [activeVenues[0].id];
-  }, [venueIds, activeVenues, routeVenue]);
+  }, [activeVenues, routeVenue, venueIds.length, setVenues]);
 
   const perms = useRevenueTargetPermissions();
   const canEdit = perms.canEditManagerTargets;
