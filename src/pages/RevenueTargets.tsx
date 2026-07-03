@@ -1413,6 +1413,15 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
           const canUseStat = !!statForPeriod;
           const rev = managerRevenue(l);
           const notOperating = l.lineStatus !== "operating";
+          const venueOpPeriodCount = periods.filter(
+            (pp) => pp.venueId === l.venueId && pp.isActive && !pp.isRollupOnly,
+          ).length;
+          const showMultiPeriodHint =
+            !notOperating
+            && l.managerSource !== "statistical_default"
+            && !statForPeriod
+            && venueOpPeriodCount > 1
+            && (l.managerGuestTarget == null || l.managerSpendPerGuestTarget == null);
           return (
             <tr key={l.id} className={`border-b border-border/40 ${notOperating ? "opacity-60" : ""}`}>
               <td className="py-1.5 px-2 font-medium">{p?.name ?? "—"}</td>
@@ -1434,7 +1443,16 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                 ) : (l.managerSpendPerGuestTarget == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(l.managerSpendPerGuestTarget))}
               </td>
               <td className="text-right px-2 font-semibold">
-                {rev == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(rev)}
+                {rev == null ? (
+                  <div className="flex flex-col items-end">
+                    <span className="text-muted-foreground italic">Not set</span>
+                    {showMultiPeriodHint && (
+                      <span className="mt-1 text-[10px] text-muted-foreground text-right max-w-[220px] leading-tight normal-case">
+                        No automatic benchmark — this venue has multiple service periods. Set manually or click Use Stat if a period-level benchmark exists.
+                      </span>
+                    )}
+                  </div>
+                ) : fmtHKD(rev)}
               </td>
               <td className="text-right px-2 text-muted-foreground">Unavailable</td>
               <td className="text-right px-2 text-muted-foreground">Unavailable</td>
