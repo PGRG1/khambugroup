@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Target, Save, Sparkles, AlertTriangle, Check, Camera, Download } from "lucide-react";
+import { Target, Save, Sparkles, AlertTriangle, Check, Camera, Download, Loader2 } from "lucide-react";
 import { toPng } from "html-to-image";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useRevenueTargets } from "@/hooks/useRevenueTargets";
 import { useForecastData } from "@/hooks/useForecastData";
+import type { GenerateArgs, GenerateResult, StatisticalDailyRow } from "@/hooks/useStatisticalRevenueTargets";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
@@ -26,10 +27,16 @@ interface RevenueTargetPanelProps {
   salesData: SalesRecord[];
   allForecasts: ForecastRecord[];
   allVenues: string[];
+  venueIdByName: Record<string, string>;
   year: number;
   month: number;
   onMonthChange?: (year: number, month: number) => void;
+  generateStatistical: (args: GenerateArgs) => Promise<GenerateResult>;
+  generatingStatistical: boolean;
+  onStatisticalGenerated?: () => void;
+  statisticalDaily: StatisticalDailyRow[];
 }
+
 
 const monthName = (m: number) => new Date(2000, m - 1, 1).toLocaleString("en-US", { month: "long" });
 
@@ -45,10 +52,16 @@ const RevenueTargetPanel = ({
   salesData,
   allForecasts,
   allVenues,
+  venueIdByName,
   year,
   month,
   onMonthChange,
+  generateStatistical,
+  generatingStatistical,
+  onStatisticalGenerated,
+  statisticalDaily,
 }: RevenueTargetPanelProps) => {
+
   const { user } = useAuth();
   const { getTarget, upsertTarget } = useRevenueTargets();
   const { addForecast, updateForecast } = useForecastData();
