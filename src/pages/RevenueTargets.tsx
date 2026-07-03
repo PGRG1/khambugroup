@@ -1242,6 +1242,8 @@ export default function RevenueTargets() {
         lines={linesWithEdits}
         statistical={statistical}
         actuals={actuals}
+        actualsByPeriod={actualsByPeriod}
+
         pendingIds={new Set(Object.keys(pendingEdits))}
         canEdit={canEdit}
         canApprove={perms.canApprove}
