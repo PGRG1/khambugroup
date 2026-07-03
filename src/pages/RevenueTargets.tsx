@@ -448,9 +448,9 @@ export default function RevenueTargets() {
     managerLines.map((l) => ({ ...l, ...pendingEdits[l.id] })),
     [managerLines, pendingEdits]);
 
-  const saveDay = async (venueId: string, date: string) => {
-    const targets = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date && pendingEdits[l.id]);
-    if (!targets.length) return;
+  const performSaveDay = async (
+    venueId: string, date: string, targets: ManagerTargetLine[], adjustmentReason?: string | null,
+  ) => {
     for (const t of targets) {
       const err = validateManagerLine(t, "saved");
       if (err) { toast({ title: "Cannot save", description: err, variant: "destructive" }); return; }
@@ -467,7 +467,7 @@ export default function RevenueTargets() {
         managerSpendPerGuestTarget: t.managerSpendPerGuestTarget,
         managerRevenueOverride: t.managerRevenueOverride,
         lineStatus: t.lineStatus,
-        zeroReason: t.zeroReason,
+        zeroReason: adjustmentReason ?? t.zeroReason,
         status: "saved",
         notes: t.notes,
         managerSource: "manual",
@@ -481,6 +481,32 @@ export default function RevenueTargets() {
       });
       await refetchLines();
     }
+  };
+
+  // Detect >15% variance vs reliable Full-Day Statistical benchmark for the day.
+  const varianceExceedsThreshold = (venueId: string, date: string, targets: ManagerTargetLine[]) => {
+    const statRow: any = statistical.find((s: any) => s.venueId === venueId && s.targetDate === date);
+    const statRev = Number(statRow?.statisticalTargetAmount ?? 0);
+    if (!statRow || !isFinite(statRev) || statRev <= 0) return false;
+    // Sum manager revenue across all operational lines for this venue/date (with edits applied).
+    const dayLines = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date);
+    const agg = aggregateManager(dayLines, allPeriods);
+    if (!isFinite(agg.revenue) || agg.revenue <= 0) return false;
+    const delta = Math.abs(agg.revenue - statRev) / statRev;
+    return delta > 0.15;
+  };
+
+  const saveDay = async (venueId: string, date: string) => {
+    const targets = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date && pendingEdits[l.id]);
+    if (!targets.length) return;
+    if (varianceExceedsThreshold(venueId, date, targets)) {
+      requestReason("variance_threshold", async (reason) => {
+        setReasonReq(null);
+        await performSaveDay(venueId, date, targets, reason);
+      });
+      return;
+    }
+    await performSaveDay(venueId, date, targets);
   };
 
   const saveAll = async () => {
