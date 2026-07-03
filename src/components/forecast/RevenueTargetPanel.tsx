@@ -129,7 +129,7 @@ const RevenueTargetPanel = ({
       toast({ title: "Select at least one Responsible Venue", variant: "destructive" });
       return;
     }
-    const res: GenerateResult = await generateStatistical({ year, month, venideIdsPlaceholder: venueIds } as unknown as GenerateArgs);
+    const res: GenerateResult = await generateStatistical({ year, month, venueIds });
     // NOTE: TS discriminated-union narrowing on `res.ok` — cast to `any` for the branch access.
     const r: any = res;
     if (r.ok === true) {
