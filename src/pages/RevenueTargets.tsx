@@ -1073,7 +1073,8 @@ interface DailyRegisterProps {
 
 function DailyRegister(props: DailyRegisterProps) {
   const { year, month, venues, periods, opPeriods, days, lines, statistical, actuals,
-    pendingIds, canEdit, onEdit, onSaveDay, onApplyStatistical, onSetStatus, onLineStatus, onAddEvent } = props;
+    pendingIds, canEdit, canApprove, onEdit, onSaveDay, onApproveDay, onApplyStatistical,
+    onSetStatus, onLineStatus, onAddEvent, requestReason } = props;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [eventFor, setEventFor] = useState<{ venueId: string; date: string } | null>(null);
 
