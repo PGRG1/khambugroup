@@ -1505,6 +1505,15 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
           <p className="text-[11px] text-muted-foreground">
             Use either drivers (Guests × Spend/Guest) or a Contracted Revenue amount.
           </p>
+          {reasonRequired && (
+            <div>
+              <Label className="text-xs">
+                Reason {mode === "replaces_period" ? "(replacement)" : "(events-only day)"}
+              </Label>
+              <Input value={reason} onChange={(e) => setReason(e.target.value)}
+                placeholder="Why is normal service suspended?" />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
