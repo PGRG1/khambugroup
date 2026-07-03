@@ -7163,6 +7163,118 @@ export type Database = {
           },
         ]
       }
+      revenue_manager_target_lines: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_end_time: string | null
+          event_mode: string | null
+          event_name: string | null
+          event_start_time: string | null
+          event_type: string | null
+          id: string
+          line_status: string
+          line_type: string
+          manager_guest_target: number | null
+          manager_revenue_override: number | null
+          manager_revenue_target: number | null
+          manager_source: string | null
+          manager_spend_per_guest_target: number | null
+          notes: string | null
+          replaces_service_period_id: string | null
+          service_period_id: string | null
+          status: string
+          target_date: string
+          target_input_mode: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          venue_area: string | null
+          venue_id: string
+          zero_reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_end_time?: string | null
+          event_mode?: string | null
+          event_name?: string | null
+          event_start_time?: string | null
+          event_type?: string | null
+          id?: string
+          line_status?: string
+          line_type: string
+          manager_guest_target?: number | null
+          manager_revenue_override?: number | null
+          manager_revenue_target?: number | null
+          manager_source?: string | null
+          manager_spend_per_guest_target?: number | null
+          notes?: string | null
+          replaces_service_period_id?: string | null
+          service_period_id?: string | null
+          status?: string
+          target_date: string
+          target_input_mode?: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_area?: string | null
+          venue_id: string
+          zero_reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_end_time?: string | null
+          event_mode?: string | null
+          event_name?: string | null
+          event_start_time?: string | null
+          event_type?: string | null
+          id?: string
+          line_status?: string
+          line_type?: string
+          manager_guest_target?: number | null
+          manager_revenue_override?: number | null
+          manager_revenue_target?: number | null
+          manager_source?: string | null
+          manager_spend_per_guest_target?: number | null
+          notes?: string | null
+          replaces_service_period_id?: string | null
+          service_period_id?: string | null
+          status?: string
+          target_date?: string
+          target_input_mode?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_area?: string | null
+          venue_id?: string
+          zero_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_manager_target_lines_replaces_service_period_id_fkey"
+            columns: ["replaces_service_period_id"]
+            isOneToOne: false
+            referencedRelation: "venue_service_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_manager_target_lines_service_period_id_fkey"
+            columns: ["service_period_id"]
+            isOneToOne: false
+            referencedRelation: "venue_service_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_manager_target_lines_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_sources: {
         Row: {
           created_at: string
@@ -7213,12 +7325,18 @@ export type Database = {
           created_at: string
           generated_at: string
           generated_by: string | null
+          guest_observation_count: number
           id: string
           lookback_end: string
           lookback_start: string
           model: string
           model_version: string
           observation_count: number
+          revenue_observation_count: number
+          service_period_id: string
+          service_period_name_snapshot: string | null
+          statistical_guest_target: number | null
+          statistical_spend_per_guest: number | null
           statistical_target_amount: number
           target_date: string
           tenant_id: string
@@ -7231,12 +7349,18 @@ export type Database = {
           created_at?: string
           generated_at?: string
           generated_by?: string | null
+          guest_observation_count?: number
           id?: string
           lookback_end: string
           lookback_start: string
           model: string
           model_version: string
           observation_count: number
+          revenue_observation_count?: number
+          service_period_id: string
+          service_period_name_snapshot?: string | null
+          statistical_guest_target?: number | null
+          statistical_spend_per_guest?: number | null
           statistical_target_amount: number
           target_date: string
           tenant_id: string
@@ -7249,12 +7373,18 @@ export type Database = {
           created_at?: string
           generated_at?: string
           generated_by?: string | null
+          guest_observation_count?: number
           id?: string
           lookback_end?: string
           lookback_start?: string
           model?: string
           model_version?: string
           observation_count?: number
+          revenue_observation_count?: number
+          service_period_id?: string
+          service_period_name_snapshot?: string | null
+          statistical_guest_target?: number | null
+          statistical_spend_per_guest?: number | null
           statistical_target_amount?: number
           target_date?: string
           tenant_id?: string
@@ -7264,7 +7394,61 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "revenue_statistical_targets_daily_service_period_id_fkey"
+            columns: ["service_period_id"]
+            isOneToOne: false
+            referencedRelation: "venue_service_periods"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "revenue_statistical_targets_daily_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revenue_target_days: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          operating_status: string
+          target_date: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          operating_status?: string
+          target_date: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          operating_status?: string
+          target_date?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_target_days_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -8432,6 +8616,74 @@ export type Database = {
           },
         ]
       }
+      venue_service_periods: {
+        Row: {
+          applicable_weekdays: number[]
+          code: string | null
+          created_at: string
+          created_by: string | null
+          crosses_midnight: boolean
+          effective_from: string
+          effective_to: string | null
+          end_time: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          start_time: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          venue_id: string
+        }
+        Insert: {
+          applicable_weekdays: number[]
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          crosses_midnight?: boolean
+          effective_from?: string
+          effective_to?: string | null
+          end_time: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          start_time: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id: string
+        }
+        Update: {
+          applicable_weekdays?: number[]
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          crosses_midnight?: boolean
+          effective_from?: string
+          effective_to?: string | null
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          start_time?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_service_periods_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venues: {
         Row: {
           created_at: string
@@ -8874,8 +9126,27 @@ export type Database = {
         Returns: string
       }
       current_user_tenant_id: { Args: never; Returns: string }
+      ensure_revenue_manager_target_lines_month: {
+        Args: {
+          p_month: number
+          p_tenant_id: string
+          p_venue_ids: string[]
+          p_year: number
+        }
+        Returns: Json
+      }
       generate_po_number: { Args: never; Returns: string }
       generate_recurring_expense_bills: { Args: never; Returns: Json }
+      generate_revenue_statistical_targets_month_v2: {
+        Args: {
+          p_model_version: string
+          p_month: number
+          p_tenant_id: string
+          p_venue_ids: string[]
+          p_year: number
+        }
+        Returns: Json
+      }
       generate_statistical_targets_month: {
         Args: {
           p_model_version: string
