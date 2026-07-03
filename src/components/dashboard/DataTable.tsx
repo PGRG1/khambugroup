@@ -556,6 +556,9 @@ const DataTable = ({ data }: DataTableProps) => {
                       <TableCell className="text-xs whitespace-nowrap">{row.date}</TableCell>
                       <TableCell className="text-xs">{row.day}</TableCell>
                       <TableCell className="text-xs">{row.venue}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {row.servicePeriodId ? (servicePeriodNameById.get(row.servicePeriodId) ?? "—") : "—"}
+                      </TableCell>
                       <TableCell>{numCell("orders", row)}</TableCell>
                       <TableCell>{numCell("guests", row)}</TableCell>
                       <TableCell>{numCell("subtotal", row)}</TableCell>
