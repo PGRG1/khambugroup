@@ -1234,6 +1234,7 @@ function DailyRegister(props: DailyRegisterProps) {
                               onEdit={onEdit}
                               onApplyStatistical={onApplyStatistical}
                               onLineStatus={onLineStatus}
+                              requestReason={requestReason}
                             />
                             {opLines.some((l) => l.lineType === "event") && (
                               <>
