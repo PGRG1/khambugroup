@@ -7207,6 +7207,71 @@ export type Database = {
           },
         ]
       }
+      revenue_statistical_targets_daily: {
+        Row: {
+          confidence: string
+          created_at: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          lookback_end: string
+          lookback_start: string
+          model: string
+          model_version: string
+          observation_count: number
+          statistical_target_amount: number
+          target_date: string
+          tenant_id: string
+          updated_at: string
+          venue_id: string
+          venue_name_snapshot: string
+        }
+        Insert: {
+          confidence: string
+          created_at?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          lookback_end: string
+          lookback_start: string
+          model: string
+          model_version: string
+          observation_count: number
+          statistical_target_amount: number
+          target_date: string
+          tenant_id: string
+          updated_at?: string
+          venue_id: string
+          venue_name_snapshot: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          lookback_end?: string
+          lookback_start?: string
+          model?: string
+          model_version?: string
+          observation_count?: number
+          statistical_target_amount?: number
+          target_date?: string
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string
+          venue_name_snapshot?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_statistical_targets_daily_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_targets: {
         Row: {
           created_at: string
@@ -7217,7 +7282,7 @@ export type Database = {
           statistical_generated_at: string | null
           statistical_model: string | null
           statistical_target_amount: number | null
-          target_amount: number
+          target_amount: number | null
           tenant_id: string
           updated_at: string
           venues: string[]
@@ -7232,7 +7297,7 @@ export type Database = {
           statistical_generated_at?: string | null
           statistical_model?: string | null
           statistical_target_amount?: number | null
-          target_amount?: number
+          target_amount?: number | null
           tenant_id?: string
           updated_at?: string
           venues?: string[]
@@ -7247,7 +7312,7 @@ export type Database = {
           statistical_generated_at?: string | null
           statistical_model?: string | null
           statistical_target_amount?: number | null
-          target_amount?: number
+          target_amount?: number | null
           tenant_id?: string
           updated_at?: string
           venues?: string[]
@@ -8861,6 +8926,19 @@ export type Database = {
       record_payment_with_allocations: {
         Args: { p_allocations: Json; p_payment: Json }
         Returns: string
+      }
+      replace_statistical_targets_month: {
+        Args: {
+          p_model: string
+          p_model_version: string
+          p_month: number
+          p_rows: Json
+          p_tenant_id: string
+          p_venue_ids: string[]
+          p_venue_names: string[]
+          p_year: number
+        }
+        Returns: Json
       }
       reverse_and_regenerate_sales_journal: {
         Args: { p_entry_id: string }
