@@ -15,6 +15,7 @@ const updateEqMock = vi.fn();
 const insertMock = vi.fn();
 const updateMock = vi.fn(() => ({
   eq: (_col: string, _v: any) => ({ eq: (_c2: string, _v2: any) => updateEqMock() }),
+  in: (_col: string, _ids: any[]) => ({ eq: (_c2: string, _v2: any) => updateEqMock() }),
 }));
 
 vi.mock("@/integrations/supabase/client", () => {
