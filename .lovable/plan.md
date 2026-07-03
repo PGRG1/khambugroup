@@ -1,47 +1,47 @@
 ## Scope
-`src/pages/RevenueTargets.tsx` only — extend the monthly to-date computation and restructure the KPI row into 4 headline cards + a secondary reference row.
+`src/pages/RevenueTargets.tsx` only — replace the current `SectionCard` toolbar + `MultiSelect` popovers with a single inline chip toolbar. No changes below the toolbar; filtering logic is unchanged.
 
-## Changes
+## Layout (single `card-glass` bar, one row, left → right)
 
-### 1. Extend monthly to-date accumulation
-In the same loop that already builds `managerRevenueToDate` / `managerGuestsToDate`, also accumulate:
-- `statRevenueToDate` — sum of `p.statistical.statisticalTargetAmount` for `p.date <= asOf`
-- `statGuestsToDate` — sum of `p.statistical.statisticalGuestTarget` for `p.date <= asOf`
+1. **Month navigator** — `‹ July 2026 ›`, unchanged behavior.
+2. Divider `h-5 w-px bg-border mx-1`.
+3. **Venue Scope**
+   - Label `VENUE SCOPE` in `text-[11px] text-muted-foreground uppercase tracking-wide`.
+   - Outlined pill buttons: `All` + one per `activeVenues` from `useVenues()` (never hardcoded).
+   - Multi-select toggle: clicking `All` clears `venueIds`; clicking a venue removes it from/adds it to `venueIds` (and implicitly leaves `All` inactive whenever `venueIds.length > 0`).
+   - Selected style: `border-primary text-primary bg-primary/10`; unselected: `border-border text-muted-foreground`.
+4. Divider.
+5. **Day of Week**
+   - Label `DAY OF WEEK`.
+   - Pills: `All` + reuse existing `WEEKDAYS` const (`Sun…Sat`).
+   - Reuse the darker filled active style from the Service Period weekday selector: selected `bg-primary text-primary-foreground border-primary`, unselected `bg-transparent border-border text-muted-foreground`.
+   - Same `All` vs individual toggle behavior as Venue Scope, driving `weekdays`.
+6. Divider.
+7. **Periods** (text-link toggles, no border/bg)
+   - `All Periods` + one entry per distinct **name** across `opPeriods` filtered to currently-selected venues (fallback to all `effectiveVenueIds` when none picked), deduped by name — rollup-only periods already excluded by `opPeriods`.
+   - Build a `nameToIds` map so clicking a name toggles the set of underlying `servicePeriodIds` for that name across venues. A name is "selected" when every ID for that name is in `servicePeriodIds`.
+   - Style: unselected `text-muted-foreground hover:text-foreground`, selected `text-primary font-medium underline underline-offset-4`.
+8. Divider.
+9. **Status** (existing operating-status filter, preserved)
+   - Same text-link style as Periods, driving `operatingStatuses` over the existing `STATUSES` array (`normal`, `mixed`, `events_only`, `closed`) with a leading `All` link.
+10. **Right-aligned group** (`ml-auto` + small gap): existing `Set Up This Month` (only when `effectiveVenueIds.length > 0` and `managerLines.length === 0`) OR the refresh icon button (`handleRecomputeStat`) with tooltip `Refresh data`. Same conditional logic as today.
 
-Derive and return alongside existing fields:
-- `actualSpgToDate = monthly.actualSpg` (actuals only accrue on completed days, so already to-date)
-- `statSpgToDate = statGuestsToDate > 0 ? statRevenueToDate / statGuestsToDate : null`
+## Component structure
 
-### 2. Restructure KPI row
-
-**Row 1 — 4 equal-weight headline cards** (replace current mixed headline set):
-
-1. **Actual vs Manager** — `(actualRevenue / managerRevenueToDate - 1) * 100`
-   - Subtext: `HK$ {actualRevenue} of HK$ {managerRevenueToDate} planned to date`
-   - Colored via `C.pos` / `C.neg`
-2. **Actual vs Statistical** — `(actualRevenue / statRevenueToDate - 1) * 100`
-   - Subtext: `Model accuracy — {completedDays} days tracked`
-   - Colored via `C.pos` / `C.neg`
-3. **Required Daily Pace** — compute `remaining = monthly.managerRevenue - monthly.actualRevenue`, then three cases:
-   - `remainingDays === 0` → value `HK$ 0`, subtext `Month complete`
-   - `remaining <= 0` (already ahead of full-month plan) → value `HK$ 0`, subtext `Target already exceeded · {remainingDays} days left` (avoids showing a nonsensical negative pace to someone glancing at it)
-   - Otherwise → `fmtHKD(remaining / remainingDays) + "/day"`, subtext `HK$ {remaining} remaining · {remainingDays} days left`
-   - Neutral/primary tone in all three cases (operational, not good/bad)
-4. **Actual SPG vs Statistical SPG** — `statSpgToDate ? (actualSpgToDate / statSpgToDate - 1) * 100 : null`
-   - Subtext: `HK$ {actualSpgToDate?.toFixed(0)} vs HK$ {statSpgToDate?.toFixed(0)} model`
-   - Colored via `C.pos` / `C.neg`
-
-All four styled identically — no single emphasized/bordered card.
-
-**Row 2 — secondary reference row**, demoted (smaller text, `text-muted-foreground` labels), keeping `grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5`:
-- Statistical Revenue, Manager Revenue, Actual Revenue, Manager Guests, Actual Guests
+- Remove the `MultiSelect` popover component (or leave defined but unused — prefer removing to keep the file lean since no other caller uses it).
+- Replace the outer `<SectionCard className="!p-3">` with a `card-glass rounded-xl px-3 py-2 flex flex-wrap items-center gap-2` container so the bar reads as one continuous strip.
+- Introduce small local presentational helpers inside the file (not exported): `<GroupLabel>`, `<PillToggle variant="outlined|filled">`, `<LinkToggle>`, `<Divider>` — kept private to this file to avoid cross-page churn.
 
 ## Non-goals
-- No changes to Daily Revenue Performance chart, Target Summary panel, or Daily Register.
-- No backend/RPC changes.
+- No popover, no collapse, no `Filters` button.
+- No changes to filtering logic, analytics, KPI row, charts, register, or any section below the toolbar.
+- No new hooks or state — reuse `filters` from `useRevenueTargetFilters` and existing setters (`setVenues`, `setPeriods`, `setWeekdays`, `setStatuses`).
 
 ## Verification
-- Four headline cards render on one row at desktop width with equal visual weight.
-- Required Daily Pace: sensible values mid-month; `Month complete` when `remainingDays === 0`; `Target already exceeded` (floored at HK$ 0) when actuals already meet/exceed the full-month plan.
-- Both "vs Statistical" cards use to-date denominators (avoids full-month distortion bug).
-- Secondary 5-card row renders below, visually demoted.
+- Toolbar renders on one row at desktop width in a single `card-glass` container with vertical dividers between groups.
+- Venue pills exactly match `activeVenues` from `useVenues()` (Assembly, Caliente, Hanabi, Off-Site-Stall, Arca in the current data) — no `Events` unless a real venue row exists.
+- Day-of-Week pills use the filled active style already established in the Service Period form.
+- Periods and Status render as plain underlined-when-active text links, no border/bg.
+- `All` and individual selections never coexist visually (`All` is active iff the corresponding list is empty).
+- Load the page fresh with no URL params AND with an explicitly empty `?rt_venues=` — both should render `All` as active on Venue Scope and Day of Week; individual pills should activate correctly when the URL includes real IDs/weekdays.
+- Set Up This Month / Refresh button still appears in the same conditions and works.
