@@ -1444,6 +1444,10 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
           const venueOpPeriodCount = periods.filter(
             (pp) => pp.venueId === l.venueId && pp.isActive && !pp.isRollupOnly,
           ).length;
+          const effGuest = l.managerGuestTarget ?? statForPeriod?.statisticalGuestTarget ?? null;
+          const effSpg = l.managerSpendPerGuestTarget ?? statForPeriod?.statisticalSpendPerGuest ?? null;
+          const guestIsPrefill = l.managerGuestTarget == null && statForPeriod?.statisticalGuestTarget != null;
+          const spgIsPrefill = l.managerSpendPerGuestTarget == null && statForPeriod?.statisticalSpendPerGuest != null;
           const showMultiPeriodHint =
             !notOperating
             && l.managerSource !== "statistical_default"
@@ -1458,17 +1462,23 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
               <td className="text-right px-2">{statForPeriod?.statisticalSpendPerGuest != null ? fmtHKD(statForPeriod.statisticalSpendPerGuest) : "—"}</td>
               <td className="text-right px-2">
                 {canEdit && !notOperating ? (
-                  <Input type="number" className="h-7 w-20 text-right text-xs ml-auto"
-                    value={l.managerGuestTarget ?? ""} placeholder="—"
+                  <Input type="number"
+                    className={`h-7 w-20 text-right text-xs ml-auto ${guestIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
+                    value={effGuest ?? ""} placeholder="—"
                     onChange={(e) => onEdit(l.id, { managerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
-                ) : (l.managerGuestTarget == null ? <span className="text-muted-foreground italic">Not set</span> : fmtInt(l.managerGuestTarget))}
+                ) : (effGuest == null
+                    ? <span className="text-muted-foreground italic">Not set</span>
+                    : <span className={guestIsPrefill ? "text-muted-foreground" : undefined}>{fmtInt(effGuest)}</span>)}
               </td>
               <td className="text-right px-2">
                 {canEdit && !notOperating ? (
-                  <Input type="number" step="0.01" className="h-7 w-20 text-right text-xs ml-auto"
-                    value={l.managerSpendPerGuestTarget ?? ""} placeholder="—"
+                  <Input type="number" step="0.01"
+                    className={`h-7 w-20 text-right text-xs ml-auto ${spgIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
+                    value={effSpg ?? ""} placeholder="—"
                     onChange={(e) => onEdit(l.id, { managerSpendPerGuestTarget: e.target.value === "" ? null : Number(e.target.value) })} />
-                ) : (l.managerSpendPerGuestTarget == null ? <span className="text-muted-foreground italic">Not set</span> : fmtHKD(l.managerSpendPerGuestTarget))}
+                ) : (effSpg == null
+                    ? <span className="text-muted-foreground italic">Not set</span>
+                    : <span className={spgIsPrefill ? "text-muted-foreground" : undefined}>{fmtHKD(effSpg)}</span>)}
               </td>
               <td className="text-right px-2 font-semibold">
                 {rev == null ? (
@@ -1476,7 +1486,7 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                     <span className="text-muted-foreground italic">Not set</span>
                     {showMultiPeriodHint && (
                       <span className="mt-1 text-[10px] text-muted-foreground text-right max-w-[220px] leading-tight normal-case">
-                        No automatic benchmark — this venue has multiple service periods. Set manually or click Use Stat if a period-level benchmark exists.
+                        No automatic benchmark — this venue has multiple service periods. Set manually or click Use Statistical if a period-level benchmark exists.
                       </span>
                     )}
                   </div>
@@ -1493,6 +1503,11 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
               <td className="py-1.5 px-2">
                 {canEdit && (
                   <div className="flex items-center gap-1">
+                    {l.lineStatus === "operating" && (
+                      l.managerSource === "manual"
+                        ? <Badge variant="default" className="text-[10px]">Manager override</Badge>
+                        : <Badge variant="outline" className="text-[10px]">Statistical</Badge>
+                    )}
                     <Button size="sm" variant="ghost" className="h-6 text-[10px]"
                       disabled={!canUseStat}
                       title={canUseStat ? "" : "Full-Day benchmark cannot be applied to a service period"}
@@ -1501,7 +1516,7 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                         g: statForPeriod?.statisticalGuestTarget ?? null,
                         spg: statForPeriod?.statisticalSpendPerGuest ?? null,
                       })}>
-                      <Sparkles className="h-3 w-3 mr-1" /> Use Stat
+                      <Sparkles className="h-3 w-3 mr-1" /> Use Statistical
                     </Button>
                     {l.lineStatus === "operating" ? (
                       <Button size="sm" variant="ghost" className="h-6 text-[10px] text-rose-500"
