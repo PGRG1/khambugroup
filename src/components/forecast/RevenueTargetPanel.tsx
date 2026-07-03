@@ -493,9 +493,66 @@ const RevenueTargetPanel = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Generate/Regenerate */}
+      <Dialog open={confirmGenOpen} onOpenChange={setConfirmGenOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              {monthHasStatRows ? "Regenerate Statistical Target" : "Generate Statistical Target"}
+            </DialogTitle>
+            <DialogDescription>
+              {monthHasStatRows
+                ? "This will overwrite the existing statistical target for this month."
+                : "Deterministic model using historical Actual Revenue."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-xs space-y-1.5 rounded-md border border-border bg-secondary/50 p-3">
+            <div><span className="text-muted-foreground">Model: </span><span className="font-medium">Same-Weekday Median (12 weeks)</span></div>
+            <div><span className="text-muted-foreground">Month: </span><span className="font-medium">{new Date(year, month - 1, 1).toLocaleString("en-GB", { month: "long", year: "numeric" })}</span></div>
+            <div><span className="text-muted-foreground">Lookback: </span><span className="font-medium">{fmtDate(lookbackStart)} → {fmtDate(lookbackEnd)}</span></div>
+            <div><span className="text-muted-foreground">Venues: </span><span className="font-medium">{selectedVenues.join(", ") || "—"}</span></div>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setConfirmGenOpen(false)} className="px-3 py-2 text-sm rounded-lg border border-border bg-secondary hover:bg-muted">Cancel</button>
+            <button onClick={runGenerate} disabled={generatingStatistical} className="px-3 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1">
+              {generatingStatistical && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {monthHasStatRows ? "Regenerate" : "Generate"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Insufficient history error */}
+      <Dialog open={insufficientOpen} onOpenChange={setInsufficientOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-4 w-4" />
+              Insufficient historical data
+            </DialogTitle>
+            <DialogDescription>
+              A minimum of 4 same-weekday historical rows are required per venue over the last 12 weeks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-xs rounded-md border border-border bg-secondary/50 p-3 max-h-56 overflow-auto">
+            <div className="text-muted-foreground mb-1.5">Missing coverage:</div>
+            <ul className="space-y-0.5">
+              {insufficientMissing.map((m, i) => (
+                <li key={i} className="font-mono">• {m.venue_name} — {weekdayLabel(m.weekday)}</li>
+              ))}
+            </ul>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setInsufficientOpen(false)} className="px-3 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">Close</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
+
 
 // ---------- Sub-components ----------
 
