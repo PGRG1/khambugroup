@@ -8876,6 +8876,16 @@ export type Database = {
       current_user_tenant_id: { Args: never; Returns: string }
       generate_po_number: { Args: never; Returns: string }
       generate_recurring_expense_bills: { Args: never; Returns: Json }
+      generate_statistical_targets_month: {
+        Args: {
+          p_model_version: string
+          p_month: number
+          p_tenant_id: string
+          p_venue_ids: string[]
+          p_year: number
+        }
+        Returns: Json
+      }
       get_inventory_aggregates: {
         Args: { p_tenant_id?: string }
         Returns: {
@@ -8926,19 +8936,6 @@ export type Database = {
       record_payment_with_allocations: {
         Args: { p_allocations: Json; p_payment: Json }
         Returns: string
-      }
-      replace_statistical_targets_month: {
-        Args: {
-          p_model: string
-          p_model_version: string
-          p_month: number
-          p_rows: Json
-          p_tenant_id: string
-          p_venue_ids: string[]
-          p_venue_names: string[]
-          p_year: number
-        }
-        Returns: Json
       }
       reverse_and_regenerate_sales_journal: {
         Args: { p_entry_id: string }
