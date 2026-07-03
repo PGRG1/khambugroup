@@ -4,7 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, Cell,
 } from "recharts";
 import {
-  Calendar, ChevronLeft, ChevronRight, Download, Save,
+  Calendar, ChevronLeft, ChevronRight, Download,
   ChevronDown, ChevronRight as ChevronR, Plus, Sparkles, RefreshCw,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -704,9 +704,6 @@ export default function RevenueTargets() {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={exportCsv}>
             <Download className="h-4 w-4 mr-1.5" /> Export
-          </Button>
-          <Button size="sm" onClick={saveAll} disabled={!canEdit || Object.keys(pendingEdits).length === 0}>
-            <Save className="h-4 w-4 mr-1.5" /> Save All Changes
           </Button>
         </div>
       </div>
