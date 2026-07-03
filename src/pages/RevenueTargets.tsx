@@ -1404,7 +1404,7 @@ function DailyRegister(props: DailyRegisterProps) {
                   {isOpen && spLines.length === 0 && (
                     <tr className="border-b border-border/50">
                       <td className="w-6"></td>
-                      <td colSpan={14} className="py-1.5 px-2 border-l-2 border-primary/30 pl-6 text-muted-foreground text-xs">
+                      <td colSpan={15} className="py-1.5 px-2 border-l-2 border-primary/30 pl-6 text-muted-foreground text-xs">
                         No service-period rows for this day.
                       </td>
                     </tr>
