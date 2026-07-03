@@ -372,7 +372,7 @@ const DataTable = ({ data }: DataTableProps) => {
   }, [allServicePeriods]);
 
   const columns: [SortKey, string][] = [
-    ["date", "Date"], ["day", "Day"], ["venue", "Venue"],
+    ["date", "Date"], ["day", "Day"], ["venue", "Venue"], ["servicePeriodId", "Period"],
     ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
     ["serviceCharge", "Svc"], ["discount", "Disc"], ["totalSales", "Total"],
   ];
