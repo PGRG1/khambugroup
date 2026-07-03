@@ -129,21 +129,24 @@ const RevenueTargetPanel = ({
       toast({ title: "Select at least one Responsible Venue", variant: "destructive" });
       return;
     }
-    const res = await generateStatistical({ year, month, venueIds });
-    if (res.ok) {
+    const res: GenerateResult = await generateStatistical({ year, month, venideIdsPlaceholder: venueIds } as unknown as GenerateArgs);
+    // NOTE: TS discriminated-union narrowing on `res.ok` — cast to `any` for the branch access.
+    const r: any = res;
+    if (r.ok === true) {
       toast({
         title: monthHasStatRows ? "Statistical target regenerated" : "Statistical target generated",
-        description: `${res.inserted} daily rows · monthly total ${formatCurrency(res.monthly_total)}`,
+        description: `${r.inserted} daily rows · monthly total ${formatCurrency(r.monthly_total)}`,
       });
       onStatisticalGenerated?.();
-    } else if (res.reason === "insufficient_history") {
-      const miss = res.missing;
+    } else if (r.reason === "insufficient_history") {
+      const miss = (r.missing ?? []) as { venue_name: string; weekday: number }[];
       setInsufficientMissing(miss.map((m) => ({ venue_name: m.venue_name, weekday: m.weekday })));
       setInsufficientOpen(true);
     } else {
-      toast({ title: "Failed to generate statistical target", description: res.message, variant: "destructive" });
+      toast({ title: "Failed to generate statistical target", description: r.message ?? "Unknown error", variant: "destructive" });
     }
   };
+
 
 
 
