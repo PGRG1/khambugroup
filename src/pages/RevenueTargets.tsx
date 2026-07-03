@@ -4,8 +4,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, Cell,
 } from "recharts";
 import {
-  Calendar, ChevronLeft, ChevronRight, Download, Save, Settings2,
-  ChevronDown, ChevronRight as ChevronR, Plus, Sparkles,
+  Calendar, ChevronLeft, ChevronRight, Download, Save,
+  ChevronDown, ChevronRight as ChevronR, Plus, Sparkles, RefreshCw,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from "@/components/ui/sheet";
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
