@@ -1371,7 +1371,7 @@ function DailyRegister(props: DailyRegisterProps) {
                   {isOpen && spLines.length === 0 && (
                     <tr className="border-b border-border/50">
                       <td className="w-6"></td>
-                      <td colSpan={14} className="py-1.5 px-2 border-l-2 border-primary/30 pl-6 text-muted-foreground text-xs">
+                      <td colSpan={13} className="py-1.5 px-2 border-l-2 border-primary/30 pl-6 text-muted-foreground text-xs">
                         No service-period rows for this day.
                       </td>
                     </tr>
@@ -1394,14 +1394,9 @@ function DailyRegister(props: DailyRegisterProps) {
                     return (
                       <tr key={l.id} className={`border-b border-border/40 bg-muted/10 ${notOperating ? "opacity-60" : ""}`}>
                         <td className="w-6"></td>
-                        <td colSpan={3} className="py-1.5 pl-6 pr-2 border-l-2 border-primary/30 text-muted-foreground text-[11px]">
+                        <td colSpan={4} className="py-1.5 pl-6 pr-2 border-l-2 border-primary/30 text-muted-foreground text-[11px]">
                           <span className="mr-1">└─</span>
                           <span className="text-foreground font-medium">{p?.name ?? "Full Day"}</span>
-                        </td>
-                        <td className="py-1.5 px-2">
-                          {notOperating
-                            ? <Badge variant="outline" className="text-[10px] text-muted-foreground border-border font-normal">{l.lineStatus.replace(/_/g, " ")}</Badge>
-                            : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="text-right px-2 tabular-nums">
                           {isSinglePeriodVenue && stat ? fmtHKD(stat.statisticalTargetAmount) : <span className="text-muted-foreground">—</span>}
