@@ -682,35 +682,62 @@ export default function RevenueTargets() {
             options={STATUSES.map((s) => ({ value: s, label: s.replace("_", " ") }))}
             onChange={setStatuses}
           />
-          {managerLines.length === 0 && effectiveVenueIds.length > 0 && (
-            <Button size="sm" variant="outline" onClick={handleEnsureMonth}>
-              <Plus className="h-4 w-4 mr-1.5" /> Initialize draft rows
-            </Button>
+          {effectiveVenueIds.length > 0 && (
+            managerLines.length === 0 ? (
+              <Button size="sm" variant="default" onClick={handleSetUpMonth} disabled={generatingStat}>
+                <Sparkles className="h-4 w-4 mr-1.5" /> Set Up This Month
+              </Button>
+            ) : (
+              <Button size="icon" variant="outline" className="h-9 w-9"
+                onClick={handleRecomputeStat} disabled={generatingStat}
+                title="Recompute benchmarks only">
+                <RefreshCw className={`h-4 w-4 ${generatingStat ? "animate-spin" : ""}`} />
+              </Button>
+            )
           )}
         </div>
       </SectionCard>
 
       {/* KPI CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
-        <KpiCard label="Statistical Revenue" value={fmtHKD(monthly.statRevenue)}
-          hint={`${filteredPoints.filter((p) => p.statistical).length} days benchmarked`} />
-        <KpiCard label="Manager Revenue" tone="primary" value={fmtHKD(monthly.managerRevenue)}
-          hint={monthly.statRevenue > 0
-            ? `${((monthly.managerRevenue / monthly.statRevenue - 1) * 100).toFixed(1)}% vs statistical`
-            : "No benchmark"} />
-        <KpiCard label="Actual Revenue" value={fmtHKD(monthly.actualRevenue)}
-          hint={monthly.managerRevenue > 0
-            ? `${((monthly.actualRevenue / monthly.managerRevenue - 1) * 100).toFixed(1)}% vs manager`
-            : "—"} />
-        <KpiCard label="Manager Guests" value={fmtInt(monthly.managerGuests)}
-          hint={`${completedDays}/${completedDays + remainingDays} days completed`} />
-        <KpiCard label="Actual Guests" value={fmtInt(monthly.actualGuests)}
-          hint={monthly.managerGuests > 0
-            ? `${(monthly.actualGuests / monthly.managerGuests * 100).toFixed(1)}% of target`
-            : "—"} />
-        <KpiCard label="Actual Spend / Guest" value={fmtHKD(monthly.actualSpg)}
-          hint={monthly.managerSpg != null ? `Mgr: ${fmtHKD(monthly.managerSpg)}` : "—"} />
-      </div>
+      {(() => {
+        const avm = monthly.managerRevenue > 0
+          ? (monthly.actualRevenue / monthly.managerRevenue - 1) * 100
+          : null;
+        const avmColor = avm == null ? "text-muted-foreground" : avm >= 0 ? "" : "";
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-6 gap-2.5">
+            {/* Headline: Actual vs Manager */}
+            <Card className="p-4 border-2 border-primary/30 bg-primary/5 lg:col-span-2 flex flex-col justify-between">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Actual vs Manager
+              </div>
+              <div
+                className="mt-1 text-4xl font-bold tabular-nums"
+                style={{ color: avm == null ? undefined : avm >= 0 ? C.pos : C.neg }}
+              >
+                {avm == null ? "—" : `${avm >= 0 ? "+" : ""}${avm.toFixed(1)}%`}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {fmtHKD(monthly.actualRevenue)} of {fmtHKD(monthly.managerRevenue)} planned
+              </div>
+            </Card>
+            <KpiCardDot dot={C.stat} label="Statistical Revenue" value={fmtHKD(monthly.statRevenue)}
+              hint={`${filteredPoints.filter((p) => p.statistical).length} days benchmarked`} />
+            <KpiCardDot dot={C.manager} label="Manager Revenue" value={fmtHKD(monthly.managerRevenue)}
+              hint={monthly.statRevenue > 0
+                ? `${((monthly.managerRevenue / monthly.statRevenue - 1) * 100).toFixed(1)}% vs statistical`
+                : "No benchmark"} />
+            <KpiCardDot dot={C.actual} label="Actual Revenue" value={fmtHKD(monthly.actualRevenue)}
+              hint={`${completedDays}/${completedDays + remainingDays} days completed`} />
+            <KpiCardDot dot={C.manager} label="Manager Guests" value={fmtInt(monthly.managerGuests)}
+              hint="—" />
+            <KpiCardDot dot={C.actual} label="Actual Guests" value={fmtInt(monthly.actualGuests)}
+              hint={monthly.managerGuests > 0
+                ? `${(monthly.actualGuests / monthly.managerGuests * 100).toFixed(1)}% of target`
+                : "—"} />
+          </div>
+        );
+      })()}
 
       {/* SECTION 4: Daily performance + summary */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-3.5">
