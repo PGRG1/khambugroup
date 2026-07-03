@@ -213,7 +213,8 @@ export default function RevenueTargets() {
     useRevenueTargetDays(year, month, effectiveVenueIds);
   const { rows: managerLines, refetch: refetchLines, ensureMonth } =
     useRevenueManagerTargetLines(year, month, effectiveVenueIds);
-  const { rows: statistical } = useRevenueStatisticalTargetsDaily(year, month, effectiveVenueIds);
+  const { rows: statistical, generate: generateStatistical, generating: generatingStat } =
+    useRevenueStatisticalTargetsDaily(year, month, effectiveVenueIds);
   const { rows: actuals } = useRevenueTargetActuals(year, month, effectiveVenueIds);
   const mutations = useRevenueTargetMutations();
 
