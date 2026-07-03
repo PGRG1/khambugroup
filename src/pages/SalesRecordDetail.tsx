@@ -31,8 +31,18 @@ const SalesRecordDetail = () => {
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { venues } = useVenues();
+  const activeVenueName = (editing && draft ? draft : record)?.venue ?? "";
+  const venueId = useMemo(
+    () => venues.find((v) => v.name === activeVenueName)?.id ?? null,
+    [venues, activeVenueName],
+  );
+  const venueIdList = useMemo(() => (venueId ? [venueId] : []), [venueId]);
+  const { operational: periods } = useVenueServicePeriods(venueIdList);
+
   const canEdit = isAdmin && !isActionHidden("data.edit_rows");
   const canDelete = isAdmin && !isActionHidden("data.delete_rows");
+
 
   useEffect(() => {
     let cancelled = false;
