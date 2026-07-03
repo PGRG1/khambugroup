@@ -8628,6 +8628,7 @@ export type Database = {
           end_time: string
           id: string
           is_active: boolean
+          is_rollup_only: boolean
           name: string
           sort_order: number
           start_time: string
@@ -8647,6 +8648,7 @@ export type Database = {
           end_time: string
           id?: string
           is_active?: boolean
+          is_rollup_only?: boolean
           name: string
           sort_order?: number
           start_time: string
@@ -8666,6 +8668,7 @@ export type Database = {
           end_time?: string
           id?: string
           is_active?: boolean
+          is_rollup_only?: boolean
           name?: string
           sort_order?: number
           start_time?: string
