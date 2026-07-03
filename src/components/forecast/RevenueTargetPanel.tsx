@@ -355,18 +355,31 @@ const RevenueTargetPanel = ({
                   <span className="italic">Statistical target not generated yet</span>
                 )}
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (statisticalTotal != null) setTargetAmount(Math.round(statisticalTotal));
-                }}
-                disabled={statisticalTotal == null}
-                className="shrink-0 px-2 py-1 rounded border border-border bg-secondary text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-                title={statisticalTotal == null ? "No statistical target available" : "Copy statistical amount into Manager Target"}
-              >
-                Accept statistical
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setConfirmGenOpen(true)}
+                  disabled={generatingStatistical || selectedVenues.length === 0}
+                  className="px-2 py-1 rounded border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                  title={selectedVenues.length === 0 ? "Select Responsible Venues first" : "Generate statistical target from historical revenue"}
+                >
+                  {generatingStatistical ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {monthHasStatRows ? "Regenerate…" : "Generate"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (statisticalTotal != null) setTargetAmount(Math.round(statisticalTotal));
+                  }}
+                  disabled={statisticalTotal == null}
+                  className="px-2 py-1 rounded border border-border bg-secondary text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={statisticalTotal == null ? "No statistical target available" : "Copy statistical amount into Manager Target"}
+                >
+                  Accept statistical
+                </button>
+              </div>
             </div>
+
           </div>
 
 
