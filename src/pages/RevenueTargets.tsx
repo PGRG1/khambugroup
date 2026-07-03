@@ -45,6 +45,7 @@ import {
 import type {
   ManagerTargetLine, OperatingStatus, VenueServicePeriod, EventMode,
 } from "@/types/revenueTargetsV2";
+import { AdjustmentReasonDialog, type AdjustmentReasonKind } from "@/components/revenue-targets/AdjustmentReasonDialog";
 
 // ---------- Design tokens (semantic HSL only) ----------
 const C = {
