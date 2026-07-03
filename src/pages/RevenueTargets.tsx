@@ -847,8 +847,8 @@ export default function RevenueTargets() {
         </SectionCard>
       </div>
 
-      {/* SECTION 6: Drivers */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+      {/* SECTION 6: Guest + SPG (variance drivers moved into Detailed Analytics) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard title="Guest Performance">
           {guestData.length === 0 ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={240}>
@@ -882,122 +882,134 @@ export default function RevenueTargets() {
             </ResponsiveContainer>
           )}
         </SectionCard>
-        <SectionCard title="Revenue Variance Drivers">
-          {monthly.actualRevenue === 0 && monthly.managerRevenue === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={varianceDrivers} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={110} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <ReferenceLine x={0} stroke={C.grid} />
-                <Bar dataKey="value" radius={[0, 2, 2, 0]}>
-                  {varianceDrivers.map((d, i) => (
-                    <Cell key={i} fill={d.value >= 0 ? C.pos : C.neg} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </SectionCard>
       </div>
 
-      {/* SECTION 7: Weekday */}
-      <SectionCard title="Day-of-Week Analysis">
-        {weekdayRows.length === 0 ? <EmptyChart /> : (
-          <>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={weekdayRows.map((r) => ({ ...r, name: WEEKDAYS[r.weekday] }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="avgStat" name="Avg Statistical" fill={C.stat} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="avgMgr" name="Avg Manager" fill={C.manager} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="avgAct" name="Avg Actual" fill={C.actual} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-muted-foreground border-b border-border">
-                    <th className="text-left py-2 px-2">Weekday</th>
-                    <th className="text-right py-2 px-2">Occ.</th>
-                    <th className="text-right py-2 px-2">Avg Stat Rev</th>
-                    <th className="text-right py-2 px-2">Avg Mgr Rev</th>
-                    <th className="text-right py-2 px-2">Avg Act Rev</th>
-                    <th className="text-right py-2 px-2">Avg Mgr Guests</th>
-                    <th className="text-right py-2 px-2">Avg Act Guests</th>
-                    <th className="text-right py-2 px-2">Mgr SPG</th>
-                    <th className="text-right py-2 px-2">Act SPG</th>
-                    <th className="text-right py-2 px-2">Var vs Mgr</th>
-                    <th className="text-right py-2 px-2">Achv.</th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {weekdayRows.map((r) => (
-                    <tr key={r.weekday} className="border-b border-border/50">
-                      <td className="py-2 px-2 font-medium">{WEEKDAY_LONG[r.weekday]}</td>
-                      <td className="text-right px-2">{r.occurrences}</td>
-                      <td className="text-right px-2">{fmtHKD(r.avgStat)}</td>
-                      <td className="text-right px-2">{fmtHKD(r.avgMgr)}</td>
-                      <td className="text-right px-2">{fmtHKD(r.avgAct)}</td>
-                      <td className="text-right px-2">{fmtInt(r.avgMgrG)}</td>
-                      <td className="text-right px-2">{fmtInt(r.avgActG)}</td>
-                      <td className="text-right px-2">{fmtHKD(r.mgrSpg)}</td>
-                      <td className="text-right px-2">{fmtHKD(r.actSpg)}</td>
-                      <td className={`text-right px-2 ${r.varVsMgr != null ? (r.varVsMgr >= 0 ? "text-emerald-500" : "text-rose-500") : ""}`}>
-                        {fmtHKD(r.varVsMgr)}
-                      </td>
-                      <td className="text-right px-2">{fmtPct(r.achievement)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* SECTIONS 7 + 8: Detailed Analytics (collapsed by default) */}
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="detail" className="border border-border rounded-lg bg-card">
+          <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
+            Detailed Analytics
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <div className="space-y-4">
+              <SectionCard title="Revenue Variance Drivers">
+                {monthly.actualRevenue === 0 && monthly.managerRevenue === 0 ? <EmptyChart /> : (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={varianceDrivers} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                      <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={110} />
+                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                        formatter={(v: any) => fmtHKD(Number(v))} />
+                      <ReferenceLine x={0} stroke={C.grid} />
+                      <Bar dataKey="value" radius={[0, 2, 2, 0]}>
+                        {varianceDrivers.map((d, i) => (
+                          <Cell key={i} fill={d.value >= 0 ? C.pos : C.neg} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </SectionCard>
+
+              <SectionCard title="Day-of-Week Analysis">
+                {weekdayRows.length === 0 ? <EmptyChart /> : (
+                  <>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={weekdayRows.map((r) => ({ ...r, name: WEEKDAYS[r.weekday] }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                          formatter={(v: any) => fmtHKD(Number(v))} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="avgStat" name="Avg Statistical" fill={C.stat} radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="avgMgr" name="Avg Manager" fill={C.manager} radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="avgAct" name="Avg Actual" fill={C.actual} radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground border-b border-border">
+                            <th className="text-left py-2 px-2">Weekday</th>
+                            <th className="text-right py-2 px-2">Occ.</th>
+                            <th className="text-right py-2 px-2">Avg Stat Rev</th>
+                            <th className="text-right py-2 px-2">Avg Mgr Rev</th>
+                            <th className="text-right py-2 px-2">Avg Act Rev</th>
+                            <th className="text-right py-2 px-2">Avg Mgr Guests</th>
+                            <th className="text-right py-2 px-2">Avg Act Guests</th>
+                            <th className="text-right py-2 px-2">Mgr SPG</th>
+                            <th className="text-right py-2 px-2">Act SPG</th>
+                            <th className="text-right py-2 px-2">Var vs Mgr</th>
+                            <th className="text-right py-2 px-2">Achv.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="tabular-nums">
+                          {weekdayRows.map((r) => (
+                            <tr key={r.weekday} className="border-b border-border/50">
+                              <td className="py-2 px-2 font-medium">{WEEKDAY_LONG[r.weekday]}</td>
+                              <td className="text-right px-2">{r.occurrences}</td>
+                              <td className="text-right px-2">{fmtHKD(r.avgStat)}</td>
+                              <td className="text-right px-2">{fmtHKD(r.avgMgr)}</td>
+                              <td className="text-right px-2">{fmtHKD(r.avgAct)}</td>
+                              <td className="text-right px-2">{fmtInt(r.avgMgrG)}</td>
+                              <td className="text-right px-2">{fmtInt(r.avgActG)}</td>
+                              <td className="text-right px-2">{fmtHKD(r.mgrSpg)}</td>
+                              <td className="text-right px-2">{fmtHKD(r.actSpg)}</td>
+                              <td className={`text-right px-2 ${r.varVsMgr != null ? (r.varVsMgr >= 0 ? "text-emerald-500" : "text-rose-500") : ""}`}>
+                                {fmtHKD(r.varVsMgr)}
+                              </td>
+                              <td className="text-right px-2">{fmtPct(r.achievement)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </SectionCard>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <SectionCard title="Venue Target Performance">
+                  {venueRows.length === 0 ? <EmptyChart /> : (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={venueRows}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                          formatter={(v: any) => fmtHKD(Number(v))} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="stat" name="Statistical" fill={C.stat} radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="mgr" name="Manager" fill={C.manager} radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="act" name="Actual" fill={C.actual} radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </SectionCard>
+                <SectionCard title="Service-Period Revenue Mix" right={
+                  <span className="text-[11px] text-muted-foreground">Manager totals · Actuals unavailable per period</span>
+                }>
+                  {servicePeriodMix.length === 0 ? <EmptyChart label="No configured service periods." /> : (
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={servicePeriodMix} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
+                        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                          formatter={(v: any) => fmtHKD(Number(v))} />
+                        <Bar dataKey="mgr" name="Manager Revenue" fill={C.manager} radius={[0, 2, 2, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </SectionCard>
+              </div>
             </div>
-          </>
-        )}
-      </SectionCard>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
-      {/* SECTION 8: Venue + service-period mix */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-        <SectionCard title="Venue Target Performance">
-          {venueRows.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={venueRows}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="stat" name="Statistical" fill={C.stat} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="mgr" name="Manager" fill={C.manager} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="act" name="Actual" fill={C.actual} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </SectionCard>
-        <SectionCard title="Service-Period Revenue Mix" right={
-          <span className="text-[11px] text-muted-foreground">Manager totals · Actuals unavailable per period</span>
-        }>
-          {servicePeriodMix.length === 0 ? <EmptyChart label="No configured service periods." /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={servicePeriodMix} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} opacity={0.4} />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12 }}
-                  formatter={(v: any) => fmtHKD(Number(v))} />
-                <Bar dataKey="mgr" name="Manager Revenue" fill={C.manager} radius={[0, 2, 2, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </SectionCard>
-      </div>
 
       {/* SECTION 9: Target Intelligence */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
