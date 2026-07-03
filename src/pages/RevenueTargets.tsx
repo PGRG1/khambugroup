@@ -943,54 +943,58 @@ export default function RevenueTargets() {
         actuals={actuals}
         pendingIds={new Set(Object.keys(pendingEdits))}
         canEdit={canEdit}
+        canApprove={perms.canApprove}
         onEdit={editLine}
         onSaveDay={saveDay}
+        onApproveDay={approveDay}
         onApplyStatistical={applyStatistical}
         onSetStatus={setOperatingStatus}
+        requestReason={requestReason}
         onLineStatus={async (line, lineStatus, reason) => {
-          const r = await mutations.upsertManagerLine({
-            id: line.id, venueId: line.venueId, targetDate: line.targetDate,
-            lineType: line.lineType, servicePeriodId: line.servicePeriodId,
-            targetInputMode: line.targetInputMode,
-            managerGuestTarget: line.managerGuestTarget,
-            managerSpendPerGuestTarget: line.managerSpendPerGuestTarget,
-            lineStatus, zeroReason: reason ?? null,
-            status: line.status,
-          });
-          if (r.ok) await refetchLines();
+          const commit = async (r: string | null) => {
+            const res = await mutations.upsertManagerLine({
+              id: line.id, venueId: line.venueId, targetDate: line.targetDate,
+              lineType: line.lineType, servicePeriodId: line.servicePeriodId,
+              targetInputMode: line.targetInputMode,
+              managerGuestTarget: line.managerGuestTarget,
+              managerSpendPerGuestTarget: line.managerSpendPerGuestTarget,
+              lineStatus, zeroReason: r,
+              status: line.status,
+            });
+            if (res.ok) await refetchLines();
+          };
+          // Reactivation and operating do not require a reason
+          if (lineStatus === "operating") return commit(null);
+          if (reason) return commit(reason);
+          const kind: AdjustmentReasonKind =
+            lineStatus === "replaced_by_event" ? "replaced_by_event" : "not_operating";
+          requestReason(kind, async (r) => { setReasonReq(null); await commit(r); });
         }}
         onAddEvent={async (venueId, date, ev) => {
-          const r = await mutations.upsertManagerLine({
-            venueId, targetDate: date, lineType: "event",
+          // Atomic RPC: event creation + replacement in one DB call.
+          const r = await mutations.addEventWithReplacement({
+            venueId, targetDate: date,
             eventName: ev.name, eventMode: ev.mode,
             replacesServicePeriodId: ev.replacesServicePeriodId ?? null,
             targetInputMode: ev.contractedRevenue != null ? "contracted_revenue" : "drivers",
             managerGuestTarget: ev.guests ?? null,
             managerSpendPerGuestTarget: ev.spg ?? null,
             managerRevenueOverride: ev.contractedRevenue ?? null,
-            lineStatus: "operating", status: "draft", managerSource: "manual",
+            notes: ev.reason ?? null,
           });
-          if (r.ok) {
-            // If replace mode, mark the replaced period line
-            if (ev.mode === "replaces_period" && ev.replacesServicePeriodId) {
-              const target = managerLines.find(
-                (l) => l.venueId === venueId && l.targetDate === date && l.servicePeriodId === ev.replacesServicePeriodId,
-              );
-              if (target) {
-                await mutations.upsertManagerLine({
-                  id: target.id, venueId, targetDate: date,
-                  lineType: "service_period", servicePeriodId: target.servicePeriodId,
-                  targetInputMode: target.targetInputMode,
-                  lineStatus: "replaced_by_event",
-                  zeroReason: `Replaced by event: ${ev.name}`,
-                  status: target.status,
-                });
-              }
-            }
-            await refetchLines();
-          }
+          if (r.ok) await refetchLines();
         }}
       />
+
+      {reasonReq && (
+        <AdjustmentReasonDialog
+          open={!!reasonReq}
+          kind={reasonReq.kind}
+          onCancel={() => setReasonReq(null)}
+          onConfirm={async (reason) => { await reasonReq.onConfirm(reason); }}
+        />
+      )}
+
 
       {/* SECTION 11: Rollup */}
       <SectionCard title={isFiltered ? "Filtered Roll-up" : `${monthName(month)} ${year} Roll-up`}>
