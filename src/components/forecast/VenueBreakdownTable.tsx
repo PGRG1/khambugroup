@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { SalesRecord } from "@/types/sales";
 import { ForecastRecord } from "@/types/forecast";
 import { formatCurrency } from "@/utils/salesUtils";
+import { StatisticalDailyRow } from "@/hooks/useStatisticalRevenueTargets";
 
 interface Props {
   year: number;
@@ -9,7 +10,9 @@ interface Props {
   selectedVenues: string[];
   salesData: SalesRecord[];
   forecasts: ForecastRecord[];
+  statisticalDaily: StatisticalDailyRow[];
 }
+
 
 const VenueBreakdownTable = ({
   year,
@@ -17,13 +20,24 @@ const VenueBreakdownTable = ({
   selectedVenues,
   salesData,
   forecasts,
+  statisticalDaily,
 }: Props) => {
+
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const today = new Date();
   const isCurrentMonth =
     today.getFullYear() === year && today.getMonth() + 1 === month;
   const daysInMonth = new Date(year, month, 0).getDate();
   const daysElapsed = isCurrentMonth ? today.getDate() : daysInMonth;
+
+  const statByVenue = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of statisticalDaily) {
+      if (!r.targetDate.startsWith(monthStr)) continue;
+      m.set(r.venueName, (m.get(r.venueName) ?? 0) + r.amount);
+    }
+    return m;
+  }, [statisticalDaily, monthStr]);
 
   const rows = useMemo(() => {
     return selectedVenues.map((venue) => {
@@ -48,15 +62,19 @@ const VenueBreakdownTable = ({
             )
           : null;
 
+      const stat = statByVenue.has(venue) ? statByVenue.get(venue)! : null;
+
       return {
         venue,
+        statistical: stat,
         managerSum: hasManagerRows ? managerSum : null,
         actual,
         delta,
         pace,
       };
     });
-  }, [selectedVenues, forecasts, salesData, monthStr, daysInMonth, daysElapsed]);
+  }, [selectedVenues, forecasts, salesData, statByVenue, monthStr, daysInMonth, daysElapsed]);
+
 
   if (rows.length === 0) return null;
 
