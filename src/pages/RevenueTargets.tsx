@@ -1357,6 +1357,7 @@ interface DailyRegisterProps {
   lines: ManagerTargetLine[];
   statistical: any[];
   actuals: any[];
+  actualsByPeriod: Map<string, { revenue: number; guests: number; spendPerGuest: number | null }>;
   pendingIds: Set<string>;
   canEdit: boolean;
   canApprove: boolean;
@@ -1375,10 +1376,11 @@ interface DailyRegisterProps {
 }
 
 function DailyRegister(props: DailyRegisterProps) {
-  const { year, month, venues, periods, opPeriods, days, lines, statistical, actuals,
+  const { year, month, venues, periods, opPeriods, days, lines, statistical, actuals, actualsByPeriod,
     pendingIds, canEdit, canApprove, onEdit, onSaveDay, onApproveDay, onApplyStatistical,
     onSetStatus, onLineStatus, requestReason } = props;
   void opPeriods;
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const daysInMonth = new Date(year, month, 0).getDate();
