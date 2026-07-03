@@ -22,6 +22,7 @@ export interface SalesRecord {
   cardTips: number;
   receiptFileUrl?: string | null;
   receiptFileName?: string | null;
+  servicePeriodId?: string | null;
 }
 
 export type VenueFilter = "All Venues" | "Assembly" | "Caliente" | "Hanabi" | "Events";

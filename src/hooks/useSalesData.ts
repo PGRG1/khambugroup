@@ -68,6 +68,7 @@ function fromDbRecord(r: any): SalesRecord {
     cardTips: normalizeCardTips(Number(r.card_tips)),
     receiptFileUrl: r.receipt_file_url ?? null,
     receiptFileName: r.receipt_file_name ?? null,
+    servicePeriodId: r.service_period_id ?? null,
   };
 }
 

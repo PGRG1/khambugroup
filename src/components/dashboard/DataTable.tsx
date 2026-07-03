@@ -12,6 +12,7 @@ import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog
 import { DataTableShell } from "@/components/common/data-table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useUnmappedVenues } from "@/hooks/useUnmappedVenues";
+import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
 import DateFilter from "./DateFilter";
 import { toast } from "sonner";
 
@@ -363,8 +364,15 @@ const DataTable = ({ data }: DataTableProps) => {
     });
   });
 
+  const { rows: allServicePeriods } = useVenueServicePeriods();
+  const servicePeriodNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    allServicePeriods.forEach((p) => m.set(p.id, p.name));
+    return m;
+  }, [allServicePeriods]);
+
   const columns: [SortKey, string][] = [
-    ["date", "Date"], ["day", "Day"], ["venue", "Venue"],
+    ["date", "Date"], ["day", "Day"], ["venue", "Venue"], ["servicePeriodId", "Period"],
     ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
     ["serviceCharge", "Svc"], ["discount", "Disc"], ["totalSales", "Total"],
   ];
@@ -511,7 +519,7 @@ const DataTable = ({ data }: DataTableProps) => {
           <TableBody>
             {grouped.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-sm text-muted-foreground py-8">
                   No records found.
                 </TableCell>
               </TableRow>
@@ -524,7 +532,7 @@ const DataTable = ({ data }: DataTableProps) => {
                     className="bg-muted/40 hover:bg-muted/60 cursor-pointer border-t-2 border-border/60"
                     onClick={() => toggleMonth(key)}
                   >
-                    <TableCell colSpan={3} className="text-xs font-semibold py-2">
+                    <TableCell colSpan={4} className="text-xs font-semibold py-2">
                       <div className="flex items-center gap-2">
                         {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                         <span>{monthLabelSafe(key)}</span>
@@ -548,6 +556,9 @@ const DataTable = ({ data }: DataTableProps) => {
                       <TableCell className="text-xs whitespace-nowrap">{row.date}</TableCell>
                       <TableCell className="text-xs">{row.day}</TableCell>
                       <TableCell className="text-xs">{row.venue}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {row.servicePeriodId ? (servicePeriodNameById.get(row.servicePeriodId) ?? "—") : "—"}
+                      </TableCell>
                       <TableCell>{numCell("orders", row)}</TableCell>
                       <TableCell>{numCell("guests", row)}</TableCell>
                       <TableCell>{numCell("subtotal", row)}</TableCell>
