@@ -430,6 +430,25 @@ export default function RevenueTargets() {
     if (r.ok) toast({ title: "Draft rows initialized", description: `${r.inserted ?? 0} inserted.` });
   }, [effectiveVenueIds, ensureMonth]);
 
+  const handleRecomputeStat = useCallback(async () => {
+    if (!effectiveVenueIds.length) return;
+    const g = await generateStatistical(effectiveVenueIds);
+    if (g.ok) toast({ title: "Benchmarks recomputed" });
+    else toast({ title: "Recompute failed", description: g.error, variant: "destructive" });
+  }, [effectiveVenueIds, generateStatistical]);
+
+  const handleSetUpMonth = useCallback(async () => {
+    if (!effectiveVenueIds.length) return;
+    const g = await generateStatistical(effectiveVenueIds);
+    if (!g.ok) { toast({ title: "Set-up failed", description: g.error, variant: "destructive" }); return; }
+    const r = await ensureMonth(effectiveVenueIds);
+    if (!r.ok) { toast({ title: "Set-up failed", description: "Draft row initialization failed.", variant: "destructive" }); return; }
+    toast({
+      title: "Month set up",
+      description: `Benchmarks generated · ${r.inserted ?? 0} draft target rows created.`,
+    });
+  }, [effectiveVenueIds, generateStatistical, ensureMonth]);
+
   const [pendingEdits, setPendingEdits] = useState<Record<string, Partial<ManagerTargetLine>>>({});
   const editLine = (id: string, patch: Partial<ManagerTargetLine>) =>
     setPendingEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
