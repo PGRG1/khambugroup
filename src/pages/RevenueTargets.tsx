@@ -49,13 +49,13 @@ import { AdjustmentReasonDialog, type AdjustmentReasonKind } from "@/components/
 
 // ---------- Design tokens (semantic HSL only) ----------
 const C = {
-  stat: "hsl(45 96% 60%)",       // Statistical — yellow
-  manager: "hsl(152 76% 50%)",   // Manager — emerald
-  actual: "hsl(199 90% 55%)",    // Actual — sky
-  pos: "hsl(152 76% 50%)",
-  neg: "hsl(0 78% 62%)",
-  grid: "hsl(var(--border))",
-  muted: "hsl(var(--muted-foreground))",
+  stat:    "hsl(var(--chart-8))",   // slate — reference, recedes
+  manager: "hsl(var(--primary))",   // copper — brand, our plan
+  actual:  "hsl(var(--chart-3))",   // teal — verified reality
+  pos:     "hsl(var(--success))",
+  neg:     "hsl(var(--destructive))",
+  grid:    "hsl(var(--border))",
+  muted:   "hsl(var(--muted-foreground))",
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
