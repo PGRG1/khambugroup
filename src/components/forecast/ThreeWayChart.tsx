@@ -216,6 +216,18 @@ const ThreeWayChart = ({
                 dot={false}
               />
             )}
+            {chartData.hasAnyStat && (
+              <Line
+                type="monotone"
+                dataKey="statistical"
+                name="Statistical (cum.)"
+                stroke={STAT_COLOR}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+              />
+            )}
+
           </ComposedChart>
         </ResponsiveContainer>
       </div>
