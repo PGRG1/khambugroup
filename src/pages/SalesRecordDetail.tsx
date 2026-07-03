@@ -76,10 +76,11 @@ const SalesRecordDetail = () => {
 
   const startEdit = () => { setDraft({ ...record }); setEditing(true); };
   const cancelEdit = () => { setDraft(null); setEditing(false); };
-  const setField = (k: keyof SalesRecord, v: string | number) => {
+  const setField = (k: keyof SalesRecord, v: string | number | null) => {
     if (!draft) return;
     setDraft({ ...draft, [k]: v });
   };
+
 
   const save = async () => {
     if (!draft) return;
