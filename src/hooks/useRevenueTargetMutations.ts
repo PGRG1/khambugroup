@@ -275,6 +275,7 @@ export function useRevenueTargetMutations() {
     upsertManagerLine,
     batchUpsertManagerLines,
     approveLines,
+    addEventWithReplacement,
     deleteLine,
     upsertOperatingStatus,
     upsertServicePeriod,
