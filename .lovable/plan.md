@@ -1,88 +1,81 @@
 ## Scope
-All changes are in `src/pages/RevenueTargets.tsx` plus a small addition to `src/components/revenue-targets/AdjustmentReasonDialog.tsx` to register a new `"manual_override"` kind. Frontend only — no backend/RPC/schema changes. `EventTable` is untouched.
+`src/pages/RevenueTargets.tsx` (DailyRegister + ServicePeriodTable) and `src/components/revenue-targets/AdjustmentReasonDialog.tsx`. No backend changes. `EventTable`/`EventDialog` remain defined but unrendered.
 
-## 1. Pre-fill Guest / SPG inputs from statistical benchmark
+## 1. Fix "Use Statistical" (structural bug)
 
-In `ServicePeriodTable`, compute effective display values for the two editable cells:
-
-```ts
-const effGuest = l.managerGuestTarget ?? statForPeriod?.statisticalGuestTarget ?? null;
-const effSpg   = l.managerSpendPerGuestTarget ?? statForPeriod?.statisticalSpendPerGuest ?? null;
-const guestIsPrefill = l.managerGuestTarget == null && statForPeriod?.statisticalGuestTarget != null;
-const spgIsPrefill   = l.managerSpendPerGuestTarget == null && statForPeriod?.statisticalSpendPerGuest != null;
-```
-
-Bind the two `<Input>`s to `effGuest ?? ""` / `effSpg ?? ""`. When the prefill flag is true, add `text-muted-foreground` to the input's className; otherwise leave normal `text-foreground`. Read-only fallback (non-edit mode) uses the same effective value with matching muted styling when it is a prefill.
-
-`onChange` still writes to `managerGuestTarget` / `managerSpendPerGuestTarget` in `pendingEdits`. Clearing the input writes `null`, reverting to the statistical prefill.
-
-## 2. Correct `managerSource` on save; add independent manual_override trigger
-
-Add helper above `performSaveDay`:
+The current guard `stat.servicePeriodId === l.servicePeriodId` never matches because the Full-Day stat row's `servicePeriodId` is the venue rollup, not an operational period. Replace with a single-period-venue check driven by `periods`:
 
 ```ts
-const EPS = 0.01;
-const resolveManagerSource = (t: ManagerTargetLine): "manual" | "statistical_default" => {
-  const s = statistical.find((r: any) =>
-    r.venueId === t.venueId && r.targetDate === t.targetDate && r.servicePeriodId === t.servicePeriodId);
-  const sg = s?.statisticalGuestTarget ?? null;
-  const ss = s?.statisticalSpendPerGuest ?? null;
-  const g  = t.managerGuestTarget;
-  const p  = t.managerSpendPerGuestTarget;
-  const gMatches = g == null || (sg != null && Math.abs(Number(g) - Number(sg)) <= EPS);
-  const pMatches = p == null || (ss != null && Math.abs(Number(p) - Number(ss)) <= EPS);
-  return gMatches && pMatches ? "statistical_default" : "manual";
-};
+const isSinglePeriodVenue = periods.filter(
+  (p) => p.venueId === l.venueId && p.isActive && !p.isRollupOnly,
+).length === 1;
+const canUseStat = isSinglePeriodVenue
+  && stat?.statisticalGuestTarget != null
+  && stat?.statisticalSpendPerGuest != null;
 ```
 
-Replace both literal `managerSource: "manual",` occurrences with `managerSource: resolveManagerSource(t),` — locate by string match: one inside `performSaveDay`'s payload builder, one inside `saveAll`'s payload builder.
+Wherever the ServicePeriodTable currently reads `statForPeriod.*` for Stat Rev / Guests / SPG, read from `stat` directly and gate display on `isSinglePeriodVenue` (else render `"—"`). The `Use Statistical` button is disabled unless `canUseStat`; tooltip is:
+- multi-period: `"No per-period benchmark — this venue has multiple service periods"`
+- single-period, no benchmark: `"Statistical benchmark unavailable for this day"`
 
-**Do not touch** `varianceExceedsThreshold` or the existing `requestReason("variance_threshold", …)` flow.
+## 2. Prefill Guest / SPG from statistical, muted until edited
 
-**New independent trigger — per-line default → manual transition.** In `saveDay`, compute:
+In both `ServicePeriodTable` rows and the new single-period main row (see §3):
 
 ```ts
-const hasManualOverrideTransition = targets.some((t) => {
-  const original = managerLines.find((l) => l.id === t.id);
-  const wasDefault = !original || original.managerSource == null || original.managerSource === "statistical_default";
-  return wasDefault && resolveManagerSource(t) === "manual";
-});
+const effGuest = l.managerGuestTarget ?? stat?.statisticalGuestTarget ?? null;
+const effSpg   = l.managerSpendPerGuestTarget ?? stat?.statisticalSpendPerGuest ?? null;
+const guestPrefill = l.managerGuestTarget == null && stat?.statisticalGuestTarget != null;
+const spgPrefill   = l.managerSpendPerGuestTarget == null && stat?.statisticalSpendPerGuest != null;
 ```
 
-Trigger order in `saveDay`:
-1. If `varianceExceedsThreshold(venueId, date, targets)` → `requestReason("variance_threshold", …)` (existing, unchanged).
-2. Else if `hasManualOverrideTransition` → `requestReason("manual_override", async (reason) => { setReasonReq(null); await performSaveDay(venueId, date, targets, reason); })`.
-3. Else → `performSaveDay(...)` with no reason.
+Bind inputs to `effGuest ?? ""` / `effSpg ?? ""`, styled `text-muted-foreground` when the prefill flag is true, otherwise `text-foreground`. Clearing an input writes `null`, restoring the muted prefill. Revenue is always `Guest × SPG`, read-only, no direct input.
 
-**Register the new kind** in `src/components/revenue-targets/AdjustmentReasonDialog.tsx`:
-- Extend `AdjustmentReasonKind` union with `"manual_override"`.
-- Add to `HEADINGS`: `manual_override: "Reason: Manager Override"`.
-- Add to `HINTS`: `manual_override: "You're overriding the statistical benchmark for this line — add a note explaining why."`.
+## 3. Main row: inline-editable for single-period venues
 
-## 3. Per-row source badge
+In `DailyRegister`'s main row per (venue, date):
 
-In `ServicePeriodTable`, render one small badge in the Actions cell per row, driven by `l.managerSource`:
+- **Single-period venue** (`opLines.length === 1` and that line is operational): render Mgr Guests / Mgr SPG as `<Input>`s with the §2 prefill/muted behavior, wired to `onEdit(opLines[0].id, …)`. Mgr Rev = `Guest × SPG` computed, read-only.
+- **Multi-period venue**: leave the row exactly as today (read-only aggregate); editing happens inside the expanded ServicePeriodTable.
 
-- `"statistical_default"` (or null) → `<Badge variant="outline" className="text-[10px]">Statistical</Badge>`
-- `"manual"` → `<Badge variant="default" className="text-[10px]">Manager override</Badge>`
+## 4. Source badge — Statistical vs Manager Adjusted
 
-Only render when `l.lineStatus === "operating"`.
+`resolveManagerSource` already exists near `performSaveDay` and both `managerSource: resolveManagerSource(t),` payload replacements are already in place — no changes needed there.
 
-## 4. Rename "Use Stat" → "Use Statistical"
+Render a badge:
+- `"statistical_default"` or null → `<Badge variant="outline" className="text-[10px]">Statistical</Badge>`
+- `"manual"` → `<Badge variant="default" className="text-[10px]">Manager Adjusted</Badge>`
 
-In `ServicePeriodTable`, locate the button by its JSX text `Use Stat` and rename the visible label to `Use Statistical`. Leave the existing disabled-state tooltip `"Full-Day benchmark cannot be applied to a service period"` unchanged. No behavior change.
+Placement: on every ServicePeriodTable row (in the Actions cell — replace the existing "Statistical / Manager override" badge with the new label wording), and on the main DailyRegister row **only when single-period** (next to the Mgr Rev cell). No badge on multi-period main rows.
 
-## 5. Revenue stays computed (no change)
+## 5. Reason-dialog trigger for real overrides
 
-`Mgr Rev` cell continues to render `managerRevenue(l)` read-only. No input added anywhere.
+In `AdjustmentReasonDialog.tsx`, `manual_override` kind is already registered (previous work). Confirm the HEADING/HINT copy matches the spec; adjust if drifted.
+
+In `saveDay`, the trigger order is already: `varianceExceedsThreshold` → `manual_override` transition → save. Verify the `hasManualOverrideTransition` computation matches the spec exactly (using `original.managerSource == null || === "statistical_default"`) and that no reference to any invented function remains.
+
+## 6. New columns + performance badge in main row
+
+Header changes (`<thead>`): after `Act vs Mgr` add columns `Act vs Stat` and `Performance` (distinct from the existing operating-status `StatusChip`, which stays).
+
+Row rendering:
+- Stat Rev cell: value on line 1, `<div className="text-[10px] text-muted-foreground">Median of prior {WEEKDAYS[wd]}s</div>` beneath (only when `stat` is present).
+- Act vs Stat: `actRev != null && stat ? fmtHKD(actRev - stat.statisticalTargetAmount) : "—"`, coloured `text-emerald-500` if `>= 0`, `text-rose-500` if `< 0` (mirrors Act vs Mgr).
+- Performance badge:
+  - `actRev == null` → `<Badge variant="outline" className="text-[10px] text-muted-foreground">Future</Badge>`
+  - `actRev >= mgrRev` → `<Badge className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/30">On / above</Badge>`
+  - else → `<Badge className="text-[10px] bg-rose-500/15 text-rose-500 border-rose-500/30">Below</Badge>`
+
+## Non-goals
+- No backend/RPC/schema changes.
+- Don't touch `EventTable`/`EventDialog` definitions or re-enable their rendering.
+- Don't alter the existing operating-status `StatusChip` / status `Select`.
 
 ## Verification
-
-- `npx tsc --noEmit` passes.
-- Fresh day: Guest/SPG inputs display statistical values in muted text; badge = "Statistical".
-- Typing a new value: text switches to normal weight; on save, DB `manager_source` = `"manual"`, badge → "Manager override".
-- Save without touching anything (or re-typing to match stat within 0.01): `manager_source` stays `"statistical_default"`, badge stays "Statistical", no reason dialog appears.
-- **Independence A**: aggregate day variance <15% but one line's Guest/SPG changed from statistical default → `manual_override` reason dialog fires (new kind, distinct copy).
-- **Independence B**: aggregate variance >15% still fires `variance_threshold` dialog exactly as before.
-- `Mgr Rev` column has no `<input>` and continues showing `Guest × SPG`.
-- `EventTable` unchanged.
+- Untouched day: Guest/SPG show muted prefilled statistical values; badge "Statistical"; save fires no dialog.
+- Edit + save: text weight normal; DB `manager_source = "manual"`; badge flips to "Manager Adjusted"; first divergence fires `manual_override` dialog.
+- Aggregate day variance >15% still independently fires the existing `variance_threshold` dialog.
+- Single-period venue: main row is inline-editable; "Use Statistical" applies real numbers.
+- Multi-period venue: main row read-only, no badge; per-period editing/badges/"Use Statistical" all work inside the expanded ServicePeriodTable.
+- `Act vs Stat` and Performance badge render correctly across Future / On-above / Below.
+- Typecheck passes: `bunx tsgo --noEmit`, or `npm run build` as fallback if tsgo isn't available.
