@@ -1455,6 +1455,7 @@ function DailyRegister(props: DailyRegisterProps) {
                               lines={opLines.filter((l) => l.lineType === "service_period")}
                               periods={periods}
                               stat={stat}
+                              act={act}
                               canEdit={canEdit}
                               onEdit={onEdit}
                               onApplyStatistical={onApplyStatistical}
