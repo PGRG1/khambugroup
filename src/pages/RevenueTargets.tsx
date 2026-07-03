@@ -731,63 +731,136 @@ export default function RevenueTargets() {
         </div>
       </div>
 
-      {/* FILTER BAR */}
-      <SectionCard className="!p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 border border-border rounded-md">
-            <Button variant="ghost" size="sm" className="h-9 px-2"
-              onClick={() => { const d = new Date(year, month - 2, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="text-sm font-medium min-w-[130px] text-center tabular-nums">
-              {monthName(month)} {year}
+      {/* FILTER BAR — single inline chip toolbar */}
+      {(() => {
+        // Distinct period names across selected venues (opPeriods already excludes rollup-only)
+        const nameToIds = new Map<string, string[]>();
+        for (const p of opPeriods) {
+          const arr = nameToIds.get(p.name) ?? [];
+          arr.push(p.id);
+          nameToIds.set(p.name, arr);
+        }
+        const distinctNames = Array.from(nameToIds.keys()).sort((a, b) => a.localeCompare(b));
+        const selectedIdSet = new Set(servicePeriodIds);
+        const isNameSelected = (name: string) => {
+          const ids = nameToIds.get(name) ?? [];
+          return ids.length > 0 && ids.every((id) => selectedIdSet.has(id));
+        };
+        const toggleName = (name: string) => {
+          const ids = nameToIds.get(name) ?? [];
+          if (isNameSelected(name)) {
+            setPeriods(servicePeriodIds.filter((id) => !ids.includes(id)));
+          } else {
+            const next = new Set(servicePeriodIds);
+            for (const id of ids) next.add(id);
+            setPeriods(Array.from(next));
+          }
+        };
+        const toggleVenue = (id: string) => {
+          if (venueIds.includes(id)) setVenues(venueIds.filter((x) => x !== id));
+          else setVenues([...venueIds, id]);
+        };
+        const toggleWeekday = (i: number) => {
+          if (weekdays.includes(i)) setWeekdays(weekdays.filter((x) => x !== i));
+          else setWeekdays([...weekdays, i]);
+        };
+        const toggleStatus = (s: OperatingStatus) => {
+          if (operatingStatuses.includes(s)) setStatuses(operatingStatuses.filter((x) => x !== s));
+          else setStatuses([...operatingStatuses, s]);
+        };
+        return (
+          <div className="card-glass rounded-xl px-3 py-2 flex flex-wrap items-center gap-2">
+            {/* Month nav */}
+            <div className="flex items-center gap-0.5">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                onClick={() => { const d = new Date(year, month - 2, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-sm font-medium min-w-[120px] text-center tabular-nums">
+                {monthName(month)} {year}
+              </div>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                onClick={() => { const d = new Date(year, month, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-            <Button variant="ghost" size="sm" className="h-9 px-2"
-              onClick={() => { const d = new Date(year, month, 1); setMonth(d.getFullYear(), d.getMonth() + 1); }}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+
+            <ToolbarDivider />
+
+            {/* Venue Scope */}
+            <GroupLabel>Venue Scope</GroupLabel>
+            <PillToggle active={venueIds.length === 0} onClick={() => setVenues([])} variant="outlined">
+              All
+            </PillToggle>
+            {activeVenues.map((v) => (
+              <PillToggle key={v.id}
+                active={venueIds.includes(v.id)}
+                onClick={() => toggleVenue(v.id)}
+                variant="outlined">
+                {v.name}
+              </PillToggle>
+            ))}
+
+            <ToolbarDivider />
+
+            {/* Day of Week */}
+            <GroupLabel>Day of Week</GroupLabel>
+            <PillToggle active={weekdays.length === 0} onClick={() => setWeekdays([])} variant="filled">
+              All
+            </PillToggle>
+            {WEEKDAYS.map((w, i) => (
+              <PillToggle key={w}
+                active={weekdays.includes(i)}
+                onClick={() => toggleWeekday(i)}
+                variant="filled">
+                {w}
+              </PillToggle>
+            ))}
+
+            <ToolbarDivider />
+
+            {/* Periods (text links) */}
+            <LinkToggle active={servicePeriodIds.length === 0} onClick={() => setPeriods([])}>
+              All Periods
+            </LinkToggle>
+            {distinctNames.map((name) => (
+              <LinkToggle key={name} active={isNameSelected(name)} onClick={() => toggleName(name)}>
+                {name}
+              </LinkToggle>
+            ))}
+
+            <ToolbarDivider />
+
+            {/* Status (text links) */}
+            <LinkToggle active={operatingStatuses.length === 0} onClick={() => setStatuses([])}>
+              All Status
+            </LinkToggle>
+            {STATUSES.map((s) => (
+              <LinkToggle key={s} active={operatingStatuses.includes(s)} onClick={() => toggleStatus(s)}>
+                {s.replace("_", " ")}
+              </LinkToggle>
+            ))}
+
+            {/* Right-aligned action */}
+            <div className="ml-auto flex items-center gap-1">
+              {effectiveVenueIds.length > 0 && (
+                managerLines.length === 0 ? (
+                  <Button size="sm" variant="default" onClick={handleSetUpMonth} disabled={generatingStat}>
+                    <Sparkles className="h-4 w-4 mr-1.5" /> Set Up This Month
+                  </Button>
+                ) : (
+                  <Button size="icon" variant="ghost" className="h-7 w-7"
+                    onClick={handleRecomputeStat} disabled={generatingStat}
+                    title="Refresh data">
+                    <RefreshCw className={`h-4 w-4 ${generatingStat ? "animate-spin" : ""}`} />
+                  </Button>
+                )
+              )}
+            </div>
           </div>
-          <MultiSelect
-            label="Venues"
-            values={venueIds}
-            options={activeVenues.map((v) => ({ value: v.id, label: v.name }))}
-            onChange={setVenues}
-            formatLabel={(n) => `${n} venue${n === 1 ? "" : "s"}`}
-          />
-          <MultiSelect
-            label="Service Periods"
-            values={servicePeriodIds}
-            options={opPeriods.map((p) => ({ value: p.id, label: p.name }))}
-            onChange={setPeriods}
-            formatLabel={(n) => `${n} period${n === 1 ? "" : "s"}`}
-          />
-          <MultiSelect
-            label="Day of Week"
-            values={weekdays}
-            options={WEEKDAY_LONG.map((w, i) => ({ value: i, label: w }))}
-            onChange={setWeekdays}
-          />
-          <MultiSelect
-            label="Status"
-            values={operatingStatuses}
-            options={STATUSES.map((s) => ({ value: s, label: s.replace("_", " ") }))}
-            onChange={setStatuses}
-          />
-          {effectiveVenueIds.length > 0 && (
-            managerLines.length === 0 ? (
-              <Button size="sm" variant="default" onClick={handleSetUpMonth} disabled={generatingStat}>
-                <Sparkles className="h-4 w-4 mr-1.5" /> Set Up This Month
-              </Button>
-            ) : (
-              <Button size="icon" variant="outline" className="h-9 w-9"
-                onClick={handleRecomputeStat} disabled={generatingStat}
-                title="Recompute benchmarks only">
-                <RefreshCw className={`h-4 w-4 ${generatingStat ? "animate-spin" : ""}`} />
-              </Button>
-            )
-          )}
-        </div>
-      </SectionCard>
+        );
+      })()}
+
 
       {/* KPI CARDS */}
       {(() => {
