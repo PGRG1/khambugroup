@@ -1339,7 +1339,7 @@ function DailyRegister(props: DailyRegisterProps) {
                     </td>
                     <td className="py-1.5 px-2 text-foreground font-medium tabular-nums">{r.date.slice(8)}</td>
                     <td className="py-1.5 px-2 text-muted-foreground">{WEEKDAYS[wd]}</td>
-                    <td className="py-1.5 px-2 font-medium">{r.venueName:Name}</td>
+                    <td className="py-1.5 px-2 font-medium">{r.venueName}</td>
                     <td className="text-right px-2 tabular-nums">
                       {stat ? (
                         <div className="flex flex-col items-end">
