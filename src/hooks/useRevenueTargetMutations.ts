@@ -133,6 +133,37 @@ export function useRevenueTargetMutations() {
     return { ok: true as const };
   }, [tenantId]);
 
+  /** Atomic: creates the event line and (for replaces_period) marks the replaced service_period line as replaced_by_event in a single DB call. */
+  const addEventWithReplacement = useCallback(async (args: {
+    venueId: string; targetDate: string; eventName: string; eventMode: EventMode;
+    replacesServicePeriodId?: string | null;
+    targetInputMode?: TargetInputMode;
+    managerGuestTarget?: number | null;
+    managerSpendPerGuestTarget?: number | null;
+    managerRevenueOverride?: number | null;
+    notes?: string | null;
+  }) => {
+    if (!tenantId) return { ok: false as const, error: "no tenant" };
+    const { data, error } = await (supabase as any).rpc("add_revenue_event_with_replacement", {
+      p_tenant_id: tenantId,
+      p_venue_id: args.venueId,
+      p_target_date: args.targetDate,
+      p_event_name: args.eventName,
+      p_event_mode: args.eventMode,
+      p_replaces_service_period_id: args.replacesServicePeriodId ?? null,
+      p_target_input_mode: args.targetInputMode ?? "drivers",
+      p_manager_guest_target: args.managerGuestTarget ?? null,
+      p_manager_spend_per_guest_target: args.managerSpendPerGuestTarget ?? null,
+      p_manager_revenue_override: args.managerRevenueOverride ?? null,
+      p_notes: args.notes ?? null,
+    });
+    if (error) {
+      toast({ title: "Event save failed", description: error.message, variant: "destructive" });
+      return { ok: false as const, error: error.message };
+    }
+    return { ok: true as const, eventId: data as string };
+  }, [tenantId]);
+
   const deleteLine = useCallback(async (id: string) => {
     if (!tenantId) return { ok: false as const };
     const { error } = await supabase
@@ -244,6 +275,7 @@ export function useRevenueTargetMutations() {
     upsertManagerLine,
     batchUpsertManagerLines,
     approveLines,
+    addEventWithReplacement,
     deleteLine,
     upsertOperatingStatus,
     upsertServicePeriod,

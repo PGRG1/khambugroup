@@ -45,6 +45,7 @@ import {
 import type {
   ManagerTargetLine, OperatingStatus, VenueServicePeriod, EventMode,
 } from "@/types/revenueTargetsV2";
+import { AdjustmentReasonDialog, type AdjustmentReasonKind } from "@/components/revenue-targets/AdjustmentReasonDialog";
 
 // ---------- Design tokens (semantic HSL only) ----------
 const C = {
@@ -432,13 +433,24 @@ export default function RevenueTargets() {
   const editLine = (id: string, patch: Partial<ManagerTargetLine>) =>
     setPendingEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
 
+  // ---- Reason dialog state (replaces window.prompt) ----
+  const [reasonReq, setReasonReq] = useState<{
+    kind: AdjustmentReasonKind;
+    onConfirm: (reason: string) => void | Promise<void>;
+  } | null>(null);
+  const requestReason = useCallback(
+    (kind: AdjustmentReasonKind, onConfirm: (reason: string) => void | Promise<void>) =>
+      setReasonReq({ kind, onConfirm }),
+    [],
+  );
+
   const linesWithEdits = useMemo(() =>
     managerLines.map((l) => ({ ...l, ...pendingEdits[l.id] })),
     [managerLines, pendingEdits]);
 
-  const saveDay = async (venueId: string, date: string) => {
-    const targets = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date && pendingEdits[l.id]);
-    if (!targets.length) return;
+  const performSaveDay = async (
+    venueId: string, date: string, targets: ManagerTargetLine[], adjustmentReason?: string | null,
+  ) => {
     for (const t of targets) {
       const err = validateManagerLine(t, "saved");
       if (err) { toast({ title: "Cannot save", description: err, variant: "destructive" }); return; }
@@ -455,7 +467,7 @@ export default function RevenueTargets() {
         managerSpendPerGuestTarget: t.managerSpendPerGuestTarget,
         managerRevenueOverride: t.managerRevenueOverride,
         lineStatus: t.lineStatus,
-        zeroReason: t.zeroReason,
+        zeroReason: adjustmentReason ?? t.zeroReason,
         status: "saved",
         notes: t.notes,
         managerSource: "manual",
@@ -469,6 +481,32 @@ export default function RevenueTargets() {
       });
       await refetchLines();
     }
+  };
+
+  // Detect >15% variance vs reliable Full-Day Statistical benchmark for the day.
+  const varianceExceedsThreshold = (venueId: string, date: string, targets: ManagerTargetLine[]) => {
+    const statRow: any = statistical.find((s: any) => s.venueId === venueId && s.targetDate === date);
+    const statRev = Number(statRow?.statisticalTargetAmount ?? 0);
+    if (!statRow || !isFinite(statRev) || statRev <= 0) return false;
+    // Sum manager revenue across all operational lines for this venue/date (with edits applied).
+    const dayLines = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date);
+    const agg = aggregateManager(dayLines, allPeriods);
+    if (!isFinite(agg.revenue) || agg.revenue <= 0) return false;
+    const delta = Math.abs(agg.revenue - statRev) / statRev;
+    return delta > 0.15;
+  };
+
+  const saveDay = async (venueId: string, date: string) => {
+    const targets = linesWithEdits.filter((l) => l.venueId === venueId && l.targetDate === date && pendingEdits[l.id]);
+    if (!targets.length) return;
+    if (varianceExceedsThreshold(venueId, date, targets)) {
+      requestReason("variance_threshold", async (reason) => {
+        setReasonReq(null);
+        await performSaveDay(venueId, date, targets, reason);
+      });
+      return;
+    }
+    await performSaveDay(venueId, date, targets);
   };
 
   const saveAll = async () => {
@@ -508,10 +546,30 @@ export default function RevenueTargets() {
     editLine(line.id, { managerGuestTarget: Math.round(stat.g), managerSpendPerGuestTarget: Number(stat.spg.toFixed(2)) });
   };
 
-  const setOperatingStatus = async (venueId: string, date: string, status: OperatingStatus, notes?: string) => {
-    const r = await mutations.upsertOperatingStatus(venueId, date, status, notes);
-    if (r.ok) { await refetchDays(); toast({ title: "Operating status updated" }); }
-  };
+  const setOperatingStatus = useCallback(async (venueId: string, date: string, status: OperatingStatus, notes?: string) => {
+    // Non-normal statuses require a reason via the reason dialog
+    const needsReason = status === "events_only" || status === "closed";
+    const commit = async (reason?: string) => {
+      const r = await mutations.upsertOperatingStatus(venueId, date, status, reason ?? notes ?? null);
+      if (r.ok) { await refetchDays(); toast({ title: "Operating status updated" }); }
+    };
+    if (needsReason && !notes) {
+      const kind: AdjustmentReasonKind = status === "closed" ? "closed" : "events_only";
+      requestReason(kind, (reason) => { setReasonReq(null); return commit(reason); });
+      return;
+    }
+    await commit();
+  }, [mutations, refetchDays, requestReason]);
+
+  // Approve saved lines for a day (canApprove only)
+  const approveDay = useCallback(async (venueId: string, date: string) => {
+    const ids = managerLines
+      .filter((l) => l.venueId === venueId && l.targetDate === date && l.status === "saved")
+      .map((l) => l.id);
+    if (!ids.length) { toast({ title: "Nothing to approve", description: "Save the day first." }); return; }
+    const r = await mutations.approveLines(ids);
+    if (r.ok) await refetchLines();
+  }, [managerLines, mutations, refetchLines]);
 
   const exportCsv = () => {
     const header = ["Date", "Weekday", "Venue", "Statistical Revenue", "Manager Revenue", "Actual Revenue",
@@ -911,54 +969,58 @@ export default function RevenueTargets() {
         actuals={actuals}
         pendingIds={new Set(Object.keys(pendingEdits))}
         canEdit={canEdit}
+        canApprove={perms.canApprove}
         onEdit={editLine}
         onSaveDay={saveDay}
+        onApproveDay={approveDay}
         onApplyStatistical={applyStatistical}
         onSetStatus={setOperatingStatus}
+        requestReason={requestReason}
         onLineStatus={async (line, lineStatus, reason) => {
-          const r = await mutations.upsertManagerLine({
-            id: line.id, venueId: line.venueId, targetDate: line.targetDate,
-            lineType: line.lineType, servicePeriodId: line.servicePeriodId,
-            targetInputMode: line.targetInputMode,
-            managerGuestTarget: line.managerGuestTarget,
-            managerSpendPerGuestTarget: line.managerSpendPerGuestTarget,
-            lineStatus, zeroReason: reason ?? null,
-            status: line.status,
-          });
-          if (r.ok) await refetchLines();
+          const commit = async (r: string | null) => {
+            const res = await mutations.upsertManagerLine({
+              id: line.id, venueId: line.venueId, targetDate: line.targetDate,
+              lineType: line.lineType, servicePeriodId: line.servicePeriodId,
+              targetInputMode: line.targetInputMode,
+              managerGuestTarget: line.managerGuestTarget,
+              managerSpendPerGuestTarget: line.managerSpendPerGuestTarget,
+              lineStatus, zeroReason: r,
+              status: line.status,
+            });
+            if (res.ok) await refetchLines();
+          };
+          // Reactivation and operating do not require a reason
+          if (lineStatus === "operating") return commit(null);
+          if (reason) return commit(reason);
+          const kind: AdjustmentReasonKind =
+            lineStatus === "replaced_by_event" ? "replaced_by_event" : "not_operating";
+          requestReason(kind, async (r) => { setReasonReq(null); await commit(r); });
         }}
         onAddEvent={async (venueId, date, ev) => {
-          const r = await mutations.upsertManagerLine({
-            venueId, targetDate: date, lineType: "event",
+          // Atomic RPC: event creation + replacement in one DB call.
+          const r = await mutations.addEventWithReplacement({
+            venueId, targetDate: date,
             eventName: ev.name, eventMode: ev.mode,
             replacesServicePeriodId: ev.replacesServicePeriodId ?? null,
             targetInputMode: ev.contractedRevenue != null ? "contracted_revenue" : "drivers",
             managerGuestTarget: ev.guests ?? null,
             managerSpendPerGuestTarget: ev.spg ?? null,
             managerRevenueOverride: ev.contractedRevenue ?? null,
-            lineStatus: "operating", status: "draft", managerSource: "manual",
+            notes: ev.reason ?? null,
           });
-          if (r.ok) {
-            // If replace mode, mark the replaced period line
-            if (ev.mode === "replaces_period" && ev.replacesServicePeriodId) {
-              const target = managerLines.find(
-                (l) => l.venueId === venueId && l.targetDate === date && l.servicePeriodId === ev.replacesServicePeriodId,
-              );
-              if (target) {
-                await mutations.upsertManagerLine({
-                  id: target.id, venueId, targetDate: date,
-                  lineType: "service_period", servicePeriodId: target.servicePeriodId,
-                  targetInputMode: target.targetInputMode,
-                  lineStatus: "replaced_by_event",
-                  zeroReason: `Replaced by event: ${ev.name}`,
-                  status: target.status,
-                });
-              }
-            }
-            await refetchLines();
-          }
+          if (r.ok) await refetchLines();
         }}
       />
+
+      {reasonReq && (
+        <AdjustmentReasonDialog
+          open={!!reasonReq}
+          kind={reasonReq.kind}
+          onCancel={() => setReasonReq(null)}
+          onConfirm={async (reason) => { await reasonReq.onConfirm(reason); }}
+        />
+      )}
+
 
       {/* SECTION 11: Rollup */}
       <SectionCard title={isFiltered ? "Filtered Roll-up" : `${monthName(month)} ${year} Roll-up`}>
@@ -1020,20 +1082,25 @@ interface DailyRegisterProps {
   actuals: any[];
   pendingIds: Set<string>;
   canEdit: boolean;
+  canApprove: boolean;
   onEdit: (id: string, patch: Partial<ManagerTargetLine>) => void;
   onSaveDay: (venueId: string, date: string) => Promise<void>;
+  onApproveDay: (venueId: string, date: string) => Promise<void>;
   onApplyStatistical: (line: ManagerTargetLine, stat: { rev: number | null; g: number | null; spg: number | null }) => Promise<void>;
   onSetStatus: (venueId: string, date: string, s: OperatingStatus, notes?: string) => Promise<void>;
   onLineStatus: (line: ManagerTargetLine, s: any, reason?: string) => Promise<void>;
   onAddEvent: (venueId: string, date: string, ev: {
     name: string; mode: EventMode; replacesServicePeriodId?: string | null;
     guests?: number | null; spg?: number | null; contractedRevenue?: number | null;
+    reason?: string | null;
   }) => Promise<void>;
+  requestReason: (kind: AdjustmentReasonKind, onConfirm: (reason: string) => void | Promise<void>) => void;
 }
 
 function DailyRegister(props: DailyRegisterProps) {
   const { year, month, venues, periods, opPeriods, days, lines, statistical, actuals,
-    pendingIds, canEdit, onEdit, onSaveDay, onApplyStatistical, onSetStatus, onLineStatus, onAddEvent } = props;
+    pendingIds, canEdit, canApprove, onEdit, onSaveDay, onApproveDay, onApplyStatistical,
+    onSetStatus, onLineStatus, onAddEvent, requestReason } = props;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [eventFor, setEventFor] = useState<{ venueId: string; date: string } | null>(null);
 
@@ -1148,6 +1215,10 @@ function DailyRegister(props: DailyRegisterProps) {
                           <Button size="sm" variant="outline" className="h-6 text-[11px]"
                             onClick={() => onSaveDay(r.venueId, r.date)}>Save</Button>
                         )}
+                        {canApprove && lns.some((l) => l.status === "saved") && (
+                          <Button size="sm" variant="default" className="h-6 text-[11px]"
+                            onClick={() => onApproveDay(r.venueId, r.date)}>Approve</Button>
+                        )}
                         {canEdit && (
                           <Button size="sm" variant="ghost" className="h-6 text-[11px]"
                             onClick={() => setEventFor({ venueId: r.venueId, date: r.date })}>
@@ -1189,6 +1260,7 @@ function DailyRegister(props: DailyRegisterProps) {
                               onEdit={onEdit}
                               onApplyStatistical={onApplyStatistical}
                               onLineStatus={onLineStatus}
+                              requestReason={requestReason}
                             />
                             {opLines.some((l) => l.lineType === "event") && (
                               <>
@@ -1221,11 +1293,12 @@ function DailyRegister(props: DailyRegisterProps) {
   );
 }
 
-function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStatistical, onLineStatus }: {
+function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStatistical, onLineStatus, requestReason }: {
   lines: ManagerTargetLine[]; periods: VenueServicePeriod[]; stat: any; canEdit: boolean;
   onEdit: (id: string, patch: Partial<ManagerTargetLine>) => void;
   onApplyStatistical: (line: ManagerTargetLine, stat: { rev: number | null; g: number | null; spg: number | null }) => Promise<void>;
   onLineStatus: (line: ManagerTargetLine, s: any, reason?: string) => Promise<void>;
+  requestReason: (kind: AdjustmentReasonKind, onConfirm: (reason: string) => void | Promise<void>) => void;
 }) {
   return (
     <table className="w-full text-xs">
@@ -1300,12 +1373,11 @@ function ServicePeriodTable({ lines, periods, stat, canEdit, onEdit, onApplyStat
                     {l.lineStatus === "operating" ? (
                       <Button size="sm" variant="ghost" className="h-6 text-[10px] text-rose-500"
                         onClick={() => {
-                          const reason = window.prompt("Reason for setting as Not Operating:");
-                          if (reason) onLineStatus(l, "not_operating", reason);
+                          requestReason("not_operating", (reason) => onLineStatus(l, "not_operating", reason));
                         }}>Not Op</Button>
                     ) : (
                       <Button size="sm" variant="ghost" className="h-6 text-[10px] text-emerald-500"
-                        onClick={() => onLineStatus(l, "operating", null as any)}>Reactivate</Button>
+                        onClick={() => onLineStatus(l, "operating")}>Reactivate</Button>
                     )}
                   </div>
                 )}
@@ -1379,6 +1451,7 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
   onSubmit: (ev: {
     name: string; mode: EventMode; replacesServicePeriodId?: string | null;
     guests?: number | null; spg?: number | null; contractedRevenue?: number | null;
+    reason?: string | null;
   }) => Promise<void>;
 }) {
   const [name, setName] = useState("");
@@ -1387,10 +1460,16 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
   const [guests, setGuests] = useState<string>("");
   const [spg, setSpg] = useState<string>("");
   const [contracted, setContracted] = useState<string>("");
+  const [reason, setReason] = useState<string>("");
+  const reasonRequired = mode === "replaces_period" || mode === "events_only";
   const submit = async () => {
     if (!name.trim()) { toast({ title: "Event name required", variant: "destructive" }); return; }
     if (mode === "replaces_period" && !replacesId) {
       toast({ title: "Select the service period being replaced", variant: "destructive" }); return;
+    }
+    if (reasonRequired && reason.trim().length < 3) {
+      toast({ title: "Reason required", description: "Explain why this event replaces normal service.", variant: "destructive" });
+      return;
     }
     await onSubmit({
       name: name.trim(), mode,
@@ -1398,6 +1477,7 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
       guests: guests ? Number(guests) : null,
       spg: spg ? Number(spg) : null,
       contractedRevenue: contracted ? Number(contracted) : null,
+      reason: reasonRequired ? reason.trim() : null,
     });
   };
   return (
@@ -1451,6 +1531,15 @@ function EventDialog({ open, onClose, periods, onSubmit }: {
           <p className="text-[11px] text-muted-foreground">
             Use either drivers (Guests × Spend/Guest) or a Contracted Revenue amount.
           </p>
+          {reasonRequired && (
+            <div>
+              <Label className="text-xs">
+                Reason {mode === "replaces_period" ? "(replacement)" : "(events-only day)"}
+              </Label>
+              <Input value={reason} onChange={(e) => setReason(e.target.value)}
+                placeholder="Why is normal service suspended?" />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
