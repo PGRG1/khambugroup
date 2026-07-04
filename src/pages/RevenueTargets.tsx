@@ -1435,6 +1435,11 @@ function DailyRegister(props: DailyRegisterProps) {
   // Expanding a date reveals both its venue rows and their service-period rows.
   const dateKey = (d: string) => `D__${d}`;
 
+  // Historical (past) dates: manager targets are locked — you can't re-plan
+  // a day that already happened. Today and future dates remain editable.
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const isHistorical = (d: string) => d < todayISO;
+
   return (
     <SectionCard title="Daily Target Register" right={
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1618,6 +1623,8 @@ function DailyRegister(props: DailyRegisterProps) {
                           </tr>
                         )}
                         {spLines.map((l) => {
+                          const lineIsHistorical = isHistorical(l.targetDate);
+                          const lineCanEdit = canEdit && !lineIsHistorical;
                           const p = periods.find((pp) => pp.id === l.servicePeriodId);
                           const periodLabel = p?.name
                             ?? <span className="italic text-muted-foreground">Untagged</span>;
@@ -1648,7 +1655,7 @@ function DailyRegister(props: DailyRegisterProps) {
                                 {periodActual ? fmtHKD(periodActual.revenue) : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="text-right px-2 tabular-nums">
-                                {canEdit && !notOperating ? (
+                                {lineCanEdit && !notOperating ? (
                                   <Input type="number"
                                     className={`${inputCls} ml-auto ${guestIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
                                     value={effGuest ?? ""} placeholder="—"
@@ -1661,7 +1668,7 @@ function DailyRegister(props: DailyRegisterProps) {
                                 {periodActual ? fmtInt(periodActual.guests) : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="text-right px-2 tabular-nums">
-                                {canEdit && !notOperating ? (
+                                {lineCanEdit && !notOperating ? (
                                   <Input type="number" step="0.01"
                                     className={`${inputCls} ml-auto ${spgIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
                                     value={effSpg ?? ""} placeholder="—"
