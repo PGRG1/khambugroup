@@ -1429,7 +1429,10 @@ function DailyRegister(props: DailyRegisterProps) {
   }, [actuals]);
 
   const rows: { venueId: string; venueName: string; date: string }[] = [];
-  for (const v of venues) for (const d of dates) rows.push({ venueId: v.id, venueName: v.name, date: d });
+  // Date-outer, venue-inner so the "All venues" view interleaves rows day-by-day
+  // instead of listing every Assembly day, then every Caliente day, etc.
+  for (const d of dates) for (const v of venues) rows.push({ venueId: v.id, venueName: v.name, date: d });
+
 
   return (
     <SectionCard title="Daily Target Register" right={
