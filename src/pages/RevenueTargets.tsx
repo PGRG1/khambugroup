@@ -1435,6 +1435,11 @@ function DailyRegister(props: DailyRegisterProps) {
   // Expanding a date reveals both its venue rows and their service-period rows.
   const dateKey = (d: string) => `D__${d}`;
 
+  // Historical (past) dates: manager targets are locked — you can't re-plan
+  // a day that already happened. Today and future dates remain editable.
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const isHistorical = (d: string) => d < todayISO;
+
   return (
     <SectionCard title="Daily Target Register" right={
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
