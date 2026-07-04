@@ -1109,7 +1109,7 @@ export default function RevenueTargets() {
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
             <div className="space-y-4">
-              <SectionCard title="Revenue Variance Drivers">
+              <SectionCard title="Revenue Variance Drivers (MTD vs Manager Target, completed days only)">
                 {monthly.actualRevenue === 0 && monthly.managerRevenue === 0 ? <EmptyChart /> : (
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={varianceDrivers} layout="vertical">
