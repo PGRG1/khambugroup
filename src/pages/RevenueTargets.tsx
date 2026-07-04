@@ -1623,6 +1623,8 @@ function DailyRegister(props: DailyRegisterProps) {
                           </tr>
                         )}
                         {spLines.map((l) => {
+                          const lineIsHistorical = isHistorical(l.targetDate);
+                          const lineCanEdit = canEdit && !lineIsHistorical;
                           const p = periods.find((pp) => pp.id === l.servicePeriodId);
                           const periodLabel = p?.name
                             ?? <span className="italic text-muted-foreground">Untagged</span>;
