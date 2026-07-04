@@ -1655,7 +1655,7 @@ function DailyRegister(props: DailyRegisterProps) {
                                 {periodActual ? fmtHKD(periodActual.revenue) : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="text-right px-2 tabular-nums">
-                                {canEdit && !notOperating ? (
+                                {lineCanEdit && !notOperating ? (
                                   <Input type="number"
                                     className={`${inputCls} ml-auto ${guestIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
                                     value={effGuest ?? ""} placeholder="—"
@@ -1668,7 +1668,7 @@ function DailyRegister(props: DailyRegisterProps) {
                                 {periodActual ? fmtInt(periodActual.guests) : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="text-right px-2 tabular-nums">
-                                {canEdit && !notOperating ? (
+                                {lineCanEdit && !notOperating ? (
                                   <Input type="number" step="0.01"
                                     className={`${inputCls} ml-auto ${spgIsPrefill ? "text-muted-foreground" : "text-foreground"}`}
                                     value={effSpg ?? ""} placeholder="—"
