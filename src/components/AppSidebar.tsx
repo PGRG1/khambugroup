@@ -1,8 +1,10 @@
 import {
-  LogOut, Settings, FileText, Users, UserCog, Building2, BrainCircuit,
-  SlidersHorizontal, TrendingUp, Scale, ChevronDown, Sparkles, Target,
-  Bell, Home, ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
+  LogOut, FileText, Users, Building2, BrainCircuit,
+  TrendingUp, Scale, ChevronDown, Target,
+  Home, ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
+  Settings,
 } from "lucide-react";
+
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
