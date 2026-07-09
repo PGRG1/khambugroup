@@ -1,12 +1,15 @@
-import { BarChart3, ClipboardList, LogOut, Settings, FileText, Receipt, Users, FileSpreadsheet, Package, UserCog, Calendar, DollarSign, LayoutDashboard, Building2, UtensilsCrossed, FolderDown, BrainCircuit, SlidersHorizontal, Tags, TrendingUp, Scale, BookOpen, NotebookPen, Database, ListTree, BookText, Wallet, CreditCard, History, Landmark, ChevronDown, ChevronUp, FolderOpen, FileStack, Sparkles, Target, Bell, Repeat, CheckCircle2, Home, ShoppingCart, PackageCheck, ListChecks, FileMinus, ClipboardCheck, ArrowLeftRight, ArrowRightLeft, Trash2, Tag, TrendingDown, ReceiptText, Clock, Store, Percent, Upload, Layers, ShieldCheck, CheckSquare, RefreshCw } from "lucide-react";
+import {
+  LogOut, Settings, FileText, Users, UserCog, Building2, BrainCircuit,
+  SlidersHorizontal, TrendingUp, Scale, ChevronDown, Sparkles, Target,
+  Bell, Home, ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
+} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 
-import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -19,191 +22,166 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
-const navItems = [
+type Item = { title: string; url: string; pageKey?: string; end?: boolean; disabled?: boolean };
+
+const navItems: (Item & { icon: any })[] = [
   { title: "Home", url: "/", icon: Home, pageKey: "home", end: true },
   { title: "AI Analyst", url: "/assistant", icon: BrainCircuit, pageKey: "assistant" },
   { title: "Activity Log", url: "/activity-log", icon: FileText, pageKey: "activity-log" },
 ];
 
-const revenueItems = [
-  { title: "Overview", url: "/revenue", icon: BarChart3, pageKey: "revenue", end: true },
-  { title: "Daily Sales", url: "/sales-data", icon: Database, pageKey: "revenue" },
-  { title: "Targets", url: "/forecast/assembly", icon: Target, pageKey: "forecast" },
-  { title: "Service Periods", url: "/revenue/service-periods", icon: Clock, pageKey: "revenue" },
-  { title: "Reconciliation", url: "/revenue/reconciliation", icon: Scale, pageKey: "revenue" },
+const revenueItems: Item[] = [
+  { title: "Overview", url: "/revenue", pageKey: "revenue", end: true },
+  { title: "Daily Sales", url: "/sales-data", pageKey: "revenue" },
+  { title: "Targets", url: "/forecast/assembly", pageKey: "forecast" },
+  { title: "Service Periods", url: "/revenue/service-periods", pageKey: "revenue" },
+  { title: "Reconciliation", url: "/revenue/reconciliation", pageKey: "revenue" },
 ];
 
-
-const financeItems = [
-  { title: "Overview", url: "/finance/dashboard", icon: LayoutDashboard },
-  { title: "Document Centre", url: "/finance/document-centre", icon: FolderOpen },
-  { title: "Documents & Bills", url: "/finance/documents-bills", icon: FileStack },
-  { title: "Accounts Payable", url: "/finance/payables", icon: CreditCard },
-  { title: "Accounts Receivable", url: "/finance/receivables", icon: Wallet },
+const financeItems: Item[] = [
+  { title: "Overview", url: "/finance/dashboard", end: true },
+  { title: "Document Centre", url: "/finance/document-centre" },
+  { title: "Documents & Bills", url: "/finance/documents-bills" },
+  { title: "Accounts Payable", url: "/finance/payables" },
+  { title: "Accounts Receivable", url: "/finance/receivables" },
 ];
 
-const paymentsOverview = { title: "Dashboard", url: "/payments", icon: LayoutDashboard, end: true };
-
-const paymentsMasterData = [
-  { title: "Processors", url: "/payments/processors", icon: Building2 },
-  { title: "Merchants", url: "/payments/merchants", icon: Store },
-  { title: "Fee Rates", url: "/payments/fee-rates", icon: Percent },
+const financeReportsItems: Item[] = [
+  { title: "Profit & Loss", url: "/pl-report", pageKey: "pl-report" },
+  { title: "P&L (Ledger)", url: "/finance/pl-ledger" },
+  { title: "Balance Sheet", url: "/finance/balance-sheet" },
+  { title: "Cash Flow", url: "/finance/cashflow-report" },
+  { title: "Trial Balance", url: "/finance/trial-balance" },
 ];
 
-const paymentsOperations = [
-  { title: "Imports", url: "/payments/imports", icon: Upload },
-  { title: "Settlement Batches", url: "/payments/batches", icon: Layers },
-  { title: "Fee Audit", url: "/payments/fee-audit", icon: ShieldCheck },
+const financeAccountingItems: Item[] = [
+  { title: "Journal", url: "/finance/journal" },
+  { title: "Ledger", url: "/finance/ledger" },
+  { title: "Chart of Accounts", url: "/finance/chart-of-accounts" },
+  { title: "Ledger Audit Log", url: "/finance/ledger-audit" },
 ];
 
-const paymentsReconciliation = [
-  { title: "Monthly Check", url: "/payments/monthly", icon: CheckSquare },
+const expensesOverview: Item = { title: "Overview", url: "/expenses", end: true };
+const expensesMasterData: Item[] = [
+  { title: "Categories", url: "/expenses/categories" },
+  { title: "Vendors", url: "/expenses/vendors" },
+  { title: "Payment Terms", url: "/expenses/payment-terms" },
+];
+const expensesBillsVendors: Item[] = [
+  { title: "Expense Bills", url: "/expenses/bills" },
+  { title: "Vendor Statements", url: "/expenses/statements" },
+  { title: "Recurring Expenses", url: "/expenses/recurring" },
+  { title: "Bank-Detected", url: "/expenses/bank-detected" },
+];
+const expensesApprovals: Item[] = [{ title: "Approvals", url: "/expenses/approvals" }];
+const expensesAnalytics: Item[] = [{ title: "Analytics", url: "/expenses/analytics" }];
+const expensesFinance: Item[] = [
+  { title: "Spend Summary", url: "/expenses/finance/spend", disabled: true },
+  { title: "Vendor Accounts", url: "/expenses/finance/vendors", disabled: true },
+  { title: "Open Payables", url: "/expenses/finance/payables", disabled: true },
 ];
 
-const pettyCashOverview = { title: "Overview", url: "/petty-cash", icon: LayoutDashboard, end: true };
-const pettyCashOps = [
-  { title: "Receipts", url: "/petty-cash/receipts", icon: Receipt },
-  { title: "Replenishments", url: "/petty-cash/replenishments", icon: RefreshCw },
+const procurementOverview: Item = { title: "Overview", url: "/procurement/dashboard" };
+const procurementMasterData: Item[] = [
+  { title: "Suppliers & Vendors", url: "/procurement/suppliers" },
+  { title: "Items Master", url: "/procurement/products" },
+  { title: "Categories & Units", url: "/procurement/categories" },
 ];
-const pettyCashMaster = [
-  { title: "Floats", url: "/petty-cash/floats", icon: Wallet },
-  { title: "Classifications", url: "/petty-cash/classifications", icon: Tags },
+const procurementPurchasing: Item[] = [
+  { title: "Purchase Orders", url: "/procurement/purchase-orders" },
+  { title: "Goods Receipts / GRNs", url: "/procurement/receiving" },
+  { title: "Invoices", url: "/procurement/invoices" },
+  { title: "Purchase Register", url: "/procurement/line-items" },
+  { title: "Deposit Ledger", url: "/procurement/deposit-ledger" },
+  { title: "Credit & Debit Notes", url: "/procurement/credit-notes" },
+  { title: "Documents", url: "/procurement/documents" },
 ];
-
-const expensesOverview = { title: "Overview", url: "/expenses", icon: LayoutDashboard, end: true };
-
-const expensesMasterData = [
-  { title: "Categories", url: "/expenses/categories", icon: Tags, disabled: false },
-  { title: "Vendors", url: "/expenses/vendors", icon: Building2, disabled: false },
-  { title: "Payment Terms", url: "/expenses/payment-terms", icon: Clock, disabled: false },
+const procurementInventory: Item[] = [
+  { title: "Stock on Hand", url: "/procurement/inventory" },
+  { title: "Stock Counts", url: "/procurement/stock-counts" },
+  { title: "Stock Movements", url: "/procurement/stock-movements", disabled: true },
+  { title: "Transfers", url: "/procurement/transfers" },
+  { title: "Waste & Adjustments", url: "/procurement/waste" },
 ];
-
-const expensesBillsVendors = [
-  { title: "Expense Bills", url: "/expenses/bills", icon: Receipt, disabled: false },
-  { title: "Vendor Statements", url: "/expenses/statements", icon: FileStack, disabled: false },
-  { title: "Recurring Expenses", url: "/expenses/recurring", icon: Repeat, disabled: false },
-  { title: "Bank-Detected", url: "/expenses/bank-detected", icon: Landmark, disabled: false },
+const procurementCosting: Item[] = [
+  { title: "Recipes & Menu Costing", url: "/procurement/menu-costing" },
 ];
-
-const expensesApprovals = [
-  { title: "Approvals", url: "/expenses/approvals", icon: CheckCircle2, disabled: false },
+const procurementAnalysis: Item[] = [
+  { title: "Purchase Analysis", url: "/procurement/purchase-analysis" },
+  { title: "Supplier Pricing", url: "/procurement/supplier-pricing" },
+  { title: "Inventory Variance", url: "/procurement/inventory-variance", disabled: true },
 ];
-
-const expensesAnalytics = [
-  { title: "Analytics", url: "/expenses/analytics", icon: BarChart3, disabled: false },
-];
-
-const expensesFinance = [
-  { title: "Spend Summary", url: "/expenses/finance/spend", icon: ReceiptText, disabled: true },
-  { title: "Vendor Accounts", url: "/expenses/finance/vendors", icon: Building2, disabled: true },
-  { title: "Open Payables", url: "/expenses/finance/payables", icon: CreditCard, disabled: true },
-];
-
-const financeReportsItems = [
-  { title: "Profit & Loss", url: "/pl-report", icon: Receipt, pageKey: "pl-report" },
-  { title: "Profit & Loss", url: "/finance/pl-ledger", icon: Receipt },
-  { title: "Balance Sheet", url: "/finance/balance-sheet", icon: Scale },
-  { title: "Cash Flow", url: "/finance/cashflow-report", icon: TrendingUp },
-  { title: "Trial Balance", url: "/finance/trial-balance", icon: BookText },
+const procurementFinance: Item[] = [
+  { title: "Spend Summary", url: "/procurement/finance/spend" },
+  { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
+  { title: "Open Payables", url: "/procurement/finance/payables" },
+  { title: "Opening Balances", url: "/procurement/finance/onboarding" },
+  { title: "Payments", url: "/procurement/finance/payments", disabled: true },
 ];
 
-const financeAccountingItems = [
-  { title: "Journal", url: "/finance/journal", icon: NotebookPen },
-  { title: "Ledger", url: "/finance/ledger", icon: BookOpen },
-  { title: "Chart of Accounts", url: "/finance/chart-of-accounts", icon: ListTree },
-  { title: "Ledger Audit Log", url: "/finance/ledger-audit", icon: History },
+const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
+const bankAccounts: Item[] = [
+  { title: "Bank Accounts", url: "/bank/accounts" },
+  { title: "Transfers", url: "/bank/transfers" },
+  { title: "FX & Multi-Currency", url: "/bank/fx" },
+];
+const bankTransactions: Item[] = [
+  { title: "All Transactions", url: "/bank/transactions" },
+  { title: "Incoming", url: "/bank/incoming" },
+  { title: "Outgoing", url: "/bank/outgoing" },
+];
+const bankReconciliation: Item[] = [
+  { title: "Reconciliation", url: "/bank/reconciliation" },
+  { title: "Payment Matching", url: "/bank/matching" },
+  { title: "Rules", url: "/bank/rules" },
+];
+const bankReporting: Item[] = [{ title: "Bank Fees", url: "/bank/fees" }];
+
+const paymentsOverview: Item = { title: "Overview", url: "/payments", end: true };
+const paymentsMasterData: Item[] = [
+  { title: "Processors", url: "/payments/processors" },
+  { title: "Merchants", url: "/payments/merchants" },
+  { title: "Fee Rates", url: "/payments/fee-rates" },
+];
+const paymentsOperations: Item[] = [
+  { title: "Imports", url: "/payments/imports" },
+  { title: "Settlement Batches", url: "/payments/batches" },
+  { title: "Fee Audit", url: "/payments/fee-audit" },
+];
+const paymentsReconciliation: Item[] = [
+  { title: "Monthly Check", url: "/payments/monthly" },
 ];
 
-const procurementOverview = { title: "Procurement Overview", url: "/procurement/dashboard", icon: LayoutDashboard };
-
-const procurementMasterData = [
-  { title: "Suppliers & Vendors", url: "/procurement/suppliers", icon: Building2 },
-  { title: "Items Master", url: "/procurement/products", icon: Package },
-  { title: "Categories & Units", url: "/procurement/categories", icon: Tags },
+const pettyCashOverview: Item = { title: "Overview", url: "/petty-cash", end: true };
+const pettyCashOps: Item[] = [
+  { title: "Receipts", url: "/petty-cash/receipts" },
+  { title: "Replenishments", url: "/petty-cash/replenishments" },
+];
+const pettyCashMaster: Item[] = [
+  { title: "Floats", url: "/petty-cash/floats" },
+  { title: "Classifications", url: "/petty-cash/classifications" },
 ];
 
-const procurementPurchasing = [
-  { title: "Purchase Orders", url: "/procurement/purchase-orders", icon: ShoppingCart },
-  { title: "Goods Receipts / GRNs", url: "/procurement/receiving", icon: PackageCheck },
-  { title: "Invoices", url: "/procurement/invoices", icon: FileSpreadsheet },
-  { title: "Purchase Register", url: "/procurement/line-items", icon: ListChecks },
-  { title: "Deposit Ledger", url: "/procurement/deposit-ledger", icon: Landmark },
-  { title: "Credit & Debit Notes", url: "/procurement/credit-notes", icon: FileMinus },
-  { title: "Documents", url: "/procurement/documents", icon: FolderDown },
+const hrItems: Item[] = [
+  { title: "Employee Directory", url: "/hr/employees" },
+  { title: "Org Chart", url: "/hr/org-chart" },
+  { title: "Schedule", url: "/hr/schedule" },
+  { title: "Leave Management", url: "/hr/leave" },
+  { title: "Payroll", url: "/hr/payroll" },
 ];
 
-const procurementInventory = [
-  { title: "Stock on Hand", url: "/procurement/inventory", icon: ClipboardList, disabled: false },
-  { title: "Stock Counts", url: "/procurement/stock-counts", icon: ClipboardCheck, disabled: false },
-  { title: "Stock Movements", url: "/procurement/stock-movements", icon: ArrowLeftRight, disabled: true },
-  { title: "Transfers", url: "/procurement/transfers", icon: ArrowRightLeft, disabled: false },
-  { title: "Waste & Adjustments", url: "/procurement/waste", icon: Trash2, disabled: false },
+const kpiItems: Item[] = [
+  { title: "My KPI Cards", url: "/kpis/my-cards", pageKey: "kpis" },
 ];
-
-const procurementCosting = [
-  { title: "Recipes & Menu Costing", url: "/procurement/menu-costing", icon: UtensilsCrossed },
-];
-
-const procurementAnalysis = [
-  { title: "Purchase Analysis", url: "/procurement/purchase-analysis", icon: BarChart3 },
-
-  { title: "Supplier Pricing", url: "/procurement/supplier-pricing", icon: Tag },
-  { title: "Inventory Variance", url: "/procurement/inventory-variance", icon: TrendingDown, disabled: true },
-];
-
-const procurementFinance = [
-  { title: "Spend Summary", url: "/procurement/finance/spend", icon: ReceiptText },
-  { title: "Supplier Accounts", url: "/procurement/finance/suppliers", icon: Building2 },
-  { title: "Open Payables", url: "/procurement/finance/payables", icon: CreditCard },
-  { title: "Opening Balances", url: "/procurement/finance/onboarding", icon: ClipboardCheck },
-  { title: "Payments", url: "/procurement/finance/payments", icon: Wallet, disabled: true },
-];
-
-const bankOverview = { title: "Dashboard", url: "/bank/dashboard", icon: LayoutDashboard };
-
-const bankAccounts = [
-  { title: "Bank Accounts", url: "/bank/accounts", icon: Landmark },
-  { title: "Transfers", url: "/bank/transfers", icon: ArrowRightLeft },
-  { title: "FX & Multi-Currency", url: "/bank/fx", icon: Repeat },
-];
-
-const bankTransactions = [
-  { title: "All Transactions", url: "/bank/transactions", icon: ListChecks },
-  { title: "Incoming", url: "/bank/incoming", icon: Wallet },
-  { title: "Outgoing", url: "/bank/outgoing", icon: CreditCard },
-];
-
-const bankReconciliation = [
-  { title: "Reconciliation", url: "/bank/reconciliation", icon: CheckCircle2 },
-  { title: "Payment Matching", url: "/bank/matching", icon: ArrowLeftRight },
-  { title: "Rules", url: "/bank/rules", icon: SlidersHorizontal },
-];
-
-const bankReporting = [
-  { title: "Bank Fees", url: "/bank/fees", icon: ReceiptText },
-];
-
-
-const hrItems = [
-  { title: "Employee Directory", url: "/hr/employees", icon: Users },
-  { title: "Org Chart", url: "/hr/org-chart", icon: Building2 },
-  { title: "Schedule", url: "/hr/schedule", icon: Calendar },
-  { title: "Leave Management", url: "/hr/leave", icon: FileText },
-  { title: "Payroll", url: "/hr/payroll", icon: DollarSign },
-];
-
-const kpiItems = [
-  { title: "My KPI Cards", url: "/kpis/my-cards", icon: Target, pageKey: "kpis" },
-];
-const kpiAdminItems = [
-  { title: "KPI Assignment", url: "/kpis/assignments", icon: UserCog },
-  { title: "KPI Targets", url: "/kpis/targets", icon: Target },
-  { title: "KPI Planner", url: "/kpis/planner", icon: Target },
+const kpiAdminItems: Item[] = [
+  { title: "KPI Assignment", url: "/kpis/assignments" },
+  { title: "KPI Targets", url: "/kpis/targets" },
+  { title: "KPI Planner", url: "/kpis/planner" },
 ];
 
 const STORAGE_KEY = "khambu.sidebar.groups";
-
 type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "bank" | "payments" | "pettycash" | "hr" | "admin" | "platform";
 
 function loadGroupState(): Record<GroupKey, boolean> {
@@ -213,15 +191,76 @@ function loadGroupState(): Record<GroupKey, boolean> {
   return def;
 }
 
+// ---- Shared item renderers ----
+
+function ChildLink({ item }: { item: Item }) {
+  if (item.disabled) {
+    return (
+      <SidebarMenuItem>
+        <div className="pl-6 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground opacity-40 pointer-events-none">
+          {item.title}
+        </div>
+      </SidebarMenuItem>
+    );
+  }
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+        <NavLink
+          to={item.url}
+          end={item.end ?? item.url === "/"}
+          className="relative flex items-center pl-6 pr-3 py-1.5 rounded-md text-[13px] text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
+          activeClassName="!bg-sidebar-accent !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100"
+        >
+          <span className="active-bar absolute left-1 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
+          <span className="truncate">{item.title}</span>
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+function TopLink({ item }: { item: Item & { icon: any } }) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild className="p-0 h-auto hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent">
+        <NavLink
+          to={item.url}
+          end={item.end ?? item.url === "/"}
+          className="relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
+          activeClassName="!bg-sidebar-accent !text-sidebar-primary font-medium [&>span.active-bar]:opacity-100"
+        >
+          <span className="active-bar absolute left-1 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-sidebar-primary opacity-0 transition-opacity" />
+          <item.icon className="h-4 w-4 shrink-0" />
+          <span className="truncate">{item.title}</span>
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+function SubSection({ label, items }: { label: string; items: Item[] }) {
+  return (
+    <div>
+      <div className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </div>
+      <SidebarMenu>
+        {items.map((it) => <ChildLink key={it.url} item={it} />)}
+      </SidebarMenu>
+    </div>
+  );
+}
+
 function CollapsibleNavGroup({
-  groupKey,
   label,
+  icon: Icon,
   defaultOpen,
   onOpenChange,
   children,
 }: {
-  groupKey: GroupKey;
   label: string;
+  icon: any;
   defaultOpen: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
@@ -230,20 +269,27 @@ function CollapsibleNavGroup({
   return (
     <Collapsible
       open={open}
-      onOpenChange={(o) => {
-        setOpen(o);
-        onOpenChange(o);
-      }}
+      onOpenChange={(o) => { setOpen(o); onOpenChange(o); }}
     >
-      <SidebarGroup>
+      <SidebarGroup className="py-0 px-2">
         <CollapsibleTrigger asChild>
-          <SidebarGroupLabel className="flex items-center justify-between cursor-pointer hover:text-sidebar-foreground transition-colors group/label">
-            <span className="text-base font-normal">{label}</span>
-            {open ? (
-              <ChevronUp className="h-3.5 w-3.5 transition-transform duration-200" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200" />
+          <SidebarGroupLabel
+            className={cn(
+              "flex items-center justify-between w-full min-h-10 px-2 rounded-md cursor-pointer",
+              "text-[12px] font-medium tracking-wide text-sidebar-foreground/80",
+              "hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors",
             )}
+          >
+            <span className="flex items-center gap-2.5">
+              <Icon className="h-4 w-4 shrink-0" />
+              <span>{label}</span>
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform duration-200",
+                open ? "rotate-0" : "-rotate-90",
+              )}
+            />
           </SidebarGroupLabel>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -257,7 +303,6 @@ function CollapsibleNavGroup({
 export function AppSidebar() {
   const { user, isAdmin, signOut } = useAuth();
   const { previewUserId, isPreviewActive } = usePreviewMode();
-  const location = useLocation();
 
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { showInSidebar } = useUserPermissions(effectiveUserId || undefined);
@@ -275,13 +320,12 @@ export function AppSidebar() {
   const visibleItems = navItems.filter(item => {
     if (item.pageKey === "home") return true;
     if (isAdmin && !isPreviewActive) return true;
-    return showInSidebar(item.pageKey);
+    return showInSidebar(item.pageKey!);
   });
-
 
   const visibleRevenueItems = revenueItems.filter(item => {
     if (isAdmin && !isPreviewActive) return true;
-    return showInSidebar(item.pageKey);
+    return showInSidebar(item.pageKey!);
   });
 
   const { isPlatformAdmin } = usePlatformAdmin();
@@ -301,368 +345,206 @@ export function AppSidebar() {
   const showAdmin       = isAdmin && !isPreviewActive;
   const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
-
-  const renderLink = (item: { title: string; url: string; icon: any; end?: boolean }) => (
-    <SidebarMenuItem key={item.title}>
-      <SidebarMenuButton asChild>
-        <NavLink
-          to={item.url}
-          end={item.end ?? item.url === "/"}
-          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-        >
-          <item.icon className="h-4 w-4" />
-          <span>{item.title}</span>
-        </NavLink>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
-
   return (
     <Sidebar className="border-r border-sidebar-border">
-      <div className={`p-4 border-b border-sidebar-border ${isPreviewActive ? "mt-10" : ""}`}>
-        <h1 className="text-xl font-bold font-display tracking-tight">
-          <span className="text-gradient-gold">KHAMBU GROUP</span>
-        </h1>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Analytics Overview</p>
+      {/* Workspace identity */}
+      <div className={cn("px-4 py-3.5 border-b border-sidebar-border", isPreviewActive && "mt-10")}>
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary font-semibold flex items-center justify-center text-sm shrink-0">
+            K
+          </div>
+          <div className="min-w-0">
+            <div className="text-[14px] font-semibold text-sidebar-foreground leading-tight truncate">
+              KHAMBU Group
+            </div>
+            <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+              Operating Workspace
+            </div>
+          </div>
+        </div>
       </div>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-base font-normal">Navigation</SidebarGroupLabel>
+      <SidebarContent className="py-2 gap-3">
+        {/* Top-level items, no group label */}
+        <SidebarGroup className="py-0 px-2">
           <SidebarGroupContent>
-            <SidebarMenu>{visibleItems.map(renderLink)}</SidebarMenu>
+            <SidebarMenu className="gap-1">
+              {visibleItems.map((it) => <TopLink key={it.url} item={it} />)}
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <div className="mx-3 h-px bg-sidebar-border/60" />
+
         {visibleRevenueItems.length > 0 && (
           <CollapsibleNavGroup
-            groupKey="revenue"
             label="Revenue"
+            icon={TrendingUp}
             defaultOpen={groupState.revenue}
             onOpenChange={(o) => setGroup("revenue", o)}
           >
-            <SidebarMenu>{visibleRevenueItems.map(renderLink)}</SidebarMenu>
+            <SidebarMenu className="gap-1 pt-1">
+              {visibleRevenueItems.map((it) => <ChildLink key={it.url} item={it} />)}
+            </SidebarMenu>
           </CollapsibleNavGroup>
         )}
 
         <CollapsibleNavGroup
-          groupKey="kpi"
           label="KPI Management"
+          icon={Target}
           defaultOpen={groupState.kpi}
           onOpenChange={(o) => setGroup("kpi", o)}
         >
-          <SidebarMenu>
-            {kpiItems.map(renderLink)}
-            {isAdmin && !isPreviewActive && kpiAdminItems.map(renderLink)}
+          <SidebarMenu className="gap-1 pt-1">
+            {kpiItems.map((it) => <ChildLink key={it.url} item={it} />)}
+            {isAdmin && !isPreviewActive && kpiAdminItems.map((it) => <ChildLink key={it.url} item={it} />)}
           </SidebarMenu>
         </CollapsibleNavGroup>
 
         {showFinance && (
           <CollapsibleNavGroup
-            groupKey="finance"
             label="Finance"
+            icon={Scale}
             defaultOpen={groupState.finance}
             onOpenChange={(o) => setGroup("finance", o)}
           >
-            <SidebarMenu>{financeItems.map(renderLink)}</SidebarMenu>
-
-            <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
-
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
-                  <span className="flex items-center gap-2">
-                    <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
-                    Reports
-                  </span>
-                  <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="ml-4 pl-2 border-l border-sidebar-border/60">
-                  <SidebarMenu>{financeReportsItems.map(renderLink)}</SidebarMenu>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
-                  <span className="flex items-center gap-2">
-                    <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
-                    Accounting
-                  </span>
-                  <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="ml-4 pl-2 border-l border-sidebar-border/60">
-                  <SidebarMenu>{financeAccountingItems.map(renderLink)}</SidebarMenu>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+            <SidebarMenu className="gap-1 pt-1">
+              {financeItems.map((it) => <ChildLink key={it.url} item={it} />)}
+            </SidebarMenu>
+            <SubSection label="Reports" items={financeReportsItems} />
+            <SubSection label="Accounting" items={financeAccountingItems} />
           </CollapsibleNavGroup>
         )}
 
         {showFinance && (
           <CollapsibleNavGroup
-            groupKey="expenses"
             label="Expenses"
+            icon={ReceiptText}
             defaultOpen={groupState.expenses}
             onOpenChange={(o) => setGroup("expenses", o)}
           >
-            <SidebarMenu>{renderLink(expensesOverview)}</SidebarMenu>
-
-            {[
-              { label: "Master Data", items: expensesMasterData },
-              { label: "Bills & Vendors", items: expensesBillsVendors },
-              { label: "Approvals", items: expensesApprovals },
-              { label: "Analytics", items: expensesAnalytics },
-              { label: "Finance", items: expensesFinance },
-            ].map((sub) => (
-              <React.Fragment key={sub.label}>
-                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
-                <Collapsible defaultOpen>
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
-                      <span className="flex items-center gap-2">
-                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
-                        {sub.label}
-                      </span>
-                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
-                      <SidebarMenu>
-                        {sub.items.map((item: any) =>
-                          item.disabled ? (
-                            <SidebarMenuItem key={item.title}>
-                              <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground opacity-40 pointer-events-none">
-                                <item.icon className="h-4 w-4" />
-                                <span>{item.title}</span>
-                              </div>
-                            </SidebarMenuItem>
-                          ) : (
-                            renderLink(item)
-                          )
-                        )}
-                      </SidebarMenu>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </React.Fragment>
-            ))}
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={expensesOverview} />
+            </SidebarMenu>
+            <SubSection label="Master Data" items={expensesMasterData} />
+            <SubSection label="Bills & Vendors" items={expensesBillsVendors} />
+            <SubSection label="Approvals" items={expensesApprovals} />
+            <SubSection label="Analytics" items={expensesAnalytics} />
+            <SubSection label="Finance" items={expensesFinance} />
           </CollapsibleNavGroup>
         )}
 
         {showProcurement && (
           <CollapsibleNavGroup
-            groupKey="procurement"
             label="Procurement"
+            icon={ShoppingCart}
             defaultOpen={groupState.procurement}
             onOpenChange={(o) => setGroup("procurement", o)}
           >
-            <SidebarMenu>{renderLink(procurementOverview)}</SidebarMenu>
-
-            {[
-              { label: "Master Data", items: procurementMasterData },
-              { label: "Purchasing", items: procurementPurchasing },
-              { label: "Inventory", items: procurementInventory },
-              { label: "Costing", items: procurementCosting },
-              { label: "Analysis", items: procurementAnalysis },
-              { label: "Finance", items: procurementFinance },
-            ].map((sub) => (
-              <React.Fragment key={sub.label}>
-                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
-                <Collapsible defaultOpen>
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
-                      <span className="flex items-center gap-2">
-                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
-                        {sub.label}
-                      </span>
-                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
-                      <SidebarMenu>
-                        {sub.items.map((item: any) =>
-                          item.disabled ? (
-                            <SidebarMenuItem key={item.title}>
-                              <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-sidebar-foreground opacity-40 pointer-events-none">
-                                <item.icon className="h-4 w-4" />
-                                <span>{item.title}</span>
-                              </div>
-                            </SidebarMenuItem>
-                          ) : (
-                            renderLink(item)
-                          )
-                        )}
-                      </SidebarMenu>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </React.Fragment>
-            ))}
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={procurementOverview} />
+            </SidebarMenu>
+            <SubSection label="Master Data" items={procurementMasterData} />
+            <SubSection label="Purchasing" items={procurementPurchasing} />
+            <SubSection label="Inventory" items={procurementInventory} />
+            <SubSection label="Costing" items={procurementCosting} />
+            <SubSection label="Analysis" items={procurementAnalysis} />
+            <SubSection label="Finance" items={procurementFinance} />
           </CollapsibleNavGroup>
         )}
 
         {showBank && (
           <CollapsibleNavGroup
-            groupKey="bank"
             label="Bank"
+            icon={Landmark}
             defaultOpen={groupState.bank}
             onOpenChange={(o) => setGroup("bank", o)}
           >
-            <SidebarMenu>{renderLink(bankOverview)}</SidebarMenu>
-
-            {[
-              { label: "Accounts", items: bankAccounts },
-              { label: "Transactions", items: bankTransactions },
-              { label: "Reconciliation", items: bankReconciliation },
-              { label: "Reporting", items: bankReporting },
-            ].map((sub) => (
-              <React.Fragment key={sub.label}>
-                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
-                <Collapsible defaultOpen>
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
-                      <span className="flex items-center gap-2">
-                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
-                        {sub.label}
-                      </span>
-                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
-                      <SidebarMenu>{sub.items.map(renderLink)}</SidebarMenu>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </React.Fragment>
-            ))}
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={bankOverview} />
+            </SidebarMenu>
+            <SubSection label="Accounts" items={bankAccounts} />
+            <SubSection label="Transactions" items={bankTransactions} />
+            <SubSection label="Reconciliation" items={bankReconciliation} />
+            <SubSection label="Reporting" items={bankReporting} />
           </CollapsibleNavGroup>
         )}
 
         {showPayments && (
           <CollapsibleNavGroup
-            groupKey="payments"
             label="Payments"
+            icon={CreditCard}
             defaultOpen={groupState.payments}
             onOpenChange={(o) => setGroup("payments", o)}
           >
-            <SidebarMenu>{renderLink(paymentsOverview)}</SidebarMenu>
-
-            {[
-              { label: "Master Data", items: paymentsMasterData },
-              { label: "Operations", items: paymentsOperations },
-              { label: "Reconciliation", items: paymentsReconciliation },
-            ].map((sub) => (
-              <React.Fragment key={sub.label}>
-                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
-                <Collapsible defaultOpen>
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
-                      <span className="flex items-center gap-2">
-                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
-                        {sub.label}
-                      </span>
-                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
-                      <SidebarMenu>{sub.items.map(renderLink)}</SidebarMenu>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </React.Fragment>
-            ))}
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={paymentsOverview} />
+            </SidebarMenu>
+            <SubSection label="Master Data" items={paymentsMasterData} />
+            <SubSection label="Operations" items={paymentsOperations} />
+            <SubSection label="Reconciliation" items={paymentsReconciliation} />
           </CollapsibleNavGroup>
         )}
 
         {showPettyCash && (
           <CollapsibleNavGroup
-            groupKey="pettycash"
             label="Petty Cash"
+            icon={Coins}
             defaultOpen={groupState.pettycash}
             onOpenChange={(o) => setGroup("pettycash", o)}
           >
-            <SidebarMenu>{renderLink(pettyCashOverview)}</SidebarMenu>
-
-            {[
-              { label: "Operations", items: pettyCashOps },
-              { label: "Master Data", items: pettyCashMaster },
-            ].map((sub) => (
-              <React.Fragment key={sub.label}>
-                <div className="mt-3 mx-3 h-px bg-sidebar-border/60" />
-                <Collapsible defaultOpen>
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between cursor-pointer px-3 pt-3 pb-1 text-[10px] font-semibold tracking-[0.14em] uppercase text-sidebar-primary/80 hover:text-sidebar-primary transition-colors group/sub">
-                      <span className="flex items-center gap-2">
-                        <span className="h-1 w-1 rounded-full bg-sidebar-primary/60" />
-                        {sub.label}
-                      </span>
-                      <ChevronDown className="h-3 w-3 transition-transform group-data-[state=closed]/sub:-rotate-90" />
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="ml-4 pl-2 border-l border-sidebar-border/60">
-                      <SidebarMenu>{sub.items.map(renderLink)}</SidebarMenu>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </React.Fragment>
-            ))}
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={pettyCashOverview} />
+            </SidebarMenu>
+            <SubSection label="Operations" items={pettyCashOps} />
+            <SubSection label="Master Data" items={pettyCashMaster} />
           </CollapsibleNavGroup>
         )}
 
-
         {showHR && (
           <CollapsibleNavGroup
-            groupKey="hr"
             label="People"
+            icon={Users}
             defaultOpen={groupState.hr}
             onOpenChange={(o) => setGroup("hr", o)}
           >
-            <SidebarMenu>{hrItems.map(renderLink)}</SidebarMenu>
+            <SidebarMenu className="gap-1 pt-1">
+              {hrItems.map((it) => <ChildLink key={it.url} item={it} />)}
+            </SidebarMenu>
           </CollapsibleNavGroup>
         )}
 
         {showAdmin && (
           <CollapsibleNavGroup
-            groupKey="admin"
             label="Admin"
+            icon={Settings}
             defaultOpen={groupState.admin}
             onOpenChange={(o) => setGroup("admin", o)}
           >
-            <SidebarMenu>
-              {renderLink({ title: "Notifications", url: "/notifications", icon: Bell })}
-              {renderLink({ title: "User Access", url: "/user-access", icon: UserCog })}
-              {renderLink({ title: "System Configuration", url: "/admin/system-configuration", icon: SlidersHorizontal })}
-              {renderLink({ title: "AI Learned Rules", url: "/admin/ai-rules", icon: Sparkles })}
-              {renderLink({ title: "Settings", url: "/settings", icon: Settings })}
+            <SidebarMenu className="gap-1 pt-1">
+              {[
+                { title: "Notifications", url: "/notifications" },
+                { title: "User Access", url: "/user-access" },
+                { title: "System Configuration", url: "/admin/system-configuration" },
+                { title: "AI Learned Rules", url: "/admin/ai-rules" },
+                { title: "Settings", url: "/settings" },
+              ].map((it) => <ChildLink key={it.url} item={it} />)}
             </SidebarMenu>
           </CollapsibleNavGroup>
         )}
 
         {showPlatform && (
           <CollapsibleNavGroup
-            groupKey="platform"
             label="Platform Admin"
+            icon={Building2}
             defaultOpen={false}
             onOpenChange={() => {}}
           >
-            <SidebarMenu>
-              {renderLink({ title: "Clients", url: "/admin/clients", icon: Building2 })}
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={{ title: "Clients", url: "/admin/clients" }} />
             </SidebarMenu>
           </CollapsibleNavGroup>
         )}
-
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
@@ -685,3 +567,6 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
+// Silence unused imports of nav helpers (kept for future use)
+void Bell; void UserCog; void Sparkles; void SlidersHorizontal;
