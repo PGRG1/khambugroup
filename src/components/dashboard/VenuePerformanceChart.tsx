@@ -1,6 +1,7 @@
 import { formatCurrency } from "@/utils/salesUtils";
 import { getVenueSeats } from "@/constants/venueSeating";
-import ChartCard from "./ChartCard";
+import { ChartShell } from "@/components/revenue-overview/ChartShell";
+import { monthOpacity } from "@/components/revenue-overview/chartTheme";
 
 interface VenueData {
   venue: string;
@@ -40,42 +41,35 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
       { label: "Avg Orders/Day", val: formatCurrency(avgOrdersPerDay) },
       { label: "Avg/Guest", val: `$${formatCurrency(d.avgPerGuest)}` },
       { label: "Avg/Order", val: `$${formatCurrency(d.avgPerOrder)}` },
-      ...(seats ? [
-        { label: `Seats`, val: String(seats) },
-        { label: "Rev/Seat/Day", val: `$${d.days ? formatCurrency(Math.round(d.totalSales / seats / d.days)) : 0}` },
-        { label: "Turnover/Day", val: `${d.days ? (d.totalGuests / seats / d.days).toFixed(1) : 0}x` },
-        { label: "Occupancy %", val: `${d.days ? Math.round((d.totalGuests / (seats * d.days)) * 100) : 0}%` },
-      ] : []),
+      ...(seats
+        ? [
+            { label: `Seats`, val: String(seats) },
+            { label: "Rev/Seat/Day", val: `$${d.days ? formatCurrency(Math.round(d.totalSales / seats / d.days)) : 0}` },
+            { label: "Turnover/Day", val: `${d.days ? (d.totalGuests / seats / d.days).toFixed(1) : 0}x` },
+            { label: "Occupancy %", val: `${d.days ? Math.round((d.totalGuests / (seats * d.days)) * 100) : 0}%` },
+          ]
+        : []),
     ];
 
     return (
-      <ChartCard title="Venue Performance" subtitle={venue}>
-        <div className="space-y-3 py-2">
+      <ChartShell title="Venue Performance" subtitle={venue}>
+        <div className="divide-y divide-border/50">
           {rows.map((row) => (
-            <div key={row.label} className="flex items-center justify-between text-sm">
+            <div key={row.label} className="flex items-center justify-between text-[13px] py-1.5">
               <span className="text-muted-foreground">{row.label}</span>
-              <span className="font-medium text-foreground">{row.val}</span>
+              <span className="font-medium text-foreground tabular-nums">{row.val}</span>
             </div>
           ))}
         </div>
-      </ChartCard>
+      </ChartShell>
     );
   }
 
-  // All Venues — dynamic comparison
   const totalSales = activeVenues.reduce((s, d) => s + d.totalSales, 0);
-
-  const COLORS = [
-    "hsl(24, 80%, 50%)",
-    "hsl(210, 65%, 55%)",
-    "hsl(175, 55%, 42%)",
-    "hsl(258, 50%, 55%)",
-    "hsl(14, 70%, 52%)",
-  ];
-
-  const venuePercentages = activeVenues.map((v) => ({
+  const venuePercentages = activeVenues.map((v, i) => ({
     venue: v.venue,
     pct: totalSales ? Math.round((v.totalSales / totalSales) * 100) : 0,
+    opacity: monthOpacity(i),
   }));
 
   const hasAnySeats = activeVenues.some((v) => getVenueSeats(v.venue) !== null);
@@ -84,59 +78,64 @@ const VenuePerformanceChart = ({ data, venue = "All Venues" }: VenuePerformanceC
     { label: "Total Sales", getValue: (d: VenueData) => `$${formatCurrency(d.totalSales)}` },
     { label: "Total Guests", getValue: (d: VenueData) => formatCurrency(d.totalGuests) },
     { label: "Total Orders", getValue: (d: VenueData) => formatCurrency(d.totalOrders) },
-    { label: "Guests/Order", getValue: (d: VenueData) => d.totalOrders ? (d.totalGuests / d.totalOrders).toFixed(1) : "-" },
-    { label: "Avg Sales/Day", getValue: (d: VenueData) => d.days ? `$${formatCurrency(Math.round(d.totalSales / d.days))}` : "-" },
-    { label: "Avg Guests/Day", getValue: (d: VenueData) => d.days ? formatCurrency(Math.round(d.totalGuests / d.days)) : "-" },
-    { label: "Avg Orders/Day", getValue: (d: VenueData) => d.days ? formatCurrency(Math.round(d.totalOrders / d.days)) : "-" },
+    { label: "Guests/Order", getValue: (d: VenueData) => (d.totalOrders ? (d.totalGuests / d.totalOrders).toFixed(1) : "-") },
+    { label: "Avg Sales/Day", getValue: (d: VenueData) => (d.days ? `$${formatCurrency(Math.round(d.totalSales / d.days))}` : "-") },
+    { label: "Avg Guests/Day", getValue: (d: VenueData) => (d.days ? formatCurrency(Math.round(d.totalGuests / d.days)) : "-") },
+    { label: "Avg Orders/Day", getValue: (d: VenueData) => (d.days ? formatCurrency(Math.round(d.totalOrders / d.days)) : "-") },
     { label: "Avg/Guest", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerGuest)}` },
     { label: "Avg/Order", getValue: (d: VenueData) => `$${formatCurrency(d.avgPerOrder)}` },
-    ...(hasAnySeats ? [
-      { label: "Seats", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s ? String(s) : "-"; } },
-      { label: "Rev/Seat/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `$${formatCurrency(Math.round(d.totalSales / s / d.days))}` : "-"; } },
-      { label: "Turnover/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${(d.totalGuests / s / d.days).toFixed(1)}x` : "-"; } },
-      { label: "Occupancy", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${Math.round((d.totalGuests / (s * d.days)) * 100)}%` : "-"; } },
-    ] : []),
+    ...(hasAnySeats
+      ? [
+          { label: "Seats", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s ? String(s) : "-"; } },
+          { label: "Rev/Seat/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `$${formatCurrency(Math.round(d.totalSales / s / d.days))}` : "-"; } },
+          { label: "Turnover/Day", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${(d.totalGuests / s / d.days).toFixed(1)}x` : "-"; } },
+          { label: "Occupancy", getValue: (d: VenueData) => { const s = getVenueSeats(d.venue); return s && d.days ? `${Math.round((d.totalGuests / (s * d.days)) * 100)}%` : "-"; } },
+        ]
+      : []),
   ];
 
-  const subtitle = activeVenues.map((v) => v.venue).join(" vs ");
+  const subtitle = activeVenues.map((v) => v.venue).join(" · ");
 
   return (
-    <ChartCard title="Venue Performance" subtitle={subtitle}>
-      <div className="space-y-4 py-2">
-        {/* Stacked bar */}
+    <ChartShell title="Venue Performance" subtitle={subtitle}>
+      <div className="space-y-4">
         <div>
-          <div className="flex h-4 rounded-full overflow-hidden">
-            {venuePercentages.map((v, i) => (
-              <div key={v.venue} className="transition-all duration-500" style={{ width: `${v.pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+          <div className="flex h-3 rounded-full overflow-hidden">
+            {venuePercentages.map((v) => (
+              <div
+                key={v.venue}
+                className="transition-all duration-500"
+                style={{ width: `${v.pct}%`, backgroundColor: "hsl(var(--primary))", opacity: v.opacity }}
+              />
             ))}
           </div>
           <div className="flex justify-between mt-1.5">
             {venuePercentages.map((v) => (
-              <span key={v.venue} className="text-xs text-muted-foreground">{v.venue} {v.pct}%</span>
+              <span key={v.venue} className="text-[11px] text-muted-foreground tabular-nums">
+                {v.venue} {v.pct}%
+              </span>
             ))}
           </div>
         </div>
 
-        {/* Comparison table */}
-        <div className="space-y-3">
-          {/* Header row */}
-          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase tracking-wider pb-1 border-b border-border/50">
             <span className="w-24">&nbsp;</span>
             {activeVenues.map((v) => (
               <span key={v.venue} className="text-right w-24">{v.venue}</span>
             ))}
           </div>
           {metricRows.map((row) => (
-            <div key={row.label} className="flex items-center justify-between text-sm">
+            <div key={row.label} className="flex items-center justify-between text-[13px] py-1 border-b border-border/30 last:border-0">
               <span className="text-muted-foreground w-24">{row.label}</span>
               {activeVenues.map((v) => (
-                <span key={v.venue} className="font-medium text-foreground text-right w-24">{row.getValue(v)}</span>
+                <span key={v.venue} className="font-medium text-foreground text-right w-24 tabular-nums">{row.getValue(v)}</span>
               ))}
             </div>
           ))}
         </div>
       </div>
-    </ChartCard>
+    </ChartShell>
   );
 };
 
