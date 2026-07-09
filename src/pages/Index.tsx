@@ -19,6 +19,8 @@ import { RevenueTrend } from "@/components/revenue-overview/RevenueTrend";
 import { VenueContribution } from "@/components/revenue-overview/VenueContribution";
 import { DowPattern } from "@/components/revenue-overview/DowPattern";
 import { BestWorstStrip } from "@/components/revenue-overview/BestWorstStrip";
+import { LegacyDaily } from "@/components/revenue-overview/LegacyDaily";
+import { LegacyMonthly } from "@/components/revenue-overview/LegacyMonthly";
 import { aggregate, priorRange, toDaily } from "@/components/revenue-overview/utils";
 
 const Index = () => {
@@ -252,6 +254,12 @@ const Index = () => {
           </div>
 
           <BestWorstStrip data={filtered} />
+
+          {view === "daily" ? (
+            <LegacyDaily data={filtered} venue={venue} seatingKey={seatingKey} />
+          ) : (
+            <LegacyMonthly data={filtered} venue={venue} />
+          )}
         </>
       )}
 
