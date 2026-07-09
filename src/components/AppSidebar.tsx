@@ -570,5 +570,3 @@ export function AppSidebar() {
   );
 }
 
-// Silence unused imports of nav helpers (kept for future use)
-void Bell; void UserCog; void Sparkles; void SlidersHorizontal;
