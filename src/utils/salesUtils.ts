@@ -96,6 +96,7 @@ export function getDayOfWeekStats(data: SalesRecord[], seats?: number | null) {
         const totalOrders = Array.from(byDate.values()).reduce((s, d) => s + d.orders, 0);
         entry[`sales_${month}`] = Math.round(totalSales / numDays);
         entry[`guests_${month}`] = Math.round(totalGuests / numDays);
+        entry[`orders_${month}`] = Math.round(totalOrders / numDays);
         entry[`spendPerGuest_${month}`] = totalGuests ? Math.round(totalSales / totalGuests) : 0;
         entry[`spendPerOrder_${month}`] = totalOrders ? Math.round(totalSales / totalOrders) : 0;
         if (seats && seats > 0) {
