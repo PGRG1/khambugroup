@@ -149,5 +149,3 @@ export function RevenueTrend({ data, view, targetPerDay }: Props) {
   );
 }
 
-// stub re-export to avoid TS unused
-export { getMonthKey };
