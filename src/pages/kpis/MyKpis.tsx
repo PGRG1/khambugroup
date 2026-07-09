@@ -532,7 +532,13 @@ function StatusChip({ label, count, tone, active, onClick }: { label: string; co
           : "bg-card border-border hover:bg-muted/50",
       )}
     >
-      <div className={cn("text-lg font-semibold tabular-nums", tone !== "neutral" && `text-${tone === "warn" ? "warning" : tone === "danger" ? "destructive" : "primary"}`)}>
+      <div className={cn(
+        "text-lg font-semibold tabular-nums",
+        tone === "warn" && "text-warning",
+        tone === "danger" && "text-destructive",
+        tone === "success" && "text-primary",
+      )}>
+
         {count}
       </div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">{label}</div>
