@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { SalesRecord } from "@/types/sales";
-import { fmtHKD, fmtNum, getMonthKey, toDaily } from "./utils";
+import { fmtHKD, fmtNum, toDaily } from "./utils";
 import { getMonthKey as gm } from "@/utils/salesUtils";
 
 interface Props {
