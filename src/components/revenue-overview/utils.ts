@@ -56,17 +56,19 @@ export function aggregate(records: SalesRecord[]): Agg {
   return { revenue, guests, orders, discount, gross, days: days || 0 };
 }
 
-export type DailyPoint = { date: string; revenue: number; guests: number; orders: number };
+export type DailyPoint = { date: string; revenue: number; guests: number; orders: number; discount: number; gross: number };
 
 export function toDaily(records: SalesRecord[]): DailyPoint[] {
   const map = new Map<string, DailyPoint>();
   for (const r of records) {
-    const p = map.get(r.date) ?? { date: r.date, revenue: 0, guests: 0, orders: 0 };
+    const p = map.get(r.date) ?? { date: r.date, revenue: 0, guests: 0, orders: 0, discount: 0, gross: 0 };
     p.revenue += r.totalSales;
     p.guests += r.guests;
     p.orders += r.orders;
+    p.discount += r.discount; // stored negative
     map.set(r.date, p);
   }
+  for (const p of map.values()) p.gross = p.revenue + Math.abs(p.discount);
   return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 

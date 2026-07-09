@@ -79,11 +79,7 @@ export function KpiRow({ cur, prev, dailyCurrent }: Props) {
         value={`${curDiscRate.toFixed(1)}%`}
         delta={prev && prev.gross ? curDiscRate - prevDiscRate : null}
         invert
-        sparkData={sparkRev.map((_, i) => {
-          const p = dailyCurrent[i];
-          const gross = p.revenue; // approx
-          return { v: gross };
-        })}
+        sparkData={dailyCurrent.map((p) => ({ v: p.gross ? (Math.abs(p.discount) / p.gross) * 100 : 0 }))}
       />
     </div>
   );
