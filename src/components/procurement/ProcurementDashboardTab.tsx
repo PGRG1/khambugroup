@@ -1,18 +1,23 @@
 import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, CalendarIcon } from "lucide-react";
+import {
+  ChevronDown, ChevronRight, TrendingUp, TrendingDown, CalendarIcon,
+  ArrowUp, ArrowDown,
+} from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, ComposedChart, Line, LineChart, Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { useVenues } from "@/hooks/useVenues";
 import { SectionHeader } from "@/components/revenue-overview/SectionHeader";
 import { ChartShell } from "@/components/revenue-overview/ChartShell";
 import {
@@ -42,7 +47,7 @@ interface LineItemRow {
 }
 
 interface SupplierRow { id: string; name: string; }
-interface SalesRow { date: string; total_sales: number; }
+interface SalesRow { date: string; total_sales: number; venue: string | null; }
 interface PMCategory {
   id: string;
   level1_category: string;
@@ -51,7 +56,11 @@ interface PMCategory {
   internal_product_name: string;
 }
 
+// Whole-dollar HK$ for all dashboard KPI/chart/tooltip values.
 const fmt = (v: number) =>
+  `HK$ ${Math.round(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+// 2-decimal HK$ for unit prices only (Price Variance list).
+const fmtPrice = (v: number) =>
   `HK$ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtShort = (v: number) => `HK$ ${compactHK(v)}`;
 
@@ -59,6 +68,12 @@ const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Se
 function formatMonthLabel(key: string) {
   const [y, m] = key.split("-");
   return `${MONTH_NAMES[parseInt(m) - 1]} ${y}`;
+}
+function formatDatePretty(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 }
 function getMonthOptions(invoices: InvoiceRow[]) {
   const months = new Set<string>();
@@ -70,6 +85,9 @@ function getMonthOptions(invoices: InvoiceRow[]) {
 }
 
 const PAID_STATUSES = new Set(["paid", "settled", "voided", "cancelled", "credit_applied"]);
+const ALL_VENUES = "All Venues";
+
+const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 
 // ─── Skeleton primitives ───
 const Skel = ({ className = "" }: { className?: string }) =>
@@ -91,19 +109,73 @@ function DashboardSkeleton() {
   );
 }
 
-// ─── KPI card ───
-function KpiCard({ label, value, subline, tone = "default" }:
-  { label: string; value: string; subline?: React.ReactNode; tone?: "default" | "danger" }) {
+// ─── Delta chip (matches Revenue Overview visual language) ───
+type DeltaTone = "auto" | "auto-invert" | "neutral";
+function DeltaChip({ pct, tone = "auto" }: { pct: number | null; tone?: DeltaTone }) {
+  if (pct === null || !isFinite(pct)) return null;
+  const positive = pct >= 0;
+  const Icon = positive ? ArrowUp : ArrowDown;
+  let cls = "bg-muted/40 text-muted-foreground";
+  if (tone === "auto") {
+    // up = bad
+    cls = positive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary";
+  } else if (tone === "auto-invert") {
+    // up = good
+    cls = positive ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive";
+  }
   return (
-    <div className="card-glass rounded-xl border border-border/60 p-4 min-w-0">
+    <span className={cn(
+      "inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums whitespace-nowrap",
+      cls
+    )}>
+      <Icon className="h-2.5 w-2.5" strokeWidth={2.5} />
+      {Math.abs(pct).toFixed(1)}%
+      <span className="ml-1 text-[9px] font-normal opacity-70">vs prior</span>
+    </span>
+  );
+}
+
+// ─── KPI card (numbers never clipped) ───
+interface KpiCardProps {
+  label: string;
+  value: string;
+  subline?: React.ReactNode;
+  tone?: "default" | "danger";
+  delta?: number | null;
+  deltaTone?: DeltaTone;
+  onClick?: () => void;
+  ariaLabel?: string;
+}
+function KpiCard({ label, value, subline, tone = "default", delta, deltaTone = "auto", onClick, ariaLabel }: KpiCardProps) {
+  const long = value.length > 12;
+  const clickable = !!onClick;
+  const body = (
+    <div className={cn(
+      "card-glass rounded-xl border p-4 min-w-0 h-full text-left w-full transition-colors",
+      clickable ? "border-border/60 hover:border-primary/40 cursor-pointer" : "border-border/60"
+    )}>
       <div className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground truncate">{label}</div>
       <div className={cn(
-        "mt-1 text-[22px] leading-tight font-semibold tabular-nums truncate",
-        tone === "danger" ? "text-destructive" : "text-foreground"
+        "mt-1 leading-tight font-semibold tabular-nums min-w-0 break-words",
+        long ? "text-[19px]" : "text-[22px]",
+        tone === "danger" ? "text-destructive" : "text-foreground",
       )}>{value}</div>
-      {subline && <div className="mt-1 text-[11px] text-muted-foreground tabular-nums truncate">{subline}</div>}
+      <div className="mt-1 flex items-center gap-2 flex-wrap">
+        {subline && (
+          <div className="text-[11px] text-muted-foreground tabular-nums min-w-0 break-words">{subline}</div>
+        )}
+        {delta !== undefined && <DeltaChip pct={delta ?? null} tone={deltaTone} />}
+      </div>
     </div>
   );
+  if (clickable) {
+    return (
+      <button type="button" aria-label={ariaLabel ?? label} onClick={onClick} className="min-w-0 text-left">
+        {body}
+      </button>
+    );
+  }
+  return body;
 }
 
 // ─── Data hooks ───
@@ -123,9 +195,9 @@ function usePhase1() {
     queryFn: async () => (await fetchAllRows("suppliers", "id, name", { col: "name", asc: true })) as SupplierRow[],
   });
   const salesQ = useQuery({
-    queryKey: ["proc-dash", "sales-records"],
+    queryKey: ["proc-dash", "sales-records", "v2"],
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => (await fetchAllRows("sales_records", "date, total_sales")) as unknown as SalesRow[],
+    queryFn: async () => (await fetchAllRows("sales_records", "date, total_sales, venue")) as unknown as SalesRow[],
   });
   return { invoicesQ, suppliersQ, salesQ };
 }
@@ -152,18 +224,26 @@ function usePhase2(enabled: boolean) {
   return { liQ, pmQ };
 }
 
+function pctDelta(cur: number, prev: number): number | null {
+  if (!(prev > 0)) return null;
+  return ((cur - prev) / prev) * 100;
+}
+
 export default function ProcurementDashboardTab() {
+  const navigate = useNavigate();
+  const { venues: dbVenues } = useVenues();
   const { invoicesQ, suppliersQ, salesQ } = usePhase1();
   const phase1Ready = invoicesQ.isSuccess && suppliersQ.isSuccess && salesQ.isSuccess;
   const { liQ, pmQ } = usePhase2(phase1Ready);
   const phase2Ready = liQ.isSuccess && pmQ.isSuccess;
 
-  const invoices = invoicesQ.data ?? [];
+  const invoicesAll = invoicesQ.data ?? [];
   const suppliers = suppliersQ.data ?? [];
-  const salesRecords = salesQ.data ?? [];
+  const salesRecordsAll = salesQ.data ?? [];
   const lineItems = liQ.data ?? [];
   const pmCategories = pmQ.data ?? [];
 
+  const [venue, setVenue] = useState<string>(ALL_VENUES);
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [expandedSuppliers, setExpandedSuppliers] = useState<Set<string>>(new Set());
   const [showAllProducts, setShowAllProducts] = useState(false);
@@ -179,14 +259,31 @@ export default function ProcurementDashboardTab() {
       return next;
     });
 
+  const venuePills: string[] = useMemo(
+    () => [ALL_VENUES, ...dbVenues.filter(v => v.is_active).map(v => v.name)],
+    [dbVenues]
+  );
+
+  // Venue-scoped source datasets (case-insensitive match).
+  const venueKey = norm(venue);
+  const invoices = useMemo(
+    () => venue === ALL_VENUES ? invoicesAll : invoicesAll.filter(i => norm(i.venue) === venueKey),
+    [invoicesAll, venue, venueKey]
+  );
+  const salesRecords = useMemo(
+    () => venue === ALL_VENUES ? salesRecordsAll : salesRecordsAll.filter(s => norm(s.venue) === venueKey),
+    [salesRecordsAll, venue, venueKey]
+  );
+
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
   const pmMap = useMemo(() => new Map(pmCategories.map(p => [p.id, p])), [pmCategories]);
-  const monthOptions = useMemo(() => getMonthOptions(invoices), [invoices]);
+  const monthOptions = useMemo(() => getMonthOptions(invoicesAll), [invoicesAll]);
 
   const isCustomPeriod = selectedMonth === "custom";
   const isSingleMonth = selectedMonth !== "all" && selectedMonth !== "custom";
   const isAllTime = selectedMonth === "all";
 
+  // Current-period invoices
   const filteredInvoices = useMemo(() => {
     if (isAllTime) return invoices;
     if (isCustomPeriod) {
@@ -208,6 +305,35 @@ export default function ProcurementDashboardTab() {
     });
   }, [invoices, selectedMonth, customFrom, customTo, isCustomPeriod, isAllTime]);
 
+  // ─── Prior comparable period ───
+  const priorInvoices = useMemo(() => {
+    if (isAllTime) return null;
+    if (isSingleMonth) {
+      const [y, m] = selectedMonth.split("-").map(Number);
+      const prev = new Date(y, m - 2, 1);
+      const py = prev.getFullYear();
+      const pm = prev.getMonth() + 1;
+      return invoices.filter(inv => {
+        const d = new Date(inv.invoice_date);
+        return d.getFullYear() === py && d.getMonth() + 1 === pm;
+      });
+    }
+    // custom
+    if (!customFrom || !customTo) return null;
+    const start = new Date(customFrom);
+    const end = new Date(customTo);
+    const dayMs = 24 * 3600 * 1000;
+    const lenDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / dayMs) + 1);
+    const prevEnd = new Date(start.getTime() - dayMs);
+    const prevStart = new Date(prevEnd.getTime() - (lenDays - 1) * dayMs);
+    prevStart.setHours(0, 0, 0, 0);
+    prevEnd.setHours(23, 59, 59, 999);
+    return invoices.filter(inv => {
+      const d = new Date(inv.invoice_date);
+      return d >= prevStart && d <= prevEnd;
+    });
+  }, [invoices, isAllTime, isSingleMonth, selectedMonth, customFrom, customTo]);
+
   const filteredInvoiceIds = useMemo(() => new Set(filteredInvoices.map(i => i.id)), [filteredInvoices]);
   const filteredLineItems = useMemo(
     () => phase2Ready ? lineItems.filter(li => filteredInvoiceIds.has(li.invoice_id)) : [],
@@ -215,21 +341,18 @@ export default function ProcurementDashboardTab() {
   );
 
   // ─── KPIs ───
-  const kpis = useMemo(() => {
-    const totalSpend = filteredInvoices.reduce((s, inv) => s + Number(inv.total_amount), 0);
-    const count = filteredInvoices.length;
+  const computeKpis = (rows: InvoiceRow[]) => {
+    const totalSpend = rows.reduce((s, inv) => s + Number(inv.total_amount), 0);
+    const count = rows.length;
     const avg = count > 0 ? totalSpend / count : 0;
-    const uniqueSuppliers = new Set(filteredInvoices.map(inv => inv.supplier_id)).size;
-    const totalDiscounts = filteredInvoices
+    const uniqueSuppliers = new Set(rows.map(inv => inv.supplier_id)).size;
+    const totalDiscounts = rows
       .filter(inv => (inv.discount_type || "discount") === "discount")
       .reduce((s, inv) => s + Number(inv.discount || 0), 0);
-    const totalRefunds = filteredInvoices
+    const totalRefunds = rows
       .filter(inv => inv.discount_type === "refund")
       .reduce((s, inv) => s + Number(inv.discount || 0), 0);
-    const unpaid = filteredInvoices.filter(inv => {
-      const st = (inv.payment_status || "").toLowerCase();
-      return !PAID_STATUSES.has(st);
-    });
+    const unpaid = rows.filter(inv => !PAID_STATUSES.has((inv.payment_status || "").toLowerCase()));
     const unpaidTotal = unpaid.reduce((s, inv) => s + Number(inv.total_amount), 0);
     return {
       totalSpend, count, avg, uniqueSuppliers,
@@ -237,7 +360,21 @@ export default function ProcurementDashboardTab() {
       deductions: totalDiscounts + totalRefunds,
       unpaidTotal, unpaidCount: unpaid.length,
     };
-  }, [filteredInvoices]);
+  };
+  const kpis = useMemo(() => computeKpis(filteredInvoices), [filteredInvoices]);
+  const priorKpis = useMemo(() => priorInvoices ? computeKpis(priorInvoices) : null, [priorInvoices]);
+  const showDeltas = !!priorKpis && (priorKpis.count > 0);
+
+  const deltas = useMemo(() => {
+    if (!showDeltas || !priorKpis) return null;
+    return {
+      totalSpend: pctDelta(kpis.totalSpend, priorKpis.totalSpend),
+      avg: pctDelta(kpis.avg, priorKpis.avg),
+      uniqueSuppliers: pctDelta(kpis.uniqueSuppliers, priorKpis.uniqueSuppliers),
+      deductions: pctDelta(kpis.deductions, priorKpis.deductions),
+      unpaidTotal: pctDelta(kpis.unpaidTotal, priorKpis.unpaidTotal),
+    };
+  }, [kpis, priorKpis, showDeltas]);
 
   // ─── Monthly trend (all time) ───
   const monthlyTrend = useMemo(() => {
@@ -430,7 +567,6 @@ export default function ProcurementDashboardTab() {
       });
       rows.push(row);
     }
-    // reverse so most-recent gets brightest opacity (index 0)
     const monthKeysRev = [...monthKeys].reverse();
     return { rows, monthKeys: monthKeysRev };
   }, [invoices, salesRecords]);
@@ -558,63 +694,120 @@ export default function ProcurementDashboardTab() {
     );
   };
 
+  // Scope summary line
+  const periodSummary =
+    isAllTime ? "All Time"
+    : isSingleMonth ? formatMonthLabel(selectedMonth)
+    : (customFrom || customTo)
+      ? `${customFrom ? format(customFrom, "d MMM yyyy") : "…"} – ${customTo ? format(customTo, "d MMM yyyy") : "…"}`
+      : "Custom Range";
+  const scopeLine = `Showing ${venue} · ${periodSummary} · ${kpis.count.toLocaleString()} invoices`;
+
   if (!phase1Ready) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-4 mt-4">
       {/* Filter bar */}
-      <div className="flex items-center justify-end flex-wrap gap-2">
-        <Select value={selectedMonth} onValueChange={v => { setSelectedMonth(v); if (v !== "custom") { setCustomFrom(undefined); setCustomTo(undefined); } }}>
-          <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Time</SelectItem>
-            {monthOptions.map(m => <SelectItem key={m} value={m}>{formatMonthLabel(m)}</SelectItem>)}
-            <SelectItem value="custom">Custom Range</SelectItem>
-          </SelectContent>
-        </Select>
-        {isCustomPeriod && (
-          <div className="flex items-center gap-2">
-            <Popover open={fromOpen} onOpenChange={setFromOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn("text-xs gap-1.5 h-9", !customFrom && "text-muted-foreground")}>
-                  <CalendarIcon className="h-3 w-3" />
-                  {customFrom ? format(customFrom, "MMM d, yyyy") : "From"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={customFrom} onSelect={d => { setCustomFrom(d); setFromOpen(false); }} className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-            <span className="text-muted-foreground text-xs">→</span>
-            <Popover open={toOpen} onOpenChange={setToOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn("text-xs gap-1.5 h-9", !customTo && "text-muted-foreground")}>
-                  <CalendarIcon className="h-3 w-3" />
-                  {customTo ? format(customTo, "MMM d, yyyy") : "To"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={customTo} onSelect={d => { setCustomTo(d); setToOpen(false); }} className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-            {(customFrom || customTo) && (
-              <Button variant="ghost" size="sm" className="h-9 text-xs"
-                onClick={() => { setCustomFrom(undefined); setCustomTo(undefined); }}>Clear</Button>
-            )}
-          </div>
-        )}
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        {/* Venue pills (left) */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {venuePills.map(v => (
+            <button
+              key={v}
+              onClick={() => setVenue(v)}
+              className={cn(
+                "px-2.5 h-9 text-[12px] font-medium rounded-md border transition-colors",
+                venue === v
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border/60 bg-transparent text-foreground/70 hover:bg-muted"
+              )}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+
+        {/* Period (right) */}
+        <div className="flex items-center flex-wrap gap-2 ml-auto">
+          <Select value={selectedMonth} onValueChange={v => { setSelectedMonth(v); if (v !== "custom") { setCustomFrom(undefined); setCustomTo(undefined); } }}>
+            <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              {monthOptions.map(m => <SelectItem key={m} value={m}>{formatMonthLabel(m)}</SelectItem>)}
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+          {isCustomPeriod && (
+            <div className="flex items-center gap-2">
+              <Popover open={fromOpen} onOpenChange={setFromOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("text-xs gap-1.5 h-9", !customFrom && "text-muted-foreground")}>
+                    <CalendarIcon className="h-3 w-3" />
+                    {customFrom ? format(customFrom, "MMM d, yyyy") : "From"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={customFrom} onSelect={d => { setCustomFrom(d); setFromOpen(false); }} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <span className="text-muted-foreground text-xs">→</span>
+              <Popover open={toOpen} onOpenChange={setToOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("text-xs gap-1.5 h-9", !customTo && "text-muted-foreground")}>
+                    <CalendarIcon className="h-3 w-3" />
+                    {customTo ? format(customTo, "MMM d, yyyy") : "To"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={customTo} onSelect={d => { setCustomTo(d); setToOpen(false); }} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              {(customFrom || customTo) && (
+                <Button variant="ghost" size="sm" className="h-9 text-xs"
+                  onClick={() => { setCustomFrom(undefined); setCustomTo(undefined); }}>Clear</Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+      <div className="text-[11px] text-muted-foreground tabular-nums -mt-2">{scopeLine}</div>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <KpiCard label="Total Spend" value={fmt(kpis.totalSpend)}
-          subline={<>{kpis.count.toLocaleString()} invoices</>} />
-        <KpiCard label="Avg Invoice" value={fmt(kpis.avg)} />
-        <KpiCard label="Suppliers & Vendors" value={kpis.uniqueSuppliers.toLocaleString()} />
-        <KpiCard label="Discounts & Refunds" value={fmt(kpis.deductions)}
-          subline={<>Disc {fmtShort(kpis.totalDiscounts)} · Ref {fmtShort(kpis.totalRefunds)}</>} />
-        <KpiCard label="Unpaid Invoices" value={fmt(kpis.unpaidTotal)} tone="danger"
-          subline={<>{kpis.unpaidCount.toLocaleString()} outstanding</>} />
+        <KpiCard
+          label="Total Spend" value={fmt(kpis.totalSpend)}
+          subline={<>{kpis.count.toLocaleString()} invoices</>}
+          delta={showDeltas ? deltas?.totalSpend ?? null : undefined}
+          deltaTone="auto"
+          onClick={() => navigate("/procurement/invoices")}
+          ariaLabel="Total spend — open invoices"
+        />
+        <KpiCard
+          label="Avg Invoice" value={fmt(kpis.avg)}
+          delta={showDeltas ? deltas?.avg ?? null : undefined}
+          deltaTone="auto"
+        />
+        <KpiCard
+          label="Suppliers & Vendors" value={kpis.uniqueSuppliers.toLocaleString()}
+          delta={showDeltas ? deltas?.uniqueSuppliers ?? null : undefined}
+          deltaTone="neutral"
+          onClick={() => navigate("/procurement/suppliers")}
+          ariaLabel="Suppliers & vendors — open suppliers"
+        />
+        <KpiCard
+          label="Discounts & Refunds" value={fmt(kpis.deductions)}
+          subline={<>Disc {fmtShort(kpis.totalDiscounts)} · Ref {fmtShort(kpis.totalRefunds)}</>}
+          delta={showDeltas ? deltas?.deductions ?? null : undefined}
+          deltaTone="neutral"
+        />
+        <KpiCard
+          label="Unpaid Invoices" value={fmt(kpis.unpaidTotal)} tone="danger"
+          subline={<>{kpis.unpaidCount.toLocaleString()} outstanding</>}
+          delta={showDeltas ? deltas?.unpaidTotal ?? null : undefined}
+          deltaTone="auto"
+          onClick={() => navigate("/procurement/finance/payables")}
+          ariaLabel="Unpaid invoices — open payables"
+        />
       </div>
 
       {/* ── Pace ── */}
@@ -636,7 +829,7 @@ export default function ProcurementDashboardTab() {
                     formatter={(value: string) => {
                       const key = value.replace(/^spend_/, "");
                       const hidden = hiddenMonths.has(key);
-                      return <span style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.5 : 1 }}>{formatMonthLabel(key)}</span>;
+                      return <span title="Click to show/hide" style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.4 : 1, color: hidden ? "hsl(var(--muted-foreground))" : undefined }}>{formatMonthLabel(key)}</span>;
                     }} />
                   {allMonthsComparison.monthKeys.map((key, i) => (
                     <Line key={key} type="monotone" dataKey={`spend_${key}`}
@@ -686,7 +879,7 @@ export default function ProcurementDashboardTab() {
                     formatter={(value: string) => {
                       const key = value.replace(/^pct_/, "");
                       const hidden = hiddenMonths.has(key);
-                      return <span style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.5 : 1 }}>{formatMonthLabel(key)}</span>;
+                      return <span title="Click to show/hide" style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.4 : 1, color: hidden ? "hsl(var(--muted-foreground))" : undefined }}>{formatMonthLabel(key)}</span>;
                     }} />
                   {allMonthsComparison.monthKeys.map((key, i) => (
                     <Line key={key} type="monotone" dataKey={`pct_${key}`}
@@ -738,7 +931,7 @@ export default function ProcurementDashboardTab() {
                   formatter={(value: string) => {
                     const key = value.replace(/^spend_/, "");
                     const hidden = hiddenMonths.has(key);
-                    return <span style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.5 : 1 }}>{formatMonthLabel(key)}</span>;
+                    return <span title="Click to show/hide" style={{ textDecoration: hidden ? "line-through" : "none", opacity: hidden ? 0.4 : 1, color: hidden ? "hsl(var(--muted-foreground))" : undefined }}>{formatMonthLabel(key)}</span>;
                   }} />
                 {allMonthsComparison.monthKeys.map((key, i) => (
                   <Line key={key} type="monotone" dataKey={`spend_${key}`}
@@ -854,7 +1047,7 @@ export default function ProcurementDashboardTab() {
                     <div className="h-2.5 w-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: PRIMARY, opacity: monthOpacity(i) }} />
                     <span className="flex-1 truncate">{name}</span>
-                    <span className="tabular-nums text-xs text-muted-foreground">{amt} · {pct}%</span>
+                    <span className="tabular-nums text-xs text-muted-foreground whitespace-nowrap">{amt} · {pct}%</span>
                   </div>
                 );
               })}
@@ -895,11 +1088,11 @@ export default function ProcurementDashboardTab() {
                           opacity: item.isDeduction ? 0.7 : monthOpacity(i),
                         }} />
                       <span className="flex-1 truncate" title={item.name}>{item.name}</span>
-                      <span className={cn("text-xs tabular-nums shrink-0",
+                      <span className={cn("text-xs tabular-nums shrink-0 whitespace-nowrap",
                         item.isDeduction ? "text-destructive" : "text-muted-foreground")}>
                         {item.isDeduction ? `-${fmtShort(item.value)}` : fmtShort(item.value)}
                       </span>
-                      <span className="text-xs font-medium tabular-nums shrink-0 w-12 text-right">
+                      <span className="text-xs font-medium tabular-nums shrink-0 w-14 text-right whitespace-nowrap">
                         {item.isDeduction ? `-${pct}%` : `${pct}%`}
                       </span>
                     </div>
@@ -953,7 +1146,7 @@ export default function ProcurementDashboardTab() {
                           <div className="w-40 h-1.5 rounded-full bg-muted/40 overflow-hidden shrink-0">
                             <div className="h-full rounded-full bg-primary/70" style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="tabular-nums text-muted-foreground w-24 text-right shrink-0">{fmtShort(p.value)}</span>
+                          <span className="tabular-nums text-muted-foreground w-24 text-right shrink-0 whitespace-nowrap">{fmtShort(p.value)}</span>
                         </div>
                       );
                     })}
@@ -973,10 +1166,10 @@ export default function ProcurementDashboardTab() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground tabular-nums">
-                        {fmt(item.first)} → {fmt(item.last)}
+                        {fmtPrice(item.first)} → {fmtPrice(item.last)}
                       </p>
                     </div>
-                    <div className={cn("flex items-center gap-1 text-sm tabular-nums font-medium",
+                    <div className={cn("flex items-center gap-1 text-sm tabular-nums font-medium whitespace-nowrap",
                       item.change > 0 ? "text-destructive" : "text-primary")}>
                       {item.change > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                       {item.changePct > 0 ? "+" : ""}{item.changePct.toFixed(1)}%
@@ -999,35 +1192,48 @@ export default function ProcurementDashboardTab() {
         description={isSingleMonth ? formatMonthLabel(selectedMonth) : undefined} />
       <div className="card-glass rounded-xl border border-border/60 overflow-hidden">
         <div className="divide-y divide-border/60">
-          <div className="flex items-center justify-between px-4 py-2.5 bg-muted/30">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-muted/30 min-h-[44px]">
             <span className="text-sm font-semibold">Grand Total</span>
-            <span className="text-sm font-semibold tabular-nums">{fmt(grandTotal)}</span>
+            <span className="text-sm font-semibold tabular-nums whitespace-nowrap">{fmt(grandTotal)}</span>
           </div>
+          {supplierTree.length === 0 && (
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">No invoices in this scope</div>
+          )}
           {supplierTree.map((supplier, idx) => {
             const isExpanded = expandedSuppliers.has(supplier.name);
-            const pct = grandTotal > 0 ? ((supplier.total / grandTotal) * 100).toFixed(1) : "0";
+            const pctNum = grandTotal > 0 ? (supplier.total / grandTotal) * 100 : 0;
+            const pct = pctNum.toFixed(1);
             return (
               <div key={supplier.name}>
                 <button
                   onClick={() => toggleSupplier(supplier.name)}
-                  className="flex items-center w-full px-4 py-2.5 min-h-[44px] hover:bg-muted/20 transition-colors text-left"
+                  className="w-full px-4 py-2.5 min-h-[44px] hover:bg-muted/20 transition-colors text-left"
                 >
-                  {isExpanded
-                    ? <ChevronDown className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                    : <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />}
-                  <div className="h-2.5 w-2.5 rounded-full mr-2.5 shrink-0"
-                    style={{ backgroundColor: PRIMARY, opacity: monthOpacity(idx) }} />
-                  <span className="text-sm font-medium flex-1 truncate">{supplier.name}</span>
-                  <span className="text-xs text-muted-foreground mr-3 tabular-nums">{pct}%</span>
-                  <span className="text-sm font-medium tabular-nums">{fmt(supplier.total)}</span>
+                  <div className="flex items-center">
+                    {isExpanded
+                      ? <ChevronDown className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                      : <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />}
+                    <div className="h-2.5 w-2.5 rounded-full mr-2.5 shrink-0"
+                      style={{ backgroundColor: PRIMARY, opacity: monthOpacity(idx) }} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium block truncate">{supplier.name}</span>
+                      {/* share bar */}
+                      <div className="mt-1 h-[2px] rounded-full bg-muted/40 overflow-hidden">
+                        <div className="h-full rounded-full"
+                          style={{ width: `${Math.min(100, pctNum)}%`, backgroundColor: PRIMARY, opacity: 0.6 }} />
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground mx-3 tabular-nums whitespace-nowrap">{pct}%</span>
+                    <span className="text-sm font-medium tabular-nums whitespace-nowrap">{fmt(supplier.total)}</span>
+                  </div>
                 </button>
                 {isExpanded && (
                   <div className="bg-muted/10 border-t border-border/60">
                     {supplier.invoices.map((inv, i) => (
-                      <div key={i} className="flex items-center px-4 py-1.5 pl-12 text-xs">
-                        <span className="text-muted-foreground w-24 shrink-0 tabular-nums">{inv.date}</span>
-                        <span className="flex-1 text-muted-foreground truncate">{inv.number}</span>
-                        <span className="tabular-nums">{fmt(inv.amount)}</span>
+                      <div key={i} className="flex items-center px-4 py-1.5 pl-12 text-xs gap-3">
+                        <span className="flex-1 truncate">{inv.number}</span>
+                        <span className="text-muted-foreground w-28 shrink-0 tabular-nums whitespace-nowrap text-right">{formatDatePretty(inv.date)}</span>
+                        <span className="tabular-nums whitespace-nowrap w-28 text-right">{fmt(inv.amount)}</span>
                       </div>
                     ))}
                   </div>
