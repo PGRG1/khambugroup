@@ -235,13 +235,13 @@ export default function KpiAssignmentBoard() {
                     )}
                     {userAssigns.map((a) => (
                       <div key={a.id}
-                        className="inline-flex items-center gap-1 pl-2 pr-0.5 py-0.5 rounded-md border border-border bg-card text-[11px]">
-                        <span className="truncate max-w-[140px]">{cardById(a.kpi_card_id)?.kpi_name ?? "—"}</span>
-                        <span className="text-[9px] text-muted-foreground">·{venueName(a.venue_id)}</span>
+                        className="inline-flex items-center gap-1 pl-2 pr-0.5 py-0.5 rounded-md border border-border bg-card text-[11px] max-w-full min-w-0">
+                        <span className="truncate max-w-[110px] min-w-0">{cardById(a.kpi_card_id)?.kpi_name ?? "—"}</span>
+                        <span className="text-[9px] text-muted-foreground truncate max-w-[60px] shrink-0">·{venueName(a.venue_id)}</span>
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); remove(a.id); }}
-                          className="ml-0.5 rounded p-1 hover:bg-destructive/15 min-w-[28px] min-h-[28px] flex items-center justify-center"
+                          className="ml-0.5 rounded p-1 hover:bg-destructive/15 min-w-[28px] min-h-[28px] flex items-center justify-center shrink-0"
                           title="Unassign"
                         >
                           <X className="h-3 w-3 text-destructive" />
