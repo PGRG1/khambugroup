@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import ProductMasterTab from "@/components/procurement/ProductMasterTab";
-import CategoriesTab from "@/components/procurement/CategoriesTab";
-import SuppliersTab from "@/components/procurement/SuppliersTab";
-import ProcurementInvoicesTab from "@/components/procurement/ProcurementInvoicesTab";
-import ProcurementLineItemsTab from "@/components/procurement/ProcurementLineItemsTab";
-import InventoryOnHandTab from "@/components/procurement/InventoryOnHandTab";
-import MenuCostingTab from "@/components/procurement/MenuCostingTab";
-import ProcurementDashboardTab from "@/components/procurement/ProcurementDashboardTab";
-import DocumentsTab from "@/components/procurement/DocumentsTab";
-import PurchaseOrdersTab from "@/components/procurement/PurchaseOrdersTab";
-import ReceivingTab from "@/components/procurement/ReceivingTab";
-import DepositLedgerTab from "@/components/procurement/DepositLedgerTab";
+
+const ProcurementDashboardTab = lazy(() => import("@/components/procurement/ProcurementDashboardTab"));
+const SuppliersTab = lazy(() => import("@/components/procurement/SuppliersTab"));
+const ProductMasterTab = lazy(() => import("@/components/procurement/ProductMasterTab"));
+const CategoriesTab = lazy(() => import("@/components/procurement/CategoriesTab"));
+const ProcurementInvoicesTab = lazy(() => import("@/components/procurement/ProcurementInvoicesTab"));
+const PurchaseOrdersTab = lazy(() => import("@/components/procurement/PurchaseOrdersTab"));
+const ReceivingTab = lazy(() => import("@/components/procurement/ReceivingTab"));
+const ProcurementLineItemsTab = lazy(() => import("@/components/procurement/ProcurementLineItemsTab"));
+const DepositLedgerTab = lazy(() => import("@/components/procurement/DepositLedgerTab"));
+const InventoryOnHandTab = lazy(() => import("@/components/procurement/InventoryOnHandTab"));
+const MenuCostingTab = lazy(() => import("@/components/procurement/MenuCostingTab"));
+const DocumentsTab = lazy(() => import("@/components/procurement/DocumentsTab"));
 
 const tabTitles: Record<string, string> = {
   dashboard: "Overview",
@@ -28,9 +29,22 @@ const tabTitles: Record<string, string> = {
   documents: "Documents",
 };
 
-
 interface ProcurementProps {
   defaultTab?: string;
+}
+
+function TabFallback() {
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-[92px] rounded-xl border border-border/60 bg-card/40 animate-pulse" />
+        ))}
+      </div>
+      <div className="h-[260px] rounded-xl border border-border/60 bg-card/40 animate-pulse" />
+      <div className="h-[260px] rounded-xl border border-border/60 bg-card/40 animate-pulse" />
+    </div>
+  );
 }
 
 export default function Procurement({ defaultTab = "dashboard" }: ProcurementProps) {
@@ -42,23 +56,25 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
-      <h1 className="text-2xl font-bold font-display">
-        <span className="text-gradient-gold">{tabTitles[activeTab] || "Procurement"}</span>
+      <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight text-foreground">
+        {tabTitles[activeTab] || "Procurement"}
       </h1>
 
       <Tabs value={activeTab}>
-        <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
-        <TabsContent value="suppliers"><SuppliersTab /></TabsContent>
-        <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
-        <TabsContent value="categories"><CategoriesTab /></TabsContent>
-        <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
-        <TabsContent value="purchase-orders"><PurchaseOrdersTab /></TabsContent>
-        <TabsContent value="receiving"><ReceivingTab /></TabsContent>
-        <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
-        <TabsContent value="deposit-ledger"><DepositLedgerTab /></TabsContent>
-        <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
-        <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>
-        <TabsContent value="documents"><DocumentsTab /></TabsContent>
+        <Suspense fallback={<TabFallback />}>
+          <TabsContent value="dashboard"><ProcurementDashboardTab /></TabsContent>
+          <TabsContent value="suppliers"><SuppliersTab /></TabsContent>
+          <TabsContent value="product-master"><ProductMasterTab /></TabsContent>
+          <TabsContent value="categories"><CategoriesTab /></TabsContent>
+          <TabsContent value="invoices"><ProcurementInvoicesTab /></TabsContent>
+          <TabsContent value="purchase-orders"><PurchaseOrdersTab /></TabsContent>
+          <TabsContent value="receiving"><ReceivingTab /></TabsContent>
+          <TabsContent value="line-items"><ProcurementLineItemsTab /></TabsContent>
+          <TabsContent value="deposit-ledger"><DepositLedgerTab /></TabsContent>
+          <TabsContent value="inventory"><InventoryOnHandTab /></TabsContent>
+          <TabsContent value="menu-costing"><MenuCostingTab /></TabsContent>
+          <TabsContent value="documents"><DocumentsTab /></TabsContent>
+        </Suspense>
       </Tabs>
     </div>
   );
