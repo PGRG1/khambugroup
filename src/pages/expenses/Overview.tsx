@@ -2,19 +2,30 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Upload, FileStack, Landmark, Repeat, AlertCircle, Paperclip } from "lucide-react";
+import { Plus, Upload, FileStack, Landmark, Repeat, Paperclip, ArrowRight, Sparkles, ShieldAlert } from "lucide-react";
 import { useExpenseBills, ExpenseBill } from "@/hooks/useExpenseBills";
 import { useVendorStatements } from "@/hooks/useVendorStatements";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { fetchAllRows } from "@/utils/fetchAllRows";
-
-const fmt = (n: number) =>
-  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const dt = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  PageHeader,
+  KpiCard,
+  KpiGrid,
+  KpiSkeleton,
+  TableSkeleton,
+  StatusPill,
+  approvalVariant,
+  paymentVariant,
+  APPROVAL_LABEL,
+  PAYMENT_LABEL,
+  fmtHKWhole,
+  fmtDate,
+  ScopeLine,
+} from "@/components/expenses/shared";
 
 // Recognition date used for monthly reporting (period_start for recurring bills,
 // service_period_start for manual, falling back to bill_date).
@@ -23,7 +34,7 @@ const recognitionDate = (b: ExpenseBill): string =>
 
 interface UnifiedRow {
   id: string;
-  date: string; // recognition date
+  date: string;
   source: "bill" | "statement" | "bank" | "recurring";
   vendor: string;
   category: string;
@@ -37,37 +48,70 @@ interface UnifiedRow {
 }
 
 export default function ExpensesOverview() {
+  const { tenantId } = useActiveTenant();
   const { bills, loading: bLoad } = useExpenseBills();
   const { statements, loading: sLoad } = useVendorStatements();
   const { rules, loading: rLoad } = useRecurringExpenses();
   const [bankExpenses, setBankExpenses] = useState<any[]>([]);
+  const [bankLoading, setBankLoading] = useState(true);
+  const [masterCounts, setMasterCounts] = useState<{ categories: number; vendors: number; terms: number } | null>(
+    null
+  );
 
   useEffect(() => {
+    if (!tenantId) {
+      setBankExpenses([]);
+      setBankLoading(false);
+      return;
+    }
+    setBankLoading(true);
     (async () => {
       try {
+        // Server-side tenant filter via fetchAllRows(tenantId) — defence-in-depth
+        // beyond RLS, and avoids over-fetching other tenants' rows.
         const rows = await fetchAllRows(
           "bank_transactions",
           "id,transaction_date,description,amount,category,bank_account_id,expense_posted_bill_id",
-          { col: "transaction_date", asc: false }
+          { col: "transaction_date", asc: false },
+          tenantId
         );
         setBankExpenses(
-          (rows as any[]).filter((r) => Number(r.amount) < 0 || /charge|fee|interest|debit/i.test(r.description || ""))
+          (rows as any[]).filter(
+            (r) => Number(r.amount) < 0 || /charge|fee|interest|debit/i.test(r.description || "")
+          )
         );
       } catch {
         setBankExpenses([]);
+      } finally {
+        setBankLoading(false);
       }
     })();
-  }, []);
+  }, [tenantId]);
+
+  // Master-data readiness check — surfaces the "set up first" banner.
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      const [c, v, t] = await Promise.all([
+        supabase.from("expense_categories").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+        supabase.from("suppliers").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+        supabase.from("expense_payment_terms").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+      ]);
+      setMasterCounts({
+        categories: c.count ?? 0,
+        vendors: v.count ?? 0,
+        terms: t.count ?? 0,
+      });
+    })();
+  }, [tenantId]);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
   const today = now.toISOString().slice(0, 10);
 
-  // Per-bill recognition date drives MTD bucketing
   const kpis = useMemo(() => {
     const inMonth = (d: string) => d >= monthStart && d <= monthEnd;
-
     const billsMTD = bills.filter((b) => inMonth(recognitionDate(b)));
     const actualMTD = billsMTD
       .filter((b) => b.approval_status === "posted" || b.approval_status === "approved")
@@ -75,9 +119,6 @@ export default function ExpensesOverview() {
     const pendingMTD = billsMTD
       .filter((b) => b.approval_status === "draft" || b.approval_status === "pending_review")
       .reduce((s, b) => s + Number(b.total_amount || 0), 0);
-
-    // Expected = active rules whose next_generation_date falls in current month
-    // and which haven't yet produced a bill for that period.
     const expectedMTD = rules
       .filter(
         (r) =>
@@ -87,7 +128,6 @@ export default function ExpensesOverview() {
           r.next_generation_date <= monthEnd
       )
       .reduce((s, r) => s + Number(r.expected_amount || 0), 0);
-
     const overdue = bills.filter(
       (b) => b.due_date && b.due_date < today && b.payment_status !== "paid"
     ).length;
@@ -96,7 +136,6 @@ export default function ExpensesOverview() {
       statements.filter((s) => s.approval_status === "pending_review").length;
     const lateFees = statements.reduce((s, x) => s + Number(x.late_fees || 0), 0);
     const bankDetected = bankExpenses.filter((b) => !b.expense_posted_bill_id).length;
-
     return { actualMTD, pendingMTD, expectedMTD, overdue, needsReview, lateFees, bankDetected };
   }, [bills, statements, rules, bankExpenses, monthStart, monthEnd, today]);
 
@@ -175,162 +214,231 @@ export default function ExpensesOverview() {
     }
   }, [tab, unified, today]);
 
+  const anyLoading = bLoad || sLoad || rLoad || bankLoading;
+  const masterMissing =
+    !!masterCounts && (masterCounts.categories === 0 || masterCounts.vendors === 0);
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-display font-semibold">Expenses</h1>
-          <p className="text-sm text-muted-foreground">
-            Control centre for all non-inventory costs. Monthly figures use the
-            expense recognition date.
-          </p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Link to="/expenses/bills"><Button><Plus className="h-4 w-4 mr-1" /> New Expense</Button></Link>
-          <Link to="/expenses/bills"><Button variant="outline"><Upload className="h-4 w-4 mr-1" /> Upload Bill</Button></Link>
-          <Link to="/expenses/statements"><Button variant="outline"><FileStack className="h-4 w-4 mr-1" /> Upload Statement</Button></Link>
-          <Link to="/expenses/bank-detected"><Button variant="outline"><Landmark className="h-4 w-4 mr-1" /> Review Bank-Detected</Button></Link>
-          <Link to="/expenses/recurring"><Button variant="outline"><Repeat className="h-4 w-4 mr-1" /> Recurring Rules</Button></Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Expenses"
+        description="Control centre for all non-inventory costs. Monthly figures use the expense recognition date."
+        actions={
+          <>
+            <Link to="/expenses/bills"><Button size="sm" className="h-9"><Plus className="h-4 w-4 mr-1" /> New Expense</Button></Link>
+            <Link to="/expenses/bills"><Button variant="outline" size="sm" className="h-9"><Upload className="h-4 w-4 mr-1" /> Upload Bill</Button></Link>
+            <Link to="/expenses/statements"><Button variant="outline" size="sm" className="h-9"><FileStack className="h-4 w-4 mr-1" /> Upload Statement</Button></Link>
+            <Link to="/expenses/bank-detected"><Button variant="outline" size="sm" className="h-9"><Landmark className="h-4 w-4 mr-1" /> Review Bank-Detected</Button></Link>
+            <Link to="/expenses/recurring"><Button variant="outline" size="sm" className="h-9"><Repeat className="h-4 w-4 mr-1" /> Recurring Rules</Button></Link>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-        {[
-          { label: "Actual (MTD)", value: fmt(kpis.actualMTD), hint: "Approved & posted" },
-          { label: "Pending (MTD)", value: fmt(kpis.pendingMTD), hint: "Awaiting approval" },
-          { label: "Expected (MTD)", value: fmt(kpis.expectedMTD), hint: "Recurring not yet generated" },
-          { label: "Overdue", value: String(kpis.overdue) },
-          { label: "Needs Review", value: String(kpis.needsReview) },
-          { label: "Bank-Detected", value: String(kpis.bankDetected) },
-          { label: "Late Fees", value: fmt(kpis.lateFees) },
-        ].map((k) => (
-          <Card key={k.label} className="p-4">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{k.label}</div>
-            <div className="text-xl font-semibold mt-1 td-num">{k.value}</div>
-            {k.hint && <div className="text-[10px] text-muted-foreground mt-0.5">{k.hint}</div>}
-          </Card>
-        ))}
-      </div>
+      {/* Master-data setup guide — only shows when categories or vendors are missing */}
+      {masterMissing && (
+        <div className="card-glass rounded-xl border border-warning/40 p-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-warning/10 p-2 text-warning shrink-0">
+              <ShieldAlert className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium">Finish setting up master data first</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Entering bills before master data is defined leads to orphan records that
+                won't roll up into P&amp;L. Complete these steps once — every expense flows
+                from them.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <Link to="/expenses/categories">
+                  <Button size="sm" variant={masterCounts?.categories === 0 ? "default" : "outline"} className="h-8">
+                    {masterCounts?.categories === 0 ? "Add categories" : `Categories · ${masterCounts?.categories}`}
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </Link>
+                <Link to="/expenses/vendors">
+                  <Button size="sm" variant={masterCounts?.vendors === 0 ? "default" : "outline"} className="h-8">
+                    {masterCounts?.vendors === 0 ? "Add vendors" : `Vendors · ${masterCounts?.vendors}`}
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </Link>
+                <Link to="/expenses/payment-terms">
+                  <Button size="sm" variant="outline" className="h-8">
+                    {masterCounts?.terms === 0 ? "Add payment terms" : `Payment terms · ${masterCounts?.terms}`}
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <Card className="p-0 overflow-hidden">
+      {anyLoading && bills.length === 0 ? (
+        <KpiSkeleton count={7} />
+      ) : (
+        <KpiGrid>
+          <KpiCard label="Actual (MTD)" value={fmtHKWhole(kpis.actualMTD)} hint="Approved & posted" />
+          <KpiCard label="Pending (MTD)" value={fmtHKWhole(kpis.pendingMTD)} hint="Awaiting approval" tone="warning" />
+          <KpiCard label="Expected (MTD)" value={fmtHKWhole(kpis.expectedMTD)} hint="Recurring not yet generated" tone="info" />
+          <KpiCard label="Overdue" value={String(kpis.overdue)} tone={kpis.overdue > 0 ? "destructive" : "default"} />
+          <KpiCard label="Needs review" value={String(kpis.needsReview)} tone={kpis.needsReview > 0 ? "warning" : "default"} />
+          <KpiCard label="Bank-detected" value={String(kpis.bankDetected)} hint="Unposted" tone={kpis.bankDetected > 0 ? "info" : "default"} />
+          <KpiCard label="Late fees" value={fmtHKWhole(kpis.lateFees)} tone={kpis.lateFees > 0 ? "warning" : "default"} />
+        </KpiGrid>
+      )}
+
+      <Card className="card-glass p-0 overflow-hidden">
         <Tabs value={tab} onValueChange={setTab}>
           <div className="px-4 pt-3 border-b border-border overflow-x-auto">
             <TabsList>
-              <TabsTrigger value="all">All Expenses ({unified.length})</TabsTrigger>
+              <TabsTrigger value="all">All ({unified.length})</TabsTrigger>
               <TabsTrigger value="bills">Scanned & Manual</TabsTrigger>
               <TabsTrigger value="recurring-bills">Recurring Generated</TabsTrigger>
               <TabsTrigger value="statements">Statements</TabsTrigger>
               <TabsTrigger value="bank">Bank-Detected</TabsTrigger>
               <TabsTrigger value="rules">Recurring Rules ({rules.length})</TabsTrigger>
-              <TabsTrigger value="review">Pending Approval ({kpis.needsReview})</TabsTrigger>
+              <TabsTrigger value="review">Pending ({kpis.needsReview})</TabsTrigger>
               <TabsTrigger value="overdue">Overdue ({kpis.overdue})</TabsTrigger>
             </TabsList>
           </div>
+
+          <div className="px-4 pt-3 pb-1">
+            <ScopeLine>
+              Showing {tab === "rules" ? rules.length : filtered.length} record{(tab === "rules" ? rules.length : filtered.length) === 1 ? "" : "s"}
+              {tab !== "all" && ` · filter: ${tab}`}
+            </ScopeLine>
+          </div>
+
           <TabsContent value={tab} className="m-0">
-            {tab === "rules" ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Cadence</TableHead>
-                    <TableHead>Effective From</TableHead>
-                    <TableHead>Next Generation</TableHead>
-                    <TableHead className="text-right">Expected</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rules.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.name}</TableCell>
-                      <TableCell>{r.vendor_name || "—"}</TableCell>
-                      <TableCell>{r.cadence}</TableCell>
-                      <TableCell>{dt(r.effective_from)}</TableCell>
-                      <TableCell>{dt(r.next_generation_date)}</TableCell>
-                      <TableCell className="text-right td-num">{fmt(r.expected_amount)}</TableCell>
-                      <TableCell>
-                        <Badge variant={r.status === "active" ? "default" : "secondary"}>
-                          {r.status || (r.active ? "active" : "paused")}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!rules.length && (
+            {anyLoading && !bills.length ? (
+              <TableSkeleton rows={6} cols={tab === "rules" ? 7 : 9} />
+            ) : tab === "rules" ? (
+              <div className="overflow-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        {rLoad ? "Loading…" : "No recurring rules"}
-                      </TableCell>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Vendor</TableHead>
+                      <TableHead>Cadence</TableHead>
+                      <TableHead>Effective From</TableHead>
+                      <TableHead>Next Generation</TableHead>
+                      <TableHead className="text-right">Expected</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {rules.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">{r.name}</TableCell>
+                        <TableCell>{r.vendor_name || "—"}</TableCell>
+                        <TableCell>{r.cadence}</TableCell>
+                        <TableCell>{fmtDate(r.effective_from)}</TableCell>
+                        <TableCell>{fmtDate(r.next_generation_date)}</TableCell>
+                        <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHKWhole(r.expected_amount)}</TableCell>
+                        <TableCell>
+                          <StatusPill variant={r.status === "active" ? "success" : "muted"}>
+                            {r.status || (r.active ? "active" : "paused")}
+                          </StatusPill>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!rules.length && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="p-0">
+                          <div className="flex flex-col items-center justify-center text-center py-10 px-4">
+                            <Sparkles className="h-6 w-6 text-muted-foreground mb-2" />
+                            <div className="text-sm font-medium">No recurring rules yet</div>
+                            <p className="text-xs text-muted-foreground mt-1 max-w-md">
+                              Set up rules for rent, utilities, subscriptions — bills generate automatically each period.
+                            </p>
+                            <Link to="/expenses/recurring">
+                              <Button size="sm" className="h-8 mt-3">Add a recurring rule</Button>
+                            </Link>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Recognition</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Vendor / Description</TableHead>
-                    <TableHead>Venue</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead>Approval</TableHead>
-                    <TableHead>Doc</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell>{dt(r.date)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {r.source === "recurring" ? "recurring" : r.source}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[320px] truncate">{r.vendor}</TableCell>
-                      <TableCell>{r.venue}</TableCell>
-                      <TableCell className="text-right td-num">{fmt(r.amount)}</TableCell>
-                      <TableCell>{dt(r.due)}</TableCell>
-                      <TableCell><Badge variant="outline">{r.payment_status}</Badge></TableCell>
-                      <TableCell><Badge variant="outline">{r.approval_status}</Badge></TableCell>
-                      <TableCell>
-                        {r.attachment_url ? (
-                          <a
-                            href={r.attachment_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center text-primary hover:underline"
-                            title="View attached document"
-                          >
-                            <Paperclip className="h-3.5 w-3.5" />
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!filtered.length && (
+              <div className="overflow-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                        No records
-                      </TableCell>
+                      <TableHead>Recognition</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Vendor / Description</TableHead>
+                      <TableHead>Venue</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Due</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Approval</TableHead>
+                      <TableHead>Doc</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="whitespace-nowrap">{fmtDate(r.date)}</TableCell>
+                        <TableCell>
+                          <StatusPill variant="neutral">
+                            {r.source === "recurring" ? "recurring" : r.source}
+                          </StatusPill>
+                        </TableCell>
+                        <TableCell className="max-w-[320px] truncate">{r.vendor}</TableCell>
+                        <TableCell>{r.venue}</TableCell>
+                        <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHKWhole(r.amount)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{fmtDate(r.due)}</TableCell>
+                        <TableCell>
+                          <StatusPill variant={paymentVariant(r.payment_status)}>
+                            {PAYMENT_LABEL[r.payment_status] || r.payment_status}
+                          </StatusPill>
+                        </TableCell>
+                        <TableCell>
+                          <StatusPill variant={approvalVariant(r.approval_status)}>
+                            {APPROVAL_LABEL[r.approval_status] || r.approval_status}
+                          </StatusPill>
+                        </TableCell>
+                        <TableCell>
+                          {r.attachment_url ? (
+                            <a
+                              href={r.attachment_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center text-primary hover:underline"
+                              title="View attached document"
+                            >
+                              <Paperclip className="h-3.5 w-3.5" />
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!filtered.length && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="p-0">
+                          <div className="flex flex-col items-center justify-center text-center py-10 px-4">
+                            <div className="text-sm font-medium">No records in this view</div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Try a different tab, or create a new expense.
+                            </p>
+                            <Link to="/expenses/bills">
+                              <Button size="sm" className="h-8 mt-3"><Plus className="h-3 w-3 mr-1" /> New expense</Button>
+                            </Link>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </TabsContent>
         </Tabs>
       </Card>
-
-      {bLoad || sLoad || rLoad ? (
-        <p className="text-xs text-muted-foreground flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" /> Loading data…
-        </p>
-      ) : null}
     </div>
   );
 }
