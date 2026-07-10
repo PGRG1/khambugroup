@@ -7,10 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FileDown, BookOpen } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
+import { cn } from "@/lib/utils";
 
 const fmt = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtWhole = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtDate = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); }
+  catch { return iso; }
+};
 
 interface GLRow {
   entry_date: string;
@@ -63,6 +71,8 @@ export default function Ledger() {
     credit: rows.reduce((s, r) => s + Number(r.credit), 0),
   }), [rows]);
 
+  const closing = withRunning[withRunning.length - 1]?.running ?? 0;
+
   const exportCsv = () => {
     if (!account) return;
     downloadCSV(
@@ -86,69 +96,143 @@ export default function Ledger() {
     );
   };
 
+  const scopeLabel = `${fromDate ? fmtDate(fromDate) : "Beginning"} → ${toDate ? fmtDate(toDate) : "Today"}`;
+
   return (
-    <div className="p-6 max-w-[1920px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
+      <header className="space-y-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">General Ledger</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">General Ledger</h1>
           <p className="text-sm text-muted-foreground mt-1">All posted transactions for the selected account, with running balance.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={accountId} onValueChange={setAccountId}>
-            <SelectTrigger className="h-9 w-[280px]"><SelectValue placeholder="Select account…" /></SelectTrigger>
-            <SelectContent>
-              {accounts.filter((a) => a.is_active).map((a) => <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" />
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" />
-          <Button size="sm" variant="outline" onClick={exportCsv} disabled={!account}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
-        </div>
+
+        {/* Primary control: account selector */}
+        <Card className="card-glass p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="flex-1 min-w-0">
+              <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Account</label>
+              <Select value={accountId} onValueChange={setAccountId}>
+                <SelectTrigger className="h-10 mt-1 md:w-[420px]"><SelectValue placeholder="Select account…" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.filter((a) => a.is_active).map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      <span className="font-mono text-xs mr-2">{a.code}</span>{a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" />
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" />
+              <Button size="sm" variant="outline" onClick={exportCsv} disabled={!account}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
+            </div>
+          </div>
+          {account && <p className="text-xs text-muted-foreground mt-3">{scopeLabel} · Normal side <span className="uppercase">{account.normal_side}</span></p>}
+        </Card>
+
+        {account && !loading && rows.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatTile label="Transactions" value={rows.length.toLocaleString()} />
+            <StatTile label="Total debits" value={`HK$ ${fmtWhole(totals.debit)}`} />
+            <StatTile label="Total credits" value={`HK$ ${fmtWhole(totals.credit)}`} />
+            <StatTile label="Closing balance" value={`HK$ ${fmtWhole(closing)}`} tone="primary" />
+          </div>
+        )}
       </header>
 
-      <Card className="card-glass p-0 overflow-hidden">
-        {!accountId ? (
-          <div className="p-12 text-center text-muted-foreground">Choose an account to view its ledger.</div>
-        ) : loading ? (
-          <div className="p-12 text-center text-muted-foreground">Loading…</div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Memo</TableHead>
-                <TableHead className="text-right">Debit</TableHead>
-                <TableHead className="text-right">Credit</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {withRunning.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No transactions.</TableCell></TableRow>}
-              {withRunning.map((r, i) => (
-                <TableRow key={i}>
-                  <TableCell className="font-mono text-xs">{r.entry_date}</TableCell>
-                  <TableCell><span className="text-xs px-1.5 py-0.5 rounded bg-muted">{r.source_type}</span></TableCell>
-                  <TableCell className="text-sm">{r.entry_memo}{r.line_memo ? <span className="text-muted-foreground"> — {r.line_memo}</span> : null}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{Number(r.debit) ? fmt(Number(r.debit)) : ""}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{Number(r.credit) ? fmt(Number(r.credit)) : ""}</TableCell>
-                  <TableCell className="text-right font-mono text-sm font-medium">{fmt(r.running)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-            {rows.length > 0 && (
-              <tfoot className="border-t-2 border-double border-foreground/40">
+      {!accountId ? (
+        <Card className="card-glass p-12 text-center">
+          <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm font-medium">Choose an account to view its ledger</p>
+          <p className="text-xs text-muted-foreground mt-1">Select any active account above to see every posted debit and credit with a running balance.</p>
+        </Card>
+      ) : (
+        <>
+          {/* Desktop table */}
+          <Card className="card-glass p-0 overflow-hidden hidden md:block">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={3} className="font-semibold">Total</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{fmt(totals.debit)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{fmt(totals.credit)}</TableCell>
-                  <TableCell className="text-right font-mono font-bold">{fmt(withRunning[withRunning.length - 1]?.running ?? 0)}</TableCell>
+                  <TableHead className="w-28">Date</TableHead>
+                  <TableHead className="w-28">Source</TableHead>
+                  <TableHead>Memo</TableHead>
+                  <TableHead className="text-right w-32">Debit</TableHead>
+                  <TableHead className="text-right w-32">Credit</TableHead>
+                  <TableHead className="text-right w-36">Balance</TableHead>
                 </TableRow>
-              </tfoot>
+              </TableHeader>
+              <TableBody>
+                {loading && Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={`s-${i}`}><TableCell colSpan={6}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+                ))}
+                {!loading && withRunning.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No transactions in this range.</TableCell></TableRow>
+                )}
+                {!loading && withRunning.map((r, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-xs whitespace-nowrap">{fmtDate(r.entry_date)}</TableCell>
+                    <TableCell><span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide">{r.source_type}</span></TableCell>
+                    <TableCell className="text-sm">{r.entry_memo}{r.line_memo ? <span className="text-muted-foreground"> — {r.line_memo}</span> : null}</TableCell>
+                    <TableCell className="text-right tabular-nums text-sm">{Number(r.debit) ? fmt(Number(r.debit)) : ""}</TableCell>
+                    <TableCell className="text-right tabular-nums text-sm">{Number(r.credit) ? fmt(Number(r.credit)) : ""}</TableCell>
+                    <TableCell className="text-right tabular-nums text-sm font-medium">{fmt(r.running)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              {rows.length > 0 && !loading && (
+                <tfoot>
+                  <TableRow className="border-t-2 border-double border-foreground/40">
+                    <TableCell colSpan={3} className="font-semibold text-xs uppercase text-muted-foreground">Totals</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold">{fmt(totals.debit)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold">{fmt(totals.credit)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-bold">{fmt(closing)}</TableCell>
+                  </TableRow>
+                </tfoot>
+              )}
+            </Table>
+          </Card>
+
+          {/* Mobile card list */}
+          <div className="md:hidden space-y-3">
+            {loading && Array.from({ length: 5 }).map((_, i) => (
+              <Card key={`ms-${i}`} className="card-glass p-4"><Skeleton className="h-12 w-full" /></Card>
+            ))}
+            {!loading && withRunning.length === 0 && (
+              <Card className="card-glass p-6 text-center text-sm text-muted-foreground">No transactions in this range.</Card>
             )}
-          </Table>
-        )}
-      </Card>
+            {!loading && withRunning.map((r, i) => (
+              <Card key={i} className="card-glass p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">{r.source_type}</span>
+                      <span className="text-muted-foreground">{fmtDate(r.entry_date)}</span>
+                    </div>
+                    <div className="text-sm mt-1">{r.entry_memo}</div>
+                    {r.line_memo && <div className="text-xs text-muted-foreground">{r.line_memo}</div>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={cn("text-sm tabular-nums", Number(r.debit) ? "" : "text-muted-foreground")}>
+                      {Number(r.debit) ? `Dr ${fmt(Number(r.debit))}` : `Cr ${fmt(Number(r.credit))}`}
+                    </div>
+                    <div className="text-xs tabular-nums font-semibold mt-1">{fmt(r.running)}</div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+function StatTile({ label, value, tone }: { label: string; value: string; tone?: "primary" }) {
+  return (
+    <Card className="card-glass p-3">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={cn("text-lg sm:text-xl font-display font-semibold mt-1 tabular-nums", tone === "primary" && "text-primary")}>{value}</div>
+    </Card>
   );
 }
