@@ -696,11 +696,11 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
   return (
     <>
       <KPIGrid cols={5}>
-        <KPI icon={<Coins className="h-4 w-4" />} label="Available Credit Notes" value={`HK$ ${fmt(kpis.available)}`} sub={`${kpis.availableCount} credit notes`} accent="text-purple-400" tint="bg-purple-500/10" />
-        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Applied This Month" value={`HK$ ${fmt(appliedThisMonth)}`} accent="text-emerald-400" tint="bg-emerald-500/10" />
-        <KPI icon={<Banknote className="h-4 w-4" />} label="Unused Balance" value={`HK$ ${fmt(kpis.unused)}`} accent="text-sky-400" tint="bg-sky-500/10" />
-        <KPI icon={<ListChecks className="h-4 w-4" />} label="Fully Applied" value={`${kpis.fullyApplied}`} sub={`${kpis.fullyApplied} credit notes`} accent="text-emerald-400" tint="bg-emerald-500/10" />
-        <KPI icon={<FileWarning className="h-4 w-4" />} label="Needs Review" value={`${kpis.needsReview}`} sub={`${kpis.needsReview} credit notes`} accent="text-red-400" tint="bg-red-500/10" />
+        <KPI icon={<Coins className="h-4 w-4" />} label="Available Credit Notes" value={`HK$ ${fmtWhole(kpis.available)}`} sub={`${kpis.availableCount} credit notes`} accent="text-info" tint="bg-info/10" />
+        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Applied This Month" value={`HK$ ${fmtWhole(appliedThisMonth)}`} accent="text-primary" tint="bg-primary/10" />
+        <KPI icon={<Banknote className="h-4 w-4" />} label="Unused Balance" value={`HK$ ${fmtWhole(kpis.unused)}`} accent="text-info" tint="bg-info/10" />
+        <KPI icon={<ListChecks className="h-4 w-4" />} label="Fully Applied" value={`${kpis.fullyApplied}`} sub={`${kpis.fullyApplied} credit notes`} accent="text-primary" tint="bg-primary/10" />
+        <KPI icon={<FileWarning className="h-4 w-4" />} label="Needs Review" value={`${kpis.needsReview}`} sub={`${kpis.needsReview} credit notes`} accent="text-destructive" tint="bg-destructive/10" />
       </KPIGrid>
 
       <FilterBar>
