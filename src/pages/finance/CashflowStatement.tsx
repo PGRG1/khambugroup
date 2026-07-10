@@ -376,8 +376,8 @@ export default function CashflowStatement() {
       </div>
 
       {unclassified.length > 0 && (
-        <Card className="card-glass p-4 border-amber-300/40">
-          <h3 className="text-sm font-semibold mb-2 text-amber-700">
+        <Card className="card-glass p-4 border-warning/40">
+          <h3 className="text-sm font-semibold mb-2 text-warning">
             Unclassified cash movements ({unclassified.length})
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
@@ -401,7 +401,7 @@ export default function CashflowStatement() {
                       <span className="font-mono text-muted-foreground">{d.account_code}</span> {d.account_name}
                     </TableCell>
                     <TableCell className="text-sm">{d.memo}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(d.amount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(d.amount)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
