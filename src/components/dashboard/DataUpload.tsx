@@ -36,8 +36,8 @@ const DataUpload = ({ onUpload, onClose }: DataUploadProps) => {
         const records: SalesRecord[] = [];
         const rejections: Rejection[] = [];
         dataRows.forEach((row, idx) => {
-          const res: ParsedExcelResult = parseExcelRow(row as any[], activeVenueNames);
-          if (res.ok) {
+          const res = parseExcelRow(row as any[], activeVenueNames);
+          if (res.ok === true) {
             records.push(res.record);
           } else {
             rejections.push({ row: idx + 2, reason: res.reason, venue: res.venue, date: res.date });
