@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/expenses/shared";
 
 const ProcurementDashboardTab = lazy(() => import("@/components/procurement/ProcurementDashboardTab"));
 const SuppliersTab = lazy(() => import("@/components/procurement/SuppliersTab"));
