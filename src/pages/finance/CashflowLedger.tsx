@@ -187,7 +187,7 @@ export default function CashflowLedger() {
       <Card className="card-glass p-4">
         <h2 className="text-lg font-semibold mb-3">Cash movements over time</h2>
         {loading ? (
-          <div className="h-[320px] flex items-center justify-center text-muted-foreground">Loading…</div>
+          <div className="h-[320px] w-full rounded-md bg-muted/30 animate-pulse" />
         ) : chartData.length === 0 ? (
           <div className="h-[320px] flex items-center justify-center text-muted-foreground">No cash activity in the selected range.</div>
         ) : (
@@ -201,10 +201,10 @@ export default function CashflowLedger() {
                 contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
               />
               <Legend />
-              <Bar dataKey="Cash In" stackId="cf" fill="hsl(142 71% 45%)" />
-              <Bar dataKey="Cash Out" stackId="cf" fill="hsl(0 72% 51%)" />
-              <Line type="monotone" dataKey="Net" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="Balance" stroke="hsl(38 92% 50%)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+              <Bar dataKey="Cash In" stackId="cf" fill="hsl(var(--primary))" />
+              <Bar dataKey="Cash Out" stackId="cf" fill="hsl(var(--destructive))" />
+              <Line type="monotone" dataKey="Net" stroke="hsl(var(--info))" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Balance" stroke="hsl(var(--warning))" strokeWidth={2} strokeDasharray="4 4" dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
