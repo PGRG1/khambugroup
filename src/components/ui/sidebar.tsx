@@ -325,17 +325,17 @@ const SidebarSeparator = React.forwardRef<React.ElementRef<typeof Separator>, Re
 );
 SidebarSeparator.displayName = "SidebarSeparator";
 
-const SidebarContent = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(({ className, ...props }, ref) => {
+const SidebarContent = React.forwardRef<HTMLDivElement, React.ComponentProps<"div">>(({ className, children, ...props }, ref) => {
   return (
-    <div
+    <CustomScrollArea
       ref={ref}
       data-sidebar="content"
-      className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
-        className,
-      )}
-      {...props}
-    />
+      className="min-h-0 flex-1 group-data-[collapsible=icon]:overflow-hidden"
+      viewportClassName={cn("flex flex-col gap-2", className)}
+      {...(props as React.HTMLAttributes<HTMLDivElement>)}
+    >
+      {children}
+    </CustomScrollArea>
   );
 });
 SidebarContent.displayName = "SidebarContent";
