@@ -567,19 +567,25 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
             </thead>
             <tbody className="divide-y divide-border/30">
               {loading ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    {Array.from({ length: 10 }).map((__, j) => (
+                      <td key={j} className="px-3 py-3"><div className="h-3 bg-muted/30 rounded animate-pulse" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">No payments recorded yet.</td></tr>
               ) : filtered.slice(0, 500).map((p: any) => (
                 <tr key={p.id} className="hover:bg-muted/30">
-                  <td className="px-3 py-2 text-xs font-mono">{p.payment_date}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(p.payment_date)}</td>
                   <td className="px-3 py-2 text-xs font-mono">{p.reference_number || `PAY-${p.id.slice(0, 6).toUpperCase()}`}</td>
                   <td className="px-3 py-2 text-xs font-medium">{p.supplier_name}</td>
                   <td className="px-3 py-2 text-xs">{p.paid_from_account_name || "—"}</td>
                   <td className="px-3 py-2 text-xs">{p.payment_method}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-xs">{fmt(p.amount)}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-xs">{fmt(p.allocated_amount)}</td>
-                  <td className={`px-3 py-2 text-right font-mono tabular-nums text-xs ${p.unallocated_amount > 0.01 ? "text-amber-400" : ""}`}>{fmt(p.unallocated_amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.allocated_amount)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums text-xs ${p.unallocated_amount > 0.01 ? "text-warning" : ""}`}>{fmt(p.unallocated_amount)}</td>
                   <td className="px-3 py-2"><BankMatchBadge status={p.match_status} /></td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <Button size="sm" variant="ghost" className="h-7 text-[11px]" disabled={p.allocation_count === 0}>View Allocation</Button>
