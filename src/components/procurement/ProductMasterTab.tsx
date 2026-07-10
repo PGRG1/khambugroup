@@ -637,7 +637,41 @@ export default function ProductMasterTab() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Data-health strip */}
+      {(() => {
+        const total = flatRows.length;
+        const mapped = flatRows.filter(r => r.mapping_status === "Mapped").length;
+        const unmapped = flatRows.filter(r => r.mapping_status === "Unmapped").length;
+        const inactive = flatRows.filter(r => r.status !== "Active").length;
+        const chips: { label: string; count: number; tone: "neutral"|"success"|"danger"; active: boolean; onClick: () => void }[] = [
+          { label: "Total items", count: total, tone: "neutral", active: mappingFilter === "all" && statusFilter === "all", onClick: () => { setMappingFilter("all"); setStatusFilter("all"); } },
+          { label: "Mapped", count: mapped, tone: "success", active: mappingFilter === "Mapped", onClick: () => setMappingFilter(mappingFilter === "Mapped" ? "all" : "Mapped") },
+          { label: "Unmapped", count: unmapped, tone: "danger", active: mappingFilter === "Unmapped", onClick: () => setMappingFilter(mappingFilter === "Unmapped" ? "all" : "Unmapped") },
+          { label: "Inactive", count: inactive, tone: "neutral", active: statusFilter === "Inactive", onClick: () => setStatusFilter(statusFilter === "Inactive" ? "all" : "Inactive") },
+        ];
+        return (
+          <div className="flex flex-wrap gap-2">
+            {chips.map(c => (
+              <button key={c.label} onClick={c.onClick}
+                className={cn(
+                  "flex-1 sm:flex-none min-w-[120px] rounded-lg px-3 py-2 text-left transition-all border min-h-[52px]",
+                  c.active ? `${tonePill[c.tone]} border-transparent ring-2 ring-primary/40` : "bg-card border-border hover:border-primary/40",
+                )}>
+                <div className="text-[10px] uppercase tracking-wide font-medium text-muted-foreground">{c.label}</div>
+                <div className="text-lg font-semibold tabular-nums leading-tight">{c.count.toLocaleString()}</div>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Top toolbar: search + add */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search SKU, product name, supplier & vendor..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm bg-background/40" />
+        </div>
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
