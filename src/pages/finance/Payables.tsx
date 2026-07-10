@@ -121,14 +121,14 @@ export default function Payables() {
   };
 
   return (
-    <div className="p-6 max-w-[1920px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <CreditCard className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Accounts Payable</h1>
+            <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Accounts Payable</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Track supplier obligations and manage payments with clarity and control.
             </p>
