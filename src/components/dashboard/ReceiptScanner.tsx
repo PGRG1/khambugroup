@@ -528,11 +528,12 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+              disabled={saving || venueUnmatched}
+              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              title={venueUnmatched ? "Select a venue from the master list first" : undefined}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {saving ? "Saving..." : "Save Record"}
+              {saving ? "Saving..." : venueUnmatched ? "Select venue to save" : "Save Record"}
             </button>
             <button
               onClick={() => { setExtractedData(null); setPreviewUrl(null); setOriginalFile(null); }}
