@@ -403,8 +403,8 @@ export default function ReceivingTab() {
 
   const kpiCards = [
     { label: "Total GRNs", value: kpis.total.toLocaleString(), icon: <PackageCheck className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Confirmed", value: kpis.confirmed.toLocaleString(), icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
-    { label: "Draft", value: kpis.draft.toLocaleString(), icon: <Clock className="h-4 w-4" />, tone: "text-amber-400" },
+    { label: "Confirmed", value: kpis.confirmed.toLocaleString(), icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-primary" },
+    { label: "Draft", value: kpis.draft.toLocaleString(), icon: <Clock className="h-4 w-4" />, tone: "text-warning" },
     { label: "Total Value", value: fmtMoney(kpis.value), icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
   ];
 
