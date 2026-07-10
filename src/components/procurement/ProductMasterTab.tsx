@@ -887,8 +887,52 @@ export default function ProductMasterTab() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table (desktop) / Card list (mobile) */}
       <Card className="card-glass overflow-hidden">
+        {isMobile ? (
+          <div className="divide-y divide-border">
+            {pageItems.length === 0 && (
+              <div className="text-center text-muted-foreground py-12">No products found.</div>
+            )}
+            {pageItems.map(r => (
+              <div key={r.rowKey} className="p-3 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <button className="flex-1 min-w-0 text-left" onClick={() => openEdit(r)}>
+                    <div className="font-medium text-sm truncate">{r.internal_product_name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{r.supplier || "—"}</div>
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0"><MoreVertical className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setDeletingRow(r); setDeleteOpen(true); }} className="text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" />Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                {(r.level1_category || r.level2_category || r.level3_category) && (
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {[r.level1_category, r.level2_category, r.level3_category].filter(Boolean).join(" › ")}
+                  </div>
+                )}
+                <div className="flex items-center flex-wrap gap-1.5">
+                  {r.financial_treatment && (
+                    <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", (r.financial_treatment === "COGS" || r.financial_treatment === "OpEx") ? "border-primary/40 bg-primary/10 text-primary" : "border-info/40 bg-info/10 text-info")}>
+                      {r.financial_treatment}
+                    </Badge>
+                  )}
+                  {r.mapping_status === "Mapped" ? (
+                    <span className="chip chip-success"><CheckCircle2 className="h-3 w-3" /> Mapped</span>
+                  ) : (
+                    <span className="chip chip-danger"><AlertTriangle className="h-3 w-3" /> Unmapped</span>
+                  )}
+                  <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">{r.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -962,8 +1006,8 @@ export default function ProductMasterTab() {
                   )}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDeletingRow(r); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setDeletingRow(r); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -971,6 +1015,7 @@ export default function ProductMasterTab() {
             </TableBody>
           </Table>
         </div>
+        )}
 
         {/* Pagination footer */}
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border/50 flex-wrap">
