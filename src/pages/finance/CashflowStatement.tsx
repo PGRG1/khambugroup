@@ -196,7 +196,11 @@ export default function CashflowStatement() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-muted-foreground">Loading…</div>
+          <div className="py-16 space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-4 bg-muted/30 rounded animate-pulse" style={{ width: `${60 + (i % 3) * 15}%` }} />
+            ))}
+          </div>
         ) : (
           <div className="font-mono text-sm">
             {/* Opening */}
