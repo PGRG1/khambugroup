@@ -159,10 +159,10 @@ export default function LedgerPL() {
             {node.account.name}
           </td>
           {row.cells.map((v, i) => (
-            <td key={i} className="py-1.5 px-3 text-right font-mono text-sm tabular-nums">{fmt(v)}</td>
+            <td key={i} className={cn("py-1.5 px-3 text-right text-sm tabular-nums", v < 0 && "text-destructive")}>{fmt(v)}</td>
           ))}
           {showGrandTotal && (
-            <td className="py-1.5 px-3 text-right font-mono text-sm tabular-nums border-l border-border/60 font-medium">
+            <td className={cn("py-1.5 px-3 text-right text-sm tabular-nums border-l border-border/60 font-medium", row.totalAcrossPeriods < 0 && "text-destructive")}>
               {fmt(row.totalAcrossPeriods)}
             </td>
           )}
@@ -171,6 +171,7 @@ export default function LedgerPL() {
       ];
     });
   };
+
 
   // Section subtotals
   const subtotal = (type: AccountType) => computeRow((pid, v) => sectionTotal(type, pid, v));
