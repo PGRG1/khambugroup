@@ -238,7 +238,7 @@ export default function CashflowStatement() {
                             />
                             <span className="font-sans">{line.lineItem}</span>
                           </div>
-                          <span className={line.amount < 0 ? "text-rose-700" : ""}>
+                          <span className={`tabular-nums ${line.amount < 0 ? "text-destructive" : ""}`}>
                             {fmt(line.amount)}
                           </span>
                         </CollapsibleTrigger>
