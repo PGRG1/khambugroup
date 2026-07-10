@@ -123,15 +123,22 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       let dayStr = "";
       if (dateStr) {
         try {
-          dayStr = format(parseISO(dateStr), "EEE"); // Mon, Tue, etc.
+          dayStr = format(parseISO(dateStr), "EEE");
         } catch {
           dayStr = "";
         }
       }
+      // Match scanned venue against master (case-insensitive). Never silently reassign.
+      const rawVenue = String(raw.venue ?? "").trim();
+      setScannedVenueRaw(rawVenue);
+      const matched = activeVenueNames.find(
+        (n) => n.toLowerCase() === rawVenue.toLowerCase(),
+      );
+
       const record: SalesRecord = {
         date: dateStr,
         day: dayStr,
-        venue: raw.venue === "Caliente" ? "Caliente" : "Assembly",
+        venue: matched ?? "", // blank forces the user to pick if no match
         reportNumber: raw.reportNumber || "",
         orders: Number(raw.orders) || 0,
         guests: Number(raw.guests) || 0,
