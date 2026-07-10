@@ -337,7 +337,7 @@ export default function RecurringExpenses() {
               </div>
               <div className="col-span-2 rounded-md border bg-muted/30 px-3 py-2 text-xs">
                 <span className="text-muted-foreground">Next Generation Date (auto): </span>
-                <span className="font-mono">{dt(editing.next_generation_date || previewNextGen)}</span>
+                <span className="font-mono">{fmtDate(editing.next_generation_date || previewNextGen)}</span>
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <Switch checked={editing.auto_approve ?? false} onCheckedChange={(v) => setField("auto_approve", v)} />
