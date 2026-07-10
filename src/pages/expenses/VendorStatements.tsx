@@ -152,7 +152,7 @@ export default function VendorStatements() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {statements.map((s) => (
+                {filteredStatements.map((s) => (
                   <TableRow
                     key={s.id}
                     className="cursor-pointer hover:bg-muted/40"
