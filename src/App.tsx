@@ -81,7 +81,7 @@ import BankFeesPage from "./pages/bank/BankFeesPage";
 
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
-import BillsExpenses from "./pages/finance/BillsExpenses";
+// Bills entry unified under /expenses/bills — the finance route below just redirects.
 import PaymentsDashboardPage from "./pages/payments/PaymentsDashboardPage";
 import PaymentsBatchesPage from "./pages/payments/PaymentsBatchesPage";
 import PaymentsFeeAuditPage from "./pages/payments/PaymentsFeeAuditPage";
