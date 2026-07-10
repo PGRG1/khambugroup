@@ -7,6 +7,7 @@ import { PLStructureEditor } from "@/components/pl/PLStructureEditor";
 import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/pl/PLPeriodSelector";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FileDown } from "lucide-react";
 import { generatePLReportPDF } from "@/utils/generatePLReport";
 
@@ -203,14 +204,16 @@ export default function PLReport() {
     });
   };
 
+  const scopeLabel = selectedPeriods.length === 0 ? "No period selected" : selectedPeriods.map((p) => p.label).join(", ");
+
   return (
-    <div className="max-w-[1920px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold font-display tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">
             <span className="text-gradient-gold">Profit & Loss Report</span>
-            <span className="text-muted-foreground ml-2 text-base font-normal">{allVenueNames.length > 0 ? allVenueNames.join(" + ") : "All Venues"}</span>
+            <span className="text-muted-foreground ml-2 text-sm sm:text-base font-normal">{allVenueNames.length > 0 ? allVenueNames.join(" + ") : "All Venues"}</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
             Note: Prepared for internal management use only. This Profit & Loss is based on management reporting conventions and may not align with statutory financial statements or formal accounting policies.
@@ -239,11 +242,15 @@ export default function PLReport() {
         )}
       </div>
 
+      <p className="text-xs text-muted-foreground -mt-2">{scopeLabel}</p>
+
       {/* Profit & Loss Table */}
       {loading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <div className="space-y-2">
+          {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-7 w-full" />)}
+        </div>
       ) : selectedPeriods.length === 0 ? (
-        <p className="text-muted-foreground">Select at least one period to view the Profit & Loss report.</p>
+        <p className="text-sm text-muted-foreground">Select at least one period to view the Profit & Loss report.</p>
       ) : (
         <div className="pl-table rounded-xl border border-[hsl(var(--pl-border))] overflow-x-auto relative" style={{ boxShadow: '0 2px 16px -4px hsl(25 20% 15% / 0.07)' }}>
           <table className="w-full text-[13px] border-collapse">

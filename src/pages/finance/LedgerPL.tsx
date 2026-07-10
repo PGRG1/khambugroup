@@ -1,16 +1,23 @@
 import { useMemo, useState } from "react";
+import React from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FileDown } from "lucide-react";
 import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/pl/PLPeriodSelector";
 import { useLedgerPL } from "@/hooks/useLedgerPL";
 import type { ChartAccount, AccountType } from "@/hooks/useChartOfAccounts";
 import { downloadCSV } from "@/utils/csvDownload";
 import { generateLedgerPLPDF, type LedgerPLRow } from "@/utils/financePdfReports";
+import { cn } from "@/lib/utils";
 
-const fmt = (n: number) => n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => {
+  if (n === 0) return "—";
+  const abs = Math.abs(n).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? `(${abs})` : abs;
+};
 
 const SECTION_ORDER: { type: AccountType; label: string }[] = [
   { type: "revenue", label: "Revenue" },
@@ -152,10 +159,10 @@ export default function LedgerPL() {
             {node.account.name}
           </td>
           {row.cells.map((v, i) => (
-            <td key={i} className="py-1.5 px-3 text-right font-mono text-sm tabular-nums">{fmt(v)}</td>
+            <td key={i} className={cn("py-1.5 px-3 text-right text-sm tabular-nums", v < 0 && "text-destructive")}>{fmt(v)}</td>
           ))}
           {showGrandTotal && (
-            <td className="py-1.5 px-3 text-right font-mono text-sm tabular-nums border-l border-border/60 font-medium">
+            <td className={cn("py-1.5 px-3 text-right text-sm tabular-nums border-l border-border/60 font-medium", row.totalAcrossPeriods < 0 && "text-destructive")}>
               {fmt(row.totalAcrossPeriods)}
             </td>
           )}
@@ -164,6 +171,7 @@ export default function LedgerPL() {
       ];
     });
   };
+
 
   // Section subtotals
   const subtotal = (type: AccountType) => computeRow((pid, v) => sectionTotal(type, pid, v));
@@ -271,38 +279,40 @@ export default function LedgerPL() {
     });
   };
 
+  const scopeLabel = selectedPeriods.length === 0 ? "No period selected" : selectedPeriods.map((p) => p.label).join(", ");
+
   return (
-    <div className="p-6 max-w-[1920px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Profit & Loss</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Profit & Loss</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Built directly from posted journal entries against the Chart of Accounts. Independent from the operations P&L.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <PLPeriodSelector
             viewMode={viewMode}
             selectedPeriods={selectedPeriods}
             onViewModeChange={setViewMode}
             onPeriodsChange={setSelectedPeriods}
           />
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-card">
+          <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card">
             <Switch id="per-venue" checked={perVenue} onCheckedChange={setPerVenue} />
             <Label htmlFor="per-venue" className="text-xs cursor-pointer">Per venue</Label>
           </div>
-          <Button size="sm" variant="outline" onClick={exportCsv}>
-            <FileDown className="h-4 w-4 mr-1" /> CSV
-          </Button>
-          <Button size="sm" onClick={exportPdf}>
-            <FileDown className="h-4 w-4 mr-1" /> Download PDF
-          </Button>
+          <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
+          <Button size="sm" onClick={exportPdf}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
         </div>
       </header>
 
+      <p className="text-xs text-muted-foreground -mt-2">{scopeLabel}</p>
+
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-muted-foreground">Loading…</div>
+          <div className="p-6 space-y-2">
+            {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}
+          </div>
         ) : selectedPeriods.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground">Select at least one period.</div>
         ) : (
@@ -310,14 +320,14 @@ export default function LedgerPL() {
             <table className="w-full text-sm">
               <thead className="bg-muted/40 border-b border-border">
                 <tr>
-                  <th className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Account</th>
+                  <th className="text-left py-2 px-3 font-semibold text-[11px] uppercase tracking-wide text-muted-foreground">Account</th>
                   {columns.map(c => (
-                    <th key={c.key} className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                    <th key={c.key} className="text-right py-2 px-3 font-semibold text-[11px] uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                       {c.label}
                     </th>
                   ))}
                   {showGrandTotal && (
-                    <th className="text-right py-2 px-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground border-l border-border/60 whitespace-nowrap">
+                    <th className="text-right py-2 px-3 font-semibold text-[11px] uppercase tracking-wide text-muted-foreground border-l border-border/60 whitespace-nowrap">
                       TOTAL
                     </th>
                   )}
@@ -331,47 +341,68 @@ export default function LedgerPL() {
                   if (rows.length === 0) return null;
                   const sub = subtotal(sec.type);
                   return (
-                    <>
-                      <tr key={`h-${sec.type}`} className="bg-primary/5 border-y border-border">
+                    <React.Fragment key={sec.type}>
+                      <tr className="border-y border-border">
                         <td colSpan={columns.length + 1 + (showGrandTotal ? 1 : 0)}
-                            className="py-2 px-3 text-xs uppercase tracking-wider font-bold text-primary">
+                            className="py-2 px-3 text-[11px] uppercase tracking-wide font-semibold text-muted-foreground bg-muted/30">
                           {sec.label}
                         </td>
                       </tr>
                       {rows}
-                      <tr key={`s-${sec.type}`} className="bg-muted/40 font-semibold border-t border-border">
+                      <tr className="bg-muted/40 font-semibold border-t border-border">
                         <td className="py-2 px-3 text-sm">Total {sec.label}</td>
                         {sub.cells.map((v, i) => (
-                          <td key={i} className="py-2 px-3 text-right font-mono text-sm tabular-nums">{fmt(v)}</td>
+                          <td key={i} className={cn("py-2 px-3 text-right text-sm tabular-nums", v < 0 && "text-destructive")}>{fmt(v)}</td>
                         ))}
                         {showGrandTotal && (
-                          <td className="py-2 px-3 text-right font-mono text-sm tabular-nums border-l border-border/60">
+                          <td className={cn("py-2 px-3 text-right text-sm tabular-nums border-l border-border/60", sub.totalAcrossPeriods < 0 && "text-destructive")}>
                             {fmt(sub.totalAcrossPeriods)}
                           </td>
                         )}
                       </tr>
-                    </>
+                    </React.Fragment>
                   );
                 })}
 
-                {/* Computed totals */}
+                {/* Computed totals with margin % suffix */}
                 {(["Gross Profit", "Operating Profit", "Net Income"] as const).map((label, idx) => {
                   const fn = idx === 0 ? grossProfit : idx === 1 ? operatingProfit : netIncome;
                   const row = computeRow(fn);
+                  const revenueRow = computeRow((pid, v) => sectionTotal("revenue", pid, v));
                   const isFinal = label === "Net Income";
+                  const marginTotal = revenueRow.totalAcrossPeriods !== 0
+                    ? (row.totalAcrossPeriods / revenueRow.totalAcrossPeriods * 100)
+                    : null;
                   return (
                     <tr key={label} className={isFinal
                       ? "bg-primary/10 border-t-2 border-double border-foreground/40 font-bold"
                       : "bg-muted/30 border-t border-border font-semibold"}>
-                      <td className="py-2.5 px-3 text-sm uppercase tracking-wider">{label}</td>
-                      {row.cells.map((v, i) => (
-                        <td key={i} className={`py-2.5 px-3 text-right font-mono text-sm tabular-nums ${v < 0 ? "text-rose-700" : ""}`}>
-                          {fmt(v)}
-                        </td>
-                      ))}
+                      <td className="py-2.5 px-3 text-sm uppercase tracking-wide">
+                        {label}
+                        {marginTotal !== null && (
+                          <span className="ml-2 text-[11px] normal-case tracking-normal text-muted-foreground font-normal">
+                            · {marginTotal.toFixed(1)}%
+                          </span>
+                        )}
+                      </td>
+                      {row.cells.map((v, i) => {
+                        const revCell = revenueRow.cells[i] || 0;
+                        const margin = revCell !== 0 ? (v / revCell * 100) : null;
+                        return (
+                          <td key={i} className={cn("py-2.5 px-3 text-right text-sm tabular-nums", v < 0 && "text-destructive")}>
+                            <div>{fmt(v)}</div>
+                            {margin !== null && (
+                              <div className="text-[10px] text-muted-foreground font-normal">{margin.toFixed(1)}%</div>
+                            )}
+                          </td>
+                        );
+                      })}
                       {showGrandTotal && (
-                        <td className={`py-2.5 px-3 text-right font-mono text-sm tabular-nums border-l border-border/60 ${row.totalAcrossPeriods < 0 ? "text-rose-700" : ""}`}>
-                          {fmt(row.totalAcrossPeriods)}
+                        <td className={cn("py-2.5 px-3 text-right text-sm tabular-nums border-l border-border/60", row.totalAcrossPeriods < 0 && "text-destructive")}>
+                          <div>{fmt(row.totalAcrossPeriods)}</div>
+                          {marginTotal !== null && (
+                            <div className="text-[10px] text-muted-foreground font-normal">{marginTotal.toFixed(1)}%</div>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -384,4 +415,5 @@ export default function LedgerPL() {
       </Card>
     </div>
   );
+
 }
