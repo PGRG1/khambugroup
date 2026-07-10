@@ -145,12 +145,20 @@ export default function ExpenseApprovals() {
               </div>
             );
           })}
-          {!pending.length && <div className="text-center text-muted-foreground py-6 text-sm">No bills pending</div>}
+          {!pending.length && (
+            <EmptyState
+              icon={<ShieldCheck className="h-6 w-6" />}
+              title="Nothing awaiting your approval"
+              description="Bills submitted for review from Bills & Expenses or Recurring Rules will appear here."
+            />
+          )}
         </div>
       </Card>
 
-      <Card className="p-0">
-        <div className="p-4 border-b text-sm font-medium">Statements awaiting approval ({pendingStmts.length})</div>
+      <Card className="card-glass p-0 overflow-hidden">
+        <div className="p-4 border-b border-border/60 text-sm font-medium">
+          Statements awaiting approval <span className="text-muted-foreground">({pendingStmts.length})</span>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
