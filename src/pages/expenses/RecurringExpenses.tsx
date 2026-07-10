@@ -105,12 +105,31 @@ export default function RecurringExpenses() {
   const previewNextGen = useMemo(() => computeNextGeneration(editing), [editing]);
 
   const handleSave = async () => {
-    if (!editing.name) return;
+    if (!editing.name) { toast.error("Name is required"); return; }
+    // Cannot save without a category + debit account — otherwise the rule generates
+    // orphan bills that stall in Pending Review.
+    if (!editing.category_id) { toast.error("Category is required"); return; }
+    if (!editing.account_id) { toast.error("Debit account is required"); return; }
     const ok = await save(editing);
     if (ok) setOpen(false);
   };
 
+  const [search, setSearch] = useState("");
   const activeCount = rules.filter((r) => r.status === "active").length;
+  const monthlyExpected = rules
+    .filter((r) => r.status === "active")
+    .reduce((s, r) => {
+      const amt = Number(r.expected_amount || 0);
+      const mult = r.cadence === "weekly" ? 4.33 : r.cadence === "quarterly" ? 1 / 3 : r.cadence === "yearly" ? 1 / 12 : 1;
+      return s + amt * mult;
+    }, 0);
+  const filteredRules = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rules;
+    return rules.filter((r) =>
+      [r.name, r.vendor_name, r.cadence, r.department].some((x) => (x || "").toLowerCase().includes(q))
+    );
+  }, [rules, search]);
 
   return (
     <div className="p-6 space-y-6">
