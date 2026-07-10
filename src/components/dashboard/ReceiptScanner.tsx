@@ -197,7 +197,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
         return next;
       }
       if (field === "venue") {
-        return { ...prev, venue: value === "Caliente" ? "Caliente" : "Assembly" };
+        return { ...prev, venue: value };
       }
       if (field === "date") {
         let day = "";
