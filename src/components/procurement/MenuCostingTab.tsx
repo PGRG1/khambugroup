@@ -183,6 +183,43 @@ export default function MenuCostingTab() {
     setEditItem(null);
   };
 
+  // Compute stats + filter
+  const [showBelowTargetOnly, setShowBelowTargetOnly] = useState(false);
+  const stats = useMemo(() => {
+    const priced = menuItems
+      .map(item => {
+        const p = allPricing[item.id] || [];
+        const rp = p.find(x => x.price_type.toLowerCase().includes("regular")) ?? p[0];
+        const fcp = Number(rp?.food_cost_pct ?? 0);
+        return { item, fcp, hasPricing: !!rp && Number(rp.selling_price) > 0 };
+      })
+      .filter(x => x.hasPricing);
+    const avgFcp = priced.length ? priced.reduce((s, x) => s + x.fcp, 0) / priced.length : 0;
+    const belowTarget = priced.filter(x => (100 - x.fcp) < MARGIN_LOW).length;
+    return { total: menuItems.length, avgFcp, belowTarget };
+  }, [menuItems, allPricing]);
+
+  const visibleItems = useMemo(() => {
+    if (!showBelowTargetOnly) return menuItems;
+    return menuItems.filter(item => {
+      const p = allPricing[item.id] || [];
+      const rp = p.find(x => x.price_type.toLowerCase().includes("regular")) ?? p[0];
+      if (!rp || Number(rp.selling_price) <= 0) return false;
+      return (100 - Number(rp.food_cost_pct)) < MARGIN_LOW;
+    });
+  }, [menuItems, allPricing, showBelowTargetOnly]);
+
+  const StatTile = ({ label, value, tone, active, onClick }: { label: string; value: string; tone?: "primary" | "warn" | "danger"; active?: boolean; onClick?: () => void }) => {
+    const t = tone === "primary" ? "text-primary" : tone === "warn" ? "text-warning" : tone === "danger" ? "text-destructive" : "text-foreground";
+    return (
+      <button type="button" onClick={onClick} disabled={!onClick}
+        className={`text-left rounded-lg border border-border/60 bg-card/50 px-3 py-2 transition-colors ${onClick ? "hover:border-border cursor-pointer" : "cursor-default"} ${active ? "ring-2 ring-primary/60 bg-primary/5" : ""}`}>
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
+        <div className={`text-lg font-semibold tabular-nums mt-0.5 ${t}`}>{value}</div>
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <Alert className="border-muted">
@@ -191,6 +228,17 @@ export default function MenuCostingTab() {
           <strong>Theoretical Cost</strong> — This module is for pricing analysis only. It is not connected to live inventory, COGS, or accounting.
         </AlertDescription>
       </Alert>
+
+      {/* Stats strip */}
+      <div className="grid grid-cols-3 gap-2">
+        {loading ? Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-[64px] rounded-lg border border-border/60 bg-card/40 animate-pulse" />) : (
+          <>
+            <StatTile label="Total Recipes" value={stats.total.toLocaleString()} />
+            <StatTile label="Avg Food Cost %" value={stats.total ? `${stats.avgFcp.toFixed(1)}%` : "—"} tone={stats.avgFcp <= 30 ? "primary" : stats.avgFcp <= 40 ? "warn" : "danger"} />
+            <StatTile label="Below Target Margin" value={stats.belowTarget.toLocaleString()} tone={stats.belowTarget ? "danger" : undefined} active={showBelowTargetOnly} onClick={() => setShowBelowTargetOnly(v => !v)} />
+          </>
+        )}
+      </div>
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Menu Items</h2>
@@ -212,25 +260,31 @@ export default function MenuCostingTab() {
             { key: "name", label: "Name" }, { key: "category", label: "Category" }, { key: "status", label: "Status" },
             { key: "theoretical_cost", label: "Theo. Cost" }, { key: "selling_price", label: "Sell Price" },
             { key: "gross_profit", label: "Gross Profit" }, { key: "food_cost_pct", label: "Food Cost %" },
-          ], "menu_costing")}><Download className="h-4 w-4 mr-1" />Download</Button>
-          <Button size="sm" onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1" />Add Menu Item</Button>
+          ], "menu_costing")} className="h-9"><Download className="h-4 w-4 mr-1" />Download</Button>
+          <Button size="sm" onClick={() => setShowCreate(true)} className="h-9"><Plus className="h-4 w-4 mr-1" />Add Menu Item</Button>
         </div>
       </div>
 
       {/* Menu items cards */}
       {loading ? (
-        <p className="text-center text-muted-foreground py-8">Loading...</p>
-      ) : menuItems.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">No menu items yet</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-[220px] rounded-xl border border-border/60 bg-card/40 animate-pulse" />)}
+        </div>
+      ) : visibleItems.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">
+          {showBelowTargetOnly ? "No recipes below target margin — nice work." : "No menu items yet"}
+        </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {menuItems.map(item => {
+          {visibleItems.map(item => {
             const itemPricing = allPricing[item.id] || [];
             const regularPrice = itemPricing.find(p => p.price_type.toLowerCase().includes("regular"));
-            const sellingPrice = regularPrice?.selling_price ?? itemPricing[0]?.selling_price ?? 0;
-            const grossProfit = regularPrice?.gross_profit ?? itemPricing[0]?.gross_profit ?? 0;
-            const foodCostPct = regularPrice?.food_cost_pct ?? itemPricing[0]?.food_cost_pct ?? 0;
+            const sellingPrice = Number(regularPrice?.selling_price ?? itemPricing[0]?.selling_price ?? 0);
+            const grossProfit = Number(regularPrice?.gross_profit ?? itemPricing[0]?.gross_profit ?? 0);
+            const foodCostPct = Number(regularPrice?.food_cost_pct ?? itemPricing[0]?.food_cost_pct ?? 0);
             const tc = Number(item.theoretical_cost);
+            const marginPct = sellingPrice > 0 ? 100 - foodCostPct : 0;
+            const mt = sellingPrice > 0 ? marginTone(marginPct) : null;
 
             return (
               <div
@@ -251,28 +305,36 @@ export default function MenuCostingTab() {
                   </Badge>
                 </div>
 
+                {/* Prominent margin chip */}
+                {mt && (
+                  <div className={`inline-flex items-center justify-between gap-2 rounded-lg border px-3 py-1.5 ${mt.bg} ${mt.border}`}>
+                    <span className={`text-[11px] font-medium uppercase tracking-wide ${mt.text}`}>{mt.label} margin</span>
+                    <span className={`text-base font-semibold tabular-nums ${mt.text}`}>{marginPct.toFixed(1)}%</span>
+                  </div>
+                )}
+
                 {/* Key figures */}
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                   <div>
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Theo. Cost</span>
-                    <p className="text-sm font-mono font-semibold text-foreground">${tc.toFixed(2)}</p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">{fmtHK(tc)}</p>
                   </div>
                   <div>
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sell Price</span>
-                    <p className="text-sm font-mono font-semibold text-foreground">
-                      {sellingPrice > 0 ? `$${Number(sellingPrice).toFixed(2)}` : "—"}
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {sellingPrice > 0 ? fmtHK(sellingPrice) : "—"}
                     </p>
                   </div>
                   <div>
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Gross Profit</span>
-                    <p className={`text-sm font-mono font-semibold ${Number(grossProfit) < 0 ? "text-destructive" : "text-foreground"}`}>
-                      {sellingPrice > 0 ? `$${Number(grossProfit).toFixed(2)}` : "—"}
+                    <p className={`text-sm font-semibold tabular-nums ${grossProfit < 0 ? "text-destructive" : "text-foreground"}`}>
+                      {sellingPrice > 0 ? fmtHK(grossProfit) : "—"}
                     </p>
                   </div>
                   <div>
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Food Cost %</span>
-                    <p className={`text-sm font-mono font-semibold ${Number(foodCostPct) > 35 ? "text-destructive" : "text-foreground"}`}>
-                      {sellingPrice > 0 ? `${Number(foodCostPct).toFixed(1)}%` : "—"}
+                    <p className={`text-sm font-semibold tabular-nums ${sellingPrice > 0 && foodCostPct > 35 ? "text-destructive" : "text-foreground"}`}>
+                      {sellingPrice > 0 ? `${foodCostPct.toFixed(1)}%` : "—"}
                     </p>
                   </div>
                 </div>
@@ -292,7 +354,7 @@ export default function MenuCostingTab() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs gap-1 flex-1"
+                    className="h-9 text-xs gap-1 flex-1"
                     onClick={() => { loadDetail(item); setDetailTab("ingredients"); }}
                   >
                     <BookOpen className="h-3 w-3" /> Recipe
@@ -300,7 +362,7 @@ export default function MenuCostingTab() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs gap-1 flex-1"
+                    className="h-9 text-xs gap-1 flex-1"
                     onClick={() => { loadDetail(item); setDetailTab("pricing"); }}
                   >
                     <DollarSign className="h-3 w-3" /> Pricing
@@ -308,7 +370,7 @@ export default function MenuCostingTab() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 shrink-0"
+                    className="h-9 w-9 shrink-0"
                     onClick={(e) => openEdit(item, e)}
                   >
                     <Pencil className="h-3 w-3" />
@@ -316,7 +378,7 @@ export default function MenuCostingTab() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 shrink-0"
+                    className="h-9 w-9 shrink-0"
                     onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
                   >
                     <Trash2 className="h-3 w-3 text-destructive" />
@@ -327,6 +389,7 @@ export default function MenuCostingTab() {
           })}
         </div>
       )}
+
 
       {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
