@@ -229,8 +229,8 @@ export default function ProcurementInvoicesTab() {
 
   const loadProductMaster = React.useCallback(async () => {
     const [pm, ps] = await Promise.all([
-      fetchAllRows("product_master", "id, internal_sku, internal_product_name, external_sku, supplier_product_name, supplier, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
-      fetchAllRows("product_suppliers", "id, product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit, stock_uom, stock_qty"),
+      fetchAllRows("product_master", "id, internal_sku, internal_product_name, external_sku, supplier_product_name, supplier, purchase_unit_cost, purchase_unit, stock_uom, stock_qty", undefined, tenantId),
+      fetchAllRows("product_suppliers", "id, product_master_id, supplier, external_sku, supplier_product_name, purchase_unit_cost, purchase_unit, stock_uom, stock_qty", undefined, tenantId),
     ]);
     const entries: ProductMasterEntry[] = [];
     for (const p of pm) {
