@@ -445,7 +445,7 @@ const DataTable = ({ data }: DataTableProps) => {
         toolbarLeft={
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1 flex-wrap">
-              {venues.map(v => (
+              {venueOptions.map(v => (
                 <button
                   key={v}
                   onClick={() => setVenueFilter(v)}
