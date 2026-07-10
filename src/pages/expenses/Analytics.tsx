@@ -14,6 +14,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { PageHeader } from "@/components/expenses/shared";
 
 const fmt = (n: number) =>
   `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -60,10 +61,11 @@ export default function ExpenseAnalytics() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-semibold">Expense Analytics</h1>
-        <p className="text-sm text-muted-foreground">Trends, breakdowns and avoidable costs.</p>
-      </div>
+      <PageHeader
+        title="Expense Analytics"
+        description="Trends, breakdowns and avoidable costs across bills and vendor statements."
+      />
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="p-4 lg:col-span-2">
@@ -98,7 +100,7 @@ export default function ExpenseAnalytics() {
 
       <Card className="p-4">
         <div className="text-sm font-medium mb-1">Avoidable costs</div>
-        <div className="text-3xl font-semibold td-num text-red-500">{fmt(avoidable)}</div>
+        <div className="text-3xl font-semibold td-num text-destructive">{fmt(avoidable)}</div>
         <div className="text-xs text-muted-foreground mt-1">Late fees on vendor statements across all periods.</div>
       </Card>
     </div>

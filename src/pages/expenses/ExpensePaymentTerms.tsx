@@ -4,13 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "sonner";
+import {
+  PageHeader,
+  StatusPill,
+  TableSkeleton,
+  EmptyState,
+} from "@/components/expenses/shared";
 
 interface PaymentTerm {
   id: string;
@@ -21,23 +26,29 @@ interface PaymentTerm {
 }
 
 export default function ExpensePaymentTermsPage() {
-  const { tenantId } = useActiveTenant();
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [rows, setRows] = useState<PaymentTerm[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<PaymentTerm>>({});
 
   const load = async () => {
     if (!tenantId) return;
+    setLoading(true);
     const { data, error } = await supabase
       .from("expense_payment_terms")
-      .select("*")
+      .select("id,name,days,description,is_active")
       .eq("tenant_id", tenantId)
-      .order("name");
-    if (error) { toast.error(error.message); return; }
+      .order("days");
+    if (error) { toast.error(error.message); setLoading(false); return; }
     setRows((data || []) as any);
+    setLoading(false);
   };
 
-  useEffect(() => { load(); }, [tenantId]);
+  useEffect(() => {
+    if (!tenantLoading) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, tenantLoading]);
 
   const save = async () => {
     if (!editing.name) { toast.error("Name is required"); return; }
@@ -49,7 +60,7 @@ export default function ExpensePaymentTermsPage() {
       is_active: editing.is_active ?? true,
     };
     if (editing.id) {
-      const { error } = await supabase.from("expense_payment_terms").update(payload).eq("id", editing.id);
+      const { error } = await supabase.from("expense_payment_terms").update(payload).eq("id", editing.id).eq("tenant_id", tenantId!);
       if (error) { toast.error(error.message); return; }
     } else {
       const { error } = await supabase
@@ -66,7 +77,8 @@ export default function ExpensePaymentTermsPage() {
     const { error } = await supabase
       .from("expense_payment_terms")
       .update({ is_active: !r.is_active })
-      .eq("id", r.id);
+      .eq("id", r.id)
+      .eq("tenant_id", tenantId!);
     if (error) toast.error(error.message);
     else load();
   };
@@ -82,68 +94,86 @@ export default function ExpensePaymentTermsPage() {
       return;
     }
     if (!confirm(`Delete "${r.name}"?`)) return;
-    const { error } = await supabase.from("expense_payment_terms").delete().eq("id", r.id);
+    const { error } = await supabase.from("expense_payment_terms").delete().eq("id", r.id).eq("tenant_id", tenantId!);
     if (error) toast.error(error.message);
     else load();
   };
 
+  const openNew = () => {
+    setEditing({ days: 30, is_active: true });
+    setOpen(true);
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-semibold tracking-tight">Payment Terms</h1>
-          <p className="text-sm text-muted-foreground">Standard terms assigned to vendors and applied to bills.</p>
-        </div>
-        <Button onClick={() => { setEditing({ days: 30, is_active: true }); setOpen(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Add Payment Term
-        </Button>
-      </div>
+      <PageHeader
+        title="Payment Terms"
+        description="Standard net-day terms assigned to vendors and applied to bills for due-date defaults."
+        actions={
+          <Button size="sm" className="h-9" onClick={openNew}>
+            <Plus className="h-4 w-4 mr-1" /> Add payment term
+          </Button>
+        }
+      />
 
       <Card className="card-glass p-0 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Name</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground text-right">Days</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Description</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Active</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((r, idx) => (
-              <TableRow key={r.id} className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/20`}>
-                <TableCell className="py-2 px-3 font-medium">{r.name}</TableCell>
-                <TableCell className="py-2 px-3 text-right tabular-nums">{r.days} days</TableCell>
-                <TableCell className="py-2 px-3 text-muted-foreground">{r.description || "—"}</TableCell>
-                <TableCell className="py-2 px-3" onClick={() => toggleActive(r)}>
-                  {r.is_active ? (
-                    <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 cursor-pointer">Active</Badge>
-                  ) : (
-                    <Badge variant="secondary" className="cursor-pointer">Inactive</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="py-2 px-3">
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setOpen(true); }}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => remove(r)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!rows.length && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
-                  No payment terms defined yet. Add your first payment term to get started.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+        {loading ? (
+          <TableSkeleton rows={4} cols={5} />
+        ) : (
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Name</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground text-right">Days</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Description</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r, idx) => (
+                  <TableRow key={r.id} className={`${idx % 2 === 0 ? "bg-muted/20" : ""} hover:bg-muted/40`}>
+                    <TableCell className="py-2 px-3 font-medium">{r.name}</TableCell>
+                    <TableCell className="py-2 px-3 text-right td-num tabular-nums whitespace-nowrap">{r.days} days</TableCell>
+                    <TableCell className="py-2 px-3 text-muted-foreground max-w-[320px] truncate">{r.description || "—"}</TableCell>
+                    <TableCell className="py-2 px-3" onClick={() => toggleActive(r)}>
+                      <StatusPill variant={r.is_active ? "success" : "muted"} className="cursor-pointer">
+                        {r.is_active ? "Active" : "Inactive"}
+                      </StatusPill>
+                    </TableCell>
+                    <TableCell className="py-2 px-3">
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setOpen(true); }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => remove(r)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!rows.length && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState
+                        icon={<Clock className="h-6 w-6" />}
+                        title="No payment terms yet"
+                        description="Define your standard terms (Net 15, Net 30, Due on Receipt) so bill due dates calculate automatically from the bill date."
+                        action={
+                          <Button size="sm" className="h-8" onClick={openNew}>
+                            <Plus className="h-3 w-3 mr-1" /> Add first term
+                          </Button>
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -166,6 +196,9 @@ export default function ExpensePaymentTermsPage() {
                 value={editing.days ?? ""}
                 onChange={(e) => setEditing((p) => ({ ...p, days: e.target.value === "" ? undefined : Number(e.target.value) }))}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Days added to the bill date to compute the due date.
+              </p>
             </div>
             <div>
               <Label>Description</Label>

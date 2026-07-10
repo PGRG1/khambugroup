@@ -3,25 +3,31 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, PlayCircle } from "lucide-react";
+import { Plus, Trash2, PlayCircle, Repeat } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useRecurringExpenses, RecurringRule, RecurringRuleStatus } from "@/hooks/useRecurringExpenses";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  PageHeader,
+  StatusPill,
+  StatusVariant,
+  TableSkeleton,
+  EmptyState,
+  fmtHK,
+  fmtDate,
+  ScopeLine,
+} from "@/components/expenses/shared";
 
-const fmt = (n: number) =>
-  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const dt = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-
-const STATUS_VARIANT: Record<RecurringRuleStatus, "secondary" | "default" | "outline" | "destructive"> = {
-  draft: "outline",
-  active: "default",
-  paused: "secondary",
+const STATUS_VARIANT: Record<RecurringRuleStatus, StatusVariant> = {
+  draft: "muted",
+  active: "success",
+  paused: "warning",
   ended: "destructive",
 };
 
@@ -50,6 +56,7 @@ function computeNextGeneration(r: Partial<RecurringRule>): string | null {
 }
 
 export default function RecurringExpenses() {
+  const { tenantId } = useActiveTenant();
   const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
@@ -59,19 +66,21 @@ export default function RecurringExpenses() {
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([]);
 
   useEffect(() => {
+    if (!tenantId) return;
     (async () => {
+      // Server-side tenant filter on every lookup (defence-in-depth beyond RLS).
       const [s, v, c, a] = await Promise.all([
-        supabase.from("suppliers").select("id,name").order("name"),
-        supabase.from("venues").select("id,name").order("name"),
-        supabase.from("expense_categories").select("id,name").order("name"),
-        supabase.from("chart_of_accounts").select("id,code,name").order("code"),
+        supabase.from("suppliers").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("venues").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("expense_categories").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("chart_of_accounts").select("id,code,name").eq("tenant_id", tenantId).order("code"),
       ]);
       setSuppliers((s.data || []) as any);
       setVenues((v.data || []) as any);
       setCategories((c.data || []) as any);
       setAccounts((a.data || []) as any);
     })();
-  }, []);
+  }, [tenantId]);
 
   const openNew = () => {
     setEditing({
@@ -96,73 +105,99 @@ export default function RecurringExpenses() {
     if (ok) setOpen(false);
   };
 
+  const activeCount = rules.filter((r) => r.status === "active").length;
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-semibold">Recurring Expenses</h1>
-          <p className="text-sm text-muted-foreground">
-            Rules act as templates. Active rules generate a pending-approval bill in Expenses → Approvals each period.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={generateNow}>
-            <PlayCircle className="h-4 w-4 mr-1" /> Generate Due Now
-          </Button>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> New Rule</Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Recurring Expenses"
+        description="Rules act as templates. Active rules generate a pending-approval bill in Expenses → Approvals each period."
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="h-9" onClick={generateNow}>
+              <PlayCircle className="h-4 w-4 mr-1" /> Generate due now
+            </Button>
+            <Button size="sm" className="h-9" onClick={openNew}>
+              <Plus className="h-4 w-4 mr-1" /> New rule
+            </Button>
+          </>
+        }
+      />
 
-      <Card className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Vendor</TableHead>
-              <TableHead>Cadence</TableHead>
-              <TableHead>Next Generation</TableHead>
-              <TableHead className="text-right">Expected</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rules.map((r) => (
-              <TableRow key={r.id} className="cursor-pointer" onClick={() => { setEditing(r); setOpen(true); }}>
-                <TableCell className="font-medium">{r.name}</TableCell>
-                <TableCell>{r.vendor_name || "—"}</TableCell>
-                <TableCell><Badge variant="outline">{r.cadence}</Badge></TableCell>
-                <TableCell>{dt(r.next_generation_date)}</TableCell>
-                <TableCell className="text-right td-num">{fmt(r.expected_amount)}</TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Select value={r.status || "draft"} onValueChange={(v) => setStatus(r.id, v as RecurringRuleStatus)}>
-                    <SelectTrigger className="h-7 w-[110px]">
-                      <Badge variant={STATUS_VARIANT[r.status || "draft"]}>{r.status || "draft"}</Badge>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
-                      <SelectItem value="ended">Ended</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete rule?")) remove(r.id); }}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!rules.length && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  {loading ? "Loading…" : "No recurring rules"}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      <ScopeLine>
+        {rules.length} rule{rules.length === 1 ? "" : "s"} · {activeCount} active
+      </ScopeLine>
+
+      <Card className="card-glass p-0 overflow-hidden">
+        {loading ? (
+          <TableSkeleton rows={4} cols={7} />
+        ) : (
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead>Name</TableHead>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Cadence</TableHead>
+                  <TableHead>Next generation</TableHead>
+                  <TableHead className="text-right">Expected</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rules.map((r) => (
+                  <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => { setEditing(r); setOpen(true); }}>
+                    <TableCell className="font-medium">{r.name}</TableCell>
+                    <TableCell>{r.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell><StatusPill variant="neutral">{r.cadence}</StatusPill></TableCell>
+                    <TableCell className="whitespace-nowrap">{fmtDate(r.next_generation_date)}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(r.expected_amount)}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Select value={r.status || "draft"} onValueChange={(v) => setStatus(r.id, v as RecurringRuleStatus)}>
+                        <SelectTrigger className="h-8 w-[120px]">
+                          <StatusPill variant={STATUS_VARIANT[r.status || "draft"]}>{r.status || "draft"}</StatusPill>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="paused">Paused</SelectItem>
+                          <SelectItem value="ended">Ended</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete rule?")) remove(r.id); }}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!rules.length && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="p-0">
+                      <EmptyState
+                        icon={<Repeat className="h-6 w-6" />}
+                        title="No recurring rules yet"
+                        description="Templates for rent, utilities, insurance — bills generate automatically each period so nothing is missed."
+                        action={
+                          <div className="flex gap-2">
+                            <Button size="sm" className="h-8" onClick={openNew}>
+                              <Plus className="h-3 w-3 mr-1" /> Add first rule
+                            </Button>
+                            <Link to="/expenses/vendors">
+                              <Button size="sm" variant="outline" className="h-8">Add a vendor first</Button>
+                            </Link>
+                          </div>
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -305,7 +340,7 @@ export default function RecurringExpenses() {
               </div>
               <div className="col-span-2 rounded-md border bg-muted/30 px-3 py-2 text-xs">
                 <span className="text-muted-foreground">Next Generation Date (auto): </span>
-                <span className="font-mono">{dt(editing.next_generation_date || previewNextGen)}</span>
+                <span className="font-mono">{fmtDate(editing.next_generation_date || previewNextGen)}</span>
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <Switch checked={editing.auto_approve ?? false} onCheckedChange={(v) => setField("auto_approve", v)} />

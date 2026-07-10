@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, FileText, Search, Eye, ExternalLink, ScanLine } from "lucide-react";
+import { Plus, Trash2, Search, Eye, ExternalLink, ScanLine, ShieldAlert, FileText, ArrowRight, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import BillScanner, { ScannedBill } from "@/components/finance/bills/BillScanner";
 import {
   useExpenseBills,
@@ -21,38 +22,42 @@ import {
   BillApprovalStatus,
 } from "@/hooks/useExpenseBills";
 import { useAuth } from "@/hooks/useAuth";
-
-const fmt = (n: number) =>
-  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const APPROVAL_COLORS: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  pending_review: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  approved: "bg-blue-100 text-blue-800 border-blue-300",
-  rejected: "bg-red-100 text-red-800 border-red-300",
-  posted: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  void: "bg-zinc-200 text-zinc-700 line-through",
-};
-
-const PAYMENT_COLORS: Record<string, string> = {
-  unpaid: "bg-orange-100 text-orange-800 border-orange-300",
-  partial: "bg-blue-100 text-blue-800 border-blue-300",
-  paid: "bg-green-100 text-green-800 border-green-300",
-};
+import {
+  PageHeader,
+  KpiGrid,
+  KpiCard,
+  KpiSkeleton,
+  StatusPill,
+  TableSkeleton,
+  EmptyState,
+  ScopeLine,
+  approvalVariant,
+  paymentVariant,
+  APPROVAL_LABEL,
+  PAYMENT_LABEL,
+  fmtHK,
+  fmtHKWhole,
+  fmtDate,
+} from "@/components/expenses/shared";
 
 interface Supplier { id: string; name: string }
 interface Account { id: string; code: string; name: string; account_type?: string }
 interface Venue { id: string; name: string }
 interface BankAccount { id: string; account_name: string }
+interface Category { id: string; name: string; default_account_id: string | null }
+
+const CATEGORY_OTHER = "__other__";
 
 export default function BillsExpenses() {
   const { isAdmin } = useAuth();
-  const { bills, loading, refresh, saveBill, setStatus, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+  const { tenantId } = useActiveTenant();
+  const { bills, loading, saveBill, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -76,19 +81,23 @@ export default function BillsExpenses() {
   });
 
   useEffect(() => {
+    if (!tenantId) return;
     (async () => {
-      const [s, a, v, b] = await Promise.all([
-        supabase.from("suppliers").select("id,name").order("name"),
-        supabase.from("chart_of_accounts").select("id,code,name,account_type").order("code"),
-        supabase.from("venues").select("id,name").order("name"),
-        supabase.from("bank_accounts").select("id,account_name").order("account_name"),
+      // All lookups tenant-scoped server-side (defence-in-depth beyond RLS).
+      const [s, a, v, b, c] = await Promise.all([
+        supabase.from("suppliers").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("chart_of_accounts").select("id,code,name,account_type").eq("tenant_id", tenantId).order("code"),
+        supabase.from("venues").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("bank_accounts").select("id,account_name").eq("tenant_id", tenantId).order("account_name"),
+        supabase.from("expense_categories").select("id,name,default_account_id").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
       ]);
       setSuppliers((s.data || []) as Supplier[]);
       setAccounts((a.data || []) as Account[]);
       setVenues((v.data || []) as Venue[]);
       setBankAccounts((b.data || []) as BankAccount[]);
+      setCategories((c.data || []) as Category[]);
     })();
-  }, []);
+  }, [tenantId]);
 
   const supplierName = (id: string | null) =>
     suppliers.find((s) => s.id === id)?.name || "—";
@@ -258,116 +267,163 @@ export default function BillsExpenses() {
     }
   };
 
+  // Alert reviewers on the editor when the current bill has allocations missing GL
+  // accounts — bills like these silently stall at Post because the RPC rejects them.
+  const hasUnmappedAllocation = allocations.some((a) => !a.account_id);
+
+  const masterMissing = categories.length === 0 || suppliers.length === 0;
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Bills & Expenses</h1>
-          <p className="text-sm text-muted-foreground">
-            Non-inventory supplier bills — utilities, rent, services, professional fees, late charges.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setScannerOpen(true)}>
-            <ScanLine className="h-4 w-4 mr-2" /> Scan Bill
-          </Button>
-          <Button onClick={() => openEditor(null)}>
-            <Plus className="h-4 w-4 mr-2" /> New Bill
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Bills & Expenses"
+        description="Non-inventory supplier bills — utilities, rent, services, professional fees, late charges."
+        actions={
+          <>
+            <Button size="sm" variant="outline" className="h-9" onClick={() => setScannerOpen(true)}>
+              <ScanLine className="h-4 w-4 mr-1" /> Scan bill
+            </Button>
+            <Button size="sm" className="h-9" onClick={() => openEditor(null)}>
+              <Plus className="h-4 w-4 mr-1" /> New bill
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Total Outstanding</div>
-          <div className="text-xl font-semibold mt-1">{fmt(kpis.outstanding)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Overdue</div>
-          <div className="text-xl font-semibold mt-1 text-red-600">{fmt(kpis.overdue)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Due in 7 Days</div>
-          <div className="text-xl font-semibold mt-1 text-amber-600">{fmt(kpis.dueSoon)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Posted MTD</div>
-          <div className="text-xl font-semibold mt-1">{fmt(kpis.postedMtd)}</div>
-        </Card>
-      </div>
-
-      <Card className="p-4">
-        <div className="flex flex-wrap gap-3 mb-4">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search vendor, bill #, notes…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Master-data prompt — surfaces when categories or vendors are empty. */}
+      {masterMissing && (
+        <div className="card-glass rounded-xl border border-warning/40 p-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-warning/10 p-2 text-warning shrink-0">
+              <ShieldAlert className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium">Set up master data first</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {categories.length === 0 && "No expense categories exist yet. "}
+                {suppliers.length === 0 && "No active vendors exist yet. "}
+                Bills entered without master data become orphaned records that won't flow into P&amp;L correctly.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {categories.length === 0 && (
+                  <Link to="/expenses/categories"><Button size="sm" className="h-8">Add categories <ArrowRight className="h-3 w-3 ml-1" /></Button></Link>
+                )}
+                {suppliers.length === 0 && (
+                  <Link to="/expenses/vendors"><Button size="sm" className="h-8">Add vendors <ArrowRight className="h-3 w-3 ml-1" /></Button></Link>
+                )}
+              </div>
+            </div>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="Approval status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All approval</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="pending_review">Pending review</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="posted">Posted</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="void">Void</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-            <SelectTrigger className="w-40"><SelectValue placeholder="Payment" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All payment</SelectItem>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-            </SelectContent>
-          </Select>
+        </div>
+      )}
+
+      {loading && bills.length === 0 ? (
+        <KpiSkeleton count={4} />
+      ) : (
+        <KpiGrid>
+          <KpiCard label="Total outstanding" value={fmtHKWhole(kpis.outstanding)} tone={kpis.outstanding > 0 ? "warning" : "default"} />
+          <KpiCard label="Overdue" value={fmtHKWhole(kpis.overdue)} tone={kpis.overdue > 0 ? "destructive" : "default"} />
+          <KpiCard label="Due in 7 days" value={fmtHKWhole(kpis.dueSoon)} tone={kpis.dueSoon > 0 ? "warning" : "default"} />
+          <KpiCard label="Posted MTD" value={fmtHKWhole(kpis.postedMtd)} tone="info" />
+        </KpiGrid>
+      )}
+
+      <Card className="card-glass p-0 overflow-hidden">
+        <div className="p-4 border-b border-border/60">
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search vendor, bill #, notes…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Approval status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All approval</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="pending_review">Pending review</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="posted">Posted</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="void">Void</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+              <SelectTrigger className="w-40 h-9"><SelectValue placeholder="Payment" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All payment</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <ScopeLine>
+            <span className="mt-2 inline-block">
+              Showing {filtered.length} of {bills.length} bill{bills.length === 1 ? "" : "s"}
+              {statusFilter !== "all" && ` · approval: ${statusFilter}`}
+              {paymentFilter !== "all" && ` · payment: ${paymentFilter}`}
+            </span>
+          </ScopeLine>
         </div>
 
-        <div className="overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Bill #</TableHead>
-                <TableHead>Bill date</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Venue</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead>Approval</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading && (
-                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
-              )}
-              {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No bills yet. Click "New Bill" to add one.</TableCell></TableRow>
-              )}
-              {filtered.map((b) => (
-                <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openEditor(b)}>
-                  <TableCell>{supplierName(b.supplier_id) !== "—" ? supplierName(b.supplier_id) : b.vendor_name || "—"}</TableCell>
-                  <TableCell>{b.bill_number || "—"}</TableCell>
-                  <TableCell>{b.bill_date}</TableCell>
-                  <TableCell>{b.due_date || "—"}</TableCell>
-                  <TableCell>{b.venue || "—"}</TableCell>
-                  <TableCell>{b.department || "—"}</TableCell>
-                  <TableCell className="text-right font-mono">{fmt(b.total_amount)}</TableCell>
-                  <TableCell className="text-right font-mono text-muted-foreground">{fmt(b.paid_amount)}</TableCell>
-                  <TableCell><Badge variant="outline" className={APPROVAL_COLORS[b.approval_status]}>{b.approval_status}</Badge></TableCell>
-                  <TableCell><Badge variant="outline" className={PAYMENT_COLORS[b.payment_status]}>{b.payment_status}</Badge></TableCell>
-                  <TableCell><Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button></TableCell>
+        {loading ? (
+          <TableSkeleton rows={6} cols={11} />
+        ) : (
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Bill #</TableHead>
+                  <TableHead>Bill date</TableHead>
+                  <TableHead>Due</TableHead>
+                  <TableHead>Venue</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Paid</TableHead>
+                  <TableHead>Approval</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={11} className="p-0">
+                      <EmptyState
+                        icon={<FileText className="h-6 w-6" />}
+                        title={bills.length === 0 ? "No bills yet" : "No bills match the current filter"}
+                        description={bills.length === 0 ? "Scan a bill or create one manually to start tracking expenses." : "Try clearing the search or status filters."}
+                        action={bills.length === 0 ? (
+                          <Button size="sm" className="h-8" onClick={() => openEditor(null)}>
+                            <Plus className="h-3 w-3 mr-1" /> Create first bill
+                          </Button>
+                        ) : undefined}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filtered.map((b) => (
+                  <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openEditor(b)}>
+                    <TableCell>{supplierName(b.supplier_id) !== "—" ? supplierName(b.supplier_id) : b.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-xs">{b.bill_number || "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{fmtDate(b.bill_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{fmtDate(b.due_date)}</TableCell>
+                    <TableCell>{b.venue || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell>{b.department || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(b.total_amount)}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap text-muted-foreground">{fmtHK(b.paid_amount)}</TableCell>
+                    <TableCell><StatusPill variant={approvalVariant(b.approval_status)}>{APPROVAL_LABEL[b.approval_status] || b.approval_status}</StatusPill></TableCell>
+                    <TableCell><StatusPill variant={paymentVariant(b.payment_status)}>{PAYMENT_LABEL[b.payment_status] || b.payment_status}</StatusPill></TableCell>
+                    <TableCell><Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card>
+
 
       <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
         <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
@@ -490,7 +546,55 @@ export default function BillsExpenses() {
                     {allocations.map((a, idx) => (
                       <TableRow key={idx}>
                         <TableCell>
-                          <Input value={a.expense_category || ""} onChange={(e) => updateAlloc(idx, { expense_category: e.target.value })} placeholder="e.g. Utilities" />
+                          {(() => {
+                            // Match the free-text category against the master list
+                            // (case-insensitive), so scanner output like "Laundry" that
+                            // exactly matches a master row shows in the Select. Anything
+                            // that doesn't match falls into an "Other (typed)" option
+                            // that reveals a small free-text input — this is the guarded
+                            // migration path away from unlinked free-text categories.
+                            const matched = categories.find(
+                              (c) => c.name.toLowerCase() === (a.expense_category || "").toLowerCase()
+                            );
+                            const selectValue = matched ? matched.id : (a.expense_category ? CATEGORY_OTHER : "");
+                            return (
+                              <div className="space-y-1">
+                                <Select
+                                  value={selectValue}
+                                  onValueChange={(v) => {
+                                    if (v === CATEGORY_OTHER) {
+                                      updateAlloc(idx, { expense_category: a.expense_category || "" });
+                                    } else {
+                                      const cat = categories.find((c) => c.id === v);
+                                      updateAlloc(idx, {
+                                        expense_category: cat?.name || null,
+                                        // Auto-fill GL account from category default when
+                                        // the row hasn't picked one yet — this is what
+                                        // unblocks bills from stalling in Pending Review.
+                                        account_id: a.account_id || cat?.default_account_id || null,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8"><SelectValue placeholder="Select category" /></SelectTrigger>
+                                  <SelectContent>
+                                    {categories.map((c) => (
+                                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                    ))}
+                                    <SelectItem value={CATEGORY_OTHER}>Other (typed)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {(selectValue === CATEGORY_OTHER || (!matched && a.expense_category)) && (
+                                  <Input
+                                    className="h-8 text-xs"
+                                    value={a.expense_category || ""}
+                                    onChange={(e) => updateAlloc(idx, { expense_category: e.target.value })}
+                                    placeholder="Custom label"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Select value={a.account_id || ""} onValueChange={(v) => updateAlloc(idx, { account_id: v })}>
@@ -537,10 +641,22 @@ export default function BillsExpenses() {
                   </TableBody>
                 </Table>
               </div>
-              <div className={`mt-2 flex justify-end text-sm font-mono ${balanced ? "text-emerald-600" : "text-red-600"}`}>
-                Allocation total: {fmt(allocTotal)} / Expected: {fmt(expectedAllocTotal)}
-                {!balanced && <span className="ml-2">⚠ unbalanced</span>}
+              <div className={`mt-2 flex justify-end text-sm font-mono ${balanced ? "text-primary" : "text-destructive"}`}>
+                Allocation total: {fmtHK(allocTotal)} / Expected: {fmtHK(expectedAllocTotal)}
+                {!balanced && <span className="ml-2 inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> unbalanced</span>}
               </div>
+              {hasUnmappedAllocation && (
+                <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="font-medium">One or more allocation lines are missing a GL account.</div>
+                    <div className="mt-0.5 text-muted-foreground">
+                      Pick a category with a default account, or set an account explicitly.
+                      Posting to GL is blocked until every line is mapped.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Payments */}
@@ -564,7 +680,7 @@ export default function BillsExpenses() {
                     </TableHeader>
                     <TableBody>
                       {payments.map((p) => (
-                        <TableRow key={p.id}><TableCell>{p.payment_date}</TableCell><TableCell>{p.payment_method}</TableCell><TableCell>{p.reference || "—"}</TableCell><TableCell className="text-right font-mono">{fmt(p.amount)}</TableCell></TableRow>
+                        <TableRow key={p.id}><TableCell>{fmtDate(p.payment_date)}</TableCell><TableCell>{p.payment_method}</TableCell><TableCell>{p.reference || "—"}</TableCell><TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(p.amount)}</TableCell></TableRow>
                       ))}
                     </TableBody>
                   </Table>
@@ -580,7 +696,7 @@ export default function BillsExpenses() {
                   {audit.map((row) => (
                     <div key={row.id} className="flex gap-2">
                       <span className="font-mono">{new Date(row.created_at).toLocaleString()}</span>
-                      <Badge variant="outline">{row.event_type}</Badge>
+                      <StatusPill variant="neutral">{row.event_type}</StatusPill>
                       <span>{row.actor_name || row.actor_id?.slice(0, 8) || "system"}</span>
                     </div>
                   ))}
@@ -601,7 +717,13 @@ export default function BillsExpenses() {
                 </>
               )}
               {(header.approval_status === "approved" || header.approval_status === "pending_review") && isAdmin && editing && (
-                <Button onClick={handlePost} disabled={!balanced}>Approve & Post to GL</Button>
+                <Button
+                  onClick={handlePost}
+                  disabled={!balanced || hasUnmappedAllocation}
+                  title={hasUnmappedAllocation ? "Every allocation line needs a GL account." : (!balanced ? "Allocation totals must balance." : undefined)}
+                >
+                  Approve &amp; Post to GL
+                </Button>
               )}
               {editing && editing.approval_status !== "void" && isAdmin && (
                 <Button variant="ghost" className="text-destructive ml-auto" onClick={() => handleSave("void")}>Void</Button>

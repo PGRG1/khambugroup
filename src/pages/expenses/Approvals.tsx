@@ -1,29 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useExpenseBills, ExpenseBill, ExpenseBillAllocation } from "@/hooks/useExpenseBills";
 import { useVendorStatements } from "@/hooks/useVendorStatements";
-import { CheckCircle2, XCircle, FileQuestion, Ban, Pencil, FileCheck2 } from "lucide-react";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { CheckCircle2, XCircle, FileQuestion, Ban, Pencil, FileCheck2, ShieldCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  PageHeader,
+  StatusPill,
+  StatusVariant,
+  EmptyState,
+  fmtHK,
+  fmtDate,
+} from "@/components/expenses/shared";
 
-const fmt = (n: number) =>
-  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const dt = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-
-const DOC_VARIANT: Record<string, { label: string; variant: "outline" | "secondary" | "default" }> = {
-  not_required: { label: "No document required", variant: "outline" },
-  pending: { label: "Document pending", variant: "secondary" },
-  received: { label: "Document received", variant: "default" },
+const DOC_VARIANT: Record<string, { label: string; variant: StatusVariant }> = {
+  not_required: { label: "No document required", variant: "muted" },
+  pending: { label: "Document pending", variant: "warning" },
+  received: { label: "Document received", variant: "success" },
 };
 
 export default function ExpenseApprovals() {
+  const { tenantId } = useActiveTenant();
   const { bills, setStatus, setDocumentRequirement, postBill, saveBill, fetchAllocations } = useExpenseBills();
   const { statements } = useVendorStatements();
   const [editBill, setEditBill] = useState<ExpenseBill | null>(null);
@@ -35,17 +39,19 @@ export default function ExpenseApprovals() {
   const pendingStmts = useMemo(() => statements.filter((s) => s.approval_status === "pending_review"), [statements]);
 
   useEffect(() => {
+    if (!tenantId) return;
     (async () => {
-      const { data: accs } = await supabase.from("chart_of_accounts").select("id,code,name");
+      // Tenant-scoped lookups (defence-in-depth beyond RLS).
+      const { data: accs } = await supabase.from("chart_of_accounts").select("id,code,name").eq("tenant_id", tenantId);
       const map: Record<string, { code: string; name: string }> = {};
       (accs || []).forEach((a: any) => { map[a.id] = { code: a.code, name: a.name }; });
       setAccountsByID(map);
-      const { data: rules } = await supabase.from("expense_recurring_rules").select("id,name");
+      const { data: rules } = await supabase.from("expense_recurring_rules").select("id,name").eq("tenant_id", tenantId);
       const rmap: Record<string, string> = {};
       (rules || []).forEach((r: any) => { rmap[r.id] = r.name; });
       setRuleNames(rmap);
     })();
-  }, []);
+  }, [tenantId]);
 
   const approveAndPost = async (b: ExpenseBill) => {
     const ok = await setStatus(b.id, "approved");
@@ -74,13 +80,15 @@ export default function ExpenseApprovals() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-semibold">Expense Approvals</h1>
-        <p className="text-sm text-muted-foreground">Bills and statements awaiting approval.</p>
-      </div>
+      <PageHeader
+        title="Expense Approvals"
+        description="Bills and statements awaiting approval. Approve & Post writes to the general ledger."
+      />
 
-      <Card className="p-0">
-        <div className="p-4 border-b text-sm font-medium">Bills awaiting approval ({pending.length})</div>
+      <Card className="card-glass p-0 overflow-hidden">
+        <div className="p-4 border-b border-border/60 text-sm font-medium">
+          Bills awaiting approval <span className="text-muted-foreground">({pending.length})</span>
+        </div>
         <div className="divide-y">
           {pending.map((b) => {
             const isRecurring = b.source_type === "recurring_rule";
@@ -91,19 +99,19 @@ export default function ExpenseApprovals() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{b.vendor_name || "—"}</span>
-                      {isRecurring && <Badge variant="secondary">Recurring Rule</Badge>}
+                      {isRecurring && <StatusPill variant="neutral">Recurring rule</StatusPill>}
                       {isRecurring && b.recurring_rule_id && ruleNames[b.recurring_rule_id] && (
                         <span className="text-xs text-muted-foreground">→ {ruleNames[b.recurring_rule_id]}</span>
                       )}
-                      <Badge variant={doc.variant}>{doc.label}</Badge>
-                      {b.combined_venues && <Badge variant="outline">All Venues / Combined</Badge>}
+                      <StatusPill variant={doc.variant}>{doc.label}</StatusPill>
+                      {b.combined_venues && <StatusPill variant="info">All venues / combined</StatusPill>}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Bill #{b.bill_number || "—"} · Recognition {dt(b.bill_date)}
-                      {b.period_start && ` · Period ${dt(b.period_start)} → ${dt(b.period_end)}`}
+                      Bill #{b.bill_number || "—"} · Recognition {fmtDate(b.bill_date)}
+                      {b.period_start && ` · Period ${fmtDate(b.period_start)} → ${fmtDate(b.period_end)}`}
                     </div>
                   </div>
-                  <div className="text-right td-num text-lg font-semibold whitespace-nowrap">{fmt(b.total_amount)}</div>
+                  <div className="text-right td-num text-lg font-semibold whitespace-nowrap">{fmtHK(b.total_amount)}</div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs">
                   <div><span className="text-muted-foreground">Venue:</span> {b.venue || (b.combined_venues ? "Combined" : "—")}</div>
@@ -137,12 +145,20 @@ export default function ExpenseApprovals() {
               </div>
             );
           })}
-          {!pending.length && <div className="text-center text-muted-foreground py-6 text-sm">No bills pending</div>}
+          {!pending.length && (
+            <EmptyState
+              icon={<ShieldCheck className="h-6 w-6" />}
+              title="Nothing awaiting your approval"
+              description="Bills submitted for review from Bills & Expenses or Recurring Rules will appear here."
+            />
+          )}
         </div>
       </Card>
 
-      <Card className="p-0">
-        <div className="p-4 border-b text-sm font-medium">Statements awaiting approval ({pendingStmts.length})</div>
+      <Card className="card-glass p-0 overflow-hidden">
+        <div className="p-4 border-b border-border/60 text-sm font-medium">
+          Statements awaiting approval <span className="text-muted-foreground">({pendingStmts.length})</span>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -156,11 +172,11 @@ export default function ExpenseApprovals() {
           <TableBody>
             {pendingStmts.map((s) => (
               <TableRow key={s.id}>
-                <TableCell>{dt(s.statement_date)}</TableCell>
+                <TableCell>{fmtDate(s.statement_date)}</TableCell>
                 <TableCell>{s.vendor_name || "—"}</TableCell>
                 <TableCell>{s.statement_number || "—"}</TableCell>
-                <TableCell className="text-right td-num">{fmt(s.current_period_charges)}</TableCell>
-                <TableCell className="text-right td-num">{fmt(s.late_fees)}</TableCell>
+                <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.current_period_charges)}</TableCell>
+                <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.late_fees)}</TableCell>
               </TableRow>
             ))}
             {!pendingStmts.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No statements pending</TableCell></TableRow>}
@@ -202,7 +218,7 @@ export default function ExpenseApprovals() {
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">
-                Allocation: {editAllocs.map((a) => `${accountsByID[a.account_id || ""]?.code || "?"} — ${fmt(a.amount)}`).join(", ") || "—"}
+                Allocation: {editAllocs.map((a) => `${accountsByID[a.account_id || ""]?.code || "?"} — ${fmtHK(a.amount)}`).join(", ") || "—"}
               </div>
               <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button variant="outline" onClick={() => setEditBill(null)}>Cancel</Button>
