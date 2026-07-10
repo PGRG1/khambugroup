@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useProductMaster, ProductMasterItem, ProductSupplierEntry, FINANCIAL_TREATMENTS, plSectionFor } from "@/hooks/useProductMaster";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, X, Download, GripHorizontal, AlertTriangle, CheckCircle2, Filter, Columns3, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Download, AlertTriangle, CheckCircle2, Filter, Columns3, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, MoreVertical } from "lucide-react";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
@@ -21,7 +21,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { tonePill } from "@/components/kpi/toneStyles";
+import { cn } from "@/lib/utils";
 
 import UomSelect from "@/components/procurement/UomSelect";
 import SupplierDealDialog, { SupplierDealEditable } from "@/components/procurement/SupplierDealDialog";
@@ -120,11 +125,9 @@ export default function ProductMasterTab() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<FlatRow | null>(null);
   const [dbSuppliers, setDbSuppliers] = useState<{ id: string; name: string }[]>([]);
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
   const [duplicateSku, setDuplicateSku] = useState<string | null>(null);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // Supplier deals (within edit panel)
   const [deals, setDeals] = useState<SupplierDealRow[]>([]);
@@ -320,7 +323,7 @@ export default function ProductMasterTab() {
     setEditingProductId(null);
     setEditingSupplierEntryId(null);
     setForm(EMPTY_FORM);
-    setDragPos(null);
+    setDuplicateSku(null);
     setDuplicateSku(null);
     setDialogOpen(true);
   };
@@ -348,35 +351,10 @@ export default function ProductMasterTab() {
       purchase_yield: String(row.purchase_yield ?? 100),
       cooking_yield: String(row.cooking_yield ?? 100),
     });
-    setDragPos(null);
     setDialogOpen(true);
   };
 
-  const onDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const modal = modalRef.current;
-    if (!modal) return;
-    const rect = modal.getBoundingClientRect();
-    const orig = dragPos || { x: 0, y: 0 };
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: orig.x, origY: orig.y };
-    const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dx = ev.clientX - dragRef.current.startX;
-      const dy = ev.clientY - dragRef.current.startY;
-      let newX = dragRef.current.origX + dx;
-      let newY = dragRef.current.origY + dy;
-      const maxX = window.innerWidth - rect.width;
-      const maxY = window.innerHeight - rect.height;
-      const centerX = (window.innerWidth - rect.width) / 2;
-      const centerY = (window.innerHeight - rect.height) / 2;
-      newX = Math.max(-centerX, Math.min(maxX - centerX, newX));
-      newY = Math.max(-centerY, Math.min(maxY - centerY, newY));
-      setDragPos({ x: newX, y: newY });
-    };
-    const onUp = () => { dragRef.current = null; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [dragPos]);
+
 
   const attemptSave = () => {
     if (duplicateSku !== null) {
@@ -548,7 +526,15 @@ export default function ProductMasterTab() {
     ? "minmax(200px,1.5fr) 130px 100px 100px 100px 180px 110px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 100px 90px 70px"
     : "minmax(220px,1.6fr) 140px 110px 110px 110px 200px 110px 90px 70px";
 
-  if (loading) return <div className="py-12 text-center text-muted-foreground">Loading products...</div>;
+  if (loading) return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[0,1,2,3].map(i => <div key={i} className="h-[52px] rounded-lg bg-muted/30 animate-pulse" />)}
+      </div>
+      <div className="h-10 bg-muted/20 rounded animate-pulse" />
+      {[0,1,2,3,4,5].map(i => <div key={i} className="h-12 bg-muted/20 rounded animate-pulse" />)}
+    </div>
+  );
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -644,8 +630,8 @@ export default function ProductMasterTab() {
   return (
     <div className="space-y-4">
       {showRefundSeedBanner && (
-        <Alert className="border-sky-500/40 bg-sky-500/5">
-          <Info className="h-4 w-4 text-sky-400" />
+        <Alert className="border-info/40 bg-info/5">
+          <Info className="h-4 w-4 text-info" />
           <AlertDescription className="flex items-center justify-between gap-3 w-full">
             <span className="text-sm">
               Add standard supplier refund items? Used for price corrections and credits on invoices.
@@ -659,6 +645,35 @@ export default function ProductMasterTab() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Data-health strip */}
+      {(() => {
+        const total = flatRows.length;
+        const mapped = flatRows.filter(r => r.mapping_status === "Mapped").length;
+        const unmapped = flatRows.filter(r => r.mapping_status === "Unmapped").length;
+        const inactive = flatRows.filter(r => r.status !== "Active").length;
+        const chips: { label: string; count: number; tone: "neutral"|"success"|"danger"; active: boolean; onClick: () => void }[] = [
+          { label: "Total items", count: total, tone: "neutral", active: mappingFilter === "all" && statusFilter === "all", onClick: () => { setMappingFilter("all"); setStatusFilter("all"); } },
+          { label: "Mapped", count: mapped, tone: "success", active: mappingFilter === "Mapped", onClick: () => setMappingFilter(mappingFilter === "Mapped" ? "all" : "Mapped") },
+          { label: "Unmapped", count: unmapped, tone: "danger", active: mappingFilter === "Unmapped", onClick: () => setMappingFilter(mappingFilter === "Unmapped" ? "all" : "Unmapped") },
+          { label: "Inactive", count: inactive, tone: "neutral", active: statusFilter === "Inactive", onClick: () => setStatusFilter(statusFilter === "Inactive" ? "all" : "Inactive") },
+        ];
+        return (
+          <div className="flex flex-wrap gap-2">
+            {chips.map(c => (
+              <button key={c.label} onClick={c.onClick}
+                className={cn(
+                  "flex-1 sm:flex-none min-w-[120px] rounded-lg px-3 py-2 text-left transition-all border min-h-[52px]",
+                  c.active ? `${tonePill[c.tone]} border-transparent ring-2 ring-primary/40` : "bg-card border-border hover:border-primary/40",
+                )}>
+                <div className="text-[10px] uppercase tracking-wide font-medium text-muted-foreground">{c.label}</div>
+                <div className="text-lg font-semibold tabular-nums leading-tight">{c.count.toLocaleString()}</div>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Top toolbar: search + add */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[240px] max-w-md">
@@ -872,8 +887,52 @@ export default function ProductMasterTab() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table (desktop) / Card list (mobile) */}
       <Card className="card-glass overflow-hidden">
+        {isMobile ? (
+          <div className="divide-y divide-border">
+            {pageItems.length === 0 && (
+              <div className="text-center text-muted-foreground py-12">No products found.</div>
+            )}
+            {pageItems.map(r => (
+              <div key={r.rowKey} className="p-3 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <button className="flex-1 min-w-0 text-left" onClick={() => openEdit(r)}>
+                    <div className="font-medium text-sm truncate">{r.internal_product_name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{r.supplier || "—"}</div>
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0"><MoreVertical className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setDeletingRow(r); setDeleteOpen(true); }} className="text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" />Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                {(r.level1_category || r.level2_category || r.level3_category) && (
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {[r.level1_category, r.level2_category, r.level3_category].filter(Boolean).join(" › ")}
+                  </div>
+                )}
+                <div className="flex items-center flex-wrap gap-1.5">
+                  {r.financial_treatment && (
+                    <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", (r.financial_treatment === "COGS" || r.financial_treatment === "OpEx") ? "border-primary/40 bg-primary/10 text-primary" : "border-info/40 bg-info/10 text-info")}>
+                      {r.financial_treatment}
+                    </Badge>
+                  )}
+                  {r.mapping_status === "Mapped" ? (
+                    <span className="chip chip-success"><CheckCircle2 className="h-3 w-3" /> Mapped</span>
+                  ) : (
+                    <span className="chip chip-danger"><AlertTriangle className="h-3 w-3" /> Unmapped</span>
+                  )}
+                  <Badge variant={r.status === "Active" ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">{r.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -909,7 +968,7 @@ export default function ProductMasterTab() {
                   <TableCell>
                     <div className="flex items-center gap-1 flex-wrap">
                       {r.financial_treatment ? (
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${r.financial_treatment === "COGS" || r.financial_treatment === "OpEx" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-sky-500/40 bg-sky-500/10 text-sky-300"}`}>
+                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", (r.financial_treatment === "COGS" || r.financial_treatment === "OpEx") ? "border-primary/40 bg-primary/10 text-primary" : "border-info/40 bg-info/10 text-info")}>
                           {r.financial_treatment}
                         </Badge>
                       ) : (
@@ -947,8 +1006,8 @@ export default function ProductMasterTab() {
                   )}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDeletingRow(r); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setDeletingRow(r); setDeleteOpen(true); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -956,6 +1015,7 @@ export default function ProductMasterTab() {
             </TableBody>
           </Table>
         </div>
+        )}
 
         {/* Pagination footer */}
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border/50 flex-wrap">
@@ -988,356 +1048,345 @@ export default function ProductMasterTab() {
       </Card>
 
 
-      {/* Draggable Create/Edit Modal */}
-      {dialogOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setDialogOpen(false)} />
-          <div
-            ref={modalRef}
-            className="fixed z-50 left-1/2 top-1/2 w-full max-w-lg bg-background border rounded-xl shadow-xl"
-            style={{ transform: `translate(calc(-50% + ${dragPos?.x ?? 0}px), calc(-50% + ${dragPos?.y ?? 0}px))` }}
-          >
-            <div
-              className="flex items-center justify-between px-4 py-3 border-b cursor-grab active:cursor-grabbing select-none"
-              onMouseDown={onDragStart}
-            >
-              <div className="flex items-center gap-2">
-                <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-lg font-semibold">{editingProductId ? "Edit Product" : "Add Product"}</h2>
-              </div>
-              <button onClick={() => setDialogOpen(false)} className="p-1 rounded hover:bg-accent"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="px-4 py-4 max-h-[75vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
-                <div className={form.creates_stock_movement ? "" : "col-span-2"}><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className={`h-9 text-sm ${duplicateSku !== null ? "border-amber-500" : ""}`} /></div>
-                {form.creates_stock_movement && (
-                  <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
-                )}
-                {duplicateSku !== null && (
-                  <div className="col-span-2">
-                    <Alert className="border-amber-400 bg-amber-50 py-2">
-                      <AlertDescription className="text-xs text-amber-800">
-                        ⚠ SKU "{form.internal_sku}" already exists — "{duplicateSku}".{" "}
-                        {editingProductId
-                          ? "Saving will merge this supplier entry into the existing product."
-                          : "Saving will add a new supplier entry (e.g. different weight/pack size) to this product."}
-                      </AlertDescription>
-                    </Alert>
+      {/* Create/Edit Sheet — right side on desktop, bottom sheet on mobile */}
+      <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+        <SheetContent
+          side={isMobile ? "bottom" : "right"}
+          className={cn(
+            "flex flex-col p-0 gap-0",
+            isMobile
+              ? "h-[92vh] rounded-t-2xl border-t sm:max-w-full w-full"
+              : "w-full sm:max-w-[560px]",
+          )}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
+            <h2 className="text-lg font-semibold">{editingProductId ? "Edit Product" : "Add Product"}</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {duplicateSku !== null && (
+              <Alert className="mb-4 border-warning/40 bg-warning/10 py-2">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-xs">
+                  SKU "{form.internal_sku}" already exists — "{duplicateSku}".{" "}
+                  {editingProductId
+                    ? "Saving will merge this supplier entry into the existing product."
+                    : "Saving will add a new supplier entry (e.g. different weight/pack size) to this product."}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <Accordion type="multiple" defaultValue={["identity", "classification", "financial"]} className="space-y-2">
+              {/* IDENTITY */}
+              <AccordionItem value="identity" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm font-medium py-3">Identity</AccordionTrigger>
+                <AccordionContent className="pb-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Internal SKU *</Label>
+                      <Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })}
+                        className={cn("h-9 text-sm font-mono", duplicateSku !== null && "border-warning")} />
+                    </div>
+                    {form.creates_stock_movement && (
+                      <div>
+                        <Label className="text-xs">External SKU</Label>
+                        <Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm font-mono" />
+                      </div>
+                    )}
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs">Internal Product Name *</Label>
+                      <Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" />
+                    </div>
+                    {form.creates_stock_movement && (
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Supplier Product Name</Label>
+                        <Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" />
+                      </div>
+                    )}
                   </div>
-                )}
-                <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
-                {form.creates_stock_movement && (
-                  <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
-                )}
-                <div className="col-span-2">
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* CLASSIFICATION */}
+              <AccordionItem value="classification" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm font-medium py-3">Classification</AccordionTrigger>
+                <AccordionContent className="pb-3">
                   <Label className="text-xs">Categories (L1 → L2 → L3)</Label>
-                  <CategoryCascadeSelect
-                    level1={form.level1_category}
-                    level2={form.level2_category}
-                    level3={form.level3_category}
-                    onChange={(v) => setForm({ ...form, level1_category: v.level1, level2_category: v.level2, level3_category: v.level3 })}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Financial Treatment</Label>
-                  <Select
-                    value={form.financial_treatment || "__none__"}
-                    onValueChange={v => {
-                      const treatment = v === "__none__" ? "" : v;
-                      const autoStock = treatment === "COGS";
-                      setForm({ ...form, financial_treatment: treatment, default_coa_account_id: "", creates_stock_movement: autoStock });
-                    }}
-                  >
-                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select treatment" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
-                      <SelectItem value="COGS">COGS</SelectItem>
-                      <SelectItem value="OpEx">OpEx</SelectItem>
-                      <SelectItem value="Asset - Supplier Deposit">Asset – Supplier & Vendor Deposit</SelectItem>
-                      <SelectItem value="Asset - Fixed Asset">Asset – Fixed Asset</SelectItem>
-                      <SelectItem value="Asset - Prepayment">Asset – Prepayment</SelectItem>
-                      <SelectItem value="Asset - Other">Asset – Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[10px] text-muted-foreground mt-1">Drives default COA account via L1 mapping. Override below if needed.</p>
-                </div>
-                <div>
-                  <Label className="text-xs">COA Account Override (optional)</Label>
-                  <Select
-                    value={form.default_coa_account_id || "__inherit__"}
-                    onValueChange={v => setForm({ ...form, default_coa_account_id: v === "__inherit__" ? "" : v })}
-                  >
-                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Inherit from mapping" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__inherit__">— Inherit from mapping —</SelectItem>
-                      {coaAccounts
-                        .filter(a => a.is_active)
-                        .filter(a => {
-                          const t = form.financial_treatment;
-                          if (!t) return true;
-                          if (t === "COGS") return a.account_type === "cogs";
-                          if (t === "OpEx") return a.account_type === "opex";
-                          if (t.startsWith("Asset")) return a.account_type === "asset";
-                          return true;
-                        })
-                        .map(a => (
-                          <SelectItem key={a.id} value={a.id} className="text-xs">
-                            <span className="font-mono text-muted-foreground mr-2">{a.code}</span>{a.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2 flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
-                  <div className="flex-1">
-                    <Label className="text-xs font-medium">Creates stock movement</Label>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      When off, receiving this item will not update inventory quantities. Use for price corrections, refunds, deposits and non-stock expenses.
-                    </p>
+                  <div className="mt-1">
+                    <CategoryCascadeSelect
+                      level1={form.level1_category}
+                      level2={form.level2_category}
+                      level3={form.level3_category}
+                      onChange={(v) => setForm({ ...form, level1_category: v.level1, level2_category: v.level2, level3_category: v.level3 })}
+                    />
                   </div>
-                  <Switch
-                    checked={form.creates_stock_movement}
-                    onCheckedChange={(v) => setForm(f => ({ ...f, creates_stock_movement: v }))}
-                  />
-                </div>
-                {form.creates_stock_movement && (
-                  <>
-                    <div className="col-span-2">
-                      <Label className="text-xs">Supplier</Label>
-                      <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
-                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* FINANCIAL MAPPING */}
+              <AccordionItem value="financial" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm font-medium py-3">Financial Mapping</AccordionTrigger>
+                <AccordionContent className="pb-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Financial Treatment</Label>
+                      <Select
+                        value={form.financial_treatment || "__none__"}
+                        onValueChange={v => {
+                          const treatment = v === "__none__" ? "" : v;
+                          const autoStock = treatment === "COGS";
+                          setForm({ ...form, financial_treatment: treatment, default_coa_account_id: "", creates_stock_movement: autoStock });
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select treatment" /></SelectTrigger>
                         <SelectContent>
-                          {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                          <SelectItem value="__none__">— None —</SelectItem>
+                          <SelectItem value="COGS">COGS</SelectItem>
+                          <SelectItem value="OpEx">OpEx</SelectItem>
+                          <SelectItem value="Asset - Supplier Deposit">Asset – Supplier & Vendor Deposit</SelectItem>
+                          <SelectItem value="Asset - Fixed Asset">Asset – Fixed Asset</SelectItem>
+                          <SelectItem value="Asset - Prepayment">Asset – Prepayment</SelectItem>
+                          <SelectItem value="Asset - Other">Asset – Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground mt-1">Drives default COA account via L1 mapping.</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">COA Account Override</Label>
+                      <Select
+                        value={form.default_coa_account_id || "__inherit__"}
+                        onValueChange={v => setForm({ ...form, default_coa_account_id: v === "__inherit__" ? "" : v })}
+                      >
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Inherit from mapping" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__inherit__">— Inherit from mapping —</SelectItem>
+                          {coaAccounts
+                            .filter(a => a.is_active)
+                            .filter(a => {
+                              const t = form.financial_treatment;
+                              if (!t) return true;
+                              if (t === "COGS") return a.account_type === "cogs";
+                              if (t === "OpEx") return a.account_type === "opex";
+                              if (t.startsWith("Asset")) return a.account_type === "asset";
+                              return true;
+                            })
+                            .map(a => (
+                              <SelectItem key={a.id} value={a.id} className="text-xs">
+                                <span className="font-mono text-muted-foreground mr-2">{a.code}</span>{a.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
-
-                    {/* Purchase & Stock */}
-                    <div className="col-span-2 border-t pt-3 mt-1">
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">Purchase & Stock Units</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Purchase UOM</Label>
-                      <UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case, Pack" />
-                    </div>
-                    <div><Label className="text-xs">Purchase Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
-                    <div>
-                      <Label className="text-xs">Stock UOM</Label>
-                      <UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle, Pack" />
-                    </div>
-                    <div><Label className="text-xs">Stock Qty</Label><Input type="number" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm" /></div>
-                    <div className="col-span-2 bg-muted/30 rounded-lg p-2">
-                      <p className="text-xs text-muted-foreground">
-                        Cost per Stock Unit: <span className="font-mono font-semibold text-foreground">${fmt(liveCostPerStock)}</span>
-                        <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <Label className="text-xs font-medium">Creates stock movement</Label>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        When off, receiving this item will not update inventory. Use for refunds, deposits and non-stock expenses.
                       </p>
                     </div>
+                    <Switch checked={form.creates_stock_movement}
+                      onCheckedChange={(v) => setForm(f => ({ ...f, creates_stock_movement: v }))} />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-                    {/* Yield & Waste */}
-                    <div className="col-span-2 border-t pt-3 mt-1 space-y-3">
+              {form.creates_stock_movement && (
+                <>
+                  {/* UNITS & COST */}
+                  <AccordionItem value="units" className="border rounded-lg px-3">
+                    <AccordionTrigger className="text-sm font-medium py-3">Units &amp; Cost</AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-3">
                       <div>
-                        <Label className="text-sm font-medium">Yield & Waste</Label>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Account for prep loss and cooking shrinkage. Leave at 100% if there is no waste.
-                        </p>
+                        <Label className="text-xs">Supplier</Label>
+                        <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                          <SelectContent>
+                            {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Purchase &amp; Stock</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
+                          <div><Label className="text-xs">Purchase Cost (HK$)</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                          <div><Label className="text-xs">Stock UOM</Label><UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
+                          <div><Label className="text-xs">Stock Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                        </div>
+                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
+                          <p className="text-xs text-muted-foreground">
+                            Cost per Stock Unit: <span className="tabular-nums font-semibold text-foreground">HK${fmt(liveCostPerStock)}</span>
+                            <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recipe Units</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
+                          <div><Label className="text-xs">Recipe Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="1000 for 1kg" className="h-9 text-sm tabular-nums" /></div>
+                        </div>
+                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
+                          {(() => {
+                            const py = parseFloat(form.purchase_yield) || 100;
+                            const cy = parseFloat(form.cooking_yield) || 100;
+                            const totalYield = (py / 100) * (cy / 100);
+                            const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
+                            const baseQty = parseFloat(form.base_unit_qty) || 1;
+                            const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
+                            const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
+                            const hasYield = totalYield < 0.9999;
+                            return hasYield ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Raw cost per {form.base_unit_type || "unit"}: <span className="tabular-nums line-through text-muted-foreground/60">HK${rawCostPerBase.toFixed(4)}</span></p>
+                                <p className="text-xs text-muted-foreground">Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield): <strong className="text-foreground tabular-nums">HK${effectiveCostPerBase.toFixed(4)}</strong> ← used in recipes</p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Standard Cost per Recipe Unit: <strong className="tabular-nums">HK${rawCostPerBase.toFixed(4)}</strong> (Purchase Cost ÷ Recipe Qty)</p>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* YIELD & WASTE */}
+                  <AccordionItem value="yield" className="border rounded-lg px-3">
+                    <AccordionTrigger className="text-sm font-medium py-3">Yield &amp; Waste</AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-3">
+                      <p className="text-xs text-muted-foreground">Account for prep loss and cooking shrinkage. Leave at 100% if there is no waste.</p>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                           <Label className="text-xs">Purchase yield %</Label>
                           <div className="relative">
-                            <Input
-                              type="number" min={1} max={100} step={0.1}
-                              value={form.purchase_yield}
-                              onChange={e => setForm(f => ({ ...f, purchase_yield: e.target.value }))}
-                              className="pr-8 text-sm h-9"
-                            />
+                            <Input type="number" inputMode="decimal" min={1} max={100} step={0.1} value={form.purchase_yield}
+                              onChange={e => setForm(f => ({ ...f, purchase_yield: e.target.value }))} className="pr-8 text-sm h-9 tabular-nums" />
                             <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground">Trim, peeling, bone, fat removed before cooking</p>
+                          <p className="text-[11px] text-muted-foreground">Trim, peeling, bone, fat removed</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs">Cooking yield %</Label>
                           <div className="relative">
-                            <Input
-                              type="number" min={1} max={100} step={0.1}
-                              value={form.cooking_yield}
-                              onChange={e => setForm(f => ({ ...f, cooking_yield: e.target.value }))}
-                              className="pr-8 text-sm h-9"
-                            />
+                            <Input type="number" inputMode="decimal" min={1} max={100} step={0.1} value={form.cooking_yield}
+                              onChange={e => setForm(f => ({ ...f, cooking_yield: e.target.value }))} className="pr-8 text-sm h-9 tabular-nums" />
                             <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground">Moisture and shrinkage lost during cooking</p>
+                          <p className="text-[11px] text-muted-foreground">Moisture &amp; shrinkage lost during cooking</p>
                         </div>
                       </div>
                       {(() => {
                         const py = parseFloat(form.purchase_yield) || 100;
                         const cy = parseFloat(form.cooking_yield) || 100;
                         const totalYield = (py / 100) * (cy / 100) * 100;
-                        const baseCost = parseFloat(form.cost_per_base_unit) || 0;
-                        const effectiveCost = baseCost > 0 && totalYield > 0 ? baseCost / (totalYield / 100) : 0;
                         return (
-                          <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2 text-sm">
-                            <div className="flex items-center gap-4">
-                              <span className="text-muted-foreground text-xs">
-                                Total yield:
-                                <span className={`ml-1.5 font-medium ${totalYield < 80 ? "text-amber-400" : "text-foreground"}`}>
-                                  {totalYield.toFixed(1)}%
-                                </span>
-                              </span>
-                              {effectiveCost > 0 && (
-                                <span className="text-muted-foreground text-xs">
-                                  Effective cost:
-                                  <span className="ml-1.5 font-medium text-foreground">
-                                    ${effectiveCost.toFixed(4)}/{form.base_unit_type || "unit"}
-                                  </span>
-                                </span>
-                              )}
-                            </div>
-                            {totalYield < 100 && (
-                              <span className="text-[11px] text-muted-foreground">Recipes use effective cost</span>
-                            )}
+                          <div className="rounded-lg bg-secondary/50 px-3 py-2 text-sm flex items-center gap-2">
+                            <span className="text-muted-foreground text-xs">Total yield:</span>
+                            <span className={cn("tabular-nums font-medium", totalYield < 80 ? "text-warning" : "text-foreground")}>{totalYield.toFixed(1)}%</span>
                           </div>
                         );
                       })()}
-                    </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                    {/* Recipe units */}
-                    <div className="col-span-2 border-t pt-3 mt-1">
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Recipe UOM</Label>
-                      <UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml, ea" />
-                    </div>
-                    <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
-                    <div className="col-span-2 bg-muted/30 rounded-lg p-2">
-                      {(() => {
-                        const py = parseFloat(form.purchase_yield) || 100;
-                        const cy = parseFloat(form.cooking_yield) || 100;
-                        const totalYield = (py / 100) * (cy / 100);
-                        const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
-                        const baseQty = parseFloat(form.base_unit_qty) || 1;
-                        const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
-                        const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
-                        const hasYield = totalYield < 0.9999;
-                        return hasYield ? (
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">
-                              Raw cost per {form.base_unit_type || "unit"}:{" "}
-                              <span className="font-mono line-through text-muted-foreground/60">${rawCostPerBase.toFixed(4)}</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield):{" "}
-                              <strong className="text-foreground font-mono">${effectiveCostPerBase.toFixed(4)}</strong>
-                              {" "}← used in recipes
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Standard Cost per Recipe Unit:{" "}
-                            <strong className="font-mono">${rawCostPerBase.toFixed(4)}</strong>{" "}
-                            (Purchase Cost ÷ Recipe Qty)
-                          </p>
-                        );
-                      })()}
-                    </div>
-                  </>
-                )}
+                  {/* REORDER */}
+                  <AccordionItem value="reorder" className="border rounded-lg px-3">
+                    <AccordionTrigger className="text-sm font-medium py-3">Reorder</AccordionTrigger>
+                    <AccordionContent className="pb-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><Label className="text-xs">Min stock qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.min_stock_qty} onChange={e => setForm({ ...form, min_stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                        <div><Label className="text-xs">Reorder qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.reorder_qty} onChange={e => setForm({ ...form, reorder_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                <div className="col-span-2 border-t pt-3 mt-1">
-                  <Label className="text-xs">Notes</Label>
-                  <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-16" />
-                </div>
-
-                <div className="col-span-2 border-t pt-3 mt-1">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Reorder settings</p>
-                </div>
-                <div><Label className="text-xs">Min stock qty</Label><Input type="number" step="0.01" value={form.min_stock_qty} onChange={e => setForm({ ...form, min_stock_qty: e.target.value })} className="h-9 text-sm" /></div>
-                <div><Label className="text-xs">Reorder qty</Label><Input type="number" step="0.01" value={form.reorder_qty} onChange={e => setForm({ ...form, reorder_qty: e.target.value })} className="h-9 text-sm" /></div>
-
-                <div>
-                  <Label className="text-xs">Status</Label>
-                  <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Supplier deals */}
-              <div className="mt-5 pt-4 border-t">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold">Supplier deals</h3>
-                  {editingProductId && (
-                    <Button size="sm" variant="outline" onClick={() => { setEditingDeal(null); setDealDialogOpen(true); }}>
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Add deal
-                    </Button>
-                  )}
-                </div>
-                {!editingProductId ? (
-                  <p className="text-xs text-muted-foreground">Save the item first to add supplier deals.</p>
-                ) : deals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No deals configured</p>
-                ) : (
-                  <div className="space-y-2">
-                    {deals.map((d) => {
-                      const supplier = dbSuppliers.find((s) => s.id === d.supplier_id);
-                      const pc = parseFloat(form.purchase_unit_cost) || 0;
-                      const effective = d.buy_qty + d.free_qty > 0
-                        ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
-                      const unit = form.purchase_unit || "unit";
-                      return (
-                        <div key={d.id} className="flex items-center gap-3 border rounded-md px-3 py-2 text-xs">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{supplier?.name || "—"}</div>
-                            <div className="text-muted-foreground">
-                              Buy <span className="font-mono">{d.buy_qty}</span> {unit} get{" "}
-                              <span className="font-mono">{d.free_qty}</span> {unit} free
-                            </div>
-                          </div>
-                          <div className="text-right whitespace-nowrap">
-                            <div className="text-muted-foreground">Effective</div>
-                            <div className="font-mono font-semibold">{formatCurrency(effective)} / {unit}</div>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7"
-                              onClick={() => {
-                                setEditingDeal({
-                                  id: d.id,
-                                  supplier_id: d.supplier_id,
-                                  buy_qty: d.buy_qty,
-                                  free_qty: d.free_qty,
-                                  notes: d.notes,
-                                  is_active: d.is_active,
-                                });
-                                setDealDialogOpen(true);
-                              }}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
-                              onClick={() => handleDeleteDeal(d.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
+                  {/* SUPPLIER DEALS */}
+                  <AccordionItem value="deals" className="border rounded-lg px-3">
+                    <AccordionTrigger className="text-sm font-medium py-3">Supplier Deals</AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-2">
+                      {editingProductId && (
+                        <Button size="sm" variant="outline" onClick={() => { setEditingDeal(null); setDealDialogOpen(true); }}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Add deal
+                        </Button>
+                      )}
+                      {!editingProductId ? (
+                        <p className="text-xs text-muted-foreground">Save the item first to add supplier deals.</p>
+                      ) : deals.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No deals configured</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {deals.map((d) => {
+                            const supplier = dbSuppliers.find((s) => s.id === d.supplier_id);
+                            const pc = parseFloat(form.purchase_unit_cost) || 0;
+                            const effective = d.buy_qty + d.free_qty > 0 ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
+                            const unit = form.purchase_unit || "unit";
+                            return (
+                              <div key={d.id} className="flex items-center gap-3 border rounded-md px-3 py-2 text-xs">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{supplier?.name || "—"}</div>
+                                  <div className="text-muted-foreground">
+                                    Buy <span className="tabular-nums">{d.buy_qty}</span> {unit} get <span className="tabular-nums">{d.free_qty}</span> {unit} free
+                                  </div>
+                                </div>
+                                <div className="text-right whitespace-nowrap">
+                                  <div className="text-muted-foreground">Effective</div>
+                                  <div className="tabular-nums font-semibold">{formatCurrency(effective)} / {unit}</div>
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button size="icon" variant="ghost" className="h-8 w-8"
+                                    onClick={() => {
+                                      setEditingDeal({ id: d.id, supplier_id: d.supplier_id, buy_qty: d.buy_qty, free_qty: d.free_qty, notes: d.notes, is_active: d.is_active });
+                                      setDealDialogOpen(true);
+                                    }}>
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDeal(d.id)}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                </>
+              )}
+
+              {/* NOTES & STATUS */}
+              <AccordionItem value="notes" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm font-medium py-3">Notes &amp; Status</AccordionTrigger>
+                <AccordionContent className="pb-3 space-y-3">
+                  <div>
+                    <Label className="text-xs">Notes</Label>
+                    <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-20" />
                   </div>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 px-4 py-3 border-t">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
-                {editingProductId ? "Update" : "Create"}
-              </Button>
-            </div>
+                  <div>
+                    <Label className="text-xs">Status</Label>
+                    <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
-        </>
-      )}
+          <div className="flex justify-end gap-2 px-5 py-3 border-t shrink-0 bg-background">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
+              {editingProductId ? "Update" : "Create"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+
 
       <DeleteConfirmDialog
         open={deleteOpen}
