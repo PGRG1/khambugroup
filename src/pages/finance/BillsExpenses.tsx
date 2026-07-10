@@ -267,11 +267,10 @@ export default function BillsExpenses() {
     }
   };
 
-  // Bills at risk of failing to post (pending review/approved but likely unmapped)
-  const unmappedBillCount = useMemo(
-    () => bills.filter((b) => b.approval_status === "pending_review" || b.approval_status === "approved").length,
-    [bills]
-  );
+  // Alert reviewers on the editor when the current bill has allocations missing GL
+  // accounts — bills like these silently stall at Post because the RPC rejects them.
+  const hasUnmappedAllocation = allocations.some((a) => !a.account_id);
+
   const masterMissing = categories.length === 0 || suppliers.length === 0;
 
   return (
