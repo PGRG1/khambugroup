@@ -594,9 +594,9 @@ export default function BillsExpenses() {
                   </TableBody>
                 </Table>
               </div>
-              <div className={`mt-2 flex justify-end text-sm font-mono ${balanced ? "text-emerald-600" : "text-red-600"}`}>
-                Allocation total: {fmt(allocTotal)} / Expected: {fmt(expectedAllocTotal)}
-                {!balanced && <span className="ml-2">⚠ unbalanced</span>}
+              <div className={`mt-2 flex justify-end text-sm font-mono ${balanced ? "text-primary" : "text-destructive"}`}>
+                Allocation total: {fmtHK(allocTotal)} / Expected: {fmtHK(expectedAllocTotal)}
+                {!balanced && <span className="ml-2 inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> unbalanced</span>}
               </div>
             </div>
 
