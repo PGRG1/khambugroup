@@ -255,6 +255,15 @@ export default function BillsExpenses() {
     const payload: Partial<ExpenseBill> = { ...header };
     if (newStatus) payload.approval_status = newStatus;
     const id = await saveBill(payload, allocations);
+    if (id && linkedBankTxn && tenantId) {
+      // Link the originating bank transaction so it stops appearing as "unposted".
+      await supabase
+        .from("bank_transactions")
+        .update({ expense_posted_bill_id: id })
+        .eq("id", linkedBankTxn)
+        .eq("tenant_id", tenantId);
+      setLinkedBankTxn(null);
+    }
     if (id && !editing) {
       setEditorOpen(false);
     } else if (id) {
