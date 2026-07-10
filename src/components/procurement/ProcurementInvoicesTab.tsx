@@ -37,9 +37,9 @@ const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
 
 
 const REVIEW_BADGE: Record<string, string> = {
-  "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  "Disputed": "bg-orange-500/15 text-orange-300 border border-orange-500/30",
-  "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
+  "Approved": "bg-primary/10 text-primary border border-primary/25",
+  "Disputed": "bg-warning/10 text-warning border border-warning/30",
+  "Voided": "bg-muted text-muted-foreground border border-border",
 };
 
 
