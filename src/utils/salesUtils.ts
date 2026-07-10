@@ -4,7 +4,7 @@ import { z } from "zod";
 const SalesRecordSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   day: z.string().trim().min(1).max(10),
-  venue: z.enum(["Assembly", "Caliente", "Hanabi", "Events"]),
+  venue: z.string().trim().min(1).max(60),
   reportNumber: z.string().trim().max(50),
   orders: z.number().int().min(0).max(100000),
   guests: z.number().int().min(0).max(100000),
