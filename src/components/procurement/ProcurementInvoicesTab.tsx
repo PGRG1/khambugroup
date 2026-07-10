@@ -2037,12 +2037,12 @@ function InvoiceTableSection({
 
   const kpiCards: Array<{ label: string; value: string; sub: string; subTone?: string; icon: React.ReactNode; tone: string }> = [
     { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-zinc-400", icon: <Ban className="h-4 w-4" />, tone: "text-zinc-400" },
-    { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
-    
-    { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-orange-400", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-orange-400" },
-    { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-violet-400", icon: <CopyIcon className="h-4 w-4" />, tone: "text-violet-400" },
-    { label: "Total Value", value: `$${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
+    { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-muted-foreground", icon: <Ban className="h-4 w-4" />, tone: "text-muted-foreground" },
+    { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-primary", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-primary" },
+
+    { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-warning", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-warning" },
+    { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-info", icon: <CopyIcon className="h-4 w-4" />, tone: "text-info" },
+    { label: "Total Value", value: `HK$ ${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
   ];
 
   return (
