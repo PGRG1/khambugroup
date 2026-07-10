@@ -128,15 +128,7 @@ export default function VendorStatements() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {(() => {
-          const q = search.trim().toLowerCase();
-          const shown = q
-            ? statements.filter((s) => [s.vendor_name, s.statement_number, s.notes].some((x) => (x || "").toLowerCase().includes(q)))
-            : statements;
-          return (
-            <ScopeLine>Showing {shown.length} of {statements.length} statement{statements.length === 1 ? "" : "s"}</ScopeLine>
-          );
-        })()}
+        <ScopeLine>Showing {filteredStatements.length} of {statements.length} statement{statements.length === 1 ? "" : "s"}</ScopeLine>
       </div>
 
       <Card className="card-glass p-0 overflow-hidden">
