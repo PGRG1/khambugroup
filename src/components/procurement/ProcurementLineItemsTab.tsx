@@ -98,6 +98,7 @@ function StatTile({ label, value, active, onClick, tone = "neutral" }: {
 }
 
 export default function ProcurementLineItemsTab() {
+  const { tenantId } = useActiveTenant();
   const [rows, setRows] = useState<LineItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -113,19 +114,20 @@ export default function ProcurementLineItemsTab() {
   const metaRef = useRef<{ invMap: Map<string, InvoiceMeta>; supMap: Map<string, string>; pmMap: Map<string, PMMeta> } | null>(null);
 
   const refetchLineItems = useCallback(async () => {
-    if (!metaRef.current) return;
-    const liData = await fetchAllRows("invoice_line_items", "*", { col: "created_at", asc: false });
+    if (!metaRef.current || !tenantId) return;
+    const liData = await fetchAllRows("invoice_line_items", "*", { col: "created_at", asc: false }, tenantId);
     const { invMap, supMap, pmMap } = metaRef.current;
     setRows(liData.map((li: any) => buildRow(li, invMap, supMap, pmMap)));
-  }, []);
+  }, [tenantId]);
 
   const fetchAll = useCallback(async () => {
+    if (!tenantId) return;
     setLoading(true);
     const [liData, invData, supData, pmData] = await Promise.all([
-      fetchAllRows("invoice_line_items", "*", { col: "created_at", asc: false }),
-      fetchAllRows("invoices", "id, invoice_number, invoice_date, supplier_id, file_url"),
-      fetchAllRows("suppliers", "id, name"),
-      fetchAllRows("product_master", "id, internal_product_name, internal_sku, external_sku"),
+      fetchAllRows("invoice_line_items", "*", { col: "created_at", asc: false }, tenantId),
+      fetchAllRows("invoices", "id, invoice_number, invoice_date, supplier_id, file_url", undefined, tenantId),
+      fetchAllRows("suppliers", "id, name", undefined, tenantId),
+      fetchAllRows("product_master", "id, internal_product_name, internal_sku, external_sku", undefined, tenantId),
     ]);
     const invMap = new Map<string, InvoiceMeta>(invData.map((i: any) => [i.id, i]));
     const supMap = new Map<string, string>(supData.map((s: any) => [s.id, s.name]));
@@ -133,7 +135,7 @@ export default function ProcurementLineItemsTab() {
     metaRef.current = { invMap, supMap, pmMap };
     setRows(liData.map((li: any) => buildRow(li, invMap, supMap, pmMap)));
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
