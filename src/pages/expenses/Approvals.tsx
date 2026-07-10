@@ -99,12 +99,12 @@ export default function ExpenseApprovals() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{b.vendor_name || "—"}</span>
-                      {isRecurring && <Badge variant="secondary">Recurring Rule</Badge>}
+                      {isRecurring && <StatusPill variant="neutral">Recurring rule</StatusPill>}
                       {isRecurring && b.recurring_rule_id && ruleNames[b.recurring_rule_id] && (
                         <span className="text-xs text-muted-foreground">→ {ruleNames[b.recurring_rule_id]}</span>
                       )}
-                      <Badge variant={doc.variant}>{doc.label}</Badge>
-                      {b.combined_venues && <Badge variant="outline">All Venues / Combined</Badge>}
+                      <StatusPill variant={doc.variant}>{doc.label}</StatusPill>
+                      {b.combined_venues && <StatusPill variant="info">All venues / combined</StatusPill>}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Bill #{b.bill_number || "—"} · Recognition {fmtDate(b.bill_date)}
