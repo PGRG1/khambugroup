@@ -372,6 +372,12 @@ const DataTable = ({ data }: DataTableProps) => {
     return m;
   }, [allServicePeriods]);
 
+  const { venues: dbVenues } = useVenues();
+  const venueOptions = useMemo(
+    () => ["All", ...dbVenues.filter((v) => v.is_active).map((v) => v.name)],
+    [dbVenues],
+  );
+
   const columns: [SortKey, string][] = [
     ["date", "Date"], ["day", "Day"], ["venue", "Venue"], ["servicePeriodId", "Period"],
     ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
