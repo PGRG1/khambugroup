@@ -25,14 +25,15 @@ const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
 type Venue = typeof VENUES[number];
 type GrnStatus = "draft" | "confirmed";
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-HK", { style: "currency", currency: "HKD", currencyDisplay: "narrowSymbol" }).format(n || 0);
-const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—");
+const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
+const fmtMoney = fmtMoneyWhole;
+const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
 const statusBadge = (s: GrnStatus) =>
   s === "confirmed"
-    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-    : "bg-zinc-500/20 text-zinc-300 border-zinc-500/40";
+    ? "bg-primary/10 text-primary border-primary/25"
+    : "bg-muted text-muted-foreground border-border";
 
 interface Supplier { id: string; name: string; is_active: boolean }
 interface Product { id: string; internal_product_name: string; internal_sku?: string | null; unit?: string | null; unit_cost?: number | null }
