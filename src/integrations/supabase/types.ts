@@ -9236,7 +9236,7 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
-      post_expense_bill: { Args: { p_bill_id: string }; Returns: Json }
+      post_expense_bill: { Args: { p_bill_id: string }; Returns: string }
       post_expense_bill_payment: {
         Args: { p_payment_id: string }
         Returns: Json
@@ -9248,6 +9248,10 @@ export type Database = {
       post_payroll_payment_batch: {
         Args: { p_batch_id: string }
         Returns: Json
+      }
+      post_vendor_statement: {
+        Args: { p_statement_id: string }
+        Returns: string
       }
       rebuild_journal_from_operations: {
         Args: { p_tenant_id: string }
