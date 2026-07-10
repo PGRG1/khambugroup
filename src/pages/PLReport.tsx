@@ -7,6 +7,7 @@ import { PLStructureEditor } from "@/components/pl/PLStructureEditor";
 import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/pl/PLPeriodSelector";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FileDown } from "lucide-react";
 import { generatePLReportPDF } from "@/utils/generatePLReport";
 
