@@ -94,6 +94,44 @@ export default function VendorStatements() {
 
       <ScopeLine>{statements.length} statement{statements.length === 1 ? "" : "s"}</ScopeLine>
 
+      {(() => {
+        const totalCharges = statements.reduce((s, x) => s + Number(x.current_period_charges || 0), 0);
+        const totalLate = statements.reduce((s, x) => s + Number(x.late_fees || 0), 0);
+        const pending = statements.filter((s) => s.approval_status === "pending_review" || s.approval_status === "draft").length;
+        const posted = statements.filter((s) => s.approval_status === "posted").length;
+        return loading && statements.length === 0 ? (
+          <KpiSkeleton count={4} />
+        ) : (
+          <KpiGrid>
+            <KpiCard label="Statements" value={String(statements.length)} />
+            <KpiCard label="Current charges" value={fmtHKWhole(totalCharges)} tone="info" />
+            <KpiCard label="Late fees" value={fmtHKWhole(totalLate)} tone={totalLate > 0 ? "warning" : "default"} />
+            <KpiCard label="Awaiting approval" value={String(pending)} tone={pending > 0 ? "warning" : "default"} />
+          </KpiGrid>
+        );
+      })()}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8 h-9"
+            placeholder="Search vendor, statement #…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {(() => {
+          const q = search.trim().toLowerCase();
+          const shown = q
+            ? statements.filter((s) => [s.vendor_name, s.statement_number, s.notes].some((x) => (x || "").toLowerCase().includes(q)))
+            : statements;
+          return (
+            <ScopeLine>Showing {shown.length} of {statements.length} statement{statements.length === 1 ? "" : "s"}</ScopeLine>
+          );
+        })()}
+      </div>
+
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
           <TableSkeleton rows={4} cols={10} />
