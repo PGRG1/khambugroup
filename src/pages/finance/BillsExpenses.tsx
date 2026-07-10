@@ -52,6 +52,12 @@ export default function BillsExpenses() {
   const { isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
   const { bills, loading, saveBill, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const prefill = (location.state as any)?.prefill as
+    | { header: Partial<ExpenseBill>; allocations: ExpenseBillAllocation[]; bankTxnId?: string | null }
+    | undefined;
+  const [linkedBankTxn, setLinkedBankTxn] = useState<string | null>(null);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
