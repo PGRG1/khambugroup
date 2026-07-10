@@ -2141,7 +2141,7 @@ function InvoiceTableSection({
                     })()}
                     {inv.invoice_number}
                     {invoiceVarianceMap[inv.id] && (
-                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
+                      <Badge className="bg-warning/10 text-warning border border-warning/30 text-[10px] px-1.5 py-0">GRN variance</Badge>
                     )}
                   </span>
                 </TableCell>
