@@ -343,8 +343,8 @@ export default function CashflowLedger() {
                   <TableCell className="text-xs"><span className="font-mono text-muted-foreground">{r.account_code}</span> {r.account_name}</TableCell>
                   <TableCell className="text-xs">{r.venue || "—"}</TableCell>
                   <TableCell className="text-sm">{r.memo}</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-700">{r.cash_in ? fmtMono(r.cash_in) : ""}</TableCell>
-                  <TableCell className="text-right font-mono text-rose-700">{r.cash_out ? fmtMono(r.cash_out) : ""}</TableCell>
+                  <TableCell className="text-right tabular-nums text-primary">{r.cash_in ? fmtMono(r.cash_in) : ""}</TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">{r.cash_out ? fmtMono(r.cash_out) : ""}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -356,17 +356,21 @@ export default function CashflowLedger() {
 }
 
 function KPICard({
-  icon, label, value, highlight,
+  icon, label, value, highlight, loading,
 }: {
-  icon: React.ReactNode; label: string; value: string; highlight?: "positive" | "negative";
+  icon: React.ReactNode; label: string; value: string; highlight?: "positive" | "negative"; loading?: boolean;
 }) {
-  const color = highlight === "negative" ? "text-rose-700" : highlight === "positive" ? "text-emerald-700" : "text-foreground";
+  const color = highlight === "negative" ? "text-destructive" : highlight === "positive" ? "text-primary" : "text-foreground";
   return (
     <Card className="card-glass p-4 min-w-0">
       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
         {icon}<span className="truncate">{label}</span>
       </div>
-      <div className={`text-xl md:text-2xl font-bold font-mono truncate ${color}`}>{value}</div>
+      {loading ? (
+        <div className="h-7 w-28 bg-muted/40 rounded animate-pulse" />
+      ) : (
+        <div className={`text-xl md:text-2xl font-semibold tabular-nums truncate ${color}`}>{value}</div>
+      )}
     </Card>
   );
 }
