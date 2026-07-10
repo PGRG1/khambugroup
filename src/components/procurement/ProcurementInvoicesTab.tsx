@@ -267,7 +267,7 @@ export default function ProcurementInvoicesTab() {
       }
     }
     setProductMaster(entries);
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => { loadProductMaster(); }, [loadProductMaster]);
 
