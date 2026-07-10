@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,15 +20,17 @@ export default function BalanceSheet() {
   const [bsRows, setBsRows] = useState<BSRow[]>([]);
   const [plRows, setPlRows] = useState<PLRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) { setBsRows([]); setPlRows([]); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     (async () => {
-      // Fetch ALL rows (bypass 1000-row PostgREST cap), then filter by asOf client-side
       const [bsAll, plAll] = await Promise.all([
-        fetchAllRows("v_balance_sheet", "account_id,code,name,account_type,entry_date,amount"),
-        fetchAllRows("v_pl", "account_type,entry_date,amount"),
+        fetchAllRows("v_balance_sheet", "account_id,code,name,account_type,entry_date,amount", undefined, tenantId),
+        fetchAllRows("v_pl", "account_type,entry_date,amount", undefined, tenantId),
       ]);
       if (cancelled) return;
       setBsRows(((bsAll as unknown) as BSRow[]).filter((r) => r.entry_date <= asOf));
@@ -35,7 +38,7 @@ export default function BalanceSheet() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [asOf]);
+  }, [asOf, tenantId, tenantLoading]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, Map<string, { code: string; name: string; total: number }>>();
