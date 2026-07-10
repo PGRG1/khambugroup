@@ -102,72 +102,99 @@ export default function RecurringExpenses() {
     if (ok) setOpen(false);
   };
 
+  const activeCount = rules.filter((r) => r.status === "active").length;
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-semibold">Recurring Expenses</h1>
-          <p className="text-sm text-muted-foreground">
-            Rules act as templates. Active rules generate a pending-approval bill in Expenses → Approvals each period.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={generateNow}>
-            <PlayCircle className="h-4 w-4 mr-1" /> Generate Due Now
-          </Button>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> New Rule</Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Recurring Expenses"
+        description="Rules act as templates. Active rules generate a pending-approval bill in Expenses → Approvals each period."
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="h-9" onClick={generateNow}>
+              <PlayCircle className="h-4 w-4 mr-1" /> Generate due now
+            </Button>
+            <Button size="sm" className="h-9" onClick={openNew}>
+              <Plus className="h-4 w-4 mr-1" /> New rule
+            </Button>
+          </>
+        }
+      />
 
-      <Card className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Vendor</TableHead>
-              <TableHead>Cadence</TableHead>
-              <TableHead>Next Generation</TableHead>
-              <TableHead className="text-right">Expected</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rules.map((r) => (
-              <TableRow key={r.id} className="cursor-pointer" onClick={() => { setEditing(r); setOpen(true); }}>
-                <TableCell className="font-medium">{r.name}</TableCell>
-                <TableCell>{r.vendor_name || "—"}</TableCell>
-                <TableCell><Badge variant="outline">{r.cadence}</Badge></TableCell>
-                <TableCell>{dt(r.next_generation_date)}</TableCell>
-                <TableCell className="text-right td-num">{fmt(r.expected_amount)}</TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Select value={r.status || "draft"} onValueChange={(v) => setStatus(r.id, v as RecurringRuleStatus)}>
-                    <SelectTrigger className="h-7 w-[110px]">
-                      <Badge variant={STATUS_VARIANT[r.status || "draft"]}>{r.status || "draft"}</Badge>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
-                      <SelectItem value="ended">Ended</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete rule?")) remove(r.id); }}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!rules.length && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  {loading ? "Loading…" : "No recurring rules"}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
+      <ScopeLine>
+        {rules.length} rule{rules.length === 1 ? "" : "s"} · {activeCount} active
+      </ScopeLine>
+
+      <Card className="card-glass p-0 overflow-hidden">
+        {loading ? (
+          <TableSkeleton rows={4} cols={7} />
+        ) : (
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead>Name</TableHead>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Cadence</TableHead>
+                  <TableHead>Next generation</TableHead>
+                  <TableHead className="text-right">Expected</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rules.map((r) => (
+                  <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => { setEditing(r); setOpen(true); }}>
+                    <TableCell className="font-medium">{r.name}</TableCell>
+                    <TableCell>{r.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell><StatusPill variant="neutral">{r.cadence}</StatusPill></TableCell>
+                    <TableCell className="whitespace-nowrap">{fmtDate(r.next_generation_date)}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(r.expected_amount)}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Select value={r.status || "draft"} onValueChange={(v) => setStatus(r.id, v as RecurringRuleStatus)}>
+                        <SelectTrigger className="h-8 w-[120px]">
+                          <StatusPill variant={STATUS_VARIANT[r.status || "draft"]}>{r.status || "draft"}</StatusPill>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="paused">Paused</SelectItem>
+                          <SelectItem value="ended">Ended</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete rule?")) remove(r.id); }}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!rules.length && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="p-0">
+                      <EmptyState
+                        icon={<Repeat className="h-6 w-6" />}
+                        title="No recurring rules yet"
+                        description="Templates for rent, utilities, insurance — bills generate automatically each period so nothing is missed."
+                        action={
+                          <div className="flex gap-2">
+                            <Button size="sm" className="h-8" onClick={openNew}>
+                              <Plus className="h-3 w-3 mr-1" /> Add first rule
+                            </Button>
+                            <Link to="/expenses/vendors">
+                              <Button size="sm" variant="outline" className="h-8">Add a vendor first</Button>
+                            </Link>
+                          </div>
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
         </Table>
       </Card>
 
