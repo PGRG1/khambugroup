@@ -424,7 +424,7 @@ export default function MenuCostingTab() {
                 <ChefHat className="h-5 w-5" /> {selectedItem.name}
               </DialogTitle>
               <DialogDescription>
-                Category: {selectedItem.category || "—"} · Theoretical Cost: <span className="font-mono font-semibold">${Number(theoreticalCost).toFixed(2)}</span>
+                Category: {selectedItem.category || "—"} · Theoretical Cost: <span className="font-mono font-semibold">HK$ {Number(theoreticalCost).toFixed(2)}</span>
               </DialogDescription>
             </DialogHeader>
 
@@ -460,8 +460,8 @@ export default function MenuCostingTab() {
                           <TableCell>{ing.description}</TableCell>
                           <TableCell className="text-right font-mono">{Number(ing.quantity_used).toFixed(2)}</TableCell>
                           <TableCell>{ing.unit_used}</TableCell>
-                          <TableCell className="text-right font-mono">${Number(ing.reference_cost).toFixed(4)}</TableCell>
-                          <TableCell className="text-right font-mono font-semibold">${Number(ing.line_cost).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono">HK$ {Number(ing.reference_cost).toFixed(4)}</TableCell>
+                          <TableCell className="text-right font-mono font-semibold">HK$ {Number(ing.line_cost).toFixed(2)}</TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={() => handleDeleteIngredient(ing.id)}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -472,7 +472,7 @@ export default function MenuCostingTab() {
                       {ingredients.length > 0 && (
                         <TableRow className="bg-muted/30 font-semibold">
                           <TableCell colSpan={5} className="text-right">Total Theoretical Cost</TableCell>
-                          <TableCell className="text-right font-mono">${Number(theoreticalCost).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono">HK$ {Number(theoreticalCost).toFixed(2)}</TableCell>
                           <TableCell />
                         </TableRow>
                       )}
@@ -504,6 +504,7 @@ export default function MenuCostingTab() {
                           <Label>Quantity Used</Label>
                           <Input
                             type="number"
+                            inputMode="decimal"
                             step="any"
                             min="0"
                             value={ingForm.quantity_used}
@@ -525,8 +526,8 @@ export default function MenuCostingTab() {
                       </div>
                       {selectedPm && (
                         <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 rounded-md p-2">
-                          <p>Cost per Base Unit: <span className="font-mono font-semibold">${liveRefCost.toFixed(4)}</span> per {selectedPm.base_unit_type}</p>
-                          <p>Line Cost: <span className="font-mono font-semibold">${liveLineCost.toFixed(2)}</span> ({liveQty} × ${liveRefCost.toFixed(4)})</p>
+                          <p>Cost per Base Unit: <span className="font-mono font-semibold">HK$ {liveRefCost.toFixed(4)}</span> per {selectedPm.base_unit_type}</p>
+                          <p>Line Cost: <span className="font-mono font-semibold">HK$ {liveLineCost.toFixed(2)}</span> ({liveQty} × HK$ {liveRefCost.toFixed(4)})</p>
                         </div>
                       )}
                     </div>
@@ -559,9 +560,9 @@ export default function MenuCostingTab() {
                       ) : pricing.map(p => (
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">{p.price_type}</TableCell>
-                          <TableCell className="text-right font-mono">${Number(p.selling_price).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono">HK$ {Number(p.selling_price).toFixed(2)}</TableCell>
                           <TableCell className={`text-right font-mono ${Number(p.gross_profit) < 0 ? "text-destructive" : ""}`}>
-                            ${Number(p.gross_profit).toFixed(2)}
+                            HK$ {Number(p.gross_profit).toFixed(2)}
                           </TableCell>
                           <TableCell className={`text-right font-mono ${Number(p.food_cost_pct) > 35 ? "text-destructive" : ""}`}>
                             {Number(p.food_cost_pct).toFixed(1)}%
@@ -590,9 +591,10 @@ export default function MenuCostingTab() {
                         <Input value={priceForm.price_type} onChange={e => setPriceForm(f => ({ ...f, price_type: e.target.value }))} placeholder="e.g. Regular Pricing" />
                       </div>
                       <div>
-                        <Label>Selling Price ($)</Label>
+                        <Label>Selling Price (HK$)</Label>
                         <Input
                           type="number"
+                          inputMode="decimal"
                           step="any"
                           min="0"
                           value={priceForm.selling_price}
@@ -600,8 +602,8 @@ export default function MenuCostingTab() {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Theoretical Cost: <span className="font-mono font-semibold">${Number(theoreticalCost).toFixed(2)}</span> · 
-                        Gross Profit: <span className="font-mono">${(liveSellingPrice - theoreticalCost).toFixed(2)}</span> · 
+                        Theoretical Cost: <span className="font-mono font-semibold">HK$ {Number(theoreticalCost).toFixed(2)}</span> · 
+                        Gross Profit: <span className="font-mono">HK$ {(liveSellingPrice - theoreticalCost).toFixed(2)}</span> · 
                         Food Cost: <span className="font-mono">{liveSellingPrice > 0 ? ((theoreticalCost / liveSellingPrice) * 100).toFixed(1) : "0.0"}%</span>
                       </p>
                     </div>
