@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, FileStack } from "lucide-react";
+import { Plus, Trash2, FileStack, Search } from "lucide-react";
 import { useVendorStatements, VendorStatement } from "@/hooks/useVendorStatements";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,9 +16,13 @@ import {
   StatusPill,
   TableSkeleton,
   EmptyState,
+  KpiGrid,
+  KpiCard,
+  KpiSkeleton,
   approvalVariant,
   APPROVAL_LABEL,
   fmtHK,
+  fmtHKWhole,
   fmtDate,
   ScopeLine,
 } from "@/components/expenses/shared";
