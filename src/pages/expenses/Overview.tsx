@@ -106,6 +106,7 @@ export default function ExpensesOverview() {
     })();
   }, [tenantId]);
 
+  const now = useMemo(() => new Date(), []);
   // Period selector — drives all MTD figures. "current" = this month, "prev" = last
   // month, "ytd" = year-to-date.
   const [period, setPeriod] = useState<"current" | "prev" | "ytd">("current");
