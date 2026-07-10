@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ interface GLRow {
 
 export default function Ledger() {
   const { items: accounts } = useChartOfAccounts();
+  const { tenantId } = useActiveTenant();
   const [accountId, setAccountId] = useState<string>("");
   const today = new Date();
   const [fromDate, setFromDate] = useState(`${today.getFullYear()}-01-01`);
@@ -34,16 +36,16 @@ export default function Ledger() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!accountId) { setRows([]); return; }
+    if (!accountId || !tenantId) { setRows([]); return; }
     setLoading(true);
-    let q: any = supabase.from("v_general_ledger" as any).select("*").eq("account_id", accountId).order("entry_date", { ascending: true });
+    let q: any = supabase.from("v_general_ledger" as any).select("*").eq("tenant_id", tenantId).eq("account_id", accountId).order("entry_date", { ascending: true });
     if (fromDate) q = q.gte("entry_date", fromDate);
     if (toDate) q = q.lte("entry_date", toDate);
     q.limit(5000).then(({ data }: any) => {
       setRows((data as GLRow[]) ?? []);
       setLoading(false);
     });
-  }, [accountId, fromDate, toDate]);
+  }, [accountId, fromDate, toDate, tenantId]);
 
   const account = accounts.find((a) => a.id === accountId);
 

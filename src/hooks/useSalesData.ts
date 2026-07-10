@@ -98,12 +98,13 @@ export function useSalesData() {
   }, [fetchData]);
 
   const rebuildJournalSilently = useCallback(async () => {
+    if (!tenantId) return;
     try {
-      await (supabase as any).rpc("rebuild_journal_from_operations");
+      await (supabase as any).rpc("rebuild_journal_from_operations", { p_tenant_id: tenantId });
     } catch (e) {
       console.warn("Journal rebuild failed", e);
     }
-  }, []);
+  }, [tenantId]);
 
   const uploadRecords = useCallback(async (records: SalesRecord[]) => {
     if (!tenantId) return false;
