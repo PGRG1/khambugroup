@@ -22,9 +22,9 @@ const fmtDate = (iso: string | null | undefined) => {
 // Aging bucket tone map — parallels Payables' aging chips.
 const BUCKET_TONE: Record<string, string> = {
   "Current": "bg-primary/10 text-primary border-primary/20",
-  "1-30": "bg-info/10 text-info border-info/20",
-  "31-60": "bg-warning/10 text-warning border-warning/20",
-  "61-90": "bg-warning/10 text-warning border-warning/20",
+  "1–30": "bg-info/10 text-info border-info/20",
+  "31–60": "bg-warning/10 text-warning border-warning/20",
+  "61–90": "bg-warning/10 text-warning border-warning/20",
   "90+": "bg-destructive/10 text-destructive border-destructive/20",
 };
 const bucketTone = (b: string) => BUCKET_TONE[b] || "bg-muted text-muted-foreground border-border";
