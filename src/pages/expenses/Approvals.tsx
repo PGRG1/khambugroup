@@ -1,29 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useExpenseBills, ExpenseBill, ExpenseBillAllocation } from "@/hooks/useExpenseBills";
 import { useVendorStatements } from "@/hooks/useVendorStatements";
-import { CheckCircle2, XCircle, FileQuestion, Ban, Pencil, FileCheck2 } from "lucide-react";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { CheckCircle2, XCircle, FileQuestion, Ban, Pencil, FileCheck2, ShieldCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  PageHeader,
+  StatusPill,
+  StatusVariant,
+  EmptyState,
+  fmtHK,
+  fmtDate,
+} from "@/components/expenses/shared";
 
-const fmt = (n: number) =>
-  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const dt = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-
-const DOC_VARIANT: Record<string, { label: string; variant: "outline" | "secondary" | "default" }> = {
-  not_required: { label: "No document required", variant: "outline" },
-  pending: { label: "Document pending", variant: "secondary" },
-  received: { label: "Document received", variant: "default" },
+const DOC_VARIANT: Record<string, { label: string; variant: StatusVariant }> = {
+  not_required: { label: "No document required", variant: "muted" },
+  pending: { label: "Document pending", variant: "warning" },
+  received: { label: "Document received", variant: "success" },
 };
 
 export default function ExpenseApprovals() {
+  const { tenantId } = useActiveTenant();
   const { bills, setStatus, setDocumentRequirement, postBill, saveBill, fetchAllocations } = useExpenseBills();
   const { statements } = useVendorStatements();
   const [editBill, setEditBill] = useState<ExpenseBill | null>(null);
@@ -35,17 +39,19 @@ export default function ExpenseApprovals() {
   const pendingStmts = useMemo(() => statements.filter((s) => s.approval_status === "pending_review"), [statements]);
 
   useEffect(() => {
+    if (!tenantId) return;
     (async () => {
-      const { data: accs } = await supabase.from("chart_of_accounts").select("id,code,name");
+      // Tenant-scoped lookups (defence-in-depth beyond RLS).
+      const { data: accs } = await supabase.from("chart_of_accounts").select("id,code,name").eq("tenant_id", tenantId);
       const map: Record<string, { code: string; name: string }> = {};
       (accs || []).forEach((a: any) => { map[a.id] = { code: a.code, name: a.name }; });
       setAccountsByID(map);
-      const { data: rules } = await supabase.from("expense_recurring_rules").select("id,name");
+      const { data: rules } = await supabase.from("expense_recurring_rules").select("id,name").eq("tenant_id", tenantId);
       const rmap: Record<string, string> = {};
       (rules || []).forEach((r: any) => { rmap[r.id] = r.name; });
       setRuleNames(rmap);
     })();
-  }, []);
+  }, [tenantId]);
 
   const approveAndPost = async (b: ExpenseBill) => {
     const ok = await setStatus(b.id, "approved");
@@ -74,13 +80,15 @@ export default function ExpenseApprovals() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-semibold">Expense Approvals</h1>
-        <p className="text-sm text-muted-foreground">Bills and statements awaiting approval.</p>
-      </div>
+      <PageHeader
+        title="Expense Approvals"
+        description="Bills and statements awaiting approval. Approve & Post writes to the general ledger."
+      />
 
-      <Card className="p-0">
-        <div className="p-4 border-b text-sm font-medium">Bills awaiting approval ({pending.length})</div>
+      <Card className="card-glass p-0 overflow-hidden">
+        <div className="p-4 border-b border-border/60 text-sm font-medium">
+          Bills awaiting approval <span className="text-muted-foreground">({pending.length})</span>
+        </div>
         <div className="divide-y">
           {pending.map((b) => {
             const isRecurring = b.source_type === "recurring_rule";
