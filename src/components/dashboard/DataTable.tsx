@@ -320,12 +320,12 @@ const DataTable = ({ data }: DataTableProps) => {
     const cls = isMismatchedTotal
       ? "text-destructive font-semibold"
       : isNegativeDiscount
-        ? "text-destructive"
+        ? "text-warning"
         : isZero
           ? "text-muted-foreground"
           : "";
     return (
-      <span className={`text-xs td-num ${cls}`}
+      <span className={`text-xs td-num tabular-nums whitespace-nowrap ${cls}`}
         title={isMismatchedTotal ? `Expected: ${formatCurrency(row.subtotal + row.serviceCharge + row.discount)}` : undefined}>
         {typeof val === "number" ? formatCurrency(val) : val}
         {isMismatchedTotal && " ⚠"}
