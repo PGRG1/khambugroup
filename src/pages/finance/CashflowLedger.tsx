@@ -278,9 +278,9 @@ export default function CashflowLedger() {
               {byAccount.map((a) => (
                 <TableRow key={a.code}>
                   <TableCell><span className="font-mono text-xs text-muted-foreground">{a.code}</span> {a.name}</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-700">{fmtMono(a.cashIn)}</TableCell>
-                  <TableCell className="text-right font-mono text-rose-700">({fmtMono(a.cashOut)})</TableCell>
-                  <TableCell className={`text-right font-mono font-semibold ${a.net >= 0 ? "" : "text-rose-700"}`}>{fmtMono(a.net)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-primary">{fmtMono(a.cashIn)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">({fmtMono(a.cashOut)})</TableCell>
+                  <TableCell className={`text-right tabular-nums font-semibold ${a.net >= 0 ? "" : "text-destructive"}`}>{fmtMono(a.net)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -303,9 +303,9 @@ export default function CashflowLedger() {
               {bySource.map((s) => (
                 <TableRow key={s.source}>
                   <TableCell>{SOURCE_LABELS[s.source] || s.source}</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-700">{fmtMono(s.cashIn)}</TableCell>
-                  <TableCell className="text-right font-mono text-rose-700">({fmtMono(s.cashOut)})</TableCell>
-                  <TableCell className={`text-right font-mono font-semibold ${s.net >= 0 ? "" : "text-rose-700"}`}>{fmtMono(s.net)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-primary">{fmtMono(s.cashIn)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">({fmtMono(s.cashOut)})</TableCell>
+                  <TableCell className={`text-right tabular-nums font-semibold ${s.net >= 0 ? "" : "text-destructive"}`}>{fmtMono(s.net)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
