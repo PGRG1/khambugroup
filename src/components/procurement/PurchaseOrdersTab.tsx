@@ -549,7 +549,7 @@ export default function PurchaseOrdersTab() {
                       <React.Fragment key={s}>
                         <div className={cn(
                           "px-3 py-1 rounded-md text-xs border capitalize",
-                          active ? statusBadge(s) : past ? "bg-emerald-500/10 text-emerald-300/70 border-emerald-500/30" : "bg-muted text-muted-foreground border-border"
+                          active ? statusBadge(s) : past ? "bg-primary/10 text-primary/80 border-primary/25" : "bg-muted text-muted-foreground border-border"
                         )}>
                           {past && <Check className="h-3 w-3 inline mr-1" />}{s}
                         </div>
