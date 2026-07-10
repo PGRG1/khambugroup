@@ -197,7 +197,7 @@ function App() {
                 
                 <Route path="/finance/document-centre" element={<AdminRoute><DocumentCentre /></AdminRoute>} />
                 <Route path="/finance/documents-bills" element={<AdminRoute><DocumentsBills /></AdminRoute>} />
-                <Route path="/finance/bills-expenses" element={<AdminRoute><BillsExpenses /></AdminRoute>} />
+                <Route path="/finance/bills-expenses" element={<Navigate to="/expenses/bills" replace />} />
                 <Route path="/payments" element={<AdminRoute><PaymentsDashboardPage /></AdminRoute>} />
                 <Route path="/payments/batches" element={<AdminRoute><PaymentsBatchesPage /></AdminRoute>} />
                 <Route path="/payments/fee-audit" element={<AdminRoute><PaymentsFeeAuditPage /></AdminRoute>} />
