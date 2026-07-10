@@ -3,25 +3,31 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, PlayCircle } from "lucide-react";
+import { Plus, Trash2, PlayCircle, Repeat } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useRecurringExpenses, RecurringRule, RecurringRuleStatus } from "@/hooks/useRecurringExpenses";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  PageHeader,
+  StatusPill,
+  StatusVariant,
+  TableSkeleton,
+  EmptyState,
+  fmtHK,
+  fmtDate,
+  ScopeLine,
+} from "@/components/expenses/shared";
 
-const fmt = (n: number) =>
-  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const dt = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-
-const STATUS_VARIANT: Record<RecurringRuleStatus, "secondary" | "default" | "outline" | "destructive"> = {
-  draft: "outline",
-  active: "default",
-  paused: "secondary",
+const STATUS_VARIANT: Record<RecurringRuleStatus, StatusVariant> = {
+  draft: "muted",
+  active: "success",
+  paused: "warning",
   ended: "destructive",
 };
 
