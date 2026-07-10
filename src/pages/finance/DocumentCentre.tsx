@@ -255,10 +255,8 @@ export default function DocumentCentre() {
   };
 
   const fileIcon = (name: string) => {
-    const ext = name.split(".").pop()?.toLowerCase();
-    if (ext === "xlsx" || ext === "xls" || ext === "csv") return "bg-emerald-500/10 text-emerald-400";
-    if (ext === "pdf") return "bg-rose-500/10 text-rose-400";
-    return "bg-sky-500/10 text-sky-400";
+    // Monochrome primary tint — differentiate by extension label, not color
+    return "bg-primary/10 text-primary";
   };
 
   return (
