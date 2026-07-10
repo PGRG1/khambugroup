@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useTrialBalance } from "@/hooks/useTrialBalance";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
