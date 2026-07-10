@@ -175,8 +175,8 @@ export default function ExpenseApprovals() {
                 <TableCell>{fmtDate(s.statement_date)}</TableCell>
                 <TableCell>{s.vendor_name || "—"}</TableCell>
                 <TableCell>{s.statement_number || "—"}</TableCell>
-                <TableCell className="text-right td-num">{fmtHK(s.current_period_charges)}</TableCell>
-                <TableCell className="text-right td-num">{fmtHK(s.late_fees)}</TableCell>
+                <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.current_period_charges)}</TableCell>
+                <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.late_fees)}</TableCell>
               </TableRow>
             ))}
             {!pendingStmts.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No statements pending</TableCell></TableRow>}
