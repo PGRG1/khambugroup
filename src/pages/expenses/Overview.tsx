@@ -297,13 +297,28 @@ export default function ExpensesOverview() {
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+          <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="current">This month</SelectItem>
+            <SelectItem value="prev">Previous month</SelectItem>
+            <SelectItem value="ytd">Year to date</SelectItem>
+          </SelectContent>
+        </Select>
+        <ScopeLine>
+          {periodLabel} · {fmtDate(periodStart)} → {fmtDate(periodEnd)}
+        </ScopeLine>
+      </div>
+
       {anyLoading && bills.length === 0 ? (
-        <KpiSkeleton count={7} />
+        <KpiSkeleton count={8} />
       ) : (
         <KpiGrid>
-          <KpiCard label="Actual (MTD)" value={fmtHKWhole(kpis.actualMTD)} hint="Approved & posted" />
-          <KpiCard label="Pending (MTD)" value={fmtHKWhole(kpis.pendingMTD)} hint="Awaiting approval" tone="warning" />
-          <KpiCard label="Expected (MTD)" value={fmtHKWhole(kpis.expectedMTD)} hint="Recurring not yet generated" tone="info" />
+          <KpiCard label="Actual (posted)" value={fmtHKWhole(kpis.actual)} hint="In the ledger" tone="success" />
+          <KpiCard label="Approved · unposted" value={fmtHKWhole(kpis.approvedUnposted)} hint="Ready to post" tone={kpis.approvedUnposted > 0 ? "info" : "default"} />
+          <KpiCard label="Pending" value={fmtHKWhole(kpis.pending)} hint="Awaiting approval" tone={kpis.pending > 0 ? "warning" : "default"} />
+          <KpiCard label="Expected" value={fmtHKWhole(kpis.expected)} hint="Recurring not yet generated" tone="info" />
           <KpiCard label="Overdue" value={String(kpis.overdue)} tone={kpis.overdue > 0 ? "destructive" : "default"} />
           <KpiCard label="Needs review" value={String(kpis.needsReview)} tone={kpis.needsReview > 0 ? "warning" : "default"} />
           <KpiCard label="Bank-detected" value={String(kpis.bankDetected)} hint="Unposted" tone={kpis.bankDetected > 0 ? "info" : "default"} />
