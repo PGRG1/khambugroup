@@ -5,6 +5,7 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type AccountType = "asset" | "liability" | "equity" | "revenue" | "cogs" | "opex" | "other_income" | "other_expense";
 export type NormalSide = "debit" | "credit";
+export type CashFlowCategory = "operating" | "investing" | "financing" | null;
 
 export interface ChartAccount {
   id: string;
@@ -15,8 +16,11 @@ export interface ChartAccount {
   parent_id: string | null;
   is_active: boolean;
   is_cash: boolean;
-  description: string;
+  description: string | null;
   sort_order: number;
+  cash_flow_category: CashFlowCategory;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
@@ -39,6 +43,12 @@ export const ACCOUNT_TYPE_GROUP: Record<AccountType, "Balance Sheet" | "P&L"> = 
   opex: "P&L",
   other_income: "P&L",
   other_expense: "P&L",
+};
+
+export const CASH_FLOW_CATEGORY_LABEL: Record<Exclude<CashFlowCategory, null>, string> = {
+  operating: "Operating",
+  investing: "Investing",
+  financing: "Financing",
 };
 
 export function defaultNormalSide(t: AccountType): NormalSide {
@@ -79,8 +89,9 @@ export function useChartOfAccounts() {
       parent_id: input.parent_id ?? null,
       is_active: input.is_active ?? true,
       is_cash: input.is_cash ?? false,
-      description: input.description ?? "",
+      description: input.description ?? null,
       sort_order: input.sort_order ?? 0,
+      cash_flow_category: input.cash_flow_category ?? null,
       tenant_id: tenantId,
     };
     const { data, error } = await supabase.from("chart_of_accounts" as any).insert(payload as any).select().single();
@@ -107,5 +118,20 @@ export function useChartOfAccounts() {
     await fetchAll();
   }, [fetchAll, tenantId]);
 
-  return { items, loading, fetchAll, createAccount, updateAccount, deleteAccount };
+  /**
+   * Count posted journal_lines referencing an account, tenant-scoped.
+   * Used to block deletion of accounts with history.
+   */
+  const countJournalLines = useCallback(async (accountId: string): Promise<number> => {
+    if (!tenantId) return 0;
+    const { count, error } = await supabase
+      .from("journal_lines" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("account_id", accountId);
+    if (error) return 0;
+    return count ?? 0;
+  }, [tenantId]);
+
+  return { items, loading, fetchAll, createAccount, updateAccount, deleteAccount, countJournalLines };
 }
