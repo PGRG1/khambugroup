@@ -13,6 +13,7 @@ import { DataTableShell } from "@/components/common/data-table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useUnmappedVenues } from "@/hooks/useUnmappedVenues";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
+import { useVenues } from "@/hooks/useVenues";
 import DateFilter from "./DateFilter";
 import { toast } from "sonner";
 
