@@ -735,12 +735,18 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
             </thead>
             <tbody className="divide-y divide-border/30">
               {loading ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    {Array.from({ length: 10 }).map((__, j) => (
+                      <td key={j} className="px-3 py-3"><div className="h-3 bg-muted/30 rounded animate-pulse" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">No credit notes match the current filters.</td></tr>
               ) : filtered.map((c) => (
                 <tr key={c.id} className="hover:bg-muted/30">
-                  <td className="px-3 py-2 text-xs font-mono">{c.credit_note_date}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(c.credit_note_date)}</td>
                   <td className="px-3 py-2 text-xs font-mono">{c.credit_note_number || "—"}</td>
                   <td className="px-3 py-2 text-xs font-medium">{c.supplier_name}</td>
                   <td className="px-3 py-2 text-xs">{c.venue || "—"}</td>
