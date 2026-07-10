@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Upload, FileStack, Landmark, Repeat, Paperclip, ArrowRight, Sparkles, ShieldAlert } from "lucide-react";
 import { useExpenseBills, ExpenseBill } from "@/hooks/useExpenseBills";
 import { useVendorStatements } from "@/hooks/useVendorStatements";
