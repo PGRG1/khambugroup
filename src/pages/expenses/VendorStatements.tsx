@@ -92,7 +92,7 @@ export default function VendorStatements() {
         }
       />
 
-      <ScopeLine>{statements.length} statement{statements.length === 1 ? "" : "s"}</ScopeLine>
+      
 
       {(() => {
         const totalCharges = statements.reduce((s, x) => s + Number(x.current_period_charges || 0), 0);
