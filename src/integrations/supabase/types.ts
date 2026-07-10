@@ -8937,8 +8937,17 @@ export type Database = {
           code: string | null
           entry_date: string | null
           name: string | null
+          tenant_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_cash_movements: {
         Row: {
@@ -8974,8 +8983,16 @@ export type Database = {
           source_id: string | null
           source_type: string | null
           status: string | null
+          tenant_id: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "journal_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "journal_lines_account_id_fkey"
             columns: ["account_id"]
@@ -9036,9 +9053,18 @@ export type Database = {
           entry_date: string | null
           month: number | null
           name: string | null
+          tenant_id: string | null
           year: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_product_mapping_status: {
         Row: {
@@ -9107,10 +9133,19 @@ export type Database = {
           code: string | null
           name: string | null
           normal_side: string | null
+          tenant_id: string | null
           total_credit: number | null
           total_debit: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -9214,7 +9249,10 @@ export type Database = {
         Args: { p_batch_id: string }
         Returns: Json
       }
-      rebuild_journal_from_operations: { Args: never; Returns: Json }
+      rebuild_journal_from_operations: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       rebuild_payroll_accrual: {
         Args: { p_month: number; p_year: number }
         Returns: Json
