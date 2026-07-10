@@ -367,7 +367,7 @@ export default function CashflowStatement() {
                   <TableCell className="text-sm">
                     <span className="font-mono text-xs text-muted-foreground">{a.code}</span> {a.name}
                   </TableCell>
-                  <TableCell className="text-right font-mono">{fmt(a.balance)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmt(a.balance)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
