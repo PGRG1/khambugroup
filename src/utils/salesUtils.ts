@@ -152,7 +152,16 @@ export function getVenueComparison(data: SalesRecord[]) {
   });
 }
 
-export function parseExcelRow(row: any[]): SalesRecord | null {
+export type ParsedExcelResult =
+  | { ok: true; record: SalesRecord }
+  | { ok: false; reason: string; venue?: string; date?: string };
+
+/**
+ * Parse a single Excel row into a SalesRecord. When `validVenues` is provided,
+ * rows with a venue that does not match the master list are rejected with a
+ * descriptive reason (never silently dropped). Case-insensitive match.
+ */
+export function parseExcelRow(row: any[], validVenues?: string[]): ParsedExcelResult {
   try {
     const parseNum = (v: any) => {
       if (typeof v === "number") return v;
@@ -160,7 +169,7 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
       return 0;
     };
     const parsePositive = (v: any) => Math.max(0, parseNum(v));
-    
+
     const dateVal = row[0];
     let dateStr: string;
     if (dateVal instanceof Date) {
@@ -169,17 +178,26 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
       const d = new Date((dateVal - 25569) * 86400 * 1000);
       dateStr = d.toISOString().split("T")[0];
     } else {
-      dateStr = String(dateVal).trim().split("T")[0];
+      dateStr = String(dateVal ?? "").trim().split("T")[0];
     }
 
-    const venue = String(row[2]).trim();
-    if (venue !== "Assembly" && venue !== "Caliente" && venue !== "Hanabi" && venue !== "Events") return null;
+    const rawVenue = String(row[2] ?? "").trim();
+    let venue = rawVenue;
+    if (validVenues && validVenues.length > 0) {
+      const match = validVenues.find((v) => v.toLowerCase() === rawVenue.toLowerCase());
+      if (!match) {
+        return { ok: false, reason: `Unknown venue "${rawVenue || "(blank)"}"`, venue: rawVenue, date: dateStr };
+      }
+      venue = match; // canonical casing from master
+    } else if (!rawVenue) {
+      return { ok: false, reason: "Missing venue", date: dateStr };
+    }
 
     const record = {
       date: dateStr,
-      day: String(row[1]).trim().slice(0, 10),
-      venue: venue as "Assembly" | "Caliente" | "Hanabi" | "Events",
-      reportNumber: String(row[3]).trim().slice(0, 50),
+      day: String(row[1] ?? "").trim().slice(0, 10),
+      venue,
+      reportNumber: String(row[3] ?? "").trim().slice(0, 50),
       orders: parsePositive(row[4]),
       guests: parsePositive(row[5]),
       subtotal: parsePositive(row[6]),
@@ -199,8 +217,18 @@ export function parseExcelRow(row: any[]): SalesRecord | null {
     };
 
     const result = SalesRecordSchema.safeParse(record);
-    return result.success ? result.data as SalesRecord : null;
-  } catch {
-    return null;
+    if (!result.success) {
+      const first = result.error.issues[0];
+      return {
+        ok: false,
+        reason: `Invalid ${first?.path?.join(".") || "row"}: ${first?.message || "validation failed"}`,
+        venue,
+        date: dateStr,
+      };
+    }
+    return { ok: true, record: result.data as SalesRecord };
+  } catch (e: any) {
+    return { ok: false, reason: e?.message || "Parse error" };
   }
 }
+
