@@ -12,8 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, X, Trash2, Search, Check } from "lucide-react";
+import { Plus, X, Trash2, Search, Check, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { BottomSheetDialog } from "@/components/kpi/BottomSheetDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
 type Venue = typeof VENUES[number];
@@ -31,19 +34,20 @@ const STATUS_FLOW: Record<Status, { next?: Status; label?: string }> = {
 
 const statusBadge = (s: Status) => {
   const map: Record<Status, string> = {
-    draft: "bg-zinc-500/20 text-zinc-300 border-zinc-500/40",
-    approved: "bg-blue-500/20 text-blue-300 border-blue-500/40",
-    sent: "bg-amber-500/20 text-amber-300 border-amber-500/40",
-    partial: "bg-orange-500/20 text-orange-300 border-orange-500/40",
-    received: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-    cancelled: "bg-red-500/20 text-red-300 border-red-500/40",
+    draft: "bg-muted text-muted-foreground border-border",
+    approved: "bg-info/10 text-info border-info/30",
+    sent: "bg-warning/10 text-warning border-warning/30",
+    partial: "bg-warning/10 text-warning border-warning/30",
+    received: "bg-primary/10 text-primary border-primary/25",
+    cancelled: "bg-destructive/10 text-destructive border-destructive/25",
   };
   return map[s];
 };
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-HK", { style: "currency", currency: "HKD", currencyDisplay: "narrowSymbol" }).format(n || 0);
-const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—");
+const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
+const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtMoney = fmtMoneyWhole;
+const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
 interface Supplier { id: string; name: string; is_active: boolean }
 interface Product { id: string; internal_product_name: string; supplier_product_name?: string | null; internal_sku?: string | null; unit?: string | null; unit_cost?: number | null }
