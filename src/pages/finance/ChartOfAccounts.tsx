@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  useChartOfAccounts, ChartAccount, AccountType,
+  useChartOfAccounts, ChartAccount, AccountType, NormalSide,
   ACCOUNT_TYPE_LABEL, ACCOUNT_TYPE_GROUP, CASH_FLOW_CATEGORY_LABEL,
   defaultNormalSide, CashFlowCategory,
 } from "@/hooks/useChartOfAccounts";
