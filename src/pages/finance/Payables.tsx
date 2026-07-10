@@ -354,7 +354,7 @@ function OpenPayablesTab({
             <thead className="bg-muted/40 text-xs text-muted-foreground">
               <tr>
                 <Th>Supplier</Th><Th>Invoice #</Th><Th>Venue</Th>
-                <Th>Invoice Date</Th><Th>Due Date</Th>
+                <Th>Invoice Date</Th><Th>Due Date</Th><Th>Age</Th>
                 <Th right>Invoice Amt</Th><Th right>Outstanding</Th>
                 <Th>Payment Status</Th><Th>Last Method</Th><Th>Paid From</Th>
                 <Th>Bank Match</Th><Th>Issue</Th><Th></Th>
@@ -362,23 +362,32 @@ function OpenPayablesTab({
             </thead>
             <tbody className="divide-y divide-border/30">
               {loading ? (
-                <tr><td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    {Array.from({ length: 14 }).map((__, j) => (
+                      <td key={j} className="px-3 py-3"><div className="h-3 bg-muted/30 rounded animate-pulse" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">No open payables match the current filters.</td></tr>
-              ) : filtered.slice(0, 500).map((i: APInvoice) => (
+                <tr><td colSpan={14} className="px-4 py-8 text-center text-muted-foreground">No open payables match the current filters.</td></tr>
+              ) : filtered.slice(0, 500).map((i: APInvoice) => {
+                const ag = invoiceAgingBucket(i.age_days);
+                return (
                 <tr key={i.id} className="hover:bg-muted/30">
                   <td className="px-3 py-2 text-xs font-medium">{i.supplier_name}</td>
-                  <td className="px-3 py-2 text-xs">{i.invoice_number || "—"}</td>
+                  <td className="px-3 py-2 text-xs font-mono">{i.invoice_number || "—"}</td>
                   <td className="px-3 py-2 text-xs">{i.venue}</td>
-                  <td className="px-3 py-2 text-xs font-mono">{i.invoice_date}</td>
-                  <td className="px-3 py-2 text-xs font-mono">{i.due_date || "—"}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-xs">{fmt(i.total_amount)}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-xs font-semibold">{fmt(i.outstanding_amount)}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(i.invoice_date)}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(i.due_date)}</td>
+                  <td className="px-3 py-2"><span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${AGING_TONE[ag.tone]}`}>{ag.label}</span></td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(i.total_amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs font-semibold">{fmt(i.outstanding_amount)}</td>
                   <td className="px-3 py-2"><PaymentStatusBadge status={i.payment_status} /></td>
                   <td className="px-3 py-2 text-xs">{i.last_payment_method || "—"}</td>
                   <td className="px-3 py-2 text-xs">{i.last_paid_from_account_name || "—"}</td>
                   <td className="px-3 py-2"><BankMatchBadge status={i.bank_match_status} /></td>
-                  <td className="px-3 py-2 text-xs text-amber-300">{i.exception_note || "—"}</td>
+                  <td className="px-3 py-2 text-xs text-warning">{i.exception_note || "—"}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1">
                       {i.outstanding_amount > 0.01 && (
