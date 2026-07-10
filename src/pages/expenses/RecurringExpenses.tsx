@@ -195,7 +195,6 @@ export default function RecurringExpenses() {
             </Table>
           </div>
         )}
-        </Table>
       </Card>
 
       <Sheet open={open} onOpenChange={setOpen}>
