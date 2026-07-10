@@ -225,27 +225,34 @@ export default function CashflowLedger() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {buckets.length === 0 && (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={`sk-${i}`}>
+                    {Array.from({ length: 5 }).map((__, j) => (
+                      <TableCell key={j}><div className="h-3 bg-muted/30 rounded animate-pulse" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : buckets.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No data</TableCell></TableRow>
-              )}
-              {buckets.map((b) => (
+              ) : buckets.map((b) => (
                 <TableRow key={b.key}>
                   <TableCell className="font-medium">{b.label}</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-700">{fmtMono(b.inflows)}</TableCell>
-                  <TableCell className="text-right font-mono text-rose-700">({fmtMono(b.outflows)})</TableCell>
-                  <TableCell className={`text-right font-mono font-semibold ${b.net >= 0 ? "text-foreground" : "text-rose-700"}`}>{fmtMono(b.net)}</TableCell>
-                  <TableCell className="text-right font-mono">{fmtMono(b.runningBalance)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-primary">{fmtMono(b.inflows)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">({fmtMono(b.outflows)})</TableCell>
+                  <TableCell className={`text-right tabular-nums font-semibold ${b.net >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtMono(b.net)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtMono(b.runningBalance)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
-            {buckets.length > 0 && (
+            {buckets.length > 0 && !loading && (
               <tfoot className="border-t-2 border-double border-foreground/40">
                 <TableRow>
                   <TableCell className="font-semibold">Total</TableCell>
-                  <TableCell className="text-right font-mono font-semibold text-emerald-700">{fmtMono(totals.cashIn)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold text-rose-700">({fmtMono(totals.cashOut)})</TableCell>
-                  <TableCell className="text-right font-mono font-bold">{fmtMono(totals.net)}</TableCell>
-                  <TableCell className="text-right font-mono font-bold">{fmtMono(totals.closing)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold text-primary">{fmtMono(totals.cashIn)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold text-destructive">({fmtMono(totals.cashOut)})</TableCell>
+                  <TableCell className="text-right tabular-nums font-bold">{fmtMono(totals.net)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-bold">{fmtMono(totals.closing)}</TableCell>
                 </TableRow>
               </tfoot>
             )}
