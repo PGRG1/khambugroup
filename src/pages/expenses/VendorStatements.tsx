@@ -222,7 +222,7 @@ export default function VendorStatements() {
                 <Input type="number" step="0.01" value={editing.opening_balance ?? 0} onChange={(e) => setField("opening_balance", e.target.value)} onBlur={recomputeClosing} />
               </div>
               <div>
-                <Label>Current Period Charges <span className="text-emerald-500 text-xs">(posts to P&L)</span></Label>
+                <Label>Current Period Charges <span className="text-primary text-xs">(posts to P&L)</span></Label>
                 <Input type="number" step="0.01" value={editing.current_period_charges ?? 0} onChange={(e) => setField("current_period_charges", e.target.value)} onBlur={recomputeClosing} />
               </div>
               <div>
@@ -230,7 +230,7 @@ export default function VendorStatements() {
                 <Input type="number" step="0.01" value={editing.payments_credits ?? 0} onChange={(e) => setField("payments_credits", e.target.value)} onBlur={recomputeClosing} />
               </div>
               <div>
-                <Label>Late Fees <span className="text-emerald-500 text-xs">(posts to P&L)</span></Label>
+                <Label>Late Fees <span className="text-primary text-xs">(posts to P&L)</span></Label>
                 <Input type="number" step="0.01" value={editing.late_fees ?? 0} onChange={(e) => setField("late_fees", e.target.value)} onBlur={recomputeClosing} />
               </div>
               <div className="col-span-2">

@@ -98,7 +98,7 @@ export default function ExpenseAnalytics() {
 
       <Card className="p-4">
         <div className="text-sm font-medium mb-1">Avoidable costs</div>
-        <div className="text-3xl font-semibold td-num text-red-500">{fmt(avoidable)}</div>
+        <div className="text-3xl font-semibold td-num text-destructive">{fmt(avoidable)}</div>
         <div className="text-xs text-muted-foreground mt-1">Late fees on vendor statements across all periods.</div>
       </Card>
     </div>
