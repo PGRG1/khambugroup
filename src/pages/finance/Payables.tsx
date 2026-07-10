@@ -321,12 +321,12 @@ function OpenPayablesTab({
   return (
     <>
       <KPIGrid cols={6}>
-        <KPI icon={<Wallet className="h-4 w-4" />} label="Total Outstanding" value={`HK$ ${fmt(kpis.totalOutstanding)}`} sub={`Across ${kpis.openCount} invoices`} />
-        <KPI icon={<AlertTriangle className="h-4 w-4" />} label="Overdue" value={`HK$ ${fmt(kpis.overdueAmt)}`} sub={`${kpis.overdueCount} invoices`} accent="text-red-400" tint="bg-red-500/10" />
-        <KPI icon={<CalendarClock className="h-4 w-4" />} label="Due in 7 Days" value={`HK$ ${fmt(kpis.dueIn7)}`} sub={`${kpis.dueIn7Count} invoices`} accent="text-sky-400" tint="bg-sky-500/10" />
-        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Paid This Month" value={`HK$ ${fmt(paidThisMonth)}`} accent="text-emerald-400" tint="bg-emerald-500/10" />
-        <KPI icon={<Link2 className="h-4 w-4" />} label="Awaiting Bank Match" value={`${awaitingBankMatchCount}`} sub={`${awaitingBankMatchCount} payments`} accent="text-sky-400" tint="bg-sky-500/10" />
-        <KPI icon={<Coins className="h-4 w-4" />} label="Credit Notes Available" value={`HK$ ${fmt(kpis.cnTotal)}`} sub={`${kpis.cnCount} credit notes`} accent="text-purple-400" tint="bg-purple-500/10" />
+        <KPI icon={<Wallet className="h-4 w-4" />} label="Total Outstanding" value={`HK$ ${fmtWhole(kpis.totalOutstanding)}`} sub={`Across ${kpis.openCount} invoices`} accent={kpis.totalOutstanding > 0 ? "text-destructive" : ""} tint={kpis.totalOutstanding > 0 ? "bg-destructive/10" : "bg-muted"} />
+        <KPI icon={<AlertTriangle className="h-4 w-4" />} label="Overdue" value={`HK$ ${fmtWhole(kpis.overdueAmt)}`} sub={`${kpis.overdueCount} invoices`} accent="text-destructive" tint="bg-destructive/10" />
+        <KPI icon={<CalendarClock className="h-4 w-4" />} label="Due in 7 Days" value={`HK$ ${fmtWhole(kpis.dueIn7)}`} sub={`${kpis.dueIn7Count} invoices`} accent="text-warning" tint="bg-warning/10" />
+        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Paid This Month" value={`HK$ ${fmtWhole(paidThisMonth)}`} accent="text-primary" tint="bg-primary/10" />
+        <KPI icon={<Link2 className="h-4 w-4" />} label="Awaiting Bank Match" value={`${awaitingBankMatchCount}`} sub={`${awaitingBankMatchCount} payments`} accent="text-info" tint="bg-info/10" />
+        <KPI icon={<Coins className="h-4 w-4" />} label="Credit Notes Available" value={`HK$ ${fmtWhole(kpis.cnTotal)}`} sub={`${kpis.cnCount} credit notes`} accent="text-info" tint="bg-info/10" />
       </KPIGrid>
 
       <FilterBar>
