@@ -34,6 +34,7 @@ export default function VendorStatements() {
   const [editing, setEditing] = useState<Partial<VendorStatement>>({});
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!tenantId) return;
