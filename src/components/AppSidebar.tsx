@@ -103,7 +103,7 @@ const procurementPurchasing: Item[] = [
 const procurementInventory: Item[] = [
   { title: "Stock on Hand", url: "/procurement/inventory" },
   { title: "Stock Counts", url: "/procurement/stock-counts" },
-  { title: "Stock Movements", url: "/procurement/stock-movements", disabled: true },
+  // "Stock Movements" hidden until the module is built.
   { title: "Transfers", url: "/procurement/transfers" },
   { title: "Waste & Adjustments", url: "/procurement/waste" },
 ];
@@ -113,14 +113,14 @@ const procurementCosting: Item[] = [
 const procurementAnalysis: Item[] = [
   { title: "Purchase Analysis", url: "/procurement/purchase-analysis" },
   { title: "Supplier Pricing", url: "/procurement/supplier-pricing" },
-  { title: "Inventory Variance", url: "/procurement/inventory-variance", disabled: true },
+  // "Inventory Variance" hidden until the module is built.
 ];
 const procurementFinance: Item[] = [
   { title: "Spend Summary", url: "/procurement/finance/spend" },
   { title: "Supplier Accounts", url: "/procurement/finance/suppliers" },
   { title: "Open Payables", url: "/procurement/finance/payables" },
   { title: "Opening Balances", url: "/procurement/finance/onboarding" },
-  { title: "Payments", url: "/procurement/finance/payments", disabled: true },
+  // "Payments" hidden until the module is built.
 ];
 
 const bankOverview: Item = { title: "Overview", url: "/bank/dashboard" };
