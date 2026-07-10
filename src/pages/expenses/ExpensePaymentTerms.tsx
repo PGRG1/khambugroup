@@ -35,6 +35,7 @@ export default function ExpensePaymentTermsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<PaymentTerm>>({});
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     if (!tenantId) return;
