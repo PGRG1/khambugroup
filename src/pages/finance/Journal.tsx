@@ -102,8 +102,8 @@ export default function Journal() {
               const isOpen = expanded.has(e.id);
               const canEdit = e.status === "posted";
               return (
-                <>
-                  <TableRow key={e.id} className={cn("cursor-pointer", e.status === "void" && "opacity-50")} onClick={() => toggle(e.id)}>
+                <React.Fragment key={e.id}>
+                  <TableRow className={cn("cursor-pointer", e.status === "void" && "opacity-50")} onClick={() => toggle(e.id)}>
                     <TableCell>{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
                     <TableCell className="font-mono text-xs">{e.entry_date}</TableCell>
                     <TableCell>
