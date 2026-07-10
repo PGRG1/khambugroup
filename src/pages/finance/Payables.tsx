@@ -831,7 +831,7 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
   return (
     <>
       <KPIGrid cols={6}>
-        <KPI icon={<Wallet className="h-4 w-4" />} label="Total Outstanding" value={`HK$ ${fmt(bucketTotals.grand)}`} sub={`Across ${filteredInv.length} invoices`} />
+        <KPI icon={<Wallet className="h-4 w-4" />} label="Total Outstanding" value={`HK$ ${fmtWhole(bucketTotals.grand)}`} sub={`Across ${filteredInv.length} invoices`} />
         {AGE_BUCKETS.map((b) => {
           const v = bucketTotals.totals[b] || 0;
           const pct = bucketTotals.grand > 0 ? (v / bucketTotals.grand) * 100 : 0;
