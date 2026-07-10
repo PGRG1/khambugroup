@@ -335,7 +335,7 @@ const DataTable = ({ data }: DataTableProps) => {
   const sumField = (rows: SalesRecord[], key: keyof SalesRecord): number =>
     rows.reduce((s, r) => s + (r[key] as number), 0);
 
-  const venues = ["All", "Assembly", "Caliente", "Hanabi", "Events"];
+  // venues list is derived from master (below) inside render.
 
   // --- chips --------------------------------------------------------------
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
