@@ -148,9 +148,30 @@ export default function RecurringExpenses() {
         }
       />
 
-      <ScopeLine>
-        {rules.length} rule{rules.length === 1 ? "" : "s"} · {activeCount} active
-      </ScopeLine>
+      {loading && rules.length === 0 ? (
+        <KpiSkeleton count={3} />
+      ) : (
+        <KpiGrid>
+          <KpiCard label="Rules" value={String(rules.length)} />
+          <KpiCard label="Active" value={String(activeCount)} tone={activeCount > 0 ? "success" : "default"} />
+          <KpiCard label="Expected / month" value={fmtHKWhole(monthlyExpected)} hint="Sum of active rules" tone="info" />
+        </KpiGrid>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8 h-9"
+            placeholder="Search name, vendor, cadence…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <ScopeLine>
+          Showing {filteredRules.length} of {rules.length} · {activeCount} active
+        </ScopeLine>
+      </div>
 
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
