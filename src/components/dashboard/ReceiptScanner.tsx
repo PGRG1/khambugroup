@@ -337,6 +337,21 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
             <p className="text-sm text-muted-foreground">Review and correct the extracted data, then click Save.</p>
           </div>
 
+          {venueUnmatched && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
+              <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+              <div>
+                <div className="font-medium text-warning">Venue could not be matched</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {scannedVenueRaw
+                    ? <>Scanned value <strong className="text-foreground">"{scannedVenueRaw}"</strong> is not in the venues master. Pick the correct venue below, or add it in Settings first.</>
+                    : <>No venue was detected on the receipt. Pick the correct venue below.</>}
+                </div>
+              </div>
+            </div>
+          )}
+
+
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
