@@ -159,7 +159,7 @@ export default function Journal() {
                     );
                   })}
 
-                </>
+                </React.Fragment>
               );
             })}
           </TableBody>
