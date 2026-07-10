@@ -121,6 +121,37 @@ export default function ExpensePaymentTermsPage() {
         }
       />
 
+      {(() => {
+        const active = rows.filter((r) => r.is_active).length;
+        const avgDays = rows.length ? Math.round(rows.reduce((s, r) => s + r.days, 0) / rows.length) : 0;
+        return loading && rows.length === 0 ? (
+          <KpiSkeleton count={3} />
+        ) : (
+          <KpiGrid>
+            <KpiCard label="Payment terms" value={String(rows.length)} />
+            <KpiCard label="Active" value={String(active)} tone={active > 0 ? "success" : "default"} />
+            <KpiCard label="Avg net days" value={String(avgDays)} hint="Across all terms" tone="info" />
+          </KpiGrid>
+        );
+      })()}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8 h-9"
+            placeholder="Search name or description…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {(() => {
+          const q = search.trim().toLowerCase();
+          const shown = q ? rows.filter((r) => (r.name + " " + (r.description || "")).toLowerCase().includes(q)) : rows;
+          return <ScopeLine>Showing {shown.length} of {rows.length}</ScopeLine>;
+        })()}
+      </div>
+
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
           <TableSkeleton rows={4} cols={5} />
