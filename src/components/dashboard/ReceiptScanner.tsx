@@ -51,10 +51,15 @@ const emptyRecord: SalesRecord = {
 };
 
 const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
+  const { venues } = useVenues();
+  const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
+  const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
+
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<SalesRecord | null>(null);
+  const [scannedVenueRaw, setScannedVenueRaw] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
