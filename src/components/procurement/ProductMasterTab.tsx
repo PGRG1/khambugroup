@@ -526,7 +526,15 @@ export default function ProductMasterTab() {
     ? "minmax(200px,1.5fr) 130px 100px 100px 100px 180px 110px 80px 100px 110px minmax(160px,1.2fr) 100px 100px 100px 90px 100px 90px 70px"
     : "minmax(220px,1.6fr) 140px 110px 110px 110px 200px 110px 90px 70px";
 
-  if (loading) return <div className="py-12 text-center text-muted-foreground">Loading products...</div>;
+  if (loading) return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[0,1,2,3].map(i => <div key={i} className="h-[52px] rounded-lg bg-muted/30 animate-pulse" />)}
+      </div>
+      <div className="h-10 bg-muted/20 rounded animate-pulse" />
+      {[0,1,2,3,4,5].map(i => <div key={i} className="h-12 bg-muted/20 rounded animate-pulse" />)}
+    </div>
+  );
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
