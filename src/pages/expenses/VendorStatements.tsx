@@ -80,6 +80,13 @@ export default function VendorStatements() {
     if (ok) setOpen(false);
   };
 
+  const filteredStatements = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return statements;
+    return statements.filter((s) => [s.vendor_name, s.statement_number, s.notes].some((x) => (x || "").toLowerCase().includes(q)));
+  }, [statements, search]);
+
+
   return (
     <div className="p-6 space-y-6">
       <PageHeader
