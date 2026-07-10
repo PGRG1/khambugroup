@@ -622,8 +622,8 @@ export default function ProductMasterTab() {
   return (
     <div className="space-y-4">
       {showRefundSeedBanner && (
-        <Alert className="border-sky-500/40 bg-sky-500/5">
-          <Info className="h-4 w-4 text-sky-400" />
+        <Alert className="border-info/40 bg-info/5">
+          <Info className="h-4 w-4 text-info" />
           <AlertDescription className="flex items-center justify-between gap-3 w-full">
             <span className="text-sm">
               Add standard supplier refund items? Used for price corrections and credits on invoices.
