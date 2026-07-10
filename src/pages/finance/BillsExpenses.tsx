@@ -105,6 +105,31 @@ export default function BillsExpenses() {
     })();
   }, [tenantId]);
 
+  // Pre-fill from another page (e.g. bank-detected expense) — open editor with hint.
+  useEffect(() => {
+    if (!prefill) return;
+    setEditing(null);
+    setHeader({
+      bill_date: new Date().toISOString().slice(0, 10),
+      currency: "HKD",
+      subtotal: 0,
+      tax_amount: 0,
+      total_amount: 0,
+      approval_status: "draft",
+      ...prefill.header,
+    });
+    setAllocations(prefill.allocations.length
+      ? prefill.allocations
+      : [{ line_no: 1, expense_category: null, account_id: null, venue: null, department: null, amount: Number(prefill.header?.subtotal || prefill.header?.total_amount || 0), tax_treatment: "none", tax_amount: 0, notes: null }]);
+    setAudit([]);
+    setPayments([]);
+    setLinkedBankTxn(prefill.bankTxnId || null);
+    setEditorOpen(true);
+    // Clear location.state so a refresh doesn't re-open the editor.
+    navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill]);
+
   const supplierName = (id: string | null) =>
     suppliers.find((s) => s.id === id)?.name || "—";
 
