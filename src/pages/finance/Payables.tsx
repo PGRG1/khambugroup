@@ -840,7 +840,7 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
               key={b}
               icon={b === "Current" ? <CheckCircle2 className="h-4 w-4" /> : b === "90+" ? <AlertTriangle className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
               label={b === "Current" ? "Current (0–30 Days)" : `${b} Days`}
-              value={`HK$ ${fmt(v)}`}
+              value={`HK$ ${fmtWhole(v)}`}
               sub={`${pct.toFixed(1)}%`}
               accent={BUCKET_ACCENT[b]}
               tint={BUCKET_TINT[b]}
