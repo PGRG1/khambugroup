@@ -901,7 +901,13 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
             </thead>
             <tbody className="divide-y divide-border/30">
               {loading ? (
-                <tr><td colSpan={AGE_BUCKETS.length + 3} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    {Array.from({ length: AGE_BUCKETS.length + 3 }).map((__, j) => (
+                      <td key={j} className="px-3 py-3"><div className="h-3 bg-muted/30 rounded animate-pulse" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : supplierRows.length === 0 ? (
                 <tr><td colSpan={AGE_BUCKETS.length + 3} className="px-4 py-8 text-center text-muted-foreground">All clear — no outstanding payables.</td></tr>
               ) : supplierRows.map((r) => (
