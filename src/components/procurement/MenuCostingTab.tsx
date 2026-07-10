@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useMenuCosting, MenuItem, MenuItemIngredient, MenuItemPricing } from "@/hooks/useMenuCosting";
 import { useProductMaster, ProductMasterItem } from "@/hooks/useProductMaster";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,6 +12,20 @@ import { downloadCSV } from "@/utils/csvDownload";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BottomSheetDialog } from "@/components/kpi/BottomSheetDialog";
+
+// Margin thresholds — used to tone-colour recipe cards
+const MARGIN_HEALTHY = 70; // ≥ 70% margin = primary
+const MARGIN_LOW = 60;     // 60-70% = warning; < 60% = destructive
+
+function marginTone(marginPct: number): { text: string; bg: string; border: string; label: "Healthy" | "Watch" | "Low" } {
+  if (marginPct >= MARGIN_HEALTHY) return { text: "text-primary", bg: "bg-primary/10", border: "border-primary/25", label: "Healthy" };
+  if (marginPct >= MARGIN_LOW) return { text: "text-warning", bg: "bg-warning/10", border: "border-warning/30", label: "Watch" };
+  return { text: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/25", label: "Low" };
+}
+
+const fmtHK = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtHKWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
 
 export default function MenuCostingTab() {
   const {
