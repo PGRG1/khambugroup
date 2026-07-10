@@ -168,7 +168,7 @@ export default function ExpensePaymentTermsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r, idx) => (
+                {(search.trim() ? rows.filter((r) => (r.name + " " + (r.description || "")).toLowerCase().includes(search.trim().toLowerCase())) : rows).map((r, idx) => (
                   <TableRow key={r.id} className={`${idx % 2 === 0 ? "bg-muted/20" : ""} hover:bg-muted/40`}>
                     <TableCell className="py-2 px-3 font-medium">{r.name}</TableCell>
                     <TableCell className="py-2 px-3 text-right td-num tabular-nums whitespace-nowrap">{r.days} days</TableCell>
