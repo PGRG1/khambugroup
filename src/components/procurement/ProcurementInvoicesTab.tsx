@@ -37,9 +37,9 @@ const REVIEW_STATUSES = ["Approved", "Disputed", "Voided"] as const;
 
 
 const REVIEW_BADGE: Record<string, string> = {
-  "Approved": "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  "Disputed": "bg-orange-500/15 text-orange-300 border border-orange-500/30",
-  "Voided": "bg-zinc-700/30 text-zinc-400 border border-zinc-600/30",
+  "Approved": "bg-primary/10 text-primary border border-primary/25",
+  "Disputed": "bg-warning/10 text-warning border border-warning/30",
+  "Voided": "bg-muted text-muted-foreground border border-border",
 };
 
 
@@ -1105,7 +1105,7 @@ export default function ProcurementInvoicesTab() {
           )}
 
           {editDisputeStats.hasDispute && (
-            <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+            <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>Quantity differences logged — set a reason for each disputed line so the discrepancy can be followed up. You can still save the invoice.</span>
             </div>
@@ -1114,7 +1114,7 @@ export default function ProcurementInvoicesTab() {
           {missingDeals.length > 0 && (
             <div className="space-y-1">
               {missingDeals.map((m, idx) => (
-                <div key={idx} className="flex items-start gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-200">
+                <div key={idx} className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/10 p-3 text-sm text-info">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>
                     Deal not fully applied: <strong>{m.productName}</strong> — expected {m.expectedFree} free unit{m.expectedFree === 1 ? "" : "s"} ({m.deal.buy_qty}+{m.deal.free_qty} deal with {getSupplierNameById(editForm.supplier_id || selectedInvoice?.supplier_id)}). Check with supplier.
@@ -2037,12 +2037,12 @@ function InvoiceTableSection({
 
   const kpiCards: Array<{ label: string; value: string; sub: string; subTone?: string; icon: React.ReactNode; tone: string }> = [
     { label: "Total Invoices", value: kpis.total.toLocaleString(), sub: "All time", icon: <FileText className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-zinc-400", icon: <Ban className="h-4 w-4" />, tone: "text-zinc-400" },
-    { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-emerald-400", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
-    
-    { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-orange-400", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-orange-400" },
-    { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-violet-400", icon: <CopyIcon className="h-4 w-4" />, tone: "text-violet-400" },
-    { label: "Total Value", value: `$${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
+    { label: "Voided", value: kpis.voided.toLocaleString(), sub: kpis.pct(kpis.voided), subTone: "text-muted-foreground", icon: <Ban className="h-4 w-4" />, tone: "text-muted-foreground" },
+    { label: "Approved", value: kpis.approved.toLocaleString(), sub: kpis.pct(kpis.approved), subTone: "text-primary", icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-primary" },
+
+    { label: "Disputed", value: kpis.disputed.toLocaleString(), sub: kpis.pct(kpis.disputed), subTone: "text-warning", icon: <MessageSquareWarning className="h-4 w-4" />, tone: "text-warning" },
+    { label: "Duplicates", value: kpis.duplicates.toLocaleString(), sub: kpis.pct(kpis.duplicates), subTone: "text-info", icon: <CopyIcon className="h-4 w-4" />, tone: "text-info" },
+    { label: "Total Value", value: `HK$ ${fmt(kpis.totalValue)}`, sub: "All time", icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
   ];
 
   return (
@@ -2125,7 +2125,7 @@ function InvoiceTableSection({
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="inline-flex items-center text-amber-400" onClick={(e) => e.stopPropagation()}>
+                              <span className="inline-flex items-center text-warning" onClick={(e) => e.stopPropagation()}>
                                 <AlertTriangle className="h-3.5 w-3.5" />
                               </span>
                             </TooltipTrigger>
@@ -2141,7 +2141,7 @@ function InvoiceTableSection({
                     })()}
                     {inv.invoice_number}
                     {invoiceVarianceMap[inv.id] && (
-                      <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] px-1.5 py-0">GRN variance</Badge>
+                      <Badge className="bg-warning/10 text-warning border border-warning/30 text-[10px] px-1.5 py-0">GRN variance</Badge>
                     )}
                   </span>
                 </TableCell>

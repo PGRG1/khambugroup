@@ -25,14 +25,15 @@ const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
 type Venue = typeof VENUES[number];
 type GrnStatus = "draft" | "confirmed";
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-HK", { style: "currency", currency: "HKD", currencyDisplay: "narrowSymbol" }).format(n || 0);
-const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—");
+const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
+const fmtMoney = fmtMoneyWhole;
+const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
 const statusBadge = (s: GrnStatus) =>
   s === "confirmed"
-    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-    : "bg-zinc-500/20 text-zinc-300 border-zinc-500/40";
+    ? "bg-primary/10 text-primary border-primary/25"
+    : "bg-muted text-muted-foreground border-border";
 
 interface Supplier { id: string; name: string; is_active: boolean }
 interface Product { id: string; internal_product_name: string; internal_sku?: string | null; unit?: string | null; unit_cost?: number | null }
@@ -402,8 +403,8 @@ export default function ReceivingTab() {
 
   const kpiCards = [
     { label: "Total GRNs", value: kpis.total.toLocaleString(), icon: <PackageCheck className="h-4 w-4" />, tone: "text-foreground" },
-    { label: "Confirmed", value: kpis.confirmed.toLocaleString(), icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-400" },
-    { label: "Draft", value: kpis.draft.toLocaleString(), icon: <Clock className="h-4 w-4" />, tone: "text-amber-400" },
+    { label: "Confirmed", value: kpis.confirmed.toLocaleString(), icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-primary" },
+    { label: "Draft", value: kpis.draft.toLocaleString(), icon: <Clock className="h-4 w-4" />, tone: "text-warning" },
     { label: "Total Value", value: fmtMoney(kpis.value), icon: <DollarSign className="h-4 w-4" />, tone: "text-foreground" },
   ];
 
@@ -613,14 +614,21 @@ export default function ReceivingTab() {
                         <Input value={it.description} onChange={(e) => updateRow(it.key, { description: e.target.value })} className="h-8 text-xs" />
                       </TableCell>
                       {hasPrefilled && (
-                        <TableCell className="text-right text-muted-foreground td-num text-xs">
+                        <TableCell className="text-right text-muted-foreground tabular-nums text-xs">
                           {linkedPoId ? (it.quantity_ordered ?? "—") : (it.quantity_invoiced ?? "—")}
                         </TableCell>
                       )}
                       <TableCell className="text-right">
-                        <Input type="number" step="0.01" value={it.quantity_received}
-                          onChange={(e) => updateRow(it.key, { quantity_received: parseFloat(e.target.value) || 0 })}
-                          className="h-8 w-24 text-right td-num ml-auto" />
+                        {(() => {
+                          const ref = linkedPoId ? it.quantity_ordered : it.quantity_invoiced;
+                          const diff = ref != null ? (Number(it.quantity_received) - Number(ref)) : 0;
+                          const tone = ref == null || diff === 0 ? "" : diff < 0 ? "border-warning bg-warning/5" : "border-primary bg-primary/5";
+                          return (
+                            <Input type="number" step="0.01" inputMode="decimal" value={it.quantity_received}
+                              onChange={(e) => updateRow(it.key, { quantity_received: parseFloat(e.target.value) || 0 })}
+                              className={`h-9 w-24 text-right tabular-nums font-medium ml-auto ${tone}`} />
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Input value={it.unit} onChange={(e) => updateRow(it.key, { unit: e.target.value })} className="h-8 w-20 text-xs" />

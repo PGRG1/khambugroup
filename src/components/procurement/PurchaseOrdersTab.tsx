@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Plus, X, Trash2, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
 type Venue = typeof VENUES[number];
@@ -31,19 +32,20 @@ const STATUS_FLOW: Record<Status, { next?: Status; label?: string }> = {
 
 const statusBadge = (s: Status) => {
   const map: Record<Status, string> = {
-    draft: "bg-zinc-500/20 text-zinc-300 border-zinc-500/40",
-    approved: "bg-blue-500/20 text-blue-300 border-blue-500/40",
-    sent: "bg-amber-500/20 text-amber-300 border-amber-500/40",
-    partial: "bg-orange-500/20 text-orange-300 border-orange-500/40",
-    received: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-    cancelled: "bg-red-500/20 text-red-300 border-red-500/40",
+    draft: "bg-muted text-muted-foreground border-border",
+    approved: "bg-info/10 text-info border-info/30",
+    sent: "bg-warning/10 text-warning border-warning/30",
+    partial: "bg-warning/10 text-warning border-warning/30",
+    received: "bg-primary/10 text-primary border-primary/25",
+    cancelled: "bg-destructive/10 text-destructive border-destructive/25",
   };
   return map[s];
 };
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-HK", { style: "currency", currency: "HKD", currencyDisplay: "narrowSymbol" }).format(n || 0);
-const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—");
+const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
+const fmtPrice = (n: number) => `HK$ ${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtMoney = fmtMoneyWhole;
+const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
 interface Supplier { id: string; name: string; is_active: boolean }
 interface Product { id: string; internal_product_name: string; supplier_product_name?: string | null; internal_sku?: string | null; unit?: string | null; unit_cost?: number | null }
@@ -72,6 +74,7 @@ export default function PurchaseOrdersTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [psRows, setPsRows] = useState<ProductSupplierRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
@@ -241,14 +244,70 @@ export default function PurchaseOrdersTab() {
   const activeSuppliers = suppliers.filter((s) => s.is_active);
   const next = selectedPo ? STATUS_FLOW[selectedPo.status] : undefined;
 
+  const stats = useMemo(() => {
+    const by = (s: Status) => pos.filter(p => p.status === s).length;
+    return {
+      total: pos.length,
+      draft: by("draft"),
+      sent: by("sent") + by("approved") + by("partial"),
+      received: by("received"),
+      cancelled: by("cancelled"),
+    };
+  }, [pos]);
+
+  const toggleStatusFilter = (v: string) => setStatusFilter(prev => prev === v ? "all" : v);
+
+  const scopeLabel = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(supplierFilter === "all" ? "All suppliers" : supplierName(supplierFilter));
+    parts.push(venueFilter === "all" ? "All venues" : venueFilter);
+    parts.push(statusFilter === "all" ? "All statuses" : statusFilter);
+    return parts.join(" · ");
+  }, [supplierFilter, venueFilter, statusFilter, suppliers]);
+
+  const StatTile = ({ label, value, tone, filterValue }: { label: string; value: number; tone?: "warn" | "primary" | "danger"; filterValue?: string }) => {
+    const active = filterValue && statusFilter === filterValue;
+    const toneCls = tone === "warn" ? "text-warning" : tone === "primary" ? "text-primary" : tone === "danger" ? "text-destructive" : "text-foreground";
+    return (
+      <button
+        type="button"
+        onClick={filterValue ? () => toggleStatusFilter(filterValue) : undefined}
+        disabled={!filterValue}
+        className={cn(
+          "text-left rounded-lg border border-border/60 bg-card/50 px-3 py-2 transition-colors",
+          filterValue ? "hover:border-border cursor-pointer" : "cursor-default",
+          active && "ring-2 ring-primary/60 bg-primary/5",
+        )}
+      >
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
+        <div className={`text-lg font-semibold tabular-nums mt-0.5 ${toneCls}`}>{value.toLocaleString()}</div>
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 items-end justify-between">
+      {/* Stats strip */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[64px] rounded-lg border border-border/60 bg-card/40 animate-pulse" />)
+        ) : (
+          <>
+            <StatTile label="Total" value={stats.total} />
+            <StatTile label="Draft" value={stats.draft} filterValue="draft" />
+            <StatTile label="Sent / Pending" value={stats.sent} tone="warn" filterValue="sent" />
+            <StatTile label="Received" value={stats.received} tone="primary" filterValue="received" />
+            <StatTile label="Cancelled" value={stats.cancelled} tone="danger" filterValue="cancelled" />
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-end justify-between">
         <div className="flex flex-wrap gap-2 items-end">
           <div className="w-48">
             <Label className="text-xs">Supplier</Label>
             <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All suppliers</SelectItem>
                 {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -258,7 +317,7 @@ export default function PurchaseOrdersTab() {
           <div className="w-40">
             <Label className="text-xs">Venue</Label>
             <Select value={venueFilter} onValueChange={setVenueFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All venues</SelectItem>
                 {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
@@ -268,7 +327,7 @@ export default function PurchaseOrdersTab() {
           <div className="w-40">
             <Label className="text-xs">Status</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 {(["draft","approved","sent","partial","received","cancelled"] as Status[]).map((s) => (
@@ -281,47 +340,80 @@ export default function PurchaseOrdersTab() {
             <Label className="text-xs">Search</Label>
             <div className="relative">
               <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="PO# or supplier" className="pl-7" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="PO# or supplier" className="pl-7 h-9" />
             </div>
           </div>
         </div>
-        <Button onClick={() => setCreateOpen(true)} disabled={!canManage}>
+        <Button onClick={() => setCreateOpen(true)} disabled={!canManage} className="h-9">
           <Plus className="h-4 w-4 mr-1" /> New PO
         </Button>
       </div>
 
-      <div className="border border-border rounded-md overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>PO Number</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Venue</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Expected Date</TableHead>
-              <TableHead className="text-right">Total Amount</TableHead>
-              <TableHead>Created At</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No purchase orders</TableCell></TableRow>
-            ) : filtered.map((p) => (
-              <TableRow key={p.id} className="cursor-pointer" onClick={() => openDetail(p)}>
-                <TableCell className="font-mono">{p.po_number}</TableCell>
-                <TableCell>{p.suppliers?.name ?? supplierName(p.supplier_id)}</TableCell>
-                <TableCell>{p.venue}</TableCell>
-                <TableCell><Badge variant="outline" className={cn("capitalize", statusBadge(p.status))}>{p.status}</Badge></TableCell>
-                <TableCell>{fmtDate(p.expected_date)}</TableCell>
-                <TableCell className="text-right td-num">{fmtMoney(Number(p.total_amount))}</TableCell>
-                <TableCell>{fmtDate(p.created_at)}</TableCell>
+      <p className="text-xs text-muted-foreground">
+        Showing {scopeLabel} · <span className="tabular-nums">{filtered.length.toLocaleString()}</span> of <span className="tabular-nums">{pos.length.toLocaleString()}</span> POs
+      </p>
+
+      {loading ? (
+        <div className="space-y-1.5">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-11 rounded-md border border-border/60 bg-card/40 animate-pulse" />)}
+        </div>
+      ) : isMobile ? (
+        <div className="space-y-2">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm rounded-xl border border-border/60 bg-card/40">No purchase orders</div>
+          ) : filtered.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => openDetail(p)}
+              className="w-full text-left rounded-lg border border-border/60 bg-card/50 p-3 hover:border-border transition-colors min-h-[64px]"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-mono text-sm font-medium">{p.po_number}</div>
+                  <div className="text-xs text-muted-foreground truncate">{p.suppliers?.name ?? supplierName(p.supplier_id)} · {p.venue}</div>
+                </div>
+                <Badge variant="outline" className={cn("capitalize shrink-0", statusBadge(p.status))}>{p.status}</Badge>
+              </div>
+              <div className="flex items-center justify-between mt-2 text-xs">
+                <span className="text-muted-foreground">Exp: {fmtDate(p.expected_date)}</span>
+                <span className="font-semibold tabular-nums">{fmtMoney(Number(p.total_amount))}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="border border-border rounded-md overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>PO Number</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Venue</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Expected Date</TableHead>
+                <TableHead className="text-right">Total Amount</TableHead>
+                <TableHead>Created At</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No purchase orders</TableCell></TableRow>
+              ) : filtered.map((p) => (
+                <TableRow key={p.id} className="cursor-pointer hover:bg-accent/40" onClick={() => openDetail(p)}>
+                  <TableCell className="font-mono">{p.po_number}</TableCell>
+                  <TableCell>{p.suppliers?.name ?? supplierName(p.supplier_id)}</TableCell>
+                  <TableCell>{p.venue}</TableCell>
+                  <TableCell><Badge variant="outline" className={cn("capitalize", statusBadge(p.status))}>{p.status}</Badge></TableCell>
+                  <TableCell>{fmtDate(p.expected_date)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-medium">{fmtMoney(Number(p.total_amount))}</TableCell>
+                  <TableCell>{fmtDate(p.created_at)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) resetCreate(); }}>
@@ -455,7 +547,7 @@ export default function PurchaseOrdersTab() {
                       <React.Fragment key={s}>
                         <div className={cn(
                           "px-3 py-1 rounded-md text-xs border capitalize",
-                          active ? statusBadge(s) : past ? "bg-emerald-500/10 text-emerald-300/70 border-emerald-500/30" : "bg-muted text-muted-foreground border-border"
+                          active ? statusBadge(s) : past ? "bg-primary/10 text-primary/80 border-primary/25" : "bg-muted text-muted-foreground border-border"
                         )}>
                           {past && <Check className="h-3 w-3 inline mr-1" />}{s}
                         </div>
