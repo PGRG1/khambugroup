@@ -441,7 +441,7 @@ export default function Home() {
                 item.tone === "destructive"
                   ? "text-destructive bg-destructive/10"
                   : item.tone === "warn"
-                    ? "text-warn bg-warn/10"
+                    ? "text-warning bg-warning/10"
                     : "text-info bg-info/10";
               return (
                 <li key={item.key}>
