@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { fetchAllRows } from "@/utils/fetchAllRows";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Search, Landmark } from "lucide-react";
+import { Search, Landmark, ArrowRight } from "lucide-react";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import {
   PageHeader,
@@ -14,8 +13,12 @@ import {
   TableSkeleton,
   EmptyState,
   fmtHK,
+  fmtHKWhole,
   fmtDate,
   ScopeLine,
+  KpiGrid,
+  KpiCard,
+  KpiSkeleton,
 } from "@/components/expenses/shared";
 
 interface Txn {
@@ -30,6 +33,7 @@ interface Txn {
 
 export default function BankDetectedExpenses() {
   const { tenantId } = useActiveTenant();
+  const navigate = useNavigate();
   const [txns, setTxns] = useState<Txn[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -42,7 +46,6 @@ export default function BankDetectedExpenses() {
     }
     setLoading(true);
     try {
-      // Server-side tenant filter (defence-in-depth beyond RLS, avoids over-fetch).
       const rows = await fetchAllRows(
         "bank_transactions",
         "id,transaction_date,description,amount,category,bank_account_id,expense_posted_bill_id",
@@ -74,46 +77,72 @@ export default function BankDetectedExpenses() {
     [txns, search]
   );
 
-  const unpostedCount = txns.filter((t) => !t.expense_posted_bill_id).length;
+  const kpis = useMemo(() => {
+    const unposted = txns.filter((t) => !t.expense_posted_bill_id);
+    const unpostedAmt = unposted.reduce((s, t) => s + Math.abs(Number(t.amount || 0)), 0);
+    const posted = txns.filter((t) => t.expense_posted_bill_id);
+    return {
+      unpostedCount: unposted.length,
+      unpostedAmt,
+      postedCount: posted.length,
+      totalAmt: txns.reduce((s, t) => s + Math.abs(Number(t.amount || 0)), 0),
+    };
+  }, [txns]);
 
-  const postDirect = async (t: Txn) => {
-    if (!tenantId) return;
-    if (!confirm(`Post ${fmtHK(Math.abs(t.amount))} directly as bank expense?`)) return;
-    const { data, error } = await supabase
-      .from("expense_bills")
-      .insert({
-        tenant_id: tenantId,
-        vendor_name: t.description || "Bank charge",
-        bill_date: t.transaction_date,
-        total_amount: Math.abs(Number(t.amount || 0)),
-        subtotal: Math.abs(Number(t.amount || 0)),
-        currency: "HKD",
-        approval_status: "posted",
-        payment_status: "paid",
-        paid_amount: Math.abs(Number(t.amount || 0)),
-        notes: "Auto-posted from bank-detected expense",
-      })
-      .select("id")
-      .single();
-    if (error) {
-      toast.error("Post failed: " + error.message);
-      return;
-    }
-    await supabase
-      .from("bank_transactions")
-      .update({ expense_posted_bill_id: data.id })
-      .eq("id", t.id)
-      .eq("tenant_id", tenantId);
-    toast.success("Posted to bank expense");
-    load();
+  // Open the bill editor pre-filled from this transaction — the professional path.
+  // No more silent orphan "posted" bills: the user reviews, picks category + GL
+  // account, and posts through the normal Approve & Post flow.
+  const openInBillEditor = (t: Txn) => {
+    const amount = Math.abs(Number(t.amount || 0));
+    navigate("/expenses/bills", {
+      state: {
+        prefill: {
+          header: {
+            vendor_name: t.description || "Bank charge",
+            bill_date: t.transaction_date,
+            due_date: t.transaction_date,
+            currency: "HKD",
+            subtotal: amount,
+            tax_amount: 0,
+            total_amount: amount,
+            notes: `From bank transaction on ${t.transaction_date}: ${t.description || ""}`,
+            approval_status: "draft",
+          },
+          allocations: [
+            {
+              line_no: 1,
+              expense_category: null,
+              account_id: null,
+              venue: null,
+              department: null,
+              amount,
+              tax_treatment: "none" as const,
+              tax_amount: 0,
+              notes: t.description || null,
+            },
+          ],
+          bankTxnId: t.id,
+        },
+      },
+    });
   };
 
   return (
     <div className="p-6 space-y-6">
       <PageHeader
         title="Bank-Detected Expenses"
-        description="Expenses pulled from the bank statement that bypass Accounts Payable (already deducted from bank)."
+        description="Charges, fees, and direct debits pulled from the bank feed. Review each one in the bill editor to assign a category and GL account before posting."
       />
+
+      {loading && txns.length === 0 ? (
+        <KpiSkeleton count={3} />
+      ) : (
+        <KpiGrid>
+          <KpiCard label="Unposted" value={String(kpis.unpostedCount)} hint="Awaiting review" tone={kpis.unpostedCount > 0 ? "warning" : "default"} />
+          <KpiCard label="Unposted amount" value={fmtHKWhole(kpis.unpostedAmt)} tone={kpis.unpostedAmt > 0 ? "warning" : "default"} />
+          <KpiCard label="Posted" value={String(kpis.postedCount)} tone="info" />
+        </KpiGrid>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative w-full sm:w-72">
@@ -126,7 +155,7 @@ export default function BankDetectedExpenses() {
           />
         </div>
         <ScopeLine>
-          {filtered.length} shown · {unpostedCount} unposted
+          Showing {filtered.length} of {txns.length} · {kpis.unpostedCount} unposted
         </ScopeLine>
       </div>
 
@@ -134,59 +163,100 @@ export default function BankDetectedExpenses() {
         {loading ? (
           <TableSkeleton rows={6} cols={6} />
         ) : (
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((t) => (
-                  <TableRow key={t.id} className="hover:bg-muted/20">
-                    <TableCell className="whitespace-nowrap">{fmtDate(t.transaction_date)}</TableCell>
-                    <TableCell className="max-w-[420px] truncate">{t.description}</TableCell>
-                    <TableCell>{t.category || "—"}</TableCell>
-                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((t) => (
+                    <TableRow key={t.id} className="hover:bg-muted/20">
+                      <TableCell className="whitespace-nowrap">{fmtDate(t.transaction_date)}</TableCell>
+                      <TableCell className="max-w-[420px] truncate">{t.description}</TableCell>
+                      <TableCell>{t.category || "—"}</TableCell>
+                      <TableCell className="text-right td-num tabular-nums whitespace-nowrap">
+                        {fmtHK(Math.abs(Number(t.amount || 0)))}
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill variant={t.expense_posted_bill_id ? "success" : "warning"}>
+                          {t.expense_posted_bill_id ? "Posted" : "Unposted"}
+                        </StatusPill>
+                      </TableCell>
+                      <TableCell>
+                        {!t.expense_posted_bill_id && (
+                          <Button size="sm" variant="outline" className="h-8 min-h-[36px]" onClick={() => openInBillEditor(t)}>
+                            Open in bill editor <ArrowRight className="h-3 w-3 ml-1" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!filtered.length && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="p-0">
+                        <EmptyState
+                          icon={<Landmark className="h-6 w-6" />}
+                          title={search ? "No matches" : "No bank-detected expenses"}
+                          description={
+                            search
+                              ? "Try clearing the search."
+                              : "Charges, fees, interest, and direct debits from the bank feed appear here."
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-border/60">
+              {filtered.map((t) => (
+                <div key={t.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{t.description || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{fmtDate(t.transaction_date)}</div>
+                    </div>
+                    <div className="text-right td-num tabular-nums whitespace-nowrap font-semibold">
                       {fmtHK(Math.abs(Number(t.amount || 0)))}
-                    </TableCell>
-                    <TableCell>
-                      <StatusPill variant={t.expense_posted_bill_id ? "success" : "warning"}>
-                        {t.expense_posted_bill_id ? "Posted" : "Unposted"}
-                      </StatusPill>
-                    </TableCell>
-                    <TableCell>
-                      {!t.expense_posted_bill_id && (
-                        <Button size="sm" variant="outline" className="h-8" onClick={() => postDirect(t)}>
-                          Post to expense
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!filtered.length && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="p-0">
-                      <EmptyState
-                        icon={<Landmark className="h-6 w-6" />}
-                        title={search ? "No matches" : "No bank-detected expenses"}
-                        description={
-                          search
-                            ? "Try clearing the search."
-                            : "Charges, fees, interest, and direct debits from the bank feed appear here."
-                        }
-                      />
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <StatusPill variant={t.expense_posted_bill_id ? "success" : "warning"}>
+                      {t.expense_posted_bill_id ? "Posted" : "Unposted"}
+                    </StatusPill>
+                    {!t.expense_posted_bill_id && (
+                      <Button size="sm" variant="outline" className="h-11" onClick={() => openInBillEditor(t)}>
+                        Open in bill editor <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {!filtered.length && (
+                <EmptyState
+                  icon={<Landmark className="h-6 w-6" />}
+                  title={search ? "No matches" : "No bank-detected expenses"}
+                  description={
+                    search
+                      ? "Try clearing the search."
+                      : "Charges, fees, interest, and direct debits from the bank feed appear here."
+                  }
+                />
+              )}
+            </div>
+          </>
         )}
       </Card>
     </div>
