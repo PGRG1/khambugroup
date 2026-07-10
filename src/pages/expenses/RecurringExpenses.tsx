@@ -191,7 +191,7 @@ export default function RecurringExpenses() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rules.map((r) => (
+                {filteredRules.map((r) => (
                   <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => { setEditing(r); setOpen(true); }}>
                     <TableCell className="font-medium">{r.name}</TableCell>
                     <TableCell>{r.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
