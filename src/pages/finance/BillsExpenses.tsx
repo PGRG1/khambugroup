@@ -544,6 +544,7 @@ export default function BillsExpenses() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    {allocations.map((a, idx) => (
                       <TableRow key={idx}>
                         <TableCell>
                           {(() => {
