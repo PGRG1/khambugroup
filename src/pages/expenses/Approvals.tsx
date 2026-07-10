@@ -159,29 +159,54 @@ export default function ExpenseApprovals() {
         <div className="p-4 border-b border-border/60 text-sm font-medium">
           Statements awaiting approval <span className="text-muted-foreground">({pendingStmts.length})</span>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Vendor</TableHead>
-              <TableHead>Statement #</TableHead>
-              <TableHead className="text-right">Current Charges</TableHead>
-              <TableHead className="text-right">Late Fees</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pendingStmts.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell>{fmtDate(s.statement_date)}</TableCell>
-                <TableCell>{s.vendor_name || "—"}</TableCell>
-                <TableCell>{s.statement_number || "—"}</TableCell>
-                <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.current_period_charges)}</TableCell>
-                <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.late_fees)}</TableCell>
+        <div className="overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Statement #</TableHead>
+                <TableHead className="text-right">Current Charges</TableHead>
+                <TableHead className="text-right">Late Fees</TableHead>
+                <TableHead></TableHead>
               </TableRow>
-            ))}
-            {!pendingStmts.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No statements pending</TableCell></TableRow>}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {pendingStmts.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell className="whitespace-nowrap">{fmtDate(s.statement_date)}</TableCell>
+                  <TableCell>{s.vendor_name || "—"}</TableCell>
+                  <TableCell>{s.statement_number || "—"}</TableCell>
+                  <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.current_period_charges)}</TableCell>
+                  <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.late_fees)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <div className="flex gap-1 justify-end">
+                      <Button
+                        size="sm"
+                        className="h-8"
+                        onClick={async () => {
+                          const ok = await setStmtStatus(s.id, "approved");
+                          if (ok) await postStatement(s.id);
+                        }}
+                      >
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Approve & Post
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8"
+                        onClick={() => setStmtStatus(s.id, "rejected")}
+                      >
+                        <XCircle className="h-3 w-3 mr-1" /> Reject
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!pendingStmts.length && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No statements pending</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       <Sheet open={!!editBill} onOpenChange={(o) => !o && setEditBill(null)}>
