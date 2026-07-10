@@ -29,14 +29,14 @@ const DOC_VARIANT: Record<string, { label: string; variant: StatusVariant }> = {
 export default function ExpenseApprovals() {
   const { tenantId } = useActiveTenant();
   const { bills, setStatus, setDocumentRequirement, postBill, saveBill, fetchAllocations } = useExpenseBills();
-  const { statements } = useVendorStatements();
+  const { statements, setStatus: setStmtStatus, postStatement } = useVendorStatements();
   const [editBill, setEditBill] = useState<ExpenseBill | null>(null);
   const [editAllocs, setEditAllocs] = useState<ExpenseBillAllocation[]>([]);
   const [accountsByID, setAccountsByID] = useState<Record<string, { code: string; name: string }>>({});
   const [ruleNames, setRuleNames] = useState<Record<string, string>>({});
 
   const pending = useMemo(() => bills.filter((b) => b.approval_status === "pending_review"), [bills]);
-  const pendingStmts = useMemo(() => statements.filter((s) => s.approval_status === "pending_review"), [statements]);
+  const pendingStmts = useMemo(() => statements.filter((s) => s.approval_status === "pending_review" || s.approval_status === "draft"), [statements]);
 
   useEffect(() => {
     if (!tenantId) return;
