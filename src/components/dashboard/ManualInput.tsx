@@ -25,6 +25,15 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const [file, setFile] = useState<File | null>(null);
 
   const { venues } = useVenues();
+  const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
+
+  // Default to first active venue once loaded (avoids blank submit).
+  useEffect(() => {
+    if (!form.venue && activeVenues[0]) {
+      setForm((f) => ({ ...f, venue: activeVenues[0].name }));
+    }
+  }, [activeVenues, form.venue]);
+
   const venueId = useMemo(
     () => venues.find((v) => v.name === form.venue)?.id ?? null,
     [venues, form.venue],
