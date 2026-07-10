@@ -475,7 +475,7 @@ export default function DocumentCentre() {
                   {visibleCols.source && <TableCell className="text-muted-foreground text-sm">{d.source}</TableCell>}
                   {visibleCols.linked && (
                     <TableCell>
-                      <span className="text-sky-400 hover:underline cursor-pointer text-sm">{d.linked_label}</span>
+                      <span className="text-primary hover:underline cursor-pointer text-sm">{d.linked_label}</span>
                     </TableCell>
                   )}
                   {visibleCols.status && <TableCell><span className={statusChip(d.status)}>{d.status}</span></TableCell>}
