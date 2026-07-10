@@ -966,356 +966,345 @@ export default function ProductMasterTab() {
       </Card>
 
 
-      {/* Draggable Create/Edit Modal */}
-      {dialogOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setDialogOpen(false)} />
-          <div
-            ref={modalRef}
-            className="fixed z-50 left-1/2 top-1/2 w-full max-w-lg bg-background border rounded-xl shadow-xl"
-            style={{ transform: `translate(calc(-50% + ${dragPos?.x ?? 0}px), calc(-50% + ${dragPos?.y ?? 0}px))` }}
-          >
-            <div
-              className="flex items-center justify-between px-4 py-3 border-b cursor-grab active:cursor-grabbing select-none"
-              onMouseDown={onDragStart}
-            >
-              <div className="flex items-center gap-2">
-                <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-lg font-semibold">{editingProductId ? "Edit Product" : "Add Product"}</h2>
-              </div>
-              <button onClick={() => setDialogOpen(false)} className="p-1 rounded hover:bg-accent"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="px-4 py-4 max-h-[75vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
-                <div className={form.creates_stock_movement ? "" : "col-span-2"}><Label className="text-xs">Internal SKU *</Label><Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })} className={`h-9 text-sm ${duplicateSku !== null ? "border-amber-500" : ""}`} /></div>
-                {form.creates_stock_movement && (
-                  <div><Label className="text-xs">External SKU</Label><Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm" /></div>
-                )}
-                {duplicateSku !== null && (
-                  <div className="col-span-2">
-                    <Alert className="border-amber-400 bg-amber-50 py-2">
-                      <AlertDescription className="text-xs text-amber-800">
-                        ⚠ SKU "{form.internal_sku}" already exists — "{duplicateSku}".{" "}
-                        {editingProductId
-                          ? "Saving will merge this supplier entry into the existing product."
-                          : "Saving will add a new supplier entry (e.g. different weight/pack size) to this product."}
-                      </AlertDescription>
-                    </Alert>
+      {/* Create/Edit Sheet — right side on desktop, bottom sheet on mobile */}
+      <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+        <SheetContent
+          side={isMobile ? "bottom" : "right"}
+          className={cn(
+            "flex flex-col p-0 gap-0",
+            isMobile
+              ? "h-[92vh] rounded-t-2xl border-t sm:max-w-full w-full"
+              : "w-full sm:max-w-[560px]",
+          )}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
+            <h2 className="text-lg font-semibold">{editingProductId ? "Edit Product" : "Add Product"}</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {duplicateSku !== null && (
+              <Alert className="mb-4 border-warning/40 bg-warning/10 py-2">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-xs">
+                  SKU "{form.internal_sku}" already exists — "{duplicateSku}".{" "}
+                  {editingProductId
+                    ? "Saving will merge this supplier entry into the existing product."
+                    : "Saving will add a new supplier entry (e.g. different weight/pack size) to this product."}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <Accordion type="multiple" defaultValue={["identity", "classification", "financial"]} className="space-y-2">
+              {/* IDENTITY */}
+              <AccordionItem value="identity" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm font-medium py-3">Identity</AccordionTrigger>
+                <AccordionContent className="pb-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Internal SKU *</Label>
+                      <Input value={form.internal_sku} onChange={e => setForm({ ...form, internal_sku: e.target.value })}
+                        className={cn("h-9 text-sm font-mono", duplicateSku !== null && "border-warning")} />
+                    </div>
+                    {form.creates_stock_movement && (
+                      <div>
+                        <Label className="text-xs">External SKU</Label>
+                        <Input value={form.external_sku} onChange={e => setForm({ ...form, external_sku: e.target.value })} className="h-9 text-sm font-mono" />
+                      </div>
+                    )}
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs">Internal Product Name *</Label>
+                      <Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" />
+                    </div>
+                    {form.creates_stock_movement && (
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Supplier Product Name</Label>
+                        <Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" />
+                      </div>
+                    )}
                   </div>
-                )}
-                <div className="col-span-2"><Label className="text-xs">Internal Product Name *</Label><Input value={form.internal_product_name} onChange={e => setForm({ ...form, internal_product_name: e.target.value })} className="h-9 text-sm" /></div>
-                {form.creates_stock_movement && (
-                  <div className="col-span-2"><Label className="text-xs">Supplier Product Name</Label><Input value={form.supplier_product_name} onChange={e => setForm({ ...form, supplier_product_name: e.target.value })} className="h-9 text-sm" /></div>
-                )}
-                <div className="col-span-2">
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* CLASSIFICATION */}
+              <AccordionItem value="classification" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm font-medium py-3">Classification</AccordionTrigger>
+                <AccordionContent className="pb-3">
                   <Label className="text-xs">Categories (L1 → L2 → L3)</Label>
-                  <CategoryCascadeSelect
-                    level1={form.level1_category}
-                    level2={form.level2_category}
-                    level3={form.level3_category}
-                    onChange={(v) => setForm({ ...form, level1_category: v.level1, level2_category: v.level2, level3_category: v.level3 })}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Financial Treatment</Label>
-                  <Select
-                    value={form.financial_treatment || "__none__"}
-                    onValueChange={v => {
-                      const treatment = v === "__none__" ? "" : v;
-                      const autoStock = treatment === "COGS";
-                      setForm({ ...form, financial_treatment: treatment, default_coa_account_id: "", creates_stock_movement: autoStock });
-                    }}
-                  >
-                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select treatment" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
-                      <SelectItem value="COGS">COGS</SelectItem>
-                      <SelectItem value="OpEx">OpEx</SelectItem>
-                      <SelectItem value="Asset - Supplier Deposit">Asset – Supplier & Vendor Deposit</SelectItem>
-                      <SelectItem value="Asset - Fixed Asset">Asset – Fixed Asset</SelectItem>
-                      <SelectItem value="Asset - Prepayment">Asset – Prepayment</SelectItem>
-                      <SelectItem value="Asset - Other">Asset – Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[10px] text-muted-foreground mt-1">Drives default COA account via L1 mapping. Override below if needed.</p>
-                </div>
-                <div>
-                  <Label className="text-xs">COA Account Override (optional)</Label>
-                  <Select
-                    value={form.default_coa_account_id || "__inherit__"}
-                    onValueChange={v => setForm({ ...form, default_coa_account_id: v === "__inherit__" ? "" : v })}
-                  >
-                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Inherit from mapping" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__inherit__">— Inherit from mapping —</SelectItem>
-                      {coaAccounts
-                        .filter(a => a.is_active)
-                        .filter(a => {
-                          const t = form.financial_treatment;
-                          if (!t) return true;
-                          if (t === "COGS") return a.account_type === "cogs";
-                          if (t === "OpEx") return a.account_type === "opex";
-                          if (t.startsWith("Asset")) return a.account_type === "asset";
-                          return true;
-                        })
-                        .map(a => (
-                          <SelectItem key={a.id} value={a.id} className="text-xs">
-                            <span className="font-mono text-muted-foreground mr-2">{a.code}</span>{a.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2 flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
-                  <div className="flex-1">
-                    <Label className="text-xs font-medium">Creates stock movement</Label>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      When off, receiving this item will not update inventory quantities. Use for price corrections, refunds, deposits and non-stock expenses.
-                    </p>
+                  <div className="mt-1">
+                    <CategoryCascadeSelect
+                      level1={form.level1_category}
+                      level2={form.level2_category}
+                      level3={form.level3_category}
+                      onChange={(v) => setForm({ ...form, level1_category: v.level1, level2_category: v.level2, level3_category: v.level3 })}
+                    />
                   </div>
-                  <Switch
-                    checked={form.creates_stock_movement}
-                    onCheckedChange={(v) => setForm(f => ({ ...f, creates_stock_movement: v }))}
-                  />
-                </div>
-                {form.creates_stock_movement && (
-                  <>
-                    <div className="col-span-2">
-                      <Label className="text-xs">Supplier</Label>
-                      <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
-                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* FINANCIAL MAPPING */}
+              <AccordionItem value="financial" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm font-medium py-3">Financial Mapping</AccordionTrigger>
+                <AccordionContent className="pb-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Financial Treatment</Label>
+                      <Select
+                        value={form.financial_treatment || "__none__"}
+                        onValueChange={v => {
+                          const treatment = v === "__none__" ? "" : v;
+                          const autoStock = treatment === "COGS";
+                          setForm({ ...form, financial_treatment: treatment, default_coa_account_id: "", creates_stock_movement: autoStock });
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select treatment" /></SelectTrigger>
                         <SelectContent>
-                          {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                          <SelectItem value="__none__">— None —</SelectItem>
+                          <SelectItem value="COGS">COGS</SelectItem>
+                          <SelectItem value="OpEx">OpEx</SelectItem>
+                          <SelectItem value="Asset - Supplier Deposit">Asset – Supplier & Vendor Deposit</SelectItem>
+                          <SelectItem value="Asset - Fixed Asset">Asset – Fixed Asset</SelectItem>
+                          <SelectItem value="Asset - Prepayment">Asset – Prepayment</SelectItem>
+                          <SelectItem value="Asset - Other">Asset – Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground mt-1">Drives default COA account via L1 mapping.</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">COA Account Override</Label>
+                      <Select
+                        value={form.default_coa_account_id || "__inherit__"}
+                        onValueChange={v => setForm({ ...form, default_coa_account_id: v === "__inherit__" ? "" : v })}
+                      >
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Inherit from mapping" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__inherit__">— Inherit from mapping —</SelectItem>
+                          {coaAccounts
+                            .filter(a => a.is_active)
+                            .filter(a => {
+                              const t = form.financial_treatment;
+                              if (!t) return true;
+                              if (t === "COGS") return a.account_type === "cogs";
+                              if (t === "OpEx") return a.account_type === "opex";
+                              if (t.startsWith("Asset")) return a.account_type === "asset";
+                              return true;
+                            })
+                            .map(a => (
+                              <SelectItem key={a.id} value={a.id} className="text-xs">
+                                <span className="font-mono text-muted-foreground mr-2">{a.code}</span>{a.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
-
-                    {/* Purchase & Stock */}
-                    <div className="col-span-2 border-t pt-3 mt-1">
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">Purchase & Stock Units</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Purchase UOM</Label>
-                      <UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case, Pack" />
-                    </div>
-                    <div><Label className="text-xs">Purchase Cost</Label><Input type="number" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm" /></div>
-                    <div>
-                      <Label className="text-xs">Stock UOM</Label>
-                      <UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle, Pack" />
-                    </div>
-                    <div><Label className="text-xs">Stock Qty</Label><Input type="number" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm" /></div>
-                    <div className="col-span-2 bg-muted/30 rounded-lg p-2">
-                      <p className="text-xs text-muted-foreground">
-                        Cost per Stock Unit: <span className="font-mono font-semibold text-foreground">${fmt(liveCostPerStock)}</span>
-                        <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <Label className="text-xs font-medium">Creates stock movement</Label>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        When off, receiving this item will not update inventory. Use for refunds, deposits and non-stock expenses.
                       </p>
                     </div>
+                    <Switch checked={form.creates_stock_movement}
+                      onCheckedChange={(v) => setForm(f => ({ ...f, creates_stock_movement: v }))} />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-                    {/* Yield & Waste */}
-                    <div className="col-span-2 border-t pt-3 mt-1 space-y-3">
+              {form.creates_stock_movement && (
+                <>
+                  {/* UNITS & COST */}
+                  <AccordionItem value="units" className="border rounded-lg px-3">
+                    <AccordionTrigger className="text-sm font-medium py-3">Units &amp; Cost</AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-3">
                       <div>
-                        <Label className="text-sm font-medium">Yield & Waste</Label>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Account for prep loss and cooking shrinkage. Leave at 100% if there is no waste.
-                        </p>
+                        <Label className="text-xs">Supplier</Label>
+                        <Select value={form.supplier} onValueChange={v => setForm({ ...form, supplier: v })}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                          <SelectContent>
+                            {dbSuppliers.filter(s => s.name && s.name.trim() !== "").map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Purchase &amp; Stock</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label className="text-xs">Purchase UOM</Label><UomSelect type="purchase" value={form.purchase_unit} onChange={v => setForm({ ...form, purchase_unit: v })} placeholder="e.g. Case" /></div>
+                          <div><Label className="text-xs">Purchase Cost (HK$)</Label><Input type="number" inputMode="decimal" step="0.01" value={form.purchase_unit_cost} onChange={e => setForm({ ...form, purchase_unit_cost: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                          <div><Label className="text-xs">Stock UOM</Label><UomSelect type="stock" value={form.stock_uom} onChange={v => setForm({ ...form, stock_uom: v })} placeholder="e.g. Bottle" /></div>
+                          <div><Label className="text-xs">Stock Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.stock_qty} onChange={e => setForm({ ...form, stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                        </div>
+                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
+                          <p className="text-xs text-muted-foreground">
+                            Cost per Stock Unit: <span className="tabular-nums font-semibold text-foreground">HK${fmt(liveCostPerStock)}</span>
+                            <span className="ml-2 text-muted-foreground/70">(Purchase Cost ÷ Stock Qty)</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Recipe Units</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><Label className="text-xs">Recipe UOM</Label><UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml" /></div>
+                          <div><Label className="text-xs">Recipe Qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="1000 for 1kg" className="h-9 text-sm tabular-nums" /></div>
+                        </div>
+                        <div className="mt-2 bg-muted/30 rounded-lg p-2">
+                          {(() => {
+                            const py = parseFloat(form.purchase_yield) || 100;
+                            const cy = parseFloat(form.cooking_yield) || 100;
+                            const totalYield = (py / 100) * (cy / 100);
+                            const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
+                            const baseQty = parseFloat(form.base_unit_qty) || 1;
+                            const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
+                            const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
+                            const hasYield = totalYield < 0.9999;
+                            return hasYield ? (
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Raw cost per {form.base_unit_type || "unit"}: <span className="tabular-nums line-through text-muted-foreground/60">HK${rawCostPerBase.toFixed(4)}</span></p>
+                                <p className="text-xs text-muted-foreground">Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield): <strong className="text-foreground tabular-nums">HK${effectiveCostPerBase.toFixed(4)}</strong> ← used in recipes</p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Standard Cost per Recipe Unit: <strong className="tabular-nums">HK${rawCostPerBase.toFixed(4)}</strong> (Purchase Cost ÷ Recipe Qty)</p>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* YIELD & WASTE */}
+                  <AccordionItem value="yield" className="border rounded-lg px-3">
+                    <AccordionTrigger className="text-sm font-medium py-3">Yield &amp; Waste</AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-3">
+                      <p className="text-xs text-muted-foreground">Account for prep loss and cooking shrinkage. Leave at 100% if there is no waste.</p>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                           <Label className="text-xs">Purchase yield %</Label>
                           <div className="relative">
-                            <Input
-                              type="number" min={1} max={100} step={0.1}
-                              value={form.purchase_yield}
-                              onChange={e => setForm(f => ({ ...f, purchase_yield: e.target.value }))}
-                              className="pr-8 text-sm h-9"
-                            />
+                            <Input type="number" inputMode="decimal" min={1} max={100} step={0.1} value={form.purchase_yield}
+                              onChange={e => setForm(f => ({ ...f, purchase_yield: e.target.value }))} className="pr-8 text-sm h-9 tabular-nums" />
                             <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground">Trim, peeling, bone, fat removed before cooking</p>
+                          <p className="text-[11px] text-muted-foreground">Trim, peeling, bone, fat removed</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs">Cooking yield %</Label>
                           <div className="relative">
-                            <Input
-                              type="number" min={1} max={100} step={0.1}
-                              value={form.cooking_yield}
-                              onChange={e => setForm(f => ({ ...f, cooking_yield: e.target.value }))}
-                              className="pr-8 text-sm h-9"
-                            />
+                            <Input type="number" inputMode="decimal" min={1} max={100} step={0.1} value={form.cooking_yield}
+                              onChange={e => setForm(f => ({ ...f, cooking_yield: e.target.value }))} className="pr-8 text-sm h-9 tabular-nums" />
                             <span className="absolute right-3 top-2 text-xs text-muted-foreground">%</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground">Moisture and shrinkage lost during cooking</p>
+                          <p className="text-[11px] text-muted-foreground">Moisture &amp; shrinkage lost during cooking</p>
                         </div>
                       </div>
                       {(() => {
                         const py = parseFloat(form.purchase_yield) || 100;
                         const cy = parseFloat(form.cooking_yield) || 100;
                         const totalYield = (py / 100) * (cy / 100) * 100;
-                        const baseCost = parseFloat(form.cost_per_base_unit) || 0;
-                        const effectiveCost = baseCost > 0 && totalYield > 0 ? baseCost / (totalYield / 100) : 0;
                         return (
-                          <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2 text-sm">
-                            <div className="flex items-center gap-4">
-                              <span className="text-muted-foreground text-xs">
-                                Total yield:
-                                <span className={`ml-1.5 font-medium ${totalYield < 80 ? "text-amber-400" : "text-foreground"}`}>
-                                  {totalYield.toFixed(1)}%
-                                </span>
-                              </span>
-                              {effectiveCost > 0 && (
-                                <span className="text-muted-foreground text-xs">
-                                  Effective cost:
-                                  <span className="ml-1.5 font-medium text-foreground">
-                                    ${effectiveCost.toFixed(4)}/{form.base_unit_type || "unit"}
-                                  </span>
-                                </span>
-                              )}
-                            </div>
-                            {totalYield < 100 && (
-                              <span className="text-[11px] text-muted-foreground">Recipes use effective cost</span>
-                            )}
+                          <div className="rounded-lg bg-secondary/50 px-3 py-2 text-sm flex items-center gap-2">
+                            <span className="text-muted-foreground text-xs">Total yield:</span>
+                            <span className={cn("tabular-nums font-medium", totalYield < 80 ? "text-warning" : "text-foreground")}>{totalYield.toFixed(1)}%</span>
                           </div>
                         );
                       })()}
-                    </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                    {/* Recipe units */}
-                    <div className="col-span-2 border-t pt-3 mt-1">
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">Recipe Units</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Recipe UOM</Label>
-                      <UomSelect type="base" value={form.base_unit_type} onChange={v => setForm({ ...form, base_unit_type: v })} placeholder="e.g. g, ml, ea" />
-                    </div>
-                    <div><Label className="text-xs">Recipe Qty</Label><Input type="number" step="0.01" value={form.base_unit_qty} onChange={e => setForm({ ...form, base_unit_qty: e.target.value })} placeholder="e.g. 1000 for 1kg" className="h-9 text-sm" /></div>
-                    <div className="col-span-2 bg-muted/30 rounded-lg p-2">
-                      {(() => {
-                        const py = parseFloat(form.purchase_yield) || 100;
-                        const cy = parseFloat(form.cooking_yield) || 100;
-                        const totalYield = (py / 100) * (cy / 100);
-                        const purchaseCost = parseFloat(form.purchase_unit_cost) || 0;
-                        const baseQty = parseFloat(form.base_unit_qty) || 1;
-                        const rawCostPerBase = baseQty > 0 ? purchaseCost / baseQty : 0;
-                        const effectiveCostPerBase = totalYield > 0 ? rawCostPerBase / totalYield : rawCostPerBase;
-                        const hasYield = totalYield < 0.9999;
-                        return hasYield ? (
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">
-                              Raw cost per {form.base_unit_type || "unit"}:{" "}
-                              <span className="font-mono line-through text-muted-foreground/60">${rawCostPerBase.toFixed(4)}</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Effective cost per {form.base_unit_type || "unit"} (after {(totalYield * 100).toFixed(1)}% yield):{" "}
-                              <strong className="text-foreground font-mono">${effectiveCostPerBase.toFixed(4)}</strong>
-                              {" "}← used in recipes
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            Standard Cost per Recipe Unit:{" "}
-                            <strong className="font-mono">${rawCostPerBase.toFixed(4)}</strong>{" "}
-                            (Purchase Cost ÷ Recipe Qty)
-                          </p>
-                        );
-                      })()}
-                    </div>
-                  </>
-                )}
+                  {/* REORDER */}
+                  <AccordionItem value="reorder" className="border rounded-lg px-3">
+                    <AccordionTrigger className="text-sm font-medium py-3">Reorder</AccordionTrigger>
+                    <AccordionContent className="pb-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><Label className="text-xs">Min stock qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.min_stock_qty} onChange={e => setForm({ ...form, min_stock_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                        <div><Label className="text-xs">Reorder qty</Label><Input type="number" inputMode="decimal" step="0.01" value={form.reorder_qty} onChange={e => setForm({ ...form, reorder_qty: e.target.value })} className="h-9 text-sm tabular-nums" /></div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                <div className="col-span-2 border-t pt-3 mt-1">
-                  <Label className="text-xs">Notes</Label>
-                  <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-16" />
-                </div>
-
-                <div className="col-span-2 border-t pt-3 mt-1">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Reorder settings</p>
-                </div>
-                <div><Label className="text-xs">Min stock qty</Label><Input type="number" step="0.01" value={form.min_stock_qty} onChange={e => setForm({ ...form, min_stock_qty: e.target.value })} className="h-9 text-sm" /></div>
-                <div><Label className="text-xs">Reorder qty</Label><Input type="number" step="0.01" value={form.reorder_qty} onChange={e => setForm({ ...form, reorder_qty: e.target.value })} className="h-9 text-sm" /></div>
-
-                <div>
-                  <Label className="text-xs">Status</Label>
-                  <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Supplier deals */}
-              <div className="mt-5 pt-4 border-t">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold">Supplier deals</h3>
-                  {editingProductId && (
-                    <Button size="sm" variant="outline" onClick={() => { setEditingDeal(null); setDealDialogOpen(true); }}>
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Add deal
-                    </Button>
-                  )}
-                </div>
-                {!editingProductId ? (
-                  <p className="text-xs text-muted-foreground">Save the item first to add supplier deals.</p>
-                ) : deals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No deals configured</p>
-                ) : (
-                  <div className="space-y-2">
-                    {deals.map((d) => {
-                      const supplier = dbSuppliers.find((s) => s.id === d.supplier_id);
-                      const pc = parseFloat(form.purchase_unit_cost) || 0;
-                      const effective = d.buy_qty + d.free_qty > 0
-                        ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
-                      const unit = form.purchase_unit || "unit";
-                      return (
-                        <div key={d.id} className="flex items-center gap-3 border rounded-md px-3 py-2 text-xs">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{supplier?.name || "—"}</div>
-                            <div className="text-muted-foreground">
-                              Buy <span className="font-mono">{d.buy_qty}</span> {unit} get{" "}
-                              <span className="font-mono">{d.free_qty}</span> {unit} free
-                            </div>
-                          </div>
-                          <div className="text-right whitespace-nowrap">
-                            <div className="text-muted-foreground">Effective</div>
-                            <div className="font-mono font-semibold">{formatCurrency(effective)} / {unit}</div>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7"
-                              onClick={() => {
-                                setEditingDeal({
-                                  id: d.id,
-                                  supplier_id: d.supplier_id,
-                                  buy_qty: d.buy_qty,
-                                  free_qty: d.free_qty,
-                                  notes: d.notes,
-                                  is_active: d.is_active,
-                                });
-                                setDealDialogOpen(true);
-                              }}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
-                              onClick={() => handleDeleteDeal(d.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
+                  {/* SUPPLIER DEALS */}
+                  <AccordionItem value="deals" className="border rounded-lg px-3">
+                    <AccordionTrigger className="text-sm font-medium py-3">Supplier Deals</AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-2">
+                      {editingProductId && (
+                        <Button size="sm" variant="outline" onClick={() => { setEditingDeal(null); setDealDialogOpen(true); }}>
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Add deal
+                        </Button>
+                      )}
+                      {!editingProductId ? (
+                        <p className="text-xs text-muted-foreground">Save the item first to add supplier deals.</p>
+                      ) : deals.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No deals configured</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {deals.map((d) => {
+                            const supplier = dbSuppliers.find((s) => s.id === d.supplier_id);
+                            const pc = parseFloat(form.purchase_unit_cost) || 0;
+                            const effective = d.buy_qty + d.free_qty > 0 ? (d.buy_qty * pc) / (d.buy_qty + d.free_qty) : 0;
+                            const unit = form.purchase_unit || "unit";
+                            return (
+                              <div key={d.id} className="flex items-center gap-3 border rounded-md px-3 py-2 text-xs">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{supplier?.name || "—"}</div>
+                                  <div className="text-muted-foreground">
+                                    Buy <span className="tabular-nums">{d.buy_qty}</span> {unit} get <span className="tabular-nums">{d.free_qty}</span> {unit} free
+                                  </div>
+                                </div>
+                                <div className="text-right whitespace-nowrap">
+                                  <div className="text-muted-foreground">Effective</div>
+                                  <div className="tabular-nums font-semibold">{formatCurrency(effective)} / {unit}</div>
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button size="icon" variant="ghost" className="h-8 w-8"
+                                    onClick={() => {
+                                      setEditingDeal({ id: d.id, supplier_id: d.supplier_id, buy_qty: d.buy_qty, free_qty: d.free_qty, notes: d.notes, is_active: d.is_active });
+                                      setDealDialogOpen(true);
+                                    }}>
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDeal(d.id)}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                </>
+              )}
+
+              {/* NOTES & STATUS */}
+              <AccordionItem value="notes" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm font-medium py-3">Notes &amp; Status</AccordionTrigger>
+                <AccordionContent className="pb-3 space-y-3">
+                  <div>
+                    <Label className="text-xs">Notes</Label>
+                    <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." className="text-sm h-20" />
                   </div>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 px-4 py-3 border-t">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
-                {editingProductId ? "Update" : "Create"}
-              </Button>
-            </div>
+                  <div>
+                    <Label className="text-xs">Status</Label>
+                    <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
-        </>
-      )}
+          <div className="flex justify-end gap-2 px-5 py-3 border-t shrink-0 bg-background">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={attemptSave} disabled={!form.internal_sku.trim() || !form.internal_product_name.trim()}>
+              {editingProductId ? "Update" : "Create"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+
 
       <DeleteConfirmDialog
         open={deleteOpen}
