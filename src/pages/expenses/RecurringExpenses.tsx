@@ -56,6 +56,7 @@ function computeNextGeneration(r: Partial<RecurringRule>): string | null {
 }
 
 export default function RecurringExpenses() {
+  const { tenantId } = useActiveTenant();
   const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
@@ -65,19 +66,21 @@ export default function RecurringExpenses() {
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([]);
 
   useEffect(() => {
+    if (!tenantId) return;
     (async () => {
+      // Server-side tenant filter on every lookup (defence-in-depth beyond RLS).
       const [s, v, c, a] = await Promise.all([
-        supabase.from("suppliers").select("id,name").order("name"),
-        supabase.from("venues").select("id,name").order("name"),
-        supabase.from("expense_categories").select("id,name").order("name"),
-        supabase.from("chart_of_accounts").select("id,code,name").order("code"),
+        supabase.from("suppliers").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("venues").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("expense_categories").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("chart_of_accounts").select("id,code,name").eq("tenant_id", tenantId).order("code"),
       ]);
       setSuppliers((s.data || []) as any);
       setVenues((v.data || []) as any);
       setCategories((c.data || []) as any);
       setAccounts((a.data || []) as any);
     })();
-  }, []);
+  }, [tenantId]);
 
   const openNew = () => {
     setEditing({
