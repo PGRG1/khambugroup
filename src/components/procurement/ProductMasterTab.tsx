@@ -125,11 +125,9 @@ export default function ProductMasterTab() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingRow, setDeletingRow] = useState<FlatRow | null>(null);
   const [dbSuppliers, setDbSuppliers] = useState<{ id: string; name: string }[]>([]);
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
   const [duplicateSku, setDuplicateSku] = useState<string | null>(null);
   const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // Supplier deals (within edit panel)
   const [deals, setDeals] = useState<SupplierDealRow[]>([]);
