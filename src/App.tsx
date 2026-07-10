@@ -81,7 +81,7 @@ import BankFeesPage from "./pages/bank/BankFeesPage";
 
 import DocumentCentre from "./pages/finance/DocumentCentre";
 import DocumentsBills from "./pages/finance/DocumentsBills";
-import BillsExpenses from "./pages/finance/BillsExpenses";
+// Bills entry unified under /expenses/bills — the finance route below just redirects.
 import PaymentsDashboardPage from "./pages/payments/PaymentsDashboardPage";
 import PaymentsBatchesPage from "./pages/payments/PaymentsBatchesPage";
 import PaymentsFeeAuditPage from "./pages/payments/PaymentsFeeAuditPage";
@@ -197,7 +197,7 @@ function App() {
                 
                 <Route path="/finance/document-centre" element={<AdminRoute><DocumentCentre /></AdminRoute>} />
                 <Route path="/finance/documents-bills" element={<AdminRoute><DocumentsBills /></AdminRoute>} />
-                <Route path="/finance/bills-expenses" element={<AdminRoute><BillsExpenses /></AdminRoute>} />
+                <Route path="/finance/bills-expenses" element={<Navigate to="/expenses/bills" replace />} />
                 <Route path="/payments" element={<AdminRoute><PaymentsDashboardPage /></AdminRoute>} />
                 <Route path="/payments/batches" element={<AdminRoute><PaymentsBatchesPage /></AdminRoute>} />
                 <Route path="/payments/fee-audit" element={<AdminRoute><PaymentsFeeAuditPage /></AdminRoute>} />

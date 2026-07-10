@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "sonner";
@@ -15,6 +15,10 @@ import {
   StatusPill,
   TableSkeleton,
   EmptyState,
+  KpiGrid,
+  KpiCard,
+  KpiSkeleton,
+  ScopeLine,
 } from "@/components/expenses/shared";
 
 interface PaymentTerm {
@@ -31,6 +35,7 @@ export default function ExpensePaymentTermsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<PaymentTerm>>({});
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     if (!tenantId) return;
@@ -116,6 +121,37 @@ export default function ExpensePaymentTermsPage() {
         }
       />
 
+      {(() => {
+        const active = rows.filter((r) => r.is_active).length;
+        const avgDays = rows.length ? Math.round(rows.reduce((s, r) => s + r.days, 0) / rows.length) : 0;
+        return loading && rows.length === 0 ? (
+          <KpiSkeleton count={3} />
+        ) : (
+          <KpiGrid>
+            <KpiCard label="Payment terms" value={String(rows.length)} />
+            <KpiCard label="Active" value={String(active)} tone={active > 0 ? "success" : "default"} />
+            <KpiCard label="Avg net days" value={String(avgDays)} hint="Across all terms" tone="info" />
+          </KpiGrid>
+        );
+      })()}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8 h-9"
+            placeholder="Search name or description…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {(() => {
+          const q = search.trim().toLowerCase();
+          const shown = q ? rows.filter((r) => (r.name + " " + (r.description || "")).toLowerCase().includes(q)) : rows;
+          return <ScopeLine>Showing {shown.length} of {rows.length}</ScopeLine>;
+        })()}
+      </div>
+
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
           <TableSkeleton rows={4} cols={5} />
@@ -132,7 +168,7 @@ export default function ExpensePaymentTermsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r, idx) => (
+                {(search.trim() ? rows.filter((r) => (r.name + " " + (r.description || "")).toLowerCase().includes(search.trim().toLowerCase())) : rows).map((r, idx) => (
                   <TableRow key={r.id} className={`${idx % 2 === 0 ? "bg-muted/20" : ""} hover:bg-muted/40`}>
                     <TableCell className="py-2 px-3 font-medium">{r.name}</TableCell>
                     <TableCell className="py-2 px-3 text-right td-num tabular-nums whitespace-nowrap">{r.days} days</TableCell>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,12 @@ export default function BillsExpenses() {
   const { isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
   const { bills, loading, saveBill, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const prefill = (location.state as any)?.prefill as
+    | { header: Partial<ExpenseBill>; allocations: ExpenseBillAllocation[]; bankTxnId?: string | null }
+    | undefined;
+  const [linkedBankTxn, setLinkedBankTxn] = useState<string | null>(null);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -98,6 +104,31 @@ export default function BillsExpenses() {
       setCategories((c.data || []) as Category[]);
     })();
   }, [tenantId]);
+
+  // Pre-fill from another page (e.g. bank-detected expense) — open editor with hint.
+  useEffect(() => {
+    if (!prefill) return;
+    setEditing(null);
+    setHeader({
+      bill_date: new Date().toISOString().slice(0, 10),
+      currency: "HKD",
+      subtotal: 0,
+      tax_amount: 0,
+      total_amount: 0,
+      approval_status: "draft",
+      ...prefill.header,
+    });
+    setAllocations(prefill.allocations.length
+      ? prefill.allocations
+      : [{ line_no: 1, expense_category: null, account_id: null, venue: null, department: null, amount: Number(prefill.header?.subtotal || prefill.header?.total_amount || 0), tax_treatment: "none", tax_amount: 0, notes: null }]);
+    setAudit([]);
+    setPayments([]);
+    setLinkedBankTxn(prefill.bankTxnId || null);
+    setEditorOpen(true);
+    // Clear location.state so a refresh doesn't re-open the editor.
+    navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill]);
 
   const supplierName = (id: string | null) =>
     suppliers.find((s) => s.id === id)?.name || "—";
@@ -224,6 +255,15 @@ export default function BillsExpenses() {
     const payload: Partial<ExpenseBill> = { ...header };
     if (newStatus) payload.approval_status = newStatus;
     const id = await saveBill(payload, allocations);
+    if (id && linkedBankTxn && tenantId) {
+      // Link the originating bank transaction so it stops appearing as "unposted".
+      await supabase
+        .from("bank_transactions")
+        .update({ expense_posted_bill_id: id })
+        .eq("id", linkedBankTxn)
+        .eq("tenant_id", tenantId);
+      setLinkedBankTxn(null);
+    }
     if (id && !editing) {
       setEditorOpen(false);
     } else if (id) {

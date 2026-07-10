@@ -122,5 +122,37 @@ export function useVendorStatements() {
     [refresh, tenantId]
   );
 
-  return { statements, loading, refresh, save, remove };
+  const setStatus = useCallback(
+    async (id: string, approval_status: "draft" | "pending_review" | "approved" | "rejected" | "posted") => {
+      if (!tenantId) return false;
+      const { error } = await supabase
+        .from("expense_vendor_statements")
+        .update({ approval_status })
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
+      if (error) {
+        toast.error("Update failed: " + error.message);
+        return false;
+      }
+      await refresh();
+      return true;
+    },
+    [refresh, tenantId]
+  );
+
+  const postStatement = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.rpc("post_vendor_statement", { p_statement_id: id });
+      if (error) {
+        toast.error("Post failed: " + error.message);
+        return false;
+      }
+      toast.success("Statement posted to GL");
+      await refresh();
+      return true;
+    },
+    [refresh]
+  );
+
+  return { statements, loading, refresh, save, remove, setStatus, postStatement };
 }

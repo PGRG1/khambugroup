@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Upload, FileStack, Landmark, Repeat, Paperclip, ArrowRight, Sparkles, ShieldAlert } from "lucide-react";
 import { useExpenseBills, ExpenseBill } from "@/hooks/useExpenseBills";
 import { useVendorStatements } from "@/hooks/useVendorStatements";
@@ -105,27 +106,50 @@ export default function ExpensesOverview() {
     })();
   }, [tenantId]);
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const now = useMemo(() => new Date(), []);
+  // Period selector — drives all MTD figures. "current" = this month, "prev" = last
+  // month, "ytd" = year-to-date.
+  const [period, setPeriod] = useState<"current" | "prev" | "ytd">("current");
+  const { periodStart, periodEnd, periodLabel } = useMemo(() => {
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    if (period === "prev") {
+      const s = new Date(y, m - 1, 1).toISOString().slice(0, 10);
+      const e = new Date(y, m, 0).toISOString().slice(0, 10);
+      return { periodStart: s, periodEnd: e, periodLabel: "Previous month" };
+    }
+    if (period === "ytd") {
+      const s = new Date(y, 0, 1).toISOString().slice(0, 10);
+      const e = new Date(y, 11, 31).toISOString().slice(0, 10);
+      return { periodStart: s, periodEnd: e, periodLabel: "Year to date" };
+    }
+    const s = new Date(y, m, 1).toISOString().slice(0, 10);
+    const e = new Date(y, m + 1, 0).toISOString().slice(0, 10);
+    return { periodStart: s, periodEnd: e, periodLabel: "This month" };
+  }, [period, now]);
   const today = now.toISOString().slice(0, 10);
 
   const kpis = useMemo(() => {
-    const inMonth = (d: string) => d >= monthStart && d <= monthEnd;
-    const billsMTD = bills.filter((b) => inMonth(recognitionDate(b)));
-    const actualMTD = billsMTD
-      .filter((b) => b.approval_status === "posted" || b.approval_status === "approved")
+    const inPeriod = (d: string) => d >= periodStart && d <= periodEnd;
+    const billsInPeriod = bills.filter((b) => inPeriod(recognitionDate(b)));
+    // Actual = posted only (writes are in the GL). Approved-but-not-posted is a
+    // separate tile so the two are never confused on the ledger.
+    const actual = billsInPeriod
+      .filter((b) => b.approval_status === "posted")
       .reduce((s, b) => s + Number(b.total_amount || 0), 0);
-    const pendingMTD = billsMTD
+    const approvedUnposted = billsInPeriod
+      .filter((b) => b.approval_status === "approved")
+      .reduce((s, b) => s + Number(b.total_amount || 0), 0);
+    const pending = billsInPeriod
       .filter((b) => b.approval_status === "draft" || b.approval_status === "pending_review")
       .reduce((s, b) => s + Number(b.total_amount || 0), 0);
-    const expectedMTD = rules
+    const expected = rules
       .filter(
         (r) =>
           r.status === "active" &&
           r.next_generation_date &&
-          r.next_generation_date >= monthStart &&
-          r.next_generation_date <= monthEnd
+          r.next_generation_date >= periodStart &&
+          r.next_generation_date <= periodEnd
       )
       .reduce((s, r) => s + Number(r.expected_amount || 0), 0);
     const overdue = bills.filter(
@@ -136,8 +160,8 @@ export default function ExpensesOverview() {
       statements.filter((s) => s.approval_status === "pending_review").length;
     const lateFees = statements.reduce((s, x) => s + Number(x.late_fees || 0), 0);
     const bankDetected = bankExpenses.filter((b) => !b.expense_posted_bill_id).length;
-    return { actualMTD, pendingMTD, expectedMTD, overdue, needsReview, lateFees, bankDetected };
-  }, [bills, statements, rules, bankExpenses, monthStart, monthEnd, today]);
+    return { actual, approvedUnposted, pending, expected, overdue, needsReview, lateFees, bankDetected };
+  }, [bills, statements, rules, bankExpenses, periodStart, periodEnd, today]);
 
   const unified: UnifiedRow[] = useMemo(() => {
     const rows: UnifiedRow[] = [];
@@ -273,13 +297,28 @@ export default function ExpensesOverview() {
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+          <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="current">This month</SelectItem>
+            <SelectItem value="prev">Previous month</SelectItem>
+            <SelectItem value="ytd">Year to date</SelectItem>
+          </SelectContent>
+        </Select>
+        <ScopeLine>
+          {periodLabel} · {fmtDate(periodStart)} → {fmtDate(periodEnd)}
+        </ScopeLine>
+      </div>
+
       {anyLoading && bills.length === 0 ? (
-        <KpiSkeleton count={7} />
+        <KpiSkeleton count={8} />
       ) : (
         <KpiGrid>
-          <KpiCard label="Actual (MTD)" value={fmtHKWhole(kpis.actualMTD)} hint="Approved & posted" />
-          <KpiCard label="Pending (MTD)" value={fmtHKWhole(kpis.pendingMTD)} hint="Awaiting approval" tone="warning" />
-          <KpiCard label="Expected (MTD)" value={fmtHKWhole(kpis.expectedMTD)} hint="Recurring not yet generated" tone="info" />
+          <KpiCard label="Actual (posted)" value={fmtHKWhole(kpis.actual)} hint="In the ledger" tone="success" />
+          <KpiCard label="Approved · unposted" value={fmtHKWhole(kpis.approvedUnposted)} hint="Ready to post" tone={kpis.approvedUnposted > 0 ? "info" : "default"} />
+          <KpiCard label="Pending" value={fmtHKWhole(kpis.pending)} hint="Awaiting approval" tone={kpis.pending > 0 ? "warning" : "default"} />
+          <KpiCard label="Expected" value={fmtHKWhole(kpis.expected)} hint="Recurring not yet generated" tone="info" />
           <KpiCard label="Overdue" value={String(kpis.overdue)} tone={kpis.overdue > 0 ? "destructive" : "default"} />
           <KpiCard label="Needs review" value={String(kpis.needsReview)} tone={kpis.needsReview > 0 ? "warning" : "default"} />
           <KpiCard label="Bank-detected" value={String(kpis.bankDetected)} hint="Unposted" tone={kpis.bankDetected > 0 ? "info" : "default"} />

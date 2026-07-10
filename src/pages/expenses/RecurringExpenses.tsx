@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, PlayCircle, Repeat } from "lucide-react";
+import { Plus, Trash2, PlayCircle, Repeat, Search } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { useRecurringExpenses, RecurringRule, RecurringRuleStatus } from "@/hooks/useRecurringExpenses";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,7 +20,11 @@ import {
   StatusVariant,
   TableSkeleton,
   EmptyState,
+  KpiGrid,
+  KpiCard,
+  KpiSkeleton,
   fmtHK,
+  fmtHKWhole,
   fmtDate,
   ScopeLine,
 } from "@/components/expenses/shared";
@@ -100,12 +105,31 @@ export default function RecurringExpenses() {
   const previewNextGen = useMemo(() => computeNextGeneration(editing), [editing]);
 
   const handleSave = async () => {
-    if (!editing.name) return;
+    if (!editing.name) { toast.error("Name is required"); return; }
+    // Cannot save without a category + debit account — otherwise the rule generates
+    // orphan bills that stall in Pending Review.
+    if (!editing.category_id) { toast.error("Category is required"); return; }
+    if (!editing.account_id) { toast.error("Debit account is required"); return; }
     const ok = await save(editing);
     if (ok) setOpen(false);
   };
 
+  const [search, setSearch] = useState("");
   const activeCount = rules.filter((r) => r.status === "active").length;
+  const monthlyExpected = rules
+    .filter((r) => r.status === "active")
+    .reduce((s, r) => {
+      const amt = Number(r.expected_amount || 0);
+      const mult = r.cadence === "weekly" ? 4.33 : r.cadence === "quarterly" ? 1 / 3 : r.cadence === "yearly" ? 1 / 12 : 1;
+      return s + amt * mult;
+    }, 0);
+  const filteredRules = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rules;
+    return rules.filter((r) =>
+      [r.name, r.vendor_name, r.cadence, r.department].some((x) => (x || "").toLowerCase().includes(q))
+    );
+  }, [rules, search]);
 
   return (
     <div className="p-6 space-y-6">
@@ -124,9 +148,30 @@ export default function RecurringExpenses() {
         }
       />
 
-      <ScopeLine>
-        {rules.length} rule{rules.length === 1 ? "" : "s"} · {activeCount} active
-      </ScopeLine>
+      {loading && rules.length === 0 ? (
+        <KpiSkeleton count={3} />
+      ) : (
+        <KpiGrid>
+          <KpiCard label="Rules" value={String(rules.length)} />
+          <KpiCard label="Active" value={String(activeCount)} tone={activeCount > 0 ? "success" : "default"} />
+          <KpiCard label="Expected / month" value={fmtHKWhole(monthlyExpected)} hint="Sum of active rules" tone="info" />
+        </KpiGrid>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8 h-9"
+            placeholder="Search name, vendor, cadence…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <ScopeLine>
+          Showing {filteredRules.length} of {rules.length} · {activeCount} active
+        </ScopeLine>
+      </div>
 
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
@@ -146,7 +191,7 @@ export default function RecurringExpenses() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rules.map((r) => (
+                {filteredRules.map((r) => (
                   <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => { setEditing(r); setOpen(true); }}>
                     <TableCell className="font-medium">{r.name}</TableCell>
                     <TableCell>{r.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
