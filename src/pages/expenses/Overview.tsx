@@ -106,27 +106,49 @@ export default function ExpensesOverview() {
     })();
   }, [tenantId]);
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  // Period selector — drives all MTD figures. "current" = this month, "prev" = last
+  // month, "ytd" = year-to-date.
+  const [period, setPeriod] = useState<"current" | "prev" | "ytd">("current");
+  const { periodStart, periodEnd, periodLabel } = useMemo(() => {
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    if (period === "prev") {
+      const s = new Date(y, m - 1, 1).toISOString().slice(0, 10);
+      const e = new Date(y, m, 0).toISOString().slice(0, 10);
+      return { periodStart: s, periodEnd: e, periodLabel: "Previous month" };
+    }
+    if (period === "ytd") {
+      const s = new Date(y, 0, 1).toISOString().slice(0, 10);
+      const e = new Date(y, 11, 31).toISOString().slice(0, 10);
+      return { periodStart: s, periodEnd: e, periodLabel: "Year to date" };
+    }
+    const s = new Date(y, m, 1).toISOString().slice(0, 10);
+    const e = new Date(y, m + 1, 0).toISOString().slice(0, 10);
+    return { periodStart: s, periodEnd: e, periodLabel: "This month" };
+  }, [period, now]);
   const today = now.toISOString().slice(0, 10);
 
   const kpis = useMemo(() => {
-    const inMonth = (d: string) => d >= monthStart && d <= monthEnd;
-    const billsMTD = bills.filter((b) => inMonth(recognitionDate(b)));
-    const actualMTD = billsMTD
-      .filter((b) => b.approval_status === "posted" || b.approval_status === "approved")
+    const inPeriod = (d: string) => d >= periodStart && d <= periodEnd;
+    const billsInPeriod = bills.filter((b) => inPeriod(recognitionDate(b)));
+    // Actual = posted only (writes are in the GL). Approved-but-not-posted is a
+    // separate tile so the two are never confused on the ledger.
+    const actual = billsInPeriod
+      .filter((b) => b.approval_status === "posted")
       .reduce((s, b) => s + Number(b.total_amount || 0), 0);
-    const pendingMTD = billsMTD
+    const approvedUnposted = billsInPeriod
+      .filter((b) => b.approval_status === "approved")
+      .reduce((s, b) => s + Number(b.total_amount || 0), 0);
+    const pending = billsInPeriod
       .filter((b) => b.approval_status === "draft" || b.approval_status === "pending_review")
       .reduce((s, b) => s + Number(b.total_amount || 0), 0);
-    const expectedMTD = rules
+    const expected = rules
       .filter(
         (r) =>
           r.status === "active" &&
           r.next_generation_date &&
-          r.next_generation_date >= monthStart &&
-          r.next_generation_date <= monthEnd
+          r.next_generation_date >= periodStart &&
+          r.next_generation_date <= periodEnd
       )
       .reduce((s, r) => s + Number(r.expected_amount || 0), 0);
     const overdue = bills.filter(
@@ -137,8 +159,8 @@ export default function ExpensesOverview() {
       statements.filter((s) => s.approval_status === "pending_review").length;
     const lateFees = statements.reduce((s, x) => s + Number(x.late_fees || 0), 0);
     const bankDetected = bankExpenses.filter((b) => !b.expense_posted_bill_id).length;
-    return { actualMTD, pendingMTD, expectedMTD, overdue, needsReview, lateFees, bankDetected };
-  }, [bills, statements, rules, bankExpenses, monthStart, monthEnd, today]);
+    return { actual, approvedUnposted, pending, expected, overdue, needsReview, lateFees, bankDetected };
+  }, [bills, statements, rules, bankExpenses, periodStart, periodEnd, today]);
 
   const unified: UnifiedRow[] = useMemo(() => {
     const rows: UnifiedRow[] = [];
