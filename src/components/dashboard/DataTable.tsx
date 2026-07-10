@@ -388,30 +388,30 @@ const DataTable = ({ data }: DataTableProps) => {
     <>
       {/* Reconciliation banner */}
       {(mismatchCount > 0 || unmappedCount > 0) && (
-        <div className="flex items-stretch rounded-lg overflow-hidden border border-amber-500/40 bg-amber-500/5 mb-3">
+        <div className="flex items-stretch rounded-lg overflow-hidden border border-warning/40 bg-warning/5 mb-3">
           {mismatchCount > 0 && (
             <button
               type="button"
               onClick={() => setReconciliationOnly(true)}
-              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-left hover:bg-amber-500/10 transition-colors"
+              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-left hover:bg-warning/10 transition-colors"
             >
-              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
               <span className="text-xs">
-                <strong className="text-amber-500">{mismatchCount}</strong> record{mismatchCount > 1 ? "s" : ""} with total mismatches — click to view
+                <strong className="text-warning">{mismatchCount}</strong> record{mismatchCount > 1 ? "s" : ""} with total mismatches — click to view
               </span>
             </button>
           )}
-          {mismatchCount > 0 && unmappedCount > 0 && <div className="w-px bg-amber-500/30" />}
+          {mismatchCount > 0 && unmappedCount > 0 && <div className="w-px bg-warning/30" />}
           {unmappedCount > 0 && (
             <button
               type="button"
-              onClick={() => navigate("/finance/chart-of-accounts")}
-              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-left hover:bg-amber-500/10 transition-colors"
+              onClick={() => navigate("/finance/chart-of-accounts?tab=mappings")}
+              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-left hover:bg-warning/10 transition-colors"
               title={unmappedVenues.join(", ")}
             >
-              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
               <span className="text-xs">
-                <strong className="text-amber-500">{unmappedCount}</strong> venue{unmappedCount > 1 ? "s" : ""} with unmapped revenue account{unmappedCount > 1 ? "s" : ""} — click to fix
+                <strong className="text-warning">{unmappedCount}</strong> venue{unmappedCount > 1 ? "s" : ""} with unmapped revenue account{unmappedCount > 1 ? "s" : ""} — click to fix
               </span>
             </button>
           )}
