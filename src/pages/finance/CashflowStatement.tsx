@@ -268,7 +268,7 @@ export default function CashflowStatement() {
                                       <TableCell className="py-1 font-sans">{d.memo}</TableCell>
                                       <TableCell className="py-1">{d.venue || "—"}</TableCell>
                                       <TableCell
-                                        className={`py-1 text-right font-mono ${d.amount < 0 ? "text-rose-700" : ""}`}
+                                        className={`py-1 text-right tabular-nums ${d.amount < 0 ? "text-destructive" : ""}`}
                                       >
                                         {fmt(d.amount)}
                                       </TableCell>
