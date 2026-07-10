@@ -4,20 +4,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, FileStack } from "lucide-react";
 import { useVendorStatements, VendorStatement } from "@/hooks/useVendorStatements";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { supabase } from "@/integrations/supabase/client";
-
-const fmt = (n: number) =>
-  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const dt = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+import {
+  PageHeader,
+  StatusPill,
+  TableSkeleton,
+  EmptyState,
+  approvalVariant,
+  APPROVAL_LABEL,
+  fmtHK,
+  fmtDate,
+  ScopeLine,
+} from "@/components/expenses/shared";
 
 export default function VendorStatements() {
+  const { tenantId } = useActiveTenant();
   const { statements, save, remove, loading } = useVendorStatements();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<VendorStatement>>({});
@@ -25,15 +32,16 @@ export default function VendorStatements() {
   const [venues, setVenues] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
+    if (!tenantId) return;
     (async () => {
       const [s, v] = await Promise.all([
-        supabase.from("suppliers").select("id,name").order("name"),
-        supabase.from("venues").select("id,name").order("name"),
+        supabase.from("suppliers").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("venues").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
       ]);
       setSuppliers((s.data || []) as any);
       setVenues((v.data || []) as any);
     })();
-  }, []);
+  }, [tenantId]);
 
   const openNew = () => {
     setEditing({
@@ -69,74 +77,92 @@ export default function VendorStatements() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-semibold">Vendor Statements</h1>
-          <p className="text-sm text-muted-foreground">
-            Only current period charges and late fees post to P&L. Opening balance is treated as prior AP.
-          </p>
-        </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> New Statement</Button>
-      </div>
+      <PageHeader
+        title="Vendor Statements"
+        description="Only current period charges and late fees post to P&L. Opening balance is treated as prior AP."
+        actions={
+          <Button size="sm" className="h-9" onClick={openNew}>
+            <Plus className="h-4 w-4 mr-1" /> New statement
+          </Button>
+        }
+      />
 
-      <Card className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Vendor</TableHead>
-              <TableHead>Statement #</TableHead>
-              <TableHead className="text-right">Opening</TableHead>
-              <TableHead className="text-right">Current Charges</TableHead>
-              <TableHead className="text-right">Payments/Credits</TableHead>
-              <TableHead className="text-right">Late Fees</TableHead>
-              <TableHead className="text-right">Closing</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {statements.map((s) => (
-              <TableRow
-                key={s.id}
-                className="cursor-pointer"
-                onClick={() => {
-                  setEditing(s);
-                  setOpen(true);
-                }}
-              >
-                <TableCell>{dt(s.statement_date)}</TableCell>
-                <TableCell>{s.vendor_name || "—"}</TableCell>
-                <TableCell>{s.statement_number || "—"}</TableCell>
-                <TableCell className="text-right td-num">{fmt(s.opening_balance)}</TableCell>
-                <TableCell className="text-right td-num font-medium">{fmt(s.current_period_charges)}</TableCell>
-                <TableCell className="text-right td-num">{fmt(s.payments_credits)}</TableCell>
-                <TableCell className="text-right td-num">{fmt(s.late_fees)}</TableCell>
-                <TableCell className="text-right td-num">{fmt(s.closing_balance)}</TableCell>
-                <TableCell><Badge variant="outline">{s.approval_status}</Badge></TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm("Delete statement?")) remove(s.id);
-                    }}
+      <ScopeLine>{statements.length} statement{statements.length === 1 ? "" : "s"}</ScopeLine>
+
+      <Card className="card-glass p-0 overflow-hidden">
+        {loading ? (
+          <TableSkeleton rows={4} cols={10} />
+        ) : (
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead>Date</TableHead>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Statement #</TableHead>
+                  <TableHead className="text-right">Opening</TableHead>
+                  <TableHead className="text-right">Current charges</TableHead>
+                  <TableHead className="text-right">Payments / credits</TableHead>
+                  <TableHead className="text-right">Late fees</TableHead>
+                  <TableHead className="text-right">Closing</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {statements.map((s) => (
+                  <TableRow
+                    key={s.id}
+                    className="cursor-pointer hover:bg-muted/40"
+                    onClick={() => { setEditing(s); setOpen(true); }}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!statements.length && (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                  {loading ? "Loading…" : "No statements yet"}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                    <TableCell className="whitespace-nowrap">{fmtDate(s.statement_date)}</TableCell>
+                    <TableCell>{s.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-xs">{s.statement_number || "—"}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.opening_balance)}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap font-medium">{fmtHK(s.current_period_charges)}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.payments_credits)}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.late_fees)}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(s.closing_balance)}</TableCell>
+                    <TableCell>
+                      <StatusPill variant={approvalVariant(s.approval_status)}>
+                        {APPROVAL_LABEL[s.approval_status] || s.approval_status}
+                      </StatusPill>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm("Delete statement?")) remove(s.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!statements.length && (
+                  <TableRow>
+                    <TableCell colSpan={10} className="p-0">
+                      <EmptyState
+                        icon={<FileStack className="h-6 w-6" />}
+                        title="No statements yet"
+                        description="Upload or manually enter vendor monthly statements to reconcile bills against supplier records and catch late fees."
+                        action={
+                          <Button size="sm" className="h-8" onClick={openNew}>
+                            <Plus className="h-3 w-3 mr-1" /> New statement
+                          </Button>
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card>
 
       <Sheet open={open} onOpenChange={setOpen}>
