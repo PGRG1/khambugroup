@@ -124,10 +124,10 @@ export default function CashflowLedger() {
   };
 
   return (
-    <div className="p-6 max-w-[1920px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Cashflow (Ledger)</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Cashflow (Ledger)</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Derived from posted journal entries hitting cash accounts — always agrees with the Trial Balance and Balance Sheet.
           </p>
@@ -176,18 +176,18 @@ export default function CashflowLedger() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <KPICard icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Opening Cash" value={fmtMoney(totals.opening)} />
-        <KPICard icon={<ArrowUpCircle className="h-5 w-5 text-emerald-600" />} label="Cash In" value={fmtMoney(totals.cashIn)} />
-        <KPICard icon={<ArrowDownCircle className="h-5 w-5 text-rose-600" />} label="Cash Out" value={fmtMoney(totals.cashOut)} />
-        <KPICard icon={<TrendingUp className="h-5 w-5 text-primary" />} label="Net Movement" value={fmtMoney(totals.net)} highlight={totals.net >= 0 ? "positive" : "negative"} />
-        <KPICard icon={<Wallet className="h-5 w-5 text-amber-600" />} label="Closing Cash" value={fmtMoney(totals.closing)} />
+        <KPICard icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Opening Cash" value={fmtMoney(totals.opening)} loading={loading} />
+        <KPICard icon={<ArrowUpCircle className="h-5 w-5 text-primary" />} label="Cash In" value={fmtMoney(totals.cashIn)} loading={loading} />
+        <KPICard icon={<ArrowDownCircle className="h-5 w-5 text-destructive" />} label="Cash Out" value={fmtMoney(totals.cashOut)} loading={loading} />
+        <KPICard icon={<TrendingUp className="h-5 w-5 text-info" />} label="Net Movement" value={fmtMoney(totals.net)} highlight={totals.net >= 0 ? "positive" : "negative"} loading={loading} />
+        <KPICard icon={<Wallet className="h-5 w-5 text-warning" />} label="Closing Cash" value={fmtMoney(totals.closing)} loading={loading} />
       </div>
 
       {/* Chart */}
       <Card className="card-glass p-4">
         <h2 className="text-lg font-semibold mb-3">Cash movements over time</h2>
         {loading ? (
-          <div className="h-[320px] flex items-center justify-center text-muted-foreground">Loading…</div>
+          <div className="h-[320px] w-full rounded-md bg-muted/30 animate-pulse" />
         ) : chartData.length === 0 ? (
           <div className="h-[320px] flex items-center justify-center text-muted-foreground">No cash activity in the selected range.</div>
         ) : (
@@ -201,10 +201,10 @@ export default function CashflowLedger() {
                 contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
               />
               <Legend />
-              <Bar dataKey="Cash In" stackId="cf" fill="hsl(142 71% 45%)" />
-              <Bar dataKey="Cash Out" stackId="cf" fill="hsl(0 72% 51%)" />
-              <Line type="monotone" dataKey="Net" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="Balance" stroke="hsl(38 92% 50%)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+              <Bar dataKey="Cash In" stackId="cf" fill="hsl(var(--primary))" />
+              <Bar dataKey="Cash Out" stackId="cf" fill="hsl(var(--destructive))" />
+              <Line type="monotone" dataKey="Net" stroke="hsl(var(--info))" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Balance" stroke="hsl(var(--warning))" strokeWidth={2} strokeDasharray="4 4" dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
@@ -225,27 +225,34 @@ export default function CashflowLedger() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {buckets.length === 0 && (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={`sk-${i}`}>
+                    {Array.from({ length: 5 }).map((__, j) => (
+                      <TableCell key={j}><div className="h-3 bg-muted/30 rounded animate-pulse" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : buckets.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No data</TableCell></TableRow>
-              )}
-              {buckets.map((b) => (
+              ) : buckets.map((b) => (
                 <TableRow key={b.key}>
                   <TableCell className="font-medium">{b.label}</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-700">{fmtMono(b.inflows)}</TableCell>
-                  <TableCell className="text-right font-mono text-rose-700">({fmtMono(b.outflows)})</TableCell>
-                  <TableCell className={`text-right font-mono font-semibold ${b.net >= 0 ? "text-foreground" : "text-rose-700"}`}>{fmtMono(b.net)}</TableCell>
-                  <TableCell className="text-right font-mono">{fmtMono(b.runningBalance)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-primary">{fmtMono(b.inflows)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">({fmtMono(b.outflows)})</TableCell>
+                  <TableCell className={`text-right tabular-nums font-semibold ${b.net >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtMono(b.net)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtMono(b.runningBalance)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
-            {buckets.length > 0 && (
+            {buckets.length > 0 && !loading && (
               <tfoot className="border-t-2 border-double border-foreground/40">
                 <TableRow>
                   <TableCell className="font-semibold">Total</TableCell>
-                  <TableCell className="text-right font-mono font-semibold text-emerald-700">{fmtMono(totals.cashIn)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold text-rose-700">({fmtMono(totals.cashOut)})</TableCell>
-                  <TableCell className="text-right font-mono font-bold">{fmtMono(totals.net)}</TableCell>
-                  <TableCell className="text-right font-mono font-bold">{fmtMono(totals.closing)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold text-primary">{fmtMono(totals.cashIn)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold text-destructive">({fmtMono(totals.cashOut)})</TableCell>
+                  <TableCell className="text-right tabular-nums font-bold">{fmtMono(totals.net)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-bold">{fmtMono(totals.closing)}</TableCell>
                 </TableRow>
               </tfoot>
             )}
@@ -271,9 +278,9 @@ export default function CashflowLedger() {
               {byAccount.map((a) => (
                 <TableRow key={a.code}>
                   <TableCell><span className="font-mono text-xs text-muted-foreground">{a.code}</span> {a.name}</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-700">{fmtMono(a.cashIn)}</TableCell>
-                  <TableCell className="text-right font-mono text-rose-700">({fmtMono(a.cashOut)})</TableCell>
-                  <TableCell className={`text-right font-mono font-semibold ${a.net >= 0 ? "" : "text-rose-700"}`}>{fmtMono(a.net)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-primary">{fmtMono(a.cashIn)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">({fmtMono(a.cashOut)})</TableCell>
+                  <TableCell className={`text-right tabular-nums font-semibold ${a.net >= 0 ? "" : "text-destructive"}`}>{fmtMono(a.net)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -296,9 +303,9 @@ export default function CashflowLedger() {
               {bySource.map((s) => (
                 <TableRow key={s.source}>
                   <TableCell>{SOURCE_LABELS[s.source] || s.source}</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-700">{fmtMono(s.cashIn)}</TableCell>
-                  <TableCell className="text-right font-mono text-rose-700">({fmtMono(s.cashOut)})</TableCell>
-                  <TableCell className={`text-right font-mono font-semibold ${s.net >= 0 ? "" : "text-rose-700"}`}>{fmtMono(s.net)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-primary">{fmtMono(s.cashIn)}</TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">({fmtMono(s.cashOut)})</TableCell>
+                  <TableCell className={`text-right tabular-nums font-semibold ${s.net >= 0 ? "" : "text-destructive"}`}>{fmtMono(s.net)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -336,8 +343,8 @@ export default function CashflowLedger() {
                   <TableCell className="text-xs"><span className="font-mono text-muted-foreground">{r.account_code}</span> {r.account_name}</TableCell>
                   <TableCell className="text-xs">{r.venue || "—"}</TableCell>
                   <TableCell className="text-sm">{r.memo}</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-700">{r.cash_in ? fmtMono(r.cash_in) : ""}</TableCell>
-                  <TableCell className="text-right font-mono text-rose-700">{r.cash_out ? fmtMono(r.cash_out) : ""}</TableCell>
+                  <TableCell className="text-right tabular-nums text-primary">{r.cash_in ? fmtMono(r.cash_in) : ""}</TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">{r.cash_out ? fmtMono(r.cash_out) : ""}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -349,17 +356,21 @@ export default function CashflowLedger() {
 }
 
 function KPICard({
-  icon, label, value, highlight,
+  icon, label, value, highlight, loading,
 }: {
-  icon: React.ReactNode; label: string; value: string; highlight?: "positive" | "negative";
+  icon: React.ReactNode; label: string; value: string; highlight?: "positive" | "negative"; loading?: boolean;
 }) {
-  const color = highlight === "negative" ? "text-rose-700" : highlight === "positive" ? "text-emerald-700" : "text-foreground";
+  const color = highlight === "negative" ? "text-destructive" : highlight === "positive" ? "text-primary" : "text-foreground";
   return (
     <Card className="card-glass p-4 min-w-0">
       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
         {icon}<span className="truncate">{label}</span>
       </div>
-      <div className={`text-xl md:text-2xl font-bold font-mono truncate ${color}`}>{value}</div>
+      {loading ? (
+        <div className="h-7 w-28 bg-muted/40 rounded animate-pulse" />
+      ) : (
+        <div className={`text-xl md:text-2xl font-semibold tabular-nums truncate ${color}`}>{value}</div>
+      )}
     </Card>
   );
 }

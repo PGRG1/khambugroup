@@ -122,10 +122,10 @@ export default function CashflowStatement() {
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Cashflow Statement</h1>
+          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Cashflow Statement</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Direct method — built from posted journal entries hitting cash accounts, classified into Operating,
             Investing and Financing activities.
@@ -196,7 +196,11 @@ export default function CashflowStatement() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-muted-foreground">Loading…</div>
+          <div className="py-16 space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-4 bg-muted/30 rounded animate-pulse" style={{ width: `${60 + (i % 3) * 15}%` }} />
+            ))}
+          </div>
         ) : (
           <div className="font-mono text-sm">
             {/* Opening */}
@@ -234,7 +238,7 @@ export default function CashflowStatement() {
                             />
                             <span className="font-sans">{line.lineItem}</span>
                           </div>
-                          <span className={line.amount < 0 ? "text-rose-700" : ""}>
+                          <span className={`tabular-nums ${line.amount < 0 ? "text-destructive" : ""}`}>
                             {fmt(line.amount)}
                           </span>
                         </CollapsibleTrigger>
@@ -264,7 +268,7 @@ export default function CashflowStatement() {
                                       <TableCell className="py-1 font-sans">{d.memo}</TableCell>
                                       <TableCell className="py-1">{d.venue || "—"}</TableCell>
                                       <TableCell
-                                        className={`py-1 text-right font-mono ${d.amount < 0 ? "text-rose-700" : ""}`}
+                                        className={`py-1 text-right tabular-nums ${d.amount < 0 ? "text-destructive" : ""}`}
                                       >
                                         {fmt(d.amount)}
                                       </TableCell>
@@ -314,11 +318,11 @@ export default function CashflowStatement() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">Reconciliation to Balance Sheet</h3>
             {reconciles ? (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+              <span className="inline-flex items-center gap-1 text-xs text-primary">
                 <CheckCircle2 className="h-4 w-4" /> Reconciles
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs text-rose-700">
+              <span className="inline-flex items-center gap-1 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4" /> Mismatch {fmtMoney(reconciliationDelta)}
               </span>
             )}
@@ -326,15 +330,15 @@ export default function CashflowStatement() {
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span>Closing per statement</span>
-              <span className="font-mono">{fmt(closing)}</span>
+              <span className="tabular-nums">{fmt(closing)}</span>
             </div>
             <div className="flex justify-between">
               <span>Cash account balances at {toDate}</span>
-              <span className="font-mono">{fmt(cashBalanceTotal)}</span>
+              <span className="tabular-nums">{fmt(cashBalanceTotal)}</span>
             </div>
             <div className="flex justify-between border-t pt-1 mt-1 font-semibold">
               <span>Difference</span>
-              <span className={`font-mono ${reconciles ? "" : "text-rose-700"}`}>
+              <span className={`tabular-nums ${reconciles ? "" : "text-destructive"}`}>
                 {fmt(reconciliationDelta)}
               </span>
             </div>
@@ -363,7 +367,7 @@ export default function CashflowStatement() {
                   <TableCell className="text-sm">
                     <span className="font-mono text-xs text-muted-foreground">{a.code}</span> {a.name}
                   </TableCell>
-                  <TableCell className="text-right font-mono">{fmt(a.balance)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmt(a.balance)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -372,8 +376,8 @@ export default function CashflowStatement() {
       </div>
 
       {unclassified.length > 0 && (
-        <Card className="card-glass p-4 border-amber-300/40">
-          <h3 className="text-sm font-semibold mb-2 text-amber-700">
+        <Card className="card-glass p-4 border-warning/40">
+          <h3 className="text-sm font-semibold mb-2 text-warning">
             Unclassified cash movements ({unclassified.length})
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
@@ -397,7 +401,7 @@ export default function CashflowStatement() {
                       <span className="font-mono text-muted-foreground">{d.account_code}</span> {d.account_name}
                     </TableCell>
                     <TableCell className="text-sm">{d.memo}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(d.amount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(d.amount)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -440,7 +444,7 @@ function StatementRow({
         {label}
       </span>
       <span
-        className={`font-mono ${bold ? "font-semibold" : ""} ${amount < 0 ? "text-rose-700" : ""}`}
+        className={`tabular-nums ${bold ? "font-semibold" : ""} ${amount < 0 ? "text-destructive" : ""}`}
       >
         {fmt(amount)}
       </span>

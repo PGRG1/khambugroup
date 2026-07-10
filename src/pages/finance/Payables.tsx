@@ -27,30 +27,54 @@ import { AllocatePaymentDialog } from "@/components/finance/payables/AllocatePay
 import { PaymentHistoryDialog } from "@/components/finance/payables/PaymentHistoryDialog";
 
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtWhole = (n: number) =>
+  n.toLocaleString("en-HK", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtDate = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return iso;
+  }
+};
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 type DueRange = "all" | "overdue" | "this_week" | "this_month" | "next_30";
 
+// Aging: current → primary, near-term → info, mid → warning, old → destructive.
 const BUCKET_COLOR: Record<string, string> = {
-  "Current": "bg-emerald-500",
-  "1–30": "bg-sky-500",
-  "31–60": "bg-amber-500",
-  "61–90": "bg-purple-500",
-  "90+": "bg-red-500",
+  "Current": "bg-primary",
+  "1–30": "bg-info",
+  "31–60": "bg-warning",
+  "61–90": "bg-warning",
+  "90+": "bg-destructive",
 };
 const BUCKET_ACCENT: Record<string, string> = {
-  "Current": "text-emerald-400",
-  "1–30": "text-sky-400",
-  "31–60": "text-amber-400",
-  "61–90": "text-purple-400",
-  "90+": "text-red-400",
+  "Current": "text-primary",
+  "1–30": "text-info",
+  "31–60": "text-warning",
+  "61–90": "text-warning",
+  "90+": "text-destructive",
 };
 const BUCKET_TINT: Record<string, string> = {
-  "Current": "bg-emerald-500/10",
-  "1–30": "bg-sky-500/10",
-  "31–60": "bg-amber-500/10",
-  "61–90": "bg-purple-500/10",
-  "90+": "bg-red-500/10",
+  "Current": "bg-primary/10",
+  "1–30": "bg-info/10",
+  "31–60": "bg-warning/10",
+  "61–90": "bg-warning/10",
+  "90+": "bg-destructive/10",
+};
+
+// Per-invoice aging chip (based on days since invoice date).
+function invoiceAgingBucket(ageDays: number): { label: string; tone: "muted" | "warning" | "destructive" } {
+  if (ageDays <= 0) return { label: "Current", tone: "muted" };
+  if (ageDays <= 30) return { label: "1–30d", tone: "muted" };
+  if (ageDays <= 60) return { label: "31–60d", tone: "warning" };
+  return { label: "60d+", tone: "destructive" };
+}
+const AGING_TONE: Record<"muted" | "warning" | "destructive", string> = {
+  muted: "bg-muted text-muted-foreground",
+  warning: "bg-warning/10 text-warning",
+  destructive: "bg-destructive/10 text-destructive",
 };
 
 export default function Payables() {
@@ -97,14 +121,14 @@ export default function Payables() {
   };
 
   return (
-    <div className="p-6 max-w-[1920px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <CreditCard className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Accounts Payable</h1>
+            <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Accounts Payable</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Track supplier obligations and manage payments with clarity and control.
             </p>
@@ -297,12 +321,12 @@ function OpenPayablesTab({
   return (
     <>
       <KPIGrid cols={6}>
-        <KPI icon={<Wallet className="h-4 w-4" />} label="Total Outstanding" value={`HK$ ${fmt(kpis.totalOutstanding)}`} sub={`Across ${kpis.openCount} invoices`} />
-        <KPI icon={<AlertTriangle className="h-4 w-4" />} label="Overdue" value={`HK$ ${fmt(kpis.overdueAmt)}`} sub={`${kpis.overdueCount} invoices`} accent="text-red-400" tint="bg-red-500/10" />
-        <KPI icon={<CalendarClock className="h-4 w-4" />} label="Due in 7 Days" value={`HK$ ${fmt(kpis.dueIn7)}`} sub={`${kpis.dueIn7Count} invoices`} accent="text-sky-400" tint="bg-sky-500/10" />
-        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Paid This Month" value={`HK$ ${fmt(paidThisMonth)}`} accent="text-emerald-400" tint="bg-emerald-500/10" />
-        <KPI icon={<Link2 className="h-4 w-4" />} label="Awaiting Bank Match" value={`${awaitingBankMatchCount}`} sub={`${awaitingBankMatchCount} payments`} accent="text-sky-400" tint="bg-sky-500/10" />
-        <KPI icon={<Coins className="h-4 w-4" />} label="Credit Notes Available" value={`HK$ ${fmt(kpis.cnTotal)}`} sub={`${kpis.cnCount} credit notes`} accent="text-purple-400" tint="bg-purple-500/10" />
+        <KPI icon={<Wallet className="h-4 w-4" />} label="Total Outstanding" value={`HK$ ${fmtWhole(kpis.totalOutstanding)}`} sub={`Across ${kpis.openCount} invoices`} accent={kpis.totalOutstanding > 0 ? "text-destructive" : ""} tint={kpis.totalOutstanding > 0 ? "bg-destructive/10" : "bg-muted"} />
+        <KPI icon={<AlertTriangle className="h-4 w-4" />} label="Overdue" value={`HK$ ${fmtWhole(kpis.overdueAmt)}`} sub={`${kpis.overdueCount} invoices`} accent="text-destructive" tint="bg-destructive/10" />
+        <KPI icon={<CalendarClock className="h-4 w-4" />} label="Due in 7 Days" value={`HK$ ${fmtWhole(kpis.dueIn7)}`} sub={`${kpis.dueIn7Count} invoices`} accent="text-warning" tint="bg-warning/10" />
+        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Paid This Month" value={`HK$ ${fmtWhole(paidThisMonth)}`} accent="text-primary" tint="bg-primary/10" />
+        <KPI icon={<Link2 className="h-4 w-4" />} label="Awaiting Bank Match" value={`${awaitingBankMatchCount}`} sub={`${awaitingBankMatchCount} payments`} accent="text-info" tint="bg-info/10" />
+        <KPI icon={<Coins className="h-4 w-4" />} label="Credit Notes Available" value={`HK$ ${fmtWhole(kpis.cnTotal)}`} sub={`${kpis.cnCount} credit notes`} accent="text-info" tint="bg-info/10" />
       </KPIGrid>
 
       <FilterBar>
@@ -330,7 +354,7 @@ function OpenPayablesTab({
             <thead className="bg-muted/40 text-xs text-muted-foreground">
               <tr>
                 <Th>Supplier</Th><Th>Invoice #</Th><Th>Venue</Th>
-                <Th>Invoice Date</Th><Th>Due Date</Th>
+                <Th>Invoice Date</Th><Th>Due Date</Th><Th>Age</Th>
                 <Th right>Invoice Amt</Th><Th right>Outstanding</Th>
                 <Th>Payment Status</Th><Th>Last Method</Th><Th>Paid From</Th>
                 <Th>Bank Match</Th><Th>Issue</Th><Th></Th>
@@ -338,23 +362,32 @@ function OpenPayablesTab({
             </thead>
             <tbody className="divide-y divide-border/30">
               {loading ? (
-                <tr><td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    {Array.from({ length: 14 }).map((__, j) => (
+                      <td key={j} className="px-3 py-3"><div className="h-3 bg-muted/30 rounded animate-pulse" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">No open payables match the current filters.</td></tr>
-              ) : filtered.slice(0, 500).map((i: APInvoice) => (
+                <tr><td colSpan={14} className="px-4 py-8 text-center text-muted-foreground">No open payables match the current filters.</td></tr>
+              ) : filtered.slice(0, 500).map((i: APInvoice) => {
+                const ag = invoiceAgingBucket(i.age_days);
+                return (
                 <tr key={i.id} className="hover:bg-muted/30">
                   <td className="px-3 py-2 text-xs font-medium">{i.supplier_name}</td>
-                  <td className="px-3 py-2 text-xs">{i.invoice_number || "—"}</td>
+                  <td className="px-3 py-2 text-xs font-mono">{i.invoice_number || "—"}</td>
                   <td className="px-3 py-2 text-xs">{i.venue}</td>
-                  <td className="px-3 py-2 text-xs font-mono">{i.invoice_date}</td>
-                  <td className="px-3 py-2 text-xs font-mono">{i.due_date || "—"}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-xs">{fmt(i.total_amount)}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-xs font-semibold">{fmt(i.outstanding_amount)}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(i.invoice_date)}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(i.due_date)}</td>
+                  <td className="px-3 py-2"><span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${AGING_TONE[ag.tone]}`}>{ag.label}</span></td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(i.total_amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs font-semibold">{fmt(i.outstanding_amount)}</td>
                   <td className="px-3 py-2"><PaymentStatusBadge status={i.payment_status} /></td>
                   <td className="px-3 py-2 text-xs">{i.last_payment_method || "—"}</td>
                   <td className="px-3 py-2 text-xs">{i.last_paid_from_account_name || "—"}</td>
                   <td className="px-3 py-2"><BankMatchBadge status={i.bank_match_status} /></td>
-                  <td className="px-3 py-2 text-xs text-amber-300">{i.exception_note || "—"}</td>
+                  <td className="px-3 py-2 text-xs text-warning">{i.exception_note || "—"}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1">
                       {i.outstanding_amount > 0.01 && (
@@ -380,7 +413,7 @@ function OpenPayablesTab({
                     </div>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
           {filtered.length > 500 && (
@@ -499,11 +532,11 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
   return (
     <>
       <KPIGrid cols={5}>
-        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Total Paid This Month" value={`HK$ ${fmt(kpis.paidMonth)}`} sub={`${kpis.paidMonthCount} payments`} accent="text-emerald-400" tint="bg-emerald-500/10" />
-        <KPI icon={<Hourglass className="h-4 w-4" />} label="Payments Awaiting Match" value={`${kpis.awaiting}`} sub={`${kpis.awaiting} payments`} accent="text-amber-400" tint="bg-amber-500/10" />
-        <KPI icon={<Link2 className="h-4 w-4" />} label="Matched Payments" value={`${kpis.matched}`} sub={`${kpis.matched} payments`} accent="text-sky-400" tint="bg-sky-500/10" />
-        <KPI icon={<PieChart className="h-4 w-4" />} label="Partial Allocations" value={`${kpis.partial}`} sub={`${kpis.partial} payments`} accent="text-amber-400" tint="bg-amber-500/10" />
-        <KPI icon={<FileWarning className="h-4 w-4" />} label="Unallocated Payments" value={`${kpis.unalloc}`} sub={`${kpis.unalloc} payments`} accent="text-red-400" tint="bg-red-500/10" />
+        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Total Paid This Month" value={`HK$ ${fmtWhole(kpis.paidMonth)}`} sub={`${kpis.paidMonthCount} payments`} accent="text-primary" tint="bg-primary/10" />
+        <KPI icon={<Hourglass className="h-4 w-4" />} label="Payments Awaiting Match" value={`${kpis.awaiting}`} sub={`${kpis.awaiting} payments`} accent="text-warning" tint="bg-warning/10" />
+        <KPI icon={<Link2 className="h-4 w-4" />} label="Matched Payments" value={`${kpis.matched}`} sub={`${kpis.matched} payments`} accent="text-info" tint="bg-info/10" />
+        <KPI icon={<PieChart className="h-4 w-4" />} label="Partial Allocations" value={`${kpis.partial}`} sub={`${kpis.partial} payments`} accent="text-warning" tint="bg-warning/10" />
+        <KPI icon={<FileWarning className="h-4 w-4" />} label="Unallocated Payments" value={`${kpis.unalloc}`} sub={`${kpis.unalloc} payments`} accent="text-destructive" tint="bg-destructive/10" />
       </KPIGrid>
 
       <FilterBar>
@@ -534,19 +567,25 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
             </thead>
             <tbody className="divide-y divide-border/30">
               {loading ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    {Array.from({ length: 10 }).map((__, j) => (
+                      <td key={j} className="px-3 py-3"><div className="h-3 bg-muted/30 rounded animate-pulse" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">No payments recorded yet.</td></tr>
               ) : filtered.slice(0, 500).map((p: any) => (
                 <tr key={p.id} className="hover:bg-muted/30">
-                  <td className="px-3 py-2 text-xs font-mono">{p.payment_date}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(p.payment_date)}</td>
                   <td className="px-3 py-2 text-xs font-mono">{p.reference_number || `PAY-${p.id.slice(0, 6).toUpperCase()}`}</td>
                   <td className="px-3 py-2 text-xs font-medium">{p.supplier_name}</td>
                   <td className="px-3 py-2 text-xs">{p.paid_from_account_name || "—"}</td>
                   <td className="px-3 py-2 text-xs">{p.payment_method}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-xs">{fmt(p.amount)}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums text-xs">{fmt(p.allocated_amount)}</td>
-                  <td className={`px-3 py-2 text-right font-mono tabular-nums text-xs ${p.unallocated_amount > 0.01 ? "text-amber-400" : ""}`}>{fmt(p.unallocated_amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs">{fmt(p.allocated_amount)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums text-xs ${p.unallocated_amount > 0.01 ? "text-warning" : ""}`}>{fmt(p.unallocated_amount)}</td>
                   <td className="px-3 py-2"><BankMatchBadge status={p.match_status} /></td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <Button size="sm" variant="ghost" className="h-7 text-[11px]" disabled={p.allocation_count === 0}>View Allocation</Button>
@@ -609,15 +648,15 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
 
   const statusBadge = (s: string) => {
     const meta: Record<string, { l: string; c: string; d: string }> = {
-      approved: { l: "Available", c: "bg-sky-500/10 text-sky-300 border-sky-500/30", d: "bg-sky-400" },
-      fully_applied: { l: "Fully Applied", c: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30", d: "bg-emerald-400" },
-      partially_applied: { l: "Partially Applied", c: "bg-amber-500/10 text-amber-300 border-amber-500/30", d: "bg-amber-400" },
-      draft: { l: "Draft", c: "bg-zinc-500/10 text-zinc-300 border-zinc-500/30", d: "bg-zinc-400" },
-      needs_review: { l: "Needs Review", c: "bg-red-500/10 text-red-300 border-red-500/30", d: "bg-red-400" },
-      voided: { l: "Voided", c: "bg-zinc-700/30 text-zinc-400 border-zinc-600/40 line-through", d: "bg-zinc-500" },
-      expired: { l: "Expired", c: "bg-red-500/10 text-red-300 border-red-500/30", d: "bg-red-400" },
+      approved: { l: "Available", c: "bg-info/10 text-info border-info/30", d: "bg-info" },
+      fully_applied: { l: "Fully Applied", c: "bg-primary/10 text-primary border-primary/25", d: "bg-primary" },
+      partially_applied: { l: "Partially Applied", c: "bg-warning/10 text-warning border-warning/30", d: "bg-warning" },
+      draft: { l: "Draft", c: "bg-muted text-muted-foreground border-border", d: "bg-muted-foreground/60" },
+      needs_review: { l: "Needs Review", c: "bg-destructive/10 text-destructive border-destructive/25", d: "bg-destructive" },
+      voided: { l: "Voided", c: "bg-muted text-muted-foreground border-border line-through", d: "bg-muted-foreground/60" },
+      expired: { l: "Expired", c: "bg-destructive/10 text-destructive border-destructive/25", d: "bg-destructive" },
     };
-    const m = meta[s] || { l: s, c: "bg-zinc-500/10 text-zinc-300 border-zinc-500/30", d: "bg-zinc-400" };
+    const m = meta[s] || { l: s, c: "bg-muted text-muted-foreground border-border", d: "bg-muted-foreground/60" };
     return (
       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${m.c}`}>
         <span className={`h-1.5 w-1.5 rounded-full ${m.d}`} />
@@ -657,11 +696,11 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
   return (
     <>
       <KPIGrid cols={5}>
-        <KPI icon={<Coins className="h-4 w-4" />} label="Available Credit Notes" value={`HK$ ${fmt(kpis.available)}`} sub={`${kpis.availableCount} credit notes`} accent="text-purple-400" tint="bg-purple-500/10" />
-        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Applied This Month" value={`HK$ ${fmt(appliedThisMonth)}`} accent="text-emerald-400" tint="bg-emerald-500/10" />
-        <KPI icon={<Banknote className="h-4 w-4" />} label="Unused Balance" value={`HK$ ${fmt(kpis.unused)}`} accent="text-sky-400" tint="bg-sky-500/10" />
-        <KPI icon={<ListChecks className="h-4 w-4" />} label="Fully Applied" value={`${kpis.fullyApplied}`} sub={`${kpis.fullyApplied} credit notes`} accent="text-emerald-400" tint="bg-emerald-500/10" />
-        <KPI icon={<FileWarning className="h-4 w-4" />} label="Needs Review" value={`${kpis.needsReview}`} sub={`${kpis.needsReview} credit notes`} accent="text-red-400" tint="bg-red-500/10" />
+        <KPI icon={<Coins className="h-4 w-4" />} label="Available Credit Notes" value={`HK$ ${fmtWhole(kpis.available)}`} sub={`${kpis.availableCount} credit notes`} accent="text-info" tint="bg-info/10" />
+        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Applied This Month" value={`HK$ ${fmtWhole(appliedThisMonth)}`} accent="text-primary" tint="bg-primary/10" />
+        <KPI icon={<Banknote className="h-4 w-4" />} label="Unused Balance" value={`HK$ ${fmtWhole(kpis.unused)}`} accent="text-info" tint="bg-info/10" />
+        <KPI icon={<ListChecks className="h-4 w-4" />} label="Fully Applied" value={`${kpis.fullyApplied}`} sub={`${kpis.fullyApplied} credit notes`} accent="text-primary" tint="bg-primary/10" />
+        <KPI icon={<FileWarning className="h-4 w-4" />} label="Needs Review" value={`${kpis.needsReview}`} sub={`${kpis.needsReview} credit notes`} accent="text-destructive" tint="bg-destructive/10" />
       </KPIGrid>
 
       <FilterBar>
@@ -696,12 +735,18 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
             </thead>
             <tbody className="divide-y divide-border/30">
               {loading ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    {Array.from({ length: 10 }).map((__, j) => (
+                      <td key={j} className="px-3 py-3"><div className="h-3 bg-muted/30 rounded animate-pulse" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">No credit notes match the current filters.</td></tr>
               ) : filtered.map((c) => (
                 <tr key={c.id} className="hover:bg-muted/30">
-                  <td className="px-3 py-2 text-xs font-mono">{c.credit_note_date}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDate(c.credit_note_date)}</td>
                   <td className="px-3 py-2 text-xs font-mono">{c.credit_note_number || "—"}</td>
                   <td className="px-3 py-2 text-xs font-medium">{c.supplier_name}</td>
                   <td className="px-3 py-2 text-xs">{c.venue || "—"}</td>
@@ -786,7 +831,7 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
   return (
     <>
       <KPIGrid cols={6}>
-        <KPI icon={<Wallet className="h-4 w-4" />} label="Total Outstanding" value={`HK$ ${fmt(bucketTotals.grand)}`} sub={`Across ${filteredInv.length} invoices`} />
+        <KPI icon={<Wallet className="h-4 w-4" />} label="Total Outstanding" value={`HK$ ${fmtWhole(bucketTotals.grand)}`} sub={`Across ${filteredInv.length} invoices`} />
         {AGE_BUCKETS.map((b) => {
           const v = bucketTotals.totals[b] || 0;
           const pct = bucketTotals.grand > 0 ? (v / bucketTotals.grand) * 100 : 0;
@@ -795,7 +840,7 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
               key={b}
               icon={b === "Current" ? <CheckCircle2 className="h-4 w-4" /> : b === "90+" ? <AlertTriangle className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
               label={b === "Current" ? "Current (0–30 Days)" : `${b} Days`}
-              value={`HK$ ${fmt(v)}`}
+              value={`HK$ ${fmtWhole(v)}`}
               sub={`${pct.toFixed(1)}%`}
               accent={BUCKET_ACCENT[b]}
               tint={BUCKET_TINT[b]}
@@ -856,7 +901,13 @@ function AgingTab({ invoices, suppliers, venues, loading }: any) {
             </thead>
             <tbody className="divide-y divide-border/30">
               {loading ? (
-                <tr><td colSpan={AGE_BUCKETS.length + 3} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    {Array.from({ length: AGE_BUCKETS.length + 3 }).map((__, j) => (
+                      <td key={j} className="px-3 py-3"><div className="h-3 bg-muted/30 rounded animate-pulse" /></td>
+                    ))}
+                  </tr>
+                ))
               ) : supplierRows.length === 0 ? (
                 <tr><td colSpan={AGE_BUCKETS.length + 3} className="px-4 py-8 text-center text-muted-foreground">All clear — no outstanding payables.</td></tr>
               ) : supplierRows.map((r) => (
