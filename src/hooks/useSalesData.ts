@@ -86,8 +86,12 @@ export function useSalesData() {
       return;
     }
 
-    const rows = (await fetchAllRows("sales_records", "*", { col: "date", asc: true }))
-      .filter((row) => row.tenant_id === tenantId);
+    const rows = await fetchAllRows(
+      "sales_records",
+      "*",
+      { col: "date", asc: true },
+      tenantId,
+    );
     setData(rows.map(fromDbRecord));
     setLoading(false);
   }, [tenantId, tenantLoading]);
