@@ -246,14 +246,70 @@ export default function PurchaseOrdersTab() {
   const activeSuppliers = suppliers.filter((s) => s.is_active);
   const next = selectedPo ? STATUS_FLOW[selectedPo.status] : undefined;
 
+  const stats = useMemo(() => {
+    const by = (s: Status) => pos.filter(p => p.status === s).length;
+    return {
+      total: pos.length,
+      draft: by("draft"),
+      sent: by("sent") + by("approved") + by("partial"),
+      received: by("received"),
+      cancelled: by("cancelled"),
+    };
+  }, [pos]);
+
+  const toggleStatusFilter = (v: string) => setStatusFilter(prev => prev === v ? "all" : v);
+
+  const scopeLabel = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(supplierFilter === "all" ? "All suppliers" : supplierName(supplierFilter));
+    parts.push(venueFilter === "all" ? "All venues" : venueFilter);
+    parts.push(statusFilter === "all" ? "All statuses" : statusFilter);
+    return parts.join(" · ");
+  }, [supplierFilter, venueFilter, statusFilter, suppliers]);
+
+  const StatTile = ({ label, value, tone, filterValue }: { label: string; value: number; tone?: "warn" | "primary" | "danger"; filterValue?: string }) => {
+    const active = filterValue && statusFilter === filterValue;
+    const toneCls = tone === "warn" ? "text-warning" : tone === "primary" ? "text-primary" : tone === "danger" ? "text-destructive" : "text-foreground";
+    return (
+      <button
+        type="button"
+        onClick={filterValue ? () => toggleStatusFilter(filterValue) : undefined}
+        disabled={!filterValue}
+        className={cn(
+          "text-left rounded-lg border border-border/60 bg-card/50 px-3 py-2 transition-colors",
+          filterValue ? "hover:border-border cursor-pointer" : "cursor-default",
+          active && "ring-2 ring-primary/60 bg-primary/5",
+        )}
+      >
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
+        <div className={`text-lg font-semibold tabular-nums mt-0.5 ${toneCls}`}>{value.toLocaleString()}</div>
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 items-end justify-between">
+      {/* Stats strip */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[64px] rounded-lg border border-border/60 bg-card/40 animate-pulse" />)
+        ) : (
+          <>
+            <StatTile label="Total" value={stats.total} />
+            <StatTile label="Draft" value={stats.draft} filterValue="draft" />
+            <StatTile label="Sent / Pending" value={stats.sent} tone="warn" filterValue="sent" />
+            <StatTile label="Received" value={stats.received} tone="primary" filterValue="received" />
+            <StatTile label="Cancelled" value={stats.cancelled} tone="danger" filterValue="cancelled" />
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-end justify-between">
         <div className="flex flex-wrap gap-2 items-end">
           <div className="w-48">
             <Label className="text-xs">Supplier</Label>
             <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All suppliers</SelectItem>
                 {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -263,7 +319,7 @@ export default function PurchaseOrdersTab() {
           <div className="w-40">
             <Label className="text-xs">Venue</Label>
             <Select value={venueFilter} onValueChange={setVenueFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All venues</SelectItem>
                 {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
@@ -273,7 +329,7 @@ export default function PurchaseOrdersTab() {
           <div className="w-40">
             <Label className="text-xs">Status</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 {(["draft","approved","sent","partial","received","cancelled"] as Status[]).map((s) => (
@@ -286,47 +342,80 @@ export default function PurchaseOrdersTab() {
             <Label className="text-xs">Search</Label>
             <div className="relative">
               <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="PO# or supplier" className="pl-7" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="PO# or supplier" className="pl-7 h-9" />
             </div>
           </div>
         </div>
-        <Button onClick={() => setCreateOpen(true)} disabled={!canManage}>
+        <Button onClick={() => setCreateOpen(true)} disabled={!canManage} className="h-9">
           <Plus className="h-4 w-4 mr-1" /> New PO
         </Button>
       </div>
 
-      <div className="border border-border rounded-md overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>PO Number</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Venue</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Expected Date</TableHead>
-              <TableHead className="text-right">Total Amount</TableHead>
-              <TableHead>Created At</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No purchase orders</TableCell></TableRow>
-            ) : filtered.map((p) => (
-              <TableRow key={p.id} className="cursor-pointer" onClick={() => openDetail(p)}>
-                <TableCell className="font-mono">{p.po_number}</TableCell>
-                <TableCell>{p.suppliers?.name ?? supplierName(p.supplier_id)}</TableCell>
-                <TableCell>{p.venue}</TableCell>
-                <TableCell><Badge variant="outline" className={cn("capitalize", statusBadge(p.status))}>{p.status}</Badge></TableCell>
-                <TableCell>{fmtDate(p.expected_date)}</TableCell>
-                <TableCell className="text-right td-num">{fmtMoney(Number(p.total_amount))}</TableCell>
-                <TableCell>{fmtDate(p.created_at)}</TableCell>
+      <p className="text-xs text-muted-foreground">
+        Showing {scopeLabel} · <span className="tabular-nums">{filtered.length.toLocaleString()}</span> of <span className="tabular-nums">{pos.length.toLocaleString()}</span> POs
+      </p>
+
+      {loading ? (
+        <div className="space-y-1.5">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-11 rounded-md border border-border/60 bg-card/40 animate-pulse" />)}
+        </div>
+      ) : isMobile ? (
+        <div className="space-y-2">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm rounded-xl border border-border/60 bg-card/40">No purchase orders</div>
+          ) : filtered.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => openDetail(p)}
+              className="w-full text-left rounded-lg border border-border/60 bg-card/50 p-3 hover:border-border transition-colors min-h-[64px]"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-mono text-sm font-medium">{p.po_number}</div>
+                  <div className="text-xs text-muted-foreground truncate">{p.suppliers?.name ?? supplierName(p.supplier_id)} · {p.venue}</div>
+                </div>
+                <Badge variant="outline" className={cn("capitalize shrink-0", statusBadge(p.status))}>{p.status}</Badge>
+              </div>
+              <div className="flex items-center justify-between mt-2 text-xs">
+                <span className="text-muted-foreground">Exp: {fmtDate(p.expected_date)}</span>
+                <span className="font-semibold tabular-nums">{fmtMoney(Number(p.total_amount))}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="border border-border rounded-md overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>PO Number</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Venue</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Expected Date</TableHead>
+                <TableHead className="text-right">Total Amount</TableHead>
+                <TableHead>Created At</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No purchase orders</TableCell></TableRow>
+              ) : filtered.map((p) => (
+                <TableRow key={p.id} className="cursor-pointer hover:bg-accent/40" onClick={() => openDetail(p)}>
+                  <TableCell className="font-mono">{p.po_number}</TableCell>
+                  <TableCell>{p.suppliers?.name ?? supplierName(p.supplier_id)}</TableCell>
+                  <TableCell>{p.venue}</TableCell>
+                  <TableCell><Badge variant="outline" className={cn("capitalize", statusBadge(p.status))}>{p.status}</Badge></TableCell>
+                  <TableCell>{fmtDate(p.expected_date)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-medium">{fmtMoney(Number(p.total_amount))}</TableCell>
+                  <TableCell>{fmtDate(p.created_at)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) resetCreate(); }}>
