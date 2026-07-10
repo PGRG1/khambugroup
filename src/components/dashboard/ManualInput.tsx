@@ -132,12 +132,13 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             <select
               value={form.venue}
               onChange={(e) => set("venue", e.target.value)}
+              required
               className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-secondary text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="Assembly">Assembly</option>
-              <option value="Caliente">Caliente</option>
-              <option value="Hanabi">Hanabi</option>
-              <option value="Events">Events</option>
+              {activeVenues.length === 0 && <option value="">No venues configured</option>}
+              {activeVenues.map((v) => (
+                <option key={v.id} value={v.name}>{v.name}</option>
+              ))}
             </select>
           </div>
           <div>
