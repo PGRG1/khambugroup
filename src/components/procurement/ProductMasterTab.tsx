@@ -916,7 +916,7 @@ export default function ProductMasterTab() {
                   <TableCell>
                     <div className="flex items-center gap-1 flex-wrap">
                       {r.financial_treatment ? (
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${r.financial_treatment === "COGS" || r.financial_treatment === "OpEx" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-sky-500/40 bg-sky-500/10 text-sky-300"}`}>
+                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", (r.financial_treatment === "COGS" || r.financial_treatment === "OpEx") ? "border-primary/40 bg-primary/10 text-primary" : "border-info/40 bg-info/10 text-info")}>
                           {r.financial_treatment}
                         </Badge>
                       ) : (
