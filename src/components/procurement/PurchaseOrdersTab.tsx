@@ -76,6 +76,7 @@ export default function PurchaseOrdersTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [psRows, setPsRows] = useState<ProductSupplierRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
