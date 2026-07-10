@@ -225,10 +225,16 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     ? Math.abs(calcPaymentTotal - extractedData.totalSales) > 0.01
     : false;
 
+  const venueUnmatched = !!extractedData && !activeVenueNames.includes(extractedData.venue);
+
   const handleSave = async () => {
     if (!extractedData) return;
     if (!extractedData.date) {
       toast({ title: "Date required", description: "Please enter a date before saving.", variant: "destructive" });
+      return;
+    }
+    if (venueUnmatched) {
+      toast({ title: "Venue required", description: "Select a venue from the master list before saving.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -238,6 +244,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       setExtractedData(null);
       setPreviewUrl(null);
       setOriginalFile(null);
+      setScannedVenueRaw("");
       setTimeout(onClose, 800);
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
