@@ -1,94 +1,61 @@
 
-# Daily Sales — Audit Report (no code changes)
+# Expenses Section — Senior Audit (read-only)
 
-Route: `/sales-data` → `src/pages/DataPage.tsx` → `src/components/dashboard/DataTable.tsx` fed by `src/hooks/useSalesData.ts`.
+Reviewed: `src/pages/expenses/*` (10 pages), `src/pages/finance/BillsExpenses.tsx`, `src/components/expenses/shared.tsx`, `src/hooks/useExpenseBills.ts`, `src/hooks/useVendorStatements.ts`, `src/hooks/useRecurringExpenses.ts`, sidebar order in `src/components/AppSidebar.tsx`, RLS on `expense_*` + `suppliers`.
 
----
+## 1. Workflow Integrity
 
-## 1) Data-flow findings
+### BROKEN (data-integrity / silent-fail class)
+1. **Duplicate Bill entry surfaces** — `BillsExpenses` lives at `/finance/bills-expenses` AND `ExpenseBills.tsx` (2-line stub) is mounted at `/expenses/bills`. Overview "New Expense"/"Upload Bill" links to `/expenses/bills`. Two doors, one workflow — the sidebar order (Master Data → Bills & Vendors → Approvals) is broken because the real editor lives under Finance. `src/App.tsx:200,275`, `src/pages/expenses/ExpenseBills.tsx`.
+2. **Free-text `expense_category` still allowed on allocations** — `BillsExpenses.tsx:584` exposes "Other (typed)" and free-text `Input`; `useExpenseBills.saveBill` (line 163) writes raw string; DB column has no FK to `expense_categories`. So orphan categories can still enter the ledger — the master-data promise is soft. Also `Approvals.tsx` "Edit & Approve" quick editor (line 64) creates an allocation with `expense_category: null, account_id: null` then posts, which will fail silently or bypass mapping.
+3. **`BankDetectedExpenses.postDirect` creates an orphan bill** with no allocation row, no `account_id`, no `expense_category`, no venue (`BankDetectedExpenses.tsx:82-97`) and marks it `approval_status:'posted'` without calling the `post_expense_bill` RPC. Result: `expense_bills` row exists but no `journal_entries`/`journal_lines` are written, `expense_bill_audit` isn't updated, and totals will not roll into P&L. This is the biggest silent-drop.
+4. **`useRecurringExpenses.generateNow` posts auto-approved bills without any allocation mapping check** — `useRecurringExpenses.ts:159-190` calls `generate_recurring_expense_bills` RPC then loops `post_expense_bill` on rules where `auto_approve=true`. If the rule has no `account_id`, posting will error per-bill and the toast only reports the first failure; nothing tells the user which rules produced unmapped bills.
+5. **Recurring rules can be created with no category and no debit account** — `RecurringExpenses.tsx` "Save" (line 102) has no validation; you can Activate a rule that will generate un-postable bills forever.
+6. **Vendor Statement posting has no explicit approval-post path** — `VendorStatements.tsx` writes rows but there is no "Post statement to GL" button; `Approvals.tsx` lists them but only shows a read-only table (no approve/reject/post buttons for statements, lines 158-185). So `late_fees` / `current_period_charges` claimed to "post to P&L" (see labels on line 225,233) never actually post from anywhere in the UI.
+7. **Overview KPIs conflate recognition vs posting** — `Overview.tsx:117` includes `approval_status='approved'` in "Actual MTD", but only `posted` writes to GL. Approved-but-unposted bills are counted as actuals, causing dashboard drift against P&L.
+8. **Excel/CSV bulk upload for bills does not exist** — "Upload Bill" button on Overview just deep-links to `/expenses/bills` (stub route). No CSV path parallel to Daily Sales.
 
-### 1a. Venue master vs hardcoded UI list — BROKEN
-The venue list on this page is a hardcoded string array; it does not read the `venues` master table.
+### ACCEPTABLE (working correctly)
+- Server-side tenant filtering is now consistently applied on reads and mutations across all hooks and pages (RLS + `.eq("tenant_id", tenantId)` defence-in-depth verified).
+- `expense_categories`, `expense_payment_terms`, `suppliers`, `expense_bill_allocations` RLS policies are tenant-scoped and admin/manager-gated where appropriate.
+- Master-data prompt banners fire on Overview and BillsExpenses when categories/vendors are empty.
+- `hasUnmappedAllocation` warning blocks the interactive Post button in `BillsExpenses.tsx:648`.
+- Vendor `type` filter fixed (no more empty Vendors page).
+- Venues, suppliers, categories dropdowns everywhere read from master tables — no hardcoded lists remaining (verified via grep).
 
-- `src/components/dashboard/DataTable.tsx:338` — `const venues = ["All", "Assembly", "Caliente", "Hanabi", "Events"];` (filter chips)
-- `src/components/dashboard/ManualInput.tsx:128-131` — `<option>`s hardcoded to those same four
-- `src/components/dashboard/ReceiptScanner.tsx:128, 187, 347-348` — only accepts Assembly/Caliente (defaults everything else to Assembly)
-- `src/types/sales.ts:5,28` — `venue: "Assembly" | "Caliente" | "Hanabi" | "Events"`
-- `src/utils/salesUtils.ts:7,176,181` — Zod enum + `parseExcelRow` reject anything not in that set (silently `return null`, so those spreadsheet rows are dropped without warning)
+## 2. Professional Polish
 
-Actual `venues` table (tenant `…beef`, active):
-`Arca, Assembly, Caliente, Hanabi` (+ inactive `Off-Site / Stall`).
+### UNPROFESSIONAL
+9. **`Analytics.tsx` regressions** — hardcoded HK$ formatter (line 19), hardcoded chart palette (line 22) including non-semantic `#a78bfa/#f59e0b/#ef4444`, no KPI strip, no skeletons, no empty states, no filters at all (venue/period/vendor). It's a demo, not a finance analytics page.
+10. **Approvals.tsx uses raw divs, no KPI strip, no filters, no skeleton, no scope line** — a bookkeeper cannot filter by vendor/venue/amount/date to triage. Statement approvals block has no action buttons at all.
+11. **Overview KPI strip has 7 tiles in one row** — will wrap awkwardly; no `min-w-0`/truncation guards on very large HK$ values. No period selector; MTD is hardcoded to current month with no way to look back.
+12. **`ExpensePaymentTerms.tsx` has no search, no scope line, no KPI strip** — inconsistent with the other master-data pages.
+13. **`VendorStatements.tsx` has no search, no filters, no KPI strip** — no way to find a statement in a long list, no "posts to GL" action.
+14. **`BankDetectedExpenses.tsx` lacks category assignment UI, venue assignment, account picker** — the "Post to expense" is a one-click orphan-maker (see #3). Should open the same allocation sheet as BillsExpenses.
+15. **No mobile card fallback** on `BillsExpenses`, `VendorStatements`, `RecurringExpenses`, `Approvals`, `Overview` tables — they horizontally scroll on phone.
+16. **Editor Sheets** in `BillsExpenses.tsx` (line 428) and `RecurringExpenses.tsx` (line 203) are dense grids without section separators, sticky footer actions, or keyboard shortcuts. `RecurringExpenses` Sheet is 400+ lines of unstructured form.
+17. **"Save Draft/Submit/Approve/Reject/Post" actions in BillsExpenses editor are inline text buttons** without confirmation for Post/Reject, and don't disable while a save is in flight.
+18. **No unified activity/audit view** at the section level — audit is only visible inside a bill editor.
+19. **Section-level scope line missing** on `RecurringExpenses`, `VendorStatements` (just a bare count line).
+20. **Sidebar order does not lead the user through the flow** — "Overview" then "Master Data" then "Bills & Vendors" is right, but the actual bill editor lives under `/finance/bills-expenses`, breaking the guided narrative.
 
-Consequences:
-- **Arca** is a real active venue in the master table but is invisible in Daily Sales filters, in the Manual Entry dropdown, in the Receipt Scanner, and would be rejected by Excel upload and the Zod schema. Any Arca sale cannot enter through this page.
-- **Events** appears in the UI filter but is **not a venue** — it is a `revenue_sources` row (currently `is_active=false`). No `sales_records.venue = 'Events'` row exists (DB confirms 0). The chip does nothing except return an empty table.
-- If someone ever inserts `venue = 'Events'` via SQL or another surface, the Daily Sales table would show it but `useUnmappedVenues` (which iterates the real `venues` master) would not flag it, and the Zod validator would reject the same value on re-upload → silent asymmetry.
+### SPEED
+21. **`useExpenseBills` refetches all bills after every save/status/payment/document change** (`refresh()` on every mutation) — for large tenants this becomes expensive. No React Query, no optimistic updates.
+22. **`ExpenseVendors.tsx` pulls `expense_bills` in full to compute overdue KPIs client-side** (line 79) — should be a materialised view or `count` aggregate.
+23. **`BankDetectedExpenses` pulls the full `bank_transactions` table and filters client-side** (`amount<0` OR regex) — should be a DB view or server-side filter with pagination.
+24. **`Overview` fetches bills + statements + rules + bank txns simultaneously via three separate hooks** — no shared cache, each page re-fetches on mount.
+25. **No pagination** on any expense table; all rely on `fetchAllRows` batching, fine for now but Bills will grow past 10k rows in a year.
 
-### 1b. Hanabi flow — currently EMPTY, not broken
-`SELECT venue, COUNT(*) FROM sales_records` → only `Assembly` (281) and `Caliente` (280). Hanabi has zero rows. The UI paths (filter chip, month totals, "All Venues" aggregation via `matches()` at `DataTable.tsx:139`) would include Hanabi rows correctly *if any existed*, because filtering is a strict `r.venue !== venueFilter` string compare and totals sum all filtered rows. So Hanabi is not being silently dropped — it just has no data to display. Worth confirming with the user whether Hanabi sales are supposed to be ingested here.
+## Overall Verdict
 
-### 1c. Tenant scoping — WEAK on the main fetch
-`src/hooks/useSalesData.ts:89-91`:
-```ts
-const rows = (await fetchAllRows("sales_records", "*", { col: "date", asc: true }))
-  .filter((row) => row.tenant_id === tenantId);
-```
-RLS on `sales_records` will protect it, but the hook fetches **every row the caller can see** and filters client-side. Mutations (`update/delete/getRecordById`) correctly add `.eq("tenant_id", tenantId)`. The read path should do the same server-side (`.eq("tenant_id", tenantId)` inside `fetchAllRows`) for defence-in-depth and to avoid over-fetching if the user ever gains multi-tenant visibility. Not currently causing incorrect numbers for a single-tenant user, but it is inconsistent with the rest of the codebase.
+**Not at a professional standard yet.** The visual layer (PageHeader/KPI/skeleton/empty-state/tokens) landed well and tenant filtering is correct, but the *workflow* still allows silent orphans in three separate places (bank direct-post, quick approval editor, free-text categories) and the section has two competing bill-entry doors. A finance auditor would flag #3 and #6 as material — expenses being marked "posted" without journal entries is a reconciliation nightmare.
 
-### 1d. Casing / typos / null venues
-No casing drift in DB today (only exact `Assembly`/`Caliente` present). But because the client uses `===` string compare and there is no DB check-constraint tying `sales_records.venue` to `venues.name`, any future casing mistake (e.g. `"assembly"`, trailing space) would silently disappear from every filter and from `useUnmappedVenues` (which only iterates the master list). No safeguard exists on the page today.
+## Top 5 fixes to reach professional standard
 
-### 1e. Date grouping / month boundaries — OK, with one caveat
-- `safeMonthKey` (`DataTable.tsx:30`) prefers the raw `YYYY-MM-DD` string slice, avoiding TZ drift. ✅
-- Date range filter uses `new Date(r.date)` and compares against local `from`/`to` (`toEnd.setHours(23,59,59,999)`). Fine for HKT users; would be off-by-one for a viewer whose browser TZ is west of UTC on the boundary day. Minor.
-- URL projection uses `from.toISOString().slice(0,10)` which converts local midnight to UTC → for a user east of UTC this can serialise the previous calendar day. Cosmetic (chip label) rather than a totals bug.
-- `handlePeriodSelect` (`:266`) constructs month bounds in local time correctly.
+1. **Kill the duplicate door.** Delete `/expenses/bills` stub; move `BillsExpenses.tsx` under `src/pages/expenses/Bills.tsx` and route `/expenses/bills` to it. All CTAs already point there.
+2. **Make GL account non-optional on every posting path.** Remove `"Other (typed)"` from allocations, add FK `expense_bill_allocations.expense_category_id → expense_categories.id`, and reject `post_expense_bill` server-side when any allocation lacks `account_id`. Rewrite `BankDetectedExpenses.postDirect` to open the bill editor pre-filled instead of inserting a "posted" orphan.
+3. **Wire statement posting.** Add "Approve & Post" (and Reject) actions to the Statements block in `Approvals.tsx`; implement a `post_vendor_statement` RPC that writes `current_period_charges + late_fees` to GL against the vendor's default account. Otherwise the "posts to P&L" labels are lies.
+4. **Fix Overview KPI semantics.** "Actual MTD" = posted only; add "Approved (unposted)" as a distinct tile. Add a period selector (This month / Last month / Custom).
+5. **Rebuild Analytics + Approvals as first-class pages** with the shared `PageHeader`/`KpiGrid`/skeletons/filters/scope-line, semantic chart tokens, venue+vendor+period filters, mobile card fallback, and disable-on-loading action buttons. While there, add the missing search+KPI to Vendor Statements, Payment Terms, and Recurring Expenses.
 
-### 1f. Events double-counting risk
-Currently no `sales_records.venue = 'Events'` rows exist, and `revenue_sources.Events` is inactive. So no double-counting today. Once someone activates a revenue-source dimension, keeping `Events` as both a venue chip and a source will cause confusion. It should be removed from the venue enum outright.
-
----
-
-## 2) Design / UX findings on `/sales-data`
-
-Flagged **broken** vs **suboptimal**.
-
-### Broken
-- **B1. Hardcoded venue enum** (`DataTable.tsx:338`, `types/sales.ts:5`, `salesUtils.ts:7`). Missing Arca, includes non-venue Events. See 1a.
-- **B2. Receipt Scanner accepts only Assembly/Caliente** (`ReceiptScanner.tsx:128,187`) even though the dropdown lists them. Scanning a Hanabi receipt silently becomes an Assembly record.
-- **B3. Excel upload silently drops rows** with unknown venues (`salesUtils.ts:176` returns `null`). No user-facing warning about which rows were rejected.
-- **B4. Loading state**: `DataPage.tsx:23-29` renders raw text `"Loading data..."` — the batch-1 convention is skeletons. Regression vs the rest of finance.
-
-### Suboptimal (design/UX)
-- **U1. Page header**: `DataPage.tsx:40-43` uses a bespoke `text-gradient-gold` H1 + "N records" caption. Every other refactored page uses `<PageHeader>` (Home/Procurement/Finance batches). Inconsistent hierarchy.
-- **U2. Action buttons** (`DataPage.tsx:31-34, 46-75`) hand-roll `primaryBtn`/`secondaryBtn` classes instead of `<Button variant=…>`. Height mismatch with the h-9 toolbar convention.
-- **U3. Venue filter is a wrapping row of pill buttons** (`DataTable.tsx:441-453`). No visual grouping, no icon, no count-per-venue, no scroll on mobile — will overflow when venues grow beyond 4. Should be a segmented control or a `<Select>` on narrow viewports.
-- **U4. Reconciliation banner** (`:383-411`) uses raw amber tokens (`text-amber-500`, `bg-amber-500/5`, `border-amber-500/40`) instead of the semantic `warn`/`destructive` design tokens used elsewhere. Won't retheme.
-- **U5. Chip row + Clear-all** (`:415-434`) uses inline utility classes rather than the shared chip styles from `mem://index.md` (`.chip .chip-*`). Visual drift from the rest of the app.
-- **U6. Toolbar layout**: DateFilter, venue pills, search, Mapping link, CSV button are all crammed into one row (`DataTableShell`). On tablet it wraps awkwardly; there is no scope line ("Showing X of Y records · filtered by …") separate from the chip row.
-- **U7. No empty state art**: when filters return nothing, the cell just says "No records found." (`:522-525`). Batch-1 convention is a small illustration + a "Clear filters" CTA.
-- **U8. Month header row** (`:531-548`) reuses `formatCurrency` for `orders`/`guests` counts → "1,234" is fine but they are not currency. Should use `fmtNum`, and the totals row should say `HK$` prefix for money columns to make the two visually distinct.
-- **U9. HK$ formatting / truncation**:
-  - `formatCurrency` returns a bare integer string with no `HK$` prefix (`salesUtils.ts:170-172`). Numbers on this page never show the currency mark — inconsistent with the memory rule "Currency = HK$ 1,234.56".
-  - Numeric cells (`numCell` at `:314-333`) render `text-xs td-num` inside a fixed-width `<TableCell>`. On mobile at 320-360 px widths the Subtotal / Total columns can compress; there is no `whitespace-nowrap` on the number span, so long HK$ figures could wrap or clip depending on browser font metrics. User explicitly forbids truncation with ellipsis — currently there is no `text-ellipsis` in the cell but also no auto-shrink to guarantee full display; needs the Home/Procurement KPI auto-shrink treatment or `tabular-nums whitespace-nowrap` on every numeric cell.
-- **U10. Mobile layout**: `DataTable` is a wide `<Table>` with 11 columns; no mobile card fallback. Horizontal scroll is the only option on phones. Batch-1 pattern is card-per-row < md.
-- **U11. Chart legibility**: this page currently has **no charts** — just a table. Given the name "Daily Sales", a compact spark trend of daily totals across the visible date range (like `RevenueTrend`) would improve at-a-glance value; today the user has to read the month totals row. (This is a scope question, not a bug — flagging for your call.)
-- **U12. Filter state visibility**: active filters live in chips at the top and again as the ring around the venue pill; the DateFilter component has its own internal chip. Three sources of truth → users can miss that a date is applied. Consolidate into one scope line.
-- **U13. Numeric column headers "Ord / Gst / Svc / Disc"** (`:376-377`) are abbreviated to save width but are opaque without a tooltip. Add `title=` or expand on ≥ md.
-- **U14. Sortable header target size**: `<button>` inside `<TableHead>` has no explicit height, ends up ~24 px — below the 44 px touch target the rest of the finance batch uses.
-- **U15. Colour semantics**: negative discounts and mismatch warnings both use `text-destructive` (`:319-322`). Mismatched totals are a warning (fixable), not an error — should be `warn` token to match batches 1-2.
-- **U16. Unmapped-venues banner** (`:398`) sends the user to `/finance/chart-of-accounts`, but the actual place to fix a revenue mapping is the Account Mappings tab within that page. Should deep-link with `?tab=mappings`.
-
----
-
-## Recommended next step (still in plan mode — no edits)
-
-Decisions I need from you before I write the fix plan:
-
-1. **Venue source of truth**: switch the Daily Sales filter, ManualInput, ReceiptScanner and Excel validator to read from the `venues` master table (via `useVenues`)? This drops the hardcoded enum and would automatically surface Arca and any future venue. `SalesRecord.venue` would become `string`.
-2. **Events**: remove `Events` from the venue enum entirely (it is a `revenue_sources` row, not a venue) — confirm?
-3. **Hanabi**: no rows in DB today. Do you expect Hanabi sales to be ingested via this page, or is Hanabi captured in another system?
-4. **Charts on Daily Sales**: add a compact daily trend spark + venue mix donut (U11) or keep table-only?
-5. **Scope of visual refresh**: apply the same batch-1/2 finance treatment (`<PageHeader>`, `<KpiCard>` strip with daily/period totals, skeletons, mobile cards, semantic tokens, chip system, scope line, HK$ auto-shrink) — confirm you want the full pass?
-
-Once you answer these I will produce the implementation plan.
+Ready to implement once you confirm; I'll start with #1–#3 (data integrity) then #4–#5 (polish).
