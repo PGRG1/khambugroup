@@ -2,7 +2,8 @@ export interface SalesRecord {
   id?: string;
   date: string;
   day: string;
-  venue: "Assembly" | "Caliente" | "Hanabi" | "Events";
+  /** Venue name — must match `venues.name` in the master table. */
+  venue: string;
   reportNumber: string;
   orders: number;
   guests: number;
@@ -25,7 +26,8 @@ export interface SalesRecord {
   servicePeriodId?: string | null;
 }
 
-export type VenueFilter = "All Venues" | "Assembly" | "Caliente" | "Hanabi" | "Events";
+/** Venue filter: either "All Venues" or any active venue name from the master table. */
+export type VenueFilter = string;
 
 export interface DateRange {
   from: Date | undefined;
