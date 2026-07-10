@@ -191,11 +191,12 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
   }, [fetchAll, tenantId]);
 
   const rebuildFromOperations = useCallback(async () => {
-    const { data, error } = await (supabase as any).rpc("rebuild_journal_from_operations");
+    if (!tenantId) { toast.error("No active workspace"); return; }
+    const { data, error } = await (supabase as any).rpc("rebuild_journal_from_operations", { p_tenant_id: tenantId });
     if (error) { toast.error(`Rebuild failed: ${error.message}`); return; }
     toast.success(`Ledger rebuilt — ${(data as any)?.entries_created ?? 0} entries`);
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, tenantId]);
 
   return { entries, lines, loading, fetchAll, createManualEntry, updateEntry, restoreAutoEntry, voidEntry, rebuildFromOperations };
 }
