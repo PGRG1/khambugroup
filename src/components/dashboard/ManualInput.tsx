@@ -11,7 +11,7 @@ interface ManualInputProps {
 }
 
 const emptyRecord: SalesRecord = {
-  date: "", day: "", venue: "Assembly", reportNumber: "",
+  date: "", day: "", venue: "", reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0,
   totalSales: 0, visa: 0, mastercard: 0, amex: 0, unionPay: 0,
   jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, cardTips: 0,
@@ -25,6 +25,15 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
   const [file, setFile] = useState<File | null>(null);
 
   const { venues } = useVenues();
+  const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
+
+  // Default to first active venue once loaded (avoids blank submit).
+  useEffect(() => {
+    if (!form.venue && activeVenues[0]) {
+      setForm((f) => ({ ...f, venue: activeVenues[0].name }));
+    }
+  }, [activeVenues, form.venue]);
+
   const venueId = useMemo(
     () => venues.find((v) => v.name === form.venue)?.id ?? null,
     [venues, form.venue],
@@ -123,12 +132,13 @@ const ManualInput = ({ onAdd, onClose }: ManualInputProps) => {
             <select
               value={form.venue}
               onChange={(e) => set("venue", e.target.value)}
+              required
               className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-secondary text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="Assembly">Assembly</option>
-              <option value="Caliente">Caliente</option>
-              <option value="Hanabi">Hanabi</option>
-              <option value="Events">Events</option>
+              {activeVenues.length === 0 && <option value="">No venues configured</option>}
+              {activeVenues.map((v) => (
+                <option key={v.id} value={v.name}>{v.name}</option>
+              ))}
             </select>
           </div>
           <div>

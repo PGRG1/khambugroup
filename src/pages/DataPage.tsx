@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSalesData } from "@/hooks/useSalesData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
@@ -7,6 +7,22 @@ import ManualInput from "@/components/dashboard/ManualInput";
 import ReceiptScanner from "@/components/dashboard/ReceiptScanner";
 import DataTable from "@/components/dashboard/DataTable";
 import { Upload, PenLine, ScanLine } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  PageHeader,
+  KpiCard,
+  KpiGrid,
+  KpiSkeleton,
+  TableSkeleton,
+  fmtHKWhole,
+  fmtInt,
+} from "@/components/expenses/shared";
+import { getPaymentTotal } from "@/utils/salesUtils";
+
+function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 const DataPage = () => {
   const { data, loading, uploadRecords, addRecord } = useSalesData();
@@ -20,72 +36,125 @@ const DataPage = () => {
   const hideScanReceipt = isActionHidden("data.scan_receipt");
   const hideManualEntry = isActionHidden("data.manual_entry");
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Loading data...</p>
-      </div>
-    );
-  }
+  // KPI strip — current month totals (never chart, just at-a-glance numbers).
+  const kpis = useMemo(() => {
+    const monthKey = currentMonthKey();
+    const monthRows = data.filter((r) => r.date && r.date.slice(0, 7) === monthKey);
+    const totalSales = monthRows.reduce((s, r) => s + r.totalSales, 0);
+    const totalGuests = monthRows.reduce((s, r) => s + r.guests, 0);
+    const totalOrders = monthRows.reduce((s, r) => s + r.orders, 0);
+    const uniqueDays = new Set(monthRows.map((r) => r.date)).size;
+    const cashTotal = monthRows.reduce((s, r) => s + r.cash, 0);
+    const paymentTotal = monthRows.reduce((s, r) => s + getPaymentTotal(r), 0);
+    const mismatched = monthRows.filter((r) => Math.abs(r.totalSales - (r.subtotal + r.serviceCharge + r.discount)) > 0.01).length;
+    return {
+      monthKey,
+      records: monthRows.length,
+      totalSales,
+      totalGuests,
+      totalOrders,
+      uniqueDays,
+      cashTotal,
+      paymentTotal,
+      mismatched,
+    };
+  }, [data]);
 
-  const primaryBtn = "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity";
-  const primaryBtnActive = "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-primary/80 text-primary-foreground ring-2 ring-primary/40";
-  const secondaryBtn = "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-transparent text-foreground hover:bg-muted transition-colors";
-  const secondaryBtnActive = "flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-primary text-primary bg-primary/10";
+  const monthLabel = new Date(kpis.monthKey + "-01").toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+
+  const actions = isAdmin ? (
+    <div className="flex flex-wrap gap-2">
+      {!hideUpload && (
+        <Button
+          variant={showUpload ? "secondary" : "default"}
+          size="sm"
+          className="h-9 gap-1.5"
+          onClick={() => { setShowUpload(!showUpload); setShowManual(false); setShowScanner(false); }}
+        >
+          <Upload className="h-4 w-4" />
+          Upload Data
+        </Button>
+      )}
+      {!hideScanReceipt && (
+        <Button
+          variant={showScanner ? "secondary" : "outline"}
+          size="sm"
+          className="h-9 gap-1.5"
+          onClick={() => { setShowScanner(!showScanner); setShowUpload(false); setShowManual(false); }}
+        >
+          <ScanLine className="h-4 w-4" />
+          Scan Receipt
+        </Button>
+      )}
+      {!hideManualEntry && (
+        <Button
+          variant={showManual ? "secondary" : "outline"}
+          size="sm"
+          className="h-9 gap-1.5"
+          onClick={() => { setShowManual(!showManual); setShowUpload(false); setShowScanner(false); }}
+        >
+          <PenLine className="h-4 w-4" />
+          Manual Entry
+        </Button>
+      )}
+    </div>
+  ) : undefined;
 
   return (
     <div className="w-full mx-auto space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display tracking-tight">
-            <span className="text-gradient-gold">Sales Data</span>
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">{data.length} records</p>
-        </div>
-        {isAdmin && (
-          <div className="flex items-center gap-3 flex-wrap">
-            {!hideUpload && (
-              <button
-                onClick={() => { setShowUpload(!showUpload); setShowManual(false); setShowScanner(false); }}
-                className={showUpload ? primaryBtnActive : primaryBtn}
-              >
-                <Upload className="h-4 w-4" />
-                Upload Data
-              </button>
-            )}
-            {!hideScanReceipt && (
-              <button
-                onClick={() => { setShowScanner(!showScanner); setShowUpload(false); setShowManual(false); }}
-                className={showScanner ? secondaryBtnActive : secondaryBtn}
-              >
-                <ScanLine className="h-4 w-4" />
-                Scan Receipt
-              </button>
-            )}
-            {!hideManualEntry && (
-              <button
-                onClick={() => { setShowManual(!showManual); setShowUpload(false); setShowScanner(false); }}
-                className={showManual ? secondaryBtnActive : secondaryBtn}
-              >
-                <PenLine className="h-4 w-4" />
-                Manual Entry
-              </button>
-            )}
+      <PageHeader
+        title="Sales Data"
+        description={loading ? "Loading…" : `${fmtInt(data.length)} record${data.length === 1 ? "" : "s"} across all venues`}
+        actions={actions}
+      />
+
+      {loading ? (
+        <>
+          <KpiSkeleton count={4} />
+          <div className="card-glass rounded-xl">
+            <TableSkeleton rows={8} cols={7} />
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <>
+          <KpiGrid>
+            <KpiCard
+              label={`Total Sales · ${monthLabel}`}
+              value={fmtHKWhole(kpis.totalSales)}
+              hint={`${fmtInt(kpis.records)} record${kpis.records === 1 ? "" : "s"} · ${fmtInt(kpis.uniqueDays)} trading day${kpis.uniqueDays === 1 ? "" : "s"}`}
+              tone="info"
+            />
+            <KpiCard
+              label={`Guests · ${monthLabel}`}
+              value={fmtInt(kpis.totalGuests)}
+              hint={`${fmtInt(kpis.totalOrders)} order${kpis.totalOrders === 1 ? "" : "s"}`}
+            />
+            <KpiCard
+              label={`Cash Collected · ${monthLabel}`}
+              value={fmtHKWhole(kpis.cashTotal)}
+              hint={kpis.totalSales > 0 ? `${((kpis.cashTotal / kpis.totalSales) * 100).toFixed(1)}% of sales` : "—"}
+            />
+            <KpiCard
+              label="Mismatched Totals"
+              value={fmtInt(kpis.mismatched)}
+              hint={kpis.mismatched > 0 ? "Needs review" : "All balanced"}
+              tone={kpis.mismatched > 0 ? "warning" : "success"}
+            />
+          </KpiGrid>
 
-      {isAdmin && !hideUpload && showUpload && (
-        <DataUpload onUpload={async (records) => { await uploadRecords(records); }} onClose={() => setShowUpload(false)} />
-      )}
-      {isAdmin && !hideScanReceipt && showScanner && (
-        <ReceiptScanner onSave={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowScanner(false)} />
-      )}
-      {isAdmin && !hideManualEntry && showManual && (
-        <ManualInput onAdd={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowManual(false)} />
-      )}
+          {isAdmin && !hideUpload && showUpload && (
+            <DataUpload onUpload={async (records) => { await uploadRecords(records); }} onClose={() => setShowUpload(false)} />
+          )}
+          {isAdmin && !hideScanReceipt && showScanner && (
+            <ReceiptScanner onSave={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowScanner(false)} />
+          )}
+          {isAdmin && !hideManualEntry && showManual && (
+            <ManualInput onAdd={async (record, file) => { await addRecord(record, file); }} onClose={() => setShowManual(false)} />
+          )}
 
-      <DataTable data={data} />
+          <DataTable data={data} />
+        </>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { Upload, X, ScanLine, Loader2, Check, Camera } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Upload, X, ScanLine, Loader2, Check, Camera, AlertTriangle } from "lucide-react";
 import { SalesRecord } from "@/types/sales";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import InvoiceCamera from "@/components/invoices/InvoiceCamera";
 import { getPaymentTotal } from "@/utils/salesUtils";
+import { useVenues } from "@/hooks/useVenues";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -44,16 +45,21 @@ const fieldLabels: Record<string, string> = {
 };
 
 const emptyRecord: SalesRecord = {
-  date: "", day: "", venue: "Assembly", reportNumber: "",
+  date: "", day: "", venue: "", reportNumber: "",
   orders: 0, guests: 0, subtotal: 0, serviceCharge: 0, discount: 0, totalSales: 0,
   visa: 0, mastercard: 0, amex: 0, unionPay: 0, jcb: 0, alipay: 0, wechat: 0, payme: 0, cash: 0, cardTips: 0,
 };
 
 const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
+  const { venues } = useVenues();
+  const activeVenues = useMemo(() => venues.filter((v) => v.is_active), [venues]);
+  const activeVenueNames = useMemo(() => activeVenues.map((v) => v.name), [activeVenues]);
+
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<SalesRecord | null>(null);
+  const [scannedVenueRaw, setScannedVenueRaw] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
@@ -117,15 +123,22 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       let dayStr = "";
       if (dateStr) {
         try {
-          dayStr = format(parseISO(dateStr), "EEE"); // Mon, Tue, etc.
+          dayStr = format(parseISO(dateStr), "EEE");
         } catch {
           dayStr = "";
         }
       }
+      // Match scanned venue against master (case-insensitive). Never silently reassign.
+      const rawVenue = String(raw.venue ?? "").trim();
+      setScannedVenueRaw(rawVenue);
+      const matched = activeVenueNames.find(
+        (n) => n.toLowerCase() === rawVenue.toLowerCase(),
+      );
+
       const record: SalesRecord = {
         date: dateStr,
         day: dayStr,
-        venue: raw.venue === "Caliente" ? "Caliente" : "Assembly",
+        venue: matched ?? "", // blank forces the user to pick if no match
         reportNumber: raw.reportNumber || "",
         orders: Number(raw.orders) || 0,
         guests: Number(raw.guests) || 0,
@@ -184,7 +197,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
         return next;
       }
       if (field === "venue") {
-        return { ...prev, venue: value === "Caliente" ? "Caliente" : "Assembly" };
+        return { ...prev, venue: value };
       }
       if (field === "date") {
         let day = "";
@@ -212,10 +225,16 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
     ? Math.abs(calcPaymentTotal - extractedData.totalSales) > 0.01
     : false;
 
+  const venueUnmatched = !!extractedData && !activeVenueNames.includes(extractedData.venue);
+
   const handleSave = async () => {
     if (!extractedData) return;
     if (!extractedData.date) {
       toast({ title: "Date required", description: "Please enter a date before saving.", variant: "destructive" });
+      return;
+    }
+    if (venueUnmatched) {
+      toast({ title: "Venue required", description: "Select a venue from the master list before saving.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -225,6 +244,7 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
       setExtractedData(null);
       setPreviewUrl(null);
       setOriginalFile(null);
+      setScannedVenueRaw("");
       setTimeout(onClose, 800);
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
@@ -317,6 +337,21 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
             <p className="text-sm text-muted-foreground">Review and correct the extracted data, then click Save.</p>
           </div>
 
+          {venueUnmatched && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
+              <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+              <div>
+                <div className="font-medium text-warning">Venue could not be matched</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {scannedVenueRaw
+                    ? <>Scanned value <strong className="text-foreground">"{scannedVenueRaw}"</strong> is not in the venues master. Pick the correct venue below, or add it in Settings first.</>
+                    : <>No venue was detected on the receipt. Pick the correct venue below.</>}
+                </div>
+              </div>
+            </div>
+          )}
+
+
           {/* Header fields */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
@@ -342,10 +377,14 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
               <select
                 value={extractedData.venue}
                 onChange={(e) => handleFieldChange("venue", e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className={`w-full px-3 py-2 text-sm rounded-lg border bg-secondary text-foreground focus:outline-none focus:ring-2 ${
+                  venueUnmatched ? "border-warning/60 focus:ring-warning/30" : "border-border focus:ring-primary/30"
+                }`}
               >
-                <option value="Assembly">Assembly</option>
-                <option value="Caliente">Caliente</option>
+                <option value="">Select a venue…</option>
+                {activeVenues.map((v) => (
+                  <option key={v.id} value={v.name}>{v.name}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -489,11 +528,12 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+              disabled={saving || venueUnmatched}
+              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              title={venueUnmatched ? "Select a venue from the master list first" : undefined}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {saving ? "Saving..." : "Save Record"}
+              {saving ? "Saving..." : venueUnmatched ? "Select venue to save" : "Save Record"}
             </button>
             <button
               onClick={() => { setExtractedData(null); setPreviewUrl(null); setOriginalFile(null); }}

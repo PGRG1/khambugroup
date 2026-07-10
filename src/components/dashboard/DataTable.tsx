@@ -13,6 +13,7 @@ import { DataTableShell } from "@/components/common/data-table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useUnmappedVenues } from "@/hooks/useUnmappedVenues";
 import { useVenueServicePeriods } from "@/hooks/useVenueServicePeriods";
+import { useVenues } from "@/hooks/useVenues";
 import DateFilter from "./DateFilter";
 import { toast } from "sonner";
 
@@ -319,12 +320,12 @@ const DataTable = ({ data }: DataTableProps) => {
     const cls = isMismatchedTotal
       ? "text-destructive font-semibold"
       : isNegativeDiscount
-        ? "text-destructive"
+        ? "text-warning"
         : isZero
           ? "text-muted-foreground"
           : "";
     return (
-      <span className={`text-xs td-num ${cls}`}
+      <span className={`text-xs td-num tabular-nums whitespace-nowrap ${cls}`}
         title={isMismatchedTotal ? `Expected: ${formatCurrency(row.subtotal + row.serviceCharge + row.discount)}` : undefined}>
         {typeof val === "number" ? formatCurrency(val) : val}
         {isMismatchedTotal && " ⚠"}
@@ -335,7 +336,7 @@ const DataTable = ({ data }: DataTableProps) => {
   const sumField = (rows: SalesRecord[], key: keyof SalesRecord): number =>
     rows.reduce((s, r) => s + (r[key] as number), 0);
 
-  const venues = ["All", "Assembly", "Caliente", "Hanabi", "Events"];
+  // venues list is derived from master (below) inside render.
 
   // --- chips --------------------------------------------------------------
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
@@ -371,6 +372,12 @@ const DataTable = ({ data }: DataTableProps) => {
     return m;
   }, [allServicePeriods]);
 
+  const { venues: dbVenues } = useVenues();
+  const venueOptions = useMemo(
+    () => ["All", ...dbVenues.filter((v) => v.is_active).map((v) => v.name)],
+    [dbVenues],
+  );
+
   const columns: [SortKey, string][] = [
     ["date", "Date"], ["day", "Day"], ["venue", "Venue"], ["servicePeriodId", "Period"],
     ["orders", "Ord"], ["guests", "Gst"], ["subtotal", "Subtotal"],
@@ -381,30 +388,30 @@ const DataTable = ({ data }: DataTableProps) => {
     <>
       {/* Reconciliation banner */}
       {(mismatchCount > 0 || unmappedCount > 0) && (
-        <div className="flex items-stretch rounded-lg overflow-hidden border border-amber-500/40 bg-amber-500/5 mb-3">
+        <div className="flex items-stretch rounded-lg overflow-hidden border border-warning/40 bg-warning/5 mb-3">
           {mismatchCount > 0 && (
             <button
               type="button"
               onClick={() => setReconciliationOnly(true)}
-              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-left hover:bg-amber-500/10 transition-colors"
+              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-left hover:bg-warning/10 transition-colors"
             >
-              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
               <span className="text-xs">
-                <strong className="text-amber-500">{mismatchCount}</strong> record{mismatchCount > 1 ? "s" : ""} with total mismatches — click to view
+                <strong className="text-warning">{mismatchCount}</strong> record{mismatchCount > 1 ? "s" : ""} with total mismatches — click to view
               </span>
             </button>
           )}
-          {mismatchCount > 0 && unmappedCount > 0 && <div className="w-px bg-amber-500/30" />}
+          {mismatchCount > 0 && unmappedCount > 0 && <div className="w-px bg-warning/30" />}
           {unmappedCount > 0 && (
             <button
               type="button"
-              onClick={() => navigate("/finance/chart-of-accounts")}
-              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-left hover:bg-amber-500/10 transition-colors"
+              onClick={() => navigate("/finance/chart-of-accounts?tab=mappings")}
+              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-left hover:bg-warning/10 transition-colors"
               title={unmappedVenues.join(", ")}
             >
-              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
               <span className="text-xs">
-                <strong className="text-amber-500">{unmappedCount}</strong> venue{unmappedCount > 1 ? "s" : ""} with unmapped revenue account{unmappedCount > 1 ? "s" : ""} — click to fix
+                <strong className="text-warning">{unmappedCount}</strong> venue{unmappedCount > 1 ? "s" : ""} with unmapped revenue account{unmappedCount > 1 ? "s" : ""} — click to fix
               </span>
             </button>
           )}
@@ -438,7 +445,7 @@ const DataTable = ({ data }: DataTableProps) => {
         toolbarLeft={
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1 flex-wrap">
-              {venues.map(v => (
+              {venueOptions.map(v => (
                 <button
                   key={v}
                   onClick={() => setVenueFilter(v)}
