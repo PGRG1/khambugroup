@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, FileText, Search, Eye, ExternalLink, ScanLine } from "lucide-react";
+import { Plus, Trash2, Search, Eye, ExternalLink, ScanLine, ShieldAlert, FileText, ArrowRight, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import BillScanner, { ScannedBill } from "@/components/finance/bills/BillScanner";
 import {
   useExpenseBills,
@@ -21,38 +22,42 @@ import {
   BillApprovalStatus,
 } from "@/hooks/useExpenseBills";
 import { useAuth } from "@/hooks/useAuth";
-
-const fmt = (n: number) =>
-  `HK$ ${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const APPROVAL_COLORS: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  pending_review: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  approved: "bg-blue-100 text-blue-800 border-blue-300",
-  rejected: "bg-red-100 text-red-800 border-red-300",
-  posted: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  void: "bg-zinc-200 text-zinc-700 line-through",
-};
-
-const PAYMENT_COLORS: Record<string, string> = {
-  unpaid: "bg-orange-100 text-orange-800 border-orange-300",
-  partial: "bg-blue-100 text-blue-800 border-blue-300",
-  paid: "bg-green-100 text-green-800 border-green-300",
-};
+import {
+  PageHeader,
+  KpiGrid,
+  KpiCard,
+  KpiSkeleton,
+  StatusPill,
+  TableSkeleton,
+  EmptyState,
+  ScopeLine,
+  approvalVariant,
+  paymentVariant,
+  APPROVAL_LABEL,
+  PAYMENT_LABEL,
+  fmtHK,
+  fmtHKWhole,
+  fmtDate,
+} from "@/components/expenses/shared";
 
 interface Supplier { id: string; name: string }
 interface Account { id: string; code: string; name: string; account_type?: string }
 interface Venue { id: string; name: string }
 interface BankAccount { id: string; account_name: string }
+interface Category { id: string; name: string; default_account_id: string | null }
+
+const CATEGORY_OTHER = "__other__";
 
 export default function BillsExpenses() {
   const { isAdmin } = useAuth();
-  const { bills, loading, refresh, saveBill, setStatus, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+  const { tenantId } = useActiveTenant();
+  const { bills, loading, saveBill, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -76,19 +81,23 @@ export default function BillsExpenses() {
   });
 
   useEffect(() => {
+    if (!tenantId) return;
     (async () => {
-      const [s, a, v, b] = await Promise.all([
-        supabase.from("suppliers").select("id,name").order("name"),
-        supabase.from("chart_of_accounts").select("id,code,name,account_type").order("code"),
-        supabase.from("venues").select("id,name").order("name"),
-        supabase.from("bank_accounts").select("id,account_name").order("account_name"),
+      // All lookups tenant-scoped server-side (defence-in-depth beyond RLS).
+      const [s, a, v, b, c] = await Promise.all([
+        supabase.from("suppliers").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("chart_of_accounts").select("id,code,name,account_type").eq("tenant_id", tenantId).order("code"),
+        supabase.from("venues").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("bank_accounts").select("id,account_name").eq("tenant_id", tenantId).order("account_name"),
+        supabase.from("expense_categories").select("id,name,default_account_id").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
       ]);
       setSuppliers((s.data || []) as Supplier[]);
       setAccounts((a.data || []) as Account[]);
       setVenues((v.data || []) as Venue[]);
       setBankAccounts((b.data || []) as BankAccount[]);
+      setCategories((c.data || []) as Category[]);
     })();
-  }, []);
+  }, [tenantId]);
 
   const supplierName = (id: string | null) =>
     suppliers.find((s) => s.id === id)?.name || "—";
