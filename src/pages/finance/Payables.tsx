@@ -648,15 +648,15 @@ function CreditNotesTab({ creditNotes, appliedThisMonth, suppliers, venues, invo
 
   const statusBadge = (s: string) => {
     const meta: Record<string, { l: string; c: string; d: string }> = {
-      approved: { l: "Available", c: "bg-sky-500/10 text-sky-300 border-sky-500/30", d: "bg-sky-400" },
-      fully_applied: { l: "Fully Applied", c: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30", d: "bg-emerald-400" },
-      partially_applied: { l: "Partially Applied", c: "bg-amber-500/10 text-amber-300 border-amber-500/30", d: "bg-amber-400" },
-      draft: { l: "Draft", c: "bg-zinc-500/10 text-zinc-300 border-zinc-500/30", d: "bg-zinc-400" },
-      needs_review: { l: "Needs Review", c: "bg-red-500/10 text-red-300 border-red-500/30", d: "bg-red-400" },
-      voided: { l: "Voided", c: "bg-zinc-700/30 text-zinc-400 border-zinc-600/40 line-through", d: "bg-zinc-500" },
-      expired: { l: "Expired", c: "bg-red-500/10 text-red-300 border-red-500/30", d: "bg-red-400" },
+      approved: { l: "Available", c: "bg-info/10 text-info border-info/30", d: "bg-info" },
+      fully_applied: { l: "Fully Applied", c: "bg-primary/10 text-primary border-primary/25", d: "bg-primary" },
+      partially_applied: { l: "Partially Applied", c: "bg-warning/10 text-warning border-warning/30", d: "bg-warning" },
+      draft: { l: "Draft", c: "bg-muted text-muted-foreground border-border", d: "bg-muted-foreground/60" },
+      needs_review: { l: "Needs Review", c: "bg-destructive/10 text-destructive border-destructive/25", d: "bg-destructive" },
+      voided: { l: "Voided", c: "bg-muted text-muted-foreground border-border line-through", d: "bg-muted-foreground/60" },
+      expired: { l: "Expired", c: "bg-destructive/10 text-destructive border-destructive/25", d: "bg-destructive" },
     };
-    const m = meta[s] || { l: s, c: "bg-zinc-500/10 text-zinc-300 border-zinc-500/30", d: "bg-zinc-400" };
+    const m = meta[s] || { l: s, c: "bg-muted text-muted-foreground border-border", d: "bg-muted-foreground/60" };
     return (
       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${m.c}`}>
         <span className={`h-1.5 w-1.5 rounded-full ${m.d}`} />
