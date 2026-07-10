@@ -532,11 +532,11 @@ function PaymentHistoryTab({ payments, suppliers, bankAccounts, loading }: any) 
   return (
     <>
       <KPIGrid cols={5}>
-        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Total Paid This Month" value={`HK$ ${fmt(kpis.paidMonth)}`} sub={`${kpis.paidMonthCount} payments`} accent="text-emerald-400" tint="bg-emerald-500/10" />
-        <KPI icon={<Hourglass className="h-4 w-4" />} label="Payments Awaiting Match" value={`${kpis.awaiting}`} sub={`${kpis.awaiting} payments`} accent="text-amber-400" tint="bg-amber-500/10" />
-        <KPI icon={<Link2 className="h-4 w-4" />} label="Matched Payments" value={`${kpis.matched}`} sub={`${kpis.matched} payments`} accent="text-sky-400" tint="bg-sky-500/10" />
-        <KPI icon={<PieChart className="h-4 w-4" />} label="Partial Allocations" value={`${kpis.partial}`} sub={`${kpis.partial} payments`} accent="text-amber-400" tint="bg-amber-500/10" />
-        <KPI icon={<FileWarning className="h-4 w-4" />} label="Unallocated Payments" value={`${kpis.unalloc}`} sub={`${kpis.unalloc} payments`} accent="text-red-400" tint="bg-red-500/10" />
+        <KPI icon={<CheckCircle2 className="h-4 w-4" />} label="Total Paid This Month" value={`HK$ ${fmtWhole(kpis.paidMonth)}`} sub={`${kpis.paidMonthCount} payments`} accent="text-primary" tint="bg-primary/10" />
+        <KPI icon={<Hourglass className="h-4 w-4" />} label="Payments Awaiting Match" value={`${kpis.awaiting}`} sub={`${kpis.awaiting} payments`} accent="text-warning" tint="bg-warning/10" />
+        <KPI icon={<Link2 className="h-4 w-4" />} label="Matched Payments" value={`${kpis.matched}`} sub={`${kpis.matched} payments`} accent="text-info" tint="bg-info/10" />
+        <KPI icon={<PieChart className="h-4 w-4" />} label="Partial Allocations" value={`${kpis.partial}`} sub={`${kpis.partial} payments`} accent="text-warning" tint="bg-warning/10" />
+        <KPI icon={<FileWarning className="h-4 w-4" />} label="Unallocated Payments" value={`${kpis.unalloc}`} sub={`${kpis.unalloc} payments`} accent="text-destructive" tint="bg-destructive/10" />
       </KPIGrid>
 
       <FilterBar>
