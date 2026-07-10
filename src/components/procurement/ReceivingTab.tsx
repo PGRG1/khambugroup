@@ -614,14 +614,21 @@ export default function ReceivingTab() {
                         <Input value={it.description} onChange={(e) => updateRow(it.key, { description: e.target.value })} className="h-8 text-xs" />
                       </TableCell>
                       {hasPrefilled && (
-                        <TableCell className="text-right text-muted-foreground td-num text-xs">
+                        <TableCell className="text-right text-muted-foreground tabular-nums text-xs">
                           {linkedPoId ? (it.quantity_ordered ?? "—") : (it.quantity_invoiced ?? "—")}
                         </TableCell>
                       )}
                       <TableCell className="text-right">
-                        <Input type="number" step="0.01" value={it.quantity_received}
-                          onChange={(e) => updateRow(it.key, { quantity_received: parseFloat(e.target.value) || 0 })}
-                          className="h-8 w-24 text-right td-num ml-auto" />
+                        {(() => {
+                          const ref = linkedPoId ? it.quantity_ordered : it.quantity_invoiced;
+                          const diff = ref != null ? (Number(it.quantity_received) - Number(ref)) : 0;
+                          const tone = ref == null || diff === 0 ? "" : diff < 0 ? "border-warning bg-warning/5" : "border-primary bg-primary/5";
+                          return (
+                            <Input type="number" step="0.01" inputMode="decimal" value={it.quantity_received}
+                              onChange={(e) => updateRow(it.key, { quantity_received: parseFloat(e.target.value) || 0 })}
+                              className={`h-9 w-24 text-right tabular-nums font-medium ml-auto ${tone}`} />
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Input value={it.unit} onChange={(e) => updateRow(it.key, { unit: e.target.value })} className="h-8 w-20 text-xs" />
