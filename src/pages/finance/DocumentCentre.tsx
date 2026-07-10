@@ -55,37 +55,27 @@ const statusChip = (s: DocStatus) => {
   }
 };
 
-const typeChip = (label: string) => {
-  // soft colored pill for document type column
-  const map: Record<string, string> = {
-    "Daily Sales ": "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20",
-    "Invoice / Bill": "bg-sky-500/10 text-sky-300 border border-sky-500/20",
-    "Payment Processor / Settlement": "bg-violet-500/10 text-violet-300 border border-violet-500/20",
-    "Bank Statement": "bg-amber-500/10 text-amber-300 border border-amber-500/20",
-    "Contract / Agreement": "bg-orange-500/10 text-orange-300 border border-orange-500/20",
-    "Payroll File": "bg-pink-500/10 text-pink-300 border border-pink-500/20",
-    "Petty Cash Receipt": "bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20",
-    "Other": "bg-zinc-500/10 text-zinc-300 border border-zinc-500/20",
-  };
-  return `inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${map[label] || map["Other"]}`;
+const typeChip = (_label: string) => {
+  // Monochrome primary-tint pill for document type — icons carry the visual distinction
+  return "inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20";
 };
 
 function KpiTile({ icon: Icon, label, value, hint, tone }: {
   icon: any; label: string; value: string | number; hint: string; tone: "info" | "warn" | "approval" | "linked" | "danger";
 }) {
   const tones: Record<string, string> = {
-    info: "bg-sky-500/10 text-sky-400",
-    warn: "bg-amber-500/10 text-amber-400",
-    approval: "bg-violet-500/10 text-violet-400",
-    linked: "bg-emerald-500/10 text-emerald-400",
-    danger: "bg-rose-500/10 text-rose-400",
+    info: "bg-info/10 text-info",
+    warn: "bg-warning/10 text-warning",
+    approval: "bg-primary/10 text-primary",
+    linked: "bg-primary/10 text-primary",
+    danger: "bg-destructive/10 text-destructive",
   };
   const hintTones: Record<string, string> = {
-    info: "text-emerald-400",
-    warn: "text-amber-400",
+    info: "text-primary",
+    warn: "text-warning",
     approval: "text-muted-foreground",
     linked: "text-muted-foreground",
-    danger: "text-rose-400",
+    danger: "text-destructive",
   };
   return (
     <Card className="card-glass p-4">
@@ -95,7 +85,7 @@ function KpiTile({ icon: Icon, label, value, hint, tone }: {
         </div>
         <div className="min-w-0">
           <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="text-2xl font-display font-semibold td-num mt-0.5">{value}</div>
+          <div className="text-2xl font-display font-semibold tabular-nums mt-0.5">{value}</div>
           <div className={`text-xs mt-0.5 ${hintTones[tone]}`}>{hint}</div>
         </div>
       </div>
