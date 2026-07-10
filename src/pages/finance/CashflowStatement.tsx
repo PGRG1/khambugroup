@@ -444,7 +444,7 @@ function StatementRow({
         {label}
       </span>
       <span
-        className={`font-mono ${bold ? "font-semibold" : ""} ${amount < 0 ? "text-rose-700" : ""}`}
+        className={`tabular-nums ${bold ? "font-semibold" : ""} ${amount < 0 ? "text-destructive" : ""}`}
       >
         {fmt(amount)}
       </span>
