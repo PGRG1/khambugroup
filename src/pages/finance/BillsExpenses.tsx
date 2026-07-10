@@ -621,7 +621,7 @@ export default function BillsExpenses() {
                     </TableHeader>
                     <TableBody>
                       {payments.map((p) => (
-                        <TableRow key={p.id}><TableCell>{p.payment_date}</TableCell><TableCell>{p.payment_method}</TableCell><TableCell>{p.reference || "—"}</TableCell><TableCell className="text-right font-mono">{fmt(p.amount)}</TableCell></TableRow>
+                        <TableRow key={p.id}><TableCell>{fmtDate(p.payment_date)}</TableCell><TableCell>{p.payment_method}</TableCell><TableCell>{p.reference || "—"}</TableCell><TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(p.amount)}</TableCell></TableRow>
                       ))}
                     </TableBody>
                   </Table>
