@@ -323,7 +323,7 @@ export default function ProductMasterTab() {
     setEditingProductId(null);
     setEditingSupplierEntryId(null);
     setForm(EMPTY_FORM);
-    setDragPos(null);
+    setDuplicateSku(null);
     setDuplicateSku(null);
     setDialogOpen(true);
   };
