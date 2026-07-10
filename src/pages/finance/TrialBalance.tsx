@@ -140,8 +140,8 @@ export default function TrialBalance() {
               const list = grouped.get(t) || [];
               if (list.length === 0) return null;
               return (
-                <>
-                  <TableRow key={`h-${t}`} className="bg-muted/40">
+                <React.Fragment key={t}>
+                  <TableRow className="bg-muted/40">
                     <TableCell colSpan={5} className="font-semibold text-[11px] uppercase tracking-wide text-muted-foreground py-2">
                       {ACCOUNT_TYPE_LABEL[t as keyof typeof ACCOUNT_TYPE_LABEL]}
                     </TableCell>
@@ -155,7 +155,7 @@ export default function TrialBalance() {
                       <TableCell className="text-right tabular-nums text-sm font-medium">{fmt(Number(r.balance))}</TableCell>
                     </TableRow>
                   ))}
-                </>
+                </React.Fragment>
               );
             })}
           </TableBody>
