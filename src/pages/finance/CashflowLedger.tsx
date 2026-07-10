@@ -176,11 +176,11 @@ export default function CashflowLedger() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <KPICard icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Opening Cash" value={fmtMoney(totals.opening)} />
-        <KPICard icon={<ArrowUpCircle className="h-5 w-5 text-emerald-600" />} label="Cash In" value={fmtMoney(totals.cashIn)} />
-        <KPICard icon={<ArrowDownCircle className="h-5 w-5 text-rose-600" />} label="Cash Out" value={fmtMoney(totals.cashOut)} />
-        <KPICard icon={<TrendingUp className="h-5 w-5 text-primary" />} label="Net Movement" value={fmtMoney(totals.net)} highlight={totals.net >= 0 ? "positive" : "negative"} />
-        <KPICard icon={<Wallet className="h-5 w-5 text-amber-600" />} label="Closing Cash" value={fmtMoney(totals.closing)} />
+        <KPICard icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Opening Cash" value={fmtMoney(totals.opening)} loading={loading} />
+        <KPICard icon={<ArrowUpCircle className="h-5 w-5 text-primary" />} label="Cash In" value={fmtMoney(totals.cashIn)} loading={loading} />
+        <KPICard icon={<ArrowDownCircle className="h-5 w-5 text-destructive" />} label="Cash Out" value={fmtMoney(totals.cashOut)} loading={loading} />
+        <KPICard icon={<TrendingUp className="h-5 w-5 text-info" />} label="Net Movement" value={fmtMoney(totals.net)} highlight={totals.net >= 0 ? "positive" : "negative"} loading={loading} />
+        <KPICard icon={<Wallet className="h-5 w-5 text-warning" />} label="Closing Cash" value={fmtMoney(totals.closing)} loading={loading} />
       </div>
 
       {/* Chart */}
