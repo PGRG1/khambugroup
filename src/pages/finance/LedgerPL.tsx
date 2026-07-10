@@ -1,16 +1,23 @@
 import { useMemo, useState } from "react";
+import React from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FileDown } from "lucide-react";
 import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/pl/PLPeriodSelector";
 import { useLedgerPL } from "@/hooks/useLedgerPL";
 import type { ChartAccount, AccountType } from "@/hooks/useChartOfAccounts";
 import { downloadCSV } from "@/utils/csvDownload";
 import { generateLedgerPLPDF, type LedgerPLRow } from "@/utils/financePdfReports";
+import { cn } from "@/lib/utils";
 
-const fmt = (n: number) => n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => {
+  if (n === 0) return "—";
+  const abs = Math.abs(n).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? `(${abs})` : abs;
+};
 
 const SECTION_ORDER: { type: AccountType; label: string }[] = [
   { type: "revenue", label: "Revenue" },
