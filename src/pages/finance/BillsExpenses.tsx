@@ -637,7 +637,7 @@ export default function BillsExpenses() {
                   {audit.map((row) => (
                     <div key={row.id} className="flex gap-2">
                       <span className="font-mono">{new Date(row.created_at).toLocaleString()}</span>
-                      <Badge variant="outline">{row.event_type}</Badge>
+                      <StatusPill variant="neutral">{row.event_type}</StatusPill>
                       <span>{row.actor_name || row.actor_id?.slice(0, 8) || "system"}</span>
                     </div>
                   ))}
