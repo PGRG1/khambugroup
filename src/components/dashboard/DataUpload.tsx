@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2 } from "lucide-react";
 import readXlsxFile from "read-excel-file";
 import { SalesRecord } from "@/types/sales";
-import { parseExcelRow, type ParsedExcelResult } from "@/utils/salesUtils";
+import { parseExcelRow } from "@/utils/salesUtils";
 import { useVenues } from "@/hooks/useVenues";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
