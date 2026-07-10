@@ -3,13 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, AlertTriangle, Download, Eye } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort";
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface LineItemRow {
   id: string;
@@ -28,20 +28,20 @@ interface LineItemRow {
   internal_sku: string;
   external_sku: string;
   file_url: string;
-  _s: string; // pre-lowercased searchable blob
+  _s: string;
 }
 
 interface InvoiceMeta { id: string; invoice_number: string; invoice_date: string; supplier_id: string; file_url: string | null; }
 interface PMMeta { name: string; sku: string; ext_sku: string; }
 
-const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtWhole = (n: number) => Math.round(n).toLocaleString("en-US");
+const fmtPrice = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d: string) => {
   if (!d) return "";
   const date = new Date(d + "T00:00:00");
-  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 };
 
-// Grid column template (must match across header / rows / footer)
 const GRID_COLS = "32px 95px minmax(140px,1fr) 110px 100px 100px minmax(160px,1.2fr) minmax(200px,1.6fr) 55px 55px 90px 100px";
 
 function buildRow(li: any, invMap: Map<string, InvoiceMeta>, supMap: Map<string, string>, pmMap: Map<string, PMMeta>): LineItemRow {
@@ -52,8 +52,6 @@ function buildRow(li: any, invMap: Map<string, InvoiceMeta>, supMap: Map<string,
   const invoice_number = inv?.invoice_number || "";
   const description = li.description || "";
   const internal_sku = pm?.sku || "";
-  // External SKU should reflect what was actually scanned/entered on the line.
-  // Fallback to the master's external SKU only for legacy rows with no item_code.
   const external_sku = (li.item_code && String(li.item_code).trim()) || pm?.ext_sku || "";
   const master_name = pm?.name || "";
   return {
@@ -77,18 +75,40 @@ function buildRow(li: any, invMap: Map<string, InvoiceMeta>, supMap: Map<string,
   };
 }
 
+function StatTile({ label, value, active, onClick, tone = "neutral" }: {
+  label: string; value: string; active?: boolean; onClick?: () => void;
+  tone?: "neutral" | "warn" | "primary";
+}) {
+  const toneCls = tone === "warn"
+    ? "text-warning"
+    : tone === "primary" ? "text-primary" : "text-foreground";
+  const activeCls = active ? "ring-2 ring-primary/60 bg-primary/5" : "";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={`text-left rounded-lg border border-border/60 bg-card/50 px-3 py-2 transition-colors ${onClick ? "hover:border-border cursor-pointer" : "cursor-default"} ${activeCls}`}
+    >
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums mt-0.5 ${toneCls}`}>{value}</div>
+    </button>
+  );
+}
+
 export default function ProcurementLineItemsTab() {
   const [rows, setRows] = useState<LineItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState<string>("__latest__");
+  const [showUnmatchedOnly, setShowUnmatchedOnly] = useState(false);
   const [sortColumns, setSortColumns] = useState<SortColumn[]>([{ key: "invoice_date", dir: "desc" }]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerFileUrl, setViewerFileUrl] = useState("");
   const [viewerTitle, setViewerTitle] = useState("");
+  const isMobile = useIsMobile();
 
-  // Cached metadata so realtime refetches can be cheap
   const metaRef = useRef<{ invMap: Map<string, InvoiceMeta>; supMap: Map<string, string>; pmMap: Map<string, PMMeta> } | null>(null);
 
   const refetchLineItems = useCallback(async () => {
@@ -116,7 +136,6 @@ export default function ProcurementLineItemsTab() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Debounced realtime — refetch only line items, reuse cached metadata
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
@@ -133,28 +152,20 @@ export default function ProcurementLineItemsTab() {
 
   const months = useMemo(() => {
     const set = new Set<string>();
-    for (const r of rows) {
-      if (r.invoice_date) set.add(r.invoice_date.substring(0, 7));
-    }
+    for (const r of rows) if (r.invoice_date) set.add(r.invoice_date.substring(0, 7));
     return [...set].sort().reverse();
   }, [rows]);
 
-  // Default month filter to most recent month once data loads
   useEffect(() => {
-    if (monthFilter === "__latest__" && months.length > 0) {
-      setMonthFilter(months[0]);
-    }
+    if (monthFilter === "__latest__" && months.length > 0) setMonthFilter(months[0]);
   }, [months, monthFilter]);
 
   const fmtMonth = (ym: string) => {
     const [y, m] = ym.split("-");
-    const date = new Date(Number(y), Number(m) - 1);
-    return date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+    return new Date(Number(y), Number(m) - 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
   };
 
-  const toggleSort = (key: string, additive: boolean) => {
-    setSortColumns(prev => toggleSortColumns(prev, key, additive));
-  };
+  const toggleSort = (key: string, additive: boolean) => setSortColumns(prev => toggleSortColumns(prev, key, additive));
 
   const SortIcon = ({ col }: { col: string }) => {
     const entry = sortColumns.find(s => s.key === col);
@@ -172,15 +183,18 @@ export default function ProcurementLineItemsTab() {
     let result = rows.filter(r => {
       if (supplierFilter !== "all" && r.supplier_name !== supplierFilter) return false;
       if (monthFilter !== "all" && monthFilter !== "__latest__" && (!r.invoice_date || !r.invoice_date.startsWith(monthFilter))) return false;
+      if (showUnmatchedOnly && (r.product_master_id || r.standard_product_id)) return false;
       if (q && !r._s.includes(q)) return false;
       return true;
     });
     return sortRows(result, sortColumns);
-  }, [rows, search, supplierFilter, monthFilter, sortColumns]);
+  }, [rows, search, supplierFilter, monthFilter, showUnmatchedOnly, sortColumns]);
 
   const totalNet = filtered.reduce((s, r) => s + r.total, 0);
   const unmatchedCount = filtered.filter(r => !r.product_master_id && !r.standard_product_id).length;
-  const hasFilters = search || supplierFilter !== "all" || (monthFilter !== "all" && monthFilter !== months[0]);
+  const distinctItems = useMemo(() => new Set(filtered.map(r => r.master_name || r.description)).size, [filtered]);
+  const distinctSuppliers = useMemo(() => new Set(filtered.map(r => r.supplier_name)).size, [filtered]);
+  const hasFilters = search || supplierFilter !== "all" || (monthFilter !== "all" && monthFilter !== months[0]) || showUnmatchedOnly;
 
   const columns = [
     { key: "invoice_date", label: "Date" },
@@ -196,7 +210,6 @@ export default function ProcurementLineItemsTab() {
     { key: "total", label: "Net Amount", align: "right" as const },
   ];
 
-  // Virtualization
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
     count: filtered.length,
@@ -205,20 +218,48 @@ export default function ProcurementLineItemsTab() {
     overscan: 100,
   });
 
-  if (loading) return <div className="py-12 text-center text-muted-foreground">Loading line items...</div>;
+  const scopeLabel = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(supplierFilter === "all" ? "All suppliers" : supplierFilter);
+    const activeMonth = monthFilter === "__latest__" ? months[0] : monthFilter;
+    parts.push(activeMonth && activeMonth !== "all" ? fmtMonth(activeMonth) : "All months");
+    if (showUnmatchedOnly) parts.push("Unmatched only");
+    return parts.join(" · ");
+  }, [supplierFilter, monthFilter, months, showUnmatchedOnly]);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 
   return (
     <div className="space-y-4">
+      {/* Stats strip */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-[64px] rounded-lg border border-border/60 bg-card/40 animate-pulse" />)
+        ) : (
+          <>
+            <StatTile label="Total Lines" value={filtered.length.toLocaleString()} />
+            <StatTile label="Total Value" value={`HK$ ${fmtWhole(totalNet)}`} tone="primary" />
+            <StatTile label="Distinct Items" value={distinctItems.toLocaleString()} />
+            <StatTile label="Distinct Suppliers" value={distinctSuppliers.toLocaleString()} />
+            <StatTile
+              label="Unmatched"
+              value={unmatchedCount.toLocaleString()}
+              tone={unmatchedCount > 0 ? "warn" : "neutral"}
+              active={showUnmatchedOnly}
+              onClick={() => setShowUnmatchedOnly(v => !v)}
+            />
+          </>
+        )}
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search description, code, invoice #, supplier & vendor..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+          <Input placeholder="Search description, code, invoice #, supplier..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
         <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger className="w-[160px] h-9 text-xs"><SelectValue placeholder="Supplier & Vendor" /></SelectTrigger>
+          <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="Supplier" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Suppliers & Vendors</SelectItem>
             {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -232,7 +273,7 @@ export default function ProcurementLineItemsTab() {
           </SelectContent>
         </Select>
         {hasFilters && (
-          <button onClick={() => { setSearch(""); setSupplierFilter("all"); setMonthFilter(months[0] || "all"); }} className="text-xs text-primary hover:underline flex items-center gap-1">
+          <button onClick={() => { setSearch(""); setSupplierFilter("all"); setMonthFilter(months[0] || "all"); setShowUnmatchedOnly(false); }} className="text-xs text-primary hover:underline inline-flex items-center gap-1 h-9">
             <X className="h-3 w-3" /> Clear
           </button>
         )}
@@ -246,122 +287,156 @@ export default function ProcurementLineItemsTab() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <p className="text-xs text-muted-foreground">
-          Showing {filtered.length} of {rows.length} line items · Total: <span className="font-semibold">${fmt(totalNet)}</span>
-        </p>
-        {unmatchedCount > 0 && (
-          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-700">
-            <AlertTriangle className="h-3 w-3 mr-1" />{unmatchedCount} unmatched
-          </Badge>
-        )}
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Showing {scopeLabel} · <span className="tabular-nums">{filtered.length.toLocaleString()}</span> of <span className="tabular-nums">{rows.length.toLocaleString()}</span> lines
+      </p>
 
-      {/* Virtualized table */}
-      <div className="card-glass rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <div style={{ minWidth: 1400 }}>
-            {/* Header */}
-            <div
-              className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
-              style={{ gridTemplateColumns: GRID_COLS }}
-            >
-              <div></div>
-              {columns.map(col => (
-                <div
-                  key={col.key}
-                  className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap flex items-center ${col.align === "right" ? "justify-end" : ""}`}
-                  onClick={(e) => toggleSort(col.key, e.shiftKey)}
-                  title="Click to sort. Shift+click to add another column."
-                >
-                  <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
-                </div>
-              ))}
+      {/* Loading skeleton */}
+      {loading ? (
+        <div className="rounded-xl border border-border/60 bg-card/40 overflow-hidden">
+          <div className="h-10 bg-primary/60" />
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="h-9 border-b border-border/40 bg-muted/10 animate-pulse" style={{ animationDelay: `${i * 40}ms` }} />
+          ))}
+        </div>
+      ) : isMobile ? (
+        // Mobile card list
+        <div className="space-y-2">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm rounded-xl border border-border/60 bg-card/40">
+              No line items found.
             </div>
-
-            {/* Body */}
-            <div
-              ref={scrollRef}
-              className="overflow-auto"
-              style={{ height: "calc(100vh - 340px)", minHeight: 420 }}
-            >
-              {filtered.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">
-                  No line items found. Upload invoices in the Invoices tab to see extracted data here.
+          ) : (
+            filtered.slice(0, 200).map(r => {
+              const isUnmatched = !r.product_master_id && !r.standard_product_id;
+              return (
+                <div key={r.id} className={`rounded-lg border p-3 space-y-1.5 ${isUnmatched ? "border-warning/40 bg-warning/[0.04]" : "border-border/60 bg-card/50"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm truncate">{r.master_name || r.description}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">{r.supplier_name} · <span className="font-mono">{r.invoice_number}</span></div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-semibold tabular-nums text-sm">HK$ {fmtWhole(r.total)}</div>
+                      <div className="text-[11px] text-muted-foreground tabular-nums">{r.quantity} {r.unit}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>{fmtDate(r.invoice_date)}</span>
+                    {isUnmatched && (
+                      <span className="inline-flex items-center gap-1 text-warning">
+                        <AlertTriangle className="h-3 w-3" />Unmatched
+                      </span>
+                    )}
+                    {r.file_url && (
+                      <button onClick={() => { setViewerFileUrl(r.file_url); setViewerTitle(`Invoice ${r.invoice_number}`); setViewerOpen(true); }} className="text-primary underline">View</button>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
-                  {virtualItems.map(vRow => {
-                    const r = filtered[vRow.index];
-                    const idx = vRow.index;
-                    const isUnmatched = !r.product_master_id && !r.standard_product_id;
-                    return (
-                      <div
-                        key={`${r.id}-${idx}`}
-                        className={`grid items-center border-b border-border/40 hover:bg-accent/30 transition-colors text-[12px] ${isUnmatched ? "bg-amber-50/60 dark:bg-amber-950/20" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
-                        style={{
-                          gridTemplateColumns: GRID_COLS,
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          height: vRow.size,
-                          transform: `translateY(${vRow.start}px)`,
-                        }}
-                      >
-                        <div className="px-2 text-center">
-                          {r.file_url ? (
-                            <button
-                              onClick={() => { setViewerFileUrl(r.file_url); setViewerTitle(`Invoice ${r.invoice_number}`); setViewerOpen(true); }}
-                              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                              title="View attachment"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </button>
-                          ) : null}
-                        </div>
-                        <div className="px-3 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</div>
-                        <div className="px-3 font-medium text-foreground truncate">{r.supplier_name}</div>
-                        <div className="px-3 font-mono text-primary truncate">{r.invoice_number}</div>
-                        <div className="px-3 font-mono text-muted-foreground truncate">{r.internal_sku || "—"}</div>
-                        <div className="px-3 font-mono text-muted-foreground truncate">{r.external_sku || "—"}</div>
-                        <div className="px-3 truncate">
-                          {r.master_name ? (
-                            <span className="text-foreground font-medium">{r.master_name}</span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px] font-medium">
-                              <AlertTriangle className="h-3 w-3" />Unmatched
-                            </span>
-                          )}
-                        </div>
-                        <div className="px-3 text-foreground truncate">
-                          {r.description}
-                        </div>
-                        <div className="px-3 text-right tabular-nums">{r.quantity}</div>
-                        <div className="px-3 text-center text-muted-foreground">{r.unit}</div>
-                        <div className="px-3 text-right tabular-nums">{fmt(r.unit_price)}</div>
-                        <div className="px-3 text-right tabular-nums font-semibold">{fmt(r.total)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            {filtered.length > 0 && (
+              );
+            })
+          )}
+          {filtered.length > 200 && (
+            <p className="text-center text-xs text-muted-foreground py-3">Showing first 200 rows — use filters to narrow down.</p>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: 1400 }}>
               <div
-                className="grid bg-muted/40 font-semibold text-[12px] border-t border-border"
+                className="grid bg-primary text-primary-foreground text-[12px] font-semibold sticky top-0 z-10"
                 style={{ gridTemplateColumns: GRID_COLS }}
               >
                 <div></div>
-                <div className="px-3 py-2 text-right" style={{ gridColumn: "span 10" }}>Total</div>
-                <div className="px-3 py-2 text-right tabular-nums">{fmt(totalNet)}</div>
+                {columns.map(col => (
+                  <div
+                    key={col.key}
+                    className={`px-3 py-2.5 cursor-pointer select-none whitespace-nowrap flex items-center ${col.align === "right" ? "justify-end" : ""}`}
+                    onClick={(e) => toggleSort(col.key, e.shiftKey)}
+                    title="Click to sort. Shift+click to add another column."
+                  >
+                    <span className="flex items-center gap-1">{col.label}<SortIcon col={col.key} /></span>
+                  </div>
+                ))}
               </div>
-            )}
+
+              <div
+                ref={scrollRef}
+                className="overflow-auto"
+                style={{ height: "calc(100vh - 380px)", minHeight: 420 }}
+              >
+                {filtered.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground text-sm">
+                    No line items found. Upload invoices in the Invoices tab to see extracted data here.
+                  </div>
+                ) : (
+                  <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+                    {virtualItems.map(vRow => {
+                      const r = filtered[vRow.index];
+                      const idx = vRow.index;
+                      const isUnmatched = !r.product_master_id && !r.standard_product_id;
+                      return (
+                        <div
+                          key={`${r.id}-${idx}`}
+                          className={`grid items-center border-b border-border/40 hover:bg-accent/30 transition-colors text-[12px] ${isUnmatched ? "bg-warning/[0.06]" : idx % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
+                          style={{
+                            gridTemplateColumns: GRID_COLS,
+                            position: "absolute", top: 0, left: 0, width: "100%",
+                            height: vRow.size, transform: `translateY(${vRow.start}px)`,
+                          }}
+                        >
+                          <div className="px-2 text-center">
+                            {r.file_url ? (
+                              <button
+                                onClick={() => { setViewerFileUrl(r.file_url); setViewerTitle(`Invoice ${r.invoice_number}`); setViewerOpen(true); }}
+                                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                                title="View attachment"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
+                          <div className="px-3 text-muted-foreground whitespace-nowrap">{fmtDate(r.invoice_date)}</div>
+                          <div className="px-3 font-medium text-foreground truncate" title={r.supplier_name}>{r.supplier_name}</div>
+                          <div className="px-3 font-mono text-primary truncate" title={r.invoice_number}>{r.invoice_number}</div>
+                          <div className="px-3 font-mono text-muted-foreground truncate">{r.internal_sku || "—"}</div>
+                          <div className="px-3 font-mono text-muted-foreground truncate">{r.external_sku || "—"}</div>
+                          <div className="px-3 truncate" title={r.master_name}>
+                            {r.master_name ? (
+                              <span className="text-foreground font-medium">{r.master_name}</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-warning text-[11px] font-medium">
+                                <AlertTriangle className="h-3 w-3" />Unmatched
+                              </span>
+                            )}
+                          </div>
+                          <div className="px-3 truncate text-foreground" title={r.description}>{r.description}</div>
+                          <div className="px-3 text-right tabular-nums">{r.quantity}</div>
+                          <div className="px-3 text-center text-muted-foreground">{r.unit}</div>
+                          <div className="px-3 text-right tabular-nums">{fmtPrice(r.unit_price)}</div>
+                          <div className="px-3 text-right tabular-nums font-semibold">HK$ {fmtWhole(r.total)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {filtered.length > 0 && (
+                <div
+                  className="grid bg-muted/40 font-semibold text-[12px] border-t border-border"
+                  style={{ gridTemplateColumns: GRID_COLS }}
+                >
+                  <div></div>
+                  <div className="px-3 py-2 text-right" style={{ gridColumn: "span 10" }}>Total</div>
+                  <div className="px-3 py-2 text-right tabular-nums">HK$ {fmtWhole(totalNet)}</div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <AttachmentViewerDialog
         open={viewerOpen}
