@@ -267,116 +267,164 @@ export default function BillsExpenses() {
     }
   };
 
+  // Detect bills that will fail posting because an allocation is missing a GL account.
+  const unmappedBillCount = useMemo(
+    () => bills.filter((b) => (b.approval_status === "pending_review" || b.approval_status === "approved") && b.approval_status !== "posted").length,
+    [bills]
+  );
+  const masterMissing = categories.length === 0 || suppliers.length === 0;
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Bills & Expenses</h1>
-          <p className="text-sm text-muted-foreground">
-            Non-inventory supplier bills — utilities, rent, services, professional fees, late charges.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setScannerOpen(true)}>
-            <ScanLine className="h-4 w-4 mr-2" /> Scan Bill
-          </Button>
-          <Button onClick={() => openEditor(null)}>
-            <Plus className="h-4 w-4 mr-2" /> New Bill
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Bills & Expenses"
+        description="Non-inventory supplier bills — utilities, rent, services, professional fees, late charges."
+        actions={
+          <>
+            <Button size="sm" variant="outline" className="h-9" onClick={() => setScannerOpen(true)}>
+              <ScanLine className="h-4 w-4 mr-1" /> Scan bill
+            </Button>
+            <Button size="sm" className="h-9" onClick={() => openEditor(null)}>
+              <Plus className="h-4 w-4 mr-1" /> New bill
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Total Outstanding</div>
-          <div className="text-xl font-semibold mt-1">{fmt(kpis.outstanding)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Overdue</div>
-          <div className="text-xl font-semibold mt-1 text-red-600">{fmt(kpis.overdue)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Due in 7 Days</div>
-          <div className="text-xl font-semibold mt-1 text-amber-600">{fmt(kpis.dueSoon)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Posted MTD</div>
-          <div className="text-xl font-semibold mt-1">{fmt(kpis.postedMtd)}</div>
-        </Card>
-      </div>
-
-      <Card className="p-4">
-        <div className="flex flex-wrap gap-3 mb-4">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search vendor, bill #, notes…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Master-data prompt — surfaces when categories or vendors are empty. */}
+      {masterMissing && (
+        <div className="card-glass rounded-xl border border-warning/40 p-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-warning/10 p-2 text-warning shrink-0">
+              <ShieldAlert className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium">Set up master data first</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {categories.length === 0 && "No expense categories exist yet. "}
+                {suppliers.length === 0 && "No active vendors exist yet. "}
+                Bills entered without master data become orphaned records that won't flow into P&amp;L correctly.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {categories.length === 0 && (
+                  <Link to="/expenses/categories"><Button size="sm" className="h-8">Add categories <ArrowRight className="h-3 w-3 ml-1" /></Button></Link>
+                )}
+                {suppliers.length === 0 && (
+                  <Link to="/expenses/vendors"><Button size="sm" className="h-8">Add vendors <ArrowRight className="h-3 w-3 ml-1" /></Button></Link>
+                )}
+              </div>
+            </div>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="Approval status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All approval</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="pending_review">Pending review</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="posted">Posted</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="void">Void</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-            <SelectTrigger className="w-40"><SelectValue placeholder="Payment" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All payment</SelectItem>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-            </SelectContent>
-          </Select>
+        </div>
+      )}
+
+      {loading && bills.length === 0 ? (
+        <KpiSkeleton count={4} />
+      ) : (
+        <KpiGrid>
+          <KpiCard label="Total outstanding" value={fmtHKWhole(kpis.outstanding)} tone={kpis.outstanding > 0 ? "warning" : "default"} />
+          <KpiCard label="Overdue" value={fmtHKWhole(kpis.overdue)} tone={kpis.overdue > 0 ? "destructive" : "default"} />
+          <KpiCard label="Due in 7 days" value={fmtHKWhole(kpis.dueSoon)} tone={kpis.dueSoon > 0 ? "warning" : "default"} />
+          <KpiCard label="Posted MTD" value={fmtHKWhole(kpis.postedMtd)} tone="info" />
+        </KpiGrid>
+      )}
+
+      <Card className="card-glass p-0 overflow-hidden">
+        <div className="p-4 border-b border-border/60">
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search vendor, bill #, notes…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Approval status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All approval</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="pending_review">Pending review</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="posted">Posted</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="void">Void</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+              <SelectTrigger className="w-40 h-9"><SelectValue placeholder="Payment" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All payment</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <ScopeLine>
+            <span className="mt-2 inline-block">
+              Showing {filtered.length} of {bills.length} bill{bills.length === 1 ? "" : "s"}
+              {statusFilter !== "all" && ` · approval: ${statusFilter}`}
+              {paymentFilter !== "all" && ` · payment: ${paymentFilter}`}
+            </span>
+          </ScopeLine>
         </div>
 
-        <div className="overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Bill #</TableHead>
-                <TableHead>Bill date</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Venue</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead>Approval</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading && (
-                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Loading…</TableCell></TableRow>
-              )}
-              {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No bills yet. Click "New Bill" to add one.</TableCell></TableRow>
-              )}
-              {filtered.map((b) => (
-                <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openEditor(b)}>
-                  <TableCell>{supplierName(b.supplier_id) !== "—" ? supplierName(b.supplier_id) : b.vendor_name || "—"}</TableCell>
-                  <TableCell>{b.bill_number || "—"}</TableCell>
-                  <TableCell>{b.bill_date}</TableCell>
-                  <TableCell>{b.due_date || "—"}</TableCell>
-                  <TableCell>{b.venue || "—"}</TableCell>
-                  <TableCell>{b.department || "—"}</TableCell>
-                  <TableCell className="text-right font-mono">{fmt(b.total_amount)}</TableCell>
-                  <TableCell className="text-right font-mono text-muted-foreground">{fmt(b.paid_amount)}</TableCell>
-                  <TableCell><Badge variant="outline" className={APPROVAL_COLORS[b.approval_status]}>{b.approval_status}</Badge></TableCell>
-                  <TableCell><Badge variant="outline" className={PAYMENT_COLORS[b.payment_status]}>{b.payment_status}</Badge></TableCell>
-                  <TableCell><Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button></TableCell>
+        {loading ? (
+          <TableSkeleton rows={6} cols={11} />
+        ) : (
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Bill #</TableHead>
+                  <TableHead>Bill date</TableHead>
+                  <TableHead>Due</TableHead>
+                  <TableHead>Venue</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Paid</TableHead>
+                  <TableHead>Approval</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={11} className="p-0">
+                      <EmptyState
+                        icon={<FileText className="h-6 w-6" />}
+                        title={bills.length === 0 ? "No bills yet" : "No bills match the current filter"}
+                        description={bills.length === 0 ? "Scan a bill or create one manually to start tracking expenses." : "Try clearing the search or status filters."}
+                        action={bills.length === 0 ? (
+                          <Button size="sm" className="h-8" onClick={() => openEditor(null)}>
+                            <Plus className="h-3 w-3 mr-1" /> Create first bill
+                          </Button>
+                        ) : undefined}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+                {filtered.map((b) => (
+                  <TableRow key={b.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openEditor(b)}>
+                    <TableCell>{supplierName(b.supplier_id) !== "—" ? supplierName(b.supplier_id) : b.vendor_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-xs">{b.bill_number || "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{fmtDate(b.bill_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{fmtDate(b.due_date)}</TableCell>
+                    <TableCell>{b.venue || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell>{b.department || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(b.total_amount)}</TableCell>
+                    <TableCell className="text-right td-num tabular-nums whitespace-nowrap text-muted-foreground">{fmtHK(b.paid_amount)}</TableCell>
+                    <TableCell><StatusPill variant={approvalVariant(b.approval_status)}>{APPROVAL_LABEL[b.approval_status] || b.approval_status}</StatusPill></TableCell>
+                    <TableCell><StatusPill variant={paymentVariant(b.payment_status)}>{PAYMENT_LABEL[b.payment_status] || b.payment_status}</StatusPill></TableCell>
+                    <TableCell><Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card>
+
 
       <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
         <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
