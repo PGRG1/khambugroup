@@ -413,7 +413,7 @@ function OpenPayablesTab({
                     </div>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
           {filtered.length > 500 && (
