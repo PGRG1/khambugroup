@@ -10,6 +10,7 @@ import { toggleSortColumns, sortRows, type SortColumn } from "@/utils/tableSort"
 import AttachmentViewerDialog from "@/components/invoices/AttachmentViewerDialog";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 interface LineItemRow {
   id: string;

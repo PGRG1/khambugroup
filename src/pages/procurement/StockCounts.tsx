@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useVenues } from "@/hooks/useVenues";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { downloadCSV } from "@/utils/csvDownload";
 import { formatCurrency } from "@/utils/salesUtils";
@@ -72,7 +73,7 @@ type Product = {
   status: string;
 };
 
-const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
+// Venues are read from the master list via useVenues() — no hardcoded list.
 
 const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
   full: { label: "Full", cls: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -111,6 +112,9 @@ export default function StockCounts() {
  * LIST VIEW
  * ============================================================ */
 function ListView({ onOpen }: { onOpen: (id: string) => void }) {
+  const { tenantId } = useActiveTenant();
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [itemStats, setItemStats] = useState<Record<string, { total: number; counted: number; value: number }>>({});
   const [venueFilter, setVenueFilter] = useState<string>("all");
@@ -118,9 +122,11 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
   const [showNew, setShowNew] = useState(false);
 
   const load = async () => {
+    if (!tenantId) return;
     const { data } = await supabase
       .from("stock_count_sessions")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("count_date", { ascending: false })
       .order("created_at", { ascending: false });
     const sess = (data as Session[]) ?? [];
@@ -131,6 +137,7 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
       const { data: items } = await supabase
         .from("stock_count_items")
         .select("session_id, counted_qty, unit_cost")
+        .eq("tenant_id", tenantId)
         .in("session_id", ids);
       const stats: Record<string, { total: number; counted: number; value: number }> = {};
       (items ?? []).forEach((it: any) => {
@@ -147,7 +154,7 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [tenantId]);
 
   const filtered = sessions.filter(
     (s) =>
@@ -173,7 +180,7 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All venues</SelectItem>
-            {VENUES.map((v) => (
+            {activeVenueNames.map((v) => (
               <SelectItem key={v} value={v}>
                 {v}
               </SelectItem>
@@ -295,7 +302,9 @@ function ListView({ onOpen }: { onOpen: (id: string) => void }) {
 function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
-  const [venue, setVenue] = useState<string>("Assembly");
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
+  const [venue, setVenue] = useState<string>("");
   const [countDate, setCountDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [countType, setCountType] = useState<"full" | "category" | "spot">("full");
   const [notes, setNotes] = useState("");
@@ -303,6 +312,10 @@ function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated
   const [selectedLocs, setSelectedLocs] = useState<string[]>([]);
   const [noLocs, setNoLocs] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!venue && activeVenueNames[0]) setVenue(activeVenueNames[0]);
+  }, [activeVenueNames, venue]);
 
   useEffect(() => {
     (async () => {
@@ -453,7 +466,7 @@ function NewCountDialog({ onClose, onCreated }: { onClose: () => void; onCreated
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {VENUES.map((v) => (
+                  {activeVenueNames.map((v) => (
                     <SelectItem key={v} value={v}>
                       {v}
                     </SelectItem>

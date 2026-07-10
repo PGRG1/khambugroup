@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { BaniScanSummary } from "@/components/invoices/ai/BaniScanSummary";
 import { runBaniScan } from "@/lib/baniRunScan";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useVenues } from "@/hooks/useVenues";
 import { LineStatusChip, getLineStatus } from "@/components/invoices/InvoiceReviewPanels";
 import { fetchActiveDealsForSupplier, findDealForProduct, computeMissingDeals, type SupplierDeal } from "@/utils/supplierDeals";
 
@@ -180,6 +181,8 @@ export default function ProcurementInvoicesTab() {
   const { invoices, suppliers, loading, fetchLineItems, createInvoice, updateInvoice, deleteInvoice } = useInvoiceData();
   const { user } = useAuth();
   const { tenantId } = useActiveTenant();
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = React.useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
 
 
   const [productMaster, setProductMaster] = useState<ProductMasterEntry[]>([]);
@@ -1070,9 +1073,7 @@ export default function ProcurementInvoicesTab() {
               <Select value={editForm.venue || ""} onValueChange={(value) => setEditForm((form) => ({ ...form, venue: value }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Assembly">Assembly</SelectItem>
-                  <SelectItem value="Caliente">Caliente</SelectItem>
-                  <SelectItem value="Hanabi">Hanabi</SelectItem>
+                  {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -2002,13 +2003,15 @@ function InvoiceTableSection({
   invoiceVarianceMap,
 }: InvoiceTableSectionProps) {
   const pag = usePagination(filtered, 25);
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = React.useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
 
   const filterFields: FilterField[] = [
     { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
       options: suppliers.map(s => ({ value: s.id, label: s.name })),
       allLabel: "All Suppliers" },
     { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
-      options: [{ value: "Assembly", label: "Assembly" }, { value: "Caliente", label: "Caliente" }, { value: "Hanabi", label: "Hanabi" }],
+      options: activeVenueNames.map((v) => ({ value: v, label: v })),
       allLabel: "All Venues" },
     { type: "select", key: "review_status", label: "Status", value: reviewStatusFilter, onChange: setReviewStatusFilter,
       options: REVIEW_STATUSES.map(s => ({ value: s, label: s })),
