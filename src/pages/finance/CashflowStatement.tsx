@@ -318,11 +318,11 @@ export default function CashflowStatement() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">Reconciliation to Balance Sheet</h3>
             {reconciles ? (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+              <span className="inline-flex items-center gap-1 text-xs text-primary">
                 <CheckCircle2 className="h-4 w-4" /> Reconciles
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs text-rose-700">
+              <span className="inline-flex items-center gap-1 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4" /> Mismatch {fmtMoney(reconciliationDelta)}
               </span>
             )}
@@ -330,15 +330,15 @@ export default function CashflowStatement() {
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span>Closing per statement</span>
-              <span className="font-mono">{fmt(closing)}</span>
+              <span className="tabular-nums">{fmt(closing)}</span>
             </div>
             <div className="flex justify-between">
               <span>Cash account balances at {toDate}</span>
-              <span className="font-mono">{fmt(cashBalanceTotal)}</span>
+              <span className="tabular-nums">{fmt(cashBalanceTotal)}</span>
             </div>
             <div className="flex justify-between border-t pt-1 mt-1 font-semibold">
               <span>Difference</span>
-              <span className={`font-mono ${reconciles ? "" : "text-rose-700"}`}>
+              <span className={`tabular-nums ${reconciles ? "" : "text-destructive"}`}>
                 {fmt(reconciliationDelta)}
               </span>
             </div>
