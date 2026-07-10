@@ -544,10 +544,57 @@ export default function BillsExpenses() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allocations.map((a, idx) => (
                       <TableRow key={idx}>
                         <TableCell>
-                          <Input value={a.expense_category || ""} onChange={(e) => updateAlloc(idx, { expense_category: e.target.value })} placeholder="e.g. Utilities" />
+                          {(() => {
+                            // Match the free-text category against the master list
+                            // (case-insensitive), so scanner output like "Laundry" that
+                            // exactly matches a master row shows in the Select. Anything
+                            // that doesn't match falls into an "Other (typed)" option
+                            // that reveals a small free-text input — this is the guarded
+                            // migration path away from unlinked free-text categories.
+                            const matched = categories.find(
+                              (c) => c.name.toLowerCase() === (a.expense_category || "").toLowerCase()
+                            );
+                            const selectValue = matched ? matched.id : (a.expense_category ? CATEGORY_OTHER : "");
+                            return (
+                              <div className="space-y-1">
+                                <Select
+                                  value={selectValue}
+                                  onValueChange={(v) => {
+                                    if (v === CATEGORY_OTHER) {
+                                      updateAlloc(idx, { expense_category: a.expense_category || "" });
+                                    } else {
+                                      const cat = categories.find((c) => c.id === v);
+                                      updateAlloc(idx, {
+                                        expense_category: cat?.name || null,
+                                        // Auto-fill GL account from category default when
+                                        // the row hasn't picked one yet — this is what
+                                        // unblocks bills from stalling in Pending Review.
+                                        account_id: a.account_id || cat?.default_account_id || null,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8"><SelectValue placeholder="Select category" /></SelectTrigger>
+                                  <SelectContent>
+                                    {categories.map((c) => (
+                                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                    ))}
+                                    <SelectItem value={CATEGORY_OTHER}>Other (typed)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {(selectValue === CATEGORY_OTHER || (!matched && a.expense_category)) && (
+                                  <Input
+                                    className="h-8 text-xs"
+                                    value={a.expense_category || ""}
+                                    onChange={(e) => updateAlloc(idx, { expense_category: e.target.value })}
+                                    placeholder="Custom label"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Select value={a.account_id || ""} onValueChange={(v) => updateAlloc(idx, { account_id: v })}>
