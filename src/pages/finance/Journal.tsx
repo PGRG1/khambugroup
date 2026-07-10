@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useJournal, JournalLineDraft, JournalEntry, JournalLine } from "@/hooks/useJournal";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { Button } from "@/components/ui/button";
