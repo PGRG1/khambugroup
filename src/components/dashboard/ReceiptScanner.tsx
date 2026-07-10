@@ -362,10 +362,14 @@ const ReceiptScanner = ({ onSave, onClose }: ReceiptScannerProps) => {
               <select
                 value={extractedData.venue}
                 onChange={(e) => handleFieldChange("venue", e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className={`w-full px-3 py-2 text-sm rounded-lg border bg-secondary text-foreground focus:outline-none focus:ring-2 ${
+                  venueUnmatched ? "border-warning/60 focus:ring-warning/30" : "border-border focus:ring-primary/30"
+                }`}
               >
-                <option value="Assembly">Assembly</option>
-                <option value="Caliente">Caliente</option>
+                <option value="">Select a venue…</option>
+                {activeVenues.map((v) => (
+                  <option key={v.id} value={v.name}>{v.name}</option>
+                ))}
               </select>
             </div>
             <div>
