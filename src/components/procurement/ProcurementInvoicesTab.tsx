@@ -2125,7 +2125,7 @@ function InvoiceTableSection({
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className="inline-flex items-center text-amber-400" onClick={(e) => e.stopPropagation()}>
+                              <span className="inline-flex items-center text-warning" onClick={(e) => e.stopPropagation()}>
                                 <AlertTriangle className="h-3.5 w-3.5" />
                               </span>
                             </TooltipTrigger>
