@@ -107,11 +107,11 @@ export default function ExpenseApprovals() {
                       {b.combined_venues && <Badge variant="outline">All Venues / Combined</Badge>}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Bill #{b.bill_number || "—"} · Recognition {dt(b.bill_date)}
-                      {b.period_start && ` · Period ${dt(b.period_start)} → ${dt(b.period_end)}`}
+                      Bill #{b.bill_number || "—"} · Recognition {fmtDate(b.bill_date)}
+                      {b.period_start && ` · Period ${fmtDate(b.period_start)} → ${fmtDate(b.period_end)}`}
                     </div>
                   </div>
-                  <div className="text-right td-num text-lg font-semibold whitespace-nowrap">{fmt(b.total_amount)}</div>
+                  <div className="text-right td-num text-lg font-semibold whitespace-nowrap">{fmtHK(b.total_amount)}</div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-xs">
                   <div><span className="text-muted-foreground">Venue:</span> {b.venue || (b.combined_venues ? "Combined" : "—")}</div>
@@ -164,11 +164,11 @@ export default function ExpenseApprovals() {
           <TableBody>
             {pendingStmts.map((s) => (
               <TableRow key={s.id}>
-                <TableCell>{dt(s.statement_date)}</TableCell>
+                <TableCell>{fmtDate(s.statement_date)}</TableCell>
                 <TableCell>{s.vendor_name || "—"}</TableCell>
                 <TableCell>{s.statement_number || "—"}</TableCell>
-                <TableCell className="text-right td-num">{fmt(s.current_period_charges)}</TableCell>
-                <TableCell className="text-right td-num">{fmt(s.late_fees)}</TableCell>
+                <TableCell className="text-right td-num">{fmtHK(s.current_period_charges)}</TableCell>
+                <TableCell className="text-right td-num">{fmtHK(s.late_fees)}</TableCell>
               </TableRow>
             ))}
             {!pendingStmts.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No statements pending</TableCell></TableRow>}
@@ -210,7 +210,7 @@ export default function ExpenseApprovals() {
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">
-                Allocation: {editAllocs.map((a) => `${accountsByID[a.account_id || ""]?.code || "?"} — ${fmt(a.amount)}`).join(", ") || "—"}
+                Allocation: {editAllocs.map((a) => `${accountsByID[a.account_id || ""]?.code || "?"} — ${fmtHK(a.amount)}`).join(", ") || "—"}
               </div>
               <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button variant="outline" onClick={() => setEditBill(null)}>Cancel</Button>
