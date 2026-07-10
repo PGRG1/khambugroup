@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/expenses/shared";
 
 const ProcurementDashboardTab = lazy(() => import("@/components/procurement/ProcurementDashboardTab"));
 const SuppliersTab = lazy(() => import("@/components/procurement/SuppliersTab"));
@@ -56,9 +57,8 @@ export default function Procurement({ defaultTab = "dashboard" }: ProcurementPro
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
-      <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight text-foreground">
-        {tabTitles[activeTab] || "Procurement"}
-      </h1>
+      <PageHeader title={tabTitles[activeTab] || "Procurement"} />
+
 
       <Tabs value={activeTab}>
         <Suspense fallback={<TabFallback />}>

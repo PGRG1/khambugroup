@@ -35,9 +35,8 @@ import {
   X,
   Search,
 } from "lucide-react";
-
-const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
-type Venue = (typeof VENUES)[number];
+import { useVenues } from "@/hooks/useVenues";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 type StockLocation = {
   id: string;
@@ -121,6 +120,9 @@ export default function Transfers() {
 /* ====================================================================== */
 
 function TransferList({ onOpen }: { onOpen: (id: string) => void }) {
+  const { tenantId } = useActiveTenant();
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [itemCounts, setItemCounts] = useState<Map<string, { count: number; value: number }>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -132,10 +134,12 @@ function TransferList({ onOpen }: { onOpen: (id: string) => void }) {
   const [monthFilter, setMonthFilter] = useState<string>("all");
 
   const load = async () => {
+    if (!tenantId) return;
     setLoading(true);
     const { data: t } = await supabase
       .from("transfers")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     const list = (t as Transfer[]) ?? [];
     setTransfers(list);
@@ -145,6 +149,7 @@ function TransferList({ onOpen }: { onOpen: (id: string) => void }) {
       const { data: items } = await supabase
         .from("transfer_items")
         .select("transfer_id, quantity_sent, unit_cost")
+        .eq("tenant_id", tenantId)
         .in("transfer_id", ids);
       const map = new Map<string, { count: number; value: number }>();
       for (const id of ids) map.set(id, { count: 0, value: 0 });
@@ -195,14 +200,14 @@ function TransferList({ onOpen }: { onOpen: (id: string) => void }) {
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="From venue" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All from venues</SelectItem>
-            {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+            {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={toVenue} onValueChange={setToVenue}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="To venue" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All to venues</SelectItem>
-            {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+            {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -311,8 +316,11 @@ function NewTransferDialog({
   onCreated: (id: string) => void;
 }) {
   const { user } = useAuth();
-  const [fromVenue, setFromVenue] = useState<Venue>("Assembly");
-  const [toVenue, setToVenue] = useState<Venue>("Caliente");
+  const { tenantId } = useActiveTenant();
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
+  const [fromVenue, setFromVenue] = useState<string>("");
+  const [toVenue, setToVenue] = useState<string>("");
   const [fromLoc, setFromLoc] = useState<string>("none");
   const [toLoc, setToLoc] = useState<string>("none");
   const [transferDate, setTransferDate] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -325,12 +333,20 @@ function NewTransferDialog({
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
+  // Default venues from master list once resolved
   useEffect(() => {
     if (!open) return;
+    if (!fromVenue && activeVenueNames[0]) setFromVenue(activeVenueNames[0]);
+    if (!toVenue && activeVenueNames[1]) setToVenue(activeVenueNames[1]);
+  }, [open, activeVenueNames, fromVenue, toVenue]);
+
+  useEffect(() => {
+    if (!open || !tenantId) return;
     (async () => {
-      const { data: locs } = await supabase
+      const { data: locs } = await (supabase as any)
         .from("stock_locations")
         .select("*")
+        .eq("tenant_id", tenantId)
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
       setLocations((locs as StockLocation[]) ?? []);
@@ -339,15 +355,16 @@ function NewTransferDialog({
         "product_master",
         "id, internal_sku, internal_product_name, stock_uom, cost_per_stock_unit, status",
         { col: "internal_product_name", asc: true },
+        tenantId,
       );
       setProducts((prods as Product[]).filter((p) => p.status === "Active"));
     })();
-  }, [open]);
+  }, [open, tenantId]);
 
   useEffect(() => {
     if (!open) {
-      setFromVenue("Assembly");
-      setToVenue("Caliente");
+      setFromVenue(activeVenueNames[0] ?? "");
+      setToVenue(activeVenueNames[1] ?? "");
       setFromLoc("none");
       setToLoc("none");
       setTransferDate(new Date().toISOString().slice(0, 10));
@@ -396,7 +413,7 @@ function NewTransferDialog({
       return;
     }
     setSaving(true);
-    const { data: t, error: terr } = await supabase
+    const { data: t, error: terr } = await (supabase as any)
       .from("transfers")
       .insert({
         from_venue: fromVenue,
@@ -407,6 +424,7 @@ function NewTransferDialog({
         notes: notes || null,
         created_by: user.id,
         status: "draft",
+        tenant_id: tenantId,
       })
       .select()
       .single();
@@ -421,8 +439,9 @@ function NewTransferDialog({
       quantity_sent: Number(l.quantity_sent),
       unit: l.unit,
       unit_cost: Number(l.unit_cost) || 0,
+      tenant_id: tenantId,
     }));
-    const { error: ierr } = await supabase.from("transfer_items").insert(rows);
+    const { error: ierr } = await (supabase as any).from("transfer_items").insert(rows);
     setSaving(false);
     if (ierr) {
       toast.error(ierr.message);
@@ -443,19 +462,19 @@ function NewTransferDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>From venue</Label>
-              <Select value={fromVenue} onValueChange={(v) => setFromVenue(v as Venue)}>
+              <Select value={fromVenue} onValueChange={setFromVenue}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label>To venue</Label>
-              <Select value={toVenue} onValueChange={(v) => setToVenue(v as Venue)}>
+              <Select value={toVenue} onValueChange={setToVenue}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

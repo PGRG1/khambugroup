@@ -15,9 +15,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Plus, X, Trash2, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
-type Venue = typeof VENUES[number];
+import { useVenues } from "@/hooks/useVenues";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 type Status = "draft" | "approved" | "sent" | "partial" | "received" | "cancelled";
 
@@ -69,6 +68,9 @@ interface DraftLine {
 
 export default function PurchaseOrdersTab() {
   const { user, isAdmin } = useAuth();
+  const { tenantId } = useActiveTenant();
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
   const [pos, setPos] = useState<PO[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -88,19 +90,25 @@ export default function PurchaseOrdersTab() {
 
   // create form
   const [supplierId, setSupplierId] = useState("");
-  const [venue, setVenue] = useState<Venue>("Assembly");
+  const [venue, setVenue] = useState<string>("");
   const [expected, setExpected] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Default the create-form venue to the first active master venue whenever list resolves
+  useEffect(() => {
+    if (!venue && activeVenueNames.length) setVenue(activeVenueNames[0]);
+  }, [activeVenueNames, venue]);
+
   const loadAll = async () => {
+    if (!tenantId) return;
     setLoading(true);
     const [poRes, supRes, prodRes, psRes] = await Promise.all([
-      supabase.from("purchase_orders").select("*, suppliers(name)").order("created_at", { ascending: false }),
-      supabase.from("suppliers").select("id,name,is_active").order("name"),
-      supabase.from("product_master").select("id, internal_product_name, supplier_product_name, internal_sku, unit, unit_cost").order("internal_product_name"),
-      supabase.from("product_suppliers").select("product_master_id, supplier, purchase_unit, purchase_unit_cost"),
+      supabase.from("purchase_orders").select("*, suppliers(name)").eq("tenant_id", tenantId).order("created_at", { ascending: false }),
+      supabase.from("suppliers").select("id,name,is_active").eq("tenant_id", tenantId).order("name"),
+      supabase.from("product_master").select("id, internal_product_name, supplier_product_name, internal_sku, unit, unit_cost").eq("tenant_id", tenantId).order("internal_product_name"),
+      supabase.from("product_suppliers").select("product_master_id, supplier, purchase_unit, purchase_unit_cost").eq("tenant_id", tenantId),
     ]);
     if (poRes.error) toast.error(poRes.error.message);
     setPos((poRes.data ?? []) as any);
@@ -111,13 +119,14 @@ export default function PurchaseOrdersTab() {
   };
 
   useEffect(() => {
+    if (!tenantId) return;
     loadAll();
     (async () => {
       if (!user) return;
       const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
       setIsManager((data ?? []).some((r: any) => r.role === "manager" || r.role === "admin") || isAdmin);
     })();
-  }, [user, isAdmin]);
+  }, [user, isAdmin, tenantId]);
 
   const canManage = isAdmin || isManager;
 
@@ -172,7 +181,7 @@ export default function PurchaseOrdersTab() {
   );
 
   const resetCreate = () => {
-    setSupplierId(""); setVenue("Assembly"); setExpected(""); setNotes(""); setLines([]);
+    setSupplierId(""); setVenue(activeVenueNames[0] ?? ""); setExpected(""); setNotes(""); setLines([]);
   };
 
   const handleCreate = async () => {
@@ -192,6 +201,7 @@ export default function PurchaseOrdersTab() {
         total_amount: draftTotal,
         created_by: user.id,
         status: "draft",
+        tenant_id: tenantId,
       } as any)
       .select()
       .single();
@@ -320,7 +330,7 @@ export default function PurchaseOrdersTab() {
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All venues</SelectItem>
-                {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -431,10 +441,10 @@ export default function PurchaseOrdersTab() {
             </div>
             <div>
               <Label>Venue</Label>
-              <Select value={venue} onValueChange={(v) => setVenue(v as Venue)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={venue} onValueChange={setVenue}>
+                <SelectTrigger><SelectValue placeholder="Select venue" /></SelectTrigger>
                 <SelectContent>
-                  {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

@@ -20,9 +20,8 @@ import { backfillGrnsFromInvoices } from "@/utils/backfillGrnsFromInvoices";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { DataTableShell, usePagination, type FilterField } from "@/components/common/data-table";
 import { downloadCSV } from "@/utils/csvDownload";
+import { useVenues } from "@/hooks/useVenues";
 
-const VENUES = ["Assembly", "Caliente", "Hanabi"] as const;
-type Venue = typeof VENUES[number];
 type GrnStatus = "draft" | "confirmed";
 
 const fmtMoneyWhole = (n: number) => `HK$ ${Math.round(n || 0).toLocaleString("en-US")}`;
@@ -76,6 +75,8 @@ interface GRNItem {
 export default function ReceivingTab() {
   const { user, isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
+  const { venues: dbVenues } = useVenues();
+  const activeVenueNames = useMemo(() => dbVenues.filter((v) => v.is_active).map((v) => v.name), [dbVenues]);
   const [grns, setGrns] = useState<GRN[]>([]);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
@@ -101,7 +102,7 @@ export default function ReceivingTab() {
   const [linkedPoId, setLinkedPoId] = useState<string | null>(null);
   const [linkedInvoiceId, setLinkedInvoiceId] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState("");
-  const [venue, setVenue] = useState<Venue>("Assembly");
+  const [venue, setVenue] = useState<string>("");
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<GRNItem[]>([]);
@@ -114,14 +115,15 @@ export default function ReceivingTab() {
   const [selectedItems, setSelectedItems] = useState<GRNItem[]>([]);
 
   const loadAll = async () => {
+    if (!tenantId) return;
     setLoading(true);
-    const [grnRows, allItems, supRes, prodRes, poRes, invRes] = await Promise.all([
+    const [grnRows, allItems, supRes, prodRes, poRes, invRows] = await Promise.all([
       fetchAllRows("goods_received_notes", "*, suppliers(name), purchase_orders(po_number), invoices!invoice_id(invoice_number)", { col: "created_at", asc: false }, tenantId),
       fetchAllRows("grn_items", "grn_id, total", undefined, tenantId),
-      supabase.from("suppliers").select("id,name,is_active").order("name"),
-      supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").order("internal_product_name"),
-      supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
-      supabase.from("invoices").select("id, invoice_number, supplier_id, venue").order("created_at", { ascending: false }).limit(500),
+      supabase.from("suppliers").select("id,name,is_active").eq("tenant_id", tenantId).order("name"),
+      supabase.from("product_master").select("id, internal_product_name, internal_sku, unit, unit_cost").eq("tenant_id", tenantId).order("internal_product_name"),
+      supabase.from("purchase_orders" as any).select("id, po_number, supplier_id, venue, status").eq("tenant_id", tenantId).in("status", ["approved", "sent"]).order("created_at", { ascending: false }),
+      fetchAllRows("invoices", "id, invoice_number, supplier_id, venue, created_at", { col: "created_at", asc: false }, tenantId),
     ]);
     setGrns((grnRows ?? []) as any);
     const totals: Record<string, number> = {};
@@ -134,7 +136,7 @@ export default function ReceivingTab() {
     setProducts((prodRes.data ?? []) as Product[]);
     setPos((poRes.data ?? []) as unknown as PORow[]);
     const supMap = new Map(sups.map((s) => [s.id, s.name]));
-    setInvoices(((invRes.data ?? []) as any[]).map((i) => ({
+    setInvoices(((invRows ?? []) as any[]).map((i) => ({
       id: i.id, invoice_number: i.invoice_number, supplier_id: i.supplier_id,
       supplier_name: supMap.get(i.supplier_id) || "—", venue: i.venue,
     })));
@@ -142,13 +144,14 @@ export default function ReceivingTab() {
   };
 
   useEffect(() => {
+    if (!tenantId) return;
     loadAll();
     (async () => {
       if (!user) return;
       const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
       setIsManager((data ?? []).some((r: any) => r.role === "manager" || r.role === "admin") || isAdmin);
     })();
-  }, [user, isAdmin]);
+  }, [user, isAdmin, tenantId]);
 
   const canManage = isAdmin || isManager;
 
@@ -199,7 +202,7 @@ export default function ReceivingTab() {
     setLinkedPoId(null);
     setLinkedInvoiceId(null);
     setSupplierId("");
-    setVenue("Assembly");
+    setVenue(activeVenueNames[0] ?? "");
     setReceivedDate(new Date().toISOString().split("T")[0]);
     setNotes("");
     setItems([]);
@@ -211,7 +214,7 @@ export default function ReceivingTab() {
     if (!po) return;
     setLinkedPoId(poId);
     setSupplierId(po.supplier_id);
-    if (VENUES.includes(po.venue as Venue)) setVenue(po.venue as Venue);
+    if (activeVenueNames.includes(po.venue)) setVenue(po.venue);
     const { data } = await supabase.from("purchase_order_items" as any).select("*").eq("po_id", poId);
     const lines = ((data ?? []) as unknown as POItem[]).map((it) => ({
       key: crypto.randomUUID(),
@@ -240,7 +243,7 @@ export default function ReceivingTab() {
     if (!inv) return;
     setLinkedInvoiceId(invId);
     setSupplierId(inv.supplier_id);
-    if (VENUES.includes(inv.venue as Venue)) setVenue(inv.venue as Venue);
+    if (activeVenueNames.includes(inv.venue)) setVenue(inv.venue);
     const { data } = await supabase.from("invoice_line_items").select("*").eq("invoice_id", invId);
     const lines = ((data ?? []) as any[]).map((it) => ({
       key: crypto.randomUUID(),
@@ -358,7 +361,7 @@ export default function ReceivingTab() {
     { type: "select", key: "supplier", label: "Supplier", value: supplierFilter, onChange: setSupplierFilter,
       options: suppliers.map((s) => ({ value: s.id, label: s.name })), allLabel: "All Suppliers" },
     { type: "select", key: "venue", label: "Venue", value: venueFilter, onChange: setVenueFilter,
-      options: VENUES.map((v) => ({ value: v, label: v })), allLabel: "All Venues" },
+      options: activeVenueNames.map((v) => ({ value: v, label: v })), allLabel: "All Venues" },
     { type: "select", key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter,
       options: [
         { value: "draft", label: "Draft" },
@@ -567,10 +570,10 @@ export default function ReceivingTab() {
             </div>
             <div>
               <Label className="text-xs">Venue</Label>
-              <Select value={venue} onValueChange={(v) => setVenue(v as Venue)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={venue} onValueChange={setVenue}>
+                <SelectTrigger><SelectValue placeholder="Select venue" /></SelectTrigger>
                 <SelectContent>
-                  {VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  {activeVenueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

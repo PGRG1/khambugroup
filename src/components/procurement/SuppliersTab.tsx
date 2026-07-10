@@ -20,6 +20,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { tonePill } from "@/components/kpi/toneStyles";
 import { cn } from "@/lib/utils";
 import SupplierSheet from "./SupplierSheet";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 interface Supplier {
   id: string;
@@ -68,6 +69,7 @@ function generateCodeSuggestion(name: string, existingCodes: string[]): string {
 type StatChip = "all" | "active" | "inactive" | "missing_contact";
 
 export default function SuppliersTab() {
+  const { tenantId } = useActiveTenant();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -84,13 +86,14 @@ export default function SuppliersTab() {
   const isMobile = useIsMobile();
 
   const fetchSuppliers = async () => {
-    const { data, error } = await supabase.from("suppliers").select("*").order("name");
+    if (!tenantId) return;
+    const { data, error } = await supabase.from("suppliers").select("*").eq("tenant_id", tenantId).order("name");
     if (error) toast.error("Failed to load suppliers & vendors");
     else setSuppliers((data || []) as unknown as Supplier[]);
     setLoading(false);
   };
 
-  useEffect(() => { fetchSuppliers(); }, []);
+  useEffect(() => { fetchSuppliers(); }, [tenantId]);
 
   useEffect(() => {
     if (!editingId && form.name && !form.code) {
@@ -165,10 +168,10 @@ export default function SuppliersTab() {
       moq: form.moq || 0, account_number: form.account_number || "",
     };
     if (editingId) {
-      const { error } = await supabase.from("suppliers").update(payload).eq("id", editingId);
+      const { error } = await supabase.from("suppliers").update(payload).eq("id", editingId).eq("tenant_id", tenantId!);
       if (error) toast.error("Failed to update supplier & vendor"); else toast.success("Supplier & vendor updated");
     } else {
-      const { error } = await supabase.from("suppliers").insert(payload);
+      const { error } = await supabase.from("suppliers").insert({ ...payload, tenant_id: tenantId } as any);
       if (error) toast.error("Failed to add supplier & vendor"); else toast.success("Supplier & vendor added");
     }
     setSaving(false); setDialogOpen(false); fetchSuppliers();
@@ -176,7 +179,7 @@ export default function SuppliersTab() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.from("suppliers").delete().eq("id", deleteId);
+    const { error } = await supabase.from("suppliers").delete().eq("id", deleteId).eq("tenant_id", tenantId!);
     if (error) toast.error("Failed to delete supplier & vendor"); else toast.success("Supplier & vendor deleted");
     setDeleteId(null); fetchSuppliers();
   };
