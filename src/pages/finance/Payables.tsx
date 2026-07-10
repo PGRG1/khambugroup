@@ -27,30 +27,54 @@ import { AllocatePaymentDialog } from "@/components/finance/payables/AllocatePay
 import { PaymentHistoryDialog } from "@/components/finance/payables/PaymentHistoryDialog";
 
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtWhole = (n: number) =>
+  n.toLocaleString("en-HK", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtDate = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return iso;
+  }
+};
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 type DueRange = "all" | "overdue" | "this_week" | "this_month" | "next_30";
 
+// Aging: current → primary, near-term → info, mid → warning, old → destructive.
 const BUCKET_COLOR: Record<string, string> = {
-  "Current": "bg-emerald-500",
-  "1–30": "bg-sky-500",
-  "31–60": "bg-amber-500",
-  "61–90": "bg-purple-500",
-  "90+": "bg-red-500",
+  "Current": "bg-primary",
+  "1–30": "bg-info",
+  "31–60": "bg-warning",
+  "61–90": "bg-warning",
+  "90+": "bg-destructive",
 };
 const BUCKET_ACCENT: Record<string, string> = {
-  "Current": "text-emerald-400",
-  "1–30": "text-sky-400",
-  "31–60": "text-amber-400",
-  "61–90": "text-purple-400",
-  "90+": "text-red-400",
+  "Current": "text-primary",
+  "1–30": "text-info",
+  "31–60": "text-warning",
+  "61–90": "text-warning",
+  "90+": "text-destructive",
 };
 const BUCKET_TINT: Record<string, string> = {
-  "Current": "bg-emerald-500/10",
-  "1–30": "bg-sky-500/10",
-  "31–60": "bg-amber-500/10",
-  "61–90": "bg-purple-500/10",
-  "90+": "bg-red-500/10",
+  "Current": "bg-primary/10",
+  "1–30": "bg-info/10",
+  "31–60": "bg-warning/10",
+  "61–90": "bg-warning/10",
+  "90+": "bg-destructive/10",
+};
+
+// Per-invoice aging chip (based on days since invoice date).
+function invoiceAgingBucket(ageDays: number): { label: string; tone: "muted" | "warning" | "destructive" } {
+  if (ageDays <= 0) return { label: "Current", tone: "muted" };
+  if (ageDays <= 30) return { label: "1–30d", tone: "muted" };
+  if (ageDays <= 60) return { label: "31–60d", tone: "warning" };
+  return { label: "60d+", tone: "destructive" };
+}
+const AGING_TONE: Record<"muted" | "warning" | "destructive", string> = {
+  muted: "bg-muted text-muted-foreground",
+  warning: "bg-warning/10 text-warning",
+  destructive: "bg-destructive/10 text-destructive",
 };
 
 export default function Payables() {
