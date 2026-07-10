@@ -267,9 +267,9 @@ export default function BillsExpenses() {
     }
   };
 
-  // Detect bills that will fail posting because an allocation is missing a GL account.
+  // Bills at risk of failing to post (pending review/approved but likely unmapped)
   const unmappedBillCount = useMemo(
-    () => bills.filter((b) => (b.approval_status === "pending_review" || b.approval_status === "approved") && b.approval_status !== "posted").length,
+    () => bills.filter((b) => b.approval_status === "pending_review" || b.approval_status === "approved").length,
     [bills]
   );
   const masterMissing = categories.length === 0 || suppliers.length === 0;
