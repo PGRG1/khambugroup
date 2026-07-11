@@ -262,6 +262,24 @@ export default function FinanceDashboard() {
         </div>
       </div>
 
+      {unpostedApproved > 0 && (
+        <Link
+          to="/finance/payables"
+          className="flex items-center justify-between gap-4 rounded-xl border border-warning/40 bg-warning/5 px-4 py-3 text-sm hover:border-warning/60 transition-colors"
+        >
+          <div className="min-w-0">
+            <div className="font-medium text-warning">
+              {unpostedApproved} approved invoice{unpostedApproved === 1 ? "" : "s"} not yet posted to the ledger
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Run "Rebuild ledger" from Journal, or fix any missing account mappings, so these invoices land in the trial balance.
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-warning shrink-0" />
+        </Link>
+      )}
+
+
       {/* KPI ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
