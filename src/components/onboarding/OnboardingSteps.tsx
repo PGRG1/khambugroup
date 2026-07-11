@@ -44,17 +44,18 @@ export function StepOrganizations({ tenantId, onComplete }: StepProps) {
 
   const save = async (o: any) => {
     if (!o.name?.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-    if (o.id) {
-      const { error } = await supabase.from("organizations").update({
-        name: o.name, legal_name: o.legal_name, registration_number: o.registration_number,
-        incorporation_date: o.incorporation_date || null, registered_address: o.registered_address,
-        auditor: o.auditor, industry: o.industry,
-      }).eq("id", o.id);
-      if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
-      const { error } = await supabase.from("organizations").insert({ ...o, tenant_id: tenantId, incorporation_date: o.incorporation_date || null });
-      if (error) return toast({ title: "Create failed", description: error.message, variant: "destructive" });
-    }
+    const { error } = await supabase.rpc("platform_upsert_organization", {
+      _tenant_id: tenantId,
+      _id: o.id ?? null,
+      _name: o.name,
+      _legal_name: o.legal_name ?? null,
+      _registration_number: o.registration_number ?? null,
+      _incorporation_date: o.incorporation_date || null,
+      _registered_address: o.registered_address ?? null,
+      _auditor: o.auditor ?? null,
+      _industry: o.industry ?? null,
+    });
+    if (error) return toast({ title: o.id ? "Save failed" : "Create failed", description: error.message, variant: "destructive" });
     setDraft(null);
     await load();
     toast({ title: "Saved" });
@@ -62,10 +63,11 @@ export function StepOrganizations({ tenantId, onComplete }: StepProps) {
 
   const remove = async (id: string) => {
     if (!confirm("Delete this organization?")) return;
-    const { error } = await supabase.from("organizations").delete().eq("id", id);
+    const { error } = await supabase.rpc("platform_delete_organization", { _tenant_id: tenantId, _id: id });
     if (error) return toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     await load();
   };
+
 
   return (
     <div className="space-y-3">
@@ -132,10 +134,13 @@ export function StepVenues({ tenantId, onComplete }: StepProps) {
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const [{ data: os }, { data: vs }] = await Promise.all([
+    setLoading(true);
+    const [{ data: os, error: oe }, { data: vs, error: ve }] = await Promise.all([
       supabase.from("organizations").select("id, name").eq("tenant_id", tenantId).order("name"),
       supabase.from("venues").select("id, name, organization_id").eq("tenant_id", tenantId).order("name"),
     ]);
+    if (oe) toast({ title: "Could not load organizations", description: oe.message, variant: "destructive" });
+    if (ve) toast({ title: "Could not load venues", description: ve.message, variant: "destructive" });
     setOrgs(os ?? []);
     setVenues(vs ?? []);
     setLoading(false);
@@ -144,20 +149,25 @@ export function StepVenues({ tenantId, onComplete }: StepProps) {
 
   const save = async (v: any) => {
     if (!v.name?.trim() || !v.organization_id) return toast({ title: "Name and organization required", variant: "destructive" });
-    if (v.id) {
-      const { error } = await supabase.from("venues").update({ name: v.name, organization_id: v.organization_id }).eq("id", v.id);
-      if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
-      const { error } = await supabase.from("venues").insert({ tenant_id: tenantId, name: v.name, organization_id: v.organization_id, is_active: true });
-      if (error) return toast({ title: "Create failed", description: error.message, variant: "destructive" });
-    }
+    const { error } = await supabase.rpc("platform_upsert_venue", {
+      _tenant_id: tenantId,
+      _id: v.id ?? null,
+      _name: v.name,
+      _organization_id: v.organization_id,
+    });
+    if (error) return toast({ title: v.id ? "Save failed" : "Create failed", description: error.message, variant: "destructive" });
     setDraft(null);
     await load();
+    toast({ title: "Venue saved" });
   };
 
   if (loading) return <div className="text-sm text-muted-foreground">Loading…</div>;
   if (orgs.length === 0) return (
-    <EmptyState title="Add organizations first" description="Every venue needs a parent organization." />
+    <EmptyState
+      title="Add organizations first"
+      description="Every venue needs a parent organization. Create one in the Organizations step above, then refresh."
+      action={<Button size="sm" variant="outline" onClick={load}>Refresh</Button>}
+    />
   );
 
   return (
@@ -200,6 +210,7 @@ export function StepVenues({ tenantId, onComplete }: StepProps) {
     </div>
   );
 }
+
 
 // ---------- Phase 1: Localisation ----------
 export function StepLocalisation({ tenantId, onComplete }: StepProps) {
