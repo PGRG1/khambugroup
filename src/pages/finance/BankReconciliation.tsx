@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useBankReconciliation, BankAccount, BankTxn } from "@/hooks/useBankReconciliation";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { formatCurrency } from "@/utils/salesUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -40,6 +41,7 @@ function statusChip(status: string) {
 }
 
 export default function BankReconciliation() {
+  const { tenantId } = useActiveTenant();
   const { loading, accounts, transactions, imports, coa, ledgerBalanceFor, statementBalanceFor, reload } = useBankReconciliation();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(ALL);
   const [tab, setTab] = useState("overview");
@@ -51,12 +53,17 @@ export default function BankReconciliation() {
   const [reconRules, setReconRules] = useState<ReconMappingRule[]>([]);
 
   useEffect(() => {
+    if (!tenantId) { setUserRules([]); setReconRules([]); return; }
     (async () => {
-      const { data } = await supabase.from("bank_recon_rules" as any).select("*").order("sort_order");
+      const { data } = await supabase
+        .from("bank_recon_rules" as any)
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .order("sort_order");
       setUserRules((data as any) || []);
       setReconRules(await loadReconMappingRules());
     })();
-  }, []);
+  }, [tenantId]);
 
   const cashAccounts = useMemo(() => coa.filter((c) => c.is_cash), [coa]);
   const filteredAccounts = useMemo(
