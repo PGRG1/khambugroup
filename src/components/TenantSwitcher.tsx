@@ -14,6 +14,7 @@ type TenantRow = { id: string; name: string };
  */
 export const TenantSwitcher = () => {
   const { tenantId, setTenantId, memberships, isSuperAdmin, loading } = useActiveTenant();
+  const { isPreviewing, previewTenantName, exit } = useTenantPreview();
   const [allTenants, setAllTenants] = useState<TenantRow[]>([]);
 
   useEffect(() => {
