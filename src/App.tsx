@@ -27,11 +27,14 @@ import RevenueTargets from "./pages/RevenueTargets";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
 
-import SystemConfiguration from "./pages/admin/SystemConfiguration";
 import AiRules from "./pages/admin/AiRules";
 import Clients from "./pages/admin/Clients";
 import ClientDetail from "./pages/admin/ClientDetail";
 import ClientOnboarding from "./pages/admin/ClientOnboarding";
+import BusinessStructure from "./pages/admin/BusinessStructure";
+import MasterData from "./pages/admin/MasterData";
+import Preferences from "./pages/admin/Preferences";
+
 
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
