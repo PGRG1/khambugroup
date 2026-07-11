@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { BankTxn, BankAccount } from "@/hooks/useBankReconciliation";
@@ -9,9 +13,11 @@ import { formatCurrency } from "@/utils/salesUtils";
 import { classifyTxn, SUGGESTED_TYPE_LABEL, type UserRule } from "@/utils/bankTxnRules";
 import { matchReconRule, type ReconMappingRule } from "@/utils/reconciliationMappingRules";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeftRight, Coins, Receipt, AlertTriangle, Sparkles } from "lucide-react";
+import { ExternalLink, CheckCircle2, XCircle, FileQuestion, RotateCcw, ArrowLeftRight, Coins, Receipt, AlertTriangle, Sparkles, BookPlus } from "lucide-react";
 
 type AuditRow = { id: string; ts: string; action: string; old_status: string | null; new_status: string | null; user_display_name: string | null; notes: any };
+type CoaOpt = { id: string; code: string; name: string; account_type: string };
+
 
 export function TransactionReviewPanel({
   txn, accounts, userRules, reconRules = [], onClose, onChanged,
@@ -30,10 +36,17 @@ export function TransactionReviewPanel({
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: any; confidence?: number; rationale?: string; source?: string; rule_id?: string; _full?: any } | null>(null);
+  const [jeOpen, setJeOpen] = useState(false);
+  const [jeCoa, setJeCoa] = useState<CoaOpt[]>([]);
+  const [jeOffsetId, setJeOffsetId] = useState<string>("");
+  const [jeMemo, setJeMemo] = useState<string>("");
+  const [jeBusy, setJeBusy] = useState(false);
 
   useEffect(() => {
     if (!txn) return;
     setNotes(txn.notes || "");
+    setJeMemo(txn.description?.slice(0, 120) || "");
+
     (async () => {
       const { data } = await supabase
         .from("bank_audit_trail" as any)
@@ -163,6 +176,82 @@ export function TransactionReviewPanel({
     onClose();
   };
 
+  const openPostAsJe = async () => {
+    if (!tenantId) { toast({ title: "No active tenant", variant: "destructive" }); return; }
+    setJeOpen(true);
+    if (jeCoa.length === 0) {
+      const { data } = await supabase
+        .from("chart_of_accounts" as any)
+        .select("id,code,name,account_type")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("code");
+      setJeCoa(((data as any[]) || []) as CoaOpt[]);
+    }
+  };
+
+  const submitPostAsJe = async () => {
+    if (!acct?.linked_gl_account_id) {
+      toast({ title: "Bank account missing linked GL account", description: "Link a cash GL account to this bank account first.", variant: "destructive" });
+      return;
+    }
+    if (!jeOffsetId) { toast({ title: "Pick an offset account", variant: "destructive" }); return; }
+    if (!tenantId) return;
+    setJeBusy(true);
+    const bankAcctId = acct.linked_gl_account_id;
+    const amt = Number(txn.money_in) - Number(txn.money_out);
+    const abs = Math.abs(amt);
+    // Money in → Dr bank cash, Cr offset. Money out → Dr offset, Cr bank cash.
+    const bankLine = amt >= 0
+      ? { account_id: bankAcctId, debit: abs, credit: 0 }
+      : { account_id: bankAcctId, debit: 0, credit: abs };
+    const offLine = amt >= 0
+      ? { account_id: jeOffsetId, debit: 0, credit: abs }
+      : { account_id: jeOffsetId, debit: abs, credit: 0 };
+
+    const { data: entry, error: entryErr } = await supabase
+      .from("journal_entries")
+      .insert({
+        entry_date: txn.txn_date,
+        entry_memo: jeMemo || `Bank txn — ${txn.description?.slice(0, 60) || ""}`,
+        source_type: "bank_txn",
+        source_id: txn.id,
+        status: "posted",
+        tenant_id: tenantId,
+      } as any)
+      .select("id")
+      .single();
+
+    if (entryErr || !entry) {
+      setJeBusy(false);
+      toast({ title: "Failed to post JE", description: entryErr?.message, variant: "destructive" });
+      return;
+    }
+    const { error: linesErr } = await supabase.from("journal_lines").insert([
+      { entry_id: (entry as any).id, tenant_id: tenantId, line_memo: jeMemo || null, ...bankLine },
+      { entry_id: (entry as any).id, tenant_id: tenantId, line_memo: jeMemo || null, ...offLine },
+    ] as any);
+    if (linesErr) {
+      setJeBusy(false);
+      toast({ title: "Failed to write JE lines", description: linesErr.message, variant: "destructive" });
+      return;
+    }
+    await supabase.from("bank_transactions").update({ status: "matched", notes: notes || null }).eq("id", txn.id);
+    await supabase.from("bank_audit_trail" as any).insert({
+      bank_account_id: txn.bank_account_id,
+      bank_transaction_id: txn.id,
+      action: "post_as_je",
+      old_status: txn.status,
+      new_status: "matched",
+      notes: { manual_notes: notes, journal_entry_id: (entry as any).id, offset_account_id: jeOffsetId, amount: amt },
+    });
+    setJeBusy(false);
+    setJeOpen(false);
+    toast({ title: "Journal entry posted" });
+    onChanged();
+    onClose();
+  };
+
 
   return (
     <Sheet open={!!txn} onOpenChange={(o) => !o && onClose()}>
@@ -276,6 +365,9 @@ export function TransactionReviewPanel({
             <div className="grid grid-cols-2 gap-2">
               <Button size="sm" onClick={() => updateStatus("matched", "confirm_match")} disabled={busy}><CheckCircle2 className="h-3 w-3" /> Confirm Match</Button>
               <Button size="sm" variant="outline" onClick={() => updateStatus("unmatched", "reject_match")} disabled={busy}><XCircle className="h-3 w-3" /> Reject</Button>
+              <Button size="sm" variant="outline" onClick={openPostAsJe} disabled={busy} className="col-span-2 border-primary/40 text-primary hover:bg-primary/10">
+                <BookPlus className="h-3 w-3" /> Post as Journal Entry
+              </Button>
               <Button size="sm" variant="outline" onClick={() => updateStatus("transfer_pending", "mark_transfer")} disabled={busy}><ArrowLeftRight className="h-3 w-3" /> Internal Transfer</Button>
               <Button size="sm" variant="outline" onClick={() => updateStatus("matched", "mark_reversal", { suggested_type: "reversal" })} disabled={busy}><RotateCcw className="h-3 w-3" /> Reversal</Button>
               <Button size="sm" variant="outline" onClick={() => updateStatus("bank_fee", "mark_bank_fee", { suggested_type: "bank_fee" })} disabled={busy}><Receipt className="h-3 w-3" /> Bank Fee</Button>
@@ -284,6 +376,7 @@ export function TransactionReviewPanel({
               <Button size="sm" variant="outline" onClick={() => updateStatus("ignored", "ignore")} disabled={busy}><FileQuestion className="h-3 w-3" /> Ignore</Button>
             </div>
           </Section>
+
 
           <Section title="Audit history">
             {audit.length === 0 ? (
@@ -302,9 +395,70 @@ export function TransactionReviewPanel({
           </Section>
         </div>
       </SheetContent>
+
+      <Dialog open={jeOpen} onOpenChange={setJeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Post transaction as Journal Entry</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="rounded-md border border-border p-3 bg-card/50 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Date</span>
+                <span>{txn.txn_date}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Amount</span>
+                <span className={`td-num font-semibold ${amount >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {amount >= 0 ? "+" : ""}{formatCurrency(amount)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Bank / Cash GL</span>
+                <span className="text-right">
+                  {acct?.linked_gl_account_id
+                    ? (jeCoa.find((c) => c.id === acct?.linked_gl_account_id)?.name || acct?.account_name || "—")
+                    : <span className="text-destructive">Not linked</span>}
+                </span>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Offset account {amount >= 0 ? "(credit)" : "(debit)"}</Label>
+              <Select value={jeOffsetId} onValueChange={setJeOffsetId}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Pick offset account…" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {jeCoa
+                    .filter((c) => c.id !== acct?.linked_gl_account_id)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="font-mono text-[11px] text-muted-foreground mr-2">{c.code}</span>
+                        {c.name}
+                        <span className="text-[10px] text-muted-foreground ml-2 uppercase">{c.account_type}</span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Memo</Label>
+              <Input value={jeMemo} onChange={(e) => setJeMemo(e.target.value)} className="mt-1" />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Creates a balanced journal entry (source: bank_txn) and marks this transaction as matched.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJeOpen(false)} disabled={jeBusy}>Cancel</Button>
+            <Button onClick={submitPostAsJe} disabled={jeBusy || !jeOffsetId || !acct?.linked_gl_account_id}>
+              {jeBusy ? "Posting…" : "Post entry"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
+
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

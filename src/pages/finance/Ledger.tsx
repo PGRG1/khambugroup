@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { fetchAllRows } from "@/utils/fetchAllRows";
@@ -36,12 +37,22 @@ interface GLRow {
 export default function Ledger() {
   const { items: accounts } = useChartOfAccounts();
   const { tenantId } = useActiveTenant();
-  const [accountId, setAccountId] = useState<string>("");
+  const [params, setParams] = useSearchParams();
   const today = new Date();
-  const [fromDate, setFromDate] = useState(`${today.getFullYear()}-01-01`);
-  const [toDate, setToDate] = useState("");
+  const accountId = params.get("account") || "";
+  const fromDate = params.get("from") ?? `${today.getFullYear()}-01-01`;
+  const toDate = params.get("to") ?? "";
+  const setParam = (k: string, v: string | null) => {
+    const next = new URLSearchParams(params);
+    if (v == null || v === "") next.delete(k); else next.set(k, v);
+    setParams(next, { replace: true });
+  };
+  const setAccountId = (v: string) => setParam("account", v || null);
+  const setFromDate = (v: string) => setParam("from", v);
+  const setToDate = (v: string) => setParam("to", v);
   const [rows, setRows] = useState<GLRow[]>([]);
   const [loading, setLoading] = useState(false);
+
 
   useEffect(() => {
     if (!accountId || !tenantId) { setRows([]); return; }

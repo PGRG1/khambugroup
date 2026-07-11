@@ -89,6 +89,13 @@ export default function BankReconciliation() {
   const unmatchedCount = filteredTxns.filter((t) => t.status === "unmatched").length;
   const reviewCount = filteredTxns.filter((t) => ["needs_review", "suggested", "partial"].includes(t.status)).length;
   const reconciledAccounts = filteredAccounts.filter((a) => Math.abs(statementBalanceFor(a.id) - ledgerBalanceFor(a)) < 0.01).length;
+  const matchedPct = filteredTxns.length > 0 ? Math.round((matchedCount / filteredTxns.length) * 100) : 0;
+  const oldestUnmatchedDays = (() => {
+    const unm = filteredTxns.filter((t) => t.status === "unmatched" && t.txn_date);
+    if (unm.length === 0) return 0;
+    const oldest = unm.reduce((min, t) => (t.txn_date < min ? t.txn_date : min), unm[0].txn_date);
+    return Math.max(0, Math.round((Date.now() - new Date(oldest).getTime()) / 86400000));
+  })();
 
   const statusLabel = (() => {
     if (!hasAnyStatement) return { label: "No Statement Uploaded", tone: "neutral" as const };
@@ -97,6 +104,7 @@ export default function BankReconciliation() {
     if (matchedCount > 0 && Math.abs(difference) > 0.01) return { label: "Partially Reconciled", tone: "warn" as const };
     return { label: "Imported", tone: "info" as const };
   })();
+
 
   const dash = "—";
   const v = (val: string) => (hasAnyStatement ? val : dash);
@@ -158,7 +166,7 @@ export default function BankReconciliation() {
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
         <Kpi label="Statement Balance" value={v(formatCurrency(totalStatement))} />
         <Kpi label="Ledger Balance" value={v(formatCurrency(totalLedger))} />
         <Kpi
@@ -167,10 +175,17 @@ export default function BankReconciliation() {
           tone={!hasAnyStatement ? "neutral" : Math.abs(difference) < 0.01 ? "success" : "danger"}
         />
         <Kpi label="Matched" value={v(String(matchedCount))} tone={hasAnyStatement ? "success" : "neutral"} />
+        <Kpi label="Matched %" value={v(`${matchedPct}%`)} tone={hasAnyStatement && matchedPct >= 90 ? "success" : matchedPct >= 60 ? "warn" : "danger"} />
         <Kpi label="Unmatched" value={v(String(unmatchedCount))} tone={hasAnyStatement && unmatchedCount > 0 ? "danger" : "neutral"} />
+        <Kpi
+          label="Oldest unmatched"
+          value={v(oldestUnmatchedDays > 0 ? `${oldestUnmatchedDays}d` : "—")}
+          tone={hasAnyStatement && oldestUnmatchedDays > 30 ? "danger" : oldestUnmatchedDays > 7 ? "warn" : "neutral"}
+        />
         <Kpi label="Needs Review" value={v(String(reviewCount))} tone={hasAnyStatement && reviewCount > 0 ? "warn" : "neutral"} />
         <Kpi label="Status" value={statusLabel.label} tone={statusLabel.tone} />
       </div>
+
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">

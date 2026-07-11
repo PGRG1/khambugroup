@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Card } from "@/components/ui/card";
@@ -24,11 +25,18 @@ interface PLRow { account_type: string; amount: number; }
 
 export default function BalanceSheet() {
   const today = new Date();
-  const [asOf, setAsOf] = useState(today.toISOString().slice(0, 10));
+  const [params, setParams] = useSearchParams();
+  const asOf = params.get("asOf") || today.toISOString().slice(0, 10);
+  const setAsOf = (v: string) => {
+    const next = new URLSearchParams(params);
+    next.set("asOf", v);
+    setParams(next, { replace: true });
+  };
   const [bsRows, setBsRows] = useState<BSRow[]>([]);
   const [plRows, setPlRows] = useState<PLRow[]>([]);
   const [loading, setLoading] = useState(true);
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+
 
   useEffect(() => {
     if (tenantLoading) return;

@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useUnmappedVenues } from "@/hooks/useUnmappedVenues";
 import { Link } from "react-router-dom";
 import {
   ResponsiveContainer,
@@ -98,12 +99,15 @@ export default function FinanceDashboard() {
   })();
 
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const { unmappedVenues, unmappedCount: unmappedVenueCount } = useUnmappedVenues();
   const [pl, setPl] = useState<PLRow[]>([]);
   const [bs, setBs] = useState<BSRow[]>([]);
   const [cash, setCash] = useState<CashRow[]>([]);
   const [coa, setCoa] = useState<CoA[]>([]);
   const [loading, setLoading] = useState(true);
   const [unpostedApproved, setUnpostedApproved] = useState<number>(0);
+
+
 
   useEffect(() => {
     if (tenantLoading) return;
@@ -262,22 +266,43 @@ export default function FinanceDashboard() {
         </div>
       </div>
 
-      {unpostedApproved > 0 && (
-        <Link
-          to="/finance/payables"
-          className="flex items-center justify-between gap-4 rounded-xl border border-warning/40 bg-warning/5 px-4 py-3 text-sm hover:border-warning/60 transition-colors"
-        >
-          <div className="min-w-0">
-            <div className="font-medium text-warning">
-              {unpostedApproved} approved invoice{unpostedApproved === 1 ? "" : "s"} not yet posted to the ledger
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              Run "Rebuild ledger" from Journal, or fix any missing account mappings, so these invoices land in the trial balance.
-            </div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-warning shrink-0" />
-        </Link>
+      {(unpostedApproved > 0 || unmappedVenueCount > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {unpostedApproved > 0 && (
+            <Link
+              to="/finance/payables"
+              className="flex items-center justify-between gap-4 rounded-xl border border-warning/40 bg-warning/5 px-4 py-3 text-sm hover:border-warning/60 transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="font-medium text-warning">
+                  {unpostedApproved} approved invoice{unpostedApproved === 1 ? "" : "s"} not yet posted to the ledger
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Run "Rebuild ledger" from Journal, or fix any missing account mappings, so these invoices land in the trial balance.
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-warning shrink-0" />
+            </Link>
+          )}
+          {unmappedVenueCount > 0 && (
+            <Link
+              to="/finance/chart-of-accounts?tab=revenue-mapping"
+              className="flex items-center justify-between gap-4 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm hover:border-destructive/60 transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="font-medium text-destructive">
+                  {unmappedVenueCount} venue{unmappedVenueCount === 1 ? "" : "s"} missing a revenue account mapping
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {unmappedVenues.slice(0, 4).join(", ")}{unmappedVenues.length > 4 ? `, +${unmappedVenues.length - 4} more` : ""} — sales for these venues won't post until mapped.
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-destructive shrink-0" />
+            </Link>
+          )}
+        </div>
       )}
+
 
 
       {/* KPI ROW */}
