@@ -181,9 +181,10 @@ function App() {
                 <Route path="/pl-report" element={<ProtectedRoute pageKey="pl-report"><PLReport /></ProtectedRoute>} />
                 <Route path="/finance" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
                 <Route path="/finance/dashboard" element={<AdminRoute><FinanceDashboard /></AdminRoute>} />
-                <Route path="/finance/cashflow" element={<AdminRoute><Cashflow /></AdminRoute>} />
-                <Route path="/finance/cashflow-ledger" element={<AdminRoute><CashflowLedger /></AdminRoute>} />
-                <Route path="/finance/cashflow-statement" element={<AdminRoute><CashflowStatement /></AdminRoute>} />
+                {/* Cashflow: CashflowCombined at /finance/cashflow-report is canonical. Legacy paths redirect. */}
+                <Route path="/finance/cashflow" element={<Navigate to="/finance/cashflow-report" replace />} />
+                <Route path="/finance/cashflow-ledger" element={<Navigate to="/finance/cashflow-report?view=ledger" replace />} />
+                <Route path="/finance/cashflow-statement" element={<Navigate to="/finance/cashflow-report?view=statement" replace />} />
                 <Route path="/finance/cashflow-report" element={<AdminRoute><CashflowCombined /></AdminRoute>} />
                 <Route path="/finance/balance-sheet" element={<AdminRoute><BalanceSheet /></AdminRoute>} />
                 <Route path="/finance/ledger" element={<AdminRoute><Ledger /></AdminRoute>} />
