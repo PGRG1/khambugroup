@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -138,6 +139,7 @@ function EmployeeKPICards({ employees, history }: { employees: HREmployee[]; his
 }
 
 export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDepartment }: Props) {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
@@ -343,7 +345,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
                 <tr
                   key={emp.id}
                   className={`cursor-pointer transition-colors hover:bg-accent/10 ${idx !== filtered.length - 1 ? "border-b border-border/50" : ""}`}
-                  onClick={() => openEdit(emp)}
+                  onClick={() => navigate(`/hr/employees/${emp.id}`)}
                 >
                   <td className="px-4 py-3">
                     <div className="font-medium text-foreground">{emp.first_name} {emp.last_name}</div>
@@ -364,7 +366,14 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
                   </td>
                   <td className="px-4 py-3 text-muted-foreground tabular-nums text-xs hidden lg:table-cell">{emp.hire_date}</td>
                   <td className="px-2 py-3">
-                    <Pencil className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    <button
+                      type="button"
+                      title="Edit inline"
+                      className="p-1 rounded hover:bg-accent/20"
+                      onClick={(e) => { e.stopPropagation(); openEdit(emp); }}
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground/70" />
+                    </button>
                   </td>
                 </tr>
               ))}

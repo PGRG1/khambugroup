@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useHRData, type HREmployee } from "@/hooks/useHRData";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,10 @@ function initials(emp: HREmployee) {
 
 function EmployeeNode({ emp }: { emp: HREmployee }) {
   return (
-    <div className="card-glass rounded-lg p-3 min-w-[200px] flex items-center gap-3 border border-border/50">
+    <Link
+      to={`/hr/employees/${emp.id}`}
+      className="card-glass rounded-lg p-3 min-w-[200px] flex items-center gap-3 border border-border/50 hover:border-primary/40 hover:bg-accent/10 transition-colors"
+    >
       <div className="h-10 w-10 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
         {initials(emp) || "?"}
       </div>
@@ -29,7 +33,7 @@ function EmployeeNode({ emp }: { emp: HREmployee }) {
           </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 }
 

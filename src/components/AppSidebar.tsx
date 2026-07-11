@@ -167,11 +167,12 @@ const pettyCashMaster: Item[] = [
 ];
 
 const hrItems: Item[] = [
+  { title: "Dashboard", url: "/hr" },
   { title: "Employee Directory", url: "/hr/employees" },
-  { title: "Org Chart", url: "/hr/org-chart" },
   { title: "Schedule", url: "/hr/schedule" },
   { title: "Leave Management", url: "/hr/leave" },
   { title: "Payroll", url: "/hr/payroll" },
+  { title: "Org Chart", url: "/hr/org-chart" },
 ];
 
 const kpiItems: Item[] = [
