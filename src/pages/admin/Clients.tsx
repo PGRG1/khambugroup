@@ -149,7 +149,7 @@ export default function Clients() {
               return (
                 <tr
                   key={r.id}
-                  onClick={() => navigate(`/admin/clients/${r.id}`)}
+                  onClick={() => navigate(`/platform/clients/${r.id}`)}
                   className={`border-t border-border/40 cursor-pointer hover:bg-muted/20 ${idx % 2 === 1 ? "bg-muted/10" : ""}`}
                 >
                   <td className="px-4 py-3">
@@ -177,7 +177,7 @@ export default function Clients() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={(e) => { e.stopPropagation(); navigate(`/admin/clients/${r.id}`); }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
                     >
                       Manage <ChevronRight className="h-3.5 w-3.5 ml-1" />
                     </Button>

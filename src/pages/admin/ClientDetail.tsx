@@ -60,7 +60,7 @@ export default function ClientDetail() {
 
   if (gateLoading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
-  if (!tenantId) return <Navigate to="/admin/clients" replace />;
+  if (!tenantId) return <Navigate to="/platform/clients" replace />;
 
   const handleCostModeChange = async (value: "single_venue" | "multi_venue") => {
     if (!tenant) return;
@@ -76,7 +76,7 @@ export default function ClientDetail() {
     <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/admin/clients")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/platform/clients")}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Clients
           </Button>
           <div>
@@ -100,7 +100,7 @@ export default function ClientDetail() {
       {/* Continue Onboarding card — replaces the old fake 8-boolean checklist. */}
       <section
         className="card-glass rounded-xl p-5 flex items-center justify-between gap-4 border border-primary/30 cursor-pointer hover:border-primary/60 transition"
-        onClick={() => navigate(`/admin/clients/${tenantId}/onboarding`)}
+        onClick={() => navigate(`/platform/clients/${tenantId}/onboarding`)}
         role="button"
       >
         <div className="flex items-center gap-4 min-w-0">
