@@ -166,7 +166,7 @@ export default function BankReconciliation() {
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
         <Kpi label="Statement Balance" value={v(formatCurrency(totalStatement))} />
         <Kpi label="Ledger Balance" value={v(formatCurrency(totalLedger))} />
         <Kpi
@@ -175,10 +175,17 @@ export default function BankReconciliation() {
           tone={!hasAnyStatement ? "neutral" : Math.abs(difference) < 0.01 ? "success" : "danger"}
         />
         <Kpi label="Matched" value={v(String(matchedCount))} tone={hasAnyStatement ? "success" : "neutral"} />
+        <Kpi label="Matched %" value={v(`${matchedPct}%`)} tone={hasAnyStatement && matchedPct >= 90 ? "success" : matchedPct >= 60 ? "warn" : "danger"} />
         <Kpi label="Unmatched" value={v(String(unmatchedCount))} tone={hasAnyStatement && unmatchedCount > 0 ? "danger" : "neutral"} />
+        <Kpi
+          label="Oldest unmatched"
+          value={v(oldestUnmatchedDays > 0 ? `${oldestUnmatchedDays}d` : "—")}
+          tone={hasAnyStatement && oldestUnmatchedDays > 30 ? "danger" : oldestUnmatchedDays > 7 ? "warn" : "neutral"}
+        />
         <Kpi label="Needs Review" value={v(String(reviewCount))} tone={hasAnyStatement && reviewCount > 0 ? "warn" : "neutral"} />
         <Kpi label="Status" value={statusLabel.label} tone={statusLabel.tone} />
       </div>
+
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
