@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useVenues, Venue } from "@/hooks/useVenues";
+import { useOrganizations, Organization } from "@/hooks/useOrganizations";
 import { useServicePeriods, ServicePeriod } from "@/hooks/useServicePeriods";
 import { useRevenueSources, RevenueSource } from "@/hooks/useRevenueSources";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -69,35 +70,140 @@ const SectionShell = ({
   );
 };
 
+// ---------- Organizations ----------
+const OrganizationsSection = () => {
+  const { organizations, loading, create, update, remove } = useOrganizations();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Partial<Organization>>({});
+  const [adding, setAdding] = useState(false);
+  const [newDraft, setNewDraft] = useState<Partial<Organization>>({ name: "" });
+
+  const startEdit = (o: Organization) => { setEditingId(o.id); setDraft({ ...o }); };
+  const saveEdit = async () => {
+    if (!editingId || !draft.name?.trim()) return;
+    const ok = await update(editingId, draft);
+    if (ok) setEditingId(null);
+  };
+  const handleAdd = async () => {
+    if (!newDraft.name?.trim()) return;
+    const ok = await create(newDraft as any);
+    if (ok) { setNewDraft({ name: "" }); setAdding(false); }
+  };
+  const handleDelete = async (o: Organization) => {
+    if (!confirm(`Delete organization "${o.name}"? Blocked if any venues or bank accounts reference it.`)) return;
+    await remove(o.id);
+  };
+
+  const FieldsRow = ({ v, onChange }: { v: Partial<Organization>; onChange: (p: Partial<Organization>) => void }) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <Input placeholder="Name *" value={v.name ?? ""} onChange={(e) => onChange({ ...v, name: e.target.value })} className="h-8" />
+      <Input placeholder="Legal name" value={v.legal_name ?? ""} onChange={(e) => onChange({ ...v, legal_name: e.target.value })} className="h-8" />
+      <Input placeholder="Registration number" value={v.registration_number ?? ""} onChange={(e) => onChange({ ...v, registration_number: e.target.value })} className="h-8" />
+      <Input type="date" placeholder="Incorporation date" value={v.incorporation_date ?? ""} onChange={(e) => onChange({ ...v, incorporation_date: e.target.value })} className="h-8" />
+      <Input placeholder="Registered address" value={v.registered_address ?? ""} onChange={(e) => onChange({ ...v, registered_address: e.target.value })} className="h-8 md:col-span-2" />
+      <Input placeholder="Auditor" value={v.auditor ?? ""} onChange={(e) => onChange({ ...v, auditor: e.target.value })} className="h-8 md:col-span-2" />
+    </div>
+  );
+
+  return (
+    <SectionShell
+      icon={Building2}
+      title="Organizations"
+      subtitle="Legal entities within the client. Each venue and bank account belongs to an organization."
+      count={organizations.length}
+    >
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <>
+          <div className="rounded-lg border border-border divide-y divide-border">
+            {organizations.map((o) => (
+              <div key={o.id} className="p-3">
+                {editingId === o.id ? (
+                  <div className="space-y-2">
+                    <FieldsRow v={draft} onChange={setDraft} />
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
+                      <Button size="sm" onClick={saveEdit}><Check className="h-4 w-4 mr-1" />Save</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground">{o.name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5 space-x-3">
+                        {o.legal_name && <span>Legal: {o.legal_name}</span>}
+                        {o.registration_number && <span>Reg #: {o.registration_number}</span>}
+                        {o.incorporation_date && <span>Inc: {o.incorporation_date}</span>}
+                        {o.auditor && <span>Auditor: {o.auditor}</span>}
+                      </div>
+                      {o.registered_address && (
+                        <div className="text-xs text-muted-foreground mt-0.5">{o.registered_address}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(o)}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDelete(o)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {organizations.length === 0 && (
+              <div className="p-4 text-sm text-muted-foreground">No organizations yet.</div>
+            )}
+          </div>
+
+          {adding ? (
+            <div className="p-3 rounded-lg border border-dashed border-border bg-muted/20 space-y-2">
+              <FieldsRow v={newDraft} onChange={setNewDraft} />
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewDraft({ name: "" }); }}>Cancel</Button>
+                <Button size="sm" onClick={handleAdd}>Add</Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Add organization
+            </Button>
+          )}
+        </>
+      )}
+    </SectionShell>
+  );
+};
+
 // ---------- Venues ----------
 const VenuesSection = () => {
   const { venues, loading, create, update, remove } = useVenues();
+  const { organizations } = useOrganizations();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ name: string; seats: string }>({ name: "", seats: "" });
+  const [draft, setDraft] = useState<{ name: string; seats: string; organization_id: string | null }>({ name: "", seats: "", organization_id: null });
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newSeats, setNewSeats] = useState("");
+  const [newOrgId, setNewOrgId] = useState<string | null>(null);
+
+  const orgName = (id: string | null) => organizations.find((o) => o.id === id)?.name ?? "—";
 
   const startEdit = (v: Venue) => {
     setEditingId(v.id);
-    setDraft({ name: v.name, seats: v.seats?.toString() ?? "" });
+    setDraft({ name: v.name, seats: v.seats?.toString() ?? "", organization_id: v.organization_id });
   };
 
   const saveEdit = async (v: Venue) => {
     const seatsNum = draft.seats.trim() === "" ? null : parseInt(draft.seats, 10);
     if (seatsNum !== null && (isNaN(seatsNum) || seatsNum < 0)) return;
-    const ok = await update(v.id, { name: draft.name, seats: seatsNum });
+    const ok = await update(v.id, { name: draft.name, seats: seatsNum, organization_id: draft.organization_id });
     if (ok) setEditingId(null);
   };
 
   const handleAdd = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !newOrgId) return;
     const seatsNum = newSeats.trim() === "" ? null : parseInt(newSeats, 10);
-    const ok = await create({ name: newName, seats: seatsNum });
+    const ok = await create({ name: newName, seats: seatsNum, organization_id: newOrgId });
     if (ok) {
-      setNewName("");
-      setNewSeats("");
-      setAdding(false);
+      setNewName(""); setNewSeats(""); setNewOrgId(null); setAdding(false);
     }
   };
 
@@ -106,11 +212,22 @@ const VenuesSection = () => {
     await remove(v.id);
   };
 
+  const OrgSelect = ({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) => (
+    <select
+      className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm"
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value || null)}
+    >
+      <option value="">— select —</option>
+      {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+    </select>
+  );
+
   return (
     <SectionShell
       icon={Building2}
       title="Venues"
-      subtitle="Operating locations. Used across Revenue, Forecast, HR, Procurement and Finance."
+      subtitle="Operating locations belong to an organization. Used across Revenue, Forecast, HR, Procurement and Finance."
       count={venues.length}
     >
       {loading ? (
@@ -122,6 +239,7 @@ const VenuesSection = () => {
               <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="text-left px-3 py-2 font-medium">Name</th>
+                  <th className="text-left px-3 py-2 font-medium w-56">Organization</th>
                   <th className="text-left px-3 py-2 font-medium w-24">Seats</th>
                   <th className="text-left px-3 py-2 font-medium w-24">Active</th>
                   <th className="text-right px-3 py-2 font-medium w-32">Actions</th>
@@ -133,31 +251,20 @@ const VenuesSection = () => {
                     {editingId === v.id ? (
                       <>
                         <td className="px-3 py-2">
-                          <Input
-                            value={draft.name}
-                            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                            className="h-8"
-                          />
+                          <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="h-8" />
                         </td>
                         <td className="px-3 py-2">
-                          <Input
-                            type="number"
-                            value={draft.seats}
-                            onChange={(e) => setDraft({ ...draft, seats: e.target.value })}
-                            className="h-8"
-                            placeholder="—"
-                          />
+                          <OrgSelect value={draft.organization_id} onChange={(id) => setDraft({ ...draft, organization_id: id })} />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input type="number" value={draft.seats} onChange={(e) => setDraft({ ...draft, seats: e.target.value })} className="h-8" placeholder="—" />
                         </td>
                         <td className="px-3 py-2">
                           <Switch checked={v.is_active} onCheckedChange={(c) => update(v.id, { is_active: c })} />
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <Button size="sm" variant="ghost" onClick={() => saveEdit(v)}>
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                            <X className="h-4 w-4" />
-                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => saveEdit(v)}><Check className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button>
                         </td>
                       </>
                     ) : (
@@ -170,26 +277,14 @@ const VenuesSection = () => {
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2 td-num text-muted-foreground">
-                          {v.seats ?? "—"}
-                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{orgName(v.organization_id)}</td>
+                        <td className="px-3 py-2 td-num text-muted-foreground">{v.seats ?? "—"}</td>
                         <td className="px-3 py-2">
-                          <Switch
-                            checked={v.is_active}
-                            onCheckedChange={(c) => update(v.id, { is_active: c })}
-                          />
+                          <Switch checked={v.is_active} onCheckedChange={(c) => update(v.id, { is_active: c })} />
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <Button size="sm" variant="ghost" onClick={() => startEdit(v)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(v)}
-                            disabled={v.is_system}
-                            title={v.is_system ? "System venues cannot be deleted" : "Delete"}
-                          >
+                          <Button size="sm" variant="ghost" onClick={() => startEdit(v)}><Pencil className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete(v)} disabled={v.is_system} title={v.is_system ? "System venues cannot be deleted" : "Delete"}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </td>
@@ -202,27 +297,17 @@ const VenuesSection = () => {
           </div>
 
           {adding ? (
-            <div className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-border bg-muted/20">
-              <Input
-                placeholder="Venue name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="h-9"
-              />
-              <Input
-                type="number"
-                placeholder="Seats (optional)"
-                value={newSeats}
-                onChange={(e) => setNewSeats(e.target.value)}
-                className="h-9 w-40"
-              />
-              <Button size="sm" onClick={handleAdd}>Add</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewName(""); setNewSeats(""); }}>
-                Cancel
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-[1fr,220px,140px,auto] items-center gap-2 p-3 rounded-lg border border-dashed border-border bg-muted/20">
+              <Input placeholder="Venue name" value={newName} onChange={(e) => setNewName(e.target.value)} className="h-9" />
+              <OrgSelect value={newOrgId} onChange={setNewOrgId} />
+              <Input type="number" placeholder="Seats" value={newSeats} onChange={(e) => setNewSeats(e.target.value)} className="h-9" />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleAdd} disabled={!newOrgId}>Add</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewName(""); setNewSeats(""); setNewOrgId(null); }}>Cancel</Button>
+              </div>
             </div>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+            <Button variant="outline" size="sm" onClick={() => setAdding(true)} disabled={organizations.length === 0} title={organizations.length === 0 ? "Create an organization first" : ""}>
               <Plus className="h-4 w-4 mr-1" /> Add venue
             </Button>
           )}
@@ -830,6 +915,7 @@ const SystemConfiguration = () => {
         </p>
       </div>
 
+      <OrganizationsSection />
       <VenuesSection />
       <ServicePeriodsSection />
       <RevenueSourcesSection />

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useBankModule, type BankAccount } from "@/hooks/useBankModule";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { useVenues } from "@/hooks/useVenues";
 import { BankPageShell, BankKpi, fmtMoney, fmtDate } from "@/components/bank/BankShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,15 +23,28 @@ const CCYS = ["HKD", "USD", "CNY", "EUR", "GBP", "SGD", "JPY"];
 
 export default function BankAccountsPage() {
   const { accounts, transactions, imports, coa, currentBalanceFor, ledgerBalanceFor, saveAccount, reload } = useBankModule();
+  const { organizations } = useOrganizations();
+  const { venues } = useVenues();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Partial<BankAccount> | null>(null);
   const [delAccount, setDelAccount] = useState<BankAccount | null>(null);
+
+  const orgVenues = useMemo(
+    () => venues.filter((v) => edit?.organization_id && v.organization_id === edit.organization_id),
+    [venues, edit?.organization_id],
+  );
+  const orgName = (id: string | null | undefined) =>
+    organizations.find((o) => o.id === id)?.name ?? "—";
+  const venueName = (id: string | null | undefined) =>
+    venues.find((v) => v.id === id)?.name ?? null;
 
   const startAdd = () =>
     (setEdit({
       account_name: "", bank_name: "", account_number_last4: "", currency: "HKD",
       opening_balance: 0, opening_date: new Date().toISOString().slice(0, 10),
       is_active: true, notes: "", sort_order: 0,
+      organization_id: organizations[0]?.id ?? null,
+      venue_id: null,
     } as any), setOpen(true));
 
   const startEdit = (a: BankAccount) => (setEdit({ ...a }), setOpen(true));
@@ -37,6 +52,9 @@ export default function BankAccountsPage() {
   const save = async () => {
     if (!edit?.account_name || !edit.bank_name) {
       toast.error("Bank and account name are required"); return;
+    }
+    if (!edit.organization_id) {
+      toast.error("Organization is required"); return;
     }
     try {
       await saveAccount(edit);
@@ -83,6 +101,8 @@ export default function BankAccountsPage() {
             <TableRow>
               <TableHead>Bank</TableHead>
               <TableHead>Account</TableHead>
+              <TableHead>Organization</TableHead>
+              <TableHead>Venue</TableHead>
               <TableHead>Ref</TableHead>
               <TableHead>CCY</TableHead>
               <TableHead className="text-right">Opening</TableHead>
@@ -101,6 +121,8 @@ export default function BankAccountsPage() {
                 <TableRow key={a.id}>
                   <TableCell>{a.bank_name}</TableCell>
                   <TableCell className="font-medium">{a.account_name}</TableCell>
+                  <TableCell className="text-muted-foreground">{orgName(a.organization_id)}</TableCell>
+                  <TableCell className="text-muted-foreground">{venueName(a.venue_id) ?? "—"}</TableCell>
                   <TableCell className="font-mono text-xs">•••{a.account_number_last4}</TableCell>
                   <TableCell>{a.currency}</TableCell>
                   <TableCell className="text-right font-mono td-num">{fmtMoney(a.opening_balance, a.currency)}</TableCell>
@@ -119,7 +141,7 @@ export default function BankAccountsPage() {
               );
             })}
             {!accounts.length && (
-              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No bank accounts yet</TableCell></TableRow>
+              <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">No bank accounts yet</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -136,6 +158,32 @@ export default function BankAccountsPage() {
               <Field label="Account name">
                 <Input value={edit.account_name || ""} onChange={(e) => setEdit({ ...edit, account_name: e.target.value })} />
               </Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Organization *">
+                  <Select
+                    value={edit.organization_id || ""}
+                    onValueChange={(v) => setEdit({ ...edit, organization_id: v || null, venue_id: null })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select organization" /></SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Venue (optional)">
+                  <Select
+                    value={edit.venue_id || "__none__"}
+                    onValueChange={(v) => setEdit({ ...edit, venue_id: v === "__none__" ? null : v })}
+                    disabled={!edit.organization_id}
+                  >
+                    <SelectTrigger><SelectValue placeholder="— org-level —" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— org-level —</SelectItem>
+                      {orgVenues.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Last 4 digits">
                   <Input maxLength={4} value={edit.account_number_last4 || ""} onChange={(e) => setEdit({ ...edit, account_number_last4: e.target.value.replace(/\D/g, "") })} />

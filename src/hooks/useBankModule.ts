@@ -13,6 +13,8 @@ export type BankAccount = {
   currency: string;
   venue: string | null;
   entity: string | null;
+  organization_id: string | null;
+  venue_id: string | null;
   linked_gl_account_id: string | null;
   opening_balance: number;
   opening_date: string;

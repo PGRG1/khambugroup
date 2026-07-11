@@ -493,6 +493,7 @@ export type Database = {
           notes: string
           opening_balance: number
           opening_date: string
+          organization_id: string | null
           sort_order: number
           tenant_id: string
           updated_at: string
@@ -515,6 +516,7 @@ export type Database = {
           notes?: string
           opening_balance?: number
           opening_date?: string
+          organization_id?: string | null
           sort_order?: number
           tenant_id?: string
           updated_at?: string
@@ -537,6 +539,7 @@ export type Database = {
           notes?: string
           opening_balance?: number
           opening_date?: string
+          organization_id?: string | null
           sort_order?: number
           tenant_id?: string
           updated_at?: string
@@ -571,6 +574,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_trial_balance"
             referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bank_accounts_tenant_id_fkey"
@@ -5478,6 +5488,53 @@ export type Database = {
           },
         ]
       }
+      organizations: {
+        Row: {
+          auditor: string | null
+          created_at: string
+          id: string
+          incorporation_date: string | null
+          legal_name: string | null
+          name: string
+          registered_address: string | null
+          registration_number: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          auditor?: string | null
+          created_at?: string
+          id?: string
+          incorporation_date?: string | null
+          legal_name?: string | null
+          name: string
+          registered_address?: string | null
+          registration_number?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          auditor?: string | null
+          created_at?: string
+          id?: string
+          incorporation_date?: string | null
+          legal_name?: string | null
+          name?: string
+          registered_address?: string | null
+          registration_number?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       page_visibility: {
         Row: {
           id: string
@@ -8767,6 +8824,7 @@ export type Database = {
           is_system: boolean
           name: string
           notes: string
+          organization_id: string | null
           seats: number | null
           sort_order: number
           tenant_id: string
@@ -8779,6 +8837,7 @@ export type Database = {
           is_system?: boolean
           name: string
           notes?: string
+          organization_id?: string | null
           seats?: number | null
           sort_order?: number
           tenant_id?: string
@@ -8791,12 +8850,20 @@ export type Database = {
           is_system?: boolean
           name?: string
           notes?: string
+          organization_id?: string | null
           seats?: number | null
           sort_order?: number
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "venues_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "venues_tenant_id_fkey"
             columns: ["tenant_id"]

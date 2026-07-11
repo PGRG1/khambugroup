@@ -26,6 +26,8 @@ import {
   EmptyState,
   fmtHKWhole,
 } from "@/components/expenses/shared";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { useVenues } from "@/hooks/useVenues";
 import { cn } from "@/lib/utils";
 
 const fmt = (n: number) => {
@@ -145,19 +147,36 @@ export default function LedgerPL() {
   }, []);
 
   const { accounts, data, venues, loading } = useLedgerPL(selectedPeriods);
+  const { organizations } = useOrganizations();
+  const { venues: allVenues } = useVenues();
 
+  // Organization filter — defaults to first org (org-level P&L across its venues).
+  const orgId = params.get("org") || null;
+  const setOrgId = (id: string | null) => updateParam("org", id);
+  useEffect(() => {
+    if (!orgId && organizations.length > 0) setOrgId(organizations[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizations.length]);
 
-  const trees = useMemo(() => {
-    const m = new Map<AccountType, TreeNode[]>();
-    for (const s of SECTION_ORDER) m.set(s.type, buildTree(accounts, s.type));
-    return m;
-  }, [accounts]);
+  // Names of venues that belong to the selected organization.
+  const orgVenueNames = useMemo<Set<string> | null>(() => {
+    if (!orgId) return null;
+    return new Set(allVenues.filter((v) => v.organization_id === orgId).map((v) => v.name));
+  }, [orgId, allVenues]);
 
-  // Get amount for a given account in a period, summed across descendants.
+  const venuesForColumns = useMemo(
+    () => (orgVenueNames ? venues.filter((n) => orgVenueNames.has(n)) : venues),
+    [venues, orgVenueNames],
+  );
+
+  // When an org is selected, "consolidated" means sum over its venues only,
+  // not the raw __total__ (which includes all venues in the ledger).
+  const sumVenues = (acctMap: Map<string, number>, venueList: string[]): number =>
+    venueList.reduce((s, v) => s + (acctMap.get(v) || 0), 0);
+
   const getAmount = (acct: ChartAccount, periodId: string, venue: string | null): number => {
     const periodMap = data.get(periodId);
     if (!periodMap) return 0;
-    // Sum self + all descendant accounts
     const ids = new Set<string>();
     const collect = (id: string) => {
       ids.add(id);
@@ -168,7 +187,13 @@ export default function LedgerPL() {
     for (const id of ids) {
       const acctMap = periodMap.get(id);
       if (!acctMap) continue;
-      total += acctMap.get(venue || "__total__") || 0;
+      if (venue !== null) {
+        total += acctMap.get(venue) || 0;
+      } else if (orgVenueNames) {
+        total += sumVenues(acctMap, venuesForColumns);
+      } else {
+        total += acctMap.get("__total__") || 0;
+      }
     }
     return total;
   };
@@ -181,24 +206,38 @@ export default function LedgerPL() {
       if (a.account_type !== type) continue;
       const acctMap = periodMap.get(a.id);
       if (!acctMap) continue;
-      total += acctMap.get(venue || "__total__") || 0;
+      if (venue !== null) {
+        total += acctMap.get(venue) || 0;
+      } else if (orgVenueNames) {
+        total += sumVenues(acctMap, venuesForColumns);
+      } else {
+        total += acctMap.get("__total__") || 0;
+      }
     }
     return total;
   };
 
-  // Columns: each period × (consolidated OR each venue), plus Total column at end
+  // Columns: each period × (consolidated OR each venue), plus Total column at end.
+  // On Org-level P&L, "Per venue" drilldown still shows venue breakdown (useful for Revenue).
   const columns = useMemo(() => {
     const cols: { key: string; label: string; periodId: string; venue: string | null }[] = [];
+    const venuesToShow = venuesForColumns;
     for (const p of selectedPeriods) {
-      if (perVenue && venues.length > 0) {
-        for (const v of venues) cols.push({ key: `${p.id}|${v}`, label: `${p.label} · ${v}`, periodId: p.id, venue: v });
+      if (perVenue && venuesToShow.length > 0) {
+        for (const v of venuesToShow) cols.push({ key: `${p.id}|${v}`, label: `${p.label} · ${v}`, periodId: p.id, venue: v });
         cols.push({ key: `${p.id}|__total__`, label: `${p.label} · Total`, periodId: p.id, venue: null });
       } else {
         cols.push({ key: p.id, label: p.label, periodId: p.id, venue: null });
       }
     }
     return cols;
-  }, [selectedPeriods, perVenue, venues]);
+  }, [selectedPeriods, perVenue, venuesForColumns]);
+
+  const trees = useMemo(() => {
+    const m = new Map<AccountType, TreeNode[]>();
+    for (const s of SECTION_ORDER) m.set(s.type, buildTree(accounts, s.type));
+    return m;
+  }, [accounts]);
 
   const showGrandTotal = selectedPeriods.length > 1;
 
@@ -367,6 +406,15 @@ export default function LedgerPL() {
               onViewModeChange={setViewMode}
               onPeriodsChange={setSelectedPeriods}
             />
+            <select
+              className="h-9 px-3 rounded-md border border-border bg-card text-sm"
+              value={orgId ?? ""}
+              onChange={(e) => setOrgId(e.target.value || null)}
+              title="Organization scope"
+            >
+              <option value="">All organizations</option>
+              {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
             <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card">
               <Switch id="per-venue" checked={perVenue} onCheckedChange={setPerVenue} />
               <Label htmlFor="per-venue" className="text-xs cursor-pointer">Per venue</Label>
