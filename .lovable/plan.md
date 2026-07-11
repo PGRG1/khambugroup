@@ -1,80 +1,74 @@
-# Client Onboarding Cockpit — Implementation Plan
+## Investigation: `/finance/chart-of-accounts` page
 
-Platform-admin-driven, white-glove onboarding at `/admin/clients/:tenantId/onboarding`. Resumable, skippable, operational-first.
+### Every action on the page
 
-## Sequencing (migrations → provisioning → cockpit shell → phases)
+**Header (top-right)**
+1. **"Rebuild Ledger"** button (outline style, `RefreshCw` icon) — the scary one. Details below.
 
-### Step 1 — Migrations (single batch)
-- `tenant_onboarding` (tenant_id unique FK, current_phase int, steps jsonb `{step_key: {status, completed_at, completed_by, notes, skipped_reason}}`, created/updated).
-- `organizations.industry text`.
-- `tenants` add typed cols: `timezone`, `base_currency`, `country`, `financial_year_end date`, `financial_year_start_year int`. Backfill from `app_config` rows then drop those keys.
-- `coa_templates` (id, code, name, industry, template jsonb) — seed one row: `f_and_b_hk` with a proper F&B COA (food/bev COGS split, service charge revenue, opex).
-- `account_opening_balances` (tenant_id, organization_id, coa_account_id, as_at_date, debit numeric, credit numeric, status draft|posted, unique per (tenant, org, coa, as_at)).
-- `customer_opening_balances` (mirror of `supplier_opening_balances`: tenant_id, organization_id, customer/name, invoice_no, invoice_date, due_date, original_amount, outstanding_amount, currency, is_credit_note, status).
-- All: GRANTs (authenticated + service_role), RLS scoped via `has_role`/`is_tenant_member`, updated_at triggers.
+**Toolbar (Accounts tab)**
+2. Search box — read-only filter, no data change.
+3. Type filter dropdown — read-only filter.
+4. Active / Inactive / All toggle — read-only filter.
+5. **"Add Account"** — opens editor sheet to create a new CoA row. No confirmation; safe (just inserts one row you fill in).
 
-### Step 2 — Provision-tenant edge function fixes
-- Create `organizations` row (name=client_group, legal_name, industry) BEFORE venue insert.
-- Venue insert receives `organization_id`.
-- Stop writing `legal_entity_name`/`client_group_name`/`timezone`/`base_currency`/`country`/`financial_year_start` to `app_config`; write typed cols on `tenants` + org.
-- COA seed reads from `coa_templates` (`f_and_b_hk`) instead of inline array.
-- Seed `tenant_onboarding` row with phase=1, all steps `not_started`.
+**Per-row actions (each of the 71 accounts)**
+6. **Pencil (Edit)** — opens editor sheet to change code/name/type/parent/flags/description of that one account. No confirmation dialog before opening; save is an explicit click.
+7. **Trash (Delete)** — opens a confirmation dialog that first counts posted journal lines and child accounts. If the account has history, the dialog offers a "Deactivate instead" path; DB-level `guard_*` triggers block hard-delete of anything referenced by journal lines. Safe.
 
-### Step 3 — Shared plumbing
-- `src/hooks/useTenantOnboarding.ts` — fetch/update onboarding row, compute % complete per phase and overall, mark step, skip step, reopen step.
-- `src/hooks/useCoaTemplates.ts`.
-- `src/lib/onboardingSteps.ts` — canonical step definitions (5 phases, ~15 steps).
+**Account Mappings tab** — 4 sub-tabs (Sales Revenue, Payment Methods, Procurement, Payroll). Each is a matrix that lets you pick which GL account a given source (venue, payment method, supplier, payroll component) posts to. Changes take effect on the *next* ledger rebuild; they don't rewrite existing posted entries.
 
-### Step 4 — Cockpit shell
-- `src/pages/admin/ClientOnboarding.tsx` at `/admin/clients/:tenantId/onboarding`:
-  - PageHeader + KpiGrid (Overall %, Current phase, Steps done, Skipped).
-  - Phase accordion with step rows: status chip, last-updated, Open / Skip / Reopen actions.
-  - Each step renders a dedicated subcomponent under `src/components/onboarding/steps/`.
-- ClientDetail: replace 8-boolean fake checklist with prominent "Continue Onboarding" card (% + current phase + CTA). Remove duplicate venue panel and duplicate users panel.
+---
 
-### Step 5 — Phase 1 (Structure)
-- `steps/OrganizationsStep.tsx` — reuse existing Orgs UI patterns; add industry, address, auditor.
-- `steps/VenuesStep.tsx` — list venues per org; require organization_id.
-- `steps/LocalisationStep.tsx` — timezone/currency/FY end + FY start year with live "First FY: 01 Apr 2025 → 31 Mar 2026, closing balance date 31 Mar 2025" summary. Writes to typed `tenants` cols.
+### The "Rebuild Ledger" button — what it actually does
 
-### Step 6 — Phase 2 (Operational spine)
-- `steps/ChartOfAccountsStep.tsx` — three CTAs: Load F&B template / Import CSV / Start blank. CSV: column mapping + validation preview + rejected-row report (pattern from Daily Sales upload).
-- Surface the same "Load template" and "Import CSV" actions on `/finance/chart-of-accounts` header.
-- `steps/SuppliersStep.tsx` — CSV import + manual add.
-- `steps/RevenueStep.tsx` — revenue_sources + service_periods confirmation.
+Wired to `rebuildFromOperations()` → calls the DB function `rebuild_journal_from_operations(tenant_id)`.
 
-### Step 7 — Phase 3 (Go-live checklist)
-- `steps/FirstSaleStep.tsx`, `steps/FirstInvoiceStep.tsx` — informational, deep-links to `/sales-data` and `/procurement`, auto-detect existence in DB to auto-tick.
+Confirmation copy currently shown:
 
-### Step 8 — Phase 4 (Accounting completeness, optional)
-- Phase header toggle: "Starting fresh — no prior system" → marks all Phase 4 steps skipped with reason.
-- `steps/GLOpeningBalancesStep.tsx` — grouped-by-type editor over `account_opening_balances`, live Debit/Credit totals + Balanced badge, Save draft / Post (post disabled unless balanced).
-- `steps/AROpeningStep.tsx` — customer_opening_balances editor + allocation tie-out vs AR control from GL.
-- `steps/APOpeningStep.tsx` — deep-link to existing `/procurement/opening-balances` + allocation tie-out vs AP control.
-- On phase completion: post one opening journal per organization (dr/cr per account), as-at = conversion date, flows to trial balance/ledger.
+> "Regenerates all auto-derived journal entries for this tenant. Manually-edited entries are preserved."
 
-### Step 9 — Phase 5 (Team)
-- `steps/TeamStep.tsx` — reuse `CreateUserDialog` in repeatable list; per-user permissions link to `/user-access`.
-- Remove ClientDetail users panel.
+What it actually does in the database, in order:
 
-### Step 10 — Audit cleanups (same batch)
-- `/settings`: move Page Visibility into `/admin/system-configuration` as a section; keep theme switcher there as a small "Appearance" card (theme is per-user local pref, unchanged).
-- Delete `/settings` route or redirect → `/admin/system-configuration#page-visibility`.
-- Restyle `SystemConfiguration` and `Clients` KPI blocks to `KpiCard`/`KpiGrid`.
+1. Writes an audit-log row `ledger_rebuild_start`.
+2. For journal entries in this tenant where `source_type IN ('sales_summary', 'invoice', 'invoice_payment', 'settlement_clearing', 'bank_txn', 'payroll_accrual', 'payroll_payment')` **AND `status = 'draft'` AND `manually_adjusted = false`**:
+   - Unlinks them from settlement batches.
+   - Deletes the journal_lines.
+   - Deletes the journal_entries.
+3. Re-derives all of those entries fresh from the underlying operational tables (sales_records, invoices, invoice_payments, settlement batches, bank_transactions, payroll) using the current Account Mappings.
+4. Returns a count and shows a toast: `Ledger rebuilt — N entries`.
 
-### Step 11 — Typecheck & report
-- `tsgo`. Summary of migrations, files, and the new platform-admin experience.
+**Critical safety facts:**
+- **Posted entries are NOT touched.** The `WHERE status = 'draft'` clause is the safety net — anything already posted to the books is immune.
+- **Manually-adjusted draft entries are NOT touched** (`manually_adjusted = false` filter).
+- **No source data is deleted** — sales, invoices, bank transactions, payroll all remain untouched. Only the derived double-entry rows are rebuilt.
+- Requires the caller to have the `admin` role on this tenant; regular users get "Not authorized".
+- Wrapped in a single transaction (function body), so a mid-rebuild failure rolls back.
+- Full audit trail written to `ledger_audit_log`.
 
-## Technical Notes
+**What could go wrong from casual clicking:**
+- If mappings are misconfigured (e.g. a payment method points to the wrong account), a rebuild will re-post draft entries using those wrong mappings — visible immediately in Trial Balance / P&L, but reversible by fixing the mapping and rebuilding again.
+- Any draft entries a user was mid-way editing but hadn't marked `manually_adjusted` would be wiped and recreated. Low likelihood in normal use.
+- No irreversible destruction of KHAMBU's real books. Posted entries, source records, and manually-adjusted drafts are all safe.
 
-- All new tables tenant-scoped, RLS via existing `is_tenant_member` + `has_role('platform_admin')`.
-- Onboarding step keys are stable strings (`org_entities`, `venues`, `localisation`, `coa`, `suppliers`, `revenue`, `first_sale`, `first_invoice`, `gl_opening`, `ar_opening`, `ap_opening`, `team`).
-- Skips stored with `{status:'skipped', skipped_reason, completed_at}`; UI shows amber chip + "Reopen" action; % complete counts skipped as done.
-- CSV import uses same validation pattern as `useSalesData` upload: parse → preview → rejected rows report → confirm commit.
-- `/pl-report` remains untouched.
+---
 
-## Out of Scope
+### Plain-language summary for a non-technical user
 
-- Any changes to `/pl-report` (PLReport.tsx).
-- Theme system changes beyond relocating the switcher.
-- Rewriting `/procurement/opening-balances` — reuse as-is, only add allocation tie-out block.
+**What this page is:** the master list of "buckets" (accounts) money flows in and out of — cash, sales, supplier bills, payroll, etc. — plus a mapping tab that says "sales at Assembly go to this bucket, Visa payments go to that bucket." 71 accounts today.
+
+**Safe to click around?** Yes for browsing, filtering, editing an account name/code, and configuring mappings. The Delete button on a row is guarded — you can't accidentally remove an account that has real transactions in it.
+
+**The scary button — "Rebuild Ledger":** It does NOT delete your sales, bills, or bank data. It only re-runs the automatic double-entry bookkeeping for entries that are still in *draft* status and haven't been hand-edited. Anything already posted to the closed books is untouched. The worst realistic outcome is that if the account mappings are wrong, the rebuilt draft entries land in the wrong accounts — fixable by correcting the mapping and rebuilding again. There is a confirmation dialog before it runs, and only admins can trigger it.
+
+**Bottom line:** No risk to KHAMBU's real live financial data from casual clicking on this page. The current confirmation wording ("auto-derived journal entries… manually-edited entries preserved") is technically accurate but uses jargon most operators won't parse — the concrete safety facts (posted books untouched, source data untouched, reversible by re-running) are not spelled out.
+
+---
+
+### If you want to act on this later (not doing now)
+
+Options to reduce alarm without changing behaviour:
+- Rewrite the confirmation dialog in plain language listing what IS and ISN'T affected.
+- Move "Rebuild Ledger" off the Chart of Accounts page (it's an operations action, not an account-config action) — better home is the Journal page (where it already also exists) or an Admin/Ledger tools page.
+- Add an inline info tooltip next to the button on the CoA header explaining it's safe.
+
+Awaiting your call on whether/which of these to do.
