@@ -159,6 +159,32 @@ export default function BankAccountsPage() {
                 <Input value={edit.account_name || ""} onChange={(e) => setEdit({ ...edit, account_name: e.target.value })} />
               </Field>
               <div className="grid grid-cols-2 gap-2">
+                <Field label="Organization *">
+                  <Select
+                    value={edit.organization_id || ""}
+                    onValueChange={(v) => setEdit({ ...edit, organization_id: v || null, venue_id: null })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select organization" /></SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Venue (optional)">
+                  <Select
+                    value={edit.venue_id || "__none__"}
+                    onValueChange={(v) => setEdit({ ...edit, venue_id: v === "__none__" ? null : v })}
+                    disabled={!edit.organization_id}
+                  >
+                    <SelectTrigger><SelectValue placeholder="— org-level —" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— org-level —</SelectItem>
+                      {orgVenues.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <Field label="Last 4 digits">
                   <Input maxLength={4} value={edit.account_number_last4 || ""} onChange={(e) => setEdit({ ...edit, account_number_last4: e.target.value.replace(/\D/g, "") })} />
                 </Field>
