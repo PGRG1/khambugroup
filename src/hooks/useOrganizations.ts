@@ -26,20 +26,32 @@ export function useOrganizations() {
   const load = useCallback(async () => {
     if (!tenantId) { setOrganizations([]); setLoading(false); return; }
     setLoading(true);
+    // Explicit .range() guards against any accidental single-row default and
+    // makes it obvious in devtools when the query is capped.
     const { data, error } = await supabase
       .from("organizations")
       .select("*")
       .eq("tenant_id", tenantId)
-      .order("name");
+      .order("name")
+      .range(0, 999);
     if (error) {
+      // eslint-disable-next-line no-console
+      console.error("[useOrganizations] load failed", { tenantId, error });
       toast({ title: "Failed to load organizations", description: error.message, variant: "destructive" });
+      setOrganizations([]);
     } else {
-      setOrganizations((data ?? []) as Organization[]);
+      const rows = (data ?? []) as Organization[];
+      // eslint-disable-next-line no-console
+      console.debug("[useOrganizations] loaded", { tenantId, count: rows.length, names: rows.map((r) => r.name) });
+      setOrganizations(rows);
     }
     setLoading(false);
   }, [tenantId]);
 
-  useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
+  useEffect(() => {
+    if (tenantLoading) return;
+    load();
+  }, [load, tenantLoading]);
 
   const create = async (input: OrgInput) => {
     if (!tenantId) return false;
