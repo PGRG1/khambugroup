@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,11 @@ const EVENT_LABELS: Record<string, string> = {
   payroll_net_payment: "Salary payment",
   payroll_mpf_payment: "MPF remittance",
   payroll_skipped: "Payroll skipped",
+  invoice_payment_posted: "Invoice payment posted",
+  payroll_batch_posted: "Payroll batch posted",
+  credit_note_applied: "Credit note applied",
+  bank_fee_posted: "Bank fee posted",
+  journal_entry_edited: "Journal entry edited",
 };
 
 const fmt = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
