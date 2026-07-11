@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 export type ARAccount = { id: string; code: string; name: string };
 export type AROpenItem = {
@@ -40,6 +41,7 @@ export function bucketOf(days: number): string {
 export const AGE_BUCKETS = BUCKETS.map((b) => b.label);
 
 export function useReceivables() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [accounts, setAccounts] = useState<ARAccount[]>([]);
   const [openItems, setOpenItems] = useState<AROpenItem[]>([]);
   const [summary, setSummary] = useState<ARAccountSummary[]>([]);
@@ -49,12 +51,14 @@ export function useReceivables() {
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) { setAccounts([]); setOpenItems([]); setSummary([]); setLoading(false); return; }
     (async () => {
       setLoading(true);
-      // AR accounts: assets matching merchant receivable / accounts receivable
       const { data: accs } = await supabase
         .from("chart_of_accounts")
         .select("id, code, name, account_type, is_active")
+        .eq("tenant_id", tenantId)
         .eq("account_type", "asset")
         .eq("is_active", true)
         .order("code");
@@ -78,9 +82,10 @@ export function useReceivables() {
       const lines = await fetchAllRows(
         "journal_lines",
         "id, entry_id, account_id, debit, credit, venue, memo, journal_entries!inner(entry_date, status)",
+        undefined,
+        tenantId,
       );
 
-      // Filter to AR-account lines from posted entries
       const arLines = (lines || []).filter(
         (l: any) => arIds.has(l.account_id) && (l.journal_entries?.status === "posted")
       );
@@ -161,7 +166,7 @@ export function useReceivables() {
       setSummary(summaryArr);
       setLoading(false);
     })();
-  }, [refreshKey]);
+  }, [refreshKey, tenantId, tenantLoading]);
 
   return { accounts, openItems, summary, loading, refresh };
 }
