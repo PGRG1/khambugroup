@@ -318,16 +318,13 @@ export function StepCoA({ tenantId, onComplete }: StepProps) {
   const loadTemplate = async (tpl: any) => {
     if (count && count > 0 && !confirm(`Chart already has ${count} accounts. Append template rows?`)) return;
     setBusy(true);
-    const rows = (tpl.template as any[]).map((a) => ({
-      tenant_id: tenantId, code: a.code, name: a.name, account_type: a.account_type,
-      normal_side: a.normal_side, is_active: true, is_cash: !!a.is_cash, sort_order: a.sort_order,
-    }));
-    const { error } = await supabase.from("chart_of_accounts").upsert(rows as any, { onConflict: "tenant_id,code" });
+    const { data, error } = await supabase.rpc("platform_load_coa_template", { _tenant_id: tenantId, _template_id: tpl.id });
     setBusy(false);
     if (error) return toast({ title: "Load failed", description: error.message, variant: "destructive" });
-    toast({ title: `Loaded ${rows.length} accounts from ${tpl.name}` });
+    toast({ title: `Loaded ${data ?? 0} new accounts from ${tpl.name}` });
     await load();
   };
+
 
   return (
     <div className="space-y-3">
