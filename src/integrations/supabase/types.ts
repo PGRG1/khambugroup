@@ -9116,6 +9116,18 @@ export type Database = {
           },
         ]
       }
+      v_labor_cost_by_venue_month: {
+        Row: {
+          labor_cost: number | null
+          labor_cost_pct: number | null
+          month: number | null
+          revenue: number | null
+          tenant_id: string | null
+          venue: string | null
+          year: number | null
+        }
+        Relationships: []
+      }
       v_pl: {
         Row: {
           account_id: string | null
