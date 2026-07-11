@@ -490,10 +490,55 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
       {/* Labor Cost % of Revenue by venue for this payroll month */}
       <PayrollLaborCostCard year={filterYear} month={filterMonth} />
 
-      {/* ── Employee Payroll Table ── */}
-      <div className="border border-border rounded-md overflow-hidden">
+      {/* ── Mobile card list (small screens only) ── */}
+      <div className="sm:hidden space-y-2">
+        <div className={hdr}>Employee Payroll</div>
+        {activeEmployees.map((emp) => {
+          const r = getRowData(emp);
+          return (
+            <Link
+              key={emp.id}
+              to={`/hr/employees/${emp.id}`}
+              className="block rounded-md border border-border/60 bg-card p-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate">
+                    {emp.last_name}, {emp.first_name}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    {emp.venue || "—"} · {emp.job_title || "—"}
+                  </div>
+                </div>
+                <div className="text-right text-xs tabular-nums">
+                  <div className="font-bold">${fmt(r.netPay)}</div>
+                  <div className="text-[10px] text-muted-foreground">Net pay</div>
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] text-muted-foreground">
+                <div>
+                  <div>Gross</div>
+                  <div className="text-foreground tabular-nums">${fmt(r.grossPay)}</div>
+                </div>
+                <div>
+                  <div>MPF (EE)</div>
+                  <div className="text-foreground tabular-nums">${fmt(r.mpfEE)}</div>
+                </div>
+                <div>
+                  <div>Total cost</div>
+                  <div className="text-foreground tabular-nums">${fmt(r.totalCost)}</div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* ── Employee Payroll Table (sm+) ── */}
+      <div className="border border-border rounded-md overflow-hidden hidden sm:block">
         <div className={hdr}>Employee Payroll</div>
         <div className="overflow-x-auto">
+
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-muted/60">
