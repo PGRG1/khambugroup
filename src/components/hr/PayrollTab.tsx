@@ -639,11 +639,22 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
                     <TableCell><Badge variant={b.status === "posted" ? "default" : b.status === "void" ? "outline" : "secondary"} className="text-[10px]">{b.status}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{b.bank_transaction_id ? "matched" : "—"}</TableCell>
                     <TableCell>
-                      {b.status === "posted" && (
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => voidBatch(b.id)}>
-                          <X className="h-3 w-3 mr-1" /> Void
-                        </Button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {b.journal_entry_id && (
+                          <a
+                            href={`/finance/journal?entry=${b.journal_entry_id}`}
+                            className="text-[10px] text-primary hover:underline"
+                            title="View journal entry"
+                          >
+                            JE
+                          </a>
+                        )}
+                        {b.status === "posted" && (
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => voidBatch(b.id)}>
+                            <X className="h-3 w-3 mr-1" /> Void
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
