@@ -232,25 +232,31 @@ export default function BusinessStructure() {
   const { organizations, loading: orgLoading, create: createOrg, update: updateOrg, remove: removeOrg } = useOrganizations();
   const { venues, loading: venuesLoading, create: createVenue, update: updateVenue, remove: removeVenue } = useVenues();
   const [adding, setAdding] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
 
-  const venueIds = useMemo(() => venues.map((v) => v.id), [venues]);
+  const visibleVenues = useMemo(
+    () => (showInactive ? venues : venues.filter((v) => v.is_active)),
+    [venues, showInactive],
+  );
+  const venueIds = useMemo(() => visibleVenues.map((v) => v.id), [visibleVenues]);
   const spCounts = useServicePeriodCounts(venueIds);
 
   if (!isAdmin) return <Navigate to="/" replace/>;
 
   const venuesByOrg = useMemo(() => {
     const map = new Map<string, Venue[]>();
-    for (const v of venues) {
+    for (const v of visibleVenues) {
       const key = v.organization_id ?? "__none__";
       const arr = map.get(key) ?? [];
       arr.push(v);
       map.set(key, arr);
     }
     return map;
-  }, [venues]);
+  }, [visibleVenues]);
 
   const orphans = venuesByOrg.get("__none__") ?? [];
   const activeVenues = venues.filter((v) => v.is_active).length;
+  const inactiveCount = venues.length - activeVenues;
   const totalPeriods = Object.values(spCounts).reduce((s, n) => s + n, 0);
   const activeTenantName = memberships.find((m) => m.tenant_id === tenantId)?.tenant_name;
 
