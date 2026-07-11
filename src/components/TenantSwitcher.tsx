@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Check, Building2 } from "lucide-react";
+import { Check, Building2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { useTenantPreview } from "@/contexts/TenantPreviewContext";
 import { cn } from "@/lib/utils";
 
 type TenantRow = { id: string; name: string };
