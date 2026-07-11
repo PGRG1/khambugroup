@@ -101,6 +101,8 @@ export default function BankAccountsPage() {
             <TableRow>
               <TableHead>Bank</TableHead>
               <TableHead>Account</TableHead>
+              <TableHead>Organization</TableHead>
+              <TableHead>Venue</TableHead>
               <TableHead>Ref</TableHead>
               <TableHead>CCY</TableHead>
               <TableHead className="text-right">Opening</TableHead>
@@ -119,6 +121,8 @@ export default function BankAccountsPage() {
                 <TableRow key={a.id}>
                   <TableCell>{a.bank_name}</TableCell>
                   <TableCell className="font-medium">{a.account_name}</TableCell>
+                  <TableCell className="text-muted-foreground">{orgName(a.organization_id)}</TableCell>
+                  <TableCell className="text-muted-foreground">{venueName(a.venue_id) ?? "—"}</TableCell>
                   <TableCell className="font-mono text-xs">•••{a.account_number_last4}</TableCell>
                   <TableCell>{a.currency}</TableCell>
                   <TableCell className="text-right font-mono td-num">{fmtMoney(a.opening_balance, a.currency)}</TableCell>
@@ -137,7 +141,7 @@ export default function BankAccountsPage() {
               );
             })}
             {!accounts.length && (
-              <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No bank accounts yet</TableCell></TableRow>
+              <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">No bank accounts yet</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
