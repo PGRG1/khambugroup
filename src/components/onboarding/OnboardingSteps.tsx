@@ -470,14 +470,15 @@ export function StepGLOpening({ tenantId, onComplete }: StepProps) {
     setSaving(true);
     const upserts = Object.entries(rows).filter(([, v]) => (v.debit || 0) !== 0 || (v.credit || 0) !== 0)
       .map(([accId, v]) => ({
-        tenant_id: tenantId, organization_id: orgId, coa_account_id: accId, as_at_date: asAt,
+        organization_id: orgId, coa_account_id: accId, as_at_date: asAt,
         debit: v.debit || 0, credit: v.credit || 0, status: "draft",
       }));
-    const { error } = await supabase.from("account_opening_balances").upsert(upserts as any, { onConflict: "tenant_id,organization_id,coa_account_id,as_at_date" });
+    const { error } = await supabase.rpc("platform_upsert_account_opening_balances", { _tenant_id: tenantId, _rows: upserts as any });
     setSaving(false);
     if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
     toast({ title: "Saved as draft" });
   };
+
 
   const grouped = useMemo(() => {
     const g: Record<string, any[]> = {};
