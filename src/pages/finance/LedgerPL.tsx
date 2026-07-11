@@ -406,6 +406,15 @@ export default function LedgerPL() {
               onViewModeChange={setViewMode}
               onPeriodsChange={setSelectedPeriods}
             />
+            <select
+              className="h-9 px-3 rounded-md border border-border bg-card text-sm"
+              value={orgId ?? ""}
+              onChange={(e) => setOrgId(e.target.value || null)}
+              title="Organization scope"
+            >
+              <option value="">All organizations</option>
+              {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
             <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card">
               <Switch id="per-venue" checked={perVenue} onCheckedChange={setPerVenue} />
               <Label htmlFor="per-venue" className="text-xs cursor-pointer">Per venue</Label>
