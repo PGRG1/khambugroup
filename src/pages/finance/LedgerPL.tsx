@@ -343,32 +343,54 @@ export default function LedgerPL() {
 
   const scopeLabel = selectedPeriods.length === 0 ? "No period selected" : selectedPeriods.map((p) => p.label).join(", ");
 
+  // Headline totals summed across all selected periods (consolidated, no venue split)
+  const totalRevenue = selectedPeriods.reduce((s, p) => s + sectionTotal("revenue", p.id, null), 0);
+  const totalCOGS = selectedPeriods.reduce((s, p) => s + sectionTotal("cogs", p.id, null), 0);
+  const totalOpex = selectedPeriods.reduce((s, p) => s + sectionTotal("opex", p.id, null), 0);
+  const totalOtherInc = selectedPeriods.reduce((s, p) => s + sectionTotal("other_income", p.id, null), 0);
+  const totalOtherExp = selectedPeriods.reduce((s, p) => s + sectionTotal("other_expense", p.id, null), 0);
+  const totalGross = totalRevenue - totalCOGS;
+  const totalOperating = totalGross - totalOpex;
+  const totalNet = totalOperating + totalOtherInc - totalOtherExp;
+  const netMargin = totalRevenue !== 0 ? (totalNet / totalRevenue) * 100 : null;
+
   return (
     <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Profit & Loss</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Built directly from posted journal entries against the Chart of Accounts. Independent from the operations P&L.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <PLPeriodSelector
-            viewMode={viewMode}
-            selectedPeriods={selectedPeriods}
-            onViewModeChange={setViewMode}
-            onPeriodsChange={setSelectedPeriods}
-          />
-          <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card">
-            <Switch id="per-venue" checked={perVenue} onCheckedChange={setPerVenue} />
-            <Label htmlFor="per-venue" className="text-xs cursor-pointer">Per venue</Label>
-          </div>
-          <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
-          <Button size="sm" onClick={exportPdf}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Profit & Loss (Ledger)"
+        description="Built directly from posted journal entries against the Chart of Accounts. Independent from the operations P&L."
+        actions={
+          <>
+            <PLPeriodSelector
+              viewMode={viewMode}
+              selectedPeriods={selectedPeriods}
+              onViewModeChange={setViewMode}
+              onPeriodsChange={setSelectedPeriods}
+            />
+            <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card">
+              <Switch id="per-venue" checked={perVenue} onCheckedChange={setPerVenue} />
+              <Label htmlFor="per-venue" className="text-xs cursor-pointer">Per venue</Label>
+            </div>
+            <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
+            <Button size="sm" onClick={exportPdf}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
+          </>
+        }
+      />
 
       <p className="text-xs text-muted-foreground -mt-2">{scopeLabel}</p>
+
+      {loading ? (
+        <KpiSkeleton count={4} />
+      ) : selectedPeriods.length > 0 && (
+        <KpiGrid>
+          <KpiCard label="Revenue" value={`HK$ ${fmtHKWhole(totalRevenue).replace(/^HK\$ /, "")}`} tone="info" />
+          <KpiCard label="Gross Profit" value={`HK$ ${fmtHKWhole(totalGross).replace(/^HK\$ /, "")}`} tone={totalGross >= 0 ? "success" : "destructive"} hint={totalRevenue !== 0 ? `${((totalGross / totalRevenue) * 100).toFixed(1)}% margin` : undefined} />
+          <KpiCard label="Operating Profit" value={`HK$ ${fmtHKWhole(totalOperating).replace(/^HK\$ /, "")}`} tone={totalOperating >= 0 ? "success" : "destructive"} hint={totalRevenue !== 0 ? `${((totalOperating / totalRevenue) * 100).toFixed(1)}% margin` : undefined} />
+          <KpiCard label="Net Income" value={`HK$ ${fmtHKWhole(totalNet).replace(/^HK\$ /, "")}`} tone={totalNet >= 0 ? "success" : "destructive"} hint={netMargin !== null ? `${netMargin.toFixed(1)}% net margin` : undefined} />
+        </KpiGrid>
+      )}
+
+
 
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
