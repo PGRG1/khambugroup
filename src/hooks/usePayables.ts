@@ -176,11 +176,15 @@ export function usePayables() {
       // NEW: payments + allocations
       const paymentRows = await fetchAllRows(
         "payments",
-        "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status"
+        "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status",
+        undefined,
+        tenantId,
       );
       const allocRows = await fetchAllRows(
         "payment_allocations",
-        "id, payment_id, invoice_id, amount_allocated, credit_note_id, credit_note_amount_applied"
+        "id, payment_id, invoice_id, amount_allocated, credit_note_id, credit_note_amount_applied",
+        undefined,
+        tenantId,
       );
       const allocByPayment = new Map<string, any[]>();
       for (const a of allocRows as any[]) {
