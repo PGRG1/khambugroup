@@ -281,10 +281,10 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
       </div>
 
       {/* Main content tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs defaultValue="requests" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Balance Overview</TabsTrigger>
           <TabsTrigger value="requests">Requests ({yearRequests.length})</TabsTrigger>
+          <TabsTrigger value="overview">Balance Overview</TabsTrigger>
           <TabsTrigger value="types">Leave Types</TabsTrigger>
         </TabsList>
 
