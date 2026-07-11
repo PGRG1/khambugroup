@@ -228,7 +228,7 @@ function AddOrgForm({ onCancel, onSave }: { onCancel: () => void; onSave: (o: Pa
 
 export default function BusinessStructure() {
   const { isAdmin } = useAuth();
-  const { tenantId } = useActiveTenant();
+  const { tenantId, memberships } = useActiveTenant();
   const { organizations, loading: orgLoading, create: createOrg, update: updateOrg, remove: removeOrg } = useOrganizations();
   const { venues, loading: venuesLoading, create: createVenue, update: updateVenue, remove: removeVenue } = useVenues();
   const [adding, setAdding] = useState(false);
@@ -252,18 +252,20 @@ export default function BusinessStructure() {
   const orphans = venuesByOrg.get("__none__") ?? [];
   const activeVenues = venues.filter((v) => v.is_active).length;
   const totalPeriods = Object.values(spCounts).reduce((s, n) => s + n, 0);
+  const activeTenantName = memberships.find((m) => m.tenant_id === tenantId)?.tenant_name;
 
   return (
     <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
       <PageHeader
         title="Business Structure"
-        description="Organizations (legal entities) and the venues they operate. Venues, bank accounts and reporting all roll up through this hierarchy."
+        description={`Organizations (legal entities) and the venues they operate for ${activeTenantName ?? "the active tenant"}. Venues, bank accounts and reporting all roll up through this hierarchy.`}
         actions={
           <Button size="sm" onClick={() => setAdding(true)}>
             <Plus className="h-4 w-4 mr-1"/>Add organization
           </Button>
         }
       />
+
 
       <KpiGrid>
         <KpiCard label="Organizations" value={organizations.length}/>
