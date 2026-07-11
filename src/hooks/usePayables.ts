@@ -331,10 +331,11 @@ export function usePayables() {
       const { data: payrollAccts } = await supabase
         .from("chart_of_accounts")
         .select("id, code, name")
+        .eq("tenant_id", tenantId)
         .in("code", ["2030", "2040"]);
       if (payrollAccts && payrollAccts.length > 0) {
         const acctIds = payrollAccts.map((a: any) => a.id);
-        const allLines = await fetchAllRows("journal_lines", "account_id, debit, credit");
+        const allLines = await fetchAllRows("journal_lines", "account_id, debit, credit", undefined, tenantId);
         const balByAcct = new Map<string, number>();
         for (const l of allLines as any[]) {
           if (!acctIds.includes(l.account_id)) continue;
@@ -357,7 +358,9 @@ export function usePayables() {
       // Credit notes (all)
       const cns = await fetchAllRows(
         "credit_notes",
-        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, venue, notes, source_invoice_id"
+        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, venue, notes, source_invoice_id",
+        undefined,
+        tenantId,
       );
       const mappedCNs: APCreditNote[] = (cns || []).map((c: any) => {
         const orig = Number(c.original_amount) || 0;
