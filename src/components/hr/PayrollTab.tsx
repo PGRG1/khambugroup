@@ -211,7 +211,7 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [saving, setSaving] = useState(false);
-  const [detailModal, setDetailModal] = useState<HRPayroll | null>(null);
+  // (Legacy per-row detail modal removed — click the employee name to open the profile.)
   const [edits, setEdits] = useState<Record<string, Record<string, number | string | null>>>({});
 
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
