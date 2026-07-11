@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useVenues, Venue } from "@/hooks/useVenues";
+import { useOrganizations, Organization } from "@/hooks/useOrganizations";
 import { useServicePeriods, ServicePeriod } from "@/hooks/useServicePeriods";
 import { useRevenueSources, RevenueSource } from "@/hooks/useRevenueSources";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
