@@ -1,106 +1,133 @@
 
-# Finance Section Audit (P&L excluded)
-
-Scope: Dashboard, Payables, Receivables, Payments & Settlements, Bank Reconciliation, Balance Sheet, Cash Flow, Trial Balance, Journal, Ledger, Chart of Accounts, Ledger Audit Log.
-
-Baseline sanity (live DB, tenant `…beef`): 1,118 invoice + 1,000 sales journals; posted debit = credit = HK$17,942,954.05 (0.00 diff). Trial balance balances. So the *ledger core* is sound — the problems sit around it.
+# Finance Section Audit — Read-Only Report
+*(Profit & Loss page excluded from scope and untouched.)*
 
 ---
 
-## PART 1 — Accounting logic & data-flow findings
+## PART 1 — TRANSACTION FLOW INTEGRITY
 
-### P0 — Cross-tenant read leaks (super-admin sees merged data)
+### 1. Revenue / Sales → Journal → Ledger — **PARTIAL**
+- `rebuild_journal_from_operations` (public schema) drives it. It correctly rewrites `sales_summary` drafts only, preserving posted ones, and does membership + admin checks (tenant-safe).
+- DB reality: `journal_entries` has 450 `sales` + 561 `sales_summary` entries, all posted, all balanced (0 unbalanced out of 1,011). Double-entry integrity for revenue **works**.
+- Payment-method split lands in a per-venue `payment_settlement_clearing` account, per method line (matches project memory). No processor split at this stage — that happens in settlement clearing.
+- **Broken:** `sales_records` never have `source_id` written on the journal — 0 of 561 records are mappable back to a source row (`src_ids:0`). Users cannot answer "which JE came from which sales record". `useSalesData.ts:107` triggers rebuild but the RPC keys the memo, not `source_id`.
+- **Broken:** `useSalesData` calls `rpc("rebuild_journal_from_operations", { p_tenant_id })` but uses `(supabase as any)` — silently no-ops if tenantId is stale and there is no toast on error.
+- **Partial:** No end-user "unmapped venue / unmapped method" warning surface — the RPC will fall back to suspense but nothing in the UI flags it. `useUnmappedVenues` exists but is not wired into Journal/Dashboard.
 
-1. `src/hooks/useBankReconciliation.ts` `load()` calls `fetchAllRows("bank_transactions" | "bank_accounts" | "chart_of_accounts" | "journal_lines")` **without a tenantId argument**. On a platform-admin login every tenant's bank ledger balances merge silently → wrong `ledgerBalanceFor()` and wrong reconciliation status.
-2. `src/hooks/useReceivables.ts` fetches `journal_lines` unscoped — AR aging on any super-admin session mixes tenants.
-3. `src/hooks/usePayables.ts` (visible fetch pattern) — same risk; needs a re-pass to add `tenantId` to every `fetchAllRows` and `.eq("tenant_id", …)` on every direct `.from()`.
-4. `src/pages/finance/LedgerAuditLog.tsx` queries `ledger_audit_log` without a tenant filter.
-5. `src/pages/finance/BankReconciliation.tsx` reads `bank_recon_rules` without tenant filter (line 55).
-6. `src/pages/finance/Dashboard.tsx` uses `fetchAllRows` (`v_pl`, `v_balance_sheet`, journal_lines) with no tenantId passed.
+### 2. Procurement Invoices (+ discounts / refunds) → AP → Journal — **PARTIAL**
+- 1,141 invoices in DB, 1,118 have journal entries (source_type='invoice') — 23 approved invoices are NOT posted. All 1,118 posted entries balance.
+- `invoice_discount` and `invoice_refund` rule types exist in `RULE_TYPES` and in the RPC — correct.
+- **Broken:** Only 5 of 1,141 invoices have `payment_status='paid'` and there are **0 rows** in `payments` and **0 rows** in `invoice_payments`. AP payments have never posted to journal in practice. AP flow ends at the invoice booking; no cash-side clearing is happening. `AllocatePaymentDialog.tsx` writes to `invoice_payments` but there is no `invoice_payment` source_type in the journal (Journal.tsx knows the label but the RPC never generates it).
+- **Broken:** Credit-note allocations (`payment_allocations.credit_note_amount_applied`) update `credit_notes.remaining_balance` but never post the offset JE — the AP subledger and GL will drift the moment credit notes are used at scale.
+- **Risk:** `usePayables.ts` fetches everything WITHOUT `tenant_id` filter (lines 113, 119, 131, 152, 163, 167, 313–319, 340) — cross-tenant data leak & wrong balances if multi-tenant.
 
-Rule to enforce project-wide (already in `src/lib/tenantQuery.ts`): every finance read that hits a `tenant_id`-bearing table MUST go via `tenantSelect` / `fetchAllRowsForTenant` or attach an explicit `.eq("tenant_id", tenantId)`.
+### 3. Payroll → Journal — **BROKEN**
+- 27 rows in `hr_payroll` but only 5 rows in `journal_entries.source_type IN (payroll, payroll_payment, payroll_accrual)` — 22 payroll runs never posted.
+- `hr_payroll_payment_batches` has 0 rows — payment side of payroll has literally never been booked.
+- The RPC uses `rebuild_payroll_accrual` (referenced in `pg_proc` list) but no code path calls it independently, and there is no reversal logic for the following period (accrual → payment offset never occurs).
+- **Missing account rules:** `payroll_salary_expense`, `payroll_mpf_expense`, `salary_payable`, `mpf_payable` are defined in `RULE_TYPES` but are not enforced — nothing warns the user if they're unmapped before running payroll.
 
-### P0 — Missing / broken postings
+### 4. Payments & Settlements → Journal — **PARTIAL**
+- `payment_settlement_batches`: 60 batches, 0 reconciled, 54 journal entries (`settlement_clearing`). 6 batches are un-cleared.
+- `usePaymentSettlements.ts` is the only hook that correctly scopes `tenantId` — good.
+- **Broken:** Settlement processor fees post via the RPC's `processor_fee_default` rule but there is no per-processor override in `account_mapping_rules` beyond a single default → all processors post to one expense account, defeating YeahPay/KPay separation.
+- **Broken:** Bank fees — only 1 `bank_fee` journal entry in DB against a bank_transactions table where fees appear multiple times. Under-posted.
+- **Partial:** Timing differences (settlement date vs bank date) — no aging surface anywhere; MonthlyReconciliationTab shows counts but not the diff-days KPI.
 
-7. **Payroll payments never post to the ledger.** `post_payroll_accrual` exists and 5 accruals are posted, but the DB has 0 rows with `source_type IN ('payroll_payment','mpf_payment')` — `salary_payable` / `mpf_payable` never clear. `post_payroll_payment_batch` exists as a function, but it's not being invoked from the payment-batch UI (or is failing silently). Aging on AP payroll payables will grow forever.
-8. **Bank fees under-posted.** 1 `bank_fee` JE for 88 unmatched bank transactions — the classifier flags them (`suggested_type='bank_fee'`) but nothing books them until a user hand-posts. No automated bank-fee sweep or "post all suggested fees" bulk action.
-9. **`rebuild_journal_from_operations` coverage gap.** It rebuilds only `sales_summary | invoice | invoice_payment | settlement_clearing | bank_txn`. It does NOT rebuild expense bills (`post_expense_bill` only) or vendor statements (`post_vendor_statement`) or payroll. That is defensible for *posted* entries but means a partially-drafted expense bill deletion won't be rediscovered. Document this or extend to rebuild drafts for all sources.
-10. **88 unmatched bank transactions with no reminder surface.** No dashboard KPI, no red pill in the sidebar, no "N txns awaiting review" badge on the Bank Recon tab. This is the single biggest finance-hygiene miss.
+### 5. Bank Reconciliation → Ledger — **BROKEN**
+- 88 of 143 bank txns are **unmatched**; the UI shows them but never converts to a JE. There is no "post as journal / create bill" button in the unmatched list.
+- **Critical multi-tenant leak:** `useBankReconciliation.ts` (all 5 `fetchAllRows` on lines 66–70) — no `tenantId` argument. Every user sees every tenant's bank accounts, transactions, imports, COA, and every journal line ever posted. Same in `BankReconciliation.tsx:55` (`bank_recon_rules`).
+- The hook also pulls **every journal_line ever** just to compute per-account ledger balances — will not scale (currently ~1000+ rows, will blow up).
+- Bank recon status has no effect on ledger — matched/unmatched is metadata only; no `journal_entries.source_type='bank_txn'` for a manual bank match.
 
-### P1 — Chart of Accounts & mapping coverage
+### 6. `rebuild_journal_from_operations` — **WORKS with caveats**
+- Multi-tenant enforcement is correct (admin check + tenant membership check + p_tenant_id required).
+- Every INSERT/DELETE inside is `.where tenant_id = p_tenant_id` — verified.
+- Preserves posted + manually_adjusted drafts.
+- **Caveat:** 591 lines, single monolith — no per-section idempotency reporting (returns only `entries_created`). No warning surfaced when suspense is used as fallback.
+- **Caveat:** DELETE list on line 78 does not include `payroll_accrual` — running rebuild does not touch payroll, so accruals go stale silently.
 
-11. Only 1 mapping row exists for `accounts_payable`, `sales_cash`, `salary_payable`, `mpf_payable`, `payroll_salary_expense`, `payroll_mpf_expense`, `opening_equity`, `suspense`, `invoice_discount`, `invoice_refund`. If a second venue/entity is added there's no fallback path; the rebuild silently posts to suspense.
-12. `useAccountMapping.RULE_TYPES` does not list `processor_fee_default`, `bank_transfer_fee_default`, `cash_payment_clearing` — but the rebuild RPC reads them. Admins can't configure them from the UI, so those postings land wrong or in suspense forever.
-13. `Journal.tsx` `SOURCE_LABELS` is missing `sales_summary`, `settlement_clearing`, `bank_fee`, `bank_txn` → users see raw enum strings and the source-type filter dropdown is blind to those categories.
+### Double-Entry Integrity Snapshot (current DB)
+- 2,197 journal_entries, **0 unbalanced** across every source type. ✔
+- Trial Balance ties (via `v_trial_balance`). ✔
+- Balance Sheet uses `v_balance_sheet` with tenant scoping. ✔
+- Cash Flow — `CashflowStatement.tsx` uses hardcoded `CASHFLOW_VENUES` (venue drift after Arca/Events migration).
 
-### P1 — Data-fetch correctness
-
-14. `src/pages/finance/Ledger.tsx` line 52: `.limit(5000)` on `v_general_ledger`. Per project memory *"`.limit(N)` does NOT bypass the 1000-row cap"* — swap to `fetchAllRowsForTenant`.
-15. `src/hooks/useJournal.ts` `fetchAll` caps entries at 1000. On a mature tenant Journal silently drops old entries; also lines are fetched via `fetchAllRows` then client-filtered — expensive and still tenant-scoped only if the arg is passed (it is here, good).
-16. `useBankReconciliation.load()` pulls **all** `journal_lines` to compute one number per account. Move to a tenant-scoped SQL view (`v_gl_balance_by_account`) or an RPC — currently a 20–100k row round-trip.
-
-### P1 — Cash-flow / venue drift
-
-17. `src/pages/finance/CashflowStatement.tsx` imports a hard-coded `CASHFLOW_VENUES` constant from `utils/cashflowCalculations`. Same class of bug we already fixed for Daily Sales and Procurement — Arca and any new venue silently missing. Replace with `useVenues()`.
-
-### P2 — Ledger integrity checks not surfaced
-
-18. `check_journal_balance` function exists but no UI surfaces its output. Add a "Ledger integrity" strip on Dashboard: last rebuild time, trial-balance diff, count of unbalanced entries, count of unmapped-suspense postings.
-19. No warning on Chart of Accounts when an account referenced by an `account_mapping_rule` is deactivated — will cause future rebuilds to fail silently.
-
----
-
-## PART 2 — UX / UI audit
-
-### P1 — Design-system violations (each page hand-rolls what shared primitives already do)
-
-20. Every finance page defines its own `fmt`, `fmtWhole`, `fmtDate`, `fmtSigned` (Dashboard, Payables, Receivables, BalanceSheet, TrialBalance, Journal, Ledger, CashflowStatement, LedgerAuditLog). Project Core rule mandates `@/utils/format`. Replace universally.
-21. No page in the Finance module uses `<PageHeader>` / `<KpiGrid>` / `<KpiCard>` / `<StatusBadge>` — the same primitives Expenses and Procurement were just rebuilt around. Section feels disconnected from the rest of the app.
-22. `BankReconciliation.tsx` uses `formatCurrency` from `@/utils/salesUtils` (revenue module) — wrong dependency direction; should be `fmtHK` from `@/utils/format`.
-23. Status colouring is hand-rolled in every file (e.g. `Payables.tsx` BUCKET_COLOR / BUCKET_ACCENT / BUCKET_TINT triple maps, `Journal.tsx` STATUS_TONE, `BankReconciliation.tsx` `statusChip`). Consolidate into `<StatusBadge>` with semantic tones (primary / info / warning / destructive / muted). No more raw `bg-primary/10` sprinkled per file.
-
-### P1 — Missing loading / empty / mobile
-
-24. `BalanceSheet.tsx`, `TrialBalance.tsx`, `CashflowStatement.tsx`, `Ledger.tsx`, `Journal.tsx`: no skeletons on filter changes; large table just goes blank.
-25. No mobile card fallback on any finance table — Payables/Receivables/Journal/Ledger tables overflow horizontally on phones. Match the pattern used in Expenses (`md:table` + `<div className="md:hidden">` cards).
-26. Empty states are plain "No data" text — replace with the shared `<EmptyState>` used in Expenses/Procurement.
-
-### P1 — Filter / scope inconsistency
-
-27. Every page has its own venue filter, date filter and search input styled differently. No shared "chip + single scope line summarising active filters" pattern (already established in Daily Sales / Expenses). Adopt it here.
-28. Bank Reconciliation Overview tab lacks a KPI row (Unmatched count, Needs Review, This-month reconciled %, Statement-vs-ledger diff). It's the highest-value screen in Finance and currently the least informative.
-29. Dashboard has KPI cards but they aren't clickable; each should deep-link to the underlying report (Cash → Bank Recon filtered to that account; Aging → Payables filtered to the overdue bucket, etc.).
-
-### P2 — Copy / semantics
-
-30. Journal source-type filter shows raw enum strings for `sales_summary`, `settlement_clearing`, `bank_fee` (see item 13).
-31. Trial Balance page shows `ACCOUNT_TYPE_LABEL[t]` but relies on ordering `["asset","liability","equity","revenue","cogs","opex","other_income","other_expense"]` — add group subtotals matching Balance Sheet groupings for a professional look.
-32. Ledger Audit Log has icons but no colour tokens for status; some events not in `EVENT_LABELS` render as raw strings (`invoice_journal_created`, `sales_journal_reversed`, etc.).
+### Modules that bypass the journal (must not)
+- Payroll payments (0 batches, 0 JEs).
+- Credit note applications (no offset JE).
+- Bank fees seen in `bank_transactions` (only 1 posted vs many observed).
+- Manual bank matches (no source_type at all).
 
 ---
 
-## Prioritised remediation plan
+## PART 2 — UX / UI FINDINGS (Finance section, excl. P&L)
 
-### P0 — Correctness (do first)
-- Add tenant scoping to every read in `useBankReconciliation`, `useReceivables`, `usePayables`, `useJournal`, `LedgerAuditLog.tsx`, `Dashboard.tsx`, `BankReconciliation.tsx` bank-recon-rules query. Route through `fetchAllRowsForTenant` / `tenantSelect`.
-- Fix payroll payment posting path: wire the Payments Batches UI to call `post_payroll_payment_batch`; add a "salary/MPF payable outstanding" tile on Dashboard driven by ledger balance so the gap is visible.
-- Add "post all suggested bank fees" bulk action and a Dashboard KPI counting unmatched bank transactions; expose `check_journal_balance` output as a Dashboard health strip.
+**Grep result: 0 of 17 finance pages use `PageHeader`, `KpiCard`, or `KpiGrid`.**  Finance is the only major section not migrated to the shared design primitives (Revenue, Procurement, Expenses were migrated in prior turns).
 
-### P1 — Flow / mapping / fetch
-- Extend `useAccountMapping.RULE_TYPES` with `processor_fee_default`, `bank_transfer_fee_default`, `cash_payment_clearing`; expose in the mapping matrices under Chart of Accounts.
-- Replace `CASHFLOW_VENUES` constant with `useVenues()`.
-- Swap `Ledger.tsx` `.limit(5000)` for `fetchAllRowsForTenant`; move bank-recon per-account ledger totals to a SQL view/RPC.
-- Round out `Journal.tsx` SOURCE_LABELS.
+| Page | Key deficiencies |
+|---|---|
+| Dashboard.tsx (537 lines) | No PageHeader; KPIs hand-rolled; no tenant filter on line 113 fetch (`chart_of_accounts` no `.eq("tenant_id"…)`); no skeletons; no period selector persisted in URL. |
+| Payables.tsx (1,030 lines) | Massive single file; no PageHeader; tables not right-aligned tabular-nums for HK$; multiple filter states not URL-persisted; no mobile card fallback; aging matrix not using shared `<StatusBadge>`. |
+| Receivables.tsx | Same pattern; hand-rolled status colors; no empty state. |
+| BankReconciliation.tsx (533 lines) | Full-tenant leak; no KPI strip; no skeleton; unmatched-txn list has no CTA to post as JE or attach to bill; filter state lost on refresh. |
+| Journal.tsx | `SOURCE_LABELS` incomplete (missing `payroll_accrual`, `bank_txn`, `settlement_clearing` shown as raw); source-type filter uses raw enum; `.limit(1000)` cap silently truncates history. |
+| Ledger.tsx | Uses `.limit(5000)` on `v_general_ledger` which does not bypass PostgREST 1000-row cap — data is silently truncated; violates project memory rule. |
+| LedgerAuditLog.tsx | No PageHeader, no filters, no tenant scoping. |
+| ChartOfAccounts.tsx | Inline number/color logic; no bulk import; no "in use / safe to deactivate" indicator. |
+| TrialBalance.tsx | Correct integrity but no PageHeader, no comparison period, no drill-through to Ledger. |
+| BalanceSheet.tsx | Correct data; no PageHeader; no export; no "as-of" date persistence. |
+| CashflowStatement / Cashflow / CashflowLedger / CashflowCombined | Four overlapping pages doing similar things — confusing IA. `CASHFLOW_VENUES` hardcoded. |
+| Payments & Settlements (payments/*) | No PageHeader adoption; MonthlyReconciliationTab lacks period selector KPIs; MerchantsTab & FeeRatesTab feel like admin CRUD, not finance software; no aging of unreconciled batches. |
+| Bills / Docs pages | Duplicated with `/expenses/bills` post-refactor — DocumentsBills.tsx (304 lines) and BillsExpenses.tsx (827 lines) overlap Expenses > Bills; risk of orphan door. |
 
-### P2 — Design system rollout
-- Introduce `<PageHeader>`, `<KpiGrid>`, `<KpiCard>`, `<StatusBadge>`, `<EmptyState>`, `<TableSkeleton>` across all finance pages.
-- Kill hand-rolled `fmt*` helpers; import from `@/utils/format`.
-- Add mobile card layouts, shared filter chips + scope line, deep-link Dashboard KPIs.
-- Add group subtotals to Trial Balance; complete Ledger Audit Log event labels.
+Cross-cutting UX issues:
+1. No shared skeletons anywhere in `src/pages/finance/`.
+2. All HK$ values formatted ad-hoc; not always right-aligned; some pages use `Intl.NumberFormat` inline rather than `fmtHKWhole` / `@/utils/format`.
+3. No mobile card layouts — every table just horizontally scrolls on phone.
+4. Filter/URL state persistence absent (period, venue, account, status).
+5. Status color logic hand-rolled per file → inconsistent badges (compare Payables vs Journal vs BankRecon).
+6. No shared empty state — mixture of "No data", blank tables, and `null`.
+7. Sub-navigation between Finance modules is flat; no left-side rail grouping (Reports / Accounting / Ops).
 
-### Explicitly out of scope
-- P&L page — untouched per instruction.
-- Migrations creating new tables — none needed; all fixes are code + optional SQL views.
+---
 
-## Verdict
-Not yet at professional-institutional standard. The double-entry core is correct and balances, but the module is undermined by (a) real tenant-leak risk for platform admins, (b) payroll-payment postings that never clear their liabilities, (c) 88 unclassified bank transactions with no user-facing signal, and (d) a design layer that looks disconnected from the just-rebuilt Expenses and Procurement sections. Executing P0 + P1 above brings it to parity; P2 makes it feel like one coherent product.
+## PRIORITIZED FINDINGS & FIXES
+
+### (A) CRITICAL LOGIC BREAKS  *(fix first, blocking correctness)*
+1. **AP payment posting missing.** Fix: add `post_invoice_payment(p_payment_id)` RPC that debits AP / credits cash-account (via `payment_method_cash` rule) and links `payments.journal_entry_id`. Wire from `AllocatePaymentDialog` and `RecordPaymentDialog`.
+2. **Payroll payment posting missing.** Fix: create `post_payroll_batch(p_batch_id)` and call on batch confirm; reverse prior-month accrual via `payroll_accrual` rule.
+3. **Multi-tenant leaks.** Fix: scope every `fetchAllRows` / `supabase.from` in `useBankReconciliation`, `usePayables`, `useReceivables`, `LedgerAuditLog.tsx`, `Dashboard.tsx` (line 113), and `BankReconciliation.tsx` (`bank_recon_rules`) with `tenantId`.
+4. **Credit-note application never posts offset JE.** Fix: extend `post_invoice_payment` (or a sibling RPC) to book the credit-note debit against AP with source_type='credit_note_application'.
+5. **`Ledger.tsx` `.limit(5000)` silently truncates.** Fix: replace with `fetchAllRows("v_general_ledger", …, { …, tenantId })`. Same fix for `useJournal.fetchAll` `.limit(1000)`.
+
+### (B) INTEGRITY RISKS
+6. **Rebuild RPC does not touch payroll.** Add `payroll_accrual` / `payroll_payment` to DELETE list and regenerate.
+7. **Bank fees under-posted** (1 vs many). Add automatic `bank_fee` JE creation on statement import for known fee descriptions (already have `bank_transfer_fee_default` rule).
+8. **Unmapped-account fallback silent.** Surface unmapped venues/methods on Dashboard + Journal with links to Chart of Accounts mapping matrix.
+9. **`CashflowStatement.tsx` hardcoded venues.** Replace `CASHFLOW_VENUES` with `useVenues()` — fixes Arca/Events drift.
+10. **Sales JE source_id missing.** Store the originating `sales_record.id` (or day summary key) on `journal_entries.source_id` so users can trace back.
+11. **Per-processor fee mapping.** Extend `account_mapping_rules` with `rule_type='processor_fee|<processor_id>'`; RPC reads that first, falls back to default.
+12. **Add `manually_adjusted=false` orphan detector** — nightly view of posted entries whose source row was deleted.
+
+### (C) UX / UI FIXES  *(rollout after A/B)*
+13. Migrate all 17 finance pages to `PageHeader`, `KpiGrid`, `KpiCard`, `StatusBadge`, `TableSkeleton`, `EmptyState`, and `@/utils/format` (`fmtHKWhole`, `fmtCurrency`, `fmtDate`).
+14. Persist filters (period, venue, account, status) to URL search params on Dashboard, Payables, Receivables, Journal, Ledger, BankReconciliation, TrialBalance, BalanceSheet, CashflowStatement.
+15. Add skeletons + empty states with actionable CTAs (e.g., "No unmatched transactions — Import statement").
+16. Right-align all HK$ columns and use `tabular-nums`; never truncate numeric cells.
+17. Add mobile card layouts for Payables, Receivables, Journal, BankReconciliation.
+18. Add unmatched-txn CTAs: "Post as JE", "Create bill", "Match to invoice/payment".
+19. Consolidate cashflow pages (four exist — decide keep `CashflowStatement.tsx` as canonical; retire duplicates or make them tabs).
+20. Retire `DocumentsBills.tsx` / `BillsExpenses.tsx` as separate finance routes (already served by `/expenses/bills`).
+21. Journal filter: label enum values via `SOURCE_LABELS` + include the three missing types.
+22. Trial Balance: add prior-period comparison + click-through to Ledger.
+23. Balance Sheet: add As-Of date picker persisted in URL, and Export to PDF.
+24. Dashboard: add "Unmapped venues / methods" and "Unposted approved invoices" tiles.
+
+---
+
+## OVERALL VERDICT
+
+**Not at professional finance-software standard yet.** Double-entry math is clean and the rebuild RPC is well-guarded, but three whole subledgers (AP payments, payroll payments, credit-note applications) never reach the GL, three finance hooks leak across tenants, and the entire section skipped the design-system migration that Revenue / Procurement / Expenses already went through. Fix the five (A) items to reach *correct*, the seven (B) items to reach *auditable*, and the (C) rollout to reach *Ramp-grade polish*.
+
+*No code changes were made — this is a read-only audit awaiting build-mode approval.*
