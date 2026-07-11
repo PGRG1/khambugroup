@@ -111,20 +111,26 @@ export default function FinanceDashboard() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [plRows, bsRows, cashRows, coaRes, invAll] = await Promise.all([
+      const [plRows, bsRows, cashRows, coaRes, invAll, jeInv] = await Promise.all([
         fetchWindowed("v_pl", "account_id,code,name,account_type,entry_date,year,month,amount", windowStart, tenantId),
         fetchWindowed("v_balance_sheet", "account_id,code,name,account_type,entry_date,amount", windowStart, tenantId),
         fetchWindowed("v_cash_movements", "entry_date,account_code,account_name,cash_in,cash_out,net_cash,venue", windowStart, tenantId),
         supabase.from("chart_of_accounts" as any).select("id,code,name,account_type,is_cash").eq("tenant_id", tenantId),
-        fetchAllRows("invoices", "id, review_status, journal_entry_id", undefined, tenantId).catch(() => []),
+        fetchAllRows("invoices", "id, review_status", undefined, tenantId).catch(() => []),
+        fetchAllRows("journal_entries", "source_id,source_type,status", undefined, tenantId).catch(() => []),
       ]);
       if (cancelled) return;
       setPl(plRows as unknown as PLRow[]);
       setBs(bsRows as unknown as BSRow[]);
       setCash(cashRows as unknown as CashRow[]);
       setCoa(((coaRes.data as any[]) || []) as CoA[]);
+      const postedInvIds = new Set(
+        (jeInv as any[])
+          .filter((e) => e.source_type === "invoice" && e.status === "posted" && e.source_id)
+          .map((e) => e.source_id as string),
+      );
       const unposted = (invAll as any[]).filter(
-        (i) => i.review_status === "Approved" && !i.journal_entry_id
+        (i) => i.review_status === "Approved" && !postedInvIds.has(i.id)
       ).length;
       setUnpostedApproved(unposted);
       setLoading(false);
