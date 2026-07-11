@@ -915,6 +915,7 @@ const SystemConfiguration = () => {
         </p>
       </div>
 
+      <OrganizationsSection />
       <VenuesSection />
       <ServicePeriodsSection />
       <RevenueSourcesSection />
