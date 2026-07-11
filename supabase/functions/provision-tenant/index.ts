@@ -309,19 +309,9 @@ Deno.serve(async (req) => {
       if (error) throw new Error("page_visibility seed failed: " + error.message);
     }
 
-    // 5c. app_config defaults (timezone, currency, FY start, country, legal entity)
-    {
-      const rows = [
-        { tenant_id: tenantId, key: "country",              value: body.country },
-        { tenant_id: tenantId, key: "base_currency",        value: body.base_currency },
-        { tenant_id: tenantId, key: "timezone",             value: body.timezone },
-        { tenant_id: tenantId, key: "financial_year_start", value: body.financial_year_start },
-        { tenant_id: tenantId, key: "legal_entity_name",    value: body.legal_entity_name },
-        { tenant_id: tenantId, key: "client_group_name",    value: body.client_group_name },
-      ];
-      const { error } = await admin.from("app_config").insert(rows);
-      if (error) throw new Error("app_config seed failed: " + error.message);
-    }
+    // 5c. Localisation lives on `tenants` typed columns now (set at insert time).
+    //     app_config stays for other future untyped settings but no longer duplicates
+    //     timezone/currency/country/legal_entity_name/client_group_name/financial_year_start.
 
     // 5d. default document categories (stored in expense_categories table as catch-all)
     //     and default departments
@@ -340,9 +330,12 @@ Deno.serve(async (req) => {
       if (error && error.code !== "23502") throw new Error("doc categories seed failed: " + error.message);
     }
 
-    // 5e. default chart of accounts
+    // 5e. Chart of accounts — pulled from public.coa_templates (`f_and_b_hk`).
+    //     Falls back to a minimal inlined set if the template row is missing.
     {
-      const rows = DEFAULT_COA.map((a) => ({
+      const { data: tpl } = await admin.from("coa_templates").select("template").eq("code","f_and_b_hk").maybeSingle();
+      const source: any[] = (tpl?.template as any[]) ?? FALLBACK_COA;
+      const rows = source.map((a: any) => ({
         tenant_id: tenantId,
         code: a.code, name: a.name,
         account_type: a.account_type, normal_side: a.normal_side,
@@ -352,11 +345,18 @@ Deno.serve(async (req) => {
       if (error) throw new Error("chart_of_accounts seed failed: " + error.message);
     }
 
+    // 5f. Seed the onboarding cockpit row so the client opens at Phase 1 immediately.
+    await admin.from("tenant_onboarding").upsert({
+      tenant_id: tenantId, current_phase: 1, steps: {},
+    }, { onConflict: "tenant_id" });
+
     // 6. Activate tenant now that >=1 venue and >=1 tenant_admin exist
     {
       const { error } = await admin.from("tenants").update({ status: "active" }).eq("id", tenantId);
       if (error) throw new Error("activate tenant failed: " + error.message);
     }
+
+
 
     // 7. Audit log
     await admin.from("audit_log").insert({
