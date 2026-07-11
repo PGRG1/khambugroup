@@ -213,33 +213,63 @@ export function StepVenues({ tenantId, onComplete }: StepProps) {
 
 
 // ---------- Phase 1: Localisation ----------
+const FY_PRESETS: { label: string; mm: number; dd: number }[] = [
+  { label: "31 December", mm: 12, dd: 31 },
+  { label: "31 March", mm: 3, dd: 31 },
+  { label: "30 June", mm: 6, dd: 30 },
+  { label: "30 September", mm: 9, dd: 30 },
+];
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAYS_IN_MONTH = [31,29,31,30,31,30,31,31,30,31,30,31];
+
+// FY end stored as anchor date "2000-MM-DD" (only month/day matter).
+const toFyEndStr = (mm: number, dd: number) => `2000-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
+const parseFyEnd = (s: string | null | undefined): { mm: number; dd: number } | null => {
+  if (!s) return null;
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return null;
+  return { mm: parseInt(m[1], 10), dd: parseInt(m[2], 10) };
+};
+const fmtDMY = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
 export function StepLocalisation({ tenantId, onComplete }: StepProps) {
   const [tenant, setTenant] = useState<any>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+
   const load = async () => {
     const { data } = await supabase.from("tenants").select("id, timezone, base_currency, country, financial_year_end, financial_year_start_year").eq("id", tenantId).single();
     setTenant(data);
+    // Open custom editor if the saved value isn't a preset
+    const parsed = parseFyEnd(data?.financial_year_end);
+    if (parsed && !FY_PRESETS.some((p) => p.mm === parsed.mm && p.dd === parsed.dd)) {
+      setCustomOpen(true);
+    }
   };
   useEffect(() => { load(); }, [tenantId]);
 
+  const fyEnd = parseFyEnd(tenant?.financial_year_end);
+  const activePreset = fyEnd ? FY_PRESETS.find((p) => p.mm === fyEnd.mm && p.dd === fyEnd.dd) : undefined;
+
   const summary = useMemo(() => {
-    if (!tenant?.financial_year_end || !tenant?.financial_year_start_year) return null;
-    const end = new Date(tenant.financial_year_end);
-    const year = Number(tenant.financial_year_start_year);
-    const startYear = end.getMonth() === 11 ? year : year;
-    const startDate = new Date(startYear, end.getMonth() === 11 ? 0 : end.getMonth() + 1, 1);
-    const startAdj = end.getMonth() === 11
-      ? new Date(year, 0, 1)
-      : new Date(year - (end.getMonth() >= 11 ? 0 : 0), (end.getMonth() + 1) % 12, 1);
-    // Simpler: first FY runs from (start year + start month) → end date one year later
-    const fyStart = new Date(year, (end.getMonth() + 1) % 12, 1);
-    if ((end.getMonth() + 1) % 12 === 0) fyStart.setFullYear(year);
-    const fyEnd = new Date(fyStart.getFullYear() + 1, fyStart.getMonth() - 1, 0);
-    // Closing balance date = day before FY start
-    const closing = new Date(fyStart);
-    closing.setDate(closing.getDate() - 1);
-    const fmt = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-    return { first: `${fmt(fyStart)} → ${fmt(fyEnd)}`, closing: fmt(closing) };
-  }, [tenant]);
+    if (!fyEnd || !tenant?.financial_year_start_year) return null;
+    const startYear = Number(tenant.financial_year_start_year);
+    if (!Number.isFinite(startYear)) return null;
+    // First FY ends on (startYear, fyEnd.mm, fyEnd.dd); starts one year earlier + 1 day.
+    const fyEndDate = new Date(startYear, fyEnd.mm - 1, fyEnd.dd);
+    const fyStartDate = new Date(startYear - 1, fyEnd.mm - 1, fyEnd.dd);
+    fyStartDate.setDate(fyStartDate.getDate() + 1);
+    const closingDate = new Date(fyStartDate);
+    closingDate.setDate(closingDate.getDate() - 1);
+    return {
+      first: `${fmtDMY(fyStartDate)} → ${fmtDMY(fyEndDate)}`,
+      closing: fmtDMY(closingDate),
+    };
+  }, [fyEnd?.mm, fyEnd?.dd, tenant?.financial_year_start_year]);
+
+  const pickPreset = (mm: number, dd: number) => {
+    setTenant({ ...tenant, financial_year_end: toFyEndStr(mm, dd) });
+    setCustomOpen(false);
+  };
 
   const save = async () => {
     const { error } = await supabase.rpc("platform_update_tenant_localisation", {
@@ -255,11 +285,14 @@ export function StepLocalisation({ tenantId, onComplete }: StepProps) {
     onComplete();
   };
 
-
   if (!tenant) return <div className="text-sm text-muted-foreground">Loading…</div>;
 
+  const customMm = customOpen && fyEnd ? fyEnd.mm : 12;
+  const customDd = customOpen && fyEnd ? fyEnd.dd : 31;
+  const maxDay = DAYS_IN_MONTH[customMm - 1];
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Field label="Timezone">
           <Select value={tenant.timezone ?? "Asia/Hong_Kong"} onValueChange={(v) => setTenant({...tenant, timezone: v})}>
@@ -279,21 +312,89 @@ export function StepLocalisation({ tenantId, onComplete }: StepProps) {
             <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
         </Field>
-        <Field label="Financial year end (any year — only month/day used)">
-          <Input type="date" value={tenant.financial_year_end ?? ""} onChange={(e) => setTenant({...tenant, financial_year_end: e.target.value})}/>
-        </Field>
-        <Field label="FY start year (anchor)">
-          <Input type="number" placeholder="e.g. 2025" value={tenant.financial_year_start_year ?? ""} onChange={(e) => setTenant({...tenant, financial_year_start_year: Number(e.target.value) || null})}/>
+        <Field label="First FY end year">
+          <Input type="number" placeholder="e.g. 2026" value={tenant.financial_year_start_year ?? ""} onChange={(e) => setTenant({...tenant, financial_year_start_year: Number(e.target.value) || null})}/>
         </Field>
       </div>
-      {summary && (
-        <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm">
-          <div><span className="text-muted-foreground">First financial year:</span> <span className="font-medium">{summary.first}</span></div>
-          <div><span className="text-muted-foreground">Closing balance date:</span> <span className="font-medium">{summary.closing}</span></div>
+
+      <div className="space-y-2">
+        <div className="text-xs font-medium text-muted-foreground">Financial year end</div>
+        <div className="flex flex-wrap gap-2">
+          {FY_PRESETS.map((p) => {
+            const isActive = !customOpen && activePreset?.label === p.label;
+            return (
+              <Button
+                key={p.label}
+                type="button"
+                size="sm"
+                variant={isActive ? "default" : "outline"}
+                onClick={() => pickPreset(p.mm, p.dd)}
+              >
+                {p.label}
+              </Button>
+            );
+          })}
+          <Button
+            type="button"
+            size="sm"
+            variant={customOpen ? "default" : "outline"}
+            onClick={() => {
+              const next = !customOpen;
+              setCustomOpen(next);
+              if (next && !fyEnd) setTenant({ ...tenant, financial_year_end: toFyEndStr(12, 31) });
+            }}
+          >
+            Custom
+          </Button>
+        </div>
+        {customOpen && (
+          <div className="flex items-center gap-2 pt-1">
+            <Select value={String(customMm)} onValueChange={(v) => {
+              const mm = Number(v);
+              const dd = Math.min(customDd, DAYS_IN_MONTH[mm - 1]);
+              setTenant({ ...tenant, financial_year_end: toFyEndStr(mm, dd) });
+            }}>
+              <SelectTrigger className="w-40"><SelectValue/></SelectTrigger>
+              <SelectContent>{MONTH_NAMES.map((n, i) => <SelectItem key={n} value={String(i + 1)}>{n}</SelectItem>)}</SelectContent>
+            </Select>
+            <Input
+              type="number"
+              min={1}
+              max={maxDay}
+              value={customDd}
+              onChange={(e) => {
+                const dd = Math.min(Math.max(1, Number(e.target.value) || 1), maxDay);
+                setTenant({ ...tenant, financial_year_end: toFyEndStr(customMm, dd) });
+              }}
+              className="w-24"
+            />
+            <span className="text-xs text-muted-foreground">Month &amp; day only — no year.</span>
+          </div>
+        )}
+      </div>
+
+      {summary ? (
+        <div className="rounded-lg border border-success/40 bg-success/5 p-4 space-y-1.5 text-sm">
+          <div>
+            <span className="text-muted-foreground">Closing balance date:</span>{" "}
+            <span className="font-semibold text-foreground">{summary.closing}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">First financial year:</span>{" "}
+            <span className="font-semibold text-foreground">{summary.first}</span>
+          </div>
+          <div className="text-xs text-muted-foreground pt-1">
+            Opening balances are entered as at the closing balance date; the first financial year begins the day after.
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+          Pick a financial year end and enter the first FY end year to preview the closing balance date and first financial year.
         </div>
       )}
+
       <div className="flex justify-end">
-        <Button size="sm" onClick={save}><CheckCircle2 className="h-4 w-4 mr-1"/>Save & mark complete</Button>
+        <Button size="sm" onClick={save}><CheckCircle2 className="h-4 w-4 mr-1"/>Save &amp; mark complete</Button>
       </div>
     </div>
   );
