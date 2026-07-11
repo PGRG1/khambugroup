@@ -18,7 +18,7 @@ export interface PeriodOption {
   year: number;
 }
 
-function getOptionsForView(view: ViewMode, year: number): PeriodOption[] {
+export function getOptionsForView(view: ViewMode, year: number): PeriodOption[] {
   switch (view) {
     case "monthly":
       return MONTHS.map((m, i) => ({
