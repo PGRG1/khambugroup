@@ -99,12 +99,15 @@ export default function FinanceDashboard() {
   })();
 
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const { unmappedVenues, unmappedCount: unmappedVenueCount } = useUnmappedVenues();
   const [pl, setPl] = useState<PLRow[]>([]);
   const [bs, setBs] = useState<BSRow[]>([]);
   const [cash, setCash] = useState<CashRow[]>([]);
   const [coa, setCoa] = useState<CoA[]>([]);
   const [loading, setLoading] = useState(true);
   const [unpostedApproved, setUnpostedApproved] = useState<number>(0);
+
+
 
   useEffect(() => {
     if (tenantLoading) return;
