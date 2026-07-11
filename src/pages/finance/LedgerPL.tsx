@@ -383,10 +383,10 @@ export default function LedgerPL() {
         <KpiSkeleton count={4} />
       ) : selectedPeriods.length > 0 && (
         <KpiGrid>
-          <KpiCard label="Revenue" value={`HK$ ${fmtHKWhole(totalRevenue).replace(/^HK\$ /, "")}`} tone="info" />
-          <KpiCard label="Gross Profit" value={`HK$ ${fmtHKWhole(totalGross).replace(/^HK\$ /, "")}`} tone={totalGross >= 0 ? "success" : "destructive"} hint={totalRevenue !== 0 ? `${((totalGross / totalRevenue) * 100).toFixed(1)}% margin` : undefined} />
-          <KpiCard label="Operating Profit" value={`HK$ ${fmtHKWhole(totalOperating).replace(/^HK\$ /, "")}`} tone={totalOperating >= 0 ? "success" : "destructive"} hint={totalRevenue !== 0 ? `${((totalOperating / totalRevenue) * 100).toFixed(1)}% margin` : undefined} />
-          <KpiCard label="Net Income" value={`HK$ ${fmtHKWhole(totalNet).replace(/^HK\$ /, "")}`} tone={totalNet >= 0 ? "success" : "destructive"} hint={netMargin !== null ? `${netMargin.toFixed(1)}% net margin` : undefined} />
+          <KpiCard label="Revenue" value={fmtHKWhole(totalRevenue)} tone="info" />
+          <KpiCard label="Gross Profit" value={fmtHKWhole(totalGross)} tone={totalGross >= 0 ? "success" : "destructive"} hint={totalRevenue !== 0 ? `${((totalGross / totalRevenue) * 100).toFixed(1)}% margin` : undefined} />
+          <KpiCard label="Operating Profit" value={fmtHKWhole(totalOperating)} tone={totalOperating >= 0 ? "success" : "destructive"} hint={totalRevenue !== 0 ? `${((totalOperating / totalRevenue) * 100).toFixed(1)}% margin` : undefined} />
+          <KpiCard label="Net Income" value={fmtHKWhole(totalNet)} tone={totalNet >= 0 ? "success" : "destructive"} hint={netMargin !== null ? `${netMargin.toFixed(1)}% net margin` : undefined} />
         </KpiGrid>
       )}
 
