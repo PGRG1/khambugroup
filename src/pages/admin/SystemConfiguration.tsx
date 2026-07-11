@@ -6,6 +6,7 @@ import { useOrganizations, Organization } from "@/hooks/useOrganizations";
 import { useServicePeriods, ServicePeriod } from "@/hooks/useServicePeriods";
 import { useRevenueSources, RevenueSource } from "@/hooks/useRevenueSources";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -13,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { ThemeSwitcher } from "@/components/theme/ThemeSwitcher";
 import {
   ChevronDown,
   Building2,
@@ -28,6 +30,8 @@ import {
   GripVertical,
   ArrowUp,
   ArrowDown,
+  Eye,
+  Palette,
 } from "lucide-react";
 
 const SectionShell = ({
