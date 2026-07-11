@@ -97,6 +97,8 @@ import PettyCashFloatsPage from "./pages/petty-cash/PettyCashFloatsPage";
 import PettyCashClassificationsPage from "./pages/petty-cash/PettyCashClassificationsPage";
 
 import HREmployees from "./pages/hr/HREmployees";
+import HREmployeeProfile from "./pages/hr/HREmployeeProfile";
+import HRDashboard from "./pages/hr/HRDashboard";
 import HROrgChart from "./pages/hr/HROrgChart";
 import HRSchedule from "./pages/hr/HRSchedule";
 import HRLeave from "./pages/hr/HRLeave";
