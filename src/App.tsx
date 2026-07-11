@@ -336,6 +336,7 @@ function App() {
                 <Route path="/kpis/planner" element={<AdminRoute><KpiPlanner /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </TenantPreviewProvider>
             </BrowserRouter>
             </PreviewModeProvider>
           </ThemeProvider>
