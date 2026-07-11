@@ -48,6 +48,8 @@ function getPresetRange(preset: PeriodPreset): { from: string; to: string } {
 }
 
 export default function CashflowStatement() {
+  const { venues } = useVenues();
+  const venueNames = useMemo(() => venues.filter((v) => v.is_active).map((v) => v.name), [venues]);
   const [preset, setPreset] = useState<PeriodPreset>("ytd");
   const initial = getPresetRange("ytd");
   const [fromDate, setFromDate] = useState(initial.from);
@@ -164,7 +166,7 @@ export default function CashflowStatement() {
             <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="All Venues">All Venues</SelectItem>
-              {CASHFLOW_VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              {venueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={handleExport}>
