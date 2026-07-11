@@ -1,74 +1,106 @@
-# Procurement Section — Full Audit (no edits made)
 
-Scope: every route reachable from the Procurement sidebar group + the `/procurement/*` routes registered in `src/App.tsx`. Typecheck across the whole project is currently **clean** (`tsgo --noEmit` = 0 errors), so all findings below are runtime / data-integrity / UX, not build.
+# Finance Section Audit (P&L excluded)
 
-## Page-by-page checklist
+Scope: Dashboard, Payables, Receivables, Payments & Settlements, Bank Reconciliation, Balance Sheet, Cash Flow, Trial Balance, Journal, Ledger, Chart of Accounts, Ledger Audit Log.
 
-Legend: WORKING = renders + fetches + core actions run; DEGRADED = works but has real issues; BROKEN = dead route, crash, or silent data loss.
+Baseline sanity (live DB, tenant `…beef`): 1,118 invoice + 1,000 sales journals; posted debit = credit = HK$17,942,954.05 (0.00 diff). Trial balance balances. So the *ledger core* is sound — the problems sit around it.
 
-| # | Page (sidebar → route) | File | Status | Notes |
-|---|---|---|---|---|
-| 1 | Overview → `/procurement/dashboard` | `components/procurement/ProcurementDashboardTab.tsx` | DEGRADED | Uses `useVenues` for the venue chip filter (good), but the underlying invoice/GRN fetches don't scope by `tenant_id` — cross-tenant leakage on the read path. No shared `<PageHeader>` — hand-rolled `KpiCard`. |
-| 2 | Master Data › Suppliers & Vendors → `/procurement/suppliers` | `components/procurement/SuppliersTab.tsx` | DEGRADED | `supabase.from("suppliers").select("*")` and every mutation runs with **no `tenant_id` filter** (lines 87, 168, 171, 179). Relies entirely on RLS. Create/edit/delete work via `SupplierSheet`. |
-| 3 | Master Data › Items Master → `/procurement/products` | `components/procurement/ProductMasterTab.tsx` | WORKING | `tenant_id` correctly applied on read + insert. |
-| 4 | Master Data › Categories & Units → `/procurement/categories` | `components/procurement/CategoriesTab.tsx` (+ `ProductCategoriesPanel`, `UomOptionsPanel`) | WORKING | Small wrapper, both panels load. |
-| 5 | Purchasing › Purchase Orders → `/procurement/purchase-orders` | `components/procurement/PurchaseOrdersTab.tsx` | DEGRADED | Hardcoded `VENUES = ["Assembly","Caliente","Hanabi"]` (line 19) — will never surface Arca/Off-Site/Test Venue. No `tenant_id` filter on `purchase_orders`, `suppliers`, `product_master`, `product_suppliers` reads. DB currently has **0 rows in purchase_orders**, so nothing has actually been exercised end-to-end. |
-| 6 | Purchasing › Goods Receipts / GRNs → `/procurement/receiving` | `components/procurement/ReceivingTab.tsx` | DEGRADED | Same hardcoded `VENUES` list (line 24). No `tenant_id` filter on `suppliers`, `product_master`, `purchase_orders`, `invoices`, `goods_received_notes`, `grn_items` (all lines 121–350). Also silently `.limit(500)` on invoices — big tenants will miss recent invoices in the picker. |
-| 7 | Purchasing › Invoices → `/procurement/invoices` | `components/procurement/ProcurementInvoicesTab.tsx` (2184 lines) | DEGRADED | Two hardcoded venue lists: `SelectItem` block at 1073–1075 and options array at 2011 — Arca will not appear in filter or edit form. `tenant_id` used only in a couple of RPC/update spots; the main list read is not tenant-scoped. Otherwise CRUD, filters, sorting all wired. |
-| 8 | Purchasing › Purchase Register → `/procurement/line-items` | `components/procurement/ProcurementLineItemsTab.tsx` | DEGRADED | No `tenant_id` filter; relies on RLS. Otherwise renders. |
-| 9 | Purchasing › Deposit Ledger → `/procurement/deposit-ledger` | `components/procurement/DepositLedgerTab.tsx` (12 lines, stub wrapper) | WORKING | Thin wrapper; underlying `DepositTransactionSheet` uses `tenant_id`. |
-| 10 | Purchasing › Credit & Debit Notes → `/procurement/credit-notes` | `pages/procurement/CreditNotes.tsx` | WORKING | Tenant-scoped, only 1 row in DB but flow renders. |
-| 11 | Purchasing › Documents → `/procurement/documents` | `components/procurement/DocumentsTab.tsx` | WORKING | Storage-driven, no `tenant_id` reference needed there but should verify storage bucket policy. |
-| 12 | Inventory › Stock on Hand → `/procurement/inventory` | `components/procurement/InventoryOnHandTab.tsx` | WORKING | `tenant_id` passed to RPC + stock-count reads. |
-| 13 | Inventory › Stock Counts → `/procurement/stock-counts` | `pages/procurement/StockCounts.tsx` | DEGRADED | Hardcoded `VENUES = ["Assembly","Caliente","Hanabi"]` (line 75), default `"Assembly"`. Tenant filter is applied. |
-| 14 | Inventory › Stock Movements → `/procurement/stock-movements` | — | BROKEN (intentional) | Sidebar item marked `disabled: true` (line 106) — no route registered. Acceptable stub, but the group implies it exists. |
-| 15 | Inventory › Transfers → `/procurement/transfers` | `pages/procurement/Transfers.tsx` | DEGRADED | Hardcoded `VENUES` (line 39), defaults `fromVenue="Assembly"`, `toVenue="Caliente"`. No `tenant_id` on `transfers`, `transfer_items`, `stock_locations`, `product_master`, `profiles` reads. |
-| 16 | Inventory › Waste & Adjustments → `/procurement/waste` | `pages/procurement/Waste.tsx` | WORKING | Uses `useVenues`, tenant-scoped. 0 rows in DB but flow is correct. |
-| 17 | Costing › Recipes & Menu Costing → `/procurement/menu-costing` | `components/procurement/MenuCostingTab.tsx` | DEGRADED | No explicit `tenant_id` filter on menu / recipe reads (RLS-only). Otherwise renders. |
-| 18 | Analysis › Purchase Analysis → `/procurement/purchase-analysis` | `pages/procurement/PurchaseAnalysis.tsx` | WORKING | Tenant-scoped. |
-| 19 | Analysis › Supplier Pricing → `/procurement/supplier-pricing` | `pages/procurement/SupplierPricing.tsx` | WORKING | Tenant-scoped. |
-| 20 | Analysis › Inventory Variance → `/procurement/inventory-variance` | — | BROKEN (intentional) | Sidebar disabled, no route. |
-| 21 | Finance › Spend Summary → `/procurement/finance/spend` | `pages/procurement/SpendSummary.tsx` | WORKING | Tenant-scoped. |
-| 22 | Finance › Supplier Accounts → `/procurement/finance/suppliers` | `pages/procurement/SupplierAccounts.tsx` | WORKING | Loads list; drill-in to `SupplierAccount` works. |
-| 23 | Finance › Open Payables → `/procurement/finance/payables` | `pages/procurement/OpenPayables.tsx` | WORKING | |
-| 24 | Finance › Opening Balances → `/procurement/finance/onboarding` | `pages/procurement/OpeningBalances.tsx` | WORKING | Tenant-scoped, full CRUD. |
-| 25 | Finance › Payments → `/procurement/finance/payments` | — | BROKEN (intentional) | Disabled stub, no route. |
+---
 
-## Data-flow findings
+## PART 1 — Accounting logic & data-flow findings
 
-1. **Venue master is not the source of truth.** `venues` master has 6 rows (Arca, Assembly, Caliente, Hanabi, Off-Site / Stall, Test Venue) but 5 procurement surfaces still hardcode a 3-venue list: `PurchaseOrdersTab`, `ReceivingTab`, `ProcurementInvoicesTab` (two places), `Transfers`, `StockCounts`. Arca invoices/POs cannot be created or filtered from Procurement, mirroring exactly the Daily-Sales issue that was just fixed.
-2. **Existing invoice venue data is dirty.** `SELECT venue, count(*) FROM invoices` returns:
-   - `Caliente` 721, `Assembly` 391, `Hanabi` 17 — clean
-   - `Caliente and Hanabi` 7, `CALIENTE AND HANABI` 1 — split-venue rows (need a policy: split into two invoices or move to a `venue_scope` field)
-   - `Caliante` 3, `ASSEMBLY` 1 — typos / casing that don't match the master
-   Downstream aggregations (`SpendSummary`, `Dashboard`, P&L feeds) silently drop or miscategorise these ~12 rows.
-3. **Tenant leakage on the read path.** Multiple hot tables are read without `.eq("tenant_id", ...)`: `suppliers` (SuppliersTab, PurchaseOrdersTab, ReceivingTab), `purchase_orders`, `product_master` (PO/GRN pickers), `product_suppliers`, `invoices` list, `invoice_line_items` (Purchase Register), `transfers`/`transfer_items`. RLS covers this today, but the pattern is inconsistent with the rest of the app and will break if RLS is ever relaxed for edge functions.
-4. **Orphaned records:** `SELECT count(*) FROM invoices WHERE supplier_id NOT IN suppliers` = 0 (clean). `purchase_orders` has 0 rows so GRN→PO linkage is untested against real data.
-5. **Silent caps:** `ReceivingTab` invoice picker `.limit(500)`; the app also has the known 1000-row Supabase cap that the project standard `fetchAllRows` utility is supposed to solve. Neither invoice list uses `fetchAllRows`.
+### P0 — Cross-tenant read leaks (super-admin sees merged data)
 
-## Cross-check with recent refactors
+1. `src/hooks/useBankReconciliation.ts` `load()` calls `fetchAllRows("bank_transactions" | "bank_accounts" | "chart_of_accounts" | "journal_lines")` **without a tenantId argument**. On a platform-admin login every tenant's bank ledger balances merge silently → wrong `ledgerBalanceFor()` and wrong reconciliation status.
+2. `src/hooks/useReceivables.ts` fetches `journal_lines` unscoped — AR aging on any super-admin session mixes tenants.
+3. `src/hooks/usePayables.ts` (visible fetch pattern) — same risk; needs a re-pass to add `tenantId` to every `fetchAllRows` and `.eq("tenant_id", …)` on every direct `.from()`.
+4. `src/pages/finance/LedgerAuditLog.tsx` queries `ledger_audit_log` without a tenant filter.
+5. `src/pages/finance/BankReconciliation.tsx` reads `bank_recon_rules` without tenant filter (line 55).
+6. `src/pages/finance/Dashboard.tsx` uses `fetchAllRows` (`v_pl`, `v_balance_sheet`, journal_lines) with no tenantId passed.
 
-- **Venues refactor:** `SalesRecord.venue` is now `string` and Daily Sales reads `useVenues()`. Procurement did **not** get the same treatment — the 5 hardcoded lists in point 1 are the exact regressions we should expect.
-- **Expenses shared primitives (`components/expenses/shared.tsx`, `PageHeader`, `KpiGrid`, `ScopeLine`, `EmptyState`, `KpiSkeleton`):** Procurement does not consume any of them. Every procurement page still hand-rolls its own KPI card, page header, and empty state. Not broken, but the visual language is drifting again.
-- **Format utils:** most procurement pages use ad-hoc `toLocaleString` instead of the mandated `@/utils/format` helpers (memory: "All currency/number/date display goes through `@/utils/format`").
+Rule to enforce project-wide (already in `src/lib/tenantQuery.ts`): every finance read that hits a `tenant_id`-bearing table MUST go via `tenantSelect` / `fetchAllRowsForTenant` or attach an explicit `.eq("tenant_id", tenantId)`.
 
-## UX / consistency issues (non-blocking)
+### P0 — Missing / broken postings
 
-- `Procurement.tsx` renders a plain `<h1>` instead of `<PageHeader>` — no breadcrumb, no scope line, no actions slot.
-- Sidebar `disabled: true` items (Stock Movements, Inventory Variance, Payments) present a dead affordance — either build stubs or hide until ready.
-- `ProcurementInvoicesTab` is 2 184 lines in a single file — a maintenance liability but not user-facing.
-- No skeletons on most tabs during initial fetch (Suppliers, POs, Receiving, Invoices) — flashes empty state on slow networks.
+7. **Payroll payments never post to the ledger.** `post_payroll_accrual` exists and 5 accruals are posted, but the DB has 0 rows with `source_type IN ('payroll_payment','mpf_payment')` — `salary_payable` / `mpf_payable` never clear. `post_payroll_payment_batch` exists as a function, but it's not being invoked from the payment-batch UI (or is failing silently). Aging on AP payroll payables will grow forever.
+8. **Bank fees under-posted.** 1 `bank_fee` JE for 88 unmatched bank transactions — the classifier flags them (`suggested_type='bank_fee'`) but nothing books them until a user hand-posts. No automated bank-fee sweep or "post all suggested fees" bulk action.
+9. **`rebuild_journal_from_operations` coverage gap.** It rebuilds only `sales_summary | invoice | invoice_payment | settlement_clearing | bank_txn`. It does NOT rebuild expense bills (`post_expense_bill` only) or vendor statements (`post_vendor_statement`) or payroll. That is defensible for *posted* entries but means a partially-drafted expense bill deletion won't be rediscovered. Document this or extend to rebuild drafts for all sources.
+10. **88 unmatched bank transactions with no reminder surface.** No dashboard KPI, no red pill in the sidebar, no "N txns awaiting review" badge on the Bank Recon tab. This is the single biggest finance-hygiene miss.
 
-## Overall verdict
+### P1 — Chart of Accounts & mapping coverage
 
-**Not at professional standard yet.** The section functions and no tab crashes, but it silently drops Arca and future venues, has dirty venue data downstream, and duplicates ~5 versions of "which venues exist" that the rest of the app has already centralised. Fix these before treating Procurement as production-ready.
+11. Only 1 mapping row exists for `accounts_payable`, `sales_cash`, `salary_payable`, `mpf_payable`, `payroll_salary_expense`, `payroll_mpf_expense`, `opening_equity`, `suspense`, `invoice_discount`, `invoice_refund`. If a second venue/entity is added there's no fallback path; the rebuild silently posts to suspense.
+12. `useAccountMapping.RULE_TYPES` does not list `processor_fee_default`, `bank_transfer_fee_default`, `cash_payment_clearing` — but the rebuild RPC reads them. Admins can't configure them from the UI, so those postings land wrong or in suspense forever.
+13. `Journal.tsx` `SOURCE_LABELS` is missing `sales_summary`, `settlement_clearing`, `bank_fee`, `bank_txn` → users see raw enum strings and the source-type filter dropdown is blind to those categories.
 
-## Top fixes, in priority order (for a follow-up build turn)
+### P1 — Data-fetch correctness
 
-1. **Kill every hardcoded VENUES list.** Replace with `useVenues()` (active venues only) in `PurchaseOrdersTab`, `ReceivingTab`, `ProcurementInvoicesTab` (both spots), `Transfers`, `StockCounts`. Default selections must fall back to `venues[0]?.name`, not the literal `"Assembly"`.
-2. **Clean historical venue values.** One-shot migration to normalise casing (`ASSEMBLY` → `Assembly`), fix `Caliante` → `Caliente`, and decide on split-venue handling for `Caliente and Hanabi` (recommend: split into two invoices with allocated amounts, or add a `venue_scope` array column). Add a CHECK/foreign-key-style guard: `invoices.venue IN (SELECT name FROM venues)` (via trigger) so future dirty rows are impossible.
-3. **Add server-side `tenant_id` filtering on all procurement reads** (Suppliers, PurchaseOrders, Receiving, Invoices list, Line Items, Transfers, MenuCosting). Match the pattern Daily Sales now uses via `useTenantId` + `.eq("tenant_id", tenantId)`.
-4. **Adopt the shared design primitives.** `Procurement.tsx` → `<PageHeader>`; every tab's KPI strip → `<KpiGrid>` + `<KpiCard>`; empty/loading states → `<EmptyState>` / `<KpiSkeleton>` / `<TableSkeleton>`; all numbers → `fmtHKWhole` / `fmtInt` / `.td-num`.
-5. **Replace `.limit(500)` and any list read that can exceed 1 000 rows with `fetchAllRows`.** Applies to the ReceivingTab invoice picker, ProcurementInvoicesTab main list, and `invoice_line_items` in Purchase Register.
+14. `src/pages/finance/Ledger.tsx` line 52: `.limit(5000)` on `v_general_ledger`. Per project memory *"`.limit(N)` does NOT bypass the 1000-row cap"* — swap to `fetchAllRowsForTenant`.
+15. `src/hooks/useJournal.ts` `fetchAll` caps entries at 1000. On a mature tenant Journal silently drops old entries; also lines are fetched via `fetchAllRows` then client-filtered — expensive and still tenant-scoped only if the arg is passed (it is here, good).
+16. `useBankReconciliation.load()` pulls **all** `journal_lines` to compute one number per account. Move to a tenant-scoped SQL view (`v_gl_balance_by_account`) or an RPC — currently a 20–100k row round-trip.
 
-Report only — no files were changed. Awaiting go-ahead to implement fixes 1–5.
+### P1 — Cash-flow / venue drift
+
+17. `src/pages/finance/CashflowStatement.tsx` imports a hard-coded `CASHFLOW_VENUES` constant from `utils/cashflowCalculations`. Same class of bug we already fixed for Daily Sales and Procurement — Arca and any new venue silently missing. Replace with `useVenues()`.
+
+### P2 — Ledger integrity checks not surfaced
+
+18. `check_journal_balance` function exists but no UI surfaces its output. Add a "Ledger integrity" strip on Dashboard: last rebuild time, trial-balance diff, count of unbalanced entries, count of unmapped-suspense postings.
+19. No warning on Chart of Accounts when an account referenced by an `account_mapping_rule` is deactivated — will cause future rebuilds to fail silently.
+
+---
+
+## PART 2 — UX / UI audit
+
+### P1 — Design-system violations (each page hand-rolls what shared primitives already do)
+
+20. Every finance page defines its own `fmt`, `fmtWhole`, `fmtDate`, `fmtSigned` (Dashboard, Payables, Receivables, BalanceSheet, TrialBalance, Journal, Ledger, CashflowStatement, LedgerAuditLog). Project Core rule mandates `@/utils/format`. Replace universally.
+21. No page in the Finance module uses `<PageHeader>` / `<KpiGrid>` / `<KpiCard>` / `<StatusBadge>` — the same primitives Expenses and Procurement were just rebuilt around. Section feels disconnected from the rest of the app.
+22. `BankReconciliation.tsx` uses `formatCurrency` from `@/utils/salesUtils` (revenue module) — wrong dependency direction; should be `fmtHK` from `@/utils/format`.
+23. Status colouring is hand-rolled in every file (e.g. `Payables.tsx` BUCKET_COLOR / BUCKET_ACCENT / BUCKET_TINT triple maps, `Journal.tsx` STATUS_TONE, `BankReconciliation.tsx` `statusChip`). Consolidate into `<StatusBadge>` with semantic tones (primary / info / warning / destructive / muted). No more raw `bg-primary/10` sprinkled per file.
+
+### P1 — Missing loading / empty / mobile
+
+24. `BalanceSheet.tsx`, `TrialBalance.tsx`, `CashflowStatement.tsx`, `Ledger.tsx`, `Journal.tsx`: no skeletons on filter changes; large table just goes blank.
+25. No mobile card fallback on any finance table — Payables/Receivables/Journal/Ledger tables overflow horizontally on phones. Match the pattern used in Expenses (`md:table` + `<div className="md:hidden">` cards).
+26. Empty states are plain "No data" text — replace with the shared `<EmptyState>` used in Expenses/Procurement.
+
+### P1 — Filter / scope inconsistency
+
+27. Every page has its own venue filter, date filter and search input styled differently. No shared "chip + single scope line summarising active filters" pattern (already established in Daily Sales / Expenses). Adopt it here.
+28. Bank Reconciliation Overview tab lacks a KPI row (Unmatched count, Needs Review, This-month reconciled %, Statement-vs-ledger diff). It's the highest-value screen in Finance and currently the least informative.
+29. Dashboard has KPI cards but they aren't clickable; each should deep-link to the underlying report (Cash → Bank Recon filtered to that account; Aging → Payables filtered to the overdue bucket, etc.).
+
+### P2 — Copy / semantics
+
+30. Journal source-type filter shows raw enum strings for `sales_summary`, `settlement_clearing`, `bank_fee` (see item 13).
+31. Trial Balance page shows `ACCOUNT_TYPE_LABEL[t]` but relies on ordering `["asset","liability","equity","revenue","cogs","opex","other_income","other_expense"]` — add group subtotals matching Balance Sheet groupings for a professional look.
+32. Ledger Audit Log has icons but no colour tokens for status; some events not in `EVENT_LABELS` render as raw strings (`invoice_journal_created`, `sales_journal_reversed`, etc.).
+
+---
+
+## Prioritised remediation plan
+
+### P0 — Correctness (do first)
+- Add tenant scoping to every read in `useBankReconciliation`, `useReceivables`, `usePayables`, `useJournal`, `LedgerAuditLog.tsx`, `Dashboard.tsx`, `BankReconciliation.tsx` bank-recon-rules query. Route through `fetchAllRowsForTenant` / `tenantSelect`.
+- Fix payroll payment posting path: wire the Payments Batches UI to call `post_payroll_payment_batch`; add a "salary/MPF payable outstanding" tile on Dashboard driven by ledger balance so the gap is visible.
+- Add "post all suggested bank fees" bulk action and a Dashboard KPI counting unmatched bank transactions; expose `check_journal_balance` output as a Dashboard health strip.
+
+### P1 — Flow / mapping / fetch
+- Extend `useAccountMapping.RULE_TYPES` with `processor_fee_default`, `bank_transfer_fee_default`, `cash_payment_clearing`; expose in the mapping matrices under Chart of Accounts.
+- Replace `CASHFLOW_VENUES` constant with `useVenues()`.
+- Swap `Ledger.tsx` `.limit(5000)` for `fetchAllRowsForTenant`; move bank-recon per-account ledger totals to a SQL view/RPC.
+- Round out `Journal.tsx` SOURCE_LABELS.
+
+### P2 — Design system rollout
+- Introduce `<PageHeader>`, `<KpiGrid>`, `<KpiCard>`, `<StatusBadge>`, `<EmptyState>`, `<TableSkeleton>` across all finance pages.
+- Kill hand-rolled `fmt*` helpers; import from `@/utils/format`.
+- Add mobile card layouts, shared filter chips + scope line, deep-link Dashboard KPIs.
+- Add group subtotals to Trial Balance; complete Ledger Audit Log event labels.
+
+### Explicitly out of scope
+- P&L page — untouched per instruction.
+- Migrations creating new tables — none needed; all fixes are code + optional SQL views.
+
+## Verdict
+Not yet at professional-institutional standard. The double-entry core is correct and balances, but the module is undermined by (a) real tenant-leak risk for platform admins, (b) payroll-payment postings that never clear their liabilities, (c) 88 unclassified bank transactions with no user-facing signal, and (d) a design layer that looks disconnected from the just-rebuilt Expenses and Procurement sections. Executing P0 + P1 above brings it to parity; P2 makes it feel like one coherent product.
