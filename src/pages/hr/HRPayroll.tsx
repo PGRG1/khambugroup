@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useHRData } from "@/hooks/useHRData";
 import { PayrollTab } from "@/components/hr/PayrollTab";
+import { PageHeader, TableSkeleton } from "@/components/expenses/shared";
 
 export default function HRPayroll() {
   const hr = useHRData();
@@ -10,26 +11,22 @@ export default function HRPayroll() {
     return () => window.removeEventListener("hr-data-refresh", h);
   }, [hr]);
 
-  if (hr.loading) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-display">Payroll</h1>
-        <p className="text-sm text-muted-foreground">Manage salary, deductions, and payment records</p>
-      </div>
-      <PayrollTab
-        payroll={hr.payroll}
-        employees={hr.employees}
-        shifts={hr.shifts}
-        onSave={hr.upsertPayroll}
+      <PageHeader
+        title="Payroll"
+        description="Compute monthly gross, MPF, and net; post accruals and settlements straight to the ledger."
       />
+      {hr.loading ? (
+        <TableSkeleton rows={10} cols={10} />
+      ) : (
+        <PayrollTab
+          payroll={hr.payroll}
+          employees={hr.employees}
+          shifts={hr.shifts}
+          onSave={hr.upsertPayroll}
+        />
+      )}
     </div>
   );
 }
