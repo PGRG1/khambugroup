@@ -136,7 +136,16 @@ function padTime(h: number): string {
 export type ShiftClipboard = { shift_type: string; start_time: string; end_time: string } | null;
 
 export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, holidays, onSaveShift, onSaveAttendance, onSaveLeaveRequest, onRefetch }: Props) {
-  const [viewMode, setViewMode] = useState<"plan" | "actuals">("plan");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = (searchParams.get("view") as "today" | "plan" | "actuals") || "today";
+  const setView = (v: "today" | "plan" | "actuals") => {
+    const next = new URLSearchParams(searchParams);
+    next.set("view", v);
+    setSearchParams(next, { replace: true });
+  };
+  // Legacy state kept for the shift modal; the visible toggle reads `view` above.
+  const viewMode: "plan" | "actuals" = view === "actuals" ? "actuals" : "plan";
+  const setViewMode = (v: "plan" | "actuals") => setView(v);
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
