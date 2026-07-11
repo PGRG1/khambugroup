@@ -242,15 +242,19 @@ export function StepLocalisation({ tenantId, onComplete }: StepProps) {
   }, [tenant]);
 
   const save = async () => {
-    const { error } = await supabase.from("tenants").update({
-      timezone: tenant.timezone, base_currency: tenant.base_currency, country: tenant.country,
-      financial_year_end: tenant.financial_year_end || null,
-      financial_year_start_year: tenant.financial_year_start_year || null,
-    }).eq("id", tenantId);
+    const { error } = await supabase.rpc("platform_update_tenant_localisation", {
+      _tenant_id: tenantId,
+      _timezone: tenant.timezone ?? null,
+      _base_currency: tenant.base_currency ?? null,
+      _country: tenant.country ?? null,
+      _financial_year_end: tenant.financial_year_end || null,
+      _financial_year_start_year: tenant.financial_year_start_year || null,
+    });
     if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
     toast({ title: "Saved" });
     onComplete();
   };
+
 
   if (!tenant) return <div className="text-sm text-muted-foreground">Loading…</div>;
 
