@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Check, X, Calendar, Users, TreePalm, Clock, AlertTriangle, User, LayoutGrid, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRLeaveRequest, HRLeaveType, HRLeaveBalance, HREmployee, HRLeaveLedger } from "@/hooks/useHRData";
+import { LeaveCalendarMonth } from "./LeaveCalendarMonth";
 
 interface Props {
   leaveRequests: HRLeaveRequest[];
