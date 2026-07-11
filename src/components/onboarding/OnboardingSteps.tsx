@@ -137,7 +137,7 @@ export function StepVenues({ tenantId, onComplete }: StepProps) {
     setLoading(true);
     const [{ data: os, error: oe }, { data: vs, error: ve }] = await Promise.all([
       supabase.from("organizations").select("id, name").eq("tenant_id", tenantId).order("name"),
-      supabase.from("venues").select("id, name, organization_id").eq("tenant_id", tenantId).order("name"),
+      supabase.from("venues").select("id, name, organization_id, is_active").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
     ]);
     if (oe) toast({ title: "Could not load organizations", description: oe.message, variant: "destructive" });
     if (ve) toast({ title: "Could not load venues", description: ve.message, variant: "destructive" });
