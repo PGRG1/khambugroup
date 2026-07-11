@@ -684,21 +684,6 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
         onPosted={() => { reloadBatches(); window.dispatchEvent(new Event("hr-data-refresh")); }}
       />
 
-      <Dialog open={!!detailModal} onOpenChange={() => setDetailModal(null)}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {detailModal && (() => {
-                const emp = employees.find(e => e.id === detailModal.employee_id);
-                return emp ? `${emp.first_name} ${emp.last_name} — ${MONTHS_SHORT[detailModal.month - 1]} ${detailModal.year}` : "Payroll Detail";
-              })()}
-            </DialogTitle>
-          </DialogHeader>
-          {detailModal?.employee_id && (
-            <MTDScheduleView employeeId={detailModal.employee_id} shifts={shifts} month={detailModal.month} year={detailModal.year} />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
