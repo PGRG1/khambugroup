@@ -284,9 +284,19 @@ export function LeaveManagementTab({ leaveRequests, leaveTypes, leaveBalances, e
       <Tabs defaultValue="requests" className="space-y-4">
         <TabsList>
           <TabsTrigger value="requests">Requests ({yearRequests.length})</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="overview">Balance Overview</TabsTrigger>
           <TabsTrigger value="types">Leave Types</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="calendar" className="space-y-4">
+          <LeaveCalendarMonth
+            leaveRequests={leaveRequests}
+            leaveTypes={leaveTypes}
+            employees={employees}
+          />
+        </TabsContent>
+
 
         <TabsContent value="overview" className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
