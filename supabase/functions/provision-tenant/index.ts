@@ -32,29 +32,18 @@ const REQUIRED_FIELDS: (keyof Body)[] = [
   "timezone","financial_year_start","initial_venue_name","admin_name","admin_email",
 ];
 
-// Minimal default chart of accounts template (codes are stable per tenant, not global).
-const DEFAULT_COA: Array<{code:string; name:string; account_type:string; normal_side:string; is_cash?: boolean; sort_order:number}> = [
-  { code:"1000", name:"Cash on Hand",          account_type:"asset",     normal_side:"debit",  is_cash:true,  sort_order:10 },
-  { code:"1010", name:"Bank — Operating",      account_type:"asset",     normal_side:"debit",  is_cash:true,  sort_order:20 },
-  { code:"1100", name:"Accounts Receivable",   account_type:"asset",     normal_side:"debit",  sort_order:30 },
-  { code:"1200", name:"Inventory",             account_type:"asset",     normal_side:"debit",  sort_order:40 },
-  { code:"1500", name:"Fixed Assets",          account_type:"asset",     normal_side:"debit",  sort_order:50 },
-  { code:"2000", name:"Accounts Payable",      account_type:"liability", normal_side:"credit", sort_order:60 },
-  { code:"2100", name:"Accrued Expenses",      account_type:"liability", normal_side:"credit", sort_order:70 },
-  { code:"2200", name:"Taxes Payable",         account_type:"liability", normal_side:"credit", sort_order:80 },
-  { code:"3000", name:"Owner's Equity",        account_type:"equity",    normal_side:"credit", sort_order:90 },
-  { code:"3100", name:"Retained Earnings",     account_type:"equity",    normal_side:"credit", sort_order:100 },
-  { code:"4000", name:"Sales Revenue",         account_type:"revenue",   normal_side:"credit", sort_order:110 },
-  { code:"4100", name:"Service Charge",        account_type:"revenue",   normal_side:"credit", sort_order:120 },
-  { code:"4200", name:"Other Income",          account_type:"other_income", normal_side:"credit", sort_order:130 },
-  { code:"5000", name:"Cost of Goods Sold",    account_type:"cogs",      normal_side:"debit",  sort_order:140 },
-  { code:"6000", name:"Salaries & Wages",      account_type:"opex",      normal_side:"debit",  sort_order:150 },
-  { code:"6100", name:"Rent",                  account_type:"opex",      normal_side:"debit",  sort_order:160 },
-  { code:"6200", name:"Utilities",             account_type:"opex",      normal_side:"debit",  sort_order:170 },
-  { code:"6300", name:"Marketing",             account_type:"opex",      normal_side:"debit",  sort_order:180 },
-  { code:"6400", name:"Repairs & Maintenance", account_type:"opex",      normal_side:"debit",  sort_order:190 },
-  { code:"6900", name:"General & Admin",       account_type:"opex",      normal_side:"debit",  sort_order:200 },
+// COA is loaded from public.coa_templates (default template code: f_and_b_hk).
+// If the template row is missing (very old databases), a minimal fallback runs.
+const FALLBACK_COA: Array<{code:string; name:string; account_type:string; normal_side:string; is_cash?: boolean; sort_order:number}> = [
+  { code:"1000", name:"Cash on Hand",       account_type:"asset",     normal_side:"debit",  is_cash:true,  sort_order:10 },
+  { code:"1010", name:"Bank — Operating",   account_type:"asset",     normal_side:"debit",  is_cash:true,  sort_order:20 },
+  { code:"2000", name:"Accounts Payable",   account_type:"liability", normal_side:"credit", sort_order:60 },
+  { code:"3000", name:"Owner's Equity",     account_type:"equity",    normal_side:"credit", sort_order:90 },
+  { code:"4000", name:"Sales Revenue",      account_type:"revenue",   normal_side:"credit", sort_order:110 },
+  { code:"5000", name:"Cost of Goods Sold", account_type:"cogs",      normal_side:"debit",  sort_order:140 },
+  { code:"6000", name:"Salaries & Wages",   account_type:"opex",      normal_side:"debit",  sort_order:150 },
 ];
+
 
 const DEFAULT_PAGES = [
   { key:"revenue",     label:"Revenue" },
