@@ -11,6 +11,7 @@ export interface Venue {
   is_active: boolean;
   is_system: boolean;
   notes: string;
+  organization_id: string | null;
   created_at: string;
   updated_at: string;
 }
