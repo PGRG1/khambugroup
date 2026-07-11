@@ -365,6 +365,9 @@ export function TransactionReviewPanel({
             <div className="grid grid-cols-2 gap-2">
               <Button size="sm" onClick={() => updateStatus("matched", "confirm_match")} disabled={busy}><CheckCircle2 className="h-3 w-3" /> Confirm Match</Button>
               <Button size="sm" variant="outline" onClick={() => updateStatus("unmatched", "reject_match")} disabled={busy}><XCircle className="h-3 w-3" /> Reject</Button>
+              <Button size="sm" variant="outline" onClick={openPostAsJe} disabled={busy} className="col-span-2 border-primary/40 text-primary hover:bg-primary/10">
+                <BookPlus className="h-3 w-3" /> Post as Journal Entry
+              </Button>
               <Button size="sm" variant="outline" onClick={() => updateStatus("transfer_pending", "mark_transfer")} disabled={busy}><ArrowLeftRight className="h-3 w-3" /> Internal Transfer</Button>
               <Button size="sm" variant="outline" onClick={() => updateStatus("matched", "mark_reversal", { suggested_type: "reversal" })} disabled={busy}><RotateCcw className="h-3 w-3" /> Reversal</Button>
               <Button size="sm" variant="outline" onClick={() => updateStatus("bank_fee", "mark_bank_fee", { suggested_type: "bank_fee" })} disabled={busy}><Receipt className="h-3 w-3" /> Bank Fee</Button>
@@ -373,6 +376,7 @@ export function TransactionReviewPanel({
               <Button size="sm" variant="outline" onClick={() => updateStatus("ignored", "ignore")} disabled={busy}><FileQuestion className="h-3 w-3" /> Ignore</Button>
             </div>
           </Section>
+
 
           <Section title="Audit history">
             {audit.length === 0 ? (
