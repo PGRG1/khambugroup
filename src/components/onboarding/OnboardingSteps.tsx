@@ -401,44 +401,169 @@ export function StepLocalisation({ tenantId, onComplete }: StepProps) {
 }
 
 // ---------- Phase 2: Chart of accounts ----------
+//
+// Safety: the platform_load_coa_template RPC uses ON CONFLICT (tenant_id, code)
+// DO NOTHING, so it never overwrites existing accounts and cannot create
+// duplicate codes (unique constraint on (tenant_id, code)). Still, when the
+// chart is already populated we hide the bulk "Load template" buttons and
+// gate template use behind an explicit "preview missing accounts" flow, so
+// nothing can be inserted against live financial data without the user
+// seeing exactly which codes would be added.
 export function StepCoA({ tenantId, onComplete }: StepProps) {
   const [count, setCount] = useState<number | null>(null);
+  const [existingCodes, setExistingCodes] = useState<Set<string>>(new Set());
   const [templates, setTemplates] = useState<any[]>([]);
+  const [previewFor, setPreviewFor] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showAugment, setShowAugment] = useState(false);
 
   const load = async () => {
-    const [{ count: c }, { data: t }] = await Promise.all([
-      supabase.from("chart_of_accounts").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+    const [codesRes, { data: t }] = await Promise.all([
+      supabase.from("chart_of_accounts").select("code").eq("tenant_id", tenantId),
       supabase.from("coa_templates").select("*").eq("is_active", true).order("name"),
     ]);
-    setCount(c ?? 0);
+    const codes = new Set((codesRes.data ?? []).map((r: any) => String(r.code)));
+    setExistingCodes(codes);
+    setCount(codes.size);
     setTemplates(t ?? []);
   };
   useEffect(() => { load(); }, [tenantId]);
 
-  const loadTemplate = async (tpl: any) => {
-    if (count && count > 0 && !confirm(`Chart already has ${count} accounts. Append template rows?`)) return;
+  const missingFor = (tpl: any): { code: string; name: string }[] => {
+    const rows: any[] = Array.isArray(tpl.template) ? tpl.template : [];
+    return rows
+      .filter((r) => !existingCodes.has(String(r.code)))
+      .map((r) => ({ code: String(r.code), name: String(r.name) }));
+  };
+
+  const loadTemplateBlind = async (tpl: any) => {
     setBusy(true);
     const { data, error } = await supabase.rpc("platform_load_coa_template", { _tenant_id: tenantId, _template_id: tpl.id });
     setBusy(false);
     if (error) return toast({ title: "Load failed", description: error.message, variant: "destructive" });
-    toast({ title: `Loaded ${data ?? 0} new accounts from ${tpl.name}` });
+    toast({ title: `Loaded ${data ?? 0} accounts from ${tpl.name}` });
     await load();
   };
 
+  const confirmAddMissing = async () => {
+    if (!previewFor) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc("platform_load_coa_template", { _tenant_id: tenantId, _template_id: previewFor.id });
+    setBusy(false);
+    if (error) return toast({ title: "Add failed", description: error.message, variant: "destructive" });
+    toast({ title: `Added ${data ?? 0} missing accounts from ${previewFor.name}` });
+    setPreviewFor(null);
+    setShowAugment(false);
+    await load();
+  };
 
+  if (count === null) return <div className="text-sm text-muted-foreground">Loading…</div>;
+
+  // ------- Non-empty chart: safe, read-first UI -------
+  if (count > 0) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border border-success/40 bg-success/5 p-3 flex items-start gap-3">
+          <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5"/>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium">Chart of accounts already configured — {count} accounts</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Live chart is managed on the Chart of Accounts page. Templates are hidden here to avoid accidental bulk changes to live data.
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/finance/chart-of-accounts"><ExternalLink className="h-4 w-4 mr-1"/>View / edit chart</Link>
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setShowAugment((s) => !s)}>
+            {showAugment ? "Hide template augment" : "Add missing template accounts…"}
+          </Button>
+          <Button size="sm" className="ml-auto" onClick={onComplete}>
+            <CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete
+          </Button>
+        </div>
+
+        {showAugment && (
+          <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/20">
+            <div className="text-xs text-muted-foreground">
+              Additive only. Any template account whose code already exists in the chart is skipped — no overwrite, no duplicate. Review the preview before committing.
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {templates.map((t) => {
+                const missing = missingFor(t);
+                return (
+                  <div key={t.id} className="border border-border rounded-lg p-3">
+                    <div className="font-medium text-sm">{t.name}</div>
+                    <div className="text-xs text-muted-foreground">{t.description}</div>
+                    <div className="text-xs mt-1">
+                      <span className="text-muted-foreground">Template: </span>
+                      <span className="tabular-nums">{(t.template as any[]).length}</span>
+                      <span className="text-muted-foreground"> · Missing here: </span>
+                      <span className="tabular-nums font-medium">{missing.length}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      disabled={busy || missing.length === 0}
+                      onClick={() => setPreviewFor(t)}
+                    >
+                      {missing.length === 0 ? "Nothing to add" : `Preview ${missing.length} to add`}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {previewFor && (
+          <div className="border border-warning/40 rounded-lg p-3 space-y-3 bg-warning/5">
+            <div className="text-sm font-medium">
+              Add {missingFor(previewFor).length} accounts from “{previewFor.name}” to the existing chart
+            </div>
+            <div className="max-h-56 overflow-auto border border-border rounded-md bg-background/60">
+              <table className="text-xs w-full">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="text-left px-2 py-1 font-medium">Code</th>
+                    <th className="text-left px-2 py-1 font-medium">Name</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {missingFor(previewFor).map((r) => (
+                    <tr key={r.code} className="border-t border-border/60">
+                      <td className="px-2 py-1 tabular-nums">{r.code}</td>
+                      <td className="px-2 py-1">{r.name}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setPreviewFor(null)} disabled={busy}>Cancel</Button>
+              <Button size="sm" onClick={confirmAddMissing} disabled={busy}>
+                <FileDown className="h-4 w-4 mr-1"/>Confirm add {missingFor(previewFor).length}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ------- Empty chart: original three-option layout -------
   return (
     <div className="space-y-3">
-      <div className="text-sm">
-        Current chart: <span className="font-medium">{count ?? "…"} accounts</span>
-      </div>
+      <div className="text-sm text-muted-foreground">Chart is empty — pick a starting point.</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {templates.map((t) => (
           <div key={t.id} className="border border-border rounded-lg p-3">
             <div className="font-medium text-sm">{t.name}</div>
             <div className="text-xs text-muted-foreground">{t.description}</div>
             <div className="text-xs text-muted-foreground mt-1">{(t.template as any[]).length} accounts</div>
-            <Button size="sm" className="mt-2" disabled={busy} onClick={() => loadTemplate(t)}>
+            <Button size="sm" className="mt-2" disabled={busy} onClick={() => loadTemplateBlind(t)}>
               <FileDown className="h-4 w-4 mr-1"/>Load template
             </Button>
           </div>
