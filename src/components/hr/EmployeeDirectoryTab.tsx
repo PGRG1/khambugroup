@@ -139,6 +139,7 @@ function EmployeeKPICards({ employees, history }: { employees: HREmployee[]; his
 }
 
 export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDepartment }: Props) {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
