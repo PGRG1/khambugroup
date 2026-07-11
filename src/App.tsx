@@ -3,7 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -159,6 +161,26 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   if (!isAdmin) return <Navigate to="/" replace />;
   return <AppLayout>{children}</AppLayout>;
 };
+
+const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
+  const { session, loading } = useAuth();
+  const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
+  if (loading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (!session) return <Navigate to="/auth" replace />;
+  if (!isPlatformAdmin) return <Navigate to="/" replace />;
+  return <AppLayout>{children}</AppLayout>;
+};
+
+// Legacy /admin/clients* → /platform/clients* redirects (preserves :tenantId).
+const RedirectClientDetail = () => {
+  const { tenantId } = useParams();
+  return <Navigate to={`/platform/clients/${tenantId}`} replace />;
+};
+const RedirectClientOnboarding = () => {
+  const { tenantId } = useParams();
+  return <Navigate to={`/platform/clients/${tenantId}/onboarding`} replace />;
+};
+
 
 function App() {
   return (
