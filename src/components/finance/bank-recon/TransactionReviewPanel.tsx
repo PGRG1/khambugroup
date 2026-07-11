@@ -36,10 +36,17 @@ export function TransactionReviewPanel({
   const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiResult, setAiResult] = useState<{ suggested_type?: string; suggested_category?: string; reason?: string; rule_pattern?: any; confidence?: number; rationale?: string; source?: string; rule_id?: string; _full?: any } | null>(null);
+  const [jeOpen, setJeOpen] = useState(false);
+  const [jeCoa, setJeCoa] = useState<CoaOpt[]>([]);
+  const [jeOffsetId, setJeOffsetId] = useState<string>("");
+  const [jeMemo, setJeMemo] = useState<string>("");
+  const [jeBusy, setJeBusy] = useState(false);
 
   useEffect(() => {
     if (!txn) return;
     setNotes(txn.notes || "");
+    setJeMemo(txn.description?.slice(0, 120) || "");
+
     (async () => {
       const { data } = await supabase
         .from("bank_audit_trail" as any)
