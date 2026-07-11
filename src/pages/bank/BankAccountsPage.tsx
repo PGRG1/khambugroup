@@ -23,15 +23,28 @@ const CCYS = ["HKD", "USD", "CNY", "EUR", "GBP", "SGD", "JPY"];
 
 export default function BankAccountsPage() {
   const { accounts, transactions, imports, coa, currentBalanceFor, ledgerBalanceFor, saveAccount, reload } = useBankModule();
+  const { organizations } = useOrganizations();
+  const { venues } = useVenues();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Partial<BankAccount> | null>(null);
   const [delAccount, setDelAccount] = useState<BankAccount | null>(null);
+
+  const orgVenues = useMemo(
+    () => venues.filter((v) => edit?.organization_id && v.organization_id === edit.organization_id),
+    [venues, edit?.organization_id],
+  );
+  const orgName = (id: string | null | undefined) =>
+    organizations.find((o) => o.id === id)?.name ?? "—";
+  const venueName = (id: string | null | undefined) =>
+    venues.find((v) => v.id === id)?.name ?? null;
 
   const startAdd = () =>
     (setEdit({
       account_name: "", bank_name: "", account_number_last4: "", currency: "HKD",
       opening_balance: 0, opening_date: new Date().toISOString().slice(0, 10),
       is_active: true, notes: "", sort_order: 0,
+      organization_id: organizations[0]?.id ?? null,
+      venue_id: null,
     } as any), setOpen(true));
 
   const startEdit = (a: BankAccount) => (setEdit({ ...a }), setOpen(true));
@@ -39,6 +52,9 @@ export default function BankAccountsPage() {
   const save = async () => {
     if (!edit?.account_name || !edit.bank_name) {
       toast.error("Bank and account name are required"); return;
+    }
+    if (!edit.organization_id) {
+      toast.error("Organization is required"); return;
     }
     try {
       await saveAccount(edit);
