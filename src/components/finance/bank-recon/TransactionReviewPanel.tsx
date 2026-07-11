@@ -176,6 +176,82 @@ export function TransactionReviewPanel({
     onClose();
   };
 
+  const openPostAsJe = async () => {
+    if (!tenantId) { toast({ title: "No active tenant", variant: "destructive" }); return; }
+    setJeOpen(true);
+    if (jeCoa.length === 0) {
+      const { data } = await supabase
+        .from("chart_of_accounts" as any)
+        .select("id,code,name,account_type")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("code");
+      setJeCoa(((data as any[]) || []) as CoaOpt[]);
+    }
+  };
+
+  const submitPostAsJe = async () => {
+    if (!acct?.linked_gl_account_id) {
+      toast({ title: "Bank account missing linked GL account", description: "Link a cash GL account to this bank account first.", variant: "destructive" });
+      return;
+    }
+    if (!jeOffsetId) { toast({ title: "Pick an offset account", variant: "destructive" }); return; }
+    if (!tenantId) return;
+    setJeBusy(true);
+    const bankAcctId = acct.linked_gl_account_id;
+    const amt = Number(txn.money_in) - Number(txn.money_out);
+    const abs = Math.abs(amt);
+    // Money in → Dr bank cash, Cr offset. Money out → Dr offset, Cr bank cash.
+    const bankLine = amt >= 0
+      ? { account_id: bankAcctId, debit: abs, credit: 0 }
+      : { account_id: bankAcctId, debit: 0, credit: abs };
+    const offLine = amt >= 0
+      ? { account_id: jeOffsetId, debit: 0, credit: abs }
+      : { account_id: jeOffsetId, debit: abs, credit: 0 };
+
+    const { data: entry, error: entryErr } = await supabase
+      .from("journal_entries")
+      .insert({
+        entry_date: txn.txn_date,
+        entry_memo: jeMemo || `Bank txn — ${txn.description?.slice(0, 60) || ""}`,
+        source_type: "bank_txn",
+        source_id: txn.id,
+        status: "posted",
+        tenant_id: tenantId,
+      } as any)
+      .select("id")
+      .single();
+
+    if (entryErr || !entry) {
+      setJeBusy(false);
+      toast({ title: "Failed to post JE", description: entryErr?.message, variant: "destructive" });
+      return;
+    }
+    const { error: linesErr } = await supabase.from("journal_lines").insert([
+      { entry_id: (entry as any).id, tenant_id: tenantId, line_memo: jeMemo || null, ...bankLine },
+      { entry_id: (entry as any).id, tenant_id: tenantId, line_memo: jeMemo || null, ...offLine },
+    ] as any);
+    if (linesErr) {
+      setJeBusy(false);
+      toast({ title: "Failed to write JE lines", description: linesErr.message, variant: "destructive" });
+      return;
+    }
+    await supabase.from("bank_transactions").update({ status: "matched", notes: notes || null }).eq("id", txn.id);
+    await supabase.from("bank_audit_trail" as any).insert({
+      bank_account_id: txn.bank_account_id,
+      bank_transaction_id: txn.id,
+      action: "post_as_je",
+      old_status: txn.status,
+      new_status: "matched",
+      notes: { manual_notes: notes, journal_entry_id: (entry as any).id, offset_account_id: jeOffsetId, amount: amt },
+    });
+    setJeBusy(false);
+    setJeOpen(false);
+    toast({ title: "Journal entry posted" });
+    onChanged();
+    onClose();
+  };
+
 
   return (
     <Sheet open={!!txn} onOpenChange={(o) => !o && onClose()}>
