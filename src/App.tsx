@@ -215,11 +215,13 @@ function App() {
                 <Route path="/petty-cash/replenishments" element={<AdminRoute><PettyCashReplenishmentsPage /></AdminRoute>} />
                 <Route path="/petty-cash/floats" element={<AdminRoute><PettyCashFloatsPage /></AdminRoute>} />
                 <Route path="/petty-cash/classifications" element={<AdminRoute><PettyCashClassificationsPage /></AdminRoute>} />
-                <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+                <Route path="/settings" element={<Navigate to="/admin/system-configuration" replace />} />
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
                 <Route path="/admin/clients" element={<AdminRoute><Clients /></AdminRoute>} />
                 <Route path="/admin/clients/:tenantId" element={<AdminRoute><ClientDetail /></AdminRoute>} />
+                <Route path="/admin/clients/:tenantId/onboarding" element={<AdminRoute><ClientOnboarding /></AdminRoute>} />
+
 
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 
