@@ -26,7 +26,7 @@ import ForecastInput from "./pages/ForecastInput";
 import RevenueTargets from "./pages/RevenueTargets";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
-import Settings from "./pages/Settings";
+
 import SystemConfiguration from "./pages/admin/SystemConfiguration";
 import AiRules from "./pages/admin/AiRules";
 import Clients from "./pages/admin/Clients";
