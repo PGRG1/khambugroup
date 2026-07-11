@@ -1,16 +1,31 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import React from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { FileDown } from "lucide-react";
-import { PLPeriodSelector, getDefaultPeriod, type ViewMode, type PeriodOption } from "@/components/pl/PLPeriodSelector";
+import { FileDown, BookText } from "lucide-react";
+import {
+  PLPeriodSelector,
+  getDefaultPeriod,
+  getOptionsForView,
+  type ViewMode,
+  type PeriodOption,
+} from "@/components/pl/PLPeriodSelector";
 import { useLedgerPL } from "@/hooks/useLedgerPL";
 import type { ChartAccount, AccountType } from "@/hooks/useChartOfAccounts";
 import { downloadCSV } from "@/utils/csvDownload";
 import { generateLedgerPLPDF, type LedgerPLRow } from "@/utils/financePdfReports";
+import {
+  PageHeader,
+  KpiCard,
+  KpiGrid,
+  KpiSkeleton,
+  TableSkeleton,
+  EmptyState,
+  fmtHKWhole,
+} from "@/components/expenses/shared";
 import { cn } from "@/lib/utils";
 
 const fmt = (n: number) => {
@@ -78,12 +93,59 @@ function buildTree(accounts: ChartAccount[], type: AccountType): TreeNode[] {
   return roots;
 }
 
+function parsePeriodIds(view: ViewMode, csv: string | null): PeriodOption[] | null {
+  if (!csv) return null;
+  const ids = csv.split(",").map((s) => s.trim()).filter(Boolean);
+  if (ids.length === 0) return null;
+  const yearsInIds = Array.from(new Set(ids.map((id) => Number(id.split("-")[0])).filter((y) => y >= 2000 && y <= 2100)));
+  const catalog = new Map<string, PeriodOption>();
+  for (const y of yearsInIds) {
+    for (const opt of getOptionsForView(view, y)) catalog.set(opt.id, opt);
+  }
+  const resolved = ids.map((id) => catalog.get(id)).filter(Boolean) as PeriodOption[];
+  return resolved.length > 0 ? resolved : null;
+}
+
 export default function LedgerPL() {
-  const [viewMode, setViewMode] = useState<ViewMode>("monthly");
-  const [selectedPeriods, setSelectedPeriods] = useState<PeriodOption[]>(() => getDefaultPeriod("monthly"));
-  const [perVenue, setPerVenue] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const viewMode = (params.get("view") as ViewMode) || "monthly";
+  const perVenue = params.get("perVenue") === "1";
+  const [selectedPeriods, setSelectedPeriodsState] = useState<PeriodOption[]>(
+    () => parsePeriodIds(viewMode, params.get("periods")) || getDefaultPeriod(viewMode),
+  );
+
+  const updateParam = (k: string, v: string | null) => {
+    const next = new URLSearchParams(params);
+    if (v == null || v === "") next.delete(k); else next.set(k, v);
+    setParams(next, { replace: true });
+  };
+  const setViewMode = (v: ViewMode) => {
+    const defaults = getDefaultPeriod(v);
+    setSelectedPeriodsState(defaults);
+    const next = new URLSearchParams(params);
+    next.set("view", v);
+    next.set("periods", defaults.map((p) => p.id).join(","));
+    setParams(next, { replace: true });
+  };
+  const setSelectedPeriods = (periods: PeriodOption[]) => {
+    setSelectedPeriodsState(periods);
+    updateParam("periods", periods.map((p) => p.id).join(","));
+  };
+  const setPerVenue = (v: boolean) => updateParam("perVenue", v ? "1" : null);
+
+  // Keep URL in sync on first mount when it lacks periods param (so refresh restores state).
+  useEffect(() => {
+    if (!params.get("periods") && selectedPeriods.length > 0) {
+      const next = new URLSearchParams(params);
+      next.set("periods", selectedPeriods.map((p) => p.id).join(","));
+      if (!params.get("view")) next.set("view", viewMode);
+      setParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { accounts, data, venues, loading } = useLedgerPL(selectedPeriods);
+
 
   const trees = useMemo(() => {
     const m = new Map<AccountType, TreeNode[]>();
@@ -281,41 +343,66 @@ export default function LedgerPL() {
 
   const scopeLabel = selectedPeriods.length === 0 ? "No period selected" : selectedPeriods.map((p) => p.label).join(", ");
 
+  // Headline totals summed across all selected periods (consolidated, no venue split)
+  const totalRevenue = selectedPeriods.reduce((s, p) => s + sectionTotal("revenue", p.id, null), 0);
+  const totalCOGS = selectedPeriods.reduce((s, p) => s + sectionTotal("cogs", p.id, null), 0);
+  const totalOpex = selectedPeriods.reduce((s, p) => s + sectionTotal("opex", p.id, null), 0);
+  const totalOtherInc = selectedPeriods.reduce((s, p) => s + sectionTotal("other_income", p.id, null), 0);
+  const totalOtherExp = selectedPeriods.reduce((s, p) => s + sectionTotal("other_expense", p.id, null), 0);
+  const totalGross = totalRevenue - totalCOGS;
+  const totalOperating = totalGross - totalOpex;
+  const totalNet = totalOperating + totalOtherInc - totalOtherExp;
+  const netMargin = totalRevenue !== 0 ? (totalNet / totalRevenue) * 100 : null;
+
   return (
     <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight">Profit & Loss</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Built directly from posted journal entries against the Chart of Accounts. Independent from the operations P&L.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <PLPeriodSelector
-            viewMode={viewMode}
-            selectedPeriods={selectedPeriods}
-            onViewModeChange={setViewMode}
-            onPeriodsChange={setSelectedPeriods}
-          />
-          <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card">
-            <Switch id="per-venue" checked={perVenue} onCheckedChange={setPerVenue} />
-            <Label htmlFor="per-venue" className="text-xs cursor-pointer">Per venue</Label>
-          </div>
-          <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
-          <Button size="sm" onClick={exportPdf}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Profit & Loss (Ledger)"
+        description="Built directly from posted journal entries against the Chart of Accounts. Independent from the operations P&L."
+        actions={
+          <>
+            <PLPeriodSelector
+              viewMode={viewMode}
+              selectedPeriods={selectedPeriods}
+              onViewModeChange={setViewMode}
+              onPeriodsChange={setSelectedPeriods}
+            />
+            <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card">
+              <Switch id="per-venue" checked={perVenue} onCheckedChange={setPerVenue} />
+              <Label htmlFor="per-venue" className="text-xs cursor-pointer">Per venue</Label>
+            </div>
+            <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
+            <Button size="sm" onClick={exportPdf}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
+          </>
+        }
+      />
 
       <p className="text-xs text-muted-foreground -mt-2">{scopeLabel}</p>
 
+      {loading ? (
+        <KpiSkeleton count={4} />
+      ) : selectedPeriods.length > 0 && (
+        <KpiGrid>
+          <KpiCard label="Revenue" value={fmtHKWhole(totalRevenue)} tone="info" />
+          <KpiCard label="Gross Profit" value={fmtHKWhole(totalGross)} tone={totalGross >= 0 ? "success" : "destructive"} hint={totalRevenue !== 0 ? `${((totalGross / totalRevenue) * 100).toFixed(1)}% margin` : undefined} />
+          <KpiCard label="Operating Profit" value={fmtHKWhole(totalOperating)} tone={totalOperating >= 0 ? "success" : "destructive"} hint={totalRevenue !== 0 ? `${((totalOperating / totalRevenue) * 100).toFixed(1)}% margin` : undefined} />
+          <KpiCard label="Net Income" value={fmtHKWhole(totalNet)} tone={totalNet >= 0 ? "success" : "destructive"} hint={netMargin !== null ? `${netMargin.toFixed(1)}% net margin` : undefined} />
+        </KpiGrid>
+      )}
+
+
+
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
-          <div className="p-6 space-y-2">
-            {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}
-          </div>
+          <TableSkeleton rows={10} cols={Math.max(2, columns.length + 1 + (showGrandTotal ? 1 : 0))} />
         ) : selectedPeriods.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground">Select at least one period.</div>
+          <EmptyState
+            icon={<BookText className="h-6 w-6" />}
+            title="Select at least one period"
+            description="Choose a period from the selector to build the P&L from posted journal entries."
+          />
         ) : (
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 border-b border-border">
