@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import type { HRPayroll, HREmployee, HRShift } from "@/hooks/useHRData";
 import { supabase } from "@/integrations/supabase/client";
 import { PayrollPaymentDialog } from "./PayrollPaymentDialog";
 import { usePayrollPaymentBatches } from "@/hooks/usePayrollPaymentBatches";
+import { PayrollLaborCostCard } from "./PayrollLaborCostCard";
 
 interface Props {
   payroll: HRPayroll[];
@@ -209,7 +211,7 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [saving, setSaving] = useState(false);
-  const [detailModal, setDetailModal] = useState<HRPayroll | null>(null);
+  // (Legacy per-row detail modal removed — click the employee name to open the profile.)
   const [edits, setEdits] = useState<Record<string, Record<string, number | string | null>>>({});
 
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
@@ -485,10 +487,58 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
         </div>
       </div>
 
-      {/* ── Employee Payroll Table ── */}
-      <div className="border border-border rounded-md overflow-hidden">
+      {/* Labor Cost % of Revenue by venue for this payroll month */}
+      <PayrollLaborCostCard year={filterYear} month={filterMonth} />
+
+      {/* ── Mobile card list (small screens only) ── */}
+      <div className="sm:hidden space-y-2">
+        <div className={hdr}>Employee Payroll</div>
+        {activeEmployees.map((emp) => {
+          const r = getRowData(emp);
+          return (
+            <Link
+              key={emp.id}
+              to={`/hr/employees/${emp.id}`}
+              className="block rounded-md border border-border/60 bg-card p-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate">
+                    {emp.last_name}, {emp.first_name}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    {emp.venue || "—"} · {emp.job_title || "—"}
+                  </div>
+                </div>
+                <div className="text-right text-xs tabular-nums">
+                  <div className="font-bold">${fmt(r.netPay)}</div>
+                  <div className="text-[10px] text-muted-foreground">Net pay</div>
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] text-muted-foreground">
+                <div>
+                  <div>Gross</div>
+                  <div className="text-foreground tabular-nums">${fmt(r.grossPay)}</div>
+                </div>
+                <div>
+                  <div>MPF (EE)</div>
+                  <div className="text-foreground tabular-nums">${fmt(r.mpfEE)}</div>
+                </div>
+                <div>
+                  <div>Total cost</div>
+                  <div className="text-foreground tabular-nums">${fmt(r.totalCost)}</div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* ── Employee Payroll Table (sm+) ── */}
+      <div className="border border-border rounded-md overflow-hidden hidden sm:block">
         <div className={hdr}>Employee Payroll</div>
         <div className="overflow-x-auto">
+
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-muted/60">
@@ -524,7 +574,11 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
                     return (
                       <tr key={emp.id} className={`hover:bg-muted/20 ${hasEdits ? "bg-chart-1/[0.03]" : ""}`}>
                         <td className={`${td} text-center text-muted-foreground text-[10px]`}>{rowNum}</td>
-                        <td className={`${td} font-medium`}>{emp.last_name}, {emp.first_name}</td>
+                        <td className={`${td} font-medium`}>
+                          <Link to={`/hr/employees/${emp.id}`} className="hover:text-primary hover:underline">
+                            {emp.last_name}, {emp.first_name}
+                          </Link>
+                        </td>
                         <td className={`${td} text-muted-foreground`}>{venue}</td>
                         <td className={`${td} text-muted-foreground`}>{emp.job_title || "—"}</td>
                         <td className={`${td} text-center font-medium`}>{type}</td>
@@ -682,21 +736,6 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
         onPosted={() => { reloadBatches(); window.dispatchEvent(new Event("hr-data-refresh")); }}
       />
 
-      <Dialog open={!!detailModal} onOpenChange={() => setDetailModal(null)}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {detailModal && (() => {
-                const emp = employees.find(e => e.id === detailModal.employee_id);
-                return emp ? `${emp.first_name} ${emp.last_name} — ${MONTHS_SHORT[detailModal.month - 1]} ${detailModal.year}` : "Payroll Detail";
-              })()}
-            </DialogTitle>
-          </DialogHeader>
-          {detailModal?.employee_id && (
-            <MTDScheduleView employeeId={detailModal.employee_id} shifts={shifts} month={detailModal.month} year={detailModal.year} />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Search, Pencil, Users, UserPlus, UserMinus, TrendingUp, Building2, Calendar } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Plus, Search, Pencil, Users, UserPlus, UserMinus, TrendingUp, Building2, Calendar, Settings2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { HREmployee, HRDepartment } from "@/hooks/useHRData";
@@ -244,38 +245,38 @@ export function EmployeeDirectoryTab({ employees, departments, onSave, onSaveDep
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display tracking-tight">
-            <span className="text-gradient-gold">Employee Directory</span>
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            {employees.filter(e => e.status === "active").length} active · {employees.length} total
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border bg-secondary text-secondary-foreground hover:bg-muted"
-            onClick={() => { setEditingHoliday({ name: "", date: "", holiday_type: "statutory", is_active: true }); setHolidayModalOpen(true); }}
-          >
-            <Calendar className="h-4 w-4 mr-1.5" /> Holiday
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border bg-secondary text-secondary-foreground hover:bg-muted"
-            onClick={() => { setEditingDept({ name: "", is_active: true }); setDeptModalOpen(true); }}
-          >
-            <Building2 className="h-4 w-4 mr-1.5" /> Department
-          </Button>
-          <Button size="sm" onClick={openNew}>
-            <Plus className="h-4 w-4 mr-1.5" /> Employee
-          </Button>
-        </div>
+      {/* Actions row (the parent shell now owns the page title) */}
+      <div className="flex items-center justify-end gap-2 flex-wrap">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Settings2 className="h-4 w-4 mr-1.5" /> Manage
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Reference data</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => { setEditingDept({ name: "", is_active: true }); setDeptModalOpen(true); }}
+            >
+              <Building2 className="h-4 w-4 mr-2" /> Add department
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => { setEditingHoliday({ name: "", date: "", holiday_type: "statutory", is_active: true }); setHolidayModalOpen(true); }}
+            >
+              <Calendar className="h-4 w-4 mr-2" /> Add public holiday
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Bulk</DropdownMenuLabel>
+            <DropdownMenuItem disabled className="opacity-60">
+              <UserPlus className="h-4 w-4 mr-2" /> Import employees (soon)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button size="sm" onClick={openNew}>
+          <Plus className="h-4 w-4 mr-1.5" /> Employee
+        </Button>
       </div>
+
 
       {/* KPI Cards */}
       <EmployeeKPICards employees={employees} history={history} />

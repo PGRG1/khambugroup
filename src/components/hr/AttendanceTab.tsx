@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,13 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ChevronLeft, ChevronRight, Copy, Clock, ClipboardList, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Clock, ClipboardList, Calendar, Sunrise } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
 import { WeeklyScheduleView } from "./WeeklyScheduleView";
 import { ActualsComparisonView } from "./ActualsComparisonView";
 import { TimeGridPicker } from "./TimeGridPicker";
+import { TodayBoardView } from "./TodayBoardView";
 
 interface Props {
   shifts: HRShift[];
@@ -134,7 +136,15 @@ function padTime(h: number): string {
 export type ShiftClipboard = { shift_type: string; start_time: string; end_time: string } | null;
 
 export function AttendanceTab({ shifts, attendance, employees, departments, leaveRequests, leaveTypes, holidays, onSaveShift, onSaveAttendance, onSaveLeaveRequest, onRefetch }: Props) {
-  const [viewMode, setViewMode] = useState<"plan" | "actuals">("plan");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = (searchParams.get("view") as "today" | "plan" | "actuals") || "today";
+  const setView = (v: "today" | "plan" | "actuals") => {
+    const next = new URLSearchParams(searchParams);
+    next.set("view", v);
+    setSearchParams(next, { replace: true });
+  };
+  // Legacy state kept for the shift modal; the visible toggle reads `view` above.
+  const viewMode: "plan" | "actuals" = view === "actuals" ? "actuals" : "plan";
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
@@ -371,21 +381,23 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
 
   return (
     <div className="space-y-4">
-      
-
-      {/* View Mode Toggle + Week Navigation */}
+      {/* View Toggle + Week Navigation */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as "plan" | "actuals")} className="bg-muted rounded-lg p-0.5">
-            <ToggleGroupItem value="plan" className="text-xs px-3 py-1.5 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded-md">
-              <Calendar className="h-3.5 w-3.5" />
-              Plan
-            </ToggleGroupItem>
-            <ToggleGroupItem value="actuals" className="text-xs px-3 py-1.5 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded-md">
-              <ClipboardList className="h-3.5 w-3.5" />
-              Actuals
-            </ToggleGroupItem>
-          </ToggleGroup>
+        <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as any)} className="bg-muted rounded-lg p-0.5">
+          <ToggleGroupItem value="today" className="text-xs px-3 py-1.5 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded-md">
+            <Sunrise className="h-3.5 w-3.5" />
+            Today
+          </ToggleGroupItem>
+          <ToggleGroupItem value="plan" className="text-xs px-3 py-1.5 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded-md">
+            <Calendar className="h-3.5 w-3.5" />
+            Week Plan
+          </ToggleGroupItem>
+          <ToggleGroupItem value="actuals" className="text-xs px-3 py-1.5 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded-md">
+            <ClipboardList className="h-3.5 w-3.5" />
+            Actuals
+          </ToggleGroupItem>
+        </ToggleGroup>
+        {view !== "today" && (
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={prevWeek}><ChevronLeft className="h-4 w-4" /></Button>
             <span className="text-sm font-semibold min-w-[180px] text-center">{weekLabel}</span>
@@ -396,36 +408,86 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
               </Button>
             )}
           </div>
-        </div>
+        )}
       </div>
 
-      {viewMode === "plan" ? (
-        <WeeklyScheduleView
+      {view === "today" ? (
+        <TodayBoardView
           shifts={shifts}
           employees={employees}
-          departments={departments || []}
           leaveRequests={leaveRequests || []}
           leaveTypes={leaveTypes || []}
-          holidays={holidays || []}
-          weekDates={weekDates}
-          onEditShift={openEditShift}
-          onAddShift={openNewShift}
-          clipboard={clipboard}
-          onCopyShift={handleCopyShift}
-          onPasteShift={handlePasteShift}
-          onClearClipboard={() => setClipboard(null)}
-          onCopyPrevWeek={() => setCopyPrevConfirmOpen(true)}
-          shiftsToCopyCount={shiftsToCopy.length}
-          onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
-            await onSaveLeaveRequest({ id, status });
-          } : undefined}
-          onReorderEmployees={async (updates) => {
-            const promises = updates.map(u =>
-              supabase.from("hr_employees").update({ sort_order: u.sort_order } as any).eq("id", u.id)
-            );
-            await Promise.all(promises);
-          }}
         />
+      ) : view === "plan" ? (
+        <>
+          {/* Week grid is horizontally scrollable on mobile; a compact card fallback is offered below on very small screens. */}
+          <div className="hidden sm:block">
+            <WeeklyScheduleView
+              shifts={shifts}
+              employees={employees}
+              departments={departments || []}
+              leaveRequests={leaveRequests || []}
+              leaveTypes={leaveTypes || []}
+              holidays={holidays || []}
+              weekDates={weekDates}
+              onEditShift={openEditShift}
+              onAddShift={openNewShift}
+              clipboard={clipboard}
+              onCopyShift={handleCopyShift}
+              onPasteShift={handlePasteShift}
+              onClearClipboard={() => setClipboard(null)}
+              onCopyPrevWeek={() => setCopyPrevConfirmOpen(true)}
+              shiftsToCopyCount={shiftsToCopy.length}
+              onApproveLeave={onSaveLeaveRequest ? async (id, status) => {
+                await onSaveLeaveRequest({ id, status });
+              } : undefined}
+              onReorderEmployees={async (updates) => {
+                const promises = updates.map(u =>
+                  supabase.from("hr_employees").update({ sort_order: u.sort_order } as any).eq("id", u.id)
+                );
+                await Promise.all(promises);
+              }}
+            />
+          </div>
+          {/* Mobile: per-day compact cards grouped by date */}
+          <div className="sm:hidden space-y-3">
+            {weekDates.map((d) => {
+              const iso = formatDate(d);
+              const dayShifts = shifts.filter((s) => s.shift_date === iso);
+              return (
+                <div key={iso} className="rounded-lg border border-border/60 bg-card p-2">
+                  <div className="text-xs font-semibold mb-1.5">
+                    {d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })}
+                    <span className="ml-2 text-[10px] text-muted-foreground">
+                      {dayShifts.length} shift{dayShifts.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  {dayShifts.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground py-1">No shifts</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {dayShifts.map((s) => {
+                        const emp = employees.find((e) => e.id === s.employee_id);
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => openEditShift(s)}
+                            className="w-full flex items-center justify-between text-[11px] rounded border border-border/50 bg-background px-2 py-1 text-left"
+                          >
+                            <span className="truncate">{emp ? `${emp.first_name} ${emp.last_name}` : "—"}</span>
+                            <span className="text-muted-foreground tabular-nums whitespace-nowrap">
+                              {s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       ) : (
         <ActualsComparisonView
           shifts={shifts}
@@ -439,6 +501,7 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
           }}
         />
       )}
+
 
       {/* Copy Previous Week Confirmation */}
       <AlertDialog open={copyPrevConfirmOpen} onOpenChange={setCopyPrevConfirmOpen}>
