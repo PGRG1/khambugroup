@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,11 @@ const EVENT_LABELS: Record<string, string> = {
   payroll_net_payment: "Salary payment",
   payroll_mpf_payment: "MPF remittance",
   payroll_skipped: "Payroll skipped",
+  invoice_payment_posted: "Invoice payment posted",
+  payroll_batch_posted: "Payroll batch posted",
+  credit_note_applied: "Credit note applied",
+  bank_fee_posted: "Bank fee posted",
+  journal_entry_edited: "Journal entry edited",
 };
 
 const fmt = (n: number) => n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -94,16 +100,20 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function LedgerAuditLog() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [eventFilter, setEventFilter] = useState<string>("all");
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) { setRows([]); setLoading(false); return; }
     (async () => {
       setLoading(true);
       let q = (supabase as any)
         .from("ledger_audit_log")
         .select("*")
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false })
         .limit(500);
       if (eventFilter !== "all") q = q.eq("event_type", eventFilter);
@@ -111,7 +121,7 @@ export default function LedgerAuditLog() {
       setRows((data as AuditRow[]) || []);
       setLoading(false);
     })();
-  }, [eventFilter]);
+  }, [eventFilter, tenantId, tenantLoading]);
 
   return (
     <div className="p-4 sm:p-6 w-full max-w-[1200px] mx-auto space-y-6">

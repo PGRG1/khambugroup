@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+
+
 
 export type BankAccount = {
   id: string;
@@ -53,6 +56,7 @@ export type StatementImport = {
 export type CoaAccount = { id: string; code: string; name: string; is_cash: boolean };
 
 export function useBankReconciliation() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [transactions, setTransactions] = useState<BankTxn[]>([]);
@@ -61,29 +65,31 @@ export function useBankReconciliation() {
   const [ledgerByAccount, setLedgerByAccount] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
+    if (!tenantId) {
+      setAccounts([]); setTransactions([]); setImports([]); setCoa([]); setLedgerByAccount({}); setLoading(false); return;
+    }
     setLoading(true);
     const [a, t, i, c, jl] = await Promise.all([
-      fetchAllRows("bank_accounts", "*", { col: "sort_order", asc: true }),
-      fetchAllRows("bank_transactions", "*", { col: "txn_date", asc: false }),
-      fetchAllRows("bank_statement_imports", "*", { col: "uploaded_at", asc: false }),
-      fetchAllRows("chart_of_accounts", "id, code, name, is_cash", { col: "code", asc: true }),
-      fetchAllRows("journal_lines", "account_id, debit, credit"),
+      fetchAllRows("bank_accounts", "*", { col: "sort_order", asc: true }, tenantId),
+      fetchAllRows("bank_transactions", "*", { col: "txn_date", asc: false }, tenantId),
+      fetchAllRows("bank_statement_imports", "*", { col: "uploaded_at", asc: false }, tenantId),
+      fetchAllRows("chart_of_accounts", "id, code, name, is_cash", { col: "code", asc: true }, tenantId),
+      fetchAllRows("journal_lines", "account_id, debit, credit", undefined, tenantId),
     ]);
     setAccounts(a as BankAccount[]);
     setTransactions(t as BankTxn[]);
     setImports(i as StatementImport[]);
     setCoa(c as CoaAccount[]);
 
-    // Ledger balance per COA account = sum(debit - credit)
     const ledger: Record<string, number> = {};
     for (const r of jl as Array<{ account_id: string; debit: number; credit: number }>) {
       ledger[r.account_id] = (ledger[r.account_id] || 0) + Number(r.debit || 0) - Number(r.credit || 0);
     }
     setLedgerByAccount(ledger);
     setLoading(false);
-  }, []);
+  }, [tenantId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
 
   const ledgerBalanceFor = (acct: BankAccount): number => {
     if (!acct.linked_gl_account_id) return Number(acct.opening_balance || 0);

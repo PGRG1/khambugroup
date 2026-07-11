@@ -198,7 +198,7 @@ export function RecordPaymentDialog({
       }))
       .filter((a) => a.amount_allocated > 0 || a.credit_note_amount_applied > 0);
 
-    const { error } = await (supabase as any).rpc("record_payment_with_allocations", {
+    const { data: paymentId, error } = await (supabase as any).rpc("record_payment_with_allocations", {
       p_payment: {
         payment_date: date,
         amount: paymentAmt,
@@ -213,9 +213,18 @@ export function RecordPaymentDialog({
       p_allocations: allocations,
     });
 
+    if (error) { setSaving(false); return toast.error(error.message); }
+
+    // Post the payment JE (Dr AP / Cr bank + optional credit-note offset).
+    if (paymentId) {
+      const { error: postErr } = await (supabase as any).rpc("post_invoice_payment", { p_payment_id: paymentId });
+      if (postErr) {
+        toast.warning(`Payment saved, but ledger post failed: ${postErr.message}`);
+      }
+    }
+
     setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success("Payment recorded");
+    toast.success("Payment recorded & posted");
     onSaved();
     onOpenChange(false);
   };

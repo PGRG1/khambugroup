@@ -45,17 +45,22 @@ export function useJournal(filters?: { fromDate?: string; toDate?: string; sourc
   const fetchAll = useCallback(async () => {
     if (!tenantId) { setEntries([]); setLines([]); setLoading(false); return; }
     setLoading(true);
-    let q: any = supabase.from("journal_entries" as any).select("*").eq("tenant_id", tenantId).order("entry_date", { ascending: false }).order("created_at", { ascending: false });
-    if (filters?.fromDate) q = q.gte("entry_date", filters.fromDate);
-    if (filters?.toDate) q = q.lte("entry_date", filters.toDate);
-    if (filters?.sourceType && filters.sourceType !== "all") q = q.eq("source_type", filters.sourceType);
-    const { data: ents, error } = await q.limit(1000);
-    if (error) { toast.error(error.message); setLoading(false); return; }
-    setEntries((ents as unknown as JournalEntry[]) ?? []);
-    const ids = ((ents as any[]) ?? []).map((e) => e.id);
-    if (ids.length === 0) { setLines([]); setLoading(false); return; }
+    // Load ALL entries in-range via fetchAllRows (bypasses the 1000-row cap that .limit() does NOT).
+    const allEnts = await fetchAllRows(
+      "journal_entries",
+      "*",
+      { col: "entry_date", asc: false },
+      tenantId,
+    );
+    let filtered = allEnts as JournalEntry[];
+    if (filters?.fromDate) filtered = filtered.filter((e) => e.entry_date >= filters.fromDate!);
+    if (filters?.toDate) filtered = filtered.filter((e) => e.entry_date <= filters.toDate!);
+    if (filters?.sourceType && filters.sourceType !== "all") filtered = filtered.filter((e) => e.source_type === filters.sourceType);
+    setEntries(filtered);
+    const ids = new Set(filtered.map((e) => e.id));
+    if (ids.size === 0) { setLines([]); setLoading(false); return; }
     const allLines = await fetchAllRows("journal_lines", "*", undefined, tenantId);
-    setLines((allLines as JournalLine[]).filter((l) => ids.includes(l.entry_id)));
+    setLines((allLines as JournalLine[]).filter((l) => ids.has(l.entry_id)));
     setLoading(false);
   }, [filters?.fromDate, filters?.toDate, filters?.sourceType, tenantId]);
 

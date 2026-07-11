@@ -1283,6 +1283,7 @@ export type Database = {
           credit_note_number: string
           id: string
           is_opening_balance: boolean
+          journal_entry_id: string | null
           notes: string
           original_amount: number
           remaining_balance: number
@@ -1301,6 +1302,7 @@ export type Database = {
           credit_note_number?: string
           id?: string
           is_opening_balance?: boolean
+          journal_entry_id?: string | null
           notes?: string
           original_amount: number
           remaining_balance?: number
@@ -1319,6 +1321,7 @@ export type Database = {
           credit_note_number?: string
           id?: string
           is_opening_balance?: boolean
+          journal_entry_id?: string | null
           notes?: string
           original_amount?: number
           remaining_balance?: number
@@ -1330,6 +1333,27 @@ export type Database = {
           venue?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_notes_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "credit_notes_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
           {
             foreignKeyName: "credit_notes_source_invoice_id_fkey"
             columns: ["source_invoice_id"]
@@ -5495,6 +5519,7 @@ export type Database = {
           created_at: string
           credit_note_amount_applied: number
           credit_note_id: string | null
+          credit_note_journal_entry_id: string | null
           id: string
           invoice_id: string
           payment_id: string
@@ -5505,6 +5530,7 @@ export type Database = {
           created_at?: string
           credit_note_amount_applied?: number
           credit_note_id?: string | null
+          credit_note_journal_entry_id?: string | null
           id?: string
           invoice_id: string
           payment_id: string
@@ -5515,6 +5541,7 @@ export type Database = {
           created_at?: string
           credit_note_amount_applied?: number
           credit_note_id?: string | null
+          credit_note_journal_entry_id?: string | null
           id?: string
           invoice_id?: string
           payment_id?: string
@@ -5527,6 +5554,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "credit_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_credit_note_journal_entry_id_fkey"
+            columns: ["credit_note_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_credit_note_journal_entry_id_fkey"
+            columns: ["credit_note_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_credit_note_journal_entry_id_fkey"
+            columns: ["credit_note_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
           },
           {
             foreignKeyName: "payment_allocations_invoice_id_fkey"
@@ -6077,6 +6125,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          journal_entry_id: string | null
           match_status: string
           notes: string
           paid_from_account_id: string | null
@@ -6094,6 +6143,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          journal_entry_id?: string | null
           match_status?: string
           notes?: string
           paid_from_account_id?: string | null
@@ -6111,6 +6161,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          journal_entry_id?: string | null
           match_status?: string
           notes?: string
           paid_from_account_id?: string | null
@@ -6128,6 +6179,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bank_transactions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "payments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
           },
           {
             foreignKeyName: "payments_paid_from_account_id_fkey"
@@ -9241,10 +9313,12 @@ export type Database = {
         Args: { p_payment_id: string }
         Returns: Json
       }
+      post_invoice_payment: { Args: { p_payment_id: string }; Returns: Json }
       post_payroll_accrual: {
         Args: { p_month: number; p_year: number }
         Returns: Json
       }
+      post_payroll_batch: { Args: { p_batch_id: string }; Returns: Json }
       post_payroll_payment_batch: {
         Args: { p_batch_id: string }
         Returns: Json

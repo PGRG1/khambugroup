@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Link } from "react-router-dom";
 import {
   ResponsiveContainer,
@@ -96,33 +97,48 @@ export default function FinanceDashboard() {
     return d.toISOString().slice(0, 10);
   })();
 
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [pl, setPl] = useState<PLRow[]>([]);
   const [bs, setBs] = useState<BSRow[]>([]);
   const [cash, setCash] = useState<CashRow[]>([]);
   const [coa, setCoa] = useState<CoA[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unpostedApproved, setUnpostedApproved] = useState<number>(0);
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) { setPl([]); setBs([]); setCash([]); setCoa([]); setLoading(false); return; }
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [plRows, bsRows, cashRows, coaRes] = await Promise.all([
-        fetchWindowed("v_pl", "account_id,code,name,account_type,entry_date,year,month,amount", windowStart),
-        fetchWindowed("v_balance_sheet", "account_id,code,name,account_type,entry_date,amount", windowStart),
-        fetchWindowed("v_cash_movements", "entry_date,account_code,account_name,cash_in,cash_out,net_cash,venue", windowStart),
-        supabase.from("chart_of_accounts" as any).select("id,code,name,account_type,is_cash"),
+      const [plRows, bsRows, cashRows, coaRes, invAll, jeInv] = await Promise.all([
+        fetchWindowed("v_pl", "account_id,code,name,account_type,entry_date,year,month,amount", windowStart, tenantId),
+        fetchWindowed("v_balance_sheet", "account_id,code,name,account_type,entry_date,amount", windowStart, tenantId),
+        fetchWindowed("v_cash_movements", "entry_date,account_code,account_name,cash_in,cash_out,net_cash,venue", windowStart, tenantId),
+        supabase.from("chart_of_accounts" as any).select("id,code,name,account_type,is_cash").eq("tenant_id", tenantId),
+        fetchAllRows("invoices", "id, review_status", undefined, tenantId).catch(() => []),
+        fetchAllRows("journal_entries", "source_id,source_type,status", undefined, tenantId).catch(() => []),
       ]);
       if (cancelled) return;
       setPl(plRows as unknown as PLRow[]);
       setBs(bsRows as unknown as BSRow[]);
       setCash(cashRows as unknown as CashRow[]);
       setCoa(((coaRes.data as any[]) || []) as CoA[]);
+      const postedInvIds = new Set(
+        (jeInv as any[])
+          .filter((e) => e.source_type === "invoice" && e.status === "posted" && e.source_id)
+          .map((e) => e.source_id as string),
+      );
+      const unposted = (invAll as any[]).filter(
+        (i) => i.review_status === "Approved" && !postedInvIds.has(i.id)
+      ).length;
+      setUnpostedApproved(unposted);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [windowStart]);
+  }, [windowStart, tenantId, tenantLoading]);
 
   // ===== KPIs =====
   const kpis = useMemo(() => {
@@ -245,6 +261,24 @@ export default function FinanceDashboard() {
           <p className="text-sm text-muted-foreground mt-1">As of {fmtDate(asOf)}</p>
         </div>
       </div>
+
+      {unpostedApproved > 0 && (
+        <Link
+          to="/finance/payables"
+          className="flex items-center justify-between gap-4 rounded-xl border border-warning/40 bg-warning/5 px-4 py-3 text-sm hover:border-warning/60 transition-colors"
+        >
+          <div className="min-w-0">
+            <div className="font-medium text-warning">
+              {unpostedApproved} approved invoice{unpostedApproved === 1 ? "" : "s"} not yet posted to the ledger
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Run "Rebuild ledger" from Journal, or fix any missing account mappings, so these invoices land in the trial balance.
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-warning shrink-0" />
+        </Link>
+      )}
+
 
       {/* KPI ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -463,16 +497,18 @@ export default function FinanceDashboard() {
   );
 }
 
-// Windowed fetch — bounds v_pl / v_balance_sheet / v_cash_movements by entry_date.
-async function fetchWindowed(view: string, select: string, sinceIso: string): Promise<any[]> {
+// Windowed fetch — bounds v_pl / v_balance_sheet / v_cash_movements by entry_date + tenant.
+async function fetchWindowed(view: string, select: string, sinceIso: string, tenantId?: string | null): Promise<any[]> {
   const PAGE = 1000;
   let all: any[] = [];
   let offset = 0;
   while (true) {
-    const { data } = await (supabase.from(view as any) as any)
+    let q: any = (supabase.from(view as any) as any)
       .select(select)
       .gte("entry_date", sinceIso)
       .range(offset, offset + PAGE - 1);
+    if (tenantId) q = q.eq("tenant_id", tenantId);
+    const { data } = await q;
     if (!data || data.length === 0) break;
     all = all.concat(data);
     if (data.length < PAGE) break;

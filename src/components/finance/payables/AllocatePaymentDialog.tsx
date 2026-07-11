@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import type { APInvoice } from "@/hooks/usePayables";
 
 type Txn = {
@@ -28,6 +29,7 @@ export function AllocatePaymentDialog({
   invoice: APInvoice | null;
   onSaved: () => void;
 }) {
+  const { tenantId } = useActiveTenant();
   const [txns, setTxns] = useState<Txn[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -35,12 +37,14 @@ export function AllocatePaymentDialog({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open || !invoice) return;
+    if (!open || !invoice || !tenantId) return;
     (async () => {
       setLoading(true);
       const rows = await fetchAllRows(
         "bank_transactions",
-        "id, txn_date, description, reference, money_out, status, bank_account_id"
+        "id, txn_date, description, reference, money_out, status, bank_account_id",
+        undefined,
+        tenantId,
       );
       const target = invoice.outstanding_amount > 0 ? invoice.outstanding_amount : invoice.total_amount;
       const filtered = (rows as any[])
@@ -52,7 +56,7 @@ export function AllocatePaymentDialog({
       setSelected(null);
       setLoading(false);
     })();
-  }, [open, invoice]);
+  }, [open, invoice, tenantId]);
 
   if (!invoice) return null;
 

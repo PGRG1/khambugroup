@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useCashflowStatement } from "@/hooks/useCashflowStatement";
-import { CASHFLOW_VENUES } from "@/utils/cashflowCalculations";
+import { useVenues } from "@/hooks/useVenues";
 import { SECTION_LABELS, SECTION_ORDER, CashflowSection } from "@/utils/cashflowStatementClassifier";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,8 @@ function getPresetRange(preset: PeriodPreset): { from: string; to: string } {
 }
 
 export default function CashflowStatement() {
+  const { venues } = useVenues();
+  const venueNames = useMemo(() => venues.filter((v) => v.is_active).map((v) => v.name), [venues]);
   const [preset, setPreset] = useState<PeriodPreset>("ytd");
   const initial = getPresetRange("ytd");
   const [fromDate, setFromDate] = useState(initial.from);
@@ -164,7 +166,7 @@ export default function CashflowStatement() {
             <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="All Venues">All Venues</SelectItem>
-              {CASHFLOW_VENUES.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+              {venueNames.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={handleExport}>

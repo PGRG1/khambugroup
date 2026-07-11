@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,13 +46,25 @@ export default function Ledger() {
   useEffect(() => {
     if (!accountId || !tenantId) { setRows([]); return; }
     setLoading(true);
-    let q: any = supabase.from("v_general_ledger" as any).select("*").eq("tenant_id", tenantId).eq("account_id", accountId).order("entry_date", { ascending: true });
-    if (fromDate) q = q.gte("entry_date", fromDate);
-    if (toDate) q = q.lte("entry_date", toDate);
-    q.limit(5000).then(({ data }: any) => {
-      setRows((data as GLRow[]) ?? []);
+    let cancelled = false;
+    (async () => {
+      // fetchAllRows bypasses PostgREST's 1000-row cap by paging with range()
+      const all = await fetchAllRows(
+        "v_general_ledger",
+        "*",
+        { col: "entry_date", asc: true },
+        tenantId,
+      );
+      if (cancelled) return;
+      const filtered = (all as GLRow[]).filter((r: any) =>
+        r.account_id === accountId &&
+        (!fromDate || r.entry_date >= fromDate) &&
+        (!toDate || r.entry_date <= toDate)
+      );
+      setRows(filtered);
       setLoading(false);
-    });
+    })();
+    return () => { cancelled = true; };
   }, [accountId, fromDate, toDate, tenantId]);
 
   const account = accounts.find((a) => a.id === accountId);

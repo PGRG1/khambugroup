@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { bucketOf } from "./useReceivables";
 
 export type APInvoice = {
@@ -84,6 +85,7 @@ export type APPaymentRow = {
 };
 
 export function usePayables() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [invoices, setInvoices] = useState<APInvoice[]>([]);
   const [supplierSummary, setSupplierSummary] = useState<APSupplierSummary[]>([]);
   const [paidThisMonth, setPaidThisMonth] = useState(0);
@@ -101,6 +103,12 @@ export function usePayables() {
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) {
+      setInvoices([]); setSupplierSummary([]); setPayments([]); setPayrollPayables([]);
+      setCreditNotes([]); setCreditNotesAvailable([]); setBankAccounts([]); setLoading(false);
+      return;
+    }
     (async () => {
       setLoading(true);
       const today = new Date();
@@ -110,7 +118,7 @@ export function usePayables() {
         .slice(0, 10);
 
       // Suppliers map (for credit notes & payments)
-      const suppliersRaw = await fetchAllRows("suppliers", "id, name");
+      const suppliersRaw = await fetchAllRows("suppliers", "id, name", undefined, tenantId);
       const supplierName = new Map<string, string>(
         (suppliersRaw as any[]).map((s) => [s.id, s.name || "(no supplier)"])
       );
@@ -118,7 +126,9 @@ export function usePayables() {
       // Approved invoices only
       const rawInvoices = await fetchAllRows(
         "invoices",
-        "id, invoice_date, due_date, invoice_number, supplier_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)"
+        "id, invoice_date, due_date, invoice_number, supplier_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
+        undefined,
+        tenantId,
       );
       const approved = (rawInvoices || []).filter(
         (i: any) => i.review_status === "Approved"
@@ -130,7 +140,9 @@ export function usePayables() {
       // Bank accounts
       const banks = await fetchAllRows(
         "bank_accounts",
-        "id, account_name, bank_name, account_number_last4, is_active"
+        "id, account_name, bank_name, account_number_last4, is_active",
+        undefined,
+        tenantId,
       );
       const activeBanks = (banks || []).filter((b: any) => b.is_active !== false);
       setBankAccounts(activeBanks.map((b: any) => ({
@@ -150,7 +162,9 @@ export function usePayables() {
       // Legacy invoice_payments (for back-compat last-payment derivation on invoices)
       const legacyPayments = await fetchAllRows(
         "invoice_payments",
-        "id, invoice_id, payment_date, amount, payment_method, bank_account_id, match_status"
+        "id, invoice_id, payment_date, amount, payment_method, bank_account_id, match_status",
+        undefined,
+        tenantId,
       );
       const paymentsByInvoice = new Map<string, any[]>();
       for (const p of legacyPayments as any[]) {
@@ -162,11 +176,15 @@ export function usePayables() {
       // NEW: payments + allocations
       const paymentRows = await fetchAllRows(
         "payments",
-        "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status"
+        "id, payment_date, amount, payment_method, paid_from_account_id, reference_number, cheque_number, notes, supplier_id, match_status",
+        undefined,
+        tenantId,
       );
       const allocRows = await fetchAllRows(
         "payment_allocations",
-        "id, payment_id, invoice_id, amount_allocated, credit_note_id, credit_note_amount_applied"
+        "id, payment_id, invoice_id, amount_allocated, credit_note_id, credit_note_amount_applied",
+        undefined,
+        tenantId,
       );
       const allocByPayment = new Map<string, any[]>();
       for (const a of allocRows as any[]) {
@@ -313,10 +331,11 @@ export function usePayables() {
       const { data: payrollAccts } = await supabase
         .from("chart_of_accounts")
         .select("id, code, name")
+        .eq("tenant_id", tenantId)
         .in("code", ["2030", "2040"]);
       if (payrollAccts && payrollAccts.length > 0) {
         const acctIds = payrollAccts.map((a: any) => a.id);
-        const allLines = await fetchAllRows("journal_lines", "account_id, debit, credit");
+        const allLines = await fetchAllRows("journal_lines", "account_id, debit, credit", undefined, tenantId);
         const balByAcct = new Map<string, number>();
         for (const l of allLines as any[]) {
           if (!acctIds.includes(l.account_id)) continue;
@@ -339,7 +358,9 @@ export function usePayables() {
       // Credit notes (all)
       const cns = await fetchAllRows(
         "credit_notes",
-        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, venue, notes, source_invoice_id"
+        "id, supplier_id, credit_note_number, credit_note_date, original_amount, remaining_balance, status, venue, notes, source_invoice_id",
+        undefined,
+        tenantId,
       );
       const mappedCNs: APCreditNote[] = (cns || []).map((c: any) => {
         const orig = Number(c.original_amount) || 0;
@@ -380,7 +401,7 @@ export function usePayables() {
 
       setLoading(false);
     })();
-  }, [refreshKey]);
+  }, [refreshKey, tenantId, tenantLoading]);
 
   return {
     invoices,
