@@ -51,7 +51,7 @@ export function useVenues() {
 
   useEffect(() => { if (!tenantLoading) load(); }, [load, tenantLoading]);
 
-  const create = async (input: { name: string; seats?: number | null; notes?: string }) => {
+  const create = async (input: { name: string; seats?: number | null; notes?: string; organization_id?: string | null }) => {
     if (!tenantId) return false;
     const name = input.name.trim();
     if (!name) return false;
@@ -62,6 +62,7 @@ export function useVenues() {
       notes: input.notes ?? "",
       sort_order: maxOrder + 1,
       tenant_id: tenantId,
+      organization_id: input.organization_id ?? null,
     });
     if (error) {
       toast({ title: "Could not add venue", description: error.message, variant: "destructive" });
@@ -71,7 +72,7 @@ export function useVenues() {
     return true;
   };
 
-  const update = async (id: string, patch: Partial<Pick<Venue, "name" | "seats" | "is_active" | "notes" | "sort_order">>) => {
+  const update = async (id: string, patch: Partial<Pick<Venue, "name" | "seats" | "is_active" | "notes" | "sort_order" | "organization_id">>) => {
     if (!tenantId) return false;
     const cleaned: Record<string, unknown> = { ...patch };
     if (typeof cleaned.name === "string") cleaned.name = (cleaned.name as string).trim();
