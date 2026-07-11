@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { PageHeader, KpiCard, KpiGrid } from "@/components/expenses/shared";
+
 
 const fmtDate = (iso: string) => {
   try {
@@ -101,34 +103,24 @@ export default function Clients() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Bani client groups provisioned on the platform.
-          </p>
-        </div>
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          Add Client
-        </Button>
-      </div>
+    <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
+      <PageHeader
+        title="Clients"
+        description="Bani client groups provisioned on the platform."
+        actions={
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" /> Add Client
+          </Button>
+        }
+      />
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "Total clients", value: totalClients },
-          { label: "Active", value: totalActive },
-          { label: "In setup", value: totalSetup },
-          { label: "Total venues", value: totalVenues },
-        ].map(k => (
-          <div key={k.label} className="card-glass rounded-lg p-4">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{k.label}</div>
-            <div className="text-2xl font-semibold mt-1 td-num">{k.value}</div>
-          </div>
-        ))}
-      </div>
+      <KpiGrid>
+        <KpiCard label="Total clients" value={totalClients} />
+        <KpiCard label="Active" value={totalActive} tone="success" />
+        <KpiCard label="In setup" value={totalSetup} tone="warning" />
+        <KpiCard label="Total venues" value={totalVenues} />
+      </KpiGrid>
+
 
       <div className="card-glass rounded-lg overflow-hidden">
         <table className="w-full text-sm">
@@ -157,7 +149,7 @@ export default function Clients() {
               return (
                 <tr
                   key={r.id}
-                  onClick={() => navigate(`/admin/clients/${r.id}`)}
+                  onClick={() => navigate(`/platform/clients/${r.id}`)}
                   className={`border-t border-border/40 cursor-pointer hover:bg-muted/20 ${idx % 2 === 1 ? "bg-muted/10" : ""}`}
                 >
                   <td className="px-4 py-3">
@@ -185,7 +177,7 @@ export default function Clients() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={(e) => { e.stopPropagation(); navigate(`/admin/clients/${r.id}`); }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/platform/clients/${r.id}`); }}
                     >
                       Manage <ChevronRight className="h-3.5 w-3.5 ml-1" />
                     </Button>

@@ -3,7 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -27,11 +29,14 @@ import RevenueTargets from "./pages/RevenueTargets";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
 
-import SystemConfiguration from "./pages/admin/SystemConfiguration";
 import AiRules from "./pages/admin/AiRules";
 import Clients from "./pages/admin/Clients";
 import ClientDetail from "./pages/admin/ClientDetail";
 import ClientOnboarding from "./pages/admin/ClientOnboarding";
+import BusinessStructure from "./pages/admin/BusinessStructure";
+import MasterData from "./pages/admin/MasterData";
+import Preferences from "./pages/admin/Preferences";
+
 
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -157,6 +162,26 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <AppLayout>{children}</AppLayout>;
 };
 
+const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
+  const { session, loading } = useAuth();
+  const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
+  if (loading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (!session) return <Navigate to="/auth" replace />;
+  if (!isPlatformAdmin) return <Navigate to="/" replace />;
+  return <AppLayout>{children}</AppLayout>;
+};
+
+// Legacy /admin/clients* → /platform/clients* redirects (preserves :tenantId).
+const RedirectClientDetail = () => {
+  const { tenantId } = useParams();
+  return <Navigate to={`/platform/clients/${tenantId}`} replace />;
+};
+const RedirectClientOnboarding = () => {
+  const { tenantId } = useParams();
+  return <Navigate to={`/platform/clients/${tenantId}/onboarding`} replace />;
+};
+
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -215,12 +240,22 @@ function App() {
                 <Route path="/petty-cash/replenishments" element={<AdminRoute><PettyCashReplenishmentsPage /></AdminRoute>} />
                 <Route path="/petty-cash/floats" element={<AdminRoute><PettyCashFloatsPage /></AdminRoute>} />
                 <Route path="/petty-cash/classifications" element={<AdminRoute><PettyCashClassificationsPage /></AdminRoute>} />
-                <Route path="/settings" element={<Navigate to="/admin/system-configuration" replace />} />
-                <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
+                <Route path="/settings" element={<Navigate to="/admin/preferences" replace />} />
+                <Route path="/admin/system-configuration" element={<Navigate to="/admin/structure" replace />} />
+                <Route path="/admin/structure" element={<AdminRoute><BusinessStructure /></AdminRoute>} />
+                <Route path="/admin/master-data" element={<AdminRoute><MasterData /></AdminRoute>} />
+                <Route path="/admin/preferences" element={<AdminRoute><Preferences /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
-                <Route path="/admin/clients" element={<AdminRoute><Clients /></AdminRoute>} />
-                <Route path="/admin/clients/:tenantId" element={<AdminRoute><ClientDetail /></AdminRoute>} />
-                <Route path="/admin/clients/:tenantId/onboarding" element={<AdminRoute><ClientOnboarding /></AdminRoute>} />
+
+                {/* Platform admin — hard-separated under /platform/*. Old /admin/clients* redirects. */}
+                <Route path="/admin/clients" element={<Navigate to="/platform/clients" replace />} />
+                <Route path="/admin/clients/:tenantId" element={<RedirectClientDetail />} />
+                <Route path="/admin/clients/:tenantId/onboarding" element={<RedirectClientOnboarding />} />
+                <Route path="/platform" element={<Navigate to="/platform/clients" replace />} />
+                <Route path="/platform/clients" element={<PlatformRoute><Clients /></PlatformRoute>} />
+                <Route path="/platform/clients/:tenantId" element={<PlatformRoute><ClientDetail /></PlatformRoute>} />
+                <Route path="/platform/clients/:tenantId/onboarding" element={<PlatformRoute><ClientOnboarding /></PlatformRoute>} />
+
 
 
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />

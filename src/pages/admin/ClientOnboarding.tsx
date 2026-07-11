@@ -55,7 +55,7 @@ export default function ClientOnboarding() {
 
   if (gateLoading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!isPlatformAdmin) return <Navigate to="/" replace/>;
-  if (!tenantId) return <Navigate to="/admin/clients" replace/>;
+  if (!tenantId) return <Navigate to="/platform/clients" replace/>;
 
   const skip = (key: string) => {
     const reason = prompt("Reason for skipping?") || "";
@@ -64,7 +64,7 @@ export default function ClientOnboarding() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
-      <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/clients/${tenantId}`)}>
+      <Button variant="ghost" size="sm" onClick={() => navigate(`/platform/clients/${tenantId}`)}>
         <ArrowLeft className="h-4 w-4 mr-1"/>Back to client
       </Button>
       <PageHeader

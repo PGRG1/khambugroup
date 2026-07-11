@@ -528,9 +528,10 @@ export function AppSidebar() {
               {[
                 { title: "Notifications", url: "/notifications" },
                 { title: "User Access", url: "/user-access" },
-                { title: "System Configuration", url: "/admin/system-configuration" },
+                { title: "Business Structure", url: "/admin/structure" },
+                { title: "Master Data", url: "/admin/master-data" },
                 { title: "AI Learned Rules", url: "/admin/ai-rules" },
-                { title: "Settings", url: "/settings" },
+                { title: "Preferences", url: "/admin/preferences" },
               ].map((it) => <ChildLink key={it.url} item={it} />)}
             </SidebarMenu>
           </CollapsibleNavGroup>
@@ -538,16 +539,17 @@ export function AppSidebar() {
 
         {showPlatform && (
           <CollapsibleNavGroup
-            label="Platform Admin"
+            label="Platform"
             icon={Building2}
-            defaultOpen={false}
-            onOpenChange={() => {}}
+            defaultOpen={groupState.platform}
+            onOpenChange={(o) => setGroup("platform", o)}
           >
             <SidebarMenu className="gap-1 pt-1">
-              <ChildLink item={{ title: "Clients", url: "/admin/clients" }} />
+              <ChildLink item={{ title: "Clients", url: "/platform/clients" }} />
             </SidebarMenu>
           </CollapsibleNavGroup>
         )}
+
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
