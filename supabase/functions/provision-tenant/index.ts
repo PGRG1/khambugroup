@@ -138,13 +138,19 @@ Deno.serve(async (req) => {
   let adminUserId: string | null = null;
   let createdNewUser = false;
 
+  let organizationId: string | null = null;
   try {
-    // 1. Create tenant (status='setup')
+    // 1. Create tenant (status='setup'). Typed columns for localisation live on tenants directly now.
     const { data: tenant, error: tErr } = await admin.from("tenants").insert({
       name: body.client_group_name.trim(),
       slug,
       status: "setup",
       plan: "standard",
+      timezone: body.timezone,
+      base_currency: body.base_currency,
+      country: body.country,
+      financial_year_start_year: null,
+      financial_year_end: null,
     }).select("id").single();
     if (tErr || !tenant) throw new Error(tErr?.message || "tenant insert failed");
     tenantId = tenant.id as string;
@@ -155,6 +161,7 @@ Deno.serve(async (req) => {
         "audit_log","user_page_permissions","user_access_control",
         "expense_categories","hr_departments","app_config","page_visibility",
         "venues_config","chart_of_accounts","tenant_members","venues",
+        "organizations","tenant_onboarding",
       ];
       for (const t of tables) {
         await admin.from(t).delete().eq("tenant_id", tenantId!);
@@ -162,10 +169,21 @@ Deno.serve(async (req) => {
       await admin.from("tenants").delete().eq("id", tenantId!);
     });
 
+    // 1b. Seed the first organization (legal entity) BEFORE the venue — every
+    //     venue must have an organization_id.
+    const { data: org, error: oErr } = await admin.from("organizations").insert({
+      tenant_id: tenantId,
+      name: body.client_group_name.trim(),
+      legal_name: body.legal_entity_name.trim(),
+      industry: "food_and_beverage",
+    }).select("id").single();
+    if (oErr || !org) throw new Error("organization insert failed: " + (oErr?.message ?? ""));
+    organizationId = org.id as string;
 
-    // 2. First venue
+    // 2. First venue — linked to the organization we just created.
     const { data: venue, error: vErr } = await admin.from("venues").insert({
       tenant_id: tenantId,
+      organization_id: organizationId,
       name: body.initial_venue_name.trim(),
       sort_order: 0,
       is_active: true,
@@ -173,6 +191,7 @@ Deno.serve(async (req) => {
     if (vErr || !venue) throw new Error("venue insert failed: " + (vErr?.message ?? ""));
     venueId = venue.id as string;
     rollback.push(async () => { await admin.from("venues").delete().eq("id", venueId!); });
+
 
     // 3. Client administrator — invite or reuse
     let existingUser: any = null;
