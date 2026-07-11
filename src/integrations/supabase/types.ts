@@ -83,6 +83,97 @@ export type Database = {
           },
         ]
       }
+      account_opening_balances: {
+        Row: {
+          as_at_date: string
+          coa_account_id: string
+          created_at: string
+          created_by: string | null
+          credit: number
+          debit: number
+          id: string
+          notes: string | null
+          organization_id: string
+          posted_journal_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          as_at_date: string
+          coa_account_id: string
+          created_at?: string
+          created_by?: string | null
+          credit?: number
+          debit?: number
+          id?: string
+          notes?: string | null
+          organization_id: string
+          posted_journal_id?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          as_at_date?: string
+          coa_account_id?: string
+          created_at?: string
+          created_by?: string | null
+          credit?: number
+          debit?: number
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          posted_journal_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_opening_balances_coa_account_id_fkey"
+            columns: ["coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_coa_account_id_fkey"
+            columns: ["coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_coa_account_id_fkey"
+            columns: ["coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_coa_account_id_fkey"
+            columns: ["coa_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_opening_balances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounting_categories: {
         Row: {
           category_group: string
@@ -1284,6 +1375,42 @@ export type Database = {
           },
         ]
       }
+      coa_templates: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          industry: string | null
+          is_active: boolean
+          name: string
+          template: Json
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          is_active?: boolean
+          name: string
+          template: Json
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          is_active?: boolean
+          name?: string
+          template?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       credit_notes: {
         Row: {
           attachment_url: string | null
@@ -1387,6 +1514,81 @@ export type Database = {
           },
           {
             foreignKeyName: "credit_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_opening_balances: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          customer_name: string
+          due_date: string | null
+          id: string
+          invoice_date: string | null
+          invoice_no: string | null
+          is_credit_note: boolean
+          notes: string | null
+          organization_id: string | null
+          original_amount: number
+          outstanding_amount: number
+          tenant_id: string
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_name: string
+          due_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_no?: string | null
+          is_credit_note?: boolean
+          notes?: string | null
+          organization_id?: string | null
+          original_amount?: number
+          outstanding_amount?: number
+          tenant_id: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          customer_name?: string
+          due_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_no?: string | null
+          is_credit_note?: boolean
+          notes?: string | null
+          organization_id?: string | null
+          original_amount?: number
+          outstanding_amount?: number
+          tenant_id?: string
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_opening_balances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_opening_balances_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -5494,6 +5696,7 @@ export type Database = {
           created_at: string
           id: string
           incorporation_date: string | null
+          industry: string | null
           legal_name: string | null
           name: string
           registered_address: string | null
@@ -5506,6 +5709,7 @@ export type Database = {
           created_at?: string
           id?: string
           incorporation_date?: string | null
+          industry?: string | null
           legal_name?: string | null
           name: string
           registered_address?: string | null
@@ -5518,6 +5722,7 @@ export type Database = {
           created_at?: string
           id?: string
           incorporation_date?: string | null
+          industry?: string | null
           legal_name?: string | null
           name?: string
           registered_address?: string | null
@@ -8344,35 +8549,94 @@ export type Database = {
           },
         ]
       }
+      tenant_onboarding: {
+        Row: {
+          conversion_date: string | null
+          created_at: string
+          current_phase: number
+          id: string
+          notes: string | null
+          starting_fresh: boolean
+          steps: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          conversion_date?: string | null
+          created_at?: string
+          current_phase?: number
+          id?: string
+          notes?: string | null
+          starting_fresh?: boolean
+          steps?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          conversion_date?: string | null
+          created_at?: string
+          current_phase?: number
+          id?: string
+          notes?: string | null
+          starting_fresh?: boolean
+          steps?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_onboarding_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
+          base_currency: string | null
           cost_reporting_mode: string
+          country: string | null
           created_at: string
+          financial_year_end: string | null
+          financial_year_start_year: number | null
           id: string
           name: string
           plan: string
           slug: string
           status: string
+          timezone: string | null
           updated_at: string
         }
         Insert: {
+          base_currency?: string | null
           cost_reporting_mode?: string
+          country?: string | null
           created_at?: string
+          financial_year_end?: string | null
+          financial_year_start_year?: number | null
           id?: string
           name: string
           plan?: string
           slug: string
           status?: string
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
+          base_currency?: string | null
           cost_reporting_mode?: string
+          country?: string | null
           created_at?: string
+          financial_year_end?: string | null
+          financial_year_start_year?: number | null
           id?: string
           name?: string
           plan?: string
           slug?: string
           status?: string
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: []
