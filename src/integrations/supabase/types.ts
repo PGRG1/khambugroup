@@ -9651,6 +9651,108 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
+      platform_delete_organization: {
+        Args: { _id: string; _tenant_id: string }
+        Returns: undefined
+      }
+      platform_load_coa_template: {
+        Args: { _template_id: string; _tenant_id: string }
+        Returns: number
+      }
+      platform_update_tenant_localisation: {
+        Args: {
+          _base_currency: string
+          _country: string
+          _financial_year_end: string
+          _financial_year_start_year: number
+          _tenant_id: string
+          _timezone: string
+        }
+        Returns: {
+          base_currency: string | null
+          cost_reporting_mode: string
+          country: string | null
+          created_at: string
+          financial_year_end: string | null
+          financial_year_start_year: number | null
+          id: string
+          name: string
+          plan: string
+          slug: string
+          status: string
+          timezone: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tenants"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_upsert_account_opening_balances: {
+        Args: { _rows: Json; _tenant_id: string }
+        Returns: number
+      }
+      platform_upsert_organization: {
+        Args: {
+          _auditor?: string
+          _id: string
+          _incorporation_date?: string
+          _industry?: string
+          _legal_name?: string
+          _name: string
+          _registered_address?: string
+          _registration_number?: string
+          _tenant_id: string
+        }
+        Returns: {
+          auditor: string | null
+          created_at: string
+          id: string
+          incorporation_date: string | null
+          industry: string | null
+          legal_name: string | null
+          name: string
+          registered_address: string | null
+          registration_number: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      platform_upsert_venue: {
+        Args: {
+          _id: string
+          _name: string
+          _organization_id: string
+          _tenant_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          notes: string
+          organization_id: string | null
+          seats: number | null
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "venues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       post_expense_bill: { Args: { p_bill_id: string }; Returns: string }
       post_expense_bill_payment: {
         Args: { p_payment_id: string }

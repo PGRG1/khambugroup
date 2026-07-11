@@ -44,17 +44,18 @@ export function StepOrganizations({ tenantId, onComplete }: StepProps) {
 
   const save = async (o: any) => {
     if (!o.name?.trim()) { toast({ title: "Name required", variant: "destructive" }); return; }
-    if (o.id) {
-      const { error } = await supabase.from("organizations").update({
-        name: o.name, legal_name: o.legal_name, registration_number: o.registration_number,
-        incorporation_date: o.incorporation_date || null, registered_address: o.registered_address,
-        auditor: o.auditor, industry: o.industry,
-      }).eq("id", o.id);
-      if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
-      const { error } = await supabase.from("organizations").insert({ ...o, tenant_id: tenantId, incorporation_date: o.incorporation_date || null });
-      if (error) return toast({ title: "Create failed", description: error.message, variant: "destructive" });
-    }
+    const { error } = await supabase.rpc("platform_upsert_organization", {
+      _tenant_id: tenantId,
+      _id: o.id ?? null,
+      _name: o.name,
+      _legal_name: o.legal_name ?? null,
+      _registration_number: o.registration_number ?? null,
+      _incorporation_date: o.incorporation_date || null,
+      _registered_address: o.registered_address ?? null,
+      _auditor: o.auditor ?? null,
+      _industry: o.industry ?? null,
+    });
+    if (error) return toast({ title: o.id ? "Save failed" : "Create failed", description: error.message, variant: "destructive" });
     setDraft(null);
     await load();
     toast({ title: "Saved" });
@@ -62,10 +63,11 @@ export function StepOrganizations({ tenantId, onComplete }: StepProps) {
 
   const remove = async (id: string) => {
     if (!confirm("Delete this organization?")) return;
-    const { error } = await supabase.from("organizations").delete().eq("id", id);
+    const { error } = await supabase.rpc("platform_delete_organization", { _tenant_id: tenantId, _id: id });
     if (error) return toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     await load();
   };
+
 
   return (
     <div className="space-y-3">
@@ -132,10 +134,13 @@ export function StepVenues({ tenantId, onComplete }: StepProps) {
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const [{ data: os }, { data: vs }] = await Promise.all([
+    setLoading(true);
+    const [{ data: os, error: oe }, { data: vs, error: ve }] = await Promise.all([
       supabase.from("organizations").select("id, name").eq("tenant_id", tenantId).order("name"),
       supabase.from("venues").select("id, name, organization_id").eq("tenant_id", tenantId).order("name"),
     ]);
+    if (oe) toast({ title: "Could not load organizations", description: oe.message, variant: "destructive" });
+    if (ve) toast({ title: "Could not load venues", description: ve.message, variant: "destructive" });
     setOrgs(os ?? []);
     setVenues(vs ?? []);
     setLoading(false);
@@ -144,20 +149,25 @@ export function StepVenues({ tenantId, onComplete }: StepProps) {
 
   const save = async (v: any) => {
     if (!v.name?.trim() || !v.organization_id) return toast({ title: "Name and organization required", variant: "destructive" });
-    if (v.id) {
-      const { error } = await supabase.from("venues").update({ name: v.name, organization_id: v.organization_id }).eq("id", v.id);
-      if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
-      const { error } = await supabase.from("venues").insert({ tenant_id: tenantId, name: v.name, organization_id: v.organization_id, is_active: true });
-      if (error) return toast({ title: "Create failed", description: error.message, variant: "destructive" });
-    }
+    const { error } = await supabase.rpc("platform_upsert_venue", {
+      _tenant_id: tenantId,
+      _id: v.id ?? null,
+      _name: v.name,
+      _organization_id: v.organization_id,
+    });
+    if (error) return toast({ title: v.id ? "Save failed" : "Create failed", description: error.message, variant: "destructive" });
     setDraft(null);
     await load();
+    toast({ title: "Venue saved" });
   };
 
   if (loading) return <div className="text-sm text-muted-foreground">Loading…</div>;
   if (orgs.length === 0) return (
-    <EmptyState title="Add organizations first" description="Every venue needs a parent organization." />
+    <EmptyState
+      title="Add organizations first"
+      description="Every venue needs a parent organization. Create one in the Organizations step above, then refresh."
+      action={<Button size="sm" variant="outline" onClick={load}>Refresh</Button>}
+    />
   );
 
   return (
@@ -201,6 +211,7 @@ export function StepVenues({ tenantId, onComplete }: StepProps) {
   );
 }
 
+
 // ---------- Phase 1: Localisation ----------
 export function StepLocalisation({ tenantId, onComplete }: StepProps) {
   const [tenant, setTenant] = useState<any>(null);
@@ -231,15 +242,19 @@ export function StepLocalisation({ tenantId, onComplete }: StepProps) {
   }, [tenant]);
 
   const save = async () => {
-    const { error } = await supabase.from("tenants").update({
-      timezone: tenant.timezone, base_currency: tenant.base_currency, country: tenant.country,
-      financial_year_end: tenant.financial_year_end || null,
-      financial_year_start_year: tenant.financial_year_start_year || null,
-    }).eq("id", tenantId);
+    const { error } = await supabase.rpc("platform_update_tenant_localisation", {
+      _tenant_id: tenantId,
+      _timezone: tenant.timezone ?? null,
+      _base_currency: tenant.base_currency ?? null,
+      _country: tenant.country ?? null,
+      _financial_year_end: tenant.financial_year_end || null,
+      _financial_year_start_year: tenant.financial_year_start_year || null,
+    });
     if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
     toast({ title: "Saved" });
     onComplete();
   };
+
 
   if (!tenant) return <div className="text-sm text-muted-foreground">Loading…</div>;
 
@@ -303,16 +318,13 @@ export function StepCoA({ tenantId, onComplete }: StepProps) {
   const loadTemplate = async (tpl: any) => {
     if (count && count > 0 && !confirm(`Chart already has ${count} accounts. Append template rows?`)) return;
     setBusy(true);
-    const rows = (tpl.template as any[]).map((a) => ({
-      tenant_id: tenantId, code: a.code, name: a.name, account_type: a.account_type,
-      normal_side: a.normal_side, is_active: true, is_cash: !!a.is_cash, sort_order: a.sort_order,
-    }));
-    const { error } = await supabase.from("chart_of_accounts").upsert(rows as any, { onConflict: "tenant_id,code" });
+    const { data, error } = await supabase.rpc("platform_load_coa_template", { _tenant_id: tenantId, _template_id: tpl.id });
     setBusy(false);
     if (error) return toast({ title: "Load failed", description: error.message, variant: "destructive" });
-    toast({ title: `Loaded ${rows.length} accounts from ${tpl.name}` });
+    toast({ title: `Loaded ${data ?? 0} new accounts from ${tpl.name}` });
     await load();
   };
+
 
   return (
     <div className="space-y-3">
@@ -458,14 +470,15 @@ export function StepGLOpening({ tenantId, onComplete }: StepProps) {
     setSaving(true);
     const upserts = Object.entries(rows).filter(([, v]) => (v.debit || 0) !== 0 || (v.credit || 0) !== 0)
       .map(([accId, v]) => ({
-        tenant_id: tenantId, organization_id: orgId, coa_account_id: accId, as_at_date: asAt,
+        organization_id: orgId, coa_account_id: accId, as_at_date: asAt,
         debit: v.debit || 0, credit: v.credit || 0, status: "draft",
       }));
-    const { error } = await supabase.from("account_opening_balances").upsert(upserts as any, { onConflict: "tenant_id,organization_id,coa_account_id,as_at_date" });
+    const { error } = await supabase.rpc("platform_upsert_account_opening_balances", { _tenant_id: tenantId, _rows: upserts as any });
     setSaving(false);
     if (error) return toast({ title: "Save failed", description: error.message, variant: "destructive" });
     toast({ title: "Saved as draft" });
   };
+
 
   const grouped = useMemo(() => {
     const g: Record<string, any[]> = {};
