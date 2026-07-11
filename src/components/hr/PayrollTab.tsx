@@ -410,7 +410,15 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
           <Button size="sm" onClick={() => setPaymentOpen(true)} disabled={!accrualPosted || hasAnyEdits} className="h-7 text-xs gap-1" title={accrualPosted ? "Settle salary or MPF" : "Post accrual first"}>
             <Banknote className="h-3.5 w-3.5" /> Record Payment
           </Button>
-          {accrualPosted && <Badge variant="outline" className="text-[10px]">Accrued</Badge>}
+          {accrualPosted && (
+            <a
+              href={`/finance/journal?source=payroll_accrual&period=${filterYear}-${String(filterMonth).padStart(2,"0")}`}
+              className="inline-flex items-center gap-1 rounded border border-primary/30 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+              title="View accrual entries in the general journal"
+            >
+              <BookOpen className="h-3 w-3" /> View accrual JE
+            </a>
+          )}
         </div>
       </div>
 
