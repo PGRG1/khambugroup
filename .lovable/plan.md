@@ -1,74 +1,52 @@
-## Investigation: `/finance/chart-of-accounts` page
+# Fix: onboarding cockpit deep-links leak admin's own tenant data
 
-### Every action on the page
+## Confirmed mechanism
 
-**Header (top-right)**
-1. **"Rebuild Ledger"** button (outline style, `RefreshCw` icon) — the scary one. Details below.
+Every regular tenant-scoped page/hook resolves `tenant_id` via `useActiveTenant` (`src/hooks/useActiveTenant.ts`), which reads `localStorage["khambu.activeTenantId"]`. That value is set by `TenantSwitcher` and defaults to the logged-in user's first membership. There is no notion of "acting on tenant X from the platform admin cockpit" — so any deep link out of the cockpit renders the admin's *own* active tenant's data (KHAMBU), not the client being onboarded.
 
-**Toolbar (Accounts tab)**
-2. Search box — read-only filter, no data change.
-3. Type filter dropdown — read-only filter.
-4. Active / Inactive / All toggle — read-only filter.
-5. **"Add Account"** — opens editor sheet to create a new CoA row. No confirmation; safe (just inserts one row you fill in).
+Good news: `useActiveTenant.setTenantId()` already exists and already broadcasts a change event + clears the React Query cache. Super admins can hold any tenant_id. We can build the preview mode on top of it — no per-hook rewrite required.
 
-**Per-row actions (each of the 71 accounts)**
-6. **Pencil (Edit)** — opens editor sheet to change code/name/type/parent/flags/description of that one account. No confirmation dialog before opening; save is an explicit click.
-7. **Trash (Delete)** — opens a confirmation dialog that first counts posted journal lines and child accounts. If the account has history, the dialog offers a "Deactivate instead" path; DB-level `guard_*` triggers block hard-delete of anything referenced by journal lines. Safe.
+## Affected deep-links (all from `OnboardingSteps.tsx`)
 
-**Account Mappings tab** — 4 sub-tabs (Sales Revenue, Payment Methods, Procurement, Payroll). Each is a matrix that lets you pick which GL account a given source (venue, payment method, supplier, payroll component) posts to. Changes take effect on the *next* ledger rebuild; they don't rewrite existing posted entries.
+- `/finance/chart-of-accounts` (StepCoA — twice)
+- `/procurement/suppliers` (StepSuppliers)
+- `/admin/master-data` (StepRevenue)
+- `/sales-data` (StepFirstSale)
+- `/procurement/invoices` (StepFirstInvoice)
+- `/procurement/opening-balances` (StepAP/AR opening)
+- `/user-access` (StepTeam)
 
----
+Same blind spot exists on `/admin/structure` and `/admin/clients/:tenantId` if a platform admin browses there directly, but those already read `tenantId` from the URL, so they're fine.
 
-### The "Rebuild Ledger" button — what it actually does
+## Fix approach
 
-Wired to `rebuildFromOperations()` → calls the DB function `rebuild_journal_from_operations(tenant_id)`.
+1. **New `TenantPreviewProvider`** (mounted above `AppLayout` in `App.tsx`). Stores `{ previewTenantId, previewTenantName, enter(id, name), exit() }` in memory + `sessionStorage` so a page refresh inside the cockpit doesn't drop the preview.
 
-Confirmation copy currently shown:
+2. **Extend `useActiveTenant`**: when a preview is active AND the user `isSuperAdmin`, `tenantId` returned = `previewTenantId` (overrides localStorage). `setTenantId` while previewing updates the preview target, not the admin's real active tenant. On `exit()`, revert to the admin's own last-selected tenant (already in localStorage). Also `queryClient.clear()` on enter/exit so no stale rows bleed across tenants.
 
-> "Regenerates all auto-derived journal entries for this tenant. Manually-edited entries are preserved."
+3. **Auto-enter on cockpit mount**: `ClientOnboarding.tsx` calls `enter(tenantId, tenantName)` in a `useEffect`, and does NOT auto-exit on unmount (so deep-links keep the preview alive). Fetch the tenant name for the banner.
 
-What it actually does in the database, in order:
+4. **Auto-exit triggers**:
+   - Explicit "Exit preview" button in the banner.
+   - Navigating to any `/platform/*` route (except the cockpit itself and `/platform/clients/:id`).
+   - Sign-out.
 
-1. Writes an audit-log row `ledger_rebuild_start`.
-2. For journal entries in this tenant where `source_type IN ('sales_summary', 'invoice', 'invoice_payment', 'settlement_clearing', 'bank_txn', 'payroll_accrual', 'payroll_payment')` **AND `status = 'draft'` AND `manually_adjusted = false`**:
-   - Unlinks them from settlement batches.
-   - Deletes the journal_lines.
-   - Deletes the journal_entries.
-3. Re-derives all of those entries fresh from the underlying operational tables (sales_records, invoices, invoice_payments, settlement batches, bank_transactions, payroll) using the current Account Mappings.
-4. Returns a count and shows a toast: `Ledger rebuilt — N entries`.
+5. **Unmissable banner** (`TenantPreviewBanner`, mounted in `AppLayout` above the header, similar to `PreviewBanner`): full-width, `bg-warning`/amber, sticky, text: `Previewing client: <Name> — you are editing THEIR data, not your own.` with an `Exit preview` button. Non-dismissible. Also tint the sidebar top-border amber for extra signal.
 
-**Critical safety facts:**
-- **Posted entries are NOT touched.** The `WHERE status = 'draft'` clause is the safety net — anything already posted to the books is immune.
-- **Manually-adjusted draft entries are NOT touched** (`manually_adjusted = false` filter).
-- **No source data is deleted** — sales, invoices, bank transactions, payroll all remain untouched. Only the derived double-entry rows are rebuilt.
-- Requires the caller to have the `admin` role on this tenant; regular users get "Not authorized".
-- Wrapped in a single transaction (function body), so a mid-rebuild failure rolls back.
-- Full audit trail written to `ledger_audit_log`.
+6. **Guardrails**:
+   - Only activates when `usePlatformAdmin().isPlatformAdmin === true`. A regular tenant admin never sees or triggers it.
+   - Preview target is validated against `tenants` table on `enter()` (already the pattern in `useActiveTenant`).
+   - `TenantSwitcher` is hidden (or disabled with a tooltip "Exit preview to switch") while preview is active, so the admin can't accidentally desync the two states.
 
-**What could go wrong from casual clicking:**
-- If mappings are misconfigured (e.g. a payment method points to the wrong account), a rebuild will re-post draft entries using those wrong mappings — visible immediately in Trial Balance / P&L, but reversible by fixing the mapping and rebuilding again.
-- Any draft entries a user was mid-way editing but hadn't marked `manually_adjusted` would be wiped and recreated. Low likelihood in normal use.
-- No irreversible destruction of KHAMBU's real books. Posted entries, source records, and manually-adjusted drafts are all safe.
+7. **No per-page changes required** — because every hook already reads through `useActiveTenant`, the override is transparent. Deep-link `<Link to="/finance/chart-of-accounts">` etc. keep working as-is.
 
----
+## Technical details
 
-### Plain-language summary for a non-technical user
+- Files added: `src/contexts/TenantPreviewContext.tsx`, `src/components/access-control/TenantPreviewBanner.tsx`.
+- Files edited: `src/App.tsx` (wrap providers), `src/components/AppLayout.tsx` (mount banner + top padding), `src/hooks/useActiveTenant.ts` (preview-aware resolution + `queryClient.clear()` on enter/exit), `src/pages/admin/ClientOnboarding.tsx` (auto-enter on mount, fetch tenant name), `src/components/TenantSwitcher.tsx` (disable when previewing).
+- No DB changes, no RLS changes. RLS still enforces membership: a platform admin (super_admin role) already has cross-tenant read/write through their role — this fix only changes *which* tenant the UI targets, not what the server allows.
+- Typecheck after.
 
-**What this page is:** the master list of "buckets" (accounts) money flows in and out of — cash, sales, supplier bills, payroll, etc. — plus a mapping tab that says "sales at Assembly go to this bucket, Visa payments go to that bucket." 71 accounts today.
+## Out of scope for this PR
 
-**Safe to click around?** Yes for browsing, filtering, editing an account name/code, and configuring mappings. The Delete button on a row is guarded — you can't accidentally remove an account that has real transactions in it.
-
-**The scary button — "Rebuild Ledger":** It does NOT delete your sales, bills, or bank data. It only re-runs the automatic double-entry bookkeeping for entries that are still in *draft* status and haven't been hand-edited. Anything already posted to the closed books is untouched. The worst realistic outcome is that if the account mappings are wrong, the rebuilt draft entries land in the wrong accounts — fixable by correcting the mapping and rebuilding again. There is a confirmation dialog before it runs, and only admins can trigger it.
-
-**Bottom line:** No risk to KHAMBU's real live financial data from casual clicking on this page. The current confirmation wording ("auto-derived journal entries… manually-edited entries preserved") is technically accurate but uses jargon most operators won't parse — the concrete safety facts (posted books untouched, source data untouched, reversible by re-running) are not spelled out.
-
----
-
-### If you want to act on this later (not doing now)
-
-Options to reduce alarm without changing behaviour:
-- Rewrite the confirmation dialog in plain language listing what IS and ISN'T affected.
-- Move "Rebuild Ledger" off the Chart of Accounts page (it's an operations action, not an account-config action) — better home is the Journal page (where it already also exists) or an Admin/Ledger tools page.
-- Add an inline info tooltip next to the button on the CoA header explaining it's safe.
-
-Awaiting your call on whether/which of these to do.
+- Read-only mode for non-onboarding pages reached via preview. Deferred: the banner + explicit enter/exit + query cache clear is sufficient signal; a full read-only overlay is a larger change and can follow if you want belt-and-braces.

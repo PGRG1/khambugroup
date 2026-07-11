@@ -8,10 +8,12 @@ import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
+import { TenantPreviewProvider } from "@/contexts/TenantPreviewContext";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { AppLayout } from "@/components/AppLayout";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
+import { TenantPreviewBanner } from "@/components/access-control/TenantPreviewBanner";
 import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
 import Home from "./pages/Home";
@@ -189,10 +191,12 @@ function App() {
         <AuthProvider>
           <ThemeProvider>
             <PreviewModeProvider>
+              <BrowserRouter>
+              <TenantPreviewProvider>
               <Toaster />
               <Sonner />
               <PreviewBanner />
-              <BrowserRouter>
+              <TenantPreviewBanner />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
@@ -332,6 +336,7 @@ function App() {
                 <Route path="/kpis/planner" element={<AdminRoute><KpiPlanner /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </TenantPreviewProvider>
             </BrowserRouter>
             </PreviewModeProvider>
           </ThemeProvider>

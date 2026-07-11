@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useTenantPreview } from "@/contexts/TenantPreviewContext";
 import { ArrowLeft, ChevronRight, CircleDashed, CheckCircle2, MinusCircle, PlayCircle } from "lucide-react";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantOnboarding } from "@/hooks/useTenantOnboarding";
@@ -52,6 +54,25 @@ export default function ClientOnboarding() {
   const navigate = useNavigate();
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
   const { row, loading, markStep, setStartingFresh, setConversionDate, overall, phaseProgress, getStepState } = useTenantOnboarding(tenantId);
+  const { enter } = useTenantPreview();
+  const [tenantName, setTenantName] = useState<string>("");
+
+  // As soon as a platform admin lands on the cockpit for tenant X, switch
+  // the whole app's active tenant to X so every deep-linked page
+  // (/finance/chart-of-accounts, /procurement/*, /user-access, ...) resolves
+  // its data against the correct client — not against the admin's own tenant.
+  useEffect(() => {
+    if (!isPlatformAdmin || !tenantId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("tenants").select("name").eq("id", tenantId).maybeSingle();
+      if (cancelled) return;
+      const name = data?.name ?? "Client";
+      setTenantName(name);
+      enter(tenantId, name);
+    })();
+    return () => { cancelled = true; };
+  }, [isPlatformAdmin, tenantId, enter]);
 
   if (gateLoading) return <div className="p-8 text-muted-foreground">Loading…</div>;
   if (!isPlatformAdmin) return <Navigate to="/" replace/>;
