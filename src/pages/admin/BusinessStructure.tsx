@@ -266,9 +266,17 @@ export default function BusinessStructure() {
         title="Business Structure"
         description={`Organizations (legal entities) and the venues they operate for ${activeTenantName ?? "the active tenant"}. Venues, bank accounts and reporting all roll up through this hierarchy.`}
         actions={
-          <Button size="sm" onClick={() => setAdding(true)}>
-            <Plus className="h-4 w-4 mr-1"/>Add organization
-          </Button>
+          <div className="flex items-center gap-3">
+            {inactiveCount > 0 && (
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Switch checked={showInactive} onCheckedChange={setShowInactive}/>
+                Show inactive ({inactiveCount})
+              </label>
+            )}
+            <Button size="sm" onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4 mr-1"/>Add organization
+            </Button>
+          </div>
         }
       />
 
