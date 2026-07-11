@@ -93,12 +93,59 @@ function buildTree(accounts: ChartAccount[], type: AccountType): TreeNode[] {
   return roots;
 }
 
+function parsePeriodIds(view: ViewMode, csv: string | null): PeriodOption[] | null {
+  if (!csv) return null;
+  const ids = csv.split(",").map((s) => s.trim()).filter(Boolean);
+  if (ids.length === 0) return null;
+  const yearsInIds = Array.from(new Set(ids.map((id) => Number(id.split("-")[0])).filter((y) => y >= 2000 && y <= 2100)));
+  const catalog = new Map<string, PeriodOption>();
+  for (const y of yearsInIds) {
+    for (const opt of getOptionsForView(view, y)) catalog.set(opt.id, opt);
+  }
+  const resolved = ids.map((id) => catalog.get(id)).filter(Boolean) as PeriodOption[];
+  return resolved.length > 0 ? resolved : null;
+}
+
 export default function LedgerPL() {
-  const [viewMode, setViewMode] = useState<ViewMode>("monthly");
-  const [selectedPeriods, setSelectedPeriods] = useState<PeriodOption[]>(() => getDefaultPeriod("monthly"));
-  const [perVenue, setPerVenue] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const viewMode = (params.get("view") as ViewMode) || "monthly";
+  const perVenue = params.get("perVenue") === "1";
+  const [selectedPeriods, setSelectedPeriodsState] = useState<PeriodOption[]>(
+    () => parsePeriodIds(viewMode, params.get("periods")) || getDefaultPeriod(viewMode),
+  );
+
+  const updateParam = (k: string, v: string | null) => {
+    const next = new URLSearchParams(params);
+    if (v == null || v === "") next.delete(k); else next.set(k, v);
+    setParams(next, { replace: true });
+  };
+  const setViewMode = (v: ViewMode) => {
+    const defaults = getDefaultPeriod(v);
+    setSelectedPeriodsState(defaults);
+    const next = new URLSearchParams(params);
+    next.set("view", v);
+    next.set("periods", defaults.map((p) => p.id).join(","));
+    setParams(next, { replace: true });
+  };
+  const setSelectedPeriods = (periods: PeriodOption[]) => {
+    setSelectedPeriodsState(periods);
+    updateParam("periods", periods.map((p) => p.id).join(","));
+  };
+  const setPerVenue = (v: boolean) => updateParam("perVenue", v ? "1" : null);
+
+  // Keep URL in sync on first mount when it lacks periods param (so refresh restores state).
+  useEffect(() => {
+    if (!params.get("periods") && selectedPeriods.length > 0) {
+      const next = new URLSearchParams(params);
+      next.set("periods", selectedPeriods.map((p) => p.id).join(","));
+      if (!params.get("view")) next.set("view", viewMode);
+      setParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { accounts, data, venues, loading } = useLedgerPL(selectedPeriods);
+
 
   const trees = useMemo(() => {
     const m = new Map<AccountType, TreeNode[]>();
