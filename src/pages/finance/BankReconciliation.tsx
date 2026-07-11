@@ -89,6 +89,13 @@ export default function BankReconciliation() {
   const unmatchedCount = filteredTxns.filter((t) => t.status === "unmatched").length;
   const reviewCount = filteredTxns.filter((t) => ["needs_review", "suggested", "partial"].includes(t.status)).length;
   const reconciledAccounts = filteredAccounts.filter((a) => Math.abs(statementBalanceFor(a.id) - ledgerBalanceFor(a)) < 0.01).length;
+  const matchedPct = filteredTxns.length > 0 ? Math.round((matchedCount / filteredTxns.length) * 100) : 0;
+  const oldestUnmatchedDays = (() => {
+    const unm = filteredTxns.filter((t) => t.status === "unmatched" && t.txn_date);
+    if (unm.length === 0) return 0;
+    const oldest = unm.reduce((min, t) => (t.txn_date < min ? t.txn_date : min), unm[0].txn_date);
+    return Math.max(0, Math.round((Date.now() - new Date(oldest).getTime()) / 86400000));
+  })();
 
   const statusLabel = (() => {
     if (!hasAnyStatement) return { label: "No Statement Uploaded", tone: "neutral" as const };
@@ -97,6 +104,7 @@ export default function BankReconciliation() {
     if (matchedCount > 0 && Math.abs(difference) > 0.01) return { label: "Partially Reconciled", tone: "warn" as const };
     return { label: "Imported", tone: "info" as const };
   })();
+
 
   const dash = "—";
   const v = (val: string) => (hasAnyStatement ? val : dash);
