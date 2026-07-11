@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
+import { fetchAllRows } from "@/utils/fetchAllRows";
 
 export interface PayrollPaymentBatch {
   id: string;
@@ -28,35 +30,37 @@ export interface PayrollPaymentBatchLine {
 }
 
 export function usePayrollPaymentBatches(year: number, month: number) {
+  const { tenantId } = useActiveTenant();
   const [batches, setBatches] = useState<PayrollPaymentBatch[]>([]);
   const [lines, setLines] = useState<PayrollPaymentBatchLine[]>([]);
   const [loading, setLoading] = useState(false);
 
   const reload = useCallback(async () => {
+    if (!tenantId) { setBatches([]); setLines([]); setLoading(false); return; }
     setLoading(true);
-    const { data: bs } = await supabase
-      .from("hr_payroll_payment_batches" as any)
-      .select("*")
-      .eq("period_year", year)
-      .eq("period_month", month)
-      .order("created_at", { ascending: false });
-    const ids = ((bs as any[]) ?? []).map((b) => b.id);
+    const all = await fetchAllRows(
+      "hr_payroll_payment_batches",
+      "*",
+      { col: "created_at", asc: false },
+      tenantId,
+    );
+    const bs = (all as any[]).filter((b) => b.period_year === year && b.period_month === month);
+    const ids = bs.map((b) => b.id);
     let ls: any[] = [];
     if (ids.length) {
       const { data } = await supabase
         .from("hr_payroll_payment_batch_lines" as any)
         .select("*")
+        .eq("tenant_id", tenantId)
         .in("batch_id", ids);
       ls = (data as any[]) ?? [];
     }
-    setBatches((bs as any[]) ?? []);
+    setBatches(bs as any[]);
     setLines(ls as any[]);
     setLoading(false);
-  }, [year, month]);
+  }, [year, month, tenantId]);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  useEffect(() => { reload(); }, [reload]);
 
   const createAndPost = useCallback(
     async (input: {
@@ -68,11 +72,16 @@ export function usePayrollPaymentBatches(year: number, month: number) {
       notes?: string;
       lines: { payroll_id: string; employee_id: string; amount: number }[];
     }) => {
+      if (!tenantId) {
+        toast({ title: "No active tenant", variant: "destructive" });
+        return null;
+      }
       const total = input.lines.reduce((s, l) => s + Number(l.amount || 0), 0);
       const { data: { user } } = await supabase.auth.getUser();
       const { data: batch, error } = await supabase
         .from("hr_payroll_payment_batches" as any)
         .insert({
+          tenant_id: tenantId,
           period_year: year,
           period_month: month,
           payment_kind: input.kind,
@@ -96,10 +105,10 @@ export function usePayrollPaymentBatches(year: number, month: number) {
         .insert(
           input.lines
             .filter((l) => Number(l.amount) > 0)
-            .map((l) => ({ batch_id: bid, payroll_id: l.payroll_id, employee_id: l.employee_id, amount: l.amount, kind: input.kind })) as any,
+            .map((l) => ({ tenant_id: tenantId, batch_id: bid, payroll_id: l.payroll_id, employee_id: l.employee_id, amount: l.amount, kind: input.kind })) as any,
         );
       if (e2) {
-        await supabase.from("hr_payroll_payment_batches" as any).delete().eq("id", bid);
+        await supabase.from("hr_payroll_payment_batches" as any).delete().eq("id", bid).eq("tenant_id", tenantId);
         toast({ title: "Failed to insert lines", description: e2.message, variant: "destructive" });
         return null;
       }
@@ -112,7 +121,7 @@ export function usePayrollPaymentBatches(year: number, month: number) {
       await reload();
       return bid as string;
     },
-    [year, month, reload],
+    [year, month, reload, tenantId],
   );
 
   const voidBatch = useCallback(
