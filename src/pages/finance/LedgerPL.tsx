@@ -325,12 +325,15 @@ export default function LedgerPL() {
 
       <Card className="card-glass p-0 overflow-hidden">
         {loading ? (
-          <div className="p-6 space-y-2">
-            {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}
-          </div>
+          <TableSkeleton rows={10} cols={Math.max(2, columns.length + 1 + (showGrandTotal ? 1 : 0))} />
         ) : selectedPeriods.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground">Select at least one period.</div>
+          <EmptyState
+            icon={<BookText className="h-6 w-6" />}
+            title="Select at least one period"
+            description="Choose a period from the selector to build the P&L from posted journal entries."
+          />
         ) : (
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 border-b border-border">
