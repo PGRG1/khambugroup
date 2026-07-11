@@ -233,6 +233,12 @@ export default function LedgerPL() {
     return cols;
   }, [selectedPeriods, perVenue, venuesForColumns]);
 
+  const trees = useMemo(() => {
+    const m = new Map<AccountType, TreeNode[]>();
+    for (const s of SECTION_ORDER) m.set(s.type, buildTree(accounts, s.type));
+    return m;
+  }, [accounts]);
+
   const showGrandTotal = selectedPeriods.length > 1;
 
   const computeRow = (getter: (periodId: string, venue: string | null) => number) => {
