@@ -190,62 +190,62 @@ export function useHRData() {
 
   const fetchDepartments = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_departments").select("*").eq("tenant_id", tenantId).order("name");
-    if (data) setDepartments(data);
+    const data = await fetchAllRows("hr_departments", "*", { col: "name", asc: true }, tenantId);
+    setDepartments(data as any);
   }, [tenantId]);
 
   const fetchEmployees = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_employees").select("*, department:hr_departments(*)").eq("tenant_id", tenantId).order("sort_order").order("first_name");
-    if (data) setEmployees(data as any);
+    const data = await fetchAllRows("hr_employees", "*, department:hr_departments(*)", { col: "sort_order", asc: true }, tenantId);
+    setEmployees(data as any);
   }, [tenantId]);
 
   const fetchLeaveTypes = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_leave_types").select("*").eq("tenant_id", tenantId).order("name");
-    if (data) setLeaveTypes(data);
+    const data = await fetchAllRows("hr_leave_types", "*", { col: "name", asc: true }, tenantId);
+    setLeaveTypes(data as any);
   }, [tenantId]);
 
   const fetchLeaveRequests = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_leave_requests").select("*, employee:hr_employees(*), leave_type:hr_leave_types(*)").eq("tenant_id", tenantId).order("created_at", { ascending: false });
-    if (data) setLeaveRequests(data as any);
+    const data = await fetchAllRows("hr_leave_requests", "*, employee:hr_employees(*), leave_type:hr_leave_types(*)", { col: "created_at", asc: false }, tenantId);
+    setLeaveRequests(data as any);
   }, [tenantId]);
 
   const fetchLeaveBalances = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_leave_balances").select("*, leave_type:hr_leave_types(*)").eq("tenant_id", tenantId).order("year", { ascending: false });
-    if (data) setLeaveBalances(data as any);
+    const data = await fetchAllRows("hr_leave_balances", "*, leave_type:hr_leave_types(*)", { col: "year", asc: false }, tenantId);
+    setLeaveBalances(data as any);
   }, [tenantId]);
 
   const fetchShifts = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_shifts").select("*, employee:hr_employees(*)").eq("tenant_id", tenantId).order("shift_date", { ascending: false });
-    if (data) setShifts(data as any);
+    const data = await fetchAllRows("hr_shifts", "*, employee:hr_employees(*)", { col: "shift_date", asc: false }, tenantId);
+    setShifts(data as any);
   }, [tenantId]);
 
   const fetchAttendance = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_attendance").select("*, employee:hr_employees(*)").eq("tenant_id", tenantId).order("date", { ascending: false });
-    if (data) setAttendance(data as any);
+    const data = await fetchAllRows("hr_attendance", "*, employee:hr_employees(*)", { col: "date", asc: false }, tenantId);
+    setAttendance(data as any);
   }, [tenantId]);
 
   const fetchPayroll = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_payroll").select("*, employee:hr_employees(*)").eq("tenant_id", tenantId).order("year", { ascending: false }).order("month", { ascending: false });
-    if (data) setPayroll(data as any);
+    const data = await fetchAllRows("hr_payroll", "*, employee:hr_employees(*)", { col: "year", asc: false }, tenantId);
+    setPayroll(data as any);
   }, [tenantId]);
 
   const fetchHolidays = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_holidays").select("*").eq("tenant_id", tenantId).eq("is_active", true).order("date");
-    if (data) setHolidays(data);
+    const rows = await fetchAllRows("hr_holidays", "*", { col: "date", asc: true }, tenantId);
+    setHolidays((rows as any[]).filter((h) => h.is_active));
   }, [tenantId]);
 
   const fetchLeaveLedger = useCallback(async () => {
     if (!tenantId) return;
-    const { data } = await supabase.from("hr_leave_ledger").select("*").eq("tenant_id", tenantId).order("entry_date").order("sort_order");
-    if (data) setLeaveLedger(data as any);
+    const data = await fetchAllRows("hr_leave_ledger", "*", { col: "entry_date", asc: true }, tenantId);
+    setLeaveLedger(data as any);
   }, [tenantId]);
 
   const fetchAll = useCallback(async () => {
