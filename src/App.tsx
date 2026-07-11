@@ -26,11 +26,12 @@ import ForecastInput from "./pages/ForecastInput";
 import RevenueTargets from "./pages/RevenueTargets";
 import AuditLog from "./pages/AuditLog";
 import PLReport from "./pages/PLReport";
-import Settings from "./pages/Settings";
+
 import SystemConfiguration from "./pages/admin/SystemConfiguration";
 import AiRules from "./pages/admin/AiRules";
 import Clients from "./pages/admin/Clients";
 import ClientDetail from "./pages/admin/ClientDetail";
+import ClientOnboarding from "./pages/admin/ClientOnboarding";
 
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -214,11 +215,13 @@ function App() {
                 <Route path="/petty-cash/replenishments" element={<AdminRoute><PettyCashReplenishmentsPage /></AdminRoute>} />
                 <Route path="/petty-cash/floats" element={<AdminRoute><PettyCashFloatsPage /></AdminRoute>} />
                 <Route path="/petty-cash/classifications" element={<AdminRoute><PettyCashClassificationsPage /></AdminRoute>} />
-                <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+                <Route path="/settings" element={<Navigate to="/admin/system-configuration" replace />} />
                 <Route path="/admin/system-configuration" element={<AdminRoute><SystemConfiguration /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
                 <Route path="/admin/clients" element={<AdminRoute><Clients /></AdminRoute>} />
                 <Route path="/admin/clients/:tenantId" element={<AdminRoute><ClientDetail /></AdminRoute>} />
+                <Route path="/admin/clients/:tenantId/onboarding" element={<AdminRoute><ClientOnboarding /></AdminRoute>} />
+
 
                 <Route path="/user-access" element={<AdminRoute><UserAccessControl /></AdminRoute>} />
                 

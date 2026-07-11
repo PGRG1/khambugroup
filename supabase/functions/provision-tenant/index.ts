@@ -32,29 +32,18 @@ const REQUIRED_FIELDS: (keyof Body)[] = [
   "timezone","financial_year_start","initial_venue_name","admin_name","admin_email",
 ];
 
-// Minimal default chart of accounts template (codes are stable per tenant, not global).
-const DEFAULT_COA: Array<{code:string; name:string; account_type:string; normal_side:string; is_cash?: boolean; sort_order:number}> = [
-  { code:"1000", name:"Cash on Hand",          account_type:"asset",     normal_side:"debit",  is_cash:true,  sort_order:10 },
-  { code:"1010", name:"Bank — Operating",      account_type:"asset",     normal_side:"debit",  is_cash:true,  sort_order:20 },
-  { code:"1100", name:"Accounts Receivable",   account_type:"asset",     normal_side:"debit",  sort_order:30 },
-  { code:"1200", name:"Inventory",             account_type:"asset",     normal_side:"debit",  sort_order:40 },
-  { code:"1500", name:"Fixed Assets",          account_type:"asset",     normal_side:"debit",  sort_order:50 },
-  { code:"2000", name:"Accounts Payable",      account_type:"liability", normal_side:"credit", sort_order:60 },
-  { code:"2100", name:"Accrued Expenses",      account_type:"liability", normal_side:"credit", sort_order:70 },
-  { code:"2200", name:"Taxes Payable",         account_type:"liability", normal_side:"credit", sort_order:80 },
-  { code:"3000", name:"Owner's Equity",        account_type:"equity",    normal_side:"credit", sort_order:90 },
-  { code:"3100", name:"Retained Earnings",     account_type:"equity",    normal_side:"credit", sort_order:100 },
-  { code:"4000", name:"Sales Revenue",         account_type:"revenue",   normal_side:"credit", sort_order:110 },
-  { code:"4100", name:"Service Charge",        account_type:"revenue",   normal_side:"credit", sort_order:120 },
-  { code:"4200", name:"Other Income",          account_type:"other_income", normal_side:"credit", sort_order:130 },
-  { code:"5000", name:"Cost of Goods Sold",    account_type:"cogs",      normal_side:"debit",  sort_order:140 },
-  { code:"6000", name:"Salaries & Wages",      account_type:"opex",      normal_side:"debit",  sort_order:150 },
-  { code:"6100", name:"Rent",                  account_type:"opex",      normal_side:"debit",  sort_order:160 },
-  { code:"6200", name:"Utilities",             account_type:"opex",      normal_side:"debit",  sort_order:170 },
-  { code:"6300", name:"Marketing",             account_type:"opex",      normal_side:"debit",  sort_order:180 },
-  { code:"6400", name:"Repairs & Maintenance", account_type:"opex",      normal_side:"debit",  sort_order:190 },
-  { code:"6900", name:"General & Admin",       account_type:"opex",      normal_side:"debit",  sort_order:200 },
+// COA is loaded from public.coa_templates (default template code: f_and_b_hk).
+// If the template row is missing (very old databases), a minimal fallback runs.
+const FALLBACK_COA: Array<{code:string; name:string; account_type:string; normal_side:string; is_cash?: boolean; sort_order:number}> = [
+  { code:"1000", name:"Cash on Hand",       account_type:"asset",     normal_side:"debit",  is_cash:true,  sort_order:10 },
+  { code:"1010", name:"Bank — Operating",   account_type:"asset",     normal_side:"debit",  is_cash:true,  sort_order:20 },
+  { code:"2000", name:"Accounts Payable",   account_type:"liability", normal_side:"credit", sort_order:60 },
+  { code:"3000", name:"Owner's Equity",     account_type:"equity",    normal_side:"credit", sort_order:90 },
+  { code:"4000", name:"Sales Revenue",      account_type:"revenue",   normal_side:"credit", sort_order:110 },
+  { code:"5000", name:"Cost of Goods Sold", account_type:"cogs",      normal_side:"debit",  sort_order:140 },
+  { code:"6000", name:"Salaries & Wages",   account_type:"opex",      normal_side:"debit",  sort_order:150 },
 ];
+
 
 const DEFAULT_PAGES = [
   { key:"revenue",     label:"Revenue" },
@@ -149,13 +138,19 @@ Deno.serve(async (req) => {
   let adminUserId: string | null = null;
   let createdNewUser = false;
 
+  let organizationId: string | null = null;
   try {
-    // 1. Create tenant (status='setup')
+    // 1. Create tenant (status='setup'). Typed columns for localisation live on tenants directly now.
     const { data: tenant, error: tErr } = await admin.from("tenants").insert({
       name: body.client_group_name.trim(),
       slug,
       status: "setup",
       plan: "standard",
+      timezone: body.timezone,
+      base_currency: body.base_currency,
+      country: body.country,
+      financial_year_start_year: null,
+      financial_year_end: null,
     }).select("id").single();
     if (tErr || !tenant) throw new Error(tErr?.message || "tenant insert failed");
     tenantId = tenant.id as string;
@@ -166,6 +161,7 @@ Deno.serve(async (req) => {
         "audit_log","user_page_permissions","user_access_control",
         "expense_categories","hr_departments","app_config","page_visibility",
         "venues_config","chart_of_accounts","tenant_members","venues",
+        "organizations","tenant_onboarding",
       ];
       for (const t of tables) {
         await admin.from(t).delete().eq("tenant_id", tenantId!);
@@ -173,10 +169,21 @@ Deno.serve(async (req) => {
       await admin.from("tenants").delete().eq("id", tenantId!);
     });
 
+    // 1b. Seed the first organization (legal entity) BEFORE the venue — every
+    //     venue must have an organization_id.
+    const { data: org, error: oErr } = await admin.from("organizations").insert({
+      tenant_id: tenantId,
+      name: body.client_group_name.trim(),
+      legal_name: body.legal_entity_name.trim(),
+      industry: "food_and_beverage",
+    }).select("id").single();
+    if (oErr || !org) throw new Error("organization insert failed: " + (oErr?.message ?? ""));
+    organizationId = org.id as string;
 
-    // 2. First venue
+    // 2. First venue — linked to the organization we just created.
     const { data: venue, error: vErr } = await admin.from("venues").insert({
       tenant_id: tenantId,
+      organization_id: organizationId,
       name: body.initial_venue_name.trim(),
       sort_order: 0,
       is_active: true,
@@ -184,6 +191,7 @@ Deno.serve(async (req) => {
     if (vErr || !venue) throw new Error("venue insert failed: " + (vErr?.message ?? ""));
     venueId = venue.id as string;
     rollback.push(async () => { await admin.from("venues").delete().eq("id", venueId!); });
+
 
     // 3. Client administrator — invite or reuse
     let existingUser: any = null;
@@ -301,19 +309,9 @@ Deno.serve(async (req) => {
       if (error) throw new Error("page_visibility seed failed: " + error.message);
     }
 
-    // 5c. app_config defaults (timezone, currency, FY start, country, legal entity)
-    {
-      const rows = [
-        { tenant_id: tenantId, key: "country",              value: body.country },
-        { tenant_id: tenantId, key: "base_currency",        value: body.base_currency },
-        { tenant_id: tenantId, key: "timezone",             value: body.timezone },
-        { tenant_id: tenantId, key: "financial_year_start", value: body.financial_year_start },
-        { tenant_id: tenantId, key: "legal_entity_name",    value: body.legal_entity_name },
-        { tenant_id: tenantId, key: "client_group_name",    value: body.client_group_name },
-      ];
-      const { error } = await admin.from("app_config").insert(rows);
-      if (error) throw new Error("app_config seed failed: " + error.message);
-    }
+    // 5c. Localisation lives on `tenants` typed columns now (set at insert time).
+    //     app_config stays for other future untyped settings but no longer duplicates
+    //     timezone/currency/country/legal_entity_name/client_group_name/financial_year_start.
 
     // 5d. default document categories (stored in expense_categories table as catch-all)
     //     and default departments
@@ -332,9 +330,12 @@ Deno.serve(async (req) => {
       if (error && error.code !== "23502") throw new Error("doc categories seed failed: " + error.message);
     }
 
-    // 5e. default chart of accounts
+    // 5e. Chart of accounts — pulled from public.coa_templates (`f_and_b_hk`).
+    //     Falls back to a minimal inlined set if the template row is missing.
     {
-      const rows = DEFAULT_COA.map((a) => ({
+      const { data: tpl } = await admin.from("coa_templates").select("template").eq("code","f_and_b_hk").maybeSingle();
+      const source: any[] = (tpl?.template as any[]) ?? FALLBACK_COA;
+      const rows = source.map((a: any) => ({
         tenant_id: tenantId,
         code: a.code, name: a.name,
         account_type: a.account_type, normal_side: a.normal_side,
@@ -344,11 +345,18 @@ Deno.serve(async (req) => {
       if (error) throw new Error("chart_of_accounts seed failed: " + error.message);
     }
 
+    // 5f. Seed the onboarding cockpit row so the client opens at Phase 1 immediately.
+    await admin.from("tenant_onboarding").upsert({
+      tenant_id: tenantId, current_phase: 1, steps: {},
+    }, { onConflict: "tenant_id" });
+
     // 6. Activate tenant now that >=1 venue and >=1 tenant_admin exist
     {
       const { error } = await admin.from("tenants").update({ status: "active" }).eq("id", tenantId);
       if (error) throw new Error("activate tenant failed: " + error.message);
     }
+
+
 
     // 7. Audit log
     await admin.from("audit_log").insert({
