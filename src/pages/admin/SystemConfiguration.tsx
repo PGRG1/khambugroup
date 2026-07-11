@@ -903,6 +903,40 @@ const ProcurementSection = () => {
   );
 };
 
+// ---------- Page Visibility (moved from /settings) ----------
+const PageVisibilitySection = () => {
+  const { pages, loading, toggleVisibility } = usePageVisibility();
+  return (
+    <SectionShell icon={Eye} title="Page Visibility" subtitle="Control which pages non-admin users see. Admins always see everything." count={pages.length}>
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <div className="space-y-2">
+          {pages.map((page) => (
+            <div key={page.page_key} className="flex items-center justify-between py-2 px-3 rounded-lg border border-border bg-secondary/40">
+              <div>
+                <p className="text-sm font-medium text-foreground">{page.page_label}</p>
+                <p className="text-xs text-muted-foreground">{page.visible_to_all ? "Visible to all users" : "Admin only"}</p>
+              </div>
+              <Switch checked={page.visible_to_all} onCheckedChange={(v) => toggleVisibility(page.page_key, v)} />
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionShell>
+  );
+};
+
+// ---------- Appearance ----------
+const AppearanceSection = () => (
+  <SectionShell icon={Palette} title="Appearance" subtitle="Personal preference — theme is stored per user, not per tenant." count={1}>
+    <div className="text-xs text-muted-foreground mb-3">
+      Choose your preferred theme. This applies only to your account across devices.
+    </div>
+    <ThemeSwitcher />
+  </SectionShell>
+);
+
 // ---------- Page ----------
 const SystemConfiguration = () => {
   const { isAdmin } = useAuth();
@@ -915,7 +949,7 @@ const SystemConfiguration = () => {
           <span className="text-gradient-gold">System Configuration</span>
         </h1>
         <p className="text-xs text-muted-foreground mt-1">
-          Manage venues, service periods and revenue sources used throughout the dashboard. Sections are collapsed by default — click to expand.
+          Manage venues, service periods, revenue sources, page visibility, and appearance. Sections are collapsed by default — click to expand.
         </p>
       </div>
 
@@ -924,8 +958,11 @@ const SystemConfiguration = () => {
       <ServicePeriodsSection />
       <RevenueSourcesSection />
       <ProcurementSection />
+      <PageVisibilitySection />
+      <AppearanceSection />
     </div>
   );
 };
 
 export default SystemConfiguration;
+
