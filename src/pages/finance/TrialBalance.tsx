@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTrialBalance } from "@/hooks/useTrialBalance";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileDown, FileText, CheckCircle2, AlertTriangle } from "lucide-react";
+import { FileDown, FileText, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
 import { downloadCSV } from "@/utils/csvDownload";
 import { ACCOUNT_TYPE_LABEL } from "@/hooks/useChartOfAccounts";
 import { generateTrialBalancePDF } from "@/utils/financePdfReports";
@@ -21,21 +22,56 @@ const fmtDate = (iso: string | null | undefined) => {
 
 const TYPE_ORDER = ["asset", "liability", "equity", "revenue", "cogs", "opex", "other_income", "other_expense"];
 
+/** Given a period [from,to], compute a "prior period" of equal length ending the day before `from`.
+ *  If no `from`, prior = same `to` shifted back exactly one year. */
+function priorPeriod(from: string | undefined, to: string): { from?: string; to: string } {
+  const toDate = new Date(to);
+  if (!from) {
+    const priorTo = new Date(toDate); priorTo.setFullYear(priorTo.getFullYear() - 1);
+    return { to: priorTo.toISOString().slice(0, 10) };
+  }
+  const fromDate = new Date(from);
+  const days = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000);
+  const priorTo = new Date(fromDate); priorTo.setDate(priorTo.getDate() - 1);
+  const priorFrom = new Date(priorTo); priorFrom.setDate(priorFrom.getDate() - days);
+  return { from: priorFrom.toISOString().slice(0, 10), to: priorTo.toISOString().slice(0, 10) };
+}
+
 export default function TrialBalance() {
   const today = new Date();
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState(today.toISOString().slice(0, 10));
+  const [params, setParams] = useSearchParams();
+  const fromDate = params.get("from") || "";
+  const toDate = params.get("to") || today.toISOString().slice(0, 10);
+  const compareOn = params.get("compare") !== "off";
+
+  const setParam = (k: string, v: string | null) => {
+    const next = new URLSearchParams(params);
+    if (v == null || v === "") next.delete(k); else next.set(k, v);
+    setParams(next, { replace: true });
+  };
+
   const { rows, loading } = useTrialBalance({ fromDate: fromDate || undefined, toDate: toDate || undefined });
+
+  const prior = useMemo(() => priorPeriod(fromDate || undefined, toDate), [fromDate, toDate]);
+  const { rows: priorRows, loading: priorLoading } = useTrialBalance(
+    compareOn ? { fromDate: prior.from, toDate: prior.to } : { fromDate: undefined, toDate: undefined }
+  );
+  const priorBalance = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!compareOn) return m;
+    priorRows.forEach((r) => m.set(r.account_id, Number(r.balance) || 0));
+    return m;
+  }, [priorRows, compareOn]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, typeof rows>();
     TYPE_ORDER.forEach((t) => m.set(t, []));
     rows.forEach((r) => {
-      if (Number(r.total_debit) === 0 && Number(r.total_credit) === 0) return;
+      if (Number(r.total_debit) === 0 && Number(r.total_credit) === 0 && !priorBalance.get(r.account_id)) return;
       m.get(r.account_type)?.push(r);
     });
     return m;
-  }, [rows]);
+  }, [rows, priorBalance]);
 
   const totals = useMemo(() => ({
     debit: rows.reduce((s, r) => s + Number(r.total_debit), 0),
@@ -52,6 +88,7 @@ export default function TrialBalance() {
         debit: Number(r.total_debit).toFixed(2),
         credit: Number(r.total_credit).toFixed(2),
         balance: Number(r.balance).toFixed(2),
+        prior: (priorBalance.get(r.account_id) || 0).toFixed(2),
       })),
       [
         { key: "code", label: "Code" },
@@ -60,6 +97,7 @@ export default function TrialBalance() {
         { key: "debit", label: "Debit" },
         { key: "credit", label: "Credit" },
         { key: "balance", label: "Balance" },
+        { key: "prior", label: "Prior period" },
       ],
       "trial_balance",
     );
@@ -89,6 +127,10 @@ export default function TrialBalance() {
   };
 
   const scopeLabel = `${fromDate ? fmtDate(fromDate) : "Beginning"} → ${fmtDate(toDate)}`;
+  const priorLabel = `${prior.from ? fmtDate(prior.from) : "Beginning"} → ${fmtDate(prior.to)}`;
+
+  const ledgerLink = (accountId: string) =>
+    `/finance/ledger?account=${accountId}${fromDate ? `&from=${fromDate}` : ""}${toDate ? `&to=${toDate}` : ""}`;
 
   return (
     <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-6">
@@ -98,14 +140,25 @@ export default function TrialBalance() {
           <p className="text-sm text-muted-foreground mt-1">Total debits and credits per account. The bottom row must always balance.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" placeholder="From" />
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" placeholder="To" />
+          <Input type="date" value={fromDate} onChange={(e) => setParam("from", e.target.value)} className="h-9 w-40" placeholder="From" />
+          <Input type="date" value={toDate} onChange={(e) => setParam("to", e.target.value)} className="h-9 w-40" placeholder="To" />
+          <Button
+            size="sm"
+            variant={compareOn ? "default" : "outline"}
+            onClick={() => setParam("compare", compareOn ? "off" : null)}
+            title={compareOn ? `Comparing to ${priorLabel}` : "Enable prior-period comparison"}
+          >
+            Compare
+          </Button>
           <Button size="sm" variant="outline" onClick={exportCsv}><FileDown className="h-4 w-4 mr-1" /> CSV</Button>
           <Button size="sm" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" /> PDF</Button>
         </div>
       </header>
 
-      <p className="text-xs text-muted-foreground -mt-2">{scopeLabel}</p>
+      <p className="text-xs text-muted-foreground -mt-2">
+        {scopeLabel}
+        {compareOn && <span className="ml-3 opacity-80">vs prior: {priorLabel}</span>}
+      </p>
 
       {!loading && rows.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -130,11 +183,13 @@ export default function TrialBalance() {
               <TableHead className="text-right w-36">Debit</TableHead>
               <TableHead className="text-right w-36">Credit</TableHead>
               <TableHead className="text-right w-36">Balance</TableHead>
+              {compareOn && <TableHead className="text-right w-36">Prior</TableHead>}
+              {compareOn && <TableHead className="text-right w-32">Δ</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && Array.from({ length: 8 }).map((_, i) => (
-              <TableRow key={`s-${i}`}><TableCell colSpan={5}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+              <TableRow key={`s-${i}`}><TableCell colSpan={compareOn ? 7 : 5}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
             ))}
             {!loading && TYPE_ORDER.map((t) => {
               const list = grouped.get(t) || [];
@@ -142,19 +197,45 @@ export default function TrialBalance() {
               return (
                 <React.Fragment key={t}>
                   <TableRow className="bg-muted/40">
-                    <TableCell colSpan={5} className="font-semibold text-[11px] uppercase tracking-wide text-muted-foreground py-2">
+                    <TableCell colSpan={compareOn ? 7 : 5} className="font-semibold text-[11px] uppercase tracking-wide text-muted-foreground py-2">
                       {ACCOUNT_TYPE_LABEL[t as keyof typeof ACCOUNT_TYPE_LABEL]}
                     </TableCell>
                   </TableRow>
-                  {list.map((r) => (
-                    <TableRow key={r.account_id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{r.code}</TableCell>
-                      <TableCell className="text-sm">{r.name}</TableCell>
-                      <TableCell className="text-right tabular-nums text-sm">{Number(r.total_debit) ? fmt(Number(r.total_debit)) : ""}</TableCell>
-                      <TableCell className="text-right tabular-nums text-sm">{Number(r.total_credit) ? fmt(Number(r.total_credit)) : ""}</TableCell>
-                      <TableCell className="text-right tabular-nums text-sm font-medium">{fmt(Number(r.balance))}</TableCell>
-                    </TableRow>
-                  ))}
+                  {list.map((r) => {
+                    const bal = Number(r.balance);
+                    const priorBal = priorBalance.get(r.account_id) || 0;
+                    const delta = bal - priorBal;
+                    return (
+                      <TableRow key={r.account_id} className="group">
+                        <TableCell className="font-mono text-xs text-muted-foreground">{r.code}</TableCell>
+                        <TableCell className="text-sm">
+                          <Link
+                            to={ledgerLink(r.account_id)}
+                            className="inline-flex items-center gap-1.5 hover:text-primary hover:underline underline-offset-2"
+                          >
+                            {r.name}
+                            <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-60" />
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-sm">{Number(r.total_debit) ? fmt(Number(r.total_debit)) : ""}</TableCell>
+                        <TableCell className="text-right tabular-nums text-sm">{Number(r.total_credit) ? fmt(Number(r.total_credit)) : ""}</TableCell>
+                        <TableCell className="text-right tabular-nums text-sm font-medium">{fmt(bal)}</TableCell>
+                        {compareOn && (
+                          <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
+                            {priorLoading ? "…" : (priorBal ? fmt(priorBal) : "—")}
+                          </TableCell>
+                        )}
+                        {compareOn && (
+                          <TableCell className={cn(
+                            "text-right tabular-nums text-xs",
+                            delta > 0.005 ? "text-primary" : delta < -0.005 ? "text-destructive" : "text-muted-foreground"
+                          )}>
+                            {priorLoading ? "" : (Math.abs(delta) < 0.005 ? "—" : `${delta > 0 ? "+" : ""}${fmt(delta)}`)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
                 </React.Fragment>
               );
             })}
@@ -168,6 +249,8 @@ export default function TrialBalance() {
                 <TableCell className={cn("text-right tabular-nums font-bold", isBalanced ? "text-primary" : "text-destructive")}>
                   {isBalanced ? "✓ Balanced" : fmt(diff)}
                 </TableCell>
+                {compareOn && <TableCell />}
+                {compareOn && <TableCell />}
               </TableRow>
             </tfoot>
           )}
@@ -188,15 +271,34 @@ export default function TrialBalance() {
                 {ACCOUNT_TYPE_LABEL[t as keyof typeof ACCOUNT_TYPE_LABEL]}
               </div>
               <Card className="card-glass divide-y divide-border/40">
-                {list.map((r) => (
-                  <div key={r.account_id} className="p-3 flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm">{r.name}</div>
-                      <div className="font-mono text-[10px] text-muted-foreground">{r.code}</div>
-                    </div>
-                    <div className="text-right tabular-nums text-sm font-medium">{fmt(Number(r.balance))}</div>
-                  </div>
-                ))}
+                {list.map((r) => {
+                  const bal = Number(r.balance);
+                  const priorBal = priorBalance.get(r.account_id) || 0;
+                  const delta = bal - priorBal;
+                  return (
+                    <Link
+                      key={r.account_id}
+                      to={ledgerLink(r.account_id)}
+                      className="p-3 flex items-start justify-between gap-2 hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm">{r.name}</div>
+                        <div className="font-mono text-[10px] text-muted-foreground">{r.code}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="tabular-nums text-sm font-medium">{fmt(bal)}</div>
+                        {compareOn && Math.abs(delta) > 0.005 && (
+                          <div className={cn(
+                            "text-[10px] tabular-nums mt-0.5",
+                            delta > 0 ? "text-primary" : "text-destructive"
+                          )}>
+                            {delta > 0 ? "+" : ""}{fmt(delta)}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
               </Card>
             </div>
           );
