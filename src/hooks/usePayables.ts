@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { bucketOf } from "./useReceivables";
 
 export type APInvoice = {
@@ -84,6 +85,7 @@ export type APPaymentRow = {
 };
 
 export function usePayables() {
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [invoices, setInvoices] = useState<APInvoice[]>([]);
   const [supplierSummary, setSupplierSummary] = useState<APSupplierSummary[]>([]);
   const [paidThisMonth, setPaidThisMonth] = useState(0);
@@ -101,6 +103,12 @@ export function usePayables() {
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) {
+      setInvoices([]); setSupplierSummary([]); setPayments([]); setPayrollPayables([]);
+      setCreditNotes([]); setCreditNotesAvailable([]); setBankAccounts([]); setLoading(false);
+      return;
+    }
     (async () => {
       setLoading(true);
       const today = new Date();
