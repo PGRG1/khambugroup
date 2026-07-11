@@ -389,7 +389,7 @@ export function StepRevenue({ tenantId, onComplete }: StepProps) {
     <div className="space-y-3">
       <div className="text-sm">Revenue sources: <span className="font-medium">{rs ?? "…"}</span> · Service periods: <span className="font-medium">{sp ?? "…"}</span></div>
       <div className="flex gap-2">
-        <Button asChild size="sm" variant="outline"><Link to="/admin/system-configuration"><ExternalLink className="h-4 w-4 mr-1"/>Configure</Link></Button>
+        <Button asChild size="sm" variant="outline"><Link to="/admin/master-data"><ExternalLink className="h-4 w-4 mr-1"/>Configure</Link></Button>
         <Button size="sm" onClick={onComplete} disabled={!rs}><CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete</Button>
       </div>
     </div>
