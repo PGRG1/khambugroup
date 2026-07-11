@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,13 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ChevronLeft, ChevronRight, Copy, Clock, ClipboardList, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Clock, ClipboardList, Calendar, Sunrise } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { HRShift, HRAttendance, HREmployee } from "@/hooks/useHRData";
 import { WeeklyScheduleView } from "./WeeklyScheduleView";
 import { ActualsComparisonView } from "./ActualsComparisonView";
 import { TimeGridPicker } from "./TimeGridPicker";
+import { TodayBoardView } from "./TodayBoardView";
 
 interface Props {
   shifts: HRShift[];
