@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/utils/fetchAllRows";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { Link } from "react-router-dom";
 import {
   ResponsiveContainer,
