@@ -118,7 +118,7 @@ export function usePayables() {
         .slice(0, 10);
 
       // Suppliers map (for credit notes & payments)
-      const suppliersRaw = await fetchAllRows("suppliers", "id, name");
+      const suppliersRaw = await fetchAllRows("suppliers", "id, name", undefined, tenantId);
       const supplierName = new Map<string, string>(
         (suppliersRaw as any[]).map((s) => [s.id, s.name || "(no supplier)"])
       );
@@ -126,7 +126,9 @@ export function usePayables() {
       // Approved invoices only
       const rawInvoices = await fetchAllRows(
         "invoices",
-        "id, invoice_date, due_date, invoice_number, supplier_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)"
+        "id, invoice_date, due_date, invoice_number, supplier_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
+        undefined,
+        tenantId,
       );
       const approved = (rawInvoices || []).filter(
         (i: any) => i.review_status === "Approved"
@@ -138,7 +140,9 @@ export function usePayables() {
       // Bank accounts
       const banks = await fetchAllRows(
         "bank_accounts",
-        "id, account_name, bank_name, account_number_last4, is_active"
+        "id, account_name, bank_name, account_number_last4, is_active",
+        undefined,
+        tenantId,
       );
       const activeBanks = (banks || []).filter((b: any) => b.is_active !== false);
       setBankAccounts(activeBanks.map((b: any) => ({
@@ -158,7 +162,9 @@ export function usePayables() {
       // Legacy invoice_payments (for back-compat last-payment derivation on invoices)
       const legacyPayments = await fetchAllRows(
         "invoice_payments",
-        "id, invoice_id, payment_date, amount, payment_method, bank_account_id, match_status"
+        "id, invoice_id, payment_date, amount, payment_method, bank_account_id, match_status",
+        undefined,
+        tenantId,
       );
       const paymentsByInvoice = new Map<string, any[]>();
       for (const p of legacyPayments as any[]) {
