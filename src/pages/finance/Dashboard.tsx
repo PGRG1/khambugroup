@@ -97,33 +97,42 @@ export default function FinanceDashboard() {
     return d.toISOString().slice(0, 10);
   })();
 
+  const { tenantId, loading: tenantLoading } = useActiveTenant();
   const [pl, setPl] = useState<PLRow[]>([]);
   const [bs, setBs] = useState<BSRow[]>([]);
   const [cash, setCash] = useState<CashRow[]>([]);
   const [coa, setCoa] = useState<CoA[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unpostedApproved, setUnpostedApproved] = useState<number>(0);
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) { setPl([]); setBs([]); setCash([]); setCoa([]); setLoading(false); return; }
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [plRows, bsRows, cashRows, coaRes] = await Promise.all([
-        fetchWindowed("v_pl", "account_id,code,name,account_type,entry_date,year,month,amount", windowStart),
-        fetchWindowed("v_balance_sheet", "account_id,code,name,account_type,entry_date,amount", windowStart),
-        fetchWindowed("v_cash_movements", "entry_date,account_code,account_name,cash_in,cash_out,net_cash,venue", windowStart),
-        supabase.from("chart_of_accounts" as any).select("id,code,name,account_type,is_cash"),
+      const [plRows, bsRows, cashRows, coaRes, invAll] = await Promise.all([
+        fetchWindowed("v_pl", "account_id,code,name,account_type,entry_date,year,month,amount", windowStart, tenantId),
+        fetchWindowed("v_balance_sheet", "account_id,code,name,account_type,entry_date,amount", windowStart, tenantId),
+        fetchWindowed("v_cash_movements", "entry_date,account_code,account_name,cash_in,cash_out,net_cash,venue", windowStart, tenantId),
+        supabase.from("chart_of_accounts" as any).select("id,code,name,account_type,is_cash").eq("tenant_id", tenantId),
+        fetchAllRows("invoices", "id, review_status, journal_entry_id", undefined, tenantId).catch(() => []),
       ]);
       if (cancelled) return;
       setPl(plRows as unknown as PLRow[]);
       setBs(bsRows as unknown as BSRow[]);
       setCash(cashRows as unknown as CashRow[]);
       setCoa(((coaRes.data as any[]) || []) as CoA[]);
+      const unposted = (invAll as any[]).filter(
+        (i) => i.review_status === "Approved" && !i.journal_entry_id
+      ).length;
+      setUnpostedApproved(unposted);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [windowStart]);
+  }, [windowStart, tenantId, tenantLoading]);
 
   // ===== KPIs =====
   const kpis = useMemo(() => {
@@ -464,16 +473,18 @@ export default function FinanceDashboard() {
   );
 }
 
-// Windowed fetch — bounds v_pl / v_balance_sheet / v_cash_movements by entry_date.
-async function fetchWindowed(view: string, select: string, sinceIso: string): Promise<any[]> {
+// Windowed fetch — bounds v_pl / v_balance_sheet / v_cash_movements by entry_date + tenant.
+async function fetchWindowed(view: string, select: string, sinceIso: string, tenantId?: string | null): Promise<any[]> {
   const PAGE = 1000;
   let all: any[] = [];
   let offset = 0;
   while (true) {
-    const { data } = await (supabase.from(view as any) as any)
+    let q: any = (supabase.from(view as any) as any)
       .select(select)
       .gte("entry_date", sinceIso)
       .range(offset, offset + PAGE - 1);
+    if (tenantId) q = q.eq("tenant_id", tenantId);
+    const { data } = await q;
     if (!data || data.length === 0) break;
     all = all.concat(data);
     if (data.length < PAGE) break;
