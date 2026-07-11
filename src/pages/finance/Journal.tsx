@@ -28,11 +28,17 @@ const fmtDate = (iso: string | null | undefined) => {
 
 const SOURCE_LABELS: Record<string, string> = {
   sales: "Sales",
+  sales_summary: "Sales Summary",
   invoice: "Invoice",
-  invoice_payment: "Payment",
+  invoice_payment: "AP Payment",
+  credit_note_application: "Credit Note Applied",
+  settlement_clearing: "Settlement Clearing",
+  bank_txn: "Bank Transaction",
+  bank_fee: "Bank Fee",
   payroll_accrual: "Payroll Accrual",
   payroll_payment: "Salary Paid",
   mpf_payment: "MPF Paid",
+  payroll_batch: "Payroll Batch",
   manual: "Manual",
   adjustment: "Adjustment",
   opening: "Opening",
