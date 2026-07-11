@@ -395,9 +395,70 @@ export function TransactionReviewPanel({
           </Section>
         </div>
       </SheetContent>
+
+      <Dialog open={jeOpen} onOpenChange={setJeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Post transaction as Journal Entry</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="rounded-md border border-border p-3 bg-card/50 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Date</span>
+                <span>{txn.txn_date}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Amount</span>
+                <span className={`td-num font-semibold ${amount >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {amount >= 0 ? "+" : ""}{formatCurrency(amount)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Bank / Cash GL</span>
+                <span className="text-right">
+                  {acct?.linked_gl_account_id
+                    ? (jeCoa.find((c) => c.id === acct?.linked_gl_account_id)?.name || acct?.account_name || "—")
+                    : <span className="text-destructive">Not linked</span>}
+                </span>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Offset account {amount >= 0 ? "(credit)" : "(debit)"}</Label>
+              <Select value={jeOffsetId} onValueChange={setJeOffsetId}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Pick offset account…" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {jeCoa
+                    .filter((c) => c.id !== acct?.linked_gl_account_id)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="font-mono text-[11px] text-muted-foreground mr-2">{c.code}</span>
+                        {c.name}
+                        <span className="text-[10px] text-muted-foreground ml-2 uppercase">{c.account_type}</span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Memo</Label>
+              <Input value={jeMemo} onChange={(e) => setJeMemo(e.target.value)} className="mt-1" />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Creates a balanced journal entry (source: bank_txn) and marks this transaction as matched.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJeOpen(false)} disabled={jeBusy}>Cancel</Button>
+            <Button onClick={submitPostAsJe} disabled={jeBusy || !jeOffsetId || !acct?.linked_gl_account_id}>
+              {jeBusy ? "Posting…" : "Post entry"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
+
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
