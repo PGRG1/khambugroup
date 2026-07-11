@@ -401,7 +401,7 @@ export function usePayables() {
 
       setLoading(false);
     })();
-  }, [refreshKey]);
+  }, [refreshKey, tenantId, tenantLoading]);
 
   return {
     invoices,
