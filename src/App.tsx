@@ -191,10 +191,12 @@ function App() {
         <AuthProvider>
           <ThemeProvider>
             <PreviewModeProvider>
+              <BrowserRouter>
+              <TenantPreviewProvider>
               <Toaster />
               <Sonner />
               <PreviewBanner />
-              <BrowserRouter>
+              <TenantPreviewBanner />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
