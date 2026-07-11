@@ -145,7 +145,6 @@ export function AttendanceTab({ shifts, attendance, employees, departments, leav
   };
   // Legacy state kept for the shift modal; the visible toggle reads `view` above.
   const viewMode: "plan" | "actuals" = view === "actuals" ? "actuals" : "plan";
-  const setViewMode = (v: "plan" | "actuals") => setView(v);
   const [weekBase, setWeekBase] = useState(new Date());
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Partial<HRShift> | null>(null);
