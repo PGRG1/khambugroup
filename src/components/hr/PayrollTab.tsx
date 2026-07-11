@@ -487,6 +487,9 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
         </div>
       </div>
 
+      {/* Labor Cost % of Revenue by venue for this payroll month */}
+      <PayrollLaborCostCard year={filterYear} month={filterMonth} />
+
       {/* ── Employee Payroll Table ── */}
       <div className="border border-border rounded-md overflow-hidden">
         <div className={hdr}>Employee Payroll</div>
