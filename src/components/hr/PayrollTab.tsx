@@ -526,7 +526,11 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
                     return (
                       <tr key={emp.id} className={`hover:bg-muted/20 ${hasEdits ? "bg-chart-1/[0.03]" : ""}`}>
                         <td className={`${td} text-center text-muted-foreground text-[10px]`}>{rowNum}</td>
-                        <td className={`${td} font-medium`}>{emp.last_name}, {emp.first_name}</td>
+                        <td className={`${td} font-medium`}>
+                          <Link to={`/hr/employees/${emp.id}`} className="hover:text-primary hover:underline">
+                            {emp.last_name}, {emp.first_name}
+                          </Link>
+                        </td>
                         <td className={`${td} text-muted-foreground`}>{venue}</td>
                         <td className={`${td} text-muted-foreground`}>{emp.job_title || "—"}</td>
                         <td className={`${td} text-center font-medium`}>{type}</td>
