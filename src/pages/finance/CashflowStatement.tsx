@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useCashflowStatement } from "@/hooks/useCashflowStatement";
-import { CASHFLOW_VENUES } from "@/utils/cashflowCalculations";
+import { useVenues } from "@/hooks/useVenues";
 import { SECTION_LABELS, SECTION_ORDER, CashflowSection } from "@/utils/cashflowStatementClassifier";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
