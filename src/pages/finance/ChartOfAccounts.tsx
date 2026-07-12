@@ -180,7 +180,8 @@ export default function ChartOfAccountsPage() {
     const parts: string[] = [`Showing ${groupedTree.visibleCount} of ${totalCount} accounts`];
     if (activeFilter === "active") parts.push("Active only");
     else if (activeFilter === "inactive") parts.push("Inactive only");
-    if (typeFilter !== "all") parts.push(ACCOUNT_TYPE_LABEL[typeFilter]);
+    if (typeFilter === "other") parts.push("Other");
+    else if (typeFilter !== "all") parts.push(ACCOUNT_TYPE_LABEL[typeFilter]);
     if (search.trim()) parts.push(`Search: "${search.trim()}"`);
     return parts.join(" · ");
   })();
