@@ -490,9 +490,9 @@ export function StepCoA({ tenantId, onComplete }: StepProps) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link to="/finance/chart-of-accounts"><ExternalLink className="h-4 w-4 mr-1"/>View / edit chart</Link>
-          </Button>
+          <EnterClientLink tenantId={tenantId} to="/finance/chart-of-accounts">
+            <ExternalLink className="h-4 w-4 mr-1"/>View / edit chart
+          </EnterClientLink>
           <Button size="sm" variant="ghost" onClick={() => setShowAugment((s) => !s)}>
             {showAugment ? "Hide template augment" : "Add missing template accounts…"}
           </Button>
@@ -588,9 +588,9 @@ export function StepCoA({ tenantId, onComplete }: StepProps) {
         <div className="border border-dashed border-border rounded-lg p-3">
           <div className="font-medium text-sm">Import CSV</div>
           <div className="text-xs text-muted-foreground">Column mapping + validation preview. Available on /finance/chart-of-accounts.</div>
-          <Button asChild size="sm" variant="outline" className="mt-2">
-            <Link to="/finance/chart-of-accounts"><ExternalLink className="h-4 w-4 mr-1"/>Open CoA</Link>
-          </Button>
+          <EnterClientLink tenantId={tenantId} to="/finance/chart-of-accounts">
+            <ExternalLink className="h-4 w-4 mr-1"/>Open CoA
+          </EnterClientLink>
         </div>
       </div>
       <div className="flex justify-end">
@@ -611,7 +611,7 @@ export function StepSuppliers({ tenantId, onComplete }: StepProps) {
       <div className="text-sm">Current suppliers: <span className="font-medium">{count ?? "…"}</span></div>
       <div className="text-sm text-muted-foreground">Manage suppliers and bulk-import from the Procurement module.</div>
       <div className="flex gap-2">
-        <Button asChild size="sm" variant="outline"><Link to="/procurement/suppliers"><ExternalLink className="h-4 w-4 mr-1"/>Open Suppliers</Link></Button>
+        <EnterClientLink tenantId={tenantId} to="/procurement/suppliers"><ExternalLink className="h-4 w-4 mr-1"/>Open Suppliers</EnterClientLink>
         <Button size="sm" onClick={onComplete} disabled={!count}><CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete</Button>
       </div>
     </div>
@@ -632,7 +632,7 @@ export function StepRevenue({ tenantId, onComplete }: StepProps) {
     <div className="space-y-3">
       <div className="text-sm">Revenue sources: <span className="font-medium">{rs ?? "…"}</span> · Service periods: <span className="font-medium">{sp ?? "…"}</span></div>
       <div className="flex gap-2">
-        <Button asChild size="sm" variant="outline"><Link to="/admin/master-data"><ExternalLink className="h-4 w-4 mr-1"/>Configure</Link></Button>
+        <EnterClientLink tenantId={tenantId} to="/admin/master-data"><ExternalLink className="h-4 w-4 mr-1"/>Configure</EnterClientLink>
         <Button size="sm" onClick={onComplete} disabled={!rs}><CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete</Button>
       </div>
     </div>
@@ -649,7 +649,7 @@ export function StepFirstSale({ tenantId, onComplete }: StepProps) {
     <div className="space-y-2">
       <div className="text-sm">{has === null ? "Checking…" : has ? "✅ Sales records detected" : "No sales records yet"}</div>
       <div className="flex gap-2">
-        <Button asChild size="sm" variant="outline"><Link to="/sales-data"><ExternalLink className="h-4 w-4 mr-1"/>Daily Sales</Link></Button>
+        <EnterClientLink tenantId={tenantId} to="/sales-data"><ExternalLink className="h-4 w-4 mr-1"/>Daily Sales</EnterClientLink>
         <Button size="sm" onClick={onComplete} disabled={!has}><CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete</Button>
       </div>
     </div>
@@ -664,7 +664,7 @@ export function StepFirstInvoice({ tenantId, onComplete }: StepProps) {
     <div className="space-y-2">
       <div className="text-sm">{has === null ? "Checking…" : has ? "✅ Invoices detected" : "No invoices yet"}</div>
       <div className="flex gap-2">
-        <Button asChild size="sm" variant="outline"><Link to="/procurement/invoices"><ExternalLink className="h-4 w-4 mr-1"/>Procurement</Link></Button>
+        <EnterClientLink tenantId={tenantId} to="/procurement/invoices"><ExternalLink className="h-4 w-4 mr-1"/>Procurement</EnterClientLink>
         <Button size="sm" onClick={onComplete} disabled={!has}><CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete</Button>
       </div>
     </div>
@@ -797,7 +797,7 @@ export function StepAPOpening({ tenantId, onComplete }: StepProps) {
     <div className="space-y-2">
       <div className="text-sm text-muted-foreground">Open supplier bills and credit notes at conversion date. Use the existing Procurement opening-balances editor.</div>
       <div className="flex gap-2">
-        <Button asChild size="sm" variant="outline"><Link to="/procurement/opening-balances"><ExternalLink className="h-4 w-4 mr-1"/>Open editor</Link></Button>
+        <EnterClientLink tenantId={tenantId} to="/procurement/opening-balances"><ExternalLink className="h-4 w-4 mr-1"/>Open editor</EnterClientLink>
         <Button size="sm" onClick={onComplete}><CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete</Button>
       </div>
     </div>
@@ -818,7 +818,7 @@ export function StepTeam({ tenantId, onComplete }: StepProps) {
       <div className="text-sm">{users.length} member{users.length === 1 ? "" : "s"} added</div>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1"/>Invite user</Button>
-        <Button asChild size="sm" variant="outline"><Link to="/user-access"><ExternalLink className="h-4 w-4 mr-1"/>Manage in User Access</Link></Button>
+        <EnterClientLink tenantId={tenantId} to="/user-access"><ExternalLink className="h-4 w-4 mr-1"/>Manage in User Access</EnterClientLink>
         <Button size="sm" onClick={onComplete} disabled={users.length === 0}><CheckCircle2 className="h-4 w-4 mr-1"/>Mark complete</Button>
       </div>
       <CreateUserDialog open={showAdd} onOpenChange={setShowAdd} tenantId={tenantId} onCreated={load}/>
