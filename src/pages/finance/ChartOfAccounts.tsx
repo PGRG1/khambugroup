@@ -332,7 +332,7 @@ export default function ChartOfAccountsPage() {
                     <button
                       key={p.key}
                       type="button"
-                      onClick={() => setTypeFilter(p.key === "all" ? "all" : p.key === "other" ? "other_expense" : (p.key as AccountType))}
+                      onClick={() => setTypeFilter(p.key)}
                       className={cn(
                         "px-3 py-1 rounded-full text-xs transition-colors tabular-nums",
                         isActive
