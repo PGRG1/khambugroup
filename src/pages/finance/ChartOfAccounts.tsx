@@ -42,7 +42,7 @@ export default function ChartOfAccountsPage() {
 
   // Filters
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<AccountType | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<AccountType | "all" | "other">("all");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("active");
 
   // Delete dialog state
