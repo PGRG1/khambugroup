@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Plus, Building2, Loader2, ChevronRight, LogIn, Home as HomeIcon } from "lucide-react";
+import { Plus, Building2, Loader2, ChevronRight, LogIn, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantSession } from "@/hooks/useTenantSession";
@@ -45,7 +45,7 @@ type Counts = { venues: number; users: number; banks: number; invoices: number }
 export default function Clients() {
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
   const navigate = useNavigate();
-  const { enterClient, homeTenantId } = useTenantSession();
+  const { enterClient, lastEnteredTenantId } = useTenantSession();
   const [rows, setRows] = useState<ClientRow[] | null>(null);
   const [counts, setCounts] = useState<Record<string, Counts>>({});
   const [open, setOpen] = useState(false);
@@ -144,15 +144,11 @@ export default function Clients() {
             {rows?.length === 0 && (
               <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No clients yet.</td></tr>
             )}
-            {(rows ? [...rows].sort((a, b) => {
-              const aHome = a.id === homeTenantId ? 0 : 1;
-              const bHome = b.id === homeTenantId ? 0 : 1;
-              return aHome - bHome;
-            }) : []).map((r, idx) => {
+            {(rows ? [...rows].sort((a, b) => a.name.localeCompare(b.name)) : []).map((r, idx) => {
               const c = counts[r.id];
               const score = setupScore(r.id);
               const fillClass = score >= 4 ? "bg-emerald-500" : "bg-amber-500";
-              const isHome = r.id === homeTenantId;
+              const isLast = r.id === lastEnteredTenantId;
               return (
                 <tr
                   key={r.id}
@@ -164,9 +160,9 @@ export default function Clients() {
                       <Building2 className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">{r.name}</span>
                       <span className="text-xs text-muted-foreground">/{r.slug}</span>
-                      {isHome && (
-                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-primary border border-primary/40 rounded px-1.5 py-0.5">
-                          <HomeIcon className="h-3 w-3" /> Home
+                      {isLast && (
+                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                          <Clock className="h-3 w-3" /> Last entered
                         </span>
                       )}
                     </div>
