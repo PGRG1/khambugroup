@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Building2, Rocket, ChevronRight } from "lucide-react";
+import { ArrowLeft, Building2, Rocket, ChevronRight, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantOnboarding } from "@/hooks/useTenantOnboarding";
+import { useTenantSession } from "@/hooks/useTenantSession";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
@@ -29,6 +30,7 @@ export default function ClientDetail() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
+  const { enterClient } = useTenantSession();
   const { overall, row: onboarding } = useTenantOnboarding(tenantId);
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -95,6 +97,9 @@ export default function ClientDetail() {
             </p>
           </div>
         </div>
+        <Button size="sm" onClick={() => tenantId && enterClient(tenantId, "/")}>
+          <LogIn className="h-4 w-4 mr-1.5" /> Enter client
+        </Button>
       </div>
 
       {/* Continue Onboarding card — replaces the old fake 8-boolean checklist. */}
