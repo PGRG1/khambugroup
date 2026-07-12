@@ -5,7 +5,6 @@
  * Kept in one file to reduce module fan-out; each Step* export is independent.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,24 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ExternalLink, CheckCircle2, FileDown } from "lucide-react";
 import { EmptyState, fmtHKWhole } from "@/components/expenses/shared";
 import { CreateUserDialog } from "@/components/access-control/CreateUserDialog";
+import { useTenantSession } from "@/hooks/useTenantSession";
+
+/**
+ * Small helper: any deep-link out of the onboarding cockpit into a
+ * tenant-scoped page MUST first perform the explicit "enter client" action —
+ * otherwise the target page would resolve against the admin's own tenant
+ * (KHAMBU) instead of the client whose cockpit we're in.
+ */
+function EnterClientLink({
+  tenantId, to, children,
+}: { tenantId: string; to: string; children: React.ReactNode }) {
+  const { enterClient } = useTenantSession();
+  return (
+    <Button size="sm" variant="outline" onClick={() => enterClient(tenantId, to)}>
+      {children}
+    </Button>
+  );
+}
 
 export interface StepProps {
   tenantId: string;
