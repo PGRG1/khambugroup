@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Check, Building2, Lock } from "lucide-react";
+import { Check, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import { useTenantPreview } from "@/contexts/TenantPreviewContext";
 import { cn } from "@/lib/utils";
 
 type TenantRow = { id: string; name: string };
@@ -10,11 +9,9 @@ type TenantRow = { id: string; name: string };
 /**
  * Compact tenant switcher rendered inside the UserMenu dropdown.
  * Hidden when the user has access to a single tenant and is not a super_admin.
- * Super-admins see every tenant; regular members see only their memberships.
  */
 export const TenantSwitcher = () => {
   const { tenantId, setTenantId, memberships, isSuperAdmin, loading } = useActiveTenant();
-  const { isPreviewing, previewTenantName, exit } = useTenantPreview();
   const [allTenants, setAllTenants] = useState<TenantRow[]>([]);
 
   useEffect(() => {
@@ -39,27 +36,8 @@ export const TenantSwitcher = () => {
   const onPick = (id: string) => {
     if (id === tenantId) return;
     setTenantId(id);
-    // Force a clean reload so every hook / cache re-fetches under the new tenant.
     if (typeof window !== "undefined") window.location.reload();
   };
-
-  if (isPreviewing) {
-    return (
-      <div className="px-2 py-2 space-y-2 text-xs">
-        <div className="flex items-center gap-2 text-warning">
-          <Lock className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">Previewing <strong>{previewTenantName}</strong></span>
-        </div>
-        <button
-          type="button"
-          onClick={() => { exit(); if (typeof window !== "undefined") window.location.assign("/platform/clients"); }}
-          className="w-full rounded-md px-2 py-1.5 text-left hover:bg-accent hover:text-accent-foreground"
-        >
-          Exit preview & return to my tenant
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="px-1 pb-1 space-y-0.5">
