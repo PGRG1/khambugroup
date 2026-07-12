@@ -274,7 +274,7 @@ export default function ChartOfAccountsPage() {
                 className="h-9 pl-8"
               />
             </div>
-            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as AccountType | "all")}>
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as AccountType | "all" | "other")}>
               <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
