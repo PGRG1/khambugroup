@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Plus, Building2, Loader2, ChevronRight } from "lucide-react";
+import { Plus, Building2, Loader2, ChevronRight, LogIn, Home as HomeIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
+import { useTenantSession } from "@/hooks/useTenantSession";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
