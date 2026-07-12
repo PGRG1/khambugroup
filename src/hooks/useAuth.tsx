@@ -124,6 +124,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    try {
+      localStorage.removeItem("khambu.enteredTenantId");
+      localStorage.removeItem("khambu.activeTenantId");
+      localStorage.removeItem("khambu.homeTenantId");
+    } catch {}
     setSession(null);
     setIsAdmin(false);
   };

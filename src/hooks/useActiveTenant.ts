@@ -51,8 +51,11 @@ export function useActiveTenant() {
         const { data: t } = await supabase.from("tenants").select("id").eq("id", stored).maybeSingle();
         valid = !!t;
       }
-      const next = valid ? stored : m[0]?.tenant_id ?? null;
+      // Platform admins start client-less — no auto-fallback to memberships[0].
+      // Regular tenant users fall back to their first membership.
+      const next = valid ? stored : isSuper ? null : m[0]?.tenant_id ?? null;
       if (next && next !== stored) localStorage.setItem(STORAGE_KEY, next);
+      if (!next && stored) localStorage.removeItem(STORAGE_KEY);
       setTenantIdState(next);
       setLoading(false);
     })();
@@ -69,9 +72,10 @@ export function useActiveTenant() {
     };
   }, []);
 
-  const setTenantId = (id: string) => {
+  const setTenantId = (id: string | null) => {
     const prev = localStorage.getItem(STORAGE_KEY);
-    localStorage.setItem(STORAGE_KEY, id);
+    if (id) localStorage.setItem(STORAGE_KEY, id);
+    else localStorage.removeItem(STORAGE_KEY);
     setTenantIdState(id);
     window.dispatchEvent(new Event(TENANT_CHANGE_EVENT));
     // Wipe React Query cache so every tenant-scoped hook refetches against the
