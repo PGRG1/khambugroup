@@ -8,12 +8,13 @@ import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PreviewModeProvider, usePreviewMode } from "@/hooks/usePreviewMode";
-import { TenantPreviewProvider } from "@/contexts/TenantPreviewContext";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { AppLayout } from "@/components/AppLayout";
+import { PlatformLayout } from "@/components/platform/PlatformLayout";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
-import { TenantPreviewBanner } from "@/components/access-control/TenantPreviewBanner";
+import { ClientContextBar } from "@/components/access-control/ClientContextBar";
+import { CrossTabTenantGuard } from "@/components/access-control/CrossTabTenantGuard";
 import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
 import Home from "./pages/Home";
@@ -170,7 +171,7 @@ const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
   if (loading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
   if (!session) return <Navigate to="/auth" replace />;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  return <PlatformLayout>{children}</PlatformLayout>;
 };
 
 // Legacy /admin/clients* → /platform/clients* redirects (preserves :tenantId).
@@ -192,11 +193,11 @@ function App() {
           <ThemeProvider>
             <PreviewModeProvider>
               <BrowserRouter>
-              <TenantPreviewProvider>
               <Toaster />
               <Sonner />
               <PreviewBanner />
-              <TenantPreviewBanner />
+              <ClientContextBar />
+              <CrossTabTenantGuard />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
@@ -336,7 +337,6 @@ function App() {
                 <Route path="/kpis/planner" element={<AdminRoute><KpiPlanner /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              </TenantPreviewProvider>
             </BrowserRouter>
             </PreviewModeProvider>
           </ThemeProvider>
