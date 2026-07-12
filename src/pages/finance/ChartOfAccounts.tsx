@@ -299,6 +299,52 @@ export default function ChartOfAccountsPage() {
             </div>
           </div>
 
+          {/* Type filter pills — live counts from actual accounts */}
+          {(() => {
+            const pills: { key: AccountType | "all" | "other"; label: string; match: (t: AccountType) => boolean }[] = [
+              { key: "all", label: "All", match: () => true },
+              { key: "asset", label: "Assets", match: (t) => t === "asset" },
+              { key: "liability", label: "Liabilities", match: (t) => t === "liability" },
+              { key: "equity", label: "Equity", match: (t) => t === "equity" },
+              { key: "revenue", label: "Revenue", match: (t) => t === "revenue" },
+              { key: "cogs", label: "Cost of sales", match: (t) => t === "cogs" },
+              { key: "opex", label: "Operating expenses", match: (t) => t === "opex" },
+              { key: "other", label: "Other", match: (t) => t === "other_income" || t === "other_expense" },
+            ];
+            const pool = items.filter((a) => {
+              if (activeFilter === "active") return a.is_active;
+              if (activeFilter === "inactive") return !a.is_active;
+              return true;
+            });
+            const activeKey: string =
+              typeFilter === "all" ? "all"
+              : (typeFilter === "other_income" || typeFilter === "other_expense") ? "other"
+              : typeFilter;
+            return (
+              <div className="flex flex-wrap gap-1.5">
+                {pills.map((p) => {
+                  const count = pool.filter((a) => p.match(a.account_type)).length;
+                  const isActive = activeKey === p.key;
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setTypeFilter(p.key === "all" ? "all" : p.key === "other" ? "other_expense" : (p.key as AccountType))}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs transition-colors tabular-nums",
+                        isActive
+                          ? "bg-foreground text-background border border-foreground"
+                          : "bg-muted/40 text-muted-foreground border border-border/50 hover:bg-muted",
+                      )}
+                    >
+                      {p.label} <span className={cn("ml-1", isActive ? "opacity-80" : "opacity-70")}>({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           {/* Counter strip + scope line */}
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground tabular-nums">
