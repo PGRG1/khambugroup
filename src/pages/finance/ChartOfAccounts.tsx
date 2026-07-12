@@ -42,7 +42,7 @@ export default function ChartOfAccountsPage() {
 
   // Filters
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<AccountType | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<AccountType | "all" | "other">("all");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("active");
 
   // Delete dialog state
@@ -66,7 +66,9 @@ export default function ChartOfAccountsPage() {
     return items.filter((a) => {
       if (activeFilter === "active" && !a.is_active) return false;
       if (activeFilter === "inactive" && a.is_active) return false;
-      if (typeFilter !== "all" && a.account_type !== typeFilter) return false;
+      if (typeFilter === "other") {
+        if (a.account_type !== "other_income" && a.account_type !== "other_expense") return false;
+      } else if (typeFilter !== "all" && a.account_type !== typeFilter) return false;
       if (q) {
         const hay = `${a.code} ${a.name} ${a.description ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -178,7 +180,8 @@ export default function ChartOfAccountsPage() {
     const parts: string[] = [`Showing ${groupedTree.visibleCount} of ${totalCount} accounts`];
     if (activeFilter === "active") parts.push("Active only");
     else if (activeFilter === "inactive") parts.push("Inactive only");
-    if (typeFilter !== "all") parts.push(ACCOUNT_TYPE_LABEL[typeFilter]);
+    if (typeFilter === "other") parts.push("Other");
+    else if (typeFilter !== "all") parts.push(ACCOUNT_TYPE_LABEL[typeFilter]);
     if (search.trim()) parts.push(`Search: "${search.trim()}"`);
     return parts.join(" · ");
   })();
@@ -271,7 +274,7 @@ export default function ChartOfAccountsPage() {
                 className="h-9 pl-8"
               />
             </div>
-            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as AccountType | "all")}>
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as AccountType | "all" | "other")}>
               <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
@@ -298,6 +301,52 @@ export default function ChartOfAccountsPage() {
               </Button>
             </div>
           </div>
+
+          {/* Type filter pills — live counts from actual accounts */}
+          {(() => {
+            const pills: { key: AccountType | "all" | "other"; label: string; match: (t: AccountType) => boolean }[] = [
+              { key: "all", label: "All", match: () => true },
+              { key: "asset", label: "Assets", match: (t) => t === "asset" },
+              { key: "liability", label: "Liabilities", match: (t) => t === "liability" },
+              { key: "equity", label: "Equity", match: (t) => t === "equity" },
+              { key: "revenue", label: "Revenue", match: (t) => t === "revenue" },
+              { key: "cogs", label: "Cost of sales", match: (t) => t === "cogs" },
+              { key: "opex", label: "Operating expenses", match: (t) => t === "opex" },
+              { key: "other", label: "Other", match: (t) => t === "other_income" || t === "other_expense" },
+            ];
+            const pool = items.filter((a) => {
+              if (activeFilter === "active") return a.is_active;
+              if (activeFilter === "inactive") return !a.is_active;
+              return true;
+            });
+            const activeKey: string =
+              typeFilter === "all" ? "all"
+              : (typeFilter === "other_income" || typeFilter === "other_expense") ? "other"
+              : typeFilter;
+            return (
+              <div className="flex flex-wrap gap-1.5">
+                {pills.map((p) => {
+                  const count = pool.filter((a) => p.match(a.account_type)).length;
+                  const isActive = activeKey === p.key;
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setTypeFilter(p.key)}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs transition-colors tabular-nums",
+                        isActive
+                          ? "bg-foreground text-background border border-foreground"
+                          : "bg-muted/40 text-muted-foreground border border-border/50 hover:bg-muted",
+                      )}
+                    >
+                      {p.label} <span className={cn("ml-1", isActive ? "opacity-80" : "opacity-70")}>({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* Counter strip + scope line */}
           <div className="space-y-1">
