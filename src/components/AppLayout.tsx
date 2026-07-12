@@ -1,13 +1,16 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { usePreviewMode } from "@/hooks/usePreviewMode";
-import { useTenantPreview } from "@/contexts/TenantPreviewContext";
+import { useTenantSession } from "@/hooks/useTenantSession";
+import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { UserMenu } from "@/components/UserMenu";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { isPreviewActive } = usePreviewMode();
-  const { isPreviewing: isTenantPreview } = useTenantPreview();
-  const topPad = isPreviewActive || isTenantPreview ? "pt-10" : "";
+  const { isInsideNonHomeClient } = useTenantSession();
+  const { isPlatformAdmin } = usePlatformAdmin();
+  const showClientBar = isPlatformAdmin && isInsideNonHomeClient;
+  const topPad = isPreviewActive || showClientBar ? "pt-10" : "";
 
   return (
     <SidebarProvider>
@@ -26,4 +29,3 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
