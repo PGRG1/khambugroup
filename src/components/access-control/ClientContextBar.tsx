@@ -14,12 +14,12 @@ import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 export function ClientContextBar() {
   const location = useLocation();
   const { isPlatformAdmin } = usePlatformAdmin();
-  const { activeTenantId, isInsideNonHomeClient, exitToPlatform } = useTenantSession();
+  const { activeTenantId, isInsideClient, exitToPlatform } = useTenantSession();
   const [name, setName] = useState<string>("");
 
   const inPlatform = location.pathname.startsWith("/platform");
   const inAuth = location.pathname.startsWith("/auth");
-  const shouldShow = isPlatformAdmin && isInsideNonHomeClient && !inPlatform && !inAuth;
+  const shouldShow = isPlatformAdmin && isInsideClient && !inPlatform && !inAuth;
 
   useEffect(() => {
     if (!shouldShow || !activeTenantId) { setName(""); return; }
