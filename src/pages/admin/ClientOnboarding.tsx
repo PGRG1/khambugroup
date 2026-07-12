@@ -1,7 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useTenantPreview } from "@/contexts/TenantPreviewContext";
 import { ArrowLeft, ChevronRight, CircleDashed, CheckCircle2, MinusCircle, PlayCircle } from "lucide-react";
 import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import { useTenantOnboarding } from "@/hooks/useTenantOnboarding";
