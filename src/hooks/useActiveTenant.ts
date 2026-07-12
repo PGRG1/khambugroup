@@ -72,9 +72,10 @@ export function useActiveTenant() {
     };
   }, []);
 
-  const setTenantId = (id: string) => {
+  const setTenantId = (id: string | null) => {
     const prev = localStorage.getItem(STORAGE_KEY);
-    localStorage.setItem(STORAGE_KEY, id);
+    if (id) localStorage.setItem(STORAGE_KEY, id);
+    else localStorage.removeItem(STORAGE_KEY);
     setTenantIdState(id);
     window.dispatchEvent(new Event(TENANT_CHANGE_EVENT));
     // Wipe React Query cache so every tenant-scoped hook refetches against the
