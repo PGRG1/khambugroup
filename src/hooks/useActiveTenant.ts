@@ -10,7 +10,14 @@ export type TenantMembership = { tenant_id: string; role: string; tenant_name?: 
 
 /**
  * Resolve the caller's active tenant_id. The tenant is selected explicitly
- * (persisted in localStorage); we never silently use "the first row".
+ * (persisted in localStorage under `khambu.activeTenantId`); we never silently
+ * use "the first row".
+ *
+ * PHASE 2 (future): move tenant identity out of localStorage and into the URL
+ * (e.g. `/t/:tenantId/...`) so different browser tabs can hold different
+ * tenants simultaneously. Until then, cross-tab safety is enforced by
+ * `CrossTabTenantGuard` and the platform-admin two-plane split
+ * (`PlatformLayout` vs `AppLayout` — see `useTenantSession`).
  */
 export function useActiveTenant() {
   const { user } = useAuth();
