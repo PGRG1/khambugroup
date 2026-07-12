@@ -66,7 +66,9 @@ export default function ChartOfAccountsPage() {
     return items.filter((a) => {
       if (activeFilter === "active" && !a.is_active) return false;
       if (activeFilter === "inactive" && a.is_active) return false;
-      if (typeFilter !== "all" && a.account_type !== typeFilter) return false;
+      if (typeFilter === "other") {
+        if (a.account_type !== "other_income" && a.account_type !== "other_expense") return false;
+      } else if (typeFilter !== "all" && a.account_type !== typeFilter) return false;
       if (q) {
         const hay = `${a.code} ${a.name} ${a.description ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
