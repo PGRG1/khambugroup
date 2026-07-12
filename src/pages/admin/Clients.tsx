@@ -45,6 +45,7 @@ type Counts = { venues: number; users: number; banks: number; invoices: number }
 export default function Clients() {
   const { isPlatformAdmin, loading: gateLoading } = usePlatformAdmin();
   const navigate = useNavigate();
+  const { enterClient, homeTenantId } = useTenantSession();
   const [rows, setRows] = useState<ClientRow[] | null>(null);
   const [counts, setCounts] = useState<Record<string, Counts>>({});
   const [open, setOpen] = useState(false);
