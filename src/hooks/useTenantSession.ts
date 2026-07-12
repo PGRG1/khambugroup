@@ -6,43 +6,52 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
  * Two-plane tenant session helpers.
  *
  *   Platform plane (/platform/*) → NO active tenant is required to render.
- *   Tenant plane (everything else) → resolves against `activeTenantId`.
+ *   Tenant plane (everything else) → resolves against the entered tenant.
  *
- * The platform admin has a "home tenant" (their own membership — typically KHAMBU).
- * Entering a client = switching active tenant + navigating into the tenant app.
- * Exiting     = restoring the home tenant + navigating to /platform/clients.
+ * A platform admin ("Bani" operator) is ALWAYS in the platform control plane
+ * unless they explicitly entered a client. There is no "home tenant" concept —
+ * KHAMBU is just a client like any other. Entering a client = setting the
+ * active tenant + navigating into the tenant app. Exiting = clearing the
+ * active tenant + returning to /platform/clients.
  *
  * PHASE 2 (future): move tenant identity into the URL (/t/:tenantId/...) so
  * two tabs can hold different tenants simultaneously without a shared
  * localStorage key. Until then, cross-tab safety is enforced by
  * `CrossTabTenantGuard`.
  */
-const HOME_KEY = "khambu.homeTenantId";
+const ENTERED_KEY = "khambu.enteredTenantId";
 const LAST_ENTERED_KEY = "khambu.lastEnteredTenantId";
+const LEGACY_HOME_KEY = "khambu.homeTenantId";
+
+// One-time cleanup of the deprecated "home tenant" localStorage entry.
+if (typeof window !== "undefined") {
+  try { localStorage.removeItem(LEGACY_HOME_KEY); } catch { /* no-op */ }
+}
 
 export function useTenantSession() {
-  const { setTenantId, tenantId, memberships } = useActiveTenant();
+  const { setTenantId, tenantId } = useActiveTenant();
   const navigate = useNavigate();
 
-  // Persist "home tenant" the first time we see a membership.
+  // Keep the "entered" marker in sync with the active tenant. If some other
+  // path cleared activeTenantId (e.g. sign-out), drop the marker too.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const first = memberships[0]?.tenant_id;
-    if (first && !localStorage.getItem(HOME_KEY)) {
-      localStorage.setItem(HOME_KEY, first);
+    const entered = localStorage.getItem(ENTERED_KEY);
+    if (entered && entered !== tenantId) {
+      // If active tenant no longer matches the entered marker, drop it.
+      if (!tenantId) localStorage.removeItem(ENTERED_KEY);
     }
-  }, [memberships]);
+  }, [tenantId]);
 
-  const homeTenantId =
-    (typeof window !== "undefined" ? localStorage.getItem(HOME_KEY) : null) ??
-    memberships[0]?.tenant_id ??
-    null;
+  const enteredTenantId =
+    typeof window !== "undefined" ? localStorage.getItem(ENTERED_KEY) : null;
 
   const lastEnteredTenantId =
     typeof window !== "undefined" ? localStorage.getItem(LAST_ENTERED_KEY) : null;
 
   const enterClient = (targetTenantId: string, destination = "/") => {
     if (typeof window !== "undefined") {
+      localStorage.setItem(ENTERED_KEY, targetTenantId);
       localStorage.setItem(LAST_ENTERED_KEY, targetTenantId);
     }
     if (tenantId !== targetTenantId) setTenantId(targetTenantId);
@@ -50,18 +59,22 @@ export function useTenantSession() {
   };
 
   const exitToPlatform = () => {
-    if (homeTenantId && homeTenantId !== tenantId) setTenantId(homeTenantId);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(ENTERED_KEY);
+    }
+    // Fully clear the tenant-scoped session so the platform plane can render
+    // without any lingering client context.
+    setTenantId(null);
     navigate("/platform/clients");
   };
 
-  const isInsideNonHomeClient =
-    !!tenantId && !!homeTenantId && tenantId !== homeTenantId;
+  const isInsideClient = !!enteredTenantId && !!tenantId && enteredTenantId === tenantId;
 
   return {
     activeTenantId: tenantId,
-    homeTenantId,
+    enteredTenantId,
     lastEnteredTenantId,
-    isInsideNonHomeClient,
+    isInsideClient,
     enterClient,
     exitToPlatform,
   };
