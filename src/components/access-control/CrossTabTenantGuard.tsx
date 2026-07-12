@@ -45,7 +45,13 @@ export function CrossTabTenantGuard() {
           Reload to continue in the new client, or return to the Platform.
         </p>
         <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={() => window.location.assign("/platform/clients")}>
+          <Button variant="outline" onClick={() => {
+            try {
+              localStorage.removeItem("khambu.enteredTenantId");
+              localStorage.removeItem("khambu.activeTenantId");
+            } catch {}
+            window.location.assign("/platform/clients");
+          }}>
             Return to Platform
           </Button>
           <Button onClick={() => window.location.reload()}>Reload this tab</Button>
