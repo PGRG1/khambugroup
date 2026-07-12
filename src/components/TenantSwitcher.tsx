@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
 import { Check, Building2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { cn } from "@/lib/utils";
 
@@ -8,21 +6,12 @@ type TenantRow = { id: string; name: string };
 
 /**
  * Compact tenant switcher rendered inside the UserMenu dropdown.
- * Hidden when the user has access to a single tenant and is not a super_admin.
+ * Hidden for platform admins (they use the Platform → Enter/Exit flow) and
+ * for regular users with a single tenant.
  */
 export const TenantSwitcher = () => {
   const { tenantId, setTenantId, memberships, isSuperAdmin, loading } = useActiveTenant();
-  const [allTenants, setAllTenants] = useState<TenantRow[]>([]);
 
-  useEffect(() => {
-    if (!isSuperAdmin) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("tenants").select("id, name").order("name");
-      if (!cancelled) setAllTenants((data ?? []) as TenantRow[]);
-    })();
-    return () => { cancelled = true; };
-  }, [isSuperAdmin]);
 
   if (loading) return null;
 
