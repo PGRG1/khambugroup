@@ -775,7 +775,7 @@ export default function BillsExpenses() {
                     );
                     if (!ok) return;
                     const done = await reverseBill(editing.id);
-                    if (done) { setEditing(null); setSheetOpen(false); }
+                    if (done) { setEditing(null); setEditorOpen(false); }
                   }}
                 >
                   Reverse
