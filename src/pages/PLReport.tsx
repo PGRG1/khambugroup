@@ -256,125 +256,147 @@ export default function PLReport() {
       ) : selectedPeriods.length === 0 ? (
         <p className="text-sm text-muted-foreground">Select at least one period to view the Profit & Loss report.</p>
       ) : (
-        <div className="pl-table rounded-xl border border-[hsl(var(--pl-border))] overflow-x-auto relative" style={{ boxShadow: '0 2px 16px -4px hsl(25 20% 15% / 0.07)' }}>
+        <div className="rounded-xl border border-border bg-card overflow-x-auto relative shadow-card">
           <table className="w-full text-[13px] border-collapse">
             <thead>
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest sticky left-0 z-20 min-w-[230px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
-                  Profit & Loss
+              <tr className="bg-muted/50">
+                <th className="text-left px-5 py-3 font-semibold text-muted-foreground uppercase text-[10px] tracking-[0.14em] sticky left-0 z-20 min-w-[240px] border-b border-border bg-muted/50 border-r border-border/60">
+                  Profit &amp; Loss
                 </th>
-                {groupedData.map((gd) => (
-                  <th key={gd.label} className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(30, 18%, 86%)' }}>
-                    {gd.label}
-                  </th>
-                ))}
+                {groupedData.map((gd, idx) => {
+                  const isLatest = idx === groupedData.length - 1;
+                  return (
+                    <th
+                      key={gd.label}
+                      className={`text-right px-4 py-3 font-semibold uppercase text-[10px] tracking-[0.14em] whitespace-nowrap min-w-[128px] border-b border-border ${
+                        isLatest ? "text-foreground" : "text-muted-foreground"
+                      }`}
+                    >
+                      {gd.label}
+                    </th>
+                  );
+                })}
                 {showTotal && (
-                  <th className="text-right px-4 py-3 font-semibold text-foreground/70 uppercase text-[11px] tracking-widest whitespace-nowrap min-w-[120px] border-b-2 border-l-2 border-[hsl(var(--pl-border))]" style={{ background: 'hsl(28, 22%, 83%)' }}>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground uppercase text-[10px] tracking-[0.14em] whitespace-nowrap min-w-[128px] border-b border-border border-l-2 border-l-primary/40 bg-muted/70">
                     Total
                   </th>
                 )}
               </tr>
             </thead>
             <tbody>
-              {(() => {
-                let rowIdx = 0;
-                return lines.map((line, i) => {
-                  if (line.type === "blank") return <tr key={i}><td colSpan={99} className="h-px" style={{ background: 'hsl(30, 12%, 90%)' }} /></tr>;
+              {lines.map((line, i) => {
+                if (line.type === "blank") {
+                  return <tr key={i}><td colSpan={99} className="h-3" /></tr>;
+                }
 
-                  const indent = (line.indent || 0) * 20;
-                  const isHeader = line.type === "header";
-                  const isSection = line.type === "section" || line.type === "subheader";
-                  const isTotal = line.type === "total" || line.type === "subtotal";
-                  const isRatio = line.type === "ratio";
-                  const isEditable = line.type === "editable";
+                const indent = (line.indent || 0) * 18;
+                const isHeader = line.type === "header";
+                const isSection = line.type === "section" || line.type === "subheader";
+                const isGrand = line.type === "total" && line.bold;
+                const isSubtotal = line.type === "subtotal" || (line.type === "total" && !line.bold);
+                const isRatio = line.type === "ratio";
+                const isEditable = line.type === "editable";
 
-                  let rowBg: string;
-                  if (isHeader) {
-                    rowBg = "hsl(30, 18%, 86%)";
-                  } else if (isTotal && line.bold) {
-                    rowBg = "hsl(24, 28%, 84%)";
-                  } else if (isTotal) {
-                    rowBg = "hsl(28, 22%, 89%)";
-                  } else if (isSection) {
-                    rowBg = "hsl(30, 15%, 91%)";
-                  } else if (isRatio) {
-                    rowBg = "hsl(35, 18%, 95%)";
-                  } else {
-                    rowBg = rowIdx % 2 === 0 ? "hsl(33, 22%, 95%)" : "hsl(35, 28%, 97.5%)";
-                    rowIdx++;
-                  }
+                // Row styling: three unmistakable tiers
+                let rowClass = "";
+                if (isHeader) {
+                  rowClass = "bg-secondary/60 border-y border-border";
+                } else if (isGrand) {
+                  rowClass = "bg-secondary border-t-2 border-double border-foreground/60";
+                } else if (isSubtotal) {
+                  rowClass = "bg-muted/60 border-t border-border";
+                } else if (isSection) {
+                  rowClass = "";
+                } else if (isRatio) {
+                  rowClass = "";
+                } else {
+                  rowClass = "border-b border-border/40";
+                }
 
-                  const borderStyle = isHeader
-                    ? { borderBottom: '1px solid hsl(30, 12%, 82%)' }
-                    : (isTotal && line.bold)
-                    ? { borderTop: '2px solid hsl(24, 20%, 78%)', borderBottom: '1px solid hsl(30, 12%, 85%)' }
-                    : isTotal
-                    ? { borderTop: '1px solid hsl(30, 12%, 85%)', borderBottom: '1px solid hsl(30, 12%, 88%)' }
-                    : {};
+                // Label styling
+                const labelClass = isHeader
+                  ? "font-bold text-foreground text-[11px] uppercase tracking-[0.14em]"
+                  : isGrand
+                  ? "font-bold text-foreground text-[13px] uppercase tracking-[0.1em] font-display"
+                  : isSubtotal
+                  ? "font-semibold text-foreground"
+                  : isSection
+                  ? "font-semibold text-primary/80 text-[10px] uppercase tracking-[0.14em]"
+                  : isRatio
+                  ? "italic text-muted-foreground text-xs"
+                  : "text-foreground/80";
 
-                  const labelClass = isHeader
-                    ? "font-bold text-foreground text-[11px] uppercase tracking-widest"
-                    : isTotal && line.bold
-                    ? "font-bold text-foreground"
-                    : isTotal
-                    ? "font-semibold text-foreground/90"
-                    : isSection
-                    ? "font-semibold text-primary/80 text-[11px] uppercase tracking-wide"
-                    : isRatio
-                    ? "italic text-muted-foreground text-xs"
-                    : "text-foreground/75";
+                // Row vertical rhythm
+                const rowPad = isGrand
+                  ? "py-2.5"
+                  : isSubtotal
+                  ? "py-2"
+                  : isHeader
+                  ? "py-2.5"
+                  : isSection
+                  ? "pt-5 pb-1"
+                  : "py-[6px]";
 
-                  const valueCellClass = (isNeg: boolean) =>
-                    `px-4 py-[7px] text-right font-mono tabular-nums text-[13px] ${
-                      isNeg ? "text-destructive" : isRatio ? "text-muted-foreground" : "text-foreground/75"
-                    } ${isTotal && line.bold ? "font-bold" : isTotal ? "font-semibold" : ""}`;
+                const valueCellClass = (isNeg: boolean) =>
+                  `px-4 ${rowPad} text-right font-mono tabular-nums whitespace-nowrap ${
+                    isGrand ? "text-base font-bold" : isSubtotal ? "font-semibold" : ""
+                  } ${
+                    isNeg ? "text-destructive" : isRatio ? "text-muted-foreground" : isGrand || isSubtotal ? "text-foreground" : "text-foreground/85"
+                  }`;
 
-                  return (
-                    <tr key={i} style={{ background: rowBg, ...borderStyle }}>
-                      <td
-                        className={`px-5 py-[7px] sticky left-0 z-10 ${labelClass}`}
-                        style={{ paddingLeft: 20 + indent, background: rowBg }}
-                      >
-                        {line.label}
-                      </td>
-                      {groupedData.map((gd) => {
-                        const val = line.getValue(gd.data);
-                        if (isEditable && line.manualKey && canInlineEdit && gd.months.length === 1) {
-                          return (
-                            <td key={gd.label} className="px-3 py-0.5 text-right" style={{ background: rowBg }}>
-                              <PLInlineCell
-                                lineItemName={line.manualKey}
-                                year={gd.year}
-                                month={gd.months[0]}
-                                currentValue={typeof val === "number" ? val : 0}
-                                onSaved={refetch}
-                              />
-                            </td>
-                          );
-                        }
-                        const isNeg = typeof val === "number" && val < 0;
+                // Sticky label cell needs solid background to overlay under scroll
+                const stickyBg = isHeader
+                  ? "bg-secondary/60"
+                  : isGrand
+                  ? "bg-secondary"
+                  : isSubtotal
+                  ? "bg-muted/60"
+                  : "bg-card";
+
+                return (
+                  <tr key={i} className={rowClass}>
+                    <td
+                      className={`px-5 ${rowPad} sticky left-0 z-10 border-r border-border/60 ${stickyBg} ${labelClass}`}
+                      style={{ paddingLeft: 20 + indent }}
+                    >
+                      {line.label}
+                    </td>
+                    {groupedData.map((gd) => {
+                      const val = line.getValue(gd.data);
+                      if (isEditable && line.manualKey && canInlineEdit && gd.months.length === 1) {
                         return (
-                          <td key={gd.label} className={valueCellClass(isNeg)} style={{ background: rowBg }}>
-                            {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
+                          <td key={gd.label} className={`px-3 ${rowPad} text-right`}>
+                            <PLInlineCell
+                              lineItemName={line.manualKey}
+                              year={gd.year}
+                              month={gd.months[0]}
+                              currentValue={typeof val === "number" ? val : 0}
+                              onSaved={refetch}
+                            />
                           </td>
                         );
-                      })}
-                      {showTotal && (() => {
-                        const val = line.getValue(totals);
-                        const isNeg = typeof val === "number" && val < 0;
-                        return (
-                          <td className={`${valueCellClass(isNeg)} ${isEditable ? "font-medium" : ""}`} style={{ borderLeft: '2px solid hsl(30, 12%, 82%)', background: rowBg }}>
-                            {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
-                          </td>
-                        );
-                      })()}
-                    </tr>
-                  );
-                });
-              })()}
+                      }
+                      const isNeg = typeof val === "number" && val < 0;
+                      return (
+                        <td key={gd.label} className={valueCellClass(isNeg)}>
+                          {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
+                        </td>
+                      );
+                    })}
+                    {showTotal && (() => {
+                      const val = line.getValue(totals);
+                      const isNeg = typeof val === "number" && val < 0;
+                      return (
+                        <td className={`${valueCellClass(isNeg)} border-l-2 border-l-primary/40 ${isEditable && !isGrand && !isSubtotal ? "font-medium" : ""}`}>
+                          {val === undefined ? "" : typeof val === "number" ? fmt(val) : val}
+                        </td>
+                      );
+                    })()}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-
         </div>
       )}
     </div>
