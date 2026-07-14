@@ -11,7 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileDown } from "lucide-react";
 import { generatePLReportPDF } from "@/utils/generatePLReport";
 
-const fmt = (n: number) => n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => {
+  if (n === 0) return "—";
+  const abs = Math.abs(n).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? `(${abs})` : abs;
+};
 const pct = (n: number, d: number) => d === 0 ? "—" : `${(n / d * 100).toFixed(1)}%`;
 
 const EDITABLE_LINES = new Set(KNOWN_LINES);
