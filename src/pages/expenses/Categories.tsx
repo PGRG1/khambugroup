@@ -302,6 +302,7 @@ export default function ExpenseCategories() {
           </div>
         </SheetContent>
       </Sheet>
+      {confirmDialog}
     </div>
   );
 }
