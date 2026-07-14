@@ -147,7 +147,14 @@ export default function Journal() {
         </div>
       </header>
 
-      <p className="text-xs text-muted-foreground -mt-2">{scopeLabel}</p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 -mt-2 text-xs text-muted-foreground">
+        <span>{scopeLabel}</span>
+        <span aria-hidden>·</span>
+        <span title={lastAutoRebuild ? new Date(lastAutoRebuild).toLocaleString("en-GB") : "No auto-rebuild yet"}>
+          Last auto-rebuilt: <span className="text-foreground/80">{formatRelative(lastAutoRebuild)}</span>
+        </span>
+      </div>
+
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
