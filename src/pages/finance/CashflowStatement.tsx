@@ -233,14 +233,14 @@ export default function CashflowStatement() {
                         open={isOpen}
                         onOpenChange={(o) => setOpenSection((s) => ({ ...s, [key]: o }))}
                       >
-                        <CollapsibleTrigger className="w-full grid grid-cols-[1fr_auto] items-center py-1.5 px-2 -mx-2 rounded hover:bg-muted/40 transition-colors text-left">
-                          <div className="flex items-center gap-1.5 ml-4">
+                        <CollapsibleTrigger className="w-full grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-1.5 px-2 -mx-2 rounded hover:bg-muted/40 transition-colors text-left">
+                          <div className="flex items-center gap-1.5 ml-4 min-w-0">
                             <ChevronRight
-                              className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""}`}
+                              className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
                             />
-                            <span className="font-sans">{line.lineItem}</span>
+                            <span className="font-sans truncate" title={line.lineItem}>{line.lineItem}</span>
                           </div>
-                          <span className={`tabular-nums ${line.amount < 0 ? "text-destructive" : ""}`}>
+                          <span className={`tabular-nums whitespace-nowrap shrink-0 ${line.amount < 0 ? "text-destructive" : ""}`}>
                             {fmt(line.amount)}
                           </span>
                         </CollapsibleTrigger>
