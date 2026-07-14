@@ -27,6 +27,7 @@ import {
   fmtHKWhole,
   fmtDate,
   ScopeLine,
+  useConfirm,
 } from "@/components/expenses/shared";
 
 const STATUS_VARIANT: Record<RecurringRuleStatus, StatusVariant> = {
