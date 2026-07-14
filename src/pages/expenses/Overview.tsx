@@ -460,15 +460,16 @@ export default function ExpensesOverview() {
                     {!filtered.length && (
                       <TableRow>
                         <TableCell colSpan={9} className="p-0">
-                          <div className="flex flex-col items-center justify-center text-center py-10 px-4">
-                            <div className="text-sm font-medium">No records in this view</div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Try a different tab, or create a new expense.
-                            </p>
-                            <Link to="/expenses/bills">
-                              <Button size="sm" className="h-8 mt-3"><Plus className="h-3 w-3 mr-1" /> New expense</Button>
-                            </Link>
-                          </div>
+                          <EmptyState
+                            icon={<FileStack className="h-5 w-5" />}
+                            title="No records in this view"
+                            description="Try a different tab, or create a new expense."
+                            action={
+                              <Link to="/expenses/bills">
+                                <Button size="sm" className="h-8"><Plus className="h-3 w-3 mr-1" /> New expense</Button>
+                              </Link>
+                            }
+                          />
                         </TableCell>
                       </TableRow>
                     )}
