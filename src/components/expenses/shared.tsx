@@ -138,7 +138,7 @@ export function KpiCard({
         {value}
       </div>
       {hint && (
-        <div className="text-[11px] text-muted-foreground mt-0.5 truncate" title={typeof hint === "string" ? hint : undefined}>
+        <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight break-words" title={typeof hint === "string" ? hint : undefined}>
           {hint}
         </div>
       )}
