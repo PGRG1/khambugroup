@@ -64,6 +64,7 @@ function computeNextGeneration(r: Partial<RecurringRule>): string | null {
 export default function RecurringExpenses() {
   const { tenantId } = useActiveTenant();
   const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
