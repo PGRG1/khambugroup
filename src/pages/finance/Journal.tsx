@@ -63,6 +63,7 @@ export default function Journal() {
   const { entries, lines, loading, createManualEntry, updateEntry, restoreAutoEntry, voidEntry, rebuildFromOperations } =
     useJournal({ fromDate: fromDate || undefined, toDate: toDate || undefined, sourceType });
   const { items: accounts } = useChartOfAccounts();
+  const lastAutoRebuild = useLastAutoRebuild();
 
   const linesByEntry = useMemo(() => {
     const m = new Map<string, typeof lines>();
