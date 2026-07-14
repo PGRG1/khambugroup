@@ -100,7 +100,13 @@ export default function ExpensePaymentTermsPage() {
       toast.error(`This payment term is used by ${count} vendor${count === 1 ? "" : "s"} and cannot be deleted.`);
       return;
     }
-    if (!confirm(`Delete "${r.name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete "${r.name}"?`,
+      description: "This payment term will be removed. No vendors currently use it.",
+      confirmLabel: "Delete",
+      tone: "destructive",
+    });
+    if (!ok) return;
     const { error } = await supabase.from("expense_payment_terms").delete().eq("id", r.id).eq("tenant_id", tenantId!);
     if (error) toast.error(error.message);
     else load();
