@@ -86,8 +86,14 @@ export default function ExpenseCategories() {
     load();
   };
 
-  const remove = async (id: string) => {
-    if (!confirm("Delete category?")) return;
+  const remove = async (id: string, name?: string) => {
+    const ok = await confirm({
+      title: "Delete category?",
+      description: `${name ? `"${name}"` : "This category"} will be removed. Existing bills already using it are unaffected.`,
+      confirmLabel: "Delete",
+      tone: "destructive",
+    });
+    if (!ok) return;
     const { error } = await supabase.from("expense_categories").delete().eq("id", id).eq("tenant_id", tenantId!);
     if (error) toast.error(error.message);
     else load();
