@@ -958,6 +958,7 @@ export default function BillsExpenses() {
       </Dialog>
 
       <BillScanner open={scannerOpen} onOpenChange={setScannerOpen} onParsed={handleScanned} />
+      {confirmDialog}
     </div>
   );
 }
