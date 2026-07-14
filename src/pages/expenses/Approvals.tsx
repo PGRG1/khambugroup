@@ -244,7 +244,7 @@ export default function ExpenseApprovals() {
       </Card>
 
       <Sheet open={!!editBill} onOpenChange={(o) => !o && setEditBill(null)}>
-        <SheetContent className="w-[520px] sm:max-w-[520px] overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-[640px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Edit & Approve Bill</SheetTitle>
           </SheetHeader>
