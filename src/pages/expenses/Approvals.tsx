@@ -690,7 +690,7 @@ export default function ExpenseApprovals() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </TableBody>
