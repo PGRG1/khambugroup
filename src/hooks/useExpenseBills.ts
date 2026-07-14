@@ -239,6 +239,20 @@ export function useExpenseBills() {
     [refresh]
   );
 
+  const reverseBill = useCallback(
+    async (billId: string) => {
+      const { error } = await supabase.rpc("reverse_expense_bill", { p_bill_id: billId });
+      if (error) {
+        toast.error("Reversal failed: " + error.message);
+        return false;
+      }
+      toast.success("Bill reversed. A reversing journal entry was posted.");
+      await refresh();
+      return true;
+    },
+    [refresh]
+  );
+
   const recordPayment = useCallback(
     async (payment: ExpenseBillPayment) => {
       if (!tenantId) return false;
