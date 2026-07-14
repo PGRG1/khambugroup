@@ -10,8 +10,11 @@ interface Props {
   onSaved: () => void;
 }
 
-const fmt = (n: number) =>
-  n === 0 ? "—" : n.toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number) => {
+  if (n === 0) return "—";
+  const abs = Math.abs(n).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n < 0 ? `(${abs})` : abs;
+};
 
 export function PLInlineCell({ lineItemName, year, month, currentValue, onSaved }: Props) {
   const [editing, setEditing] = useState(false);
