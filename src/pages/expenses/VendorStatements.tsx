@@ -31,6 +31,7 @@ import {
 export default function VendorStatements() {
   const { tenantId } = useActiveTenant();
   const { statements, save, remove, loading } = useVendorStatements();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<VendorStatement>>({});
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
