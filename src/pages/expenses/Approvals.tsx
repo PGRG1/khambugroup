@@ -624,8 +624,8 @@ export default function ExpenseApprovals() {
                     DOC_VARIANT[b.document_requirement || "not_required"] ||
                     DOC_VARIANT.not_required;
                   return (
-                    <>
-                      <TableRow key={b.id} className="align-top">
+                    <Fragment key={b.id}>
+                      <TableRow className="align-top">
                         <TableCell>
                           <div className="font-medium">{b.vendor_name || "—"}</div>
                           <div className="text-[11px] text-muted-foreground">
