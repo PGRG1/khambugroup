@@ -138,8 +138,14 @@ export default function ExpenseApprovals() {
                       <FileCheck2 className="h-4 w-4 mr-1" /> Mark Received
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => {
-                    if (confirm("Mark this expense as Not Applicable for this period?")) setStatus(b.id, "void");
+                  <Button size="sm" variant="ghost" onClick={async () => {
+                    const ok = await confirm({
+                      title: "Mark not applicable for this period?",
+                      description: "The bill will be voided so it drops out of totals. You can still create a new bill for the same recurring rule next period.",
+                      confirmLabel: "Mark as N/A",
+                      tone: "destructive",
+                    });
+                    if (ok) setStatus(b.id, "void");
                   }}>
                     <Ban className="h-4 w-4 mr-1" /> N/A for Period
                   </Button>
