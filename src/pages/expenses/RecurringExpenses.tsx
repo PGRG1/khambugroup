@@ -214,7 +214,19 @@ export default function RecurringExpenses() {
                       </Select>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete rule?")) remove(r.id); }}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: "Delete this rule?",
+                            description: `"${r.name}" will stop generating future bills. Already-generated bills are unaffected.`,
+                            confirmLabel: "Delete rule",
+                            tone: "destructive",
+                          });
+                          if (ok) remove(r.id);
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
