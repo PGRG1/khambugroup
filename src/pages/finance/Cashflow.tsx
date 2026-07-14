@@ -391,12 +391,12 @@ function KPICard({
   const color =
     highlight === "negative" ? "text-rose-700" : highlight === "positive" ? "text-emerald-700" : "text-foreground";
   return (
-    <Card className="card-glass p-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-        {icon}
-        <span>{label}</span>
+    <Card className="card-glass p-4 min-w-0 overflow-hidden">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1 min-w-0">
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
       </div>
-      <div className={`text-2xl font-bold font-mono ${color}`}>{value}</div>
+      <div className={`text-2xl font-bold font-mono truncate min-w-0 ${color}`} title={value}>{value}</div>
     </Card>
   );
 }
