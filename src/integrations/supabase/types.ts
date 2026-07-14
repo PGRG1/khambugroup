@@ -2097,6 +2097,8 @@ export type Database = {
           posted_at: string | null
           posted_by: string | null
           recurring_rule_id: string | null
+          reversed_at: string | null
+          reversed_by: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           service_period_end: string | null
@@ -2138,6 +2140,8 @@ export type Database = {
           posted_at?: string | null
           posted_by?: string | null
           recurring_rule_id?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           service_period_end?: string | null
@@ -2179,6 +2183,8 @@ export type Database = {
           posted_at?: string | null
           posted_by?: string | null
           recurring_rule_id?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           service_period_end?: string | null
@@ -9856,6 +9862,7 @@ export type Database = {
         Args: { p_entry_id: string }
         Returns: Json
       }
+      reverse_expense_bill: { Args: { p_bill_id: string }; Returns: Json }
       sync_grn_from_invoice: {
         Args: { _invoice_id: string; _tenant_id: string }
         Returns: Json
