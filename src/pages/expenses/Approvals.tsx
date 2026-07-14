@@ -31,6 +31,7 @@ export default function ExpenseApprovals() {
   const { tenantId } = useActiveTenant();
   const { bills, setStatus, setDocumentRequirement, postBill, saveBill, fetchAllocations } = useExpenseBills();
   const { statements, setStatus: setStmtStatus, postStatement } = useVendorStatements();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [editBill, setEditBill] = useState<ExpenseBill | null>(null);
   const [editAllocs, setEditAllocs] = useState<ExpenseBillAllocation[]>([]);
   const [accountsByID, setAccountsByID] = useState<Record<string, { code: string; name: string }>>({});
