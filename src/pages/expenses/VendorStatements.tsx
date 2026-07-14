@@ -177,9 +177,15 @@ export default function VendorStatements() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          if (confirm("Delete statement?")) remove(s.id);
+                          const ok = await confirm({
+                            title: "Delete statement?",
+                            description: `Statement ${s.statement_number || ""} from ${s.vendor_name || "vendor"} will be removed.`,
+                            confirmLabel: "Delete",
+                            tone: "destructive",
+                          });
+                          if (ok) remove(s.id);
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
