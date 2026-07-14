@@ -51,7 +51,7 @@ const CATEGORY_OTHER = "__other__";
 export default function BillsExpenses() {
   const { isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
-  const { bills, loading, saveBill, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+  const { bills, loading, saveBill, postBill, reverseBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = (location.state as any)?.prefill as
@@ -765,7 +765,23 @@ export default function BillsExpenses() {
                   Approve &amp; Post to GL
                 </Button>
               )}
-              {editing && editing.approval_status !== "void" && isAdmin && (
+              {editing && editing.approval_status === "posted" && isAdmin && (
+                <Button
+                  variant="outline"
+                  className="text-destructive border-destructive/40"
+                  onClick={async () => {
+                    const ok = window.confirm(
+                      "Reverse this bill?\n\nThis will create a new reversing journal entry (mirror of the original) and mark the original entry as void. Nothing is deleted — the audit trail is preserved. To correct a posted bill, reverse it and then create a new corrected bill."
+                    );
+                    if (!ok) return;
+                    const done = await reverseBill(editing.id);
+                    if (done) { setEditing(null); setEditorOpen(false); }
+                  }}
+                >
+                  Reverse
+                </Button>
+              )}
+              {editing && editing.approval_status !== "void" && editing.approval_status !== "posted" && editing.approval_status !== "reversed" && isAdmin && (
                 <Button variant="ghost" className="text-destructive ml-auto" onClick={() => handleSave("void")}>Void</Button>
               )}
             </div>

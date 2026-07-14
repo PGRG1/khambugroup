@@ -4,7 +4,7 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 
-export type BillApprovalStatus = "draft" | "pending_review" | "approved" | "rejected" | "posted" | "void";
+export type BillApprovalStatus = "draft" | "pending_review" | "approved" | "rejected" | "posted" | "void" | "reversed";
 export type BillPaymentStatus = "unpaid" | "partial" | "paid";
 
 export interface ExpenseBill {
@@ -116,6 +116,18 @@ export function useExpenseBills() {
         let billId = header.id;
         const auth = (await supabase.auth.getUser()).data.user?.id ?? null;
 
+        // Guard: posted or reversed bills are immutable.
+        if (billId) {
+          const existing = bills.find((b) => b.id === billId);
+          const lockedStatus = existing?.approval_status;
+          if (lockedStatus === "posted" || lockedStatus === "reversed") {
+            toast.error(
+              `This bill is ${lockedStatus} and can no longer be edited. Reverse it first, then create a corrected bill.`
+            );
+            return null;
+          }
+        }
+
         const headerPayload: any = {
           supplier_id: header.supplier_id || null,
           vendor_name: header.vendor_name || null,
@@ -181,7 +193,7 @@ export function useExpenseBills() {
         return null;
       }
     },
-    [refresh, tenantId]
+    [refresh, tenantId, bills]
   );
 
   const setStatus = useCallback(
@@ -221,6 +233,20 @@ export function useExpenseBills() {
         return false;
       }
       toast.success("Bill posted to GL");
+      await refresh();
+      return true;
+    },
+    [refresh]
+  );
+
+  const reverseBill = useCallback(
+    async (billId: string) => {
+      const { error } = await supabase.rpc("reverse_expense_bill", { p_bill_id: billId });
+      if (error) {
+        toast.error("Reversal failed: " + error.message);
+        return false;
+      }
+      toast.success("Bill reversed. A reversing journal entry was posted.");
       await refresh();
       return true;
     },
@@ -326,6 +352,7 @@ export function useExpenseBills() {
     saveBill,
     setStatus,
     postBill,
+    reverseBill,
     recordPayment,
     fetchAllocations,
     fetchAudit,
