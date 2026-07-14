@@ -51,7 +51,7 @@ const CATEGORY_OTHER = "__other__";
 export default function BillsExpenses() {
   const { isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
-  const { bills, loading, saveBill, postBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+  const { bills, loading, saveBill, postBill, reverseBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = (location.state as any)?.prefill as
