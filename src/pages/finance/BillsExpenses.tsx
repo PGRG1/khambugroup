@@ -55,6 +55,7 @@ export default function BillsExpenses() {
   const { isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
   const { bills, loading, saveBill, postBill, reverseBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = (location.state as any)?.prefill as
