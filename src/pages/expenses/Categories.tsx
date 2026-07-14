@@ -17,6 +17,7 @@ import {
   TableSkeleton,
   EmptyState,
   ScopeLine,
+  useConfirm,
 } from "@/components/expenses/shared";
 
 interface Category {
@@ -32,6 +33,7 @@ const NONE = "__none__";
 
 export default function ExpenseCategories() {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [rows, setRows] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,8 +86,14 @@ export default function ExpenseCategories() {
     load();
   };
 
-  const remove = async (id: string) => {
-    if (!confirm("Delete category?")) return;
+  const remove = async (id: string, name?: string) => {
+    const ok = await confirm({
+      title: "Delete category?",
+      description: `${name ? `"${name}"` : "This category"} will be removed. Existing bills already using it are unaffected.`,
+      confirmLabel: "Delete",
+      tone: "destructive",
+    });
+    if (!ok) return;
     const { error } = await supabase.from("expense_categories").delete().eq("id", id).eq("tenant_id", tenantId!);
     if (error) toast.error(error.message);
     else load();
@@ -200,7 +208,7 @@ export default function ExpenseCategories() {
                         </StatusPill>
                       </TableCell>
                       <TableCell className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" onClick={() => remove(r.id)}>
+                        <Button variant="ghost" size="icon" onClick={() => remove(r.id, r.name)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
@@ -294,6 +302,7 @@ export default function ExpenseCategories() {
           </div>
         </SheetContent>
       </Sheet>
+      {confirmDialog}
     </div>
   );
 }

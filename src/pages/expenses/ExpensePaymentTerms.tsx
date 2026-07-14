@@ -19,6 +19,7 @@ import {
   KpiCard,
   KpiSkeleton,
   ScopeLine,
+  useConfirm,
 } from "@/components/expenses/shared";
 
 interface PaymentTerm {
@@ -31,6 +32,7 @@ interface PaymentTerm {
 
 export default function ExpensePaymentTermsPage() {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [rows, setRows] = useState<PaymentTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -98,7 +100,13 @@ export default function ExpensePaymentTermsPage() {
       toast.error(`This payment term is used by ${count} vendor${count === 1 ? "" : "s"} and cannot be deleted.`);
       return;
     }
-    if (!confirm(`Delete "${r.name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete "${r.name}"?`,
+      description: "This payment term will be removed. No vendors currently use it.",
+      confirmLabel: "Delete",
+      tone: "destructive",
+    });
+    if (!ok) return;
     const { error } = await supabase.from("expense_payment_terms").delete().eq("id", r.id).eq("tenant_id", tenantId!);
     if (error) toast.error(error.message);
     else load();
@@ -257,6 +265,7 @@ export default function ExpensePaymentTermsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </div>
   );
 }

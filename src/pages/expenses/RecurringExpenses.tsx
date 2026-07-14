@@ -27,6 +27,7 @@ import {
   fmtHKWhole,
   fmtDate,
   ScopeLine,
+  useConfirm,
 } from "@/components/expenses/shared";
 
 const STATUS_VARIANT: Record<RecurringRuleStatus, StatusVariant> = {
@@ -63,6 +64,7 @@ function computeNextGeneration(r: Partial<RecurringRule>): string | null {
 export default function RecurringExpenses() {
   const { tenantId } = useActiveTenant();
   const { rules, save, remove, setStatus, generateNow, loading } = useRecurringExpenses();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<RecurringRule>>({});
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
@@ -212,7 +214,19 @@ export default function RecurringExpenses() {
                       </Select>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete rule?")) remove(r.id); }}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: "Delete this rule?",
+                            description: `"${r.name}" will stop generating future bills. Already-generated bills are unaffected.`,
+                            confirmLabel: "Delete rule",
+                            tone: "destructive",
+                          });
+                          if (ok) remove(r.id);
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
@@ -430,6 +444,7 @@ export default function RecurringExpenses() {
           </div>
         </SheetContent>
       </Sheet>
+      {confirmDialog}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import {
   KpiSkeleton,
   TableSkeleton,
   StatusPill,
+  EmptyState,
   approvalVariant,
   paymentVariant,
   APPROVAL_LABEL,
@@ -245,15 +246,15 @@ export default function ExpensesOverview() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader
-        title="Expenses"
-        description="Control centre for all non-inventory costs. Monthly figures use the expense recognition date."
+        eyebrow="Expenses"
+        title="Control centre"
+        description="All non-inventory costs, in one place. Monthly figures use the expense recognition date."
         actions={
           <>
-            <Link to="/expenses/bills"><Button size="sm" className="h-9"><Plus className="h-4 w-4 mr-1" /> New Expense</Button></Link>
-            <Link to="/expenses/bills"><Button variant="outline" size="sm" className="h-9"><Upload className="h-4 w-4 mr-1" /> Upload Bill</Button></Link>
-            <Link to="/expenses/statements"><Button variant="outline" size="sm" className="h-9"><FileStack className="h-4 w-4 mr-1" /> Upload Statement</Button></Link>
-            <Link to="/expenses/bank-detected"><Button variant="outline" size="sm" className="h-9"><Landmark className="h-4 w-4 mr-1" /> Review Bank-Detected</Button></Link>
-            <Link to="/expenses/recurring"><Button variant="outline" size="sm" className="h-9"><Repeat className="h-4 w-4 mr-1" /> Recurring Rules</Button></Link>
+            <Link to="/expenses/recurring"><Button variant="ghost" size="sm" className="h-9"><Repeat className="h-4 w-4 mr-1" /> Recurring</Button></Link>
+            <Link to="/expenses/statements"><Button variant="ghost" size="sm" className="h-9"><FileStack className="h-4 w-4 mr-1" /> Statements</Button></Link>
+            <Link to="/expenses/bank-detected"><Button variant="outline" size="sm" className="h-9"><Landmark className="h-4 w-4 mr-1" /> Bank-detected</Button></Link>
+            <Link to="/expenses/bills"><Button size="sm" className="h-9"><Plus className="h-4 w-4 mr-1" /> New expense</Button></Link>
           </>
         }
       />
@@ -384,16 +385,16 @@ export default function ExpensesOverview() {
                     {!rules.length && (
                       <TableRow>
                         <TableCell colSpan={7} className="p-0">
-                          <div className="flex flex-col items-center justify-center text-center py-10 px-4">
-                            <Sparkles className="h-6 w-6 text-muted-foreground mb-2" />
-                            <div className="text-sm font-medium">No recurring rules yet</div>
-                            <p className="text-xs text-muted-foreground mt-1 max-w-md">
-                              Set up rules for rent, utilities, subscriptions — bills generate automatically each period.
-                            </p>
-                            <Link to="/expenses/recurring">
-                              <Button size="sm" className="h-8 mt-3">Add a recurring rule</Button>
-                            </Link>
-                          </div>
+                          <EmptyState
+                            icon={<Sparkles className="h-5 w-5" />}
+                            title="No recurring rules yet"
+                            description="Set up rules for rent, utilities, subscriptions — bills generate automatically each period."
+                            action={
+                              <Link to="/expenses/recurring">
+                                <Button size="sm" className="h-8">Add a recurring rule</Button>
+                              </Link>
+                            }
+                          />
                         </TableCell>
                       </TableRow>
                     )}
@@ -459,15 +460,16 @@ export default function ExpensesOverview() {
                     {!filtered.length && (
                       <TableRow>
                         <TableCell colSpan={9} className="p-0">
-                          <div className="flex flex-col items-center justify-center text-center py-10 px-4">
-                            <div className="text-sm font-medium">No records in this view</div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Try a different tab, or create a new expense.
-                            </p>
-                            <Link to="/expenses/bills">
-                              <Button size="sm" className="h-8 mt-3"><Plus className="h-3 w-3 mr-1" /> New expense</Button>
-                            </Link>
-                          </div>
+                          <EmptyState
+                            icon={<FileStack className="h-5 w-5" />}
+                            title="No records in this view"
+                            description="Try a different tab, or create a new expense."
+                            action={
+                              <Link to="/expenses/bills">
+                                <Button size="sm" className="h-8"><Plus className="h-3 w-3 mr-1" /> New expense</Button>
+                              </Link>
+                            }
+                          />
                         </TableCell>
                       </TableRow>
                     )}

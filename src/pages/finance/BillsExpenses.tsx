@@ -38,6 +38,9 @@ import {
   fmtHK,
   fmtHKWhole,
   fmtDate,
+  FormSection,
+  StatusFlow,
+  useConfirm,
 } from "@/components/expenses/shared";
 
 interface Supplier { id: string; name: string }
@@ -52,6 +55,7 @@ export default function BillsExpenses() {
   const { isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
   const { bills, loading, saveBill, postBill, reverseBill, recordPayment, fetchAllocations, fetchAudit, fetchPayments } = useExpenseBills();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const location = useLocation();
   const navigate = useNavigate();
   const prefill = (location.state as any)?.prefill as
@@ -467,118 +471,200 @@ export default function BillsExpenses() {
 
       <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
         <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editing ? `Bill ${editing.bill_number || ""}` : "New Bill"}</SheetTitle>
+          <SheetHeader className="pr-8">
+            <div className="flex items-center gap-3 flex-wrap">
+              <SheetTitle className="text-lg">
+                {editing ? (editing.bill_number ? `Bill · ${editing.bill_number}` : "Bill") : "New Bill"}
+              </SheetTitle>
+              {editing && (
+                <>
+                  <StatusPill variant={approvalVariant(editing.approval_status)}>
+                    {APPROVAL_LABEL[editing.approval_status] || editing.approval_status}
+                  </StatusPill>
+                  <StatusPill variant={paymentVariant(editing.payment_status)}>
+                    {PAYMENT_LABEL[editing.payment_status] || editing.payment_status}
+                  </StatusPill>
+                </>
+              )}
+            </div>
+            {editing && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {editing.vendor_name || supplierName(editing.supplier_id)} · Bill date {fmtDate(editing.bill_date)}
+                {editing.due_date && ` · Due ${fmtDate(editing.due_date)}`}
+              </p>
+            )}
           </SheetHeader>
 
-          <div className="space-y-6 mt-4">
-            {/* Header form */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div>
-                <Label>Vendor</Label>
-                <Select value={header.supplier_id || ""} onValueChange={(v) => setHeader({ ...header, supplier_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers.filter(s => s.id).map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Vendor name (override)</Label>
-                <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
-              </div>
-              <div>
-                <Label>Bill / Invoice #</Label>
-                <Input value={header.bill_number || ""} onChange={(e) => setHeader({ ...header, bill_number: e.target.value })} />
-              </div>
-              <div>
-                <Label>Bill date</Label>
-                <Input type="date" value={header.bill_date || ""} onChange={(e) => setHeader({ ...header, bill_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Due date</Label>
-                <Input type="date" value={header.due_date || ""} onChange={(e) => setHeader({ ...header, due_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Currency</Label>
-                <Input value={header.currency || "HKD"} onChange={(e) => setHeader({ ...header, currency: e.target.value })} />
-              </div>
-              <div>
-                <Label>Service period start</Label>
-                <Input type="date" value={header.service_period_start || ""} onChange={(e) => setHeader({ ...header, service_period_start: e.target.value })} />
-              </div>
-              <div>
-                <Label>Service period end</Label>
-                <Input type="date" value={header.service_period_end || ""} onChange={(e) => setHeader({ ...header, service_period_end: e.target.value })} />
-              </div>
-              <div>
-                <Label>Venue / Outlet</Label>
-                <Select value={header.venue || ""} onValueChange={(v) => {
-                  const ven = venues.find(x => x.name === v);
-                  setHeader({ ...header, venue: v, venue_id: ven?.id || null });
-                }}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {venues.filter(v => v.name).map((v) => (<SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Department</Label>
-                <Input value={header.department || ""} onChange={(e) => setHeader({ ...header, department: e.target.value })} />
-              </div>
-              <div>
-                <Label>Subtotal</Label>
-                <Input type="number" step="0.01" value={header.subtotal ?? 0} onChange={(e) => {
-                  const sub = parseFloat(e.target.value) || 0;
-                  const tax = Number(header.tax_amount || 0);
-                  setHeader({ ...header, subtotal: sub, total_amount: sub + tax });
-                }} />
-              </div>
-              <div>
-                <Label>Tax amount</Label>
-                <Input type="number" step="0.01" value={header.tax_amount ?? 0} onChange={(e) => {
-                  const tax = parseFloat(e.target.value) || 0;
-                  const sub = Number(header.subtotal || 0);
-                  setHeader({ ...header, tax_amount: tax, total_amount: sub + tax });
-                }} />
-              </div>
-              <div>
-                <Label>Total amount</Label>
-                <Input type="number" step="0.01" value={header.total_amount ?? 0} onChange={(e) => setHeader({ ...header, total_amount: parseFloat(e.target.value) || 0 })} />
-              </div>
-            </div>
+          <div className="space-y-5 mt-5">
+            {/* Workflow pipeline — visible on every bill so users see where it stands. */}
+            {editing && (() => {
+              const status = editing.approval_status;
+              const paid = editing.payment_status === "paid";
+              const steps = ["Draft", "Pending review", "Approved", "Posted", "Paid"];
+              let idx = 0;
+              if (status === "pending_review") idx = 1;
+              else if (status === "approved") idx = 2;
+              else if (status === "posted") idx = paid ? 4 : 3;
+              if (status === "reversed" || status === "void" || status === "rejected") {
+                return (
+                  <StatusFlow
+                    steps={steps}
+                    currentIndex={0}
+                    terminal={{
+                      label:
+                        status === "reversed"
+                          ? "Reversed"
+                          : status === "void"
+                          ? "Void"
+                          : "Rejected",
+                      variant: status === "void" ? "muted" : "destructive",
+                    }}
+                  />
+                );
+              }
+              return <StatusFlow steps={steps} currentIndex={idx} />;
+            })()}
 
-            <div>
-              <Label>Notes</Label>
-              <Textarea value={header.notes || ""} onChange={(e) => setHeader({ ...header, notes: e.target.value })} rows={2} />
-            </div>
-
-            {header.attachment_url && (
-              <div className="text-sm">
-                <a href={header.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-                  <ExternalLink className="h-3 w-3" /> View attachment
-                </a>
+            {/* Bill identity */}
+            <FormSection
+              title="Bill identity"
+              description="Who the bill is from and how it's referenced."
+            >
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div>
+                  <Label>Vendor</Label>
+                  <Select value={header.supplier_id || ""} onValueChange={(v) => setHeader({ ...header, supplier_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
+                    <SelectContent>
+                      {suppliers.filter(s => s.id).map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Vendor name (override)</Label>
+                  <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
+                </div>
+                <div>
+                  <Label>Bill / Invoice #</Label>
+                  <Input value={header.bill_number || ""} onChange={(e) => setHeader({ ...header, bill_number: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Venue / Outlet</Label>
+                  <Select value={header.venue || ""} onValueChange={(v) => {
+                    const ven = venues.find(x => x.name === v);
+                    setHeader({ ...header, venue: v, venue_id: ven?.id || null });
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {venues.filter(v => v.name).map((v) => (<SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Department</Label>
+                  <Input value={header.department || ""} onChange={(e) => setHeader({ ...header, department: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Currency</Label>
+                  <Input value={header.currency || "HKD"} onChange={(e) => setHeader({ ...header, currency: e.target.value })} />
+                </div>
               </div>
-            )}
+            </FormSection>
+
+            {/* Dates */}
+            <FormSection title="Dates" description="Recognition and service period.">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <Label>Bill date</Label>
+                  <Input type="date" value={header.bill_date || ""} onChange={(e) => setHeader({ ...header, bill_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Due date</Label>
+                  <Input type="date" value={header.due_date || ""} onChange={(e) => setHeader({ ...header, due_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Service period start</Label>
+                  <Input type="date" value={header.service_period_start || ""} onChange={(e) => setHeader({ ...header, service_period_start: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Service period end</Label>
+                  <Input type="date" value={header.service_period_end || ""} onChange={(e) => setHeader({ ...header, service_period_end: e.target.value })} />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* Financials */}
+            <FormSection
+              title="Financials"
+              description="Subtotal + tax always equals total. Editing subtotal or tax recomputes the total."
+              aside={
+                <div className="text-right font-display text-lg font-semibold tabular-nums whitespace-nowrap">
+                  {fmtHK(Number(header.total_amount || 0))}
+                </div>
+              }
+            >
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label>Subtotal</Label>
+                  <Input type="number" step="0.01" value={header.subtotal ?? 0} onChange={(e) => {
+                    const sub = parseFloat(e.target.value) || 0;
+                    const tax = Number(header.tax_amount || 0);
+                    setHeader({ ...header, subtotal: sub, total_amount: sub + tax });
+                  }} className="text-right font-mono" />
+                </div>
+                <div>
+                  <Label>Tax amount</Label>
+                  <Input type="number" step="0.01" value={header.tax_amount ?? 0} onChange={(e) => {
+                    const tax = parseFloat(e.target.value) || 0;
+                    const sub = Number(header.subtotal || 0);
+                    setHeader({ ...header, tax_amount: tax, total_amount: sub + tax });
+                  }} className="text-right font-mono" />
+                </div>
+                <div>
+                  <Label>Total amount</Label>
+                  <Input type="number" step="0.01" value={header.total_amount ?? 0} onChange={(e) => setHeader({ ...header, total_amount: parseFloat(e.target.value) || 0 })} className="text-right font-mono" />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* Notes & attachment */}
+            <FormSection title="Notes & attachment">
+              <div className="space-y-3">
+                <div>
+                  <Label>Notes</Label>
+                  <Textarea value={header.notes || ""} onChange={(e) => setHeader({ ...header, notes: e.target.value })} rows={2} />
+                </div>
+                {header.attachment_url && (
+                  <div className="text-sm">
+                    <a href={header.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> View attachment
+                    </a>
+                  </div>
+                )}
+              </div>
+            </FormSection>
 
             {/* Allocations */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium">Expense Allocation</h3>
-                <Button size="sm" variant="outline" onClick={addAllocation}><Plus className="h-3 w-3 mr-1" /> Add row</Button>
-              </div>
-              <div className="border rounded-md overflow-auto">
+            <FormSection
+              title="Expense allocation"
+              description="Distribute the subtotal across categories and GL accounts. Every line needs an account before posting."
+              aside={
+                <Button size="sm" variant="outline" className="h-8" onClick={addAllocation}>
+                  <Plus className="h-3 w-3 mr-1" /> Add row
+                </Button>
+              }
+            >
+              <div className="rounded-md border border-border/60 overflow-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-44">Category</TableHead>
-                      <TableHead className="w-56">Account</TableHead>
-                      <TableHead className="w-32">Venue</TableHead>
-                      <TableHead className="w-32">Department</TableHead>
-                      <TableHead className="w-28 text-right">Amount</TableHead>
-                      <TableHead className="w-28">Tax</TableHead>
-                      <TableHead>Notes</TableHead>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead className="w-44 text-[11px] uppercase tracking-wider text-muted-foreground">Category</TableHead>
+                      <TableHead className="w-56 text-[11px] uppercase tracking-wider text-muted-foreground">Account</TableHead>
+                      <TableHead className="w-32 text-[11px] uppercase tracking-wider text-muted-foreground">Venue</TableHead>
+                      <TableHead className="w-32 text-[11px] uppercase tracking-wider text-muted-foreground">Department</TableHead>
+                      <TableHead className="w-28 text-right text-[11px] uppercase tracking-wider text-muted-foreground">Amount</TableHead>
+                      <TableHead className="w-28 text-[11px] uppercase tracking-wider text-muted-foreground">Tax</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Notes</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -587,12 +673,6 @@ export default function BillsExpenses() {
                       <TableRow key={idx}>
                         <TableCell>
                           {(() => {
-                            // Match the free-text category against the master list
-                            // (case-insensitive), so scanner output like "Laundry" that
-                            // exactly matches a master row shows in the Select. Anything
-                            // that doesn't match falls into an "Other (typed)" option
-                            // that reveals a small free-text input — this is the guarded
-                            // migration path away from unlinked free-text categories.
                             const matched = categories.find(
                               (c) => c.name.toLowerCase() === (a.expense_category || "").toLowerCase()
                             );
@@ -608,9 +688,6 @@ export default function BillsExpenses() {
                                       const cat = categories.find((c) => c.id === v);
                                       updateAlloc(idx, {
                                         expense_category: cat?.name || null,
-                                        // Auto-fill GL account from category default when
-                                        // the row hasn't picked one yet — this is what
-                                        // unblocks bills from stalling in Pending Review.
                                         account_id: a.account_id || cat?.default_account_id || null,
                                       });
                                     }
@@ -638,7 +715,7 @@ export default function BillsExpenses() {
                         </TableCell>
                         <TableCell>
                           <Select value={a.account_id || ""} onValueChange={(v) => updateAlloc(idx, { account_id: v })}>
-                            <SelectTrigger><SelectValue placeholder="GL account" /></SelectTrigger>
+                            <SelectTrigger className="h-8"><SelectValue placeholder="GL account" /></SelectTrigger>
                             <SelectContent>
                               {accounts.filter(ac => ac.id).map((ac) => (
                                 <SelectItem key={ac.id} value={ac.id}>{ac.code} — {ac.name}</SelectItem>
@@ -648,21 +725,21 @@ export default function BillsExpenses() {
                         </TableCell>
                         <TableCell>
                           <Select value={a.venue || ""} onValueChange={(v) => updateAlloc(idx, { venue: v })}>
-                            <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                            <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
                             <SelectContent>
                               {venues.filter(v => v.name).map(v => (<SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Input value={a.department || ""} onChange={(e) => updateAlloc(idx, { department: e.target.value })} />
+                          <Input className="h-8" value={a.department || ""} onChange={(e) => updateAlloc(idx, { department: e.target.value })} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Input type="number" step="0.01" value={a.amount} onChange={(e) => updateAlloc(idx, { amount: parseFloat(e.target.value) || 0 })} className="text-right font-mono" />
+                          <Input type="number" step="0.01" value={a.amount} onChange={(e) => updateAlloc(idx, { amount: parseFloat(e.target.value) || 0 })} className="text-right font-mono h-8" />
                         </TableCell>
                         <TableCell>
                           <Select value={a.tax_treatment} onValueChange={(v: any) => updateAlloc(idx, { tax_treatment: v })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">None</SelectItem>
                               <SelectItem value="inclusive">Inclusive</SelectItem>
@@ -671,7 +748,7 @@ export default function BillsExpenses() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Input value={a.notes || ""} onChange={(e) => updateAlloc(idx, { notes: e.target.value })} placeholder="Optional" />
+                          <Input className="h-8" value={a.notes || ""} onChange={(e) => updateAlloc(idx, { notes: e.target.value })} placeholder="Optional" />
                         </TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removeAlloc(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -681,9 +758,13 @@ export default function BillsExpenses() {
                   </TableBody>
                 </Table>
               </div>
-              <div className={`mt-2 flex justify-end text-sm font-mono ${balanced ? "text-primary" : "text-destructive"}`}>
-                Allocation total: {fmtHK(allocTotal)} / Expected: {fmtHK(expectedAllocTotal)}
-                {!balanced && <span className="ml-2 inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> unbalanced</span>}
+              <div className={`mt-3 flex justify-end items-center gap-2 text-sm font-mono ${balanced ? "text-muted-foreground" : "text-destructive"}`}>
+                <span className="text-muted-foreground">Allocated</span>
+                <span className={balanced ? "text-foreground font-semibold" : "text-destructive font-semibold"}>{fmtHK(allocTotal)}</span>
+                <span className="text-muted-foreground">/</span>
+                <span>{fmtHK(expectedAllocTotal)}</span>
+                {!balanced && <span className="ml-1 inline-flex items-center gap-1 text-destructive"><AlertTriangle className="h-3 w-3" /> unbalanced</span>}
+                {balanced && allocations.length > 0 && <span className="ml-1 text-primary text-xs">✓ balanced</span>}
               </div>
               {hasUnmappedAllocation && (
                 <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning flex items-start gap-2">
@@ -697,82 +778,87 @@ export default function BillsExpenses() {
                   </div>
                 </div>
               )}
-            </div>
+            </FormSection>
 
             {/* Payments */}
             {editing && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium">Payments</h3>
-                  {editing.approval_status === "posted" && editing.payment_status !== "paid" && isAdmin && (
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setPayForm({ ...payForm, amount: String(editing.total_amount - editing.paid_amount) });
-                      setPayDialogOpen(true);
-                    }}>Record Payment</Button>
-                  )}
-                </div>
+              <FormSection
+                title="Payments"
+                description={editing.approval_status === "posted" && editing.payment_status !== "paid"
+                  ? "Record payments as they come in. Each one posts to the ledger."
+                  : undefined}
+                aside={editing.approval_status === "posted" && editing.payment_status !== "paid" && isAdmin ? (
+                  <Button size="sm" variant="outline" className="h-8" onClick={() => {
+                    setPayForm({ ...payForm, amount: String(editing.total_amount - editing.paid_amount) });
+                    setPayDialogOpen(true);
+                  }}>Record payment</Button>
+                ) : undefined}
+              >
                 {payments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No payments yet.</p>
+                  <p className="text-xs text-muted-foreground py-2">No payments recorded yet.</p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow><TableHead>Date</TableHead><TableHead>Method</TableHead><TableHead>Reference</TableHead><TableHead className="text-right">Amount</TableHead></TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {payments.map((p) => (
-                        <TableRow key={p.id}><TableCell>{fmtDate(p.payment_date)}</TableCell><TableCell>{p.payment_method}</TableCell><TableCell>{p.reference || "—"}</TableCell><TableCell className="text-right td-num tabular-nums whitespace-nowrap">{fmtHK(p.amount)}</TableCell></TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <div className="rounded-md border border-border/60 overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40 hover:bg-muted/40">
+                          <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Date</TableHead>
+                          <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Method</TableHead>
+                          <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Reference</TableHead>
+                          <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payments.map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell className="whitespace-nowrap">{fmtDate(p.payment_date)}</TableCell>
+                            <TableCell className="capitalize">{p.payment_method.replace("_", " ")}</TableCell>
+                            <TableCell className="text-muted-foreground">{p.reference || "—"}</TableCell>
+                            <TableCell className="text-right td-num tabular-nums whitespace-nowrap font-medium">{fmtHK(p.amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
-              </div>
+              </FormSection>
             )}
 
             {/* Audit trail */}
             {editing && audit.length > 0 && (
-              <div>
-                <h3 className="font-medium mb-2">Audit trail</h3>
-                <div className="space-y-1 text-xs text-muted-foreground">
+              <FormSection title="Audit trail" description="Every workflow step, with actor and timestamp.">
+                <ol className="space-y-2 relative border-l border-border/60 pl-4">
                   {audit.map((row) => (
-                    <div key={row.id} className="flex gap-2">
-                      <span className="font-mono">{new Date(row.created_at).toLocaleString()}</span>
-                      <StatusPill variant="neutral">{row.event_type}</StatusPill>
-                      <span>{row.actor_name || row.actor_id?.slice(0, 8) || "system"}</span>
-                    </div>
+                    <li key={row.id} className="relative">
+                      <span className="absolute -left-[19px] top-1.5 h-2 w-2 rounded-full bg-primary/60 border border-background" />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StatusPill variant={approvalVariant(row.event_type) === "neutral" ? "neutral" : approvalVariant(row.event_type)}>
+                          {row.event_type.replace(/_/g, " ")}
+                        </StatusPill>
+                        <span className="text-xs text-foreground/80">{row.actor_name || row.actor_id?.slice(0, 8) || "system"}</span>
+                        <span className="text-[11px] text-muted-foreground font-mono">
+                          {new Date(row.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    </li>
                   ))}
-                </div>
-              </div>
+                </ol>
+              </FormSection>
             )}
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => handleSave()}>Save Draft</Button>
-              {header.approval_status === "draft" && (
-                <Button variant="outline" onClick={() => handleSave("pending_review")}>Submit for Review</Button>
-              )}
-              {header.approval_status === "pending_review" && isAdmin && (
-                <>
-                  <Button variant="outline" onClick={() => handleSave("approved")}>Approve</Button>
-                  <Button variant="outline" onClick={() => handleSave("rejected")}>Reject</Button>
-                </>
-              )}
-              {(header.approval_status === "approved" || header.approval_status === "pending_review") && isAdmin && editing && (
-                <Button
-                  onClick={handlePost}
-                  disabled={!balanced || hasUnmappedAllocation}
-                  title={hasUnmappedAllocation ? "Every allocation line needs a GL account." : (!balanced ? "Allocation totals must balance." : undefined)}
-                >
-                  Approve &amp; Post to GL
-                </Button>
-              )}
+            {/* Actions — clear primary CTA on the right, secondary/destructive on the left. */}
+            <div className="sticky bottom-0 -mx-6 px-6 py-4 border-t border-border/60 bg-background/95 backdrop-blur flex flex-wrap items-center gap-2">
               {editing && editing.approval_status === "posted" && isAdmin && (
                 <Button
                   variant="outline"
-                  className="text-destructive border-destructive/40"
+                  className="text-destructive border-destructive/40 hover:bg-destructive/10"
                   onClick={async () => {
-                    const ok = window.confirm(
-                      "Reverse this bill?\n\nThis will create a new reversing journal entry (mirror of the original) and mark the original entry as void. Nothing is deleted — the audit trail is preserved. To correct a posted bill, reverse it and then create a new corrected bill."
-                    );
+                    const ok = await confirm({
+                      title: "Reverse this bill?",
+                      description:
+                        "This creates a new reversing journal entry (mirror of the original) and marks the original as void. Nothing is deleted — the full audit trail is preserved. To correct a posted bill, reverse it and then create a new corrected bill.",
+                      confirmLabel: "Yes, reverse bill",
+                      tone: "destructive",
+                    });
                     if (!ok) return;
                     const done = await reverseBill(editing.id);
                     if (done) { setEditing(null); setEditorOpen(false); }
@@ -782,7 +868,41 @@ export default function BillsExpenses() {
                 </Button>
               )}
               {editing && editing.approval_status !== "void" && editing.approval_status !== "posted" && editing.approval_status !== "reversed" && isAdmin && (
-                <Button variant="ghost" className="text-destructive ml-auto" onClick={() => handleSave("void")}>Void</Button>
+                <Button
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: "Void this bill?",
+                      description: "Voided bills are excluded from all reports and totals. They remain visible for audit but are not editable.",
+                      confirmLabel: "Void bill",
+                      tone: "destructive",
+                    });
+                    if (ok) handleSave("void");
+                  }}
+                >
+                  Void
+                </Button>
+              )}
+              <div className="flex-1" />
+              <Button variant="outline" onClick={() => handleSave()}>Save draft</Button>
+              {header.approval_status === "draft" && (
+                <Button variant="outline" onClick={() => handleSave("pending_review")}>Submit for review</Button>
+              )}
+              {header.approval_status === "pending_review" && isAdmin && (
+                <>
+                  <Button variant="outline" onClick={() => handleSave("rejected")}>Reject</Button>
+                  <Button variant="outline" onClick={() => handleSave("approved")}>Approve</Button>
+                </>
+              )}
+              {(header.approval_status === "approved" || header.approval_status === "pending_review") && isAdmin && editing && (
+                <Button
+                  onClick={handlePost}
+                  disabled={!balanced || hasUnmappedAllocation}
+                  title={hasUnmappedAllocation ? "Every allocation line needs a GL account." : (!balanced ? "Allocation totals must balance." : undefined)}
+                >
+                  Approve &amp; post to GL
+                </Button>
               )}
             </div>
           </div>
@@ -838,6 +958,7 @@ export default function BillsExpenses() {
       </Dialog>
 
       <BillScanner open={scannerOpen} onOpenChange={setScannerOpen} onParsed={handleScanned} />
+      {confirmDialog}
     </div>
   );
 }

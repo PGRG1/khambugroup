@@ -16,8 +16,13 @@ import {
   StatusPill,
   StatusVariant,
   EmptyState,
+  KpiGrid,
+  KpiCard,
   fmtHK,
+  fmtHKWhole,
   fmtDate,
+  ScopeLine,
+  useConfirm,
 } from "@/components/expenses/shared";
 
 const DOC_VARIANT: Record<string, { label: string; variant: StatusVariant }> = {
@@ -30,6 +35,7 @@ export default function ExpenseApprovals() {
   const { tenantId } = useActiveTenant();
   const { bills, setStatus, setDocumentRequirement, postBill, saveBill, fetchAllocations } = useExpenseBills();
   const { statements, setStatus: setStmtStatus, postStatement } = useVendorStatements();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [editBill, setEditBill] = useState<ExpenseBill | null>(null);
   const [editAllocs, setEditAllocs] = useState<ExpenseBillAllocation[]>([]);
   const [accountsByID, setAccountsByID] = useState<Record<string, { code: string; name: string }>>({});
@@ -81,13 +87,35 @@ export default function ExpenseApprovals() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader
+        eyebrow="Review queue"
         title="Expense Approvals"
-        description="Bills and statements awaiting approval. Approve & Post writes to the general ledger."
+        description="Bills and statements awaiting review. Approve & Post writes to the general ledger — nothing lands in the ledger without a green light here."
       />
 
+      {(() => {
+        const totalPending = pending.reduce((s, b) => s + Number(b.total_amount || 0), 0);
+        const totalStmtCharges = pendingStmts.reduce((s, x) => s + Number(x.current_period_charges || 0), 0);
+        const today = new Date();
+        const oldest = pending.reduce((max, b) => {
+          const days = Math.floor((today.getTime() - new Date(b.created_at).getTime()) / 86400000);
+          return days > max ? days : max;
+        }, 0);
+        return (
+          <KpiGrid>
+            <KpiCard label="Bills waiting" value={String(pending.length)} tone={pending.length > 0 ? "warning" : "default"} />
+            <KpiCard label="Value in queue" value={fmtHKWhole(totalPending)} hint="Sum of pending bill totals" tone={totalPending > 0 ? "info" : "default"} />
+            <KpiCard label="Statements waiting" value={String(pendingStmts.length)} hint={pendingStmts.length > 0 ? fmtHKWhole(totalStmtCharges) + " in charges" : undefined} tone={pendingStmts.length > 0 ? "warning" : "default"} />
+            <KpiCard label="Oldest waiting" value={oldest > 0 ? `${oldest}d` : "—"} hint="Days since submitted" tone={oldest >= 7 ? "destructive" : oldest >= 3 ? "warning" : "default"} />
+          </KpiGrid>
+        );
+      })()}
+
       <Card className="card-glass p-0 overflow-hidden">
-        <div className="p-4 border-b border-border/60 text-sm font-medium">
-          Bills awaiting approval <span className="text-muted-foreground">({pending.length})</span>
+        <div className="p-4 border-b border-border/60 flex items-center justify-between gap-3">
+          <div className="text-sm font-medium">
+            Bills awaiting approval <span className="text-muted-foreground">({pending.length})</span>
+          </div>
+          <ScopeLine>Sorted oldest first</ScopeLine>
         </div>
         <div className="divide-y">
           {pending.map((b) => {
@@ -136,8 +164,14 @@ export default function ExpenseApprovals() {
                       <FileCheck2 className="h-4 w-4 mr-1" /> Mark Received
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => {
-                    if (confirm("Mark this expense as Not Applicable for this period?")) setStatus(b.id, "void");
+                  <Button size="sm" variant="ghost" onClick={async () => {
+                    const ok = await confirm({
+                      title: "Mark not applicable for this period?",
+                      description: "The bill will be voided so it drops out of totals. You can still create a new bill for the same recurring rule next period.",
+                      confirmLabel: "Mark as N/A",
+                      tone: "destructive",
+                    });
+                    if (ok) setStatus(b.id, "void");
                   }}>
                     <Ban className="h-4 w-4 mr-1" /> N/A for Period
                   </Button>
@@ -210,7 +244,7 @@ export default function ExpenseApprovals() {
       </Card>
 
       <Sheet open={!!editBill} onOpenChange={(o) => !o && setEditBill(null)}>
-        <SheetContent className="w-[520px] sm:max-w-[520px] overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-[640px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Edit & Approve Bill</SheetTitle>
           </SheetHeader>
@@ -253,6 +287,7 @@ export default function ExpenseApprovals() {
           )}
         </SheetContent>
       </Sheet>
+      {confirmDialog}
     </div>
   );
 }
