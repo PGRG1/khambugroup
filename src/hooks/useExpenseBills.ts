@@ -4,7 +4,7 @@ import { fetchAllRows } from "@/utils/fetchAllRows";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 
-export type BillApprovalStatus = "draft" | "pending_review" | "approved" | "rejected" | "posted" | "void";
+export type BillApprovalStatus = "draft" | "pending_review" | "approved" | "rejected" | "posted" | "void" | "reversed";
 export type BillPaymentStatus = "unpaid" | "partial" | "paid";
 
 export interface ExpenseBill {
