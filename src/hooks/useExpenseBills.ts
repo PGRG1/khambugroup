@@ -352,6 +352,7 @@ export function useExpenseBills() {
     saveBill,
     setStatus,
     postBill,
+    reverseBill,
     recordPayment,
     fetchAllocations,
     fetchAudit,
