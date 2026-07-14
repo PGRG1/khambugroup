@@ -193,7 +193,7 @@ export function useExpenseBills() {
         return null;
       }
     },
-    [refresh, tenantId]
+    [refresh, tenantId, bills]
   );
 
   const setStatus = useCallback(
