@@ -17,6 +17,7 @@ import {
   TableSkeleton,
   EmptyState,
   ScopeLine,
+  useConfirm,
 } from "@/components/expenses/shared";
 
 interface Category {
