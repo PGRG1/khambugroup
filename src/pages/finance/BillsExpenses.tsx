@@ -471,100 +471,178 @@ export default function BillsExpenses() {
 
       <Sheet open={editorOpen} onOpenChange={setEditorOpen}>
         <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editing ? `Bill ${editing.bill_number || ""}` : "New Bill"}</SheetTitle>
+          <SheetHeader className="pr-8">
+            <div className="flex items-center gap-3 flex-wrap">
+              <SheetTitle className="text-lg">
+                {editing ? (editing.bill_number ? `Bill · ${editing.bill_number}` : "Bill") : "New Bill"}
+              </SheetTitle>
+              {editing && (
+                <>
+                  <StatusPill variant={approvalVariant(editing.approval_status)}>
+                    {APPROVAL_LABEL[editing.approval_status] || editing.approval_status}
+                  </StatusPill>
+                  <StatusPill variant={paymentVariant(editing.payment_status)}>
+                    {PAYMENT_LABEL[editing.payment_status] || editing.payment_status}
+                  </StatusPill>
+                </>
+              )}
+            </div>
+            {editing && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {editing.vendor_name || supplierName(editing.supplier_id)} · Bill date {fmtDate(editing.bill_date)}
+                {editing.due_date && ` · Due ${fmtDate(editing.due_date)}`}
+              </p>
+            )}
           </SheetHeader>
 
-          <div className="space-y-6 mt-4">
-            {/* Header form */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div>
-                <Label>Vendor</Label>
-                <Select value={header.supplier_id || ""} onValueChange={(v) => setHeader({ ...header, supplier_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers.filter(s => s.id).map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Vendor name (override)</Label>
-                <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
-              </div>
-              <div>
-                <Label>Bill / Invoice #</Label>
-                <Input value={header.bill_number || ""} onChange={(e) => setHeader({ ...header, bill_number: e.target.value })} />
-              </div>
-              <div>
-                <Label>Bill date</Label>
-                <Input type="date" value={header.bill_date || ""} onChange={(e) => setHeader({ ...header, bill_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Due date</Label>
-                <Input type="date" value={header.due_date || ""} onChange={(e) => setHeader({ ...header, due_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Currency</Label>
-                <Input value={header.currency || "HKD"} onChange={(e) => setHeader({ ...header, currency: e.target.value })} />
-              </div>
-              <div>
-                <Label>Service period start</Label>
-                <Input type="date" value={header.service_period_start || ""} onChange={(e) => setHeader({ ...header, service_period_start: e.target.value })} />
-              </div>
-              <div>
-                <Label>Service period end</Label>
-                <Input type="date" value={header.service_period_end || ""} onChange={(e) => setHeader({ ...header, service_period_end: e.target.value })} />
-              </div>
-              <div>
-                <Label>Venue / Outlet</Label>
-                <Select value={header.venue || ""} onValueChange={(v) => {
-                  const ven = venues.find(x => x.name === v);
-                  setHeader({ ...header, venue: v, venue_id: ven?.id || null });
-                }}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {venues.filter(v => v.name).map((v) => (<SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Department</Label>
-                <Input value={header.department || ""} onChange={(e) => setHeader({ ...header, department: e.target.value })} />
-              </div>
-              <div>
-                <Label>Subtotal</Label>
-                <Input type="number" step="0.01" value={header.subtotal ?? 0} onChange={(e) => {
-                  const sub = parseFloat(e.target.value) || 0;
-                  const tax = Number(header.tax_amount || 0);
-                  setHeader({ ...header, subtotal: sub, total_amount: sub + tax });
-                }} />
-              </div>
-              <div>
-                <Label>Tax amount</Label>
-                <Input type="number" step="0.01" value={header.tax_amount ?? 0} onChange={(e) => {
-                  const tax = parseFloat(e.target.value) || 0;
-                  const sub = Number(header.subtotal || 0);
-                  setHeader({ ...header, tax_amount: tax, total_amount: sub + tax });
-                }} />
-              </div>
-              <div>
-                <Label>Total amount</Label>
-                <Input type="number" step="0.01" value={header.total_amount ?? 0} onChange={(e) => setHeader({ ...header, total_amount: parseFloat(e.target.value) || 0 })} />
-              </div>
-            </div>
+          <div className="space-y-5 mt-5">
+            {/* Workflow pipeline — visible on every bill so users see where it stands. */}
+            {editing && (() => {
+              const status = editing.approval_status;
+              const paid = editing.payment_status === "paid";
+              const steps = ["Draft", "Pending review", "Approved", "Posted", "Paid"];
+              let idx = 0;
+              if (status === "pending_review") idx = 1;
+              else if (status === "approved") idx = 2;
+              else if (status === "posted") idx = paid ? 4 : 3;
+              if (status === "reversed" || status === "void" || status === "rejected") {
+                return (
+                  <StatusFlow
+                    steps={steps}
+                    currentIndex={0}
+                    terminal={{
+                      label:
+                        status === "reversed"
+                          ? "Reversed"
+                          : status === "void"
+                          ? "Void"
+                          : "Rejected",
+                      variant: status === "void" ? "muted" : "destructive",
+                    }}
+                  />
+                );
+              }
+              return <StatusFlow steps={steps} currentIndex={idx} />;
+            })()}
 
-            <div>
-              <Label>Notes</Label>
-              <Textarea value={header.notes || ""} onChange={(e) => setHeader({ ...header, notes: e.target.value })} rows={2} />
-            </div>
-
-            {header.attachment_url && (
-              <div className="text-sm">
-                <a href={header.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-                  <ExternalLink className="h-3 w-3" /> View attachment
-                </a>
+            {/* Bill identity */}
+            <FormSection
+              title="Bill identity"
+              description="Who the bill is from and how it's referenced."
+            >
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div>
+                  <Label>Vendor</Label>
+                  <Select value={header.supplier_id || ""} onValueChange={(v) => setHeader({ ...header, supplier_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
+                    <SelectContent>
+                      {suppliers.filter(s => s.id).map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Vendor name (override)</Label>
+                  <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
+                </div>
+                <div>
+                  <Label>Bill / Invoice #</Label>
+                  <Input value={header.bill_number || ""} onChange={(e) => setHeader({ ...header, bill_number: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Venue / Outlet</Label>
+                  <Select value={header.venue || ""} onValueChange={(v) => {
+                    const ven = venues.find(x => x.name === v);
+                    setHeader({ ...header, venue: v, venue_id: ven?.id || null });
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {venues.filter(v => v.name).map((v) => (<SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Department</Label>
+                  <Input value={header.department || ""} onChange={(e) => setHeader({ ...header, department: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Currency</Label>
+                  <Input value={header.currency || "HKD"} onChange={(e) => setHeader({ ...header, currency: e.target.value })} />
+                </div>
               </div>
-            )}
+            </FormSection>
+
+            {/* Dates */}
+            <FormSection title="Dates" description="Recognition and service period.">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <Label>Bill date</Label>
+                  <Input type="date" value={header.bill_date || ""} onChange={(e) => setHeader({ ...header, bill_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Due date</Label>
+                  <Input type="date" value={header.due_date || ""} onChange={(e) => setHeader({ ...header, due_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Service period start</Label>
+                  <Input type="date" value={header.service_period_start || ""} onChange={(e) => setHeader({ ...header, service_period_start: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Service period end</Label>
+                  <Input type="date" value={header.service_period_end || ""} onChange={(e) => setHeader({ ...header, service_period_end: e.target.value })} />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* Financials */}
+            <FormSection
+              title="Financials"
+              description="Subtotal + tax always equals total. Editing subtotal or tax recomputes the total."
+              aside={
+                <div className="text-right font-display text-lg font-semibold tabular-nums whitespace-nowrap">
+                  {fmtHK(Number(header.total_amount || 0))}
+                </div>
+              }
+            >
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label>Subtotal</Label>
+                  <Input type="number" step="0.01" value={header.subtotal ?? 0} onChange={(e) => {
+                    const sub = parseFloat(e.target.value) || 0;
+                    const tax = Number(header.tax_amount || 0);
+                    setHeader({ ...header, subtotal: sub, total_amount: sub + tax });
+                  }} className="text-right font-mono" />
+                </div>
+                <div>
+                  <Label>Tax amount</Label>
+                  <Input type="number" step="0.01" value={header.tax_amount ?? 0} onChange={(e) => {
+                    const tax = parseFloat(e.target.value) || 0;
+                    const sub = Number(header.subtotal || 0);
+                    setHeader({ ...header, tax_amount: tax, total_amount: sub + tax });
+                  }} className="text-right font-mono" />
+                </div>
+                <div>
+                  <Label>Total amount</Label>
+                  <Input type="number" step="0.01" value={header.total_amount ?? 0} onChange={(e) => setHeader({ ...header, total_amount: parseFloat(e.target.value) || 0 })} className="text-right font-mono" />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* Notes & attachment */}
+            <FormSection title="Notes & attachment">
+              <div className="space-y-3">
+                <div>
+                  <Label>Notes</Label>
+                  <Textarea value={header.notes || ""} onChange={(e) => setHeader({ ...header, notes: e.target.value })} rows={2} />
+                </div>
+                {header.attachment_url && (
+                  <div className="text-sm">
+                    <a href={header.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> View attachment
+                    </a>
+                  </div>
+                )}
+              </div>
+            </FormSection>
 
             {/* Allocations */}
             <div>
