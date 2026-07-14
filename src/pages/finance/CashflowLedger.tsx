@@ -369,7 +369,7 @@ function KPICard({
       {loading ? (
         <div className="h-7 w-28 bg-muted/40 rounded animate-pulse" />
       ) : (
-        <div className={`text-xl md:text-2xl font-semibold tabular-nums truncate ${color}`}>{value}</div>
+        <div className={`font-semibold tabular-nums whitespace-nowrap min-w-0 ${kpiValueSizeClass(value)} ${color}`} title={value}>{value}</div>
       )}
     </Card>
   );

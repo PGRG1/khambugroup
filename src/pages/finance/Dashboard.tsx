@@ -588,7 +588,7 @@ function KpiCard({
         </>
       ) : (
         <>
-          <div className="font-display text-2xl tabular-nums truncate">{value}</div>
+          <div className={`font-display tabular-nums whitespace-nowrap min-w-0 ${kpiValueSizeClass(value)}`} title={typeof value === "string" ? value : undefined}>{value}</div>
           {sub && <div className="text-[11px] text-muted-foreground mt-1 truncate">{sub}</div>}
         </>
       )}

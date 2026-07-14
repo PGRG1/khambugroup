@@ -255,7 +255,7 @@ function StatTile({ label, value, tone }: { label: string; value: string; tone?:
   return (
     <Card className="card-glass p-3 min-w-0 overflow-hidden">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground truncate">{label}</div>
-      <div className={cn("text-lg sm:text-xl font-display font-semibold mt-1 tabular-nums truncate min-w-0", tone === "primary" && "text-primary")} title={value}>{value}</div>
+      <div className={cn("font-display font-semibold mt-1 tabular-nums whitespace-nowrap min-w-0", kpiValueSizeClass(value), tone === "primary" && "text-primary")} title={value}>{value}</div>
     </Card>
   );
 }
