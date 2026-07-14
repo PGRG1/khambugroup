@@ -116,6 +116,18 @@ export function useExpenseBills() {
         let billId = header.id;
         const auth = (await supabase.auth.getUser()).data.user?.id ?? null;
 
+        // Guard: posted or reversed bills are immutable.
+        if (billId) {
+          const existing = bills.find((b) => b.id === billId);
+          const lockedStatus = existing?.approval_status;
+          if (lockedStatus === "posted" || lockedStatus === "reversed") {
+            toast.error(
+              `This bill is ${lockedStatus} and can no longer be edited. Reverse it first, then create a corrected bill.`
+            );
+            return null;
+          }
+        }
+
         const headerPayload: any = {
           supplier_id: header.supplier_id || null,
           vendor_name: header.vendor_name || null,
