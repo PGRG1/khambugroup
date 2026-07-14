@@ -32,6 +32,7 @@ interface PaymentTerm {
 
 export default function ExpensePaymentTermsPage() {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [rows, setRows] = useState<PaymentTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
