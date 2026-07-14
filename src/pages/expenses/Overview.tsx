@@ -385,16 +385,16 @@ export default function ExpensesOverview() {
                     {!rules.length && (
                       <TableRow>
                         <TableCell colSpan={7} className="p-0">
-                          <div className="flex flex-col items-center justify-center text-center py-10 px-4">
-                            <Sparkles className="h-6 w-6 text-muted-foreground mb-2" />
-                            <div className="text-sm font-medium">No recurring rules yet</div>
-                            <p className="text-xs text-muted-foreground mt-1 max-w-md">
-                              Set up rules for rent, utilities, subscriptions — bills generate automatically each period.
-                            </p>
-                            <Link to="/expenses/recurring">
-                              <Button size="sm" className="h-8 mt-3">Add a recurring rule</Button>
-                            </Link>
-                          </div>
+                          <EmptyState
+                            icon={<Sparkles className="h-5 w-5" />}
+                            title="No recurring rules yet"
+                            description="Set up rules for rent, utilities, subscriptions — bills generate automatically each period."
+                            action={
+                              <Link to="/expenses/recurring">
+                                <Button size="sm" className="h-8">Add a recurring rule</Button>
+                              </Link>
+                            }
+                          />
                         </TableCell>
                       </TableRow>
                     )}
