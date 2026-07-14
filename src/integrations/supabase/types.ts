@@ -8634,6 +8634,7 @@ export type Database = {
           cost_reporting_mode: string
           country: string | null
           created_at: string
+          enforce_expense_sod: boolean
           financial_year_end: string | null
           financial_year_start_year: number | null
           id: string
@@ -8649,6 +8650,7 @@ export type Database = {
           cost_reporting_mode?: string
           country?: string | null
           created_at?: string
+          enforce_expense_sod?: boolean
           financial_year_end?: string | null
           financial_year_start_year?: number | null
           id?: string
@@ -8664,6 +8666,7 @@ export type Database = {
           cost_reporting_mode?: string
           country?: string | null
           created_at?: string
+          enforce_expense_sod?: boolean
           financial_year_end?: string | null
           financial_year_start_year?: number | null
           id?: string
@@ -9729,6 +9732,7 @@ export type Database = {
           cost_reporting_mode: string
           country: string | null
           created_at: string
+          enforce_expense_sod: boolean
           financial_year_end: string | null
           financial_year_start_year: number | null
           id: string
