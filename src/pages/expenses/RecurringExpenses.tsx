@@ -444,6 +444,7 @@ export default function RecurringExpenses() {
           </div>
         </SheetContent>
       </Sheet>
+      {confirmDialog}
     </div>
   );
 }
