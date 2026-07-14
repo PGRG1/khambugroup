@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useJournal, JournalLineDraft, JournalEntry, JournalLine } from "@/hooks/useJournal";
+import { useLastAutoRebuild, formatRelative } from "@/hooks/useLastAutoRebuild";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ export default function Journal() {
   const { entries, lines, loading, createManualEntry, updateEntry, restoreAutoEntry, voidEntry, rebuildFromOperations } =
     useJournal({ fromDate: fromDate || undefined, toDate: toDate || undefined, sourceType });
   const { items: accounts } = useChartOfAccounts();
+  const lastAutoRebuild = useLastAutoRebuild();
 
   const linesByEntry = useMemo(() => {
     const m = new Map<string, typeof lines>();
@@ -145,7 +147,14 @@ export default function Journal() {
         </div>
       </header>
 
-      <p className="text-xs text-muted-foreground -mt-2">{scopeLabel}</p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 -mt-2 text-xs text-muted-foreground">
+        <span>{scopeLabel}</span>
+        <span aria-hidden>·</span>
+        <span title={lastAutoRebuild ? new Date(lastAutoRebuild).toLocaleString("en-GB") : "No auto-rebuild yet"}>
+          Last auto-rebuilt: <span className="text-foreground/80">{formatRelative(lastAutoRebuild)}</span>
+        </span>
+      </div>
+
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

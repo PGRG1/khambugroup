@@ -6479,6 +6479,41 @@ export type Database = {
           },
         ]
       }
+      pending_rebuilds: {
+        Row: {
+          attempts: number
+          last_attempt_at: string | null
+          last_error: string | null
+          last_source: string | null
+          requested_at: string
+          tenant_id: string
+        }
+        Insert: {
+          attempts?: number
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_source?: string | null
+          requested_at?: string
+          tenant_id: string
+        }
+        Update: {
+          attempts?: number
+          last_attempt_at?: string | null
+          last_error?: string | null
+          last_source?: string | null
+          requested_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_rebuilds_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       petty_cash_classifications: {
         Row: {
           color: string
@@ -9564,6 +9599,10 @@ export type Database = {
       }
     }
     Functions: {
+      _rebuild_journal_from_operations_impl: {
+        Args: { p_actor_name: string; p_actor_uid: string; p_tenant_id: string }
+        Returns: Json
+      }
       add_revenue_event_with_replacement: {
         Args: {
           p_event_mode: string
@@ -9603,6 +9642,23 @@ export type Database = {
           p_year: number
         }
         Returns: Json
+      }
+      fetch_due_pending_rebuilds: {
+        Args: { p_debounce_seconds?: number }
+        Returns: {
+          attempts: number
+          last_attempt_at: string | null
+          last_error: string | null
+          last_source: string | null
+          requested_at: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pending_rebuilds"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       generate_po_number: { Args: never; Returns: string }
       generate_recurring_expense_bills: { Args: never; Returns: Json }
@@ -9773,6 +9829,10 @@ export type Database = {
         Returns: string
       }
       rebuild_journal_from_operations: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
+      rebuild_journal_from_operations_system: {
         Args: { p_tenant_id: string }
         Returns: Json
       }
