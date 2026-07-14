@@ -187,7 +187,7 @@ export default function CashflowStatement() {
       </Card>
 
       {/* The Statement */}
-      <Card className="card-glass p-6 md:p-8">
+      <Card className="card-glass p-6 md:p-8 overflow-x-auto min-w-0">
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold">KHAMBU Group</h2>
           <p className="text-sm text-muted-foreground">Statement of Cash Flows</p>
