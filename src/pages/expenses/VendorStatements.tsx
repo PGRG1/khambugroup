@@ -301,6 +301,7 @@ export default function VendorStatements() {
           </div>
         </SheetContent>
       </Sheet>
+      {confirmDialog}
     </div>
   );
 }
