@@ -1,5 +1,7 @@
 import { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { kpiValueSizeClass } from "@/utils/kpiSize";
+export { kpiValueSizeClass };
 
 /** HK$ money formatter — HK$ prefix, en-HK grouping, tabular alignment via `td-num`. */
 export const fmtHK = (n: number, digits = 2) =>
