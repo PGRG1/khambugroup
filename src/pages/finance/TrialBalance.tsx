@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import React, { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTrialBalance } from "@/hooks/useTrialBalance";
@@ -336,7 +337,7 @@ function StatTile({ label, value, tone, icon }: { label: string; value: string; 
       <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground min-w-0">
         {icon}<span className="truncate">{label}</span>
       </div>
-      <div className={cn("text-xl font-display font-semibold mt-1 tabular-nums truncate min-w-0", toneCls)} title={value}>{value}</div>
+      <div className={cn("font-display font-semibold mt-1 tabular-nums whitespace-nowrap min-w-0", kpiValueSizeClass(value), toneCls)} title={value}>{value}</div>
     </Card>
   );
 }

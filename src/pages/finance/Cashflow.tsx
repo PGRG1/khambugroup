@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useMemo, useState } from "react";
 import { useCashflowData } from "@/hooks/useCashflowData";
 import type { PeriodGranularity } from "@/utils/cashflowCalculations";
@@ -396,7 +397,7 @@ function KPICard({
         <span className="shrink-0">{icon}</span>
         <span className="truncate">{label}</span>
       </div>
-      <div className={`text-2xl font-bold font-mono truncate min-w-0 ${color}`} title={value}>{value}</div>
+      <div className={`font-bold font-mono whitespace-nowrap min-w-0 ${kpiValueSizeClass(value)} ${color}`} title={value}>{value}</div>
     </Card>
   );
 }

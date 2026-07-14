@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -967,7 +968,7 @@ function KPI({
           </div>
         )}
       </div>
-      <div className={`text-2xl font-bold font-mono tabular-nums mt-2 truncate ${accent}`}>{value}</div>
+      <div className={`font-bold font-mono tabular-nums mt-2 whitespace-nowrap min-w-0 ${kpiValueSizeClass(value)} ${accent}`} title={typeof value === "string" ? value : undefined}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground mt-1 truncate">{sub}</div>}
     </Card>
   );

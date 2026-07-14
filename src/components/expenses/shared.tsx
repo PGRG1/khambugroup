@@ -1,5 +1,7 @@
 import { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { kpiValueSizeClass } from "@/utils/kpiSize";
+export { kpiValueSizeClass };
 
 /** HK$ money formatter — HK$ prefix, en-HK grouping, tabular alignment via `td-num`. */
 export const fmtHK = (n: number, digits = 2) =>
@@ -69,19 +71,7 @@ const TONE_VALUE: Record<KpiTone, string> = {
   success: "text-primary",
 };
 
-/**
- * Responsive font-size class for KPI values so that long numeric strings
- * (e.g. "HK$ 12,345,678") always fit on one line without ellipsis truncation.
- * Steps down gradually based on character count.
- */
-function kpiValueSizeClass(value: ReactNode): string {
-  const len = typeof value === "string" ? value.length : 0;
-  if (len <= 10) return "text-xl md:text-2xl";
-  if (len <= 13) return "text-lg md:text-xl";
-  if (len <= 16) return "text-base md:text-lg";
-  if (len <= 20) return "text-sm md:text-base";
-  return "text-xs md:text-sm";
-}
+
 
 
 /**
@@ -138,7 +128,7 @@ export function KpiCard({
         {value}
       </div>
       {hint && (
-        <div className="text-[11px] text-muted-foreground mt-0.5 truncate" title={typeof hint === "string" ? hint : undefined}>
+        <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight break-words" title={typeof hint === "string" ? hint : undefined}>
           {hint}
         </div>
       )}
