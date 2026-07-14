@@ -330,17 +330,17 @@ export default function CashflowStatement() {
             )}
           </div>
           <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span>Closing per statement</span>
-              <span className="tabular-nums">{fmt(closing)}</span>
+            <div className="flex justify-between gap-3">
+              <span className="min-w-0 truncate">Closing per statement</span>
+              <span className="tabular-nums whitespace-nowrap shrink-0">{fmt(closing)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Cash account balances at {toDate}</span>
-              <span className="tabular-nums">{fmt(cashBalanceTotal)}</span>
+            <div className="flex justify-between gap-3">
+              <span className="min-w-0 truncate">Cash account balances at {toDate}</span>
+              <span className="tabular-nums whitespace-nowrap shrink-0">{fmt(cashBalanceTotal)}</span>
             </div>
-            <div className="flex justify-between border-t pt-1 mt-1 font-semibold">
-              <span>Difference</span>
-              <span className={`tabular-nums ${reconciles ? "" : "text-destructive"}`}>
+            <div className="flex justify-between gap-3 border-t pt-1 mt-1 font-semibold">
+              <span className="min-w-0 truncate">Difference</span>
+              <span className={`tabular-nums whitespace-nowrap shrink-0 ${reconciles ? "" : "text-destructive"}`}>
                 {fmt(reconciliationDelta)}
               </span>
             </div>
