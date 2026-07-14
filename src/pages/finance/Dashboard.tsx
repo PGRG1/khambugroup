@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";

@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";

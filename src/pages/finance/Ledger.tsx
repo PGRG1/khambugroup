@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";

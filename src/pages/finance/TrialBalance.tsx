@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import React, { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTrialBalance } from "@/hooks/useTrialBalance";

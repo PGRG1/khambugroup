@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { fetchAllRows } from "@/utils/fetchAllRows";

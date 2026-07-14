@@ -1,3 +1,4 @@
+import { kpiValueSizeClass } from "@/utils/kpiSize";
 import { useMemo, useState } from "react";
 import { useCashflowData } from "@/hooks/useCashflowData";
 import type { PeriodGranularity } from "@/utils/cashflowCalculations";
