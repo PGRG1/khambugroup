@@ -439,14 +439,15 @@ function StatementRow({
           ? "border-t border-border"
           : "";
   return (
-    <div className={`grid grid-cols-[1fr_auto] py-1.5 px-2 ${borderCls}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-1.5 px-2 ${borderCls}`}>
       <span
-        className={`font-sans ${indent ? "ml-8" : ""} ${bold ? "font-semibold" : ""} ${italic ? "italic" : ""}`}
+        className={`font-sans min-w-0 truncate ${indent ? "ml-8" : ""} ${bold ? "font-semibold" : ""} ${italic ? "italic" : ""}`}
+        title={label}
       >
         {label}
       </span>
       <span
-        className={`tabular-nums ${bold ? "font-semibold" : ""} ${amount < 0 ? "text-destructive" : ""}`}
+        className={`tabular-nums whitespace-nowrap shrink-0 ${bold ? "font-semibold" : ""} ${amount < 0 ? "text-destructive" : ""}`}
       >
         {fmt(amount)}
       </span>
