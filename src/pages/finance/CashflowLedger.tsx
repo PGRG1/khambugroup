@@ -238,8 +238,8 @@ export default function CashflowLedger() {
               ) : buckets.map((b) => (
                 <TableRow key={b.key}>
                   <TableCell className="font-medium">{b.label}</TableCell>
-                  <TableCell className="text-right tabular-nums text-primary">{fmtMono(b.inflows)}</TableCell>
-                  <TableCell className="text-right tabular-nums text-destructive">({fmtMono(b.outflows)})</TableCell>
+                  <TableCell className="text-right tabular-nums whitespace-nowrap text-primary">{fmtMono(b.inflows)}</TableCell>
+                  <TableCell className="text-right tabular-nums whitespace-nowrap text-destructive">({fmtMono(b.outflows)})</TableCell>
                   <TableCell className={`text-right tabular-nums font-semibold ${b.net >= 0 ? "text-foreground" : "text-destructive"}`}>{fmtMono(b.net)}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtMono(b.runningBalance)}</TableCell>
                 </TableRow>
