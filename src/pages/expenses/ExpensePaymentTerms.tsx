@@ -19,6 +19,7 @@ import {
   KpiCard,
   KpiSkeleton,
   ScopeLine,
+  useConfirm,
 } from "@/components/expenses/shared";
 
 interface PaymentTerm {
