@@ -33,6 +33,7 @@ const NONE = "__none__";
 
 export default function ExpenseCategories() {
   const { tenantId, loading: tenantLoading } = useActiveTenant();
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [rows, setRows] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
