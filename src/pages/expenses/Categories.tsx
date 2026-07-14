@@ -208,7 +208,7 @@ export default function ExpenseCategories() {
                         </StatusPill>
                       </TableCell>
                       <TableCell className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" onClick={() => remove(r.id)}>
+                        <Button variant="ghost" size="icon" onClick={() => remove(r.id, r.name)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
