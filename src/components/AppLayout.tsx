@@ -7,10 +7,7 @@ import { UserMenu } from "@/components/UserMenu";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { isPreviewActive } = usePreviewMode();
-  const { isInsideClient } = useTenantSession();
-  const { isPlatformAdmin } = usePlatformAdmin();
-  const showClientBar = isPlatformAdmin && isInsideClient;
-  const topPad = isPreviewActive || showClientBar ? "pt-10" : "";
+  const topPad = isPreviewActive ? "pt-10" : "";
 
   return (
     <SidebarProvider>
