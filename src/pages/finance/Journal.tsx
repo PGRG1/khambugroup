@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useJournal, JournalLineDraft, JournalEntry, JournalLine } from "@/hooks/useJournal";
+import { useLastAutoRebuild, formatRelative } from "@/hooks/useLastAutoRebuild";
 import { useChartOfAccounts } from "@/hooks/useChartOfAccounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
