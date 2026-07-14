@@ -114,10 +114,10 @@ export function KpiCard({
       </div>
       <div
         className={
-          "mt-1 text-xl md:text-2xl font-semibold td-num tabular-nums whitespace-nowrap " +
+          "mt-1 text-xl md:text-2xl font-semibold td-num tabular-nums truncate min-w-0 " +
           TONE_VALUE[tone]
         }
-        style={{ overflow: "visible" }}
+        title={typeof value === "string" ? value : undefined}
       >
         {value}
       </div>

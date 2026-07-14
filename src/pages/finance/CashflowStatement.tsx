@@ -187,7 +187,7 @@ export default function CashflowStatement() {
       </Card>
 
       {/* The Statement */}
-      <Card className="card-glass p-6 md:p-8">
+      <Card className="card-glass p-6 md:p-8 overflow-x-auto min-w-0">
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold">KHAMBU Group</h2>
           <p className="text-sm text-muted-foreground">Statement of Cash Flows</p>
@@ -233,14 +233,14 @@ export default function CashflowStatement() {
                         open={isOpen}
                         onOpenChange={(o) => setOpenSection((s) => ({ ...s, [key]: o }))}
                       >
-                        <CollapsibleTrigger className="w-full grid grid-cols-[1fr_auto] items-center py-1.5 px-2 -mx-2 rounded hover:bg-muted/40 transition-colors text-left">
-                          <div className="flex items-center gap-1.5 ml-4">
+                        <CollapsibleTrigger className="w-full grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-1.5 px-2 -mx-2 rounded hover:bg-muted/40 transition-colors text-left">
+                          <div className="flex items-center gap-1.5 ml-4 min-w-0">
                             <ChevronRight
-                              className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""}`}
+                              className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
                             />
-                            <span className="font-sans">{line.lineItem}</span>
+                            <span className="font-sans truncate" title={line.lineItem}>{line.lineItem}</span>
                           </div>
-                          <span className={`tabular-nums ${line.amount < 0 ? "text-destructive" : ""}`}>
+                          <span className={`tabular-nums whitespace-nowrap shrink-0 ${line.amount < 0 ? "text-destructive" : ""}`}>
                             {fmt(line.amount)}
                           </span>
                         </CollapsibleTrigger>
@@ -330,17 +330,17 @@ export default function CashflowStatement() {
             )}
           </div>
           <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span>Closing per statement</span>
-              <span className="tabular-nums">{fmt(closing)}</span>
+            <div className="flex justify-between gap-3">
+              <span className="min-w-0 truncate">Closing per statement</span>
+              <span className="tabular-nums whitespace-nowrap shrink-0">{fmt(closing)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Cash account balances at {toDate}</span>
-              <span className="tabular-nums">{fmt(cashBalanceTotal)}</span>
+            <div className="flex justify-between gap-3">
+              <span className="min-w-0 truncate">Cash account balances at {toDate}</span>
+              <span className="tabular-nums whitespace-nowrap shrink-0">{fmt(cashBalanceTotal)}</span>
             </div>
-            <div className="flex justify-between border-t pt-1 mt-1 font-semibold">
-              <span>Difference</span>
-              <span className={`tabular-nums ${reconciles ? "" : "text-destructive"}`}>
+            <div className="flex justify-between gap-3 border-t pt-1 mt-1 font-semibold">
+              <span className="min-w-0 truncate">Difference</span>
+              <span className={`tabular-nums whitespace-nowrap shrink-0 ${reconciles ? "" : "text-destructive"}`}>
                 {fmt(reconciliationDelta)}
               </span>
             </div>
@@ -439,14 +439,15 @@ function StatementRow({
           ? "border-t border-border"
           : "";
   return (
-    <div className={`grid grid-cols-[1fr_auto] py-1.5 px-2 ${borderCls}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-1.5 px-2 ${borderCls}`}>
       <span
-        className={`font-sans ${indent ? "ml-8" : ""} ${bold ? "font-semibold" : ""} ${italic ? "italic" : ""}`}
+        className={`font-sans min-w-0 truncate ${indent ? "ml-8" : ""} ${bold ? "font-semibold" : ""} ${italic ? "italic" : ""}`}
+        title={label}
       >
         {label}
       </span>
       <span
-        className={`tabular-nums ${bold ? "font-semibold" : ""} ${amount < 0 ? "text-destructive" : ""}`}
+        className={`tabular-nums whitespace-nowrap shrink-0 ${bold ? "font-semibold" : ""} ${amount < 0 ? "text-destructive" : ""}`}
       >
         {fmt(amount)}
       </span>

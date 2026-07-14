@@ -184,24 +184,24 @@ export default function BalanceSheet() {
           </div>
 
           <Card className={cn(
-            "card-glass p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3",
+            "card-glass p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 min-w-0 overflow-hidden",
             !balanced && "border-destructive/40",
           )}>
-            <div>
+            <div className="min-w-0">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Assets</div>
-              <div className="text-2xl font-display font-semibold tabular-nums">HK$ {fmt(assets.subtotal)}</div>
+              <div className="text-2xl font-display font-semibold tabular-nums truncate min-w-0" title={`HK$ ${fmt(assets.subtotal)}`}>HK$ {fmt(assets.subtotal)}</div>
             </div>
             <div className={cn(
-              "text-sm font-semibold inline-flex items-center gap-1.5",
+              "text-sm font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0",
               balanced ? "text-primary" : "text-destructive",
             )}>
               {balanced
                 ? <><CheckCircle2 className="h-4 w-4" /> Balanced</>
                 : <><AlertTriangle className="h-4 w-4" /> Out of balance by HK$ {fmt(Math.abs(diff))}</>}
             </div>
-            <div className="sm:text-right">
+            <div className="sm:text-right min-w-0">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Liabilities + Equity</div>
-              <div className="text-2xl font-display font-semibold tabular-nums">HK$ {fmt(totalLE)}</div>
+              <div className="text-2xl font-display font-semibold tabular-nums truncate min-w-0" title={`HK$ ${fmt(totalLE)}`}>HK$ {fmt(totalLE)}</div>
             </div>
           </Card>
         </>
@@ -213,11 +213,11 @@ export default function BalanceSheet() {
 function StatTile({ label, value, tone, icon }: { label: string; value: string; tone?: "primary" | "destructive"; icon?: React.ReactNode }) {
   const toneCls = tone === "primary" ? "text-primary" : tone === "destructive" ? "text-destructive" : "text-foreground";
   return (
-    <Card className="card-glass p-3">
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-        {icon}<span>{label}</span>
+    <Card className="card-glass p-3 min-w-0 overflow-hidden">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground min-w-0">
+        {icon}<span className="truncate">{label}</span>
       </div>
-      <div className={cn("text-xl font-display font-semibold mt-1 tabular-nums", toneCls)}>{value}</div>
+      <div className={cn("text-xl font-display font-semibold mt-1 tabular-nums truncate min-w-0", toneCls)} title={value}>{value}</div>
     </Card>
   );
 }
