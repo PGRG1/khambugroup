@@ -213,11 +213,11 @@ export default function BalanceSheet() {
 function StatTile({ label, value, tone, icon }: { label: string; value: string; tone?: "primary" | "destructive"; icon?: React.ReactNode }) {
   const toneCls = tone === "primary" ? "text-primary" : tone === "destructive" ? "text-destructive" : "text-foreground";
   return (
-    <Card className="card-glass p-3">
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-        {icon}<span>{label}</span>
+    <Card className="card-glass p-3 min-w-0 overflow-hidden">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground min-w-0">
+        {icon}<span className="truncate">{label}</span>
       </div>
-      <div className={cn("text-xl font-display font-semibold mt-1 tabular-nums", toneCls)}>{value}</div>
+      <div className={cn("text-xl font-display font-semibold mt-1 tabular-nums truncate min-w-0", toneCls)} title={value}>{value}</div>
     </Card>
   );
 }
