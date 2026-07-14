@@ -261,6 +261,7 @@ export default function ExpenseApprovals() {
           )}
         </SheetContent>
       </Sheet>
+      {confirmDialog}
     </div>
   );
 }
