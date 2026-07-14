@@ -265,6 +265,7 @@ export default function ExpensePaymentTermsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </div>
   );
 }
