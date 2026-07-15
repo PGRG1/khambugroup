@@ -43,11 +43,32 @@ export default function StaffReimbursements() {
     });
   }, [sr.reimbursements, statusFilter, search]);
 
-  const categoriesById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const c of sr.classifications) m.set(c.id, c.name);
+  const categoryLabelById = useMemo(() => {
+    const m = new Map<string, { name: string; ftype: string }>();
+    for (const c of sr.classifications) m.set(c.id, { name: c.name, ftype: c.financial_type });
     return m;
   }, [sr.classifications]);
+
+  /** Current-month breakdown by classification.financial_type, using claim_date. */
+  const monthByFinancialType = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear(); const m = now.getMonth();
+    const buckets: Record<"cogs" | "opex" | "asset" | "other", { total: number; count: number }> = {
+      cogs: { total: 0, count: 0 },
+      opex: { total: 0, count: 0 },
+      asset: { total: 0, count: 0 },
+      other: { total: 0, count: 0 },
+    };
+    for (const r of sr.reimbursements) {
+      const d = new Date(r.claim_date);
+      if (d.getFullYear() !== y || d.getMonth() !== m) continue;
+      const ftype = (categoryLabelById.get(r.category_id)?.ftype ?? "other") as keyof typeof buckets;
+      const bucket = buckets[ftype] ?? buckets.other;
+      bucket.total += Number(r.amount || 0);
+      bucket.count += 1;
+    }
+    return buckets;
+  }, [sr.reimbursements, categoryLabelById]);
 
   const paidFromLabel = (r: StaffReimbursement): string => {
     if (r.status !== "paid" || !r.paid_from) return "—";
