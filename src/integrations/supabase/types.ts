@@ -8082,6 +8082,139 @@ export type Database = {
           },
         ]
       }
+      staff_reimbursements: {
+        Row: {
+          amount: number
+          category_id: string
+          claim_date: string
+          claimant_name: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          journal_entry_id: string | null
+          paid_date: string | null
+          paid_from: string | null
+          paid_from_bank_account_id: string | null
+          paid_from_float_id: string | null
+          payment_journal_entry_id: string | null
+          receipt_path: string | null
+          receipt_url: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          amount: number
+          category_id: string
+          claim_date: string
+          claimant_name: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          journal_entry_id?: string | null
+          paid_date?: string | null
+          paid_from?: string | null
+          paid_from_bank_account_id?: string | null
+          paid_from_float_id?: string | null
+          payment_journal_entry_id?: string | null
+          receipt_path?: string | null
+          receipt_url?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category_id?: string
+          claim_date?: string
+          claimant_name?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          journal_entry_id?: string | null
+          paid_date?: string | null
+          paid_from?: string | null
+          paid_from_bank_account_id?: string | null
+          paid_from_float_id?: string | null
+          payment_journal_entry_id?: string | null
+          receipt_path?: string | null
+          receipt_url?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_reimbursements_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "petty_cash_classifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reimbursements_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reimbursements_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "staff_reimbursements_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "staff_reimbursements_paid_from_bank_account_id_fkey"
+            columns: ["paid_from_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reimbursements_paid_from_float_id_fkey"
+            columns: ["paid_from_float_id"]
+            isOneToOne: false
+            referencedRelation: "petty_cash_floats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reimbursements_payment_journal_entry_id_fkey"
+            columns: ["payment_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_reimbursements_payment_journal_entry_id_fkey"
+            columns: ["payment_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "staff_reimbursements_payment_journal_entry_id_fkey"
+            columns: ["payment_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+        ]
+      }
       standard_products: {
         Row: {
           base_unit: string
