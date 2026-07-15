@@ -27,6 +27,7 @@ export default function StaffReimbursements() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [payOpen, setPayOpen] = useState<StaffReimbursement | null>(null);
 
   const rows = useMemo(() => {
