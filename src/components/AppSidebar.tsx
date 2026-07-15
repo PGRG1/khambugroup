@@ -48,8 +48,12 @@ const financeItems: Item[] = [
   { title: "Documents & Bills", url: "/finance/documents-bills" },
   { title: "Accounts Payable", url: "/finance/payables" },
   { title: "Accounts Receivable", url: "/finance/receivables" },
-  { title: "Staff Reimbursements", url: "/finance/staff-reimbursements" },
 ];
+
+// Staff Reimbursements — its own top-level group.
+// Structure mirrors Petty Cash so `Operations` / `Master Data` sub-sections
+// can be added later without reshaping the group.
+const staffReimbOverview: Item = { title: "Overview", url: "/staff-reimbursements", end: true };
 
 const financeReportsItems: Item[] = [
   { title: "Profit & Loss", url: "/pl-report", pageKey: "pl-report" },
