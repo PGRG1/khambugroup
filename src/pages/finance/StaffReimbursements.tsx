@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Wallet, ExternalLink, Search } from "lucide-react";
+import { Plus, Wallet, ExternalLink, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -18,6 +18,7 @@ import {
 import {
   useStaffReimbursements, type StaffReimbursement,
 } from "@/hooks/useStaffReimbursements";
+import ReimbursementAiImport from "@/components/staff-reimbursements/ReimbursementAiImport";
 
 type StatusFilter = "all" | "owing" | "paid";
 
