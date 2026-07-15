@@ -510,6 +510,22 @@ export function AppSidebar() {
           </CollapsibleNavGroup>
         )}
 
+        {showStaffReimb && (
+          <CollapsibleNavGroup
+            label="Staff Reimbursements"
+            icon={HandCoins}
+            defaultOpen={groupState.staffreimb}
+            onOpenChange={(o) => setGroup("staffreimb", o)}
+          >
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={staffReimbOverview} />
+            </SidebarMenu>
+            {/* Future: <SubSection label="Operations" items={...} /> and Master Data */}
+          </CollapsibleNavGroup>
+        )}
+
+
+
         {showHR && (
           <CollapsibleNavGroup
             label="People"
