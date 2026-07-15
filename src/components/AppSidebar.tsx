@@ -2,7 +2,7 @@ import {
   LogOut, FileText, Users, Building2, BrainCircuit,
   TrendingUp, Scale, ChevronDown, Target,
   Home, ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
-  Settings,
+  Settings, HandCoins,
 } from "lucide-react";
 
 import { NavLink } from "@/components/NavLink";
