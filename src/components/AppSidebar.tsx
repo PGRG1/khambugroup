@@ -48,6 +48,7 @@ const financeItems: Item[] = [
   { title: "Documents & Bills", url: "/finance/documents-bills" },
   { title: "Accounts Payable", url: "/finance/payables" },
   { title: "Accounts Receivable", url: "/finance/receivables" },
+  { title: "Staff Reimbursements", url: "/finance/staff-reimbursements" },
 ];
 
 const financeReportsItems: Item[] = [
