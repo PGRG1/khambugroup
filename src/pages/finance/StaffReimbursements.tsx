@@ -87,19 +87,24 @@ export default function StaffReimbursements() {
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
       <PageHeader
-        eyebrow="Finance"
+        eyebrow="Staff Reimbursements"
         title="Staff Reimbursements"
         description="Money the business owes employees for work-related expenses they paid out of pocket."
         actions={
-          <Button onClick={() => setAddOpen(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" /> Add Claim
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => setAiOpen(true)} className="gap-1.5">
+              <Sparkles className="h-4 w-4" /> AI Import
+            </Button>
+            <Button onClick={() => setAddOpen(true)} className="gap-1.5">
+              <Plus className="h-4 w-4" /> Add Claim
+            </Button>
+          </>
         }
       />
 
       {sr.loading ? (
         <KpiGrid>
-          {[0, 1].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </KpiGrid>
       ) : (
         <KpiGrid>
@@ -114,8 +119,27 @@ export default function StaffReimbursements() {
             value={fmtHKWhole(sr.paidThisMonth)}
             tone="success"
           />
+          <KpiCard
+            label="COGS · This Month"
+            value={fmtHKWhole(monthByFinancialType.cogs.total)}
+            tone="warning"
+            hint={`${monthByFinancialType.cogs.count} claim(s)`}
+          />
+          <KpiCard
+            label="Opex · This Month"
+            value={fmtHKWhole(monthByFinancialType.opex.total)}
+            tone="info"
+            hint={`${monthByFinancialType.opex.count} claim(s)`}
+          />
+          <KpiCard
+            label="Assets · This Month"
+            value={fmtHKWhole(monthByFinancialType.asset.total)}
+            tone="success"
+            hint={`${monthByFinancialType.asset.count} claim(s)`}
+          />
         </KpiGrid>
       )}
+
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
