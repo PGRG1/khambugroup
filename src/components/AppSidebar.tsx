@@ -350,6 +350,7 @@ export function AppSidebar() {
   const showBank        = canSeeSection("bank");
   const showPayments    = canSeeSection("payments");
   const showPettyCash   = canSeeSection("pettycash");
+  const showStaffReimb  = canSeeSection("staff_reimbursements");
   const showAdmin       = isAdmin && !isPreviewActive;
   const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
