@@ -237,7 +237,7 @@ function App() {
                 <Route path="/finance/trial-balance" element={<AdminRoute><TrialBalance /></AdminRoute>} />
                 <Route path="/finance/pl-ledger" element={<AdminRoute><LedgerPL /></AdminRoute>} />
                 <Route path="/finance/receivables" element={<AdminRoute><Receivables /></AdminRoute>} />
-                <Route path="/finance/staff-reimbursements" element={<AdminRoute><StaffReimbursements /></AdminRoute>} />
+                <Route path="/staff-reimbursements" element={<AdminRoute><StaffReimbursements /></AdminRoute>} />
                 <Route path="/finance/payables" element={<AdminRoute><Payables /></AdminRoute>} />
                 <Route path="/finance/ledger-audit" element={<AdminRoute><LedgerAuditLog /></AdminRoute>} />
                 
