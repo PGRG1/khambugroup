@@ -1,86 +1,73 @@
-## Staff Reimbursements — new standalone module
+## Staff Reimbursements — three follow-ups
 
-Self-contained feature. Does NOT touch `petty_cash_receipts`, `petty_cash_floats`, or `usePettyCash`. Reuses `petty_cash_classifications` read-only for category mapping.
+### 1. Promote to its own top-level sidebar group
 
-### 1. Database migration
+- `src/components/AppSidebar.tsx`:
+  - Remove Staff Reimbursements from `financeItems`.
+  - Add a new group key `staffreimbursements` to `GroupKey` and `loadGroupState` defaults.
+  - Add a new `CollapsibleNavGroup` (icon: `HandCoins` from lucide) with the same pattern as Petty Cash. Structure the group so more pages can slot in later, but ship only:
+    - **Overview** → `/staff-reimbursements` (moves the current page from `/finance/staff-reimbursements`).
+    - Sub-section stubs (`Operations`, `Master Data`) are NOT rendered until pages exist — keep the shape ready in code comments rather than empty labeled sections.
+  - Gate visibility with `canSeeSection("staff_reimbursements")` (mirrors `pettycash` gate). Platform admins / tenant admins always see it; regular users get it when their permission map allows.
+- `src/App.tsx`: update the route to `/staff-reimbursements` (single canonical path). Drop the old `/finance/staff-reimbursements`.
+- No page-content changes required for this move.
 
-**New table `staff_reimbursements`:**
-- `id uuid pk`, `tenant_id uuid not null`, `venue_id uuid null`
-- `claimant_name text not null`, `description text not null`
-- `category_id uuid not null` — FK → `petty_cash_classifications(id)` (read-only reuse)
-- `amount numeric not null check (amount > 0)`
-- `claim_date date not null`
-- `receipt_url text null`, `receipt_path text null`
-- `status text not null default 'owing'` (allowed: `owing`, `paid`)
-- `paid_date date null`
-- `paid_from text null` (allowed: `bank`, `petty_cash`, `payroll`)
-- `paid_from_bank_account_id uuid null` — FK → `bank_accounts(id)`
-- `paid_from_float_id uuid null` — FK → `petty_cash_floats(id)` (read-only reference; no writes to that table)
-- `journal_entry_id uuid null` — claim posting
-- `payment_journal_entry_id uuid null` — payment posting
-- `created_by uuid null`, `created_at timestamptz default now()`, `updated_at timestamptz default now()`
-- Trigger to maintain `updated_at`
-- GRANTs for `authenticated` (CRUD) and `service_role` (ALL)
-- RLS: tenant-scoped read/write via `tenant_id = get_active_tenant_id()` (matching pattern used by other tenant tables in the project)
+### 2. KPI strip — expense breakdown by financial_type
 
-**COA seed helper:** ensure a `Staff Reimbursements Payable` liability account exists per tenant on first use. Handled inside the hook (idempotent lookup-then-insert) rather than a one-off migration, so it works for every tenant automatically.
+Rework the KPI row on `src/pages/finance/StaffReimbursements.tsx`:
 
-### 2. Hook — `src/hooks/useStaffReimbursements.ts`
+- Keep **Total Owing** and **Paid This Month** cards.
+- Add three tone-differentiated KPI cards for the **current month** (owing + paid combined, based on `claim_date` in the current month):
+  - **COGS** — sum of amounts whose classification.financial_type = `cogs`
+  - **Opex** — sum where `opex`
+  - **Assets** — sum where `asset`
+- Cards use `KpiCard` with distinct tones (`warning`, `info`, `success`) so the breakdown reads instantly.
+- Add a compact `hint` under each showing the # of claims.
+- Verify the table's **Category** column is prominent: bump it from muted text to a neutral chip (small pill using `StatusPill variant="neutral"`) alongside the financial-type badge (`COGS/Opex/Asset` in muted mono). Keep column order.
 
-Mirrors `usePettyCash.ts` shape:
-- Loads: reimbursements, classifications (from `petty_cash_classifications`), COA (id/code/name/type), bank accounts (id/name/linked_gl_account_id), petty cash floats (id/name/gl_account_id) — all read-only except the reimbursements table itself.
-- `totalOwing` — sum of `amount` where status = `owing`.
-- `paidThisMonth` — sum of `amount` where status = `paid` and `paid_date` in current month.
-- `ensureReimbursementsPayableAccount(tenantId)` — finds existing `Staff Reimbursements Payable` in `chart_of_accounts` for tenant, else inserts one (`account_type: liability`, `normal_side: credit`, code auto-picked as first free `21xx`, e.g. `2150`).
-- `createClaim({ claimant_name, description, category_id, amount, claim_date, venue_id?, receipt_url? })`
-  1. Insert `staff_reimbursements` row with status `owing`.
-  2. Resolve category → `gl_account_id` (from `petty_cash_classifications`). If missing, throw a clear error.
-  3. Resolve Staff Reimbursements Payable via `ensureReimbursementsPayableAccount`.
-  4. Insert `journal_entries` row: `source_type = 'staff_reimbursement'`, `source_id = claim.id`, `entry_date = claim_date`, `status = 'posted'`, memo `Staff reimbursement — <claimant> — <description>`.
-  5. Insert two balanced `journal_lines`:
-     - Dr category GL account, amount
-     - Cr Staff Reimbursements Payable, amount
-  6. Update claim with `journal_entry_id`.
-- `markAsPaid(claim, { paid_from, paid_date, bank_account_id?, float_id? })`
-  1. Resolve credit-side GL:
-     - `bank` → `bank_accounts.linked_gl_account_id`
-     - `petty_cash` → `petty_cash_floats.gl_account_id` (read-only lookup)
-     - `payroll` → for v1, throw "not yet supported" (payroll integration deferred)
-     - Any missing linkage throws a clear error.
-  2. Insert `journal_entries` row: `source_type = 'staff_reimbursement_payment'`, `source_id = claim.id`, `entry_date = paid_date`.
-  3. Insert lines:
-     - Dr Staff Reimbursements Payable, amount
-     - Cr resolved cash/bank GL, amount
-  4. Update claim: `status = 'paid'`, `paid_date`, `paid_from`, `paid_from_bank_account_id`/`paid_from_float_id`, `payment_journal_entry_id`.
-- `reload()`
+Also: when the page is rendered, memoize a `claimTypeById` map so category ID → financial_type is a single O(1) lookup shared by KPI totals and the table row rendering.
 
-Both posting flows insert entries + lines and update the claim within the same async sequence (matching current `usePettyCash` pattern — no RPC, no transaction wrapper introduced).
+### 3. AI Import flow
 
-### 3. Page — `src/pages/finance/StaffReimbursements.tsx`
+**Edge function `supabase/functions/parse-staff-reimbursement/index.ts`** (new)
 
-Uses existing design primitives (`PageHeader`, `KpiCard`/`KpiGrid`, `StatusBadge`, `@/utils/format`) and matches the visual language of Payables/Receivables.
+Follows the `parse-bill` pattern:
+- CORS + `requireAuth`.
+- Accepts `{ files: [{ base64, mimeType, filename }], categories: [{ id, name, financial_type }] }`.
+- Branches on mimeType per file:
+  - **Images (`image/*`)**: pass as `image_url` data URL to Gemini.
+  - **PDFs (`application/pdf`)**: pass as `file` block data URL.
+  - **Excel (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheetml`, `application/vnd.ms-excel`)**: parse in Deno via `npm:xlsx` → convert every sheet's rows to CSV text and inline that as a `text` block prefixed with the sheet name.
+  - **Word (`application/vnd.openxmlformats-officedocument.wordprocessingml.document`)**: parse via `npm:mammoth` → extract raw text → inline as a `text` block.
+  - Unknown types → skip with a warning field in the response.
+- Uses `google/gemini-2.5-flash` with `response_format: json_object`.
+- **System prompt** instructs the model to:
+  - Extract multiple claims when multiple receipts/rows are present.
+  - Translate any non-English text to English.
+  - For each claim return: `claimant_name` (string, "" if not identifiable), `description` (short English), `amount` (number), `claim_date` (YYYY-MM-DD, else ""), `suggested_category_id` (must be one of the IDs from the categories list passed in, choose the closest match by name/type), `confidence` ("high"|"medium"|"low"), `source_hint` (e.g. "Excel row 4" or "Page 2 receipt").
+  - Never invent amounts.
+- Returns `{ success: true, claims: [...] }`. Errors surface `429` / `402` cleanly like parse-bill.
 
-- **Header:** title "Staff Reimbursements", eyebrow "Finance", `+ Add Claim` action.
-- **KPI strip (2 cards):** Total Owing, Paid This Month.
-- **Filters:** status chips (All / Owing / Paid), simple search by claimant/description.
-- **Table:** Claimant · Description · Category · Amount · Date · Status · Paid From · row action (`Mark as Paid` when owing, else view-only).
-- **Add Claim dialog:** claimant (text), description (text), category (select from classifications), amount, claim date, optional receipt upload (reuse the existing receipt upload storage bucket used by petty cash — same path convention under `staff-reimbursements/<tenant>/…`).
-- **Mark as Paid dialog:** paid-from radio (Bank / Petty Cash Float; Payroll disabled with "coming soon" hint), dependent selector, paid date. On confirm → `markAsPaid`.
-- Loading skeleton and empty state consistent with Payables page.
+**Client component `src/components/staff-reimbursements/ReimbursementAiImport.tsx`** (new)
 
-No approval workflow, no submission portal.
+Two-step dialog (single `Dialog`, internal step state):
+- **Step 1 — Upload**: mirrors `BillScanner` UI (drag/drop, choose files, camera, previews, remove per file). Accepts `image/*,application/pdf,.xlsx,.xls,.docx`. Max 15 MB per file. On submit: base64 each file, POST to `parse-staff-reimbursement` with the categories list, plus (optionally) upload the first file to the existing `petty-cash-receipts` storage bucket under `staff-reimbursements/<uid>/…` so extracted claims can carry an attachment.
+- **Step 2 — Review**: table of editable rows. Columns: claimant (Input), description (Input), category (Select — pre-selected to `suggested_category_id`, falls back to first classification if unset), amount (numeric Input), date (date Input), source hint (muted text), row-level delete (X), row-level status (chip: pending / saving / saved / error). Bulk **Save All** button + per-row **Save**. Rows validate before save (claimant, description, category, amount>0, date). On save each row calls `sr.createClaim(...)` with the shared `receipt_url`/`receipt_path` (from the uploaded original), so journal-posting logic is untouched. Saved rows stay visible but disabled with a green tick; errors show inline. When all rows are saved, "Done" closes the dialog and triggers `sr.reload()`.
 
-### 4. Routing + sidebar
+**Page wiring `src/pages/finance/StaffReimbursements.tsx`**:
+- Add "AI Import" button (icon `Sparkles`) next to the existing "+ Add Claim" action in the `PageHeader`.
+- Keep the current manual `AddClaimDialog` intact.
+- Render `<ReimbursementAiImport .../>` alongside it.
 
-- `src/App.tsx` — add route `/finance/staff-reimbursements` → `StaffReimbursements`.
-- `src/components/AppSidebar.tsx` — add `{ title: "Staff Reimbursements", url: "/finance/staff-reimbursements" }` to `financeItems` immediately after Accounts Receivable.
+### Technical notes
 
-### 5. Explicit non-goals / assumptions
-- Reversing a paid claim, editing after posting, and payroll payout are out of scope for v1 (matches "keep it simple" instruction).
-- Receipt upload uses the existing storage bucket already used by petty cash receipts (assumption — will verify the bucket name during implementation and, if none is suitable, fall back to storing just the URL text without upload).
-- `venue_id` is captured on the claim for reporting but not required in the UI (optional select in Add Claim dialog).
-- Journal entries are posted immediately (status `posted`), consistent with how `usePettyCash` posts today.
+- **npm packages in edge function**: `xlsx` and `mammoth` both work through Deno's `npm:` specifiers (no deno.json changes needed). Mammoth needs `extractRawText({ buffer })` — provide a `Buffer` via `Buffer.from(base64, 'base64')` from `node:buffer`.
+- **Multi-page PDFs**: Gemini reads them directly, no split needed.
+- **Categories payload size**: current tenant has < 20 classifications, well under any token limit.
+- **Attachment storage**: reuse the existing `petty-cash-receipts` bucket, path `staff-reimbursements/<uid>/…` (matches the existing manual dialog upload — no new bucket).
+- **No changes** to `useStaffReimbursements` hook API — the AI import path calls the same `createClaim`.
+- **No new DB migration** — everything reuses existing tables and columns.
 
-### 6. Verification
-- `tsgo` typecheck after edits.
-- Manual sanity: create a claim → confirm two rows exist in the ledger (Dr expense / Cr payable); mark paid via bank → confirm payment journal (Dr payable / Cr bank).
+### Verification
+- `tsgo` typecheck.
+- Manual smoke: upload a receipt image → review row appears → edit → Save → new claim + accrual JE in ledger. Upload a small `.xlsx` with 3 rows → 3 review rows → save all.

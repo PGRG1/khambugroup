@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Wallet, ExternalLink, Search } from "lucide-react";
+import { Plus, Wallet, ExternalLink, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -18,6 +18,7 @@ import {
 import {
   useStaffReimbursements, type StaffReimbursement,
 } from "@/hooks/useStaffReimbursements";
+import ReimbursementAiImport from "@/components/staff-reimbursements/ReimbursementAiImport";
 
 type StatusFilter = "all" | "owing" | "paid";
 
@@ -26,6 +27,7 @@ export default function StaffReimbursements() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [payOpen, setPayOpen] = useState<StaffReimbursement | null>(null);
 
   const rows = useMemo(() => {
@@ -41,11 +43,32 @@ export default function StaffReimbursements() {
     });
   }, [sr.reimbursements, statusFilter, search]);
 
-  const categoriesById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const c of sr.classifications) m.set(c.id, c.name);
+  const categoryLabelById = useMemo(() => {
+    const m = new Map<string, { name: string; ftype: string }>();
+    for (const c of sr.classifications) m.set(c.id, { name: c.name, ftype: c.financial_type });
     return m;
   }, [sr.classifications]);
+
+  /** Current-month breakdown by classification.financial_type, using claim_date. */
+  const monthByFinancialType = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear(); const m = now.getMonth();
+    const buckets: Record<"cogs" | "opex" | "asset" | "other", { total: number; count: number }> = {
+      cogs: { total: 0, count: 0 },
+      opex: { total: 0, count: 0 },
+      asset: { total: 0, count: 0 },
+      other: { total: 0, count: 0 },
+    };
+    for (const r of sr.reimbursements) {
+      const d = new Date(r.claim_date);
+      if (d.getFullYear() !== y || d.getMonth() !== m) continue;
+      const ftype = (categoryLabelById.get(r.category_id)?.ftype ?? "other") as keyof typeof buckets;
+      const bucket = buckets[ftype] ?? buckets.other;
+      bucket.total += Number(r.amount || 0);
+      bucket.count += 1;
+    }
+    return buckets;
+  }, [sr.reimbursements, categoryLabelById]);
 
   const paidFromLabel = (r: StaffReimbursement): string => {
     if (r.status !== "paid" || !r.paid_from) return "—";
@@ -64,19 +87,24 @@ export default function StaffReimbursements() {
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
       <PageHeader
-        eyebrow="Finance"
+        eyebrow="Staff Reimbursements"
         title="Staff Reimbursements"
         description="Money the business owes employees for work-related expenses they paid out of pocket."
         actions={
-          <Button onClick={() => setAddOpen(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" /> Add Claim
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => setAiOpen(true)} className="gap-1.5">
+              <Sparkles className="h-4 w-4" /> AI Import
+            </Button>
+            <Button onClick={() => setAddOpen(true)} className="gap-1.5">
+              <Plus className="h-4 w-4" /> Add Claim
+            </Button>
+          </>
         }
       />
 
       {sr.loading ? (
         <KpiGrid>
-          {[0, 1].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </KpiGrid>
       ) : (
         <KpiGrid>
@@ -91,8 +119,27 @@ export default function StaffReimbursements() {
             value={fmtHKWhole(sr.paidThisMonth)}
             tone="success"
           />
+          <KpiCard
+            label="COGS · This Month"
+            value={fmtHKWhole(monthByFinancialType.cogs.total)}
+            tone="warning"
+            hint={`${monthByFinancialType.cogs.count} claim(s)`}
+          />
+          <KpiCard
+            label="Opex · This Month"
+            value={fmtHKWhole(monthByFinancialType.opex.total)}
+            tone="info"
+            hint={`${monthByFinancialType.opex.count} claim(s)`}
+          />
+          <KpiCard
+            label="Assets · This Month"
+            value={fmtHKWhole(monthByFinancialType.asset.total)}
+            tone="success"
+            hint={`${monthByFinancialType.asset.count} claim(s)`}
+          />
         </KpiGrid>
       )}
+
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
@@ -169,8 +216,21 @@ export default function StaffReimbursements() {
                         </a>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {categoriesById.get(r.category_id) ?? "—"}
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const cat = categoryLabelById.get(r.category_id);
+                        if (!cat) return <span className="text-muted-foreground">—</span>;
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <StatusPill variant="neutral" dot={false} className="!py-1">
+                              {cat.name}
+                            </StatusPill>
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
+                              {cat.ftype}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right td-num tabular-nums">{fmtHK(Number(r.amount))}</td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(r.claim_date)}</td>
@@ -203,6 +263,11 @@ export default function StaffReimbursements() {
       <MarkPaidDialog
         claim={payOpen}
         onOpenChange={(o) => { if (!o) setPayOpen(null); }}
+        sr={sr}
+      />
+      <ReimbursementAiImport
+        open={aiOpen}
+        onOpenChange={setAiOpen}
         sr={sr}
       />
     </div>

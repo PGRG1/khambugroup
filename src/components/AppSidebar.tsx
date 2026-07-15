@@ -2,7 +2,7 @@ import {
   LogOut, FileText, Users, Building2, BrainCircuit,
   TrendingUp, Scale, ChevronDown, Target,
   Home, ShoppingCart, ReceiptText, Landmark, CreditCard, Coins,
-  Settings,
+  Settings, HandCoins,
 } from "lucide-react";
 
 import { NavLink } from "@/components/NavLink";
@@ -48,8 +48,12 @@ const financeItems: Item[] = [
   { title: "Documents & Bills", url: "/finance/documents-bills" },
   { title: "Accounts Payable", url: "/finance/payables" },
   { title: "Accounts Receivable", url: "/finance/receivables" },
-  { title: "Staff Reimbursements", url: "/finance/staff-reimbursements" },
 ];
+
+// Staff Reimbursements — its own top-level group.
+// Structure mirrors Petty Cash so `Operations` / `Master Data` sub-sections
+// can be added later without reshaping the group.
+const staffReimbOverview: Item = { title: "Overview", url: "/staff-reimbursements", end: true };
 
 const financeReportsItems: Item[] = [
   { title: "Profit & Loss", url: "/pl-report", pageKey: "pl-report" },
@@ -186,10 +190,10 @@ const kpiAdminItems: Item[] = [
 ];
 
 const STORAGE_KEY = "khambu.sidebar.groups";
-type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "bank" | "payments" | "pettycash" | "hr" | "admin" | "platform";
+type GroupKey = "revenue" | "kpi" | "finance" | "expenses" | "procurement" | "bank" | "payments" | "pettycash" | "staffreimb" | "hr" | "admin" | "platform";
 
 function loadGroupState(): Record<GroupKey, boolean> {
-  const def: Record<GroupKey, boolean> = { revenue: true, kpi: true, finance: true, expenses: true, procurement: true, bank: true, payments: true, pettycash: true, hr: true, admin: true, platform: true };
+  const def: Record<GroupKey, boolean> = { revenue: true, kpi: true, finance: true, expenses: true, procurement: true, bank: true, payments: true, pettycash: true, staffreimb: true, hr: true, admin: true, platform: true };
   if (typeof window === "undefined") return def;
   try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return { ...def, ...JSON.parse(raw) }; } catch { /* */ }
   return def;
@@ -346,6 +350,7 @@ export function AppSidebar() {
   const showBank        = canSeeSection("bank");
   const showPayments    = canSeeSection("payments");
   const showPettyCash   = canSeeSection("pettycash");
+  const showStaffReimb  = canSeeSection("staff_reimbursements");
   const showAdmin       = isAdmin && !isPreviewActive;
   const showPlatform    = isPlatformAdmin && !isPreviewActive;
 
@@ -504,6 +509,22 @@ export function AppSidebar() {
             <SubSection label="Master Data" items={pettyCashMaster} />
           </CollapsibleNavGroup>
         )}
+
+        {showStaffReimb && (
+          <CollapsibleNavGroup
+            label="Staff Reimbursements"
+            icon={HandCoins}
+            defaultOpen={groupState.staffreimb}
+            onOpenChange={(o) => setGroup("staffreimb", o)}
+          >
+            <SidebarMenu className="gap-1 pt-1">
+              <ChildLink item={staffReimbOverview} />
+            </SidebarMenu>
+            {/* Future: <SubSection label="Operations" items={...} /> and Master Data */}
+          </CollapsibleNavGroup>
+        )}
+
+
 
         {showHR && (
           <CollapsibleNavGroup
