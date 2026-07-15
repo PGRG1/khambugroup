@@ -265,6 +265,11 @@ export default function StaffReimbursements() {
         onOpenChange={(o) => { if (!o) setPayOpen(null); }}
         sr={sr}
       />
+      <ReimbursementAiImport
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        sr={sr}
+      />
     </div>
   );
 }
