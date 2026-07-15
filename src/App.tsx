@@ -73,6 +73,7 @@ import TrialBalance from "./pages/finance/TrialBalance";
 import LedgerPL from "./pages/finance/LedgerPL";
 import Receivables from "./pages/finance/Receivables";
 import Payables from "./pages/finance/Payables";
+import StaffReimbursements from "./pages/finance/StaffReimbursements";
 import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
 import FinanceDashboard from "./pages/finance/Dashboard";
 
@@ -236,6 +237,7 @@ function App() {
                 <Route path="/finance/trial-balance" element={<AdminRoute><TrialBalance /></AdminRoute>} />
                 <Route path="/finance/pl-ledger" element={<AdminRoute><LedgerPL /></AdminRoute>} />
                 <Route path="/finance/receivables" element={<AdminRoute><Receivables /></AdminRoute>} />
+                <Route path="/finance/staff-reimbursements" element={<AdminRoute><StaffReimbursements /></AdminRoute>} />
                 <Route path="/finance/payables" element={<AdminRoute><Payables /></AdminRoute>} />
                 <Route path="/finance/ledger-audit" element={<AdminRoute><LedgerAuditLog /></AdminRoute>} />
                 
