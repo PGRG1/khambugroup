@@ -192,8 +192,21 @@ export default function StaffReimbursements() {
                         </a>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {categoriesById.get(r.category_id) ?? "—"}
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const cat = categoryLabelById.get(r.category_id);
+                        if (!cat) return <span className="text-muted-foreground">—</span>;
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <StatusPill variant="neutral" dot={false} className="!py-1">
+                              {cat.name}
+                            </StatusPill>
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
+                              {cat.ftype}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right td-num tabular-nums">{fmtHK(Number(r.amount))}</td>
                     <td className="px-4 py-3 text-muted-foreground">{fmtDate(r.claim_date)}</td>
