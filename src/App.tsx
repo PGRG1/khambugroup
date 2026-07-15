@@ -73,6 +73,7 @@ import TrialBalance from "./pages/finance/TrialBalance";
 import LedgerPL from "./pages/finance/LedgerPL";
 import Receivables from "./pages/finance/Receivables";
 import Payables from "./pages/finance/Payables";
+import StaffReimbursements from "./pages/finance/StaffReimbursements";
 import LedgerAuditLog from "./pages/finance/LedgerAuditLog";
 import FinanceDashboard from "./pages/finance/Dashboard";
 
