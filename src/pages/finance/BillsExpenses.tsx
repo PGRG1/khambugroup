@@ -652,29 +652,36 @@ export default function BillsExpenses() {
                 </Button>
               }
             >
-              <div className="rounded-md border border-border/60 overflow-auto">
-                <Table>
+              <div className="rounded-md border border-border/60">
+                <Table className="w-full table-fixed">
+                  <colgroup>
+                    <col className="w-[190px]" />
+                    <col className="w-[210px]" />
+                    <col className="w-[150px]" />
+                    <col className="w-[150px]" />
+                    <col />
+                    <col className="w-[44px]" />
+                  </colgroup>
                   <TableHeader>
                     <TableRow className="bg-muted/40 hover:bg-muted/40">
-                      <TableHead className="w-44 text-[11px] uppercase tracking-wider text-muted-foreground">Category</TableHead>
-                      <TableHead className="w-56 text-[11px] uppercase tracking-wider text-muted-foreground">Account</TableHead>
-                      <TableHead className="w-32 text-[11px] uppercase tracking-wider text-muted-foreground">Venue</TableHead>
-                      <TableHead className="w-32 text-[11px] uppercase tracking-wider text-muted-foreground">Department</TableHead>
-                      <TableHead className="w-28 text-right text-[11px] uppercase tracking-wider text-muted-foreground">Amount</TableHead>
-                      <TableHead className="w-28 text-[11px] uppercase tracking-wider text-muted-foreground">Tax</TableHead>
-                      <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Notes</TableHead>
-                      <TableHead className="w-10"></TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Category</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Account</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Venue</TableHead>
+                      <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">Amount</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground min-w-[160px]">Notes</TableHead>
+                      <TableHead className=""></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {allocations.map((a, idx) => (
                       <TableRow key={idx}>
-                        <TableCell>
+                        <TableCell className="py-2.5 align-top">
                           {(() => {
                             const matched = categories.find(
                               (c) => c.name.toLowerCase() === (a.expense_category || "").toLowerCase()
                             );
                             const selectValue = matched ? matched.id : (a.expense_category ? CATEGORY_OTHER : "");
+                            const label = matched?.name || a.expense_category || "";
                             return (
                               <div className="space-y-1">
                                 <Select
@@ -691,7 +698,11 @@ export default function BillsExpenses() {
                                     }
                                   }}
                                 >
-                                  <SelectTrigger className="h-8"><SelectValue placeholder="Select category" /></SelectTrigger>
+                                  <SelectTrigger className="h-9 w-full" title={label}>
+                                    <span className="truncate text-left">
+                                      <SelectValue placeholder="Select category" />
+                                    </span>
+                                  </SelectTrigger>
                                   <SelectContent>
                                     {categories.map((c) => (
                                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -711,44 +722,45 @@ export default function BillsExpenses() {
                             );
                           })()}
                         </TableCell>
-                        <TableCell>
-                          <Select value={a.account_id || ""} onValueChange={(v) => updateAlloc(idx, { account_id: v })}>
-                            <SelectTrigger className="h-8"><SelectValue placeholder="GL account" /></SelectTrigger>
-                            <SelectContent>
-                              {accounts.filter(ac => ac.id).map((ac) => (
-                                <SelectItem key={ac.id} value={ac.id}>{ac.code} — {ac.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <TableCell className="py-2.5 align-top">
+                          {(() => {
+                            const acc = accounts.find(ac => ac.id === a.account_id);
+                            const label = acc ? `${acc.code} — ${acc.name}` : "";
+                            return (
+                              <Select value={a.account_id || ""} onValueChange={(v) => updateAlloc(idx, { account_id: v })}>
+                                <SelectTrigger className="h-9 w-full" title={label}>
+                                  <span className="truncate text-left">
+                                    <SelectValue placeholder="GL account" />
+                                  </span>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {accounts.filter(ac => ac.id).map((ac) => (
+                                    <SelectItem key={ac.id} value={ac.id}>{ac.code} — {ac.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            );
+                          })()}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-2.5 align-top">
                           <Select value={a.venue || ""} onValueChange={(v) => updateAlloc(idx, { venue: v })}>
-                            <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
+                            <SelectTrigger className="h-9 w-full" title={a.venue || ""}>
+                              <span className="truncate text-left">
+                                <SelectValue placeholder="—" />
+                              </span>
+                            </SelectTrigger>
                             <SelectContent>
                               {venues.filter(v => v.name).map(v => (<SelectItem key={v.id} value={v.name}>{v.name}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
-                          <Input className="h-8" value={a.department || ""} onChange={(e) => updateAlloc(idx, { department: e.target.value })} />
+                        <TableCell className="py-2.5 align-top text-right">
+                          <AmountCell value={Number(a.amount || 0)} onChange={(n) => updateAlloc(idx, { amount: n })} />
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Input type="number" step="0.01" value={a.amount} onChange={(e) => updateAlloc(idx, { amount: parseFloat(e.target.value) || 0 })} className="text-right font-mono h-8" />
+                        <TableCell className="py-2.5 align-top">
+                          <Input className="h-9" value={a.notes || ""} onChange={(e) => updateAlloc(idx, { notes: e.target.value })} placeholder="Optional" />
                         </TableCell>
-                        <TableCell>
-                          <Select value={a.tax_treatment} onValueChange={(v: any) => updateAlloc(idx, { tax_treatment: v })}>
-                            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">None</SelectItem>
-                              <SelectItem value="inclusive">Inclusive</SelectItem>
-                              <SelectItem value="exclusive">Exclusive</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input className="h-8" value={a.notes || ""} onChange={(e) => updateAlloc(idx, { notes: e.target.value })} placeholder="Optional" />
-                        </TableCell>
-                        <TableCell>
+                        <TableCell className="py-2.5 align-top">
                           <Button variant="ghost" size="icon" onClick={() => removeAlloc(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </TableCell>
                       </TableRow>
@@ -756,14 +768,28 @@ export default function BillsExpenses() {
                   </TableBody>
                 </Table>
               </div>
-              <div className={`mt-3 flex justify-end items-center gap-2 text-sm font-mono ${balanced ? "text-muted-foreground" : "text-destructive"}`}>
-                <span className="text-muted-foreground">Allocated</span>
-                <span className={balanced ? "text-foreground font-semibold" : "text-destructive font-semibold"}>{fmtHK(allocTotal)}</span>
-                <span className="text-muted-foreground">/</span>
-                <span>{fmtHK(expectedAllocTotal)}</span>
-                {!balanced && <span className="ml-1 inline-flex items-center gap-1 text-destructive"><AlertTriangle className="h-3 w-3" /> unbalanced</span>}
-                {balanced && allocations.length > 0 && <span className="ml-1 text-primary text-xs">✓ balanced</span>}
-              </div>
+              {(() => {
+                const delta = allocTotal - expectedAllocTotal;
+                const abs = Math.abs(delta);
+                return (
+                  <div className="mt-3 flex justify-end items-center gap-3 text-sm tabular-nums">
+                    <span className="text-muted-foreground">Allocated</span>
+                    <span className="font-semibold text-foreground">{fmtHK(allocTotal)}</span>
+                    <span className="text-muted-foreground">/</span>
+                    <span className="text-muted-foreground">{fmtHK(expectedAllocTotal)}</span>
+                    {allocations.length > 0 && (
+                      balanced ? (
+                        <span className="ml-1 inline-flex items-center gap-1 text-primary text-xs font-medium">✓ Balanced</span>
+                      ) : (
+                        <span className="ml-1 inline-flex items-center gap-1 text-warning text-xs font-medium">
+                          <AlertTriangle className="h-3 w-3" />
+                          {delta > 0 ? "Over by " : "Short by "}{fmtHK(abs)}
+                        </span>
+                      )
+                    )}
+                  </div>
+                );
+              })()}
               {hasUnmappedAllocation && (
                 <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
