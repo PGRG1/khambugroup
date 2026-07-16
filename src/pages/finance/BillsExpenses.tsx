@@ -677,17 +677,6 @@ export default function BillsExpenses() {
             </FormSection>
 
             {/* Allocations */}
-            <FormSection
-              title="Expense allocation"
-              description="Distribute the subtotal across categories and GL accounts. Every line needs an account before posting."
-              aside={
-                <Button size="sm" variant="outline" className="h-8" onClick={addAllocation}>
-                  <Plus className="h-3 w-3 mr-1" /> Add row
-                </Button>
-              }
-            >
-              <div className="rounded-md border border-border/60">
-                <Table className="w-full table-fixed">
             {(() => {
               const hasDeptData = allocations.some((a) => (a.department || "").trim() !== "");
               const hasTaxData = allocations.some((a) => a.tax_treatment && a.tax_treatment !== "none");
