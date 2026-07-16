@@ -51,6 +51,26 @@ interface Category { id: string; name: string; default_account_id: string | null
 
 const CATEGORY_OTHER = "__other__";
 
+function AmountCell({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState<string>(String(value ?? 0));
+  useEffect(() => { if (!focused) setDraft(String(value ?? 0)); }, [value, focused]);
+  const formatted = (Number(value) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">HK$</span>
+      <Input
+        inputMode="decimal"
+        value={focused ? draft : formatted}
+        onFocus={() => { setDraft(String(value ?? 0)); setFocused(true); }}
+        onBlur={() => { const n = parseFloat(draft.replace(/,/g, "")); onChange(Number.isFinite(n) ? n : 0); setFocused(false); }}
+        onChange={(e) => setDraft(e.target.value)}
+        className="h-9 pl-11 pr-2 text-right tabular-nums font-medium"
+      />
+    </div>
+  );
+}
+
 export default function BillsExpenses() {
   const { isAdmin } = useAuth();
   const { tenantId } = useActiveTenant();
