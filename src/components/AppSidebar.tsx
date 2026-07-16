@@ -75,7 +75,6 @@ const expensesOverview: Item = { title: "Overview", url: "/expenses", end: true 
 const expensesMasterData: Item[] = [
   { title: "Categories", url: "/expenses/categories" },
   { title: "Vendors", url: "/expenses/vendors" },
-  { title: "Payment Terms", url: "/expenses/payment-terms" },
 ];
 const expensesBillsVendors: Item[] = [
   { title: "Expense Bills", url: "/expenses/bills" },
