@@ -323,16 +323,14 @@ export default function BillsExpenses() {
         title="Bills & Expenses"
         description="Non-inventory supplier bills — utilities, rent, services, professional fees, late charges."
         actions={
-          <>
-            <Button size="sm" variant="outline" className="h-9" onClick={() => setScannerOpen(true)}>
-              <ScanLine className="h-4 w-4 mr-1" /> Scan bill
-            </Button>
-            <Button size="sm" className="h-9" onClick={() => openEditor(null)}>
-              <Plus className="h-4 w-4 mr-1" /> New bill
-            </Button>
-          </>
+          <Button size="sm" className="h-9" onClick={() => openEditor(null)}>
+            <Plus className="h-4 w-4 mr-1" /> New bill
+          </Button>
         }
       />
+
+      <BillDropZone onParsed={handleScanned} />
+
 
       {/* Master-data prompt — surfaces when categories or vendors are empty. */}
       {masterMissing && (
