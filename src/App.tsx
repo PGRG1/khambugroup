@@ -46,6 +46,7 @@ import NotFound from "./pages/NotFound";
 import UserAccessControl from "./pages/UserAccessControl";
 import Reconciliation from "./pages/revenue/Reconciliation";
 import ServicePeriods from "./pages/revenue/ServicePeriods";
+import RevenueMapping from "./pages/revenue/Mapping";
 import AccessDenied from "./pages/AccessDenied";
 
 import Procurement from "./pages/Procurement";
@@ -217,6 +218,7 @@ function App() {
                 <Route path="/sales-data/:id" element={<ProtectedRoute pageKey="revenue"><SalesRecordDetail /></ProtectedRoute>} />
                 <Route path="/revenue/reconciliation" element={<ProtectedRoute pageKey="revenue"><Reconciliation /></ProtectedRoute>} />
                 <Route path="/revenue/service-periods" element={<ProtectedRoute pageKey="revenue"><ServicePeriods /></ProtectedRoute>} />
+                <Route path="/revenue/mapping" element={<ProtectedRoute pageKey="revenue"><RevenueMapping /></ProtectedRoute>} />
 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><RevenueTargets /></ProtectedRoute>} />
                 <Route path="/forecast-legacy/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
