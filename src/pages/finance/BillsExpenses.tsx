@@ -85,6 +85,18 @@ export default function BillsExpenses() {
     | undefined;
   const [linkedBankTxn, setLinkedBankTxn] = useState<string | null>(null);
 
+  const ALLOC_COLS_KEY = "bani.expense-alloc.columns";
+  const [allocColPrefs, setAllocColPrefs] = useState<{ department: boolean; tax: boolean }>(() => {
+    try {
+      const raw = localStorage.getItem(ALLOC_COLS_KEY);
+      if (raw) { const p = JSON.parse(raw); return { department: !!p.department, tax: !!p.tax }; }
+    } catch {}
+    return { department: false, tax: false };
+  });
+  useEffect(() => {
+    try { localStorage.setItem(ALLOC_COLS_KEY, JSON.stringify(allocColPrefs)); } catch {}
+  }, [allocColPrefs]);
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
