@@ -907,6 +907,8 @@ export default function BillsExpenses() {
                 </div>
               )}
             </FormSection>
+              );
+            })()}
 
             {/* Payments */}
             {editing && (
