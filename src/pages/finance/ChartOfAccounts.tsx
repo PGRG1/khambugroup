@@ -24,6 +24,7 @@ import { Plus, Pencil, Trash2, RefreshCw, Loader2, Search } from "lucide-react";
 import { RevenueMappingMatrix } from "@/components/finance/RevenueMappingMatrix";
 import { ProcurementMappingMatrix } from "@/components/finance/ProcurementMappingMatrix";
 import { PayrollMappingMatrix } from "@/components/finance/PayrollMappingMatrix";
+import { ExpenseMappingMatrix } from "@/components/finance/ExpenseMappingMatrix";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -410,6 +411,7 @@ export default function ChartOfAccountsPage() {
               <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
               <TabsTrigger value="procurement">Procurement</TabsTrigger>
               <TabsTrigger value="payroll">Payroll</TabsTrigger>
+              <TabsTrigger value="expenses">Expenses</TabsTrigger>
             </TabsList>
             <TabsContent value="sales-revenue" className="mt-4">
               <RevenueMappingMatrix accounts={items} section="sales" />
@@ -422,6 +424,9 @@ export default function ChartOfAccountsPage() {
             </TabsContent>
             <TabsContent value="payroll" className="mt-4">
               <PayrollMappingMatrix accounts={items} />
+            </TabsContent>
+            <TabsContent value="expenses" className="mt-4">
+              <ExpenseMappingMatrix accounts={items} />
             </TabsContent>
           </Tabs>
         </TabsContent>

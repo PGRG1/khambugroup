@@ -122,6 +122,7 @@ import BankDetectedExpensesPage from "./pages/expenses/BankDetectedExpenses";
 import RecurringExpensesPage from "./pages/expenses/RecurringExpenses";
 import ExpenseCategoriesPage from "./pages/expenses/Categories";
 import ExpenseVendorsPage from "./pages/expenses/ExpenseVendors";
+import ExpenseMappingPage from "./pages/expenses/Mapping";
 
 import ExpenseApprovalsPage from "./pages/expenses/Approvals";
 import ExpenseAnalyticsPage from "./pages/expenses/Analytics";
@@ -340,6 +341,7 @@ function App() {
                 <Route path="/expenses/recurring" element={<AdminRoute><RecurringExpensesPage /></AdminRoute>} />
                 <Route path="/expenses/categories" element={<AdminRoute><ExpenseCategoriesPage /></AdminRoute>} />
                 <Route path="/expenses/vendors" element={<AdminRoute><ExpenseVendorsPage /></AdminRoute>} />
+                <Route path="/expenses/mapping" element={<AdminRoute><ExpenseMappingPage /></AdminRoute>} />
                 
                 <Route path="/expenses/approvals" element={<AdminRoute><ExpenseApprovalsPage /></AdminRoute>} />
                 <Route path="/expenses/analytics" element={<AdminRoute><ExpenseAnalyticsPage /></AdminRoute>} />
