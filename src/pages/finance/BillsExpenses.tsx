@@ -9,10 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, Search, Eye, ExternalLink, ScanLine, ShieldAlert, FileText, ArrowRight, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRight, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import BillScanner, { ScannedBill } from "@/components/finance/bills/BillScanner";
+import BillDropZone, { ScannedBill } from "@/components/finance/bills/BillDropZone";
 import {
   useExpenseBills,
   ExpenseBill,
