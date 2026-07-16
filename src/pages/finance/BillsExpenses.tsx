@@ -688,11 +688,62 @@ export default function BillsExpenses() {
             >
               <div className="rounded-md border border-border/60">
                 <Table className="w-full table-fixed">
+            {(() => {
+              const hasDeptData = allocations.some((a) => (a.department || "").trim() !== "");
+              const hasTaxData = allocations.some((a) => a.tax_treatment && a.tax_treatment !== "none");
+              const showDept = allocColPrefs.department || hasDeptData;
+              const showTax = allocColPrefs.tax || hasTaxData;
+              return (
+            <FormSection
+              title="Expense allocation"
+              description="Distribute the subtotal across categories and GL accounts. Every line needs an account before posting."
+              aside={
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Toggle columns">
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-56">
+                      <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Optional columns</div>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={showDept}
+                            disabled={hasDeptData}
+                            onCheckedChange={(v) => setAllocColPrefs((p) => ({ ...p, department: !!v }))}
+                          />
+                          <span>Department</span>
+                          {hasDeptData && <span className="ml-auto text-[10px] text-muted-foreground">in use</span>}
+                        </label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={showTax}
+                            disabled={hasTaxData}
+                            onCheckedChange={(v) => setAllocColPrefs((p) => ({ ...p, tax: !!v }))}
+                          />
+                          <span>Tax</span>
+                          {hasTaxData && <span className="ml-auto text-[10px] text-muted-foreground">in use</span>}
+                        </label>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Button size="sm" variant="outline" className="h-8" onClick={addAllocation}>
+                    <Plus className="h-3 w-3 mr-1" /> Add row
+                  </Button>
+                </div>
+              }
+            >
+              <div className="rounded-md border border-border/60">
+                <Table className="w-full table-fixed">
                   <colgroup>
                     <col className="w-[190px]" />
                     <col className="w-[210px]" />
                     <col className="w-[150px]" />
+                    {showDept && <col className="w-[140px]" />}
                     <col className="w-[150px]" />
+                    {showTax && <col className="w-[110px]" />}
                     <col />
                     <col className="w-[44px]" />
                   </colgroup>
@@ -701,7 +752,9 @@ export default function BillsExpenses() {
                       <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Category</TableHead>
                       <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Account</TableHead>
                       <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Venue</TableHead>
+                      {showDept && <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Department</TableHead>}
                       <TableHead className="text-right text-[11px] uppercase tracking-wider text-muted-foreground">Amount</TableHead>
+                      {showTax && <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground">Tax</TableHead>}
                       <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground min-w-[160px]">Notes</TableHead>
                       <TableHead className=""></TableHead>
                     </TableRow>
@@ -788,9 +841,26 @@ export default function BillsExpenses() {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        {showDept && (
+                          <TableCell className="py-2.5 align-top">
+                            <Input className="h-9" value={a.department || ""} onChange={(e) => updateAlloc(idx, { department: e.target.value })} placeholder="—" />
+                          </TableCell>
+                        )}
                         <TableCell className="py-2.5 align-top text-right">
                           <AmountCell value={Number(a.amount || 0)} onChange={(n) => updateAlloc(idx, { amount: n })} />
                         </TableCell>
+                        {showTax && (
+                          <TableCell className="py-2.5 align-top">
+                            <Select value={a.tax_treatment || "none"} onValueChange={(v: any) => updateAlloc(idx, { tax_treatment: v })}>
+                              <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                <SelectItem value="inclusive">Inclusive</SelectItem>
+                                <SelectItem value="exclusive">Exclusive</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        )}
                         <TableCell className="py-2.5 align-top">
                           <Input className="h-9" value={a.notes || ""} onChange={(e) => updateAlloc(idx, { notes: e.target.value })} placeholder="Optional" />
                         </TableCell>
