@@ -9,10 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, Search, Eye, ExternalLink, ScanLine, ShieldAlert, FileText, ArrowRight, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRight, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
-import BillScanner, { ScannedBill } from "@/components/finance/bills/BillScanner";
+import BillDropZone, { ScannedBill } from "@/components/finance/bills/BillDropZone";
 import {
   useExpenseBills,
   ExpenseBill,
@@ -79,7 +79,7 @@ export default function BillsExpenses() {
   const [allocations, setAllocations] = useState<ExpenseBillAllocation[]>([]);
   const [audit, setAudit] = useState<ExpenseBillAuditRow[]>([]);
   const [payments, setPayments] = useState<ExpenseBillPayment[]>([]);
-  const [scannerOpen, setScannerOpen] = useState(false);
+  
 
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [payForm, setPayForm] = useState<{ amount: string; payment_date: string; payment_method: string; bank_account_id: string; reference: string }>({
@@ -323,16 +323,14 @@ export default function BillsExpenses() {
         title="Bills & Expenses"
         description="Non-inventory supplier bills — utilities, rent, services, professional fees, late charges."
         actions={
-          <>
-            <Button size="sm" variant="outline" className="h-9" onClick={() => setScannerOpen(true)}>
-              <ScanLine className="h-4 w-4 mr-1" /> Scan bill
-            </Button>
-            <Button size="sm" className="h-9" onClick={() => openEditor(null)}>
-              <Plus className="h-4 w-4 mr-1" /> New bill
-            </Button>
-          </>
+          <Button size="sm" className="h-9" onClick={() => openEditor(null)}>
+            <Plus className="h-4 w-4 mr-1" /> New bill
+          </Button>
         }
       />
+
+      <BillDropZone onParsed={handleScanned} />
+
 
       {/* Master-data prompt — surfaces when categories or vendors are empty. */}
       {masterMissing && (
@@ -957,7 +955,7 @@ export default function BillsExpenses() {
         </DialogContent>
       </Dialog>
 
-      <BillScanner open={scannerOpen} onOpenChange={setScannerOpen} onParsed={handleScanned} />
+      
       {confirmDialog}
     </div>
   );
