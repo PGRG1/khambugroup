@@ -45,6 +45,9 @@ export interface ExpenseBill {
   period_end?: string | null;
   document_requirement?: "not_required" | "pending" | "received" | string;
   combined_venues?: boolean;
+  brought_forward?: number;
+  statement_total?: number | null;
+  meta?: Record<string, any> | null;
 }
 
 
