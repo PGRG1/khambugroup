@@ -368,9 +368,61 @@ export default function BillsExpenses() {
     }
   };
 
-  // Alert reviewers on the editor when the current bill has allocations missing GL
-  // accounts — bills like these silently stall at Post because the RPC rejects them.
-  const hasUnmappedAllocation = allocations.some((a) => !a.account_id);
+  // Readiness checklist — mirrors the DB trigger (trg_expense_bill_approval_gate)
+  // so users see up-front what would block approval. The DB is authoritative;
+  // this is guidance only. Approve/Submit buttons stay enabled either way.
+  const vendorLinked = !!header.supplier_id;
+  const allocationsHaveCategory = allocations.length > 0 && allocations.every((a) => (a.expense_category || "").trim() !== "");
+  const allocationsHaveAccount = allocations.length > 0 && allocations.every((a) => !!a.account_id);
+  // `balanced` and `expectedAllocTotal` are computed below; recompute here for clarity.
+  const _allocTotal = allocations.reduce((s, a) => s + Number(a.amount || 0), 0);
+  const _expected = Number(header.subtotal || 0) || (Number(header.total_amount || 0) - Number(header.tax_amount || 0));
+  const allocationsBalance = allocations.length > 0 && Math.abs(_allocTotal - _expected) < 0.01;
+  const grandfatheredVendor =
+    editing?.approval_status === "approved" && !editing?.supplier_id;
+
+  // Inline vendor match: does the typed vendor_name resolve to an existing supplier?
+  const trimmedVName = (header.vendor_name || "").trim();
+  const vendorNameMatchExists = trimmedVName
+    ? suppliers.some(
+        (s) =>
+          (s.vendor_type || "expense") === "expense" &&
+          s.name.trim().toLowerCase() === trimmedVName.toLowerCase()
+      )
+    : false;
+  const showInlineCreateVendor =
+    !!trimmedVName && !header.supplier_id && !vendorNameMatchExists && !!tenantId;
+  const [creatingVendor, setCreatingVendor] = useState(false);
+
+  const createVendorInline = async () => {
+    if (!tenantId || !trimmedVName || creatingVendor) return;
+    setCreatingVendor(true);
+    try {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .insert({
+          name: trimmedVName,
+          vendor_type: "expense",
+          is_active: true,
+          tenant_id: tenantId,
+          invoice_rounding_mode: "sum_then_round",
+          categories: [],
+          delivery_days: [],
+          moq: 0,
+        })
+        .select("id,name,account_number,vendor_type")
+        .single();
+      if (error) throw error;
+      const newSupplier = data as Supplier;
+      setSuppliers((prev) => [...prev, newSupplier].sort((a, b) => a.name.localeCompare(b.name)));
+      setHeader((h) => ({ ...h, supplier_id: newSupplier.id }));
+      toast.success(`Vendor "${newSupplier.name}" added to master data`);
+    } catch (e: any) {
+      toast.error("Could not create vendor: " + (e?.message || "unknown error"));
+    } finally {
+      setCreatingVendor(false);
+    }
+  };
 
   const masterMissing = categories.length === 0 || suppliers.length === 0;
 
