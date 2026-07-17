@@ -973,18 +973,7 @@ export default function BillsExpenses() {
                   </div>
                 );
               })()}
-              {hasUnmappedAllocation && (
-                <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div>
-                    <div className="font-medium">One or more allocation lines are missing a GL account.</div>
-                    <div className="mt-0.5 text-muted-foreground">
-                      Pick a category with a default account, or set an account explicitly.
-                      Posting to GL is blocked until every line is mapped.
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Legacy per-line GL warning removed — see the Readiness checklist above the actions. */}
             </FormSection>
               );
             })()}
