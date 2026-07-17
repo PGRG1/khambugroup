@@ -247,6 +247,12 @@ export default function BillsExpenses() {
     // Try to match supplier by name (case-insensitive)
     const matched = suppliers.find((sp) => sp.name.toLowerCase() === s.vendor_name.toLowerCase());
     const ven = venues.find((v) => v.name.toLowerCase() === (s.venue || "").toLowerCase());
+    const bf = Number(s.brought_forward || 0);
+    const stTotal =
+      s.statement_total === null || s.statement_total === undefined ? null : Number(s.statement_total);
+    const meta: Record<string, any> = {};
+    if (s.account_number) meta.account_number = s.account_number;
+    if (s.consumption) meta.consumption = s.consumption;
     setEditing(null);
     setHeader({
       supplier_id: matched?.id || null,
@@ -266,6 +272,9 @@ export default function BillsExpenses() {
       attachment_url: s.attachment_url || null,
       attachment_path: s.attachment_path || null,
       approval_status: "draft",
+      brought_forward: bf,
+      statement_total: stTotal,
+      meta,
     });
     setAllocations(
       (s.allocations.length ? s.allocations : [{ expense_category: "Other Operating Expenses", amount: s.subtotal || s.total_amount, notes: "" }]).map((a, i) => ({
@@ -556,6 +565,21 @@ export default function BillsExpenses() {
               }
               return <StatusFlow steps={steps} currentIndex={idx} />;
             })()}
+
+            {/* Statement bill notice — brought-forward is excluded from booking. */}
+            {Number(header.brought_forward || 0) > 0 && (
+              <div className="rounded-lg border border-info/40 bg-info/10 p-3 flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 mt-0.5 text-info shrink-0" />
+                <div className="text-xs text-foreground leading-relaxed">
+                  <span className="font-medium">Statement bill:</span>{" "}
+                  {fmtHK(Number(header.brought_forward || 0))} brought forward from prior bills is excluded — booking current charges of{" "}
+                  <span className="font-medium">{fmtHK(Number(header.total_amount || 0))}</span> only.
+                  {header.statement_total != null && (
+                    <> Statement total {fmtHK(Number(header.statement_total))} should equal this vendor's payable balance after posting.</>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Bill identity */}
             <FormSection

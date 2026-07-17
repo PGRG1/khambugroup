@@ -8,6 +8,7 @@ import { toast } from "sonner";
 export interface ScannedBill {
   vendor_name: string;
   bill_number: string;
+  account_number?: string;
   bill_date: string;
   due_date: string;
   service_period_start: string;
@@ -17,6 +18,17 @@ export interface ScannedBill {
   subtotal: number;
   tax_amount: number;
   total_amount: number;
+  brought_forward?: number;
+  statement_total?: number | null;
+  current_charges?: number;
+  consumption?: {
+    meter_no?: string;
+    prev_reading?: number;
+    present_reading?: number;
+    units?: number;
+    unit_rate_cents?: number;
+    days?: number;
+  } | null;
   notes: string;
   suggested_document_type: string;
   allocations: { expense_category: string; amount: number; notes: string }[];

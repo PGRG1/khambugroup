@@ -45,6 +45,9 @@ export interface ExpenseBill {
   period_end?: string | null;
   document_requirement?: "not_required" | "pending" | "received" | string;
   combined_venues?: boolean;
+  brought_forward?: number;
+  statement_total?: number | null;
+  meta?: Record<string, any> | null;
 }
 
 
@@ -147,6 +150,12 @@ export function useExpenseBills() {
           attachment_url: header.attachment_url || null,
           attachment_path: header.attachment_path || null,
           approval_status: header.approval_status || "draft",
+          brought_forward: Number(header.brought_forward || 0),
+          statement_total:
+            header.statement_total === null || header.statement_total === undefined
+              ? null
+              : Number(header.statement_total),
+          meta: header.meta ?? {},
         };
 
         if (billId) {
