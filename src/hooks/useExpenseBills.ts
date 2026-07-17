@@ -150,6 +150,12 @@ export function useExpenseBills() {
           attachment_url: header.attachment_url || null,
           attachment_path: header.attachment_path || null,
           approval_status: header.approval_status || "draft",
+          brought_forward: Number(header.brought_forward || 0),
+          statement_total:
+            header.statement_total === null || header.statement_total === undefined
+              ? null
+              : Number(header.statement_total),
+          meta: header.meta ?? {},
         };
 
         if (billId) {
