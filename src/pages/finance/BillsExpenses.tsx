@@ -1094,11 +1094,7 @@ export default function BillsExpenses() {
                 </>
               )}
               {(header.approval_status === "approved" || header.approval_status === "pending_review") && isAdmin && editing && (
-                <Button
-                  onClick={handlePost}
-                  disabled={!balanced || hasUnmappedAllocation}
-                  title={hasUnmappedAllocation ? "Every allocation line needs a GL account." : (!balanced ? "Allocation totals must balance." : undefined)}
-                >
+                <Button onClick={handlePost}>
                   Approve &amp; post to GL
                 </Button>
               )}
