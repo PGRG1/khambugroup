@@ -44,8 +44,6 @@ export function routeForClass(c: DocumentClass): string {
       return "/procurement/invoices";
     case "expense_bill":
       return "/expenses/bills";
-    case "vendor_statement":
-      return "/expenses/statements";
     case "bank_document":
       return "/finance/bank-reconciliation";
     case "payroll":

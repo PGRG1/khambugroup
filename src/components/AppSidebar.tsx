@@ -79,7 +79,7 @@ const expensesMasterData: Item[] = [
 ];
 const expensesBillsVendors: Item[] = [
   { title: "Expense Bills", url: "/expenses/bills" },
-  { title: "Vendor Statements", url: "/expenses/statements" },
+  
   { title: "Recurring Expenses", url: "/expenses/recurring" },
   { title: "Bank-Detected", url: "/expenses/bank-detected" },
 ];
