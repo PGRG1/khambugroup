@@ -1043,6 +1043,67 @@ export default function BillsExpenses() {
               </FormSection>
             )}
 
+            {/* Readiness checklist — mirrors the DB approval-gate trigger.
+                Live pass/fail per requirement so users know before they click Approve.
+                Hidden once the bill has already passed approval (posted/reversed). */}
+            {header.approval_status !== "posted" && header.approval_status !== "reversed" && header.approval_status !== "void" && (
+              <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
+                  Readiness to approve
+                </div>
+                <ul className="space-y-2 text-sm">
+                  {[
+                    {
+                      pass: vendorLinked,
+                      grandfathered: !vendorLinked && grandfatheredVendor,
+                      label: "Vendor linked to master data",
+                      failHint: "Pick a vendor from the list, or use “Create” next to the vendor name.",
+                      grandfatheredHint: "Approved before vendor linking was required — not blocking retroactively.",
+                    },
+                    {
+                      pass: allocationsHaveCategory,
+                      label: "Every allocation line has a category",
+                      failHint: "Set a category on each row of the expense allocation table.",
+                    },
+                    {
+                      pass: allocationsHaveAccount,
+                      label: "Every allocation line has a GL account",
+                      failHint: "Pick a category with a default account, or set an account explicitly.",
+                    },
+                    {
+                      pass: allocationsBalance,
+                      label: "Allocations balance to subtotal",
+                      failHint: "Adjust line amounts so the total matches the bill subtotal (±0.01).",
+                    },
+                  ].map((item, i) => {
+                    const amber = item.grandfathered;
+                    const ok = item.pass && !amber;
+                    return (
+                      <li key={i} className="flex items-start gap-2">
+                        {ok ? (
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                        ) : amber ? (
+                          <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <div className={ok ? "text-foreground" : amber ? "text-warning" : "text-foreground"}>
+                            {item.label}
+                          </div>
+                          {!ok && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {amber ? item.grandfatheredHint : item.failHint}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
             {/* Actions — clear primary CTA on the right, secondary/destructive on the left. */}
             <div className="sticky bottom-0 -mx-6 px-6 py-4 border-t border-border/60 bg-background/95 backdrop-blur flex flex-wrap items-center gap-2">
               {editing && editing.approval_status === "posted" && isAdmin && (
