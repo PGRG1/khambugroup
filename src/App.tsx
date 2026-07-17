@@ -117,7 +117,7 @@ import HRPayroll from "./pages/hr/HRPayroll";
 
 import ExpensesOverview from "./pages/expenses/Overview";
 import ExpenseBillsPage from "./pages/expenses/ExpenseBills";
-import VendorStatementsPage from "./pages/expenses/VendorStatements";
+
 import BankDetectedExpensesPage from "./pages/expenses/BankDetectedExpenses";
 import RecurringExpensesPage from "./pages/expenses/RecurringExpenses";
 import ExpenseCategoriesPage from "./pages/expenses/Categories";
@@ -340,7 +340,7 @@ function App() {
 
                 <Route path="/expenses" element={<AdminRoute><ExpensesOverview /></AdminRoute>} />
                 <Route path="/expenses/bills" element={<AdminRoute><ExpenseBillsPage /></AdminRoute>} />
-                <Route path="/expenses/statements" element={<AdminRoute><VendorStatementsPage /></AdminRoute>} />
+                
                 <Route path="/expenses/bank-detected" element={<AdminRoute><BankDetectedExpensesPage /></AdminRoute>} />
                 <Route path="/expenses/recurring" element={<AdminRoute><RecurringExpensesPage /></AdminRoute>} />
                 <Route path="/expenses/categories" element={<AdminRoute><ExpenseCategoriesPage /></AdminRoute>} />
