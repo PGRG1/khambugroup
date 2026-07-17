@@ -245,8 +245,21 @@ export default function BillsExpenses() {
   };
 
   const handleScanned = (s: ScannedBill) => {
-    // Try to match supplier by name (case-insensitive)
-    const matched = suppliers.find((sp) => sp.name.toLowerCase() === s.vendor_name.toLowerCase());
+    // Match supplier by trimmed case-insensitive name, then fall back to account_number.
+    const vName = (s.vendor_name || "").trim().toLowerCase();
+    const nameMatches = suppliers.filter(
+      (sp) => (sp.vendor_type || "expense") === "expense" && sp.name.trim().toLowerCase() === vName
+    );
+    let matched: Supplier | undefined = nameMatches.length === 1 ? nameMatches[0] : undefined;
+    if (!matched && s.account_number) {
+      const acct = String(s.account_number).trim().toLowerCase();
+      const acctMatches = suppliers.filter(
+        (sp) =>
+          (sp.vendor_type || "expense") === "expense" &&
+          (sp.account_number || "").trim().toLowerCase() === acct
+      );
+      if (acctMatches.length === 1) matched = acctMatches[0];
+    }
     const ven = venues.find((v) => v.name.toLowerCase() === (s.venue || "").toLowerCase());
     const bf = Number(s.brought_forward || 0);
     const stTotal =
