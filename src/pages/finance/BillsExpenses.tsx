@@ -665,6 +665,17 @@ export default function BillsExpenses() {
                 <div>
                   <Label>Vendor name (override)</Label>
                   <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
+                  {showInlineCreateVendor && (
+                    <button
+                      type="button"
+                      onClick={createVendorInline}
+                      disabled={creatingVendor}
+                      className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-primary hover:underline disabled:opacity-50"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      {creatingVendor ? "Creating…" : <>Not in master data — Create “{trimmedVName}”</>}
+                    </button>
+                  )}
                 </div>
                 <div>
                   <Label>Bill / Invoice #</Label>
