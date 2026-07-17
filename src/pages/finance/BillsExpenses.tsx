@@ -130,7 +130,7 @@ export default function BillsExpenses() {
     (async () => {
       // All lookups tenant-scoped server-side (defence-in-depth beyond RLS).
       const [s, a, v, b, c] = await Promise.all([
-        supabase.from("suppliers").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("suppliers").select("id,name,account_number,vendor_type").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
         supabase.from("chart_of_accounts").select("id,code,name,account_type").eq("tenant_id", tenantId).order("code"),
         supabase.from("venues").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
         supabase.from("bank_accounts").select("id,account_name").eq("tenant_id", tenantId).order("account_name"),
