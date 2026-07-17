@@ -252,7 +252,7 @@ export default function ExpensesOverview() {
         actions={
           <>
             <Link to="/expenses/recurring"><Button variant="ghost" size="sm" className="h-9"><Repeat className="h-4 w-4 mr-1" /> Recurring</Button></Link>
-            <Link to="/expenses/statements"><Button variant="ghost" size="sm" className="h-9"><FileStack className="h-4 w-4 mr-1" /> Statements</Button></Link>
+            
             <Link to="/expenses/bank-detected"><Button variant="outline" size="sm" className="h-9"><Landmark className="h-4 w-4 mr-1" /> Bank-detected</Button></Link>
             <Link to="/expenses/bills"><Button size="sm" className="h-9"><Plus className="h-4 w-4 mr-1" /> New expense</Button></Link>
           </>
