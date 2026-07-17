@@ -225,8 +225,38 @@ export function useExpenseBills() {
         await refresh();
         return billId!;
       } catch (e: any) {
-        toast.error("Save failed: " + e.message);
+        if (isApprovalGateError(e) || (header.approval_status === "approved" && e?.message)) {
+          showApprovalGateToast(e);
+        } else {
+          toast.error("Save failed: " + e.message);
+        }
         return null;
+      }
+    },
+    [refresh, tenantId, bills]
+  );
+
+  const setStatus = useCallback(
+    async (billId: string, status: BillApprovalStatus) => {
+      if (!tenantId) return false;
+      const auth = (await supabase.auth.getUser()).data.user?.id ?? null;
+      const patch: any = { approval_status: status };
+      if (status === "approved") {
+        patch.approved_by = auth;
+        patch.approved_at = new Date().toISOString();
+      } else if (status === "rejected") {
+        patch.reviewed_by = auth;
+        patch.reviewed_at = new Date().toISOString();
+      }
+      const { error } = await supabase.from("expense_bills").update(patch).eq("id", billId).eq("tenant_id", tenantId);
+      if (error) {
+        if (status === "approved" && (isApprovalGateError(error) || error.message)) {
+          showApprovalGateToast(error);
+        } else {
+          toast.error("Status update failed: " + error.message);
+        }
+        return false;
+      }
       }
     },
     [refresh, tenantId, bills]
