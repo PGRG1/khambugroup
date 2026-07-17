@@ -123,6 +123,10 @@ import RecurringExpensesPage from "./pages/expenses/RecurringExpenses";
 import ExpenseCategoriesPage from "./pages/expenses/Categories";
 import ExpenseVendorsPage from "./pages/expenses/ExpenseVendors";
 import ExpenseMappingPage from "./pages/expenses/Mapping";
+import ExpenseSpendSummaryPage from "./pages/expenses/SpendSummary";
+import ExpenseVendorAccountsPage from "./pages/expenses/VendorAccounts";
+import ExpenseVendorAccountPage from "./pages/expenses/VendorAccount";
+import ExpenseOpenPayablesPage from "./pages/expenses/OpenPayables";
 
 import ExpenseApprovalsPage from "./pages/expenses/Approvals";
 import ExpenseAnalyticsPage from "./pages/expenses/Analytics";
@@ -345,6 +349,11 @@ function App() {
                 
                 <Route path="/expenses/approvals" element={<AdminRoute><ExpenseApprovalsPage /></AdminRoute>} />
                 <Route path="/expenses/analytics" element={<AdminRoute><ExpenseAnalyticsPage /></AdminRoute>} />
+                <Route path="/expenses/finance" element={<Navigate to="/expenses/finance/spend" replace />} />
+                <Route path="/expenses/finance/spend" element={<AdminRoute><ExpenseSpendSummaryPage /></AdminRoute>} />
+                <Route path="/expenses/finance/vendors" element={<AdminRoute><ExpenseVendorAccountsPage /></AdminRoute>} />
+                <Route path="/expenses/finance/vendors/:vendorId" element={<AdminRoute><ExpenseVendorAccountPage /></AdminRoute>} />
+                <Route path="/expenses/finance/payables" element={<AdminRoute><ExpenseOpenPayablesPage /></AdminRoute>} />
                 <Route path="/assistant" element={<ProtectedRoute pageKey="assistant"><Assistant /></ProtectedRoute>} />
                 <Route path="/notifications" element={<ProtectedRoute pageKey="notifications"><Notifications /></ProtectedRoute>} />
                 <Route path="/kpis/my-cards" element={<ProtectedRoute pageKey="kpis"><MyKpis /></ProtectedRoute>} />

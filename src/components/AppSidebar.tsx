@@ -86,9 +86,9 @@ const expensesBillsVendors: Item[] = [
 const expensesApprovals: Item[] = [{ title: "Approvals", url: "/expenses/approvals" }];
 const expensesAnalytics: Item[] = [{ title: "Analytics", url: "/expenses/analytics" }];
 const expensesFinance: Item[] = [
-  { title: "Spend Summary", url: "/expenses/finance/spend", disabled: true },
-  { title: "Vendor Accounts", url: "/expenses/finance/vendors", disabled: true },
-  { title: "Open Payables", url: "/expenses/finance/payables", disabled: true },
+  { title: "Spend Summary", url: "/expenses/finance/spend" },
+  { title: "Vendor Accounts", url: "/expenses/finance/vendors" },
+  { title: "Open Payables", url: "/expenses/finance/payables" },
 ];
 
 const procurementOverview: Item = { title: "Overview", url: "/procurement/dashboard" };
