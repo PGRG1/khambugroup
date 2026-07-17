@@ -46,7 +46,7 @@ import {
   useConfirm,
 } from "@/components/expenses/shared";
 
-interface Supplier { id: string; name: string }
+interface Supplier { id: string; name: string; account_number?: string | null; vendor_type?: string | null }
 interface Account { id: string; code: string; name: string; account_type?: string }
 interface Venue { id: string; name: string }
 interface BankAccount { id: string; account_name: string }
