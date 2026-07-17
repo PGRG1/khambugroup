@@ -9,10 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRight, AlertTriangle, Settings2 } from "lucide-react";
+import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRight, AlertTriangle, Settings2, CheckCircle2, UserPlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import BillDropZone, { ScannedBill } from "@/components/finance/bills/BillDropZone";
 import {
@@ -45,7 +46,7 @@ import {
   useConfirm,
 } from "@/components/expenses/shared";
 
-interface Supplier { id: string; name: string }
+interface Supplier { id: string; name: string; account_number?: string | null; vendor_type?: string | null }
 interface Account { id: string; code: string; name: string; account_type?: string }
 interface Venue { id: string; name: string }
 interface BankAccount { id: string; account_name: string }
@@ -129,7 +130,7 @@ export default function BillsExpenses() {
     (async () => {
       // All lookups tenant-scoped server-side (defence-in-depth beyond RLS).
       const [s, a, v, b, c] = await Promise.all([
-        supabase.from("suppliers").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
+        supabase.from("suppliers").select("id,name,account_number,vendor_type").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
         supabase.from("chart_of_accounts").select("id,code,name,account_type").eq("tenant_id", tenantId).order("code"),
         supabase.from("venues").select("id,name").eq("tenant_id", tenantId).eq("is_active", true).order("name"),
         supabase.from("bank_accounts").select("id,account_name").eq("tenant_id", tenantId).order("account_name"),
@@ -244,8 +245,21 @@ export default function BillsExpenses() {
   };
 
   const handleScanned = (s: ScannedBill) => {
-    // Try to match supplier by name (case-insensitive)
-    const matched = suppliers.find((sp) => sp.name.toLowerCase() === s.vendor_name.toLowerCase());
+    // Match supplier by trimmed case-insensitive name, then fall back to account_number.
+    const vName = (s.vendor_name || "").trim().toLowerCase();
+    const nameMatches = suppliers.filter(
+      (sp) => (sp.vendor_type || "expense") === "expense" && sp.name.trim().toLowerCase() === vName
+    );
+    let matched: Supplier | undefined = nameMatches.length === 1 ? nameMatches[0] : undefined;
+    if (!matched && s.account_number) {
+      const acct = String(s.account_number).trim().toLowerCase();
+      const acctMatches = suppliers.filter(
+        (sp) =>
+          (sp.vendor_type || "expense") === "expense" &&
+          (sp.account_number || "").trim().toLowerCase() === acct
+      );
+      if (acctMatches.length === 1) matched = acctMatches[0];
+    }
     const ven = venues.find((v) => v.name.toLowerCase() === (s.venue || "").toLowerCase());
     const bf = Number(s.brought_forward || 0);
     const stTotal =
@@ -354,9 +368,61 @@ export default function BillsExpenses() {
     }
   };
 
-  // Alert reviewers on the editor when the current bill has allocations missing GL
-  // accounts — bills like these silently stall at Post because the RPC rejects them.
-  const hasUnmappedAllocation = allocations.some((a) => !a.account_id);
+  // Readiness checklist — mirrors the DB trigger (trg_expense_bill_approval_gate)
+  // so users see up-front what would block approval. The DB is authoritative;
+  // this is guidance only. Approve/Submit buttons stay enabled either way.
+  const vendorLinked = !!header.supplier_id;
+  const allocationsHaveCategory = allocations.length > 0 && allocations.every((a) => (a.expense_category || "").trim() !== "");
+  const allocationsHaveAccount = allocations.length > 0 && allocations.every((a) => !!a.account_id);
+  // `balanced` and `expectedAllocTotal` are computed below; recompute here for clarity.
+  const _allocTotal = allocations.reduce((s, a) => s + Number(a.amount || 0), 0);
+  const _expected = Number(header.subtotal || 0) || (Number(header.total_amount || 0) - Number(header.tax_amount || 0));
+  const allocationsBalance = allocations.length > 0 && Math.abs(_allocTotal - _expected) < 0.01;
+  const grandfatheredVendor =
+    editing?.approval_status === "approved" && !editing?.supplier_id;
+
+  // Inline vendor match: does the typed vendor_name resolve to an existing supplier?
+  const trimmedVName = (header.vendor_name || "").trim();
+  const vendorNameMatchExists = trimmedVName
+    ? suppliers.some(
+        (s) =>
+          (s.vendor_type || "expense") === "expense" &&
+          s.name.trim().toLowerCase() === trimmedVName.toLowerCase()
+      )
+    : false;
+  const showInlineCreateVendor =
+    !!trimmedVName && !header.supplier_id && !vendorNameMatchExists && !!tenantId;
+  const [creatingVendor, setCreatingVendor] = useState(false);
+
+  const createVendorInline = async () => {
+    if (!tenantId || !trimmedVName || creatingVendor) return;
+    setCreatingVendor(true);
+    try {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .insert({
+          name: trimmedVName,
+          vendor_type: "expense",
+          is_active: true,
+          tenant_id: tenantId,
+          invoice_rounding_mode: "sum_then_round",
+          categories: [],
+          delivery_days: [],
+          moq: 0,
+        })
+        .select("id,name,account_number,vendor_type")
+        .single();
+      if (error) throw error;
+      const newSupplier = data as Supplier;
+      setSuppliers((prev) => [...prev, newSupplier].sort((a, b) => a.name.localeCompare(b.name)));
+      setHeader((h) => ({ ...h, supplier_id: newSupplier.id }));
+      toast.success(`Vendor "${newSupplier.name}" added to master data`);
+    } catch (e: any) {
+      toast.error("Could not create vendor: " + (e?.message || "unknown error"));
+    } finally {
+      setCreatingVendor(false);
+    }
+  };
 
   const masterMissing = categories.length === 0 || suppliers.length === 0;
 
@@ -599,6 +665,17 @@ export default function BillsExpenses() {
                 <div>
                   <Label>Vendor name (override)</Label>
                   <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
+                  {showInlineCreateVendor && (
+                    <button
+                      type="button"
+                      onClick={createVendorInline}
+                      disabled={creatingVendor}
+                      className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-primary hover:underline disabled:opacity-50"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      {creatingVendor ? "Creating…" : <>Not in master data — Create “{trimmedVName}”</>}
+                    </button>
+                  )}
                 </div>
                 <div>
                   <Label>Bill / Invoice #</Label>
@@ -907,18 +984,7 @@ export default function BillsExpenses() {
                   </div>
                 );
               })()}
-              {hasUnmappedAllocation && (
-                <div className="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div>
-                    <div className="font-medium">One or more allocation lines are missing a GL account.</div>
-                    <div className="mt-0.5 text-muted-foreground">
-                      Pick a category with a default account, or set an account explicitly.
-                      Posting to GL is blocked until every line is mapped.
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Legacy per-line GL warning removed — see the Readiness checklist above the actions. */}
             </FormSection>
               );
             })()}
@@ -988,6 +1054,67 @@ export default function BillsExpenses() {
               </FormSection>
             )}
 
+            {/* Readiness checklist — mirrors the DB approval-gate trigger.
+                Live pass/fail per requirement so users know before they click Approve.
+                Hidden once the bill has already passed approval (posted/reversed). */}
+            {header.approval_status !== "posted" && header.approval_status !== "reversed" && header.approval_status !== "void" && (
+              <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
+                  Readiness to approve
+                </div>
+                <ul className="space-y-2 text-sm">
+                  {[
+                    {
+                      pass: vendorLinked,
+                      grandfathered: !vendorLinked && grandfatheredVendor,
+                      label: "Vendor linked to master data",
+                      failHint: "Pick a vendor from the list, or use “Create” next to the vendor name.",
+                      grandfatheredHint: "Approved before vendor linking was required — not blocking retroactively.",
+                    },
+                    {
+                      pass: allocationsHaveCategory,
+                      label: "Every allocation line has a category",
+                      failHint: "Set a category on each row of the expense allocation table.",
+                    },
+                    {
+                      pass: allocationsHaveAccount,
+                      label: "Every allocation line has a GL account",
+                      failHint: "Pick a category with a default account, or set an account explicitly.",
+                    },
+                    {
+                      pass: allocationsBalance,
+                      label: "Allocations balance to subtotal",
+                      failHint: "Adjust line amounts so the total matches the bill subtotal (±0.01).",
+                    },
+                  ].map((item, i) => {
+                    const amber = item.grandfathered;
+                    const ok = item.pass && !amber;
+                    return (
+                      <li key={i} className="flex items-start gap-2">
+                        {ok ? (
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                        ) : amber ? (
+                          <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <div className={ok ? "text-foreground" : amber ? "text-warning" : "text-foreground"}>
+                            {item.label}
+                          </div>
+                          {!ok && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {amber ? item.grandfatheredHint : item.failHint}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
             {/* Actions — clear primary CTA on the right, secondary/destructive on the left. */}
             <div className="sticky bottom-0 -mx-6 px-6 py-4 border-t border-border/60 bg-background/95 backdrop-blur flex flex-wrap items-center gap-2">
               {editing && editing.approval_status === "posted" && isAdmin && (
@@ -1039,11 +1166,7 @@ export default function BillsExpenses() {
                 </>
               )}
               {(header.approval_status === "approved" || header.approval_status === "pending_review") && isAdmin && editing && (
-                <Button
-                  onClick={handlePost}
-                  disabled={!balanced || hasUnmappedAllocation}
-                  title={hasUnmappedAllocation ? "Every allocation line needs a GL account." : (!balanced ? "Allocation totals must balance." : undefined)}
-                >
+                <Button onClick={handlePost}>
                   Approve &amp; post to GL
                 </Button>
               )}

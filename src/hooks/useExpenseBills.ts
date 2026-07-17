@@ -7,6 +7,33 @@ import { useActiveTenant } from "@/hooks/useActiveTenant";
 export type BillApprovalStatus = "draft" | "pending_review" | "approved" | "rejected" | "posted" | "void" | "reversed";
 export type BillPaymentStatus = "unpaid" | "partial" | "paid";
 
+// Detect the DB-level approval-gate trigger error and surface its bullet list.
+// The trigger raises with SQLSTATE 23514 (check_violation) and a human-readable
+// message enumerating what's missing (vendor / category / account / balance).
+function isApprovalGateError(e: any): boolean {
+  if (!e) return false;
+  const msg = (e.message || "").toLowerCase();
+  return (
+    e.code === "23514" ||
+    msg.includes("not ready to approve") ||
+    msg.includes("cannot be approved") ||
+    (msg.includes("supplier_id") && msg.includes("approve")) ||
+    (msg.includes("allocation") && msg.includes("approve"))
+  );
+}
+function showApprovalGateToast(e: any) {
+  const raw = String(e?.message || "");
+  // Strip the leading Postgres prefix if present so bullets read cleanly.
+  const cleaned = raw
+    .replace(/^ERROR:\s*/i, "")
+    .replace(/^new row for relation.*?violates check constraint.*?\n?/i, "")
+    .trim();
+  toast.error("Bill not ready to approve", {
+    description: cleaned || "Complete the readiness checklist and try again.",
+    duration: 8000,
+  });
+}
+
 export interface ExpenseBill {
   id: string;
   supplier_id: string | null;
@@ -198,7 +225,11 @@ export function useExpenseBills() {
         await refresh();
         return billId!;
       } catch (e: any) {
-        toast.error("Save failed: " + e.message);
+        if (isApprovalGateError(e) || (header.approval_status === "approved" && e?.message)) {
+          showApprovalGateToast(e);
+        } else {
+          toast.error("Save failed: " + e.message);
+        }
         return null;
       }
     },
@@ -219,9 +250,14 @@ export function useExpenseBills() {
       }
       const { error } = await supabase.from("expense_bills").update(patch).eq("id", billId).eq("tenant_id", tenantId);
       if (error) {
-        toast.error("Status update failed: " + error.message);
+        if (status === "approved" && (isApprovalGateError(error) || error.message)) {
+          showApprovalGateToast(error);
+        } else {
+          toast.error("Status update failed: " + error.message);
+        }
         return false;
       }
+
       await supabase.from("expense_bill_audit").insert({
         bill_id: billId,
         event_type: status,

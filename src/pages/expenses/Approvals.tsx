@@ -911,7 +911,57 @@ export default function ExpenseApprovals() {
                   })}
                 </div>
               </FormSection>
+              {/* Readiness checklist — mirrors the DB approval-gate trigger. */}
+              {editBill.approval_status !== "posted" &&
+                editBill.approval_status !== "reversed" &&
+                editBill.approval_status !== "void" &&
+                (() => {
+                  const vendorLinked = !!editBill.supplier_id;
+                  const grandfathered = editBill.approval_status === "approved" && !editBill.supplier_id;
+                  const allocsHaveCategory = editAllocs.length > 0 && editAllocs.every((a) => (a.expense_category || "").trim() !== "");
+                  const allocsHaveAccount = editAllocs.length > 0 && editAllocs.every((a) => !!a.account_id);
+                  const allocTotal = editAllocs.reduce((s, a) => s + Number(a.amount || 0), 0);
+                  const expected = Number(editBill.subtotal || 0) || Number(editBill.total_amount || 0);
+                  const allocsBalance = editAllocs.length > 0 && Math.abs(allocTotal - expected) < 0.01;
+                  const items = [
+                    { pass: vendorLinked, grandfathered, label: "Vendor linked to master data" },
+                    { pass: allocsHaveCategory, label: "Every allocation line has a category" },
+                    { pass: allocsHaveAccount, label: "Every allocation line has a GL account" },
+                    { pass: allocsBalance, label: "Allocations balance to subtotal" },
+                  ];
+                  return (
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
+                        Readiness to approve
+                      </div>
+                      <ul className="space-y-2 text-sm">
+                        {items.map((it, i) => {
+                          const amber = !it.pass && it.grandfathered;
+                          const ok = it.pass && !amber;
+                          return (
+                            <li key={i} className="flex items-start gap-2">
+                              {ok ? (
+                                <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                              ) : (
+                                <AlertTriangle className={"h-4 w-4 mt-0.5 shrink-0 " + (amber ? "text-warning" : "text-warning")} />
+                              )}
+                              <div className={amber ? "text-warning" : "text-foreground"}>
+                                {it.label}
+                                {amber && (
+                                  <span className="ml-1 text-xs text-muted-foreground">
+                                    — approved before vendor linking was required
+                                  </span>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })()}
 
+              
               <div className="flex justify-end gap-2 pt-4 border-t border-border/60">
                 <Button variant="outline" onClick={() => setEditBill(null)}>
                   Cancel
