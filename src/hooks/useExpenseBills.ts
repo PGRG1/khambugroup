@@ -257,28 +257,7 @@ export function useExpenseBills() {
         }
         return false;
       }
-      }
-    },
-    [refresh, tenantId, bills]
-  );
 
-  const setStatus = useCallback(
-    async (billId: string, status: BillApprovalStatus) => {
-      if (!tenantId) return false;
-      const auth = (await supabase.auth.getUser()).data.user?.id ?? null;
-      const patch: any = { approval_status: status };
-      if (status === "approved") {
-        patch.approved_by = auth;
-        patch.approved_at = new Date().toISOString();
-      } else if (status === "rejected") {
-        patch.reviewed_by = auth;
-        patch.reviewed_at = new Date().toISOString();
-      }
-      const { error } = await supabase.from("expense_bills").update(patch).eq("id", billId).eq("tenant_id", tenantId);
-      if (error) {
-        toast.error("Status update failed: " + error.message);
-        return false;
-      }
       await supabase.from("expense_bill_audit").insert({
         bill_id: billId,
         event_type: status,
