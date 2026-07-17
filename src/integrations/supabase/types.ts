@@ -2079,6 +2079,7 @@ export type Database = {
           attachment_url: string | null
           bill_date: string
           bill_number: string | null
+          brought_forward: number
           combined_venues: boolean
           created_at: string
           created_by: string | null
@@ -2089,6 +2090,7 @@ export type Database = {
           due_date: string | null
           id: string
           journal_entry_id: string | null
+          meta: Json
           notes: string | null
           paid_amount: number
           payment_status: string
@@ -2104,6 +2106,7 @@ export type Database = {
           service_period_end: string | null
           service_period_start: string | null
           source_type: string
+          statement_total: number | null
           subtotal: number
           supplier_id: string | null
           tax_amount: number
@@ -2122,6 +2125,7 @@ export type Database = {
           attachment_url?: string | null
           bill_date: string
           bill_number?: string | null
+          brought_forward?: number
           combined_venues?: boolean
           created_at?: string
           created_by?: string | null
@@ -2132,6 +2136,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           journal_entry_id?: string | null
+          meta?: Json
           notes?: string | null
           paid_amount?: number
           payment_status?: string
@@ -2147,6 +2152,7 @@ export type Database = {
           service_period_end?: string | null
           service_period_start?: string | null
           source_type?: string
+          statement_total?: number | null
           subtotal?: number
           supplier_id?: string | null
           tax_amount?: number
@@ -2165,6 +2171,7 @@ export type Database = {
           attachment_url?: string | null
           bill_date?: string
           bill_number?: string | null
+          brought_forward?: number
           combined_venues?: boolean
           created_at?: string
           created_by?: string | null
@@ -2175,6 +2182,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           journal_entry_id?: string | null
+          meta?: Json
           notes?: string | null
           paid_amount?: number
           payment_status?: string
@@ -2190,6 +2198,7 @@ export type Database = {
           service_period_end?: string | null
           service_period_start?: string | null
           source_type?: string
+          statement_total?: number | null
           subtotal?: number
           supplier_id?: string | null
           tax_amount?: number
