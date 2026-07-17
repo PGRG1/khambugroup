@@ -566,6 +566,21 @@ export default function BillsExpenses() {
               return <StatusFlow steps={steps} currentIndex={idx} />;
             })()}
 
+            {/* Statement bill notice — brought-forward is excluded from booking. */}
+            {Number(header.brought_forward || 0) > 0 && (
+              <div className="rounded-lg border border-info/40 bg-info/10 p-3 flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 mt-0.5 text-info shrink-0" />
+                <div className="text-xs text-foreground leading-relaxed">
+                  <span className="font-medium">Statement bill:</span>{" "}
+                  {fmtHK(Number(header.brought_forward || 0))} brought forward from prior bills is excluded — booking current charges of{" "}
+                  <span className="font-medium">{fmtHK(Number(header.total_amount || 0))}</span> only.
+                  {header.statement_total != null && (
+                    <> Statement total {fmtHK(Number(header.statement_total))} should equal this vendor's payable balance after posting.</>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Bill identity */}
             <FormSection
               title="Bill identity"
