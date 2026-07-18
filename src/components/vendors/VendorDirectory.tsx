@@ -42,10 +42,23 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
-import { MoreVertical, Plus, Search, Users } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  Filter,
+  MoreVertical,
+  Plus,
+  Search,
+  Users,
+} from "lucide-react";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+
+type SortDir = "asc" | "desc";
 
 type VendorType = "expense" | "procurement" | "both";
 type TypeFilter = "all" | VendorType;
@@ -201,6 +214,10 @@ export default function VendorDirectory({
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [termsFilter, setTermsFilter] = useState<string[]>([]); // empty = all
+
+
   const load = async () => {
     if (!tenantId) return;
     setLoading(true);
@@ -251,20 +268,36 @@ export default function VendorDirectory({
     return { byType, byStatus };
   }, [vendors]);
 
+  const distinctTerms = useMemo(() => {
+    const set = new Set<string>();
+    for (const v of vendors) {
+      const t = (v.payment_terms || "").trim();
+      if (t) set.add(t);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [vendors]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return vendors.filter((v) => {
+    const rows = vendors.filter((v) => {
       const t = (v.vendor_type || "procurement") as VendorType;
       if (typeFilter !== "all" && t !== typeFilter) return false;
       if (statusFilter === "active" && !v.is_active) return false;
       if (statusFilter === "inactive" && v.is_active) return false;
+      if (termsFilter.length > 0 && !termsFilter.includes((v.payment_terms || "").trim())) return false;
       if (q) {
         const hay = `${v.name} ${v.code || ""} ${v.contact_person || ""} ${v.email || ""} ${v.phone || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [vendors, search, typeFilter, statusFilter]);
+    rows.sort((a, b) => {
+      const cmp = a.name.localeCompare(b.name);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return rows;
+  }, [vendors, search, typeFilter, statusFilter, termsFilter, sortDir]);
+
 
   const openAdd = () => {
     setEditingId(null);
@@ -572,8 +605,20 @@ export default function VendorDirectory({
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-border">
-                  <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground font-medium">
-                    Vendor
+                  <TableHead
+                    className="text-[10.5px] uppercase tracking-wider text-muted-foreground font-medium cursor-pointer select-none hover:text-foreground transition-colors"
+                    onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Vendor
+                      {sortDir === "asc" ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : sortDir === "desc" ? (
+                        <ChevronDown className="h-3 w-3" />
+                      ) : (
+                        <ChevronsUpDown className="h-3 w-3 opacity-50" />
+                      )}
+                    </span>
                   </TableHead>
                   <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground font-medium w-[130px]">
                     Type
@@ -582,8 +627,77 @@ export default function VendorDirectory({
                     Contact
                   </TableHead>
                   <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground font-medium w-[160px]">
-                    Terms
+                    <span className="inline-flex items-center gap-1.5">
+                      Terms
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className={cn(
+                              "inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted transition-colors",
+                              termsFilter.length > 0 ? "text-primary" : "text-muted-foreground/70 hover:text-foreground",
+                            )}
+                            aria-label="Filter by terms"
+                          >
+                            <Filter className="h-3 w-3" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-52 p-2">
+                          <div className="flex items-center justify-between px-1.5 pb-2 mb-1 border-b">
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                              Payment terms
+                            </span>
+                            {termsFilter.length > 0 && (
+                              <button
+                                onClick={() => setTermsFilter([])}
+                                className="text-[11px] text-primary hover:underline"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setTermsFilter([])}
+                            className={cn(
+                              "flex items-center gap-2 w-full px-1.5 py-1.5 rounded text-xs hover:bg-muted/50 text-left",
+                              termsFilter.length === 0 && "text-primary font-medium",
+                            )}
+                          >
+                            All
+                          </button>
+                          {distinctTerms.length === 0 ? (
+                            <div className="px-1.5 py-2 text-[11px] text-muted-foreground">
+                              No terms in current data.
+                            </div>
+                          ) : (
+                            distinctTerms.map((t) => {
+                              const checked = termsFilter.includes(t);
+                              return (
+                                <label
+                                  key={t}
+                                  className="flex items-center gap-2 px-1.5 py-1.5 rounded text-xs hover:bg-muted/50 cursor-pointer"
+                                >
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={(v) => {
+                                      setTermsFilter((prev) =>
+                                        v
+                                          ? [...prev, t]
+                                          : prev.filter((x) => x !== t),
+                                      );
+                                    }}
+                                  />
+                                  <span className="normal-case">{t}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                    </span>
                   </TableHead>
+
                   <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground font-medium w-[110px] text-right pr-6">
                     Status
                   </TableHead>
