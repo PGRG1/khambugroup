@@ -214,6 +214,10 @@ export default function VendorDirectory({
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [termsFilter, setTermsFilter] = useState<string[]>([]); // empty = all
+
+
   const load = async () => {
     if (!tenantId) return;
     setLoading(true);
