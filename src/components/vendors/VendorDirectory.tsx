@@ -268,20 +268,36 @@ export default function VendorDirectory({
     return { byType, byStatus };
   }, [vendors]);
 
+  const distinctTerms = useMemo(() => {
+    const set = new Set<string>();
+    for (const v of vendors) {
+      const t = (v.payment_terms || "").trim();
+      if (t) set.add(t);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [vendors]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return vendors.filter((v) => {
+    const rows = vendors.filter((v) => {
       const t = (v.vendor_type || "procurement") as VendorType;
       if (typeFilter !== "all" && t !== typeFilter) return false;
       if (statusFilter === "active" && !v.is_active) return false;
       if (statusFilter === "inactive" && v.is_active) return false;
+      if (termsFilter.length > 0 && !termsFilter.includes((v.payment_terms || "").trim())) return false;
       if (q) {
         const hay = `${v.name} ${v.code || ""} ${v.contact_person || ""} ${v.email || ""} ${v.phone || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [vendors, search, typeFilter, statusFilter]);
+    rows.sort((a, b) => {
+      const cmp = a.name.localeCompare(b.name);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return rows;
+  }, [vendors, search, typeFilter, statusFilter, termsFilter, sortDir]);
+
 
   const openAdd = () => {
     setEditingId(null);
