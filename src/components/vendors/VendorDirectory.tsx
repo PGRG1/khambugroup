@@ -42,10 +42,23 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
-import { MoreVertical, Plus, Search, Users } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  Filter,
+  MoreVertical,
+  Plus,
+  Search,
+  Users,
+} from "lucide-react";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+
+type SortDir = "asc" | "desc";
 
 type VendorType = "expense" | "procurement" | "both";
 type TypeFilter = "all" | VendorType;
