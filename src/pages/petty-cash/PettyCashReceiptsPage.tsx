@@ -6,12 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Receipt as ReceiptIcon, Check, X } from "lucide-react";
+import { Plus, Receipt as ReceiptIcon, Check, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/utils/salesUtils";
 import { usePettyCash, type PettyReceipt } from "@/hooks/usePettyCash";
 import { PettyCashHeader, StatusBadge, fmtDate } from "./_shared";
+import PettyCashImport from "@/components/petty-cash/PettyCashImport";
 
 export default function PettyCashReceiptsPage() {
   const pc = usePettyCash();
@@ -24,6 +25,7 @@ export default function PettyCashReceiptsPage() {
   const [notes, setNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [postingId, setPostingId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Default floatId once floats load
   if (!floatId && pc.floats[0]?.id) setFloatId(pc.floats[0].id);
@@ -107,9 +109,14 @@ export default function PettyCashReceiptsPage() {
       ) : (
         <>
           <Card className="card-glass p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <ReceiptIcon className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">Record a receipt</h2>
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <div className="flex items-center gap-2">
+                <ReceiptIcon className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Record a receipt</h2>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                <Sparkles className="h-4 w-4 mr-1.5 text-primary" /> AI Import
+              </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
               <div className="md:col-span-1">
@@ -204,6 +211,8 @@ export default function PettyCashReceiptsPage() {
           </Card>
         </>
       )}
+
+      <PettyCashImport open={importOpen} onOpenChange={setImportOpen} pc={pc} />
     </div>
   );
 }
