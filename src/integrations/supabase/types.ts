@@ -2082,7 +2082,6 @@ export type Database = {
           brought_forward: number
           combined_venues: boolean
           cost_allocation_mode: string
-          cost_allocation_profile_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -2130,7 +2129,6 @@ export type Database = {
           brought_forward?: number
           combined_venues?: boolean
           cost_allocation_mode?: string
-          cost_allocation_profile_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -2178,7 +2176,6 @@ export type Database = {
           brought_forward?: number
           combined_venues?: boolean
           cost_allocation_mode?: string
-          cost_allocation_profile_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -2216,13 +2213,6 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "expense_bills_cost_allocation_profile_id_fkey"
-            columns: ["cost_allocation_profile_id"]
-            isOneToOne: false
-            referencedRelation: "venue_allocation_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "expense_bills_journal_entry_id_fkey"
             columns: ["journal_entry_id"]
@@ -3277,7 +3267,6 @@ export type Database = {
       hr_employees: {
         Row: {
           cost_allocation_mode: string
-          cost_allocation_profile_id: string | null
           created_at: string
           date_of_birth: string | null
           department_id: string | null
@@ -3304,7 +3293,6 @@ export type Database = {
         }
         Insert: {
           cost_allocation_mode?: string
-          cost_allocation_profile_id?: string | null
           created_at?: string
           date_of_birth?: string | null
           department_id?: string | null
@@ -3331,7 +3319,6 @@ export type Database = {
         }
         Update: {
           cost_allocation_mode?: string
-          cost_allocation_profile_id?: string | null
           created_at?: string
           date_of_birth?: string | null
           department_id?: string | null
@@ -3357,13 +3344,6 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "hr_employees_cost_allocation_profile_id_fkey"
-            columns: ["cost_allocation_profile_id"]
-            isOneToOne: false
-            referencedRelation: "venue_allocation_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "hr_employees_department_id_fkey"
             columns: ["department_id"]
@@ -9188,31 +9168,37 @@ export type Database = {
       }
       venue_allocation_overrides: {
         Row: {
+          amount: number
           created_at: string
           id: string
           owner_id: string
           owner_type: string
           percent: number
+          split_mode: string
           tenant_id: string
           updated_at: string
           venue_id: string
         }
         Insert: {
+          amount?: number
           created_at?: string
           id?: string
           owner_id: string
           owner_type: string
           percent?: number
+          split_mode?: string
           tenant_id: string
           updated_at?: string
           venue_id: string
         }
         Update: {
+          amount?: number
           created_at?: string
           id?: string
           owner_id?: string
           owner_type?: string
           percent?: number
+          split_mode?: string
           tenant_id?: string
           updated_at?: string
           venue_id?: string
@@ -9230,108 +9216,6 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      venue_allocation_profile_lines: {
-        Row: {
-          created_at: string
-          effective_from: string | null
-          effective_to: string | null
-          id: string
-          percent: number
-          profile_id: string
-          tenant_id: string
-          updated_at: string
-          venue_id: string
-        }
-        Insert: {
-          created_at?: string
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string
-          percent?: number
-          profile_id: string
-          tenant_id: string
-          updated_at?: string
-          venue_id: string
-        }
-        Update: {
-          created_at?: string
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string
-          percent?: number
-          profile_id?: string
-          tenant_id?: string
-          updated_at?: string
-          venue_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "venue_allocation_profile_lines_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "venue_allocation_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "venue_allocation_profile_lines_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "venue_allocation_profile_lines_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      venue_allocation_profiles: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          is_default: boolean
-          method: string
-          name: string
-          notes: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          method?: string
-          name: string
-          notes?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          method?: string
-          name?: string
-          notes?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "venue_allocation_profiles_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -9716,8 +9600,10 @@ export type Database = {
       }
       v_bill_venue_allocation: {
         Row: {
+          amount: number | null
           bill_id: string | null
           percent: number | null
+          split_mode: string | null
           tenant_id: string | null
           venue_id: string | null
         }
@@ -9740,8 +9626,10 @@ export type Database = {
       }
       v_employee_venue_allocation: {
         Row: {
+          amount: number | null
           employee_id: string | null
           percent: number | null
+          split_mode: string | null
           tenant_id: string | null
           venue_id: string | null
         }
@@ -10006,13 +9894,6 @@ export type Database = {
           p_year: number
         }
         Returns: Json
-      }
-      expand_profile: {
-        Args: { p_as_of: string; p_profile: string }
-        Returns: {
-          percent: number
-          venue_id: string
-        }[]
       }
       fetch_due_pending_rebuilds: {
         Args: { p_debounce_seconds?: number }

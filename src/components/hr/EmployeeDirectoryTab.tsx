@@ -10,7 +10,8 @@ import { Plus, Search, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useVenues } from "@/hooks/useVenues";
 import type { HREmployee, HRDepartment } from "@/hooks/useHRData";
-import { AllocationProfilePicker } from "@/components/allocation/AllocationProfilePicker";
+import { VenueSplitEditor, saveVenueSplit, SplitLine } from "@/components/allocation/VenueSplitEditor";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 interface Props {
   employees: HREmployee[];
@@ -39,12 +40,14 @@ const displayStatus = (s: string | null | undefined) => (isActive(s) ? "Active" 
 export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) {
   const navigate = useNavigate();
   const { venues } = useVenues();
+  const { tenantId } = useActiveTenant();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Partial<HREmployee & { venue_id: string | null }> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [splitDraft, setSplitDraft] = useState<{ mode: "single" | "split"; lines: SplitLine[]; balanced: boolean }>({ mode: "single", lines: [], balanced: true });
 
   const venueById = useMemo(() => {
     const m = new Map<string, string>();
@@ -85,11 +88,24 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
 
   const handleSave = async () => {
     if (!editingEmployee?.first_name || !editingEmployee?.last_name) return;
+    if (splitDraft.mode === "split" && !splitDraft.balanced) {
+      toast({ title: "Venue split is not balanced", variant: "destructive" });
+      return;
+    }
     setSaving(true);
-    const ok = await onSave(editingEmployee as Partial<HREmployee>);
+    const payload = { ...editingEmployee, cost_allocation_mode: splitDraft.mode } as Partial<HREmployee>;
+    const ok = await onSave(payload);
+    if (ok && tenantId && editingEmployee.id) {
+      const base = Number((editingEmployee as any).base_salary || (editingEmployee as any).gross_salary || 0);
+      await saveVenueSplit({
+        tenantId, ownerType: "employee", ownerId: editingEmployee.id,
+        mode: splitDraft.mode, lines: splitDraft.lines, baseAmount: base,
+      });
+    }
     if (ok) { toast({ title: "Saved" }); setModalOpen(false); }
     setSaving(false);
   };
+
 
   const updateField = (field: string, value: any) =>
     setEditingEmployee(prev => prev ? { ...prev, [field]: value } : prev);
@@ -271,14 +287,17 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
               <Separator />
               <div>
                 <h4 className="text-sm font-semibold font-display mb-2">Cost allocation</h4>
-                <AllocationProfilePicker
-                  mode={(editingEmployee as any).cost_allocation_mode}
-                  profileId={(editingEmployee as any).cost_allocation_profile_id}
-                  onChange={(m, pid) => {
-                    updateField("cost_allocation_mode", m);
-                    updateField("cost_allocation_profile_id", pid);
-                  }}
-                />
+                {editingEmployee.id ? (
+                  <VenueSplitEditor
+                    ownerType="employee"
+                    ownerId={editingEmployee.id}
+                    mode={(editingEmployee as any).cost_allocation_mode}
+                    baseAmount={Number((editingEmployee as any).base_salary || (editingEmployee as any).gross_salary || 0)}
+                    onChange={(mode, lines, balanced) => setSplitDraft({ mode, lines, balanced })}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Save the employee first, then reopen to configure a venue split.</p>
+                )}
               </div>
               <Separator />
               <h4 className="text-sm font-semibold font-display">Emergency Contact</h4>

@@ -13,7 +13,7 @@ import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRi
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { AllocationProfilePicker } from "@/components/allocation/AllocationProfilePicker";
+import { VenueSplitEditor, saveVenueSplit, SplitLine } from "@/components/allocation/VenueSplitEditor";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import BillDropZone, { ScannedBill } from "@/components/finance/bills/BillDropZone";
@@ -112,6 +112,7 @@ export default function BillsExpenses() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<ExpenseBill | null>(null);
   const [header, setHeader] = useState<Partial<ExpenseBill>>({});
+  const [splitDraft, setSplitDraft] = useState<{ mode: "single" | "split"; lines: SplitLine[]; balanced: boolean }>({ mode: "single", lines: [], balanced: true });
   const [allocations, setAllocations] = useState<ExpenseBillAllocation[]>([]);
   const [audit, setAudit] = useState<ExpenseBillAuditRow[]>([]);
   const [payments, setPayments] = useState<ExpenseBillPayment[]>([]);
@@ -314,11 +315,21 @@ export default function BillsExpenses() {
   const balanced = Math.abs(allocTotal - expectedAllocTotal) < 0.01;
 
   const handleSave = async (newStatus?: BillApprovalStatus) => {
-    const payload: Partial<ExpenseBill> = { ...header };
+    if (splitDraft.mode === "split" && !splitDraft.balanced) {
+      toast.error("Venue split is not balanced");
+      return;
+    }
+    const payload: Partial<ExpenseBill> = { ...header, cost_allocation_mode: splitDraft.mode } as any;
     if (newStatus) payload.approval_status = newStatus;
     const id = await saveBill(payload, allocations);
+    if (id && tenantId) {
+      await saveVenueSplit({
+        tenantId, ownerType: "expense_bill", ownerId: id,
+        mode: splitDraft.mode, lines: splitDraft.lines,
+        baseAmount: Number(header.total_amount || 0),
+      });
+    }
     if (id && linkedBankTxn && tenantId) {
-      // Link the originating bank transaction so it stops appearing as "unposted".
       await supabase
         .from("bank_transactions")
         .update({ expense_posted_bill_id: id })
@@ -334,6 +345,7 @@ export default function BillsExpenses() {
       setPayments(pay);
     }
   };
+
 
   const handlePost = async () => {
     if (!editing) return;
@@ -704,14 +716,16 @@ export default function BillsExpenses() {
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-border/50">
-                <AllocationProfilePicker
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Cost allocation</div>
+                <VenueSplitEditor
+                  ownerType="expense_bill"
+                  ownerId={editing?.id || null}
                   mode={(header as any).cost_allocation_mode}
-                  profileId={(header as any).cost_allocation_profile_id}
-                  onChange={(m, pid) => setHeader({
-                    ...header,
-                    cost_allocation_mode: m,
-                    cost_allocation_profile_id: pid,
-                  } as any)}
+                  baseAmount={Number(header.total_amount || 0)}
+                  onChange={(mode, lines, balanced) => {
+                    setSplitDraft({ mode, lines, balanced });
+                    setHeader(h => ({ ...h, cost_allocation_mode: mode } as any));
+                  }}
                 />
               </div>
             </FormSection>

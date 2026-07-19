@@ -554,7 +554,7 @@ export function AppSidebar() {
                 { title: "Business Structure", url: "/admin/structure" },
                 { title: "Master Data", url: "/admin/master-data" },
                 { title: "AI Learned Rules", url: "/admin/ai-rules" },
-                { title: "Allocation Profiles", url: "/admin/allocation-profiles" },
+                
                 { title: "Preferences", url: "/admin/preferences" },
               ].map((it) => <ChildLink key={it.url} item={it} />)}
             </SidebarMenu>
