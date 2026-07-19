@@ -183,6 +183,8 @@ export function useExpenseBills() {
               ? null
               : Number(header.statement_total),
           meta: header.meta ?? {},
+          cost_allocation_mode: (header as any).cost_allocation_mode || "home",
+          cost_allocation_profile_id: (header as any).cost_allocation_profile_id || null,
         };
 
         if (billId) {
