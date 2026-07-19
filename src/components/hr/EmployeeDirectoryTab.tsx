@@ -88,11 +88,24 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
 
   const handleSave = async () => {
     if (!editingEmployee?.first_name || !editingEmployee?.last_name) return;
+    if (splitDraft.mode === "split" && !splitDraft.balanced) {
+      toast({ title: "Venue split is not balanced", variant: "destructive" });
+      return;
+    }
     setSaving(true);
-    const ok = await onSave(editingEmployee as Partial<HREmployee>);
+    const payload = { ...editingEmployee, cost_allocation_mode: splitDraft.mode } as Partial<HREmployee>;
+    const ok = await onSave(payload);
+    if (ok && tenantId && editingEmployee.id) {
+      const base = Number((editingEmployee as any).base_salary || (editingEmployee as any).gross_salary || 0);
+      await saveVenueSplit({
+        tenantId, ownerType: "employee", ownerId: editingEmployee.id,
+        mode: splitDraft.mode, lines: splitDraft.lines, baseAmount: base,
+      });
+    }
     if (ok) { toast({ title: "Saved" }); setModalOpen(false); }
     setSaving(false);
   };
+
 
   const updateField = (field: string, value: any) =>
     setEditingEmployee(prev => prev ? { ...prev, [field]: value } : prev);
