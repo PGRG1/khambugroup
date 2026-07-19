@@ -211,6 +211,8 @@ export default function PettyCashReceiptsPage() {
           </Card>
         </>
       )}
+
+      <PettyCashImport open={importOpen} onOpenChange={setImportOpen} pc={pc} />
     </div>
   );
 }
