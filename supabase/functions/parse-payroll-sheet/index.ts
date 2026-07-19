@@ -175,14 +175,15 @@ Deno.serve(async (req) => {
       return {
         raw_name: String(r.raw_name || "").trim(),
         matched_employee_id: validIds.has(mid) ? mid : "",
-        basic_salary: Number(r.basic_salary || 0),
-        days_or_hours: Number(r.days_or_hours || 0),
-        al_days: Number(r.al_days || 0),
-        npl_days: Number(r.npl_days || 0),
+        base_salary: Number(r.base_salary || 0),
+        mpf_employee: Number(r.mpf_employee || 0),
+        mpf_employer: Number(r.mpf_employer || 0),
+        net_pay: Number(r.net_pay || 0),
+        gross_pay: Number(r.gross_pay || 0),
         confidence: (["high", "medium", "low"].includes(r.confidence) ? r.confidence : "low") as string,
         source_hint: String(r.source_hint || "").trim(),
       };
-    }).filter((r: any) => r.raw_name || r.basic_salary > 0);
+    }).filter((r: any) => r.raw_name || r.base_salary > 0 || r.net_pay > 0);
 
     return new Response(JSON.stringify({ success: true, rows, warnings }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
