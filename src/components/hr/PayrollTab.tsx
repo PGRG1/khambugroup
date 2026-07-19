@@ -16,6 +16,9 @@ import { PayrollPaymentDialog } from "./PayrollPaymentDialog";
 import { usePayrollPaymentBatches } from "@/hooks/usePayrollPaymentBatches";
 import { PayrollLaborCostCard } from "./PayrollLaborCostCard";
 import PayrollImportDialog, { EmployeePicker, type PayrollImportApplyPayload } from "./PayrollImportDialog";
+import { useVenues } from "@/hooks/useVenues";
+
+const UNASSIGNED = "Unassigned";
 
 interface Props {
   payroll: HRPayroll[];
