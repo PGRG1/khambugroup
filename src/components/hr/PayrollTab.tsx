@@ -673,7 +673,7 @@ function Stat({ label, value, strong }: { label: string; value: string; strong?:
 }
 
 function VenueGroup({
-  venue, emps, startNum, onIncrement, getRowData, setEdit, edits, subtotal,
+  venue, emps, startNum, getRowData, setEdit, edits, subtotal,
   stickyCol0, stickyCol1, clusterEnd, rowBorder,
 }: any) {
   return (
