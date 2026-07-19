@@ -13,6 +13,7 @@ import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRi
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { AllocationProfilePicker } from "@/components/allocation/AllocationProfilePicker";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import BillDropZone, { ScannedBill } from "@/components/finance/bills/BillDropZone";
@@ -701,6 +702,17 @@ export default function BillsExpenses() {
                   <Label>Currency</Label>
                   <Input value={header.currency || "HKD"} onChange={(e) => setHeader({ ...header, currency: e.target.value })} />
                 </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-border/50">
+                <AllocationProfilePicker
+                  mode={(header as any).cost_allocation_mode}
+                  profileId={(header as any).cost_allocation_profile_id}
+                  onChange={(m, pid) => setHeader({
+                    ...header,
+                    cost_allocation_mode: m,
+                    cost_allocation_profile_id: pid,
+                  } as any)}
+                />
               </div>
             </FormSection>
 
