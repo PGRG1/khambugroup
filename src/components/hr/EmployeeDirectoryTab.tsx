@@ -85,7 +85,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
   const handleSave = async () => {
     if (!editingEmployee?.first_name || !editingEmployee?.last_name) return;
     setSaving(true);
-    const ok = await onSave(editingEmployee);
+    const ok = await onSave(editingEmployee as Partial<HREmployee>);
     if (ok) { toast({ title: "Saved" }); setModalOpen(false); }
     setSaving(false);
   };
