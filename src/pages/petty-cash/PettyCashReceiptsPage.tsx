@@ -109,9 +109,14 @@ export default function PettyCashReceiptsPage() {
       ) : (
         <>
           <Card className="card-glass p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <ReceiptIcon className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">Record a receipt</h2>
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <div className="flex items-center gap-2">
+                <ReceiptIcon className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Record a receipt</h2>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                <Sparkles className="h-4 w-4 mr-1.5 text-primary" /> AI Import
+              </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
               <div className="md:col-span-1">
