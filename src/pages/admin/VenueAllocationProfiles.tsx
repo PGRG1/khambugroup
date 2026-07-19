@@ -6,7 +6,7 @@
  * venues for management-accounting reporting. Never affects the GL.
  */
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, PieChart } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -75,7 +75,6 @@ export default function VenueAllocationProfilesPage() {
       <PageHeader
         title="Venue Allocation Profiles"
         description="Reusable splits for slicing shared employee or utility costs across venues. Reporting-only — never affects the ledger."
-        icon={PieChart}
         actions={<Button size="sm" onClick={openNew}><Plus className="h-4 w-4 mr-1.5" /> New profile</Button>}
       />
 
