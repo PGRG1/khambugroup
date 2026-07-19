@@ -10,7 +10,8 @@ import { Plus, Search, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useVenues } from "@/hooks/useVenues";
 import type { HREmployee, HRDepartment } from "@/hooks/useHRData";
-import { AllocationProfilePicker } from "@/components/allocation/AllocationProfilePicker";
+import { VenueSplitEditor, saveVenueSplit, SplitLine } from "@/components/allocation/VenueSplitEditor";
+import { useActiveTenant } from "@/hooks/useActiveTenant";
 
 interface Props {
   employees: HREmployee[];
