@@ -11,25 +11,26 @@ const corsHeaders = {
 type FileEntry = { base64: string; mimeType: string; filename?: string };
 type EmployeeHint = { id: string; first_name: string; last_name: string; employment_type: string };
 
-const buildSystemPrompt = (employees: EmployeeHint[]) => `You extract MONTHLY PAYROLL ROWS from documents (photographed timesheets, PDF payroll runs, Excel spreadsheets). Context: KHAMBU Group (restaurants/bars in Hong Kong).
+const buildSystemPrompt = (employees: EmployeeHint[]) => `You extract FINAL PAYROLL FIGURES from documents (payroll registers, PDF payroll runs, Excel spreadsheets, photographed pay sheets). Context: KHAMBU Group (restaurants/bars in Hong Kong).
 
-Each row corresponds to one employee's payroll for the period.
+Each row corresponds to one employee's payroll for the period. Report ONLY the figures actually printed on the document — do NOT compute, derive, or reconcile any value. What's on the sheet is authoritative.
 
 Fields to extract per row:
 - raw_name: the person's name as it appears in the document (verbatim).
 - matched_employee_id: the id from the employee roster below that best matches raw_name (case-insensitive, tolerate initials, reversed order Last/First, minor typos). If no confident match, "".
-- basic_salary: monthly salary for full-time OR hourly rate for part-time. Number. 0 if unclear.
-- days_or_hours: for full-time = working days worked; for part-time/casual = hours worked. Number. 0 if unclear.
-- al_days: annual leave days taken in period (0 if none).
-- npl_days: no-pay / sick / unpaid leave days taken (0 if none).
+- base_salary: the basic/base salary figure shown on the sheet. Number. 0 if not present.
+- mpf_employee: the employee MPF contribution shown. Number. 0 if not present.
+- mpf_employer: the employer MPF contribution shown. Number. 0 if not present.
+- net_pay: the net pay (take-home) figure shown. Number. 0 if not present.
+- gross_pay: the gross pay figure shown, if the sheet prints one. Number. 0 if not present (optional).
 - confidence: "high" | "medium" | "low".
 - source_hint: short origin note ("Excel row 4", "PDF page 2", "image 1").
 
 Rules:
 - All output text in English.
-- Read every number digit by digit. Never invent a value.
+- Read every number digit by digit. Never invent a value. Never calculate — copy what is printed.
 - One row per distinct employee entry. Do NOT emit totals/subtotals rows.
-- If a field is missing in the source, return 0 (numbers) or "" (strings). Do not guess.
+- If a field is missing on the sheet, return 0 (numbers) or "" (strings). Do not guess.
 
 Employee roster (id | last_name, first_name | type):
 ${employees.map(e => `${e.id} | ${e.last_name}, ${e.first_name} | ${e.employment_type}`).join("\n") || "(none provided)"}
@@ -41,10 +42,11 @@ Return ONLY valid JSON:
     {
       "raw_name": "string",
       "matched_employee_id": "one of the ids above, or ''",
-      "basic_salary": number,
-      "days_or_hours": number,
-      "al_days": number,
-      "npl_days": number,
+      "base_salary": number,
+      "mpf_employee": number,
+      "mpf_employer": number,
+      "net_pay": number,
+      "gross_pay": number,
       "confidence": "high | medium | low",
       "source_hint": "string"
     }
