@@ -48,6 +48,7 @@ import UserAccessControl from "./pages/UserAccessControl";
 import Reconciliation from "./pages/revenue/Reconciliation";
 import ServicePeriods from "./pages/revenue/ServicePeriods";
 import RevenueMapping from "./pages/revenue/Mapping";
+import OtherRevenuePage from "./pages/revenue/OtherRevenue";
 import AccessDenied from "./pages/AccessDenied";
 
 import Procurement from "./pages/Procurement";
