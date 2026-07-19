@@ -5551,6 +5551,100 @@ export type Database = {
           },
         ]
       }
+      manual_revenue_entries: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string
+          entry_date: string
+          id: string
+          journal_entry_id: string | null
+          receipt_path: string | null
+          receipt_url: string | null
+          revenue_source_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_date?: string
+          id?: string
+          journal_entry_id?: string | null
+          receipt_path?: string | null
+          receipt_url?: string | null
+          revenue_source_id?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          entry_date?: string
+          id?: string
+          journal_entry_id?: string | null
+          receipt_path?: string | null
+          receipt_url?: string | null
+          revenue_source_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_revenue_entries_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_revenue_entries_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "manual_revenue_entries_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "manual_revenue_entries_revenue_source_id_fkey"
+            columns: ["revenue_source_id"]
+            isOneToOne: false
+            referencedRelation: "revenue_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_revenue_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_revenue_entries_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_item_ingredients: {
         Row: {
           created_at: string
