@@ -13,7 +13,7 @@ import { Plus, Trash2, Search, Eye, ExternalLink, ShieldAlert, FileText, ArrowRi
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { AllocationProfilePicker } from "@/components/allocation/AllocationProfilePicker";
+import { VenueSplitEditor, saveVenueSplit, SplitLine } from "@/components/allocation/VenueSplitEditor";
 import { toast } from "sonner";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import BillDropZone, { ScannedBill } from "@/components/finance/bills/BillDropZone";
