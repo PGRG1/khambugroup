@@ -747,7 +747,7 @@ function VenueGroup({
         <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.totalCost || 0)}</td>
         <td />
       </tr>
-      {(() => { onIncrement(emps.length); return null; })()}
+      
     </>
   );
 }
