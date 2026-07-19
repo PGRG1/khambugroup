@@ -10,7 +10,7 @@ import { Plus, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/utils/salesUtils";
-import { fmtDate } from "@/utils/format";
+import { fmtDate } from "@/pages/petty-cash/_shared";
 import { useManualRevenue, type ManualRevenueEntry } from "@/hooks/useManualRevenue";
 import { useVenues } from "@/hooks/useVenues";
 import { useRevenueSources } from "@/hooks/useRevenueSources";
