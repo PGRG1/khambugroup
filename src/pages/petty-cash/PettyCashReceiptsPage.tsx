@@ -6,12 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Receipt as ReceiptIcon, Check, X } from "lucide-react";
+import { Plus, Receipt as ReceiptIcon, Check, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/utils/salesUtils";
 import { usePettyCash, type PettyReceipt } from "@/hooks/usePettyCash";
 import { PettyCashHeader, StatusBadge, fmtDate } from "./_shared";
+import PettyCashImport from "@/components/petty-cash/PettyCashImport";
 
 export default function PettyCashReceiptsPage() {
   const pc = usePettyCash();
