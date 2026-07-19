@@ -33,10 +33,11 @@ function fileToBase64(file: File): Promise<string> {
 type ExtractedRow = {
   raw_name: string;
   matched_employee_id: string;
-  basic_salary: number;
-  days_or_hours: number;
-  al_days: number;
-  npl_days: number;
+  base_salary: number;
+  mpf_employee: number;
+  mpf_employer: number;
+  net_pay: number;
+  gross_pay: number;
   confidence: "high" | "medium" | "low";
   source_hint: string;
 };
@@ -45,10 +46,11 @@ type ReviewRow = ExtractedRow & { _id: string };
 
 export type PayrollImportApplyPayload = {
   employee_id: string;
-  basic_salary: number;
-  days_or_hours: number;
-  al_days: number;
-  npl_days: number;
+  base_salary: number;
+  mpf_employee: number;
+  mpf_employer: number;
+  net_pay: number;
+  gross_pay: number;
 };
 
 export default function PayrollImportDialog({
@@ -144,15 +146,15 @@ export default function PayrollImportDialog({
       toast.warning("No rows are matched to an employee.");
       return;
     }
-    // De-dupe by employee_id (last wins).
     const map = new Map<string, PayrollImportApplyPayload>();
     for (const r of valid) {
       map.set(r.matched_employee_id, {
         employee_id: r.matched_employee_id,
-        basic_salary: r.basic_salary,
-        days_or_hours: r.days_or_hours,
-        al_days: r.al_days,
-        npl_days: r.npl_days,
+        base_salary: r.base_salary,
+        mpf_employee: r.mpf_employee,
+        mpf_employer: r.mpf_employer,
+        net_pay: r.net_pay,
+        gross_pay: r.gross_pay,
       });
     }
     onApply(Array.from(map.values()));
@@ -172,8 +174,8 @@ export default function PayrollImportDialog({
           </DialogTitle>
           <DialogDescription>
             {step === "upload"
-              ? "Upload a payroll sheet, timesheet, or PDF/photo. AI will extract each employee's basic salary, days/hours, and leave days."
-              : "Review matches and values. Values apply into the payroll table for you to save; nothing is posted automatically."}
+              ? "Upload a payroll sheet, PDF, or photo. AI reads the final figures — Base, MPF, and Net — straight off the document, exactly as printed."
+              : "Review the scanned figures. They apply into the payroll table as-is; nothing is recalculated or posted automatically."}
           </DialogDescription>
         </DialogHeader>
 
@@ -304,7 +306,6 @@ function ReviewRowCard({
   onChange: (patch: Partial<ReviewRow>) => void;
   onRemove: () => void;
 }) {
-  const matched = employees.find(e => e.id === row.matched_employee_id) || null;
   const border =
     row.matched_employee_id
       ? "border-border/60 bg-muted/20"
@@ -343,10 +344,10 @@ function ReviewRowCard({
             onChange={(id) => onChange({ matched_employee_id: id })}
           />
         </div>
-        <NumField label="Basic salary" value={row.basic_salary} onChange={(v) => onChange({ basic_salary: v })} />
-        <NumField label="Days / Hrs" value={row.days_or_hours} onChange={(v) => onChange({ days_or_hours: v })} />
-        <NumField label="AL days" value={row.al_days} onChange={(v) => onChange({ al_days: v })} />
-        <NumField label="NPL days" value={row.npl_days} onChange={(v) => onChange({ npl_days: v })} />
+        <NumField label="Base" value={row.base_salary} onChange={(v) => onChange({ base_salary: v })} />
+        <NumField label="MPF (EE)" value={row.mpf_employee} onChange={(v) => onChange({ mpf_employee: v })} />
+        <NumField label="MPF (ER)" value={row.mpf_employer} onChange={(v) => onChange({ mpf_employer: v })} />
+        <NumField label="Net" value={row.net_pay} onChange={(v) => onChange({ net_pay: v })} />
       </div>
     </div>
   );

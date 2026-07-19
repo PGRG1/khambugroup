@@ -365,12 +365,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave }: Prop
     setEdits(prev => {
       const next = { ...prev };
       for (const row of imported) {
+        // Scanned figures are authoritative — write straight through, do NOT recompute.
         next[row.employee_id] = {
           ...next[row.employee_id],
-          forecast_base_salary: row.basic_salary,
-          days_hours: row.days_or_hours,
-          al_days: row.al_days,
-          npl_days: row.npl_days,
+          forecast_base_salary: row.base_salary,
+          mpf_employee_override: row.mpf_employee,
+          mpf_employer_override: row.mpf_employer,
         };
       }
       return next;
