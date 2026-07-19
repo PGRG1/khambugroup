@@ -494,7 +494,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave }: Prop
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold truncate">{emp.last_name}, {emp.first_name}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">{emp.venue || "—"} · {emp.job_title || "—"}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{resolveVenue(emp)} · {emp.job_title || "—"}</div>
                   </div>
                   <div className="text-right text-xs tabular-nums">
                     <div className="font-semibold">HK$ {fmt(r.netPay)}</div>
