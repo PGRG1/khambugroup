@@ -112,6 +112,7 @@ export default function BillsExpenses() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<ExpenseBill | null>(null);
   const [header, setHeader] = useState<Partial<ExpenseBill>>({});
+  const [splitDraft, setSplitDraft] = useState<{ mode: "single" | "split"; lines: SplitLine[]; balanced: boolean }>({ mode: "single", lines: [], balanced: true });
   const [allocations, setAllocations] = useState<ExpenseBillAllocation[]>([]);
   const [audit, setAudit] = useState<ExpenseBillAuditRow[]>([]);
   const [payments, setPayments] = useState<ExpenseBillPayment[]>([]);
