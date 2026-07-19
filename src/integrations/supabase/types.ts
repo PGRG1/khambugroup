@@ -9655,6 +9655,7 @@ export type Database = {
           month: number | null
           name: string | null
           tenant_id: string | null
+          venue: string | null
           year: number | null
         }
         Relationships: [
