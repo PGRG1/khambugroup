@@ -41,6 +41,7 @@ const revenueItems: Item[] = [
   { title: "Service Periods", url: "/revenue/service-periods", pageKey: "revenue" },
   { title: "Reconciliation", url: "/revenue/reconciliation", pageKey: "revenue" },
   { title: "Mapping", url: "/revenue/mapping", pageKey: "revenue" },
+  { title: "Other Revenue", url: "/revenue/other", pageKey: "revenue" },
 ];
 
 const financeItems: Item[] = [
