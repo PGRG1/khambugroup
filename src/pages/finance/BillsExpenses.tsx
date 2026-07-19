@@ -705,14 +705,16 @@ export default function BillsExpenses() {
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-border/50">
-                <AllocationProfilePicker
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Cost allocation</div>
+                <VenueSplitEditor
+                  ownerType="expense_bill"
+                  ownerId={editing?.id || null}
                   mode={(header as any).cost_allocation_mode}
-                  profileId={(header as any).cost_allocation_profile_id}
-                  onChange={(m, pid) => setHeader({
-                    ...header,
-                    cost_allocation_mode: m,
-                    cost_allocation_profile_id: pid,
-                  } as any)}
+                  baseAmount={Number(header.total_amount || 0)}
+                  onChange={(mode, lines, balanced) => {
+                    setSplitDraft({ mode, lines, balanced });
+                    setHeader(h => ({ ...h, cost_allocation_mode: mode } as any));
+                  }}
                 />
               </div>
             </FormSection>
