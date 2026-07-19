@@ -40,12 +40,14 @@ const displayStatus = (s: string | null | undefined) => (isActive(s) ? "Active" 
 export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) {
   const navigate = useNavigate();
   const { venues } = useVenues();
+  const { tenantId } = useActiveTenant();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Partial<HREmployee & { venue_id: string | null }> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [splitDraft, setSplitDraft] = useState<{ mode: "single" | "split"; lines: SplitLine[]; balanced: boolean }>({ mode: "single", lines: [], balanced: true });
 
   const venueById = useMemo(() => {
     const m = new Map<string, string>();
