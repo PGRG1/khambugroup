@@ -226,6 +226,7 @@ function App() {
                 <Route path="/revenue/reconciliation" element={<ProtectedRoute pageKey="revenue"><Reconciliation /></ProtectedRoute>} />
                 <Route path="/revenue/service-periods" element={<ProtectedRoute pageKey="revenue"><ServicePeriods /></ProtectedRoute>} />
                 <Route path="/revenue/mapping" element={<ProtectedRoute pageKey="revenue"><RevenueMapping /></ProtectedRoute>} />
+                <Route path="/revenue/other" element={<ProtectedRoute pageKey="revenue"><OtherRevenuePage /></ProtectedRoute>} />
 
                 <Route path="/forecast/:venue" element={<ProtectedRoute pageKey="forecast"><RevenueTargets /></ProtectedRoute>} />
                 <Route path="/forecast-legacy/:venue" element={<ProtectedRoute pageKey="forecast"><ForecastInput /></ProtectedRoute>} />
