@@ -271,7 +271,7 @@ function App() {
                 <Route path="/admin/master-data" element={<AdminRoute><MasterData /></AdminRoute>} />
                 <Route path="/admin/preferences" element={<AdminRoute><Preferences /></AdminRoute>} />
                 <Route path="/admin/ai-rules" element={<AdminRoute><AiRules /></AdminRoute>} />
-                <Route path="/admin/allocation-profiles" element={<AdminRoute><VenueAllocationProfiles /></AdminRoute>} />
+
 
                 {/* Platform admin — hard-separated under /platform/*. Old /admin/clients* redirects. */}
                 <Route path="/admin/clients" element={<Navigate to="/platform/clients" replace />} />
