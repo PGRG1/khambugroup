@@ -10,6 +10,7 @@ import { Plus, Search, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useVenues } from "@/hooks/useVenues";
 import type { HREmployee, HRDepartment } from "@/hooks/useHRData";
+import { AllocationProfilePicker } from "@/components/allocation/AllocationProfilePicker";
 
 interface Props {
   employees: HREmployee[];
@@ -266,6 +267,18 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">Date of Birth</label>
                   <Input type="date" value={editingEmployee.date_of_birth || ""} onChange={e => updateField("date_of_birth", e.target.value || null)} />
                 </div>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-semibold font-display mb-2">Cost allocation</h4>
+                <AllocationProfilePicker
+                  mode={(editingEmployee as any).cost_allocation_mode}
+                  profileId={(editingEmployee as any).cost_allocation_profile_id}
+                  onChange={(m, pid) => {
+                    updateField("cost_allocation_mode", m);
+                    updateField("cost_allocation_profile_id", pid);
+                  }}
+                />
               </div>
               <Separator />
               <h4 className="text-sm font-semibold font-display">Emergency Contact</h4>
