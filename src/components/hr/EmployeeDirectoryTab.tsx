@@ -287,14 +287,17 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
               <Separator />
               <div>
                 <h4 className="text-sm font-semibold font-display mb-2">Cost allocation</h4>
-                <AllocationProfilePicker
-                  mode={(editingEmployee as any).cost_allocation_mode}
-                  profileId={(editingEmployee as any).cost_allocation_profile_id}
-                  onChange={(m, pid) => {
-                    updateField("cost_allocation_mode", m);
-                    updateField("cost_allocation_profile_id", pid);
-                  }}
-                />
+                {editingEmployee.id ? (
+                  <VenueSplitEditor
+                    ownerType="employee"
+                    ownerId={editingEmployee.id}
+                    mode={(editingEmployee as any).cost_allocation_mode}
+                    baseAmount={Number((editingEmployee as any).base_salary || (editingEmployee as any).gross_salary || 0)}
+                    onChange={(mode, lines, balanced) => setSplitDraft({ mode, lines, balanced })}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Save the employee first, then reopen to configure a venue split.</p>
+                )}
               </div>
               <Separator />
               <h4 className="text-sm font-semibold font-display">Emergency Contact</h4>
