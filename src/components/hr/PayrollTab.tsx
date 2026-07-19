@@ -175,15 +175,38 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave }: Prop
   const [manuallyAdded, setManuallyAdded] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
 
+  const { venues } = useVenues();
+  const venueById = useMemo(() => {
+    const m = new Map<string, string>();
+    venues.forEach(v => m.set(v.id, v.name));
+    return m;
+  }, [venues]);
+  const venueOrder = useMemo(() => {
+    const o = new Map<string, number>();
+    venues.forEach((v, i) => o.set(v.name, i));
+    return o;
+  }, [venues]);
+  const resolveVenue = useCallback((emp: HREmployee): string => {
+    const vid = (emp as any).venue_id as string | null | undefined;
+    if (vid && venueById.has(vid)) return venueById.get(vid)!;
+    const legacy = (emp.venue || "").trim();
+    if (legacy && venueOrder.has(legacy)) return legacy;
+    return UNASSIGNED;
+  }, [venueById, venueOrder]);
+  const venueRank = useCallback((name: string): number => {
+    if (name === UNASSIGNED) return Number.MAX_SAFE_INTEGER;
+    return venueOrder.has(name) ? venueOrder.get(name)! : Number.MAX_SAFE_INTEGER - 1;
+  }, [venueOrder]);
+
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
   const activeEmployees = useMemo(
     () => employees.filter(e => ["active", "on_leave"].includes(e.status) || manuallyAdded.has(e.id)).sort((a, b) => {
-      const va = a.venue || "ZZZ"; const vb = b.venue || "ZZZ";
-      if (va !== vb) return va.localeCompare(vb);
+      const va = resolveVenue(a); const vb = resolveVenue(b);
+      if (va !== vb) return venueRank(va) - venueRank(vb);
       return a.sort_order - b.sort_order;
     }),
-    [employees, manuallyAdded],
+    [employees, manuallyAdded, resolveVenue, venueRank],
   );
 
   const filtered = useMemo(
@@ -199,13 +222,17 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave }: Prop
 
   const venueGroups = useMemo(() => {
     const g: Record<string, HREmployee[]> = {};
+    // seed insertion order following real venue order, then Unassigned last
+    const buckets = new Map<string, HREmployee[]>();
     activeEmployees.forEach(emp => {
-      const v = emp.venue || "Other";
-      if (!g[v]) g[v] = [];
-      g[v].push(emp);
+      const v = resolveVenue(emp);
+      if (!buckets.has(v)) buckets.set(v, []);
+      buckets.get(v)!.push(emp);
     });
+    const keys = Array.from(buckets.keys()).sort((a, b) => venueRank(a) - venueRank(b));
+    keys.forEach(k => { g[k] = buckets.get(k)!; });
     return g;
-  }, [activeEmployees]);
+  }, [activeEmployees, resolveVenue, venueRank]);
 
   const setEdit = (empId: string, field: string, value: number | string | null) => {
     setEdits(prev => ({ ...prev, [empId]: { ...prev[empId], [field]: value as any } }));
