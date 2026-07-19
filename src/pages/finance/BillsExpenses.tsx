@@ -315,11 +315,21 @@ export default function BillsExpenses() {
   const balanced = Math.abs(allocTotal - expectedAllocTotal) < 0.01;
 
   const handleSave = async (newStatus?: BillApprovalStatus) => {
-    const payload: Partial<ExpenseBill> = { ...header };
+    if (splitDraft.mode === "split" && !splitDraft.balanced) {
+      toast.error("Venue split is not balanced");
+      return;
+    }
+    const payload: Partial<ExpenseBill> = { ...header, cost_allocation_mode: splitDraft.mode } as any;
     if (newStatus) payload.approval_status = newStatus;
     const id = await saveBill(payload, allocations);
+    if (id && tenantId) {
+      await saveVenueSplit({
+        tenantId, ownerType: "expense_bill", ownerId: id,
+        mode: splitDraft.mode, lines: splitDraft.lines,
+        baseAmount: Number(header.total_amount || 0),
+      });
+    }
     if (id && linkedBankTxn && tenantId) {
-      // Link the originating bank transaction so it stops appearing as "unposted".
       await supabase
         .from("bank_transactions")
         .update({ expense_posted_bill_id: id })
@@ -335,6 +345,7 @@ export default function BillsExpenses() {
       setPayments(pay);
     }
   };
+
 
   const handlePost = async () => {
     if (!editing) return;
