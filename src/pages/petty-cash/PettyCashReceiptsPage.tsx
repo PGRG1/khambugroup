@@ -25,6 +25,7 @@ export default function PettyCashReceiptsPage() {
   const [notes, setNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [postingId, setPostingId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Default floatId once floats load
   if (!floatId && pc.floats[0]?.id) setFloatId(pc.floats[0].id);
