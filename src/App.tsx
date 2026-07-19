@@ -39,7 +39,7 @@ import ClientOnboarding from "./pages/admin/ClientOnboarding";
 import BusinessStructure from "./pages/admin/BusinessStructure";
 import MasterData from "./pages/admin/MasterData";
 import Preferences from "./pages/admin/Preferences";
-import VenueAllocationProfiles from "./pages/admin/VenueAllocationProfiles";
+
 
 
 import Auth from "./pages/Auth";
