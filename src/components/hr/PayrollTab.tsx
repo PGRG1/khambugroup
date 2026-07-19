@@ -1,17 +1,21 @@
 import { useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, Save, BookOpen, Banknote, RotateCcw, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import {
+  ChevronLeft, ChevronRight, Save, BookOpen, Banknote, RotateCcw, X, Plus, Landmark, Sparkles,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { HRPayroll, HREmployee, HRShift } from "@/hooks/useHRData";
 import { supabase } from "@/integrations/supabase/client";
 import { PayrollPaymentDialog } from "./PayrollPaymentDialog";
 import { usePayrollPaymentBatches } from "@/hooks/usePayrollPaymentBatches";
 import { PayrollLaborCostCard } from "./PayrollLaborCostCard";
+import PayrollImportDialog, { EmployeePicker, type PayrollImportApplyPayload } from "./PayrollImportDialog";
 
 interface Props {
   payroll: HRPayroll[];
@@ -21,25 +25,39 @@ interface Props {
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const MPF_RATE = 0.05;
 const MPF_CAP = 1500;
 
 const n = (v: number | null | undefined) => Number(v || 0);
-const fmt = (v: number) => v !== 0 ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00";
+const fmt = (v: number) => (v !== 0 ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00");
 
-/* ── Editable cell ── */
+/* ── Section label (replaces heavy black hdr bar) ── */
+function SectionLabel({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between border-b border-border/60 pb-1.5 mb-3">
+      <h3 className="text-[11px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">
+        {children}
+      </h3>
+      {right}
+    </div>
+  );
+}
+
+/* ── Cell styling helpers ─────────────────────────────── */
+const cellBase =
+  "block w-full text-right text-[12px] tabular-nums px-2 py-1 rounded-sm outline-none transition-colors";
+const editableIdle = "cursor-text hover:bg-muted/50 focus:bg-muted/60 focus:ring-1 focus:ring-primary/40 focus:border-b focus:border-primary";
+const calcIdle = "text-muted-foreground";
+
 function ECell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState("");
-
   if (editing) {
     return (
       <input
-        autoFocus
-        type="number"
-        className="w-full bg-chart-1/5 border border-chart-1/40 rounded px-1.5 py-0.5 text-[11px] tabular-nums text-right text-chart-1 font-semibold outline-none"
+        autoFocus type="number"
+        className={`${cellBase} bg-muted/60 ring-1 ring-primary/40`}
         value={local}
         onChange={e => setLocal(e.target.value)}
         onBlur={() => { onChange(Number(local) || 0); setEditing(false); }}
@@ -47,73 +65,39 @@ function ECell({ value, onChange }: { value: number; onChange: (v: number) => vo
       />
     );
   }
-
   return (
     <div
+      role="button" tabIndex={0}
       onClick={() => { setLocal(String(value)); setEditing(true); }}
-      className="text-right text-[11px] tabular-nums cursor-pointer rounded px-1.5 py-0.5 text-chart-1 font-semibold hover:bg-chart-1/5 transition-colors"
+      onKeyDown={e => { if (e.key === "Enter") { setLocal(String(value)); setEditing(true); } }}
+      className={`${cellBase} ${editableIdle}`}
     >
       {fmt(value)}
     </div>
   );
 }
 
-/* ── Editable text cell ── */
-function ETextCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [local, setLocal] = useState("");
-
-  if (editing) {
-    return (
-      <input
-        autoFocus
-        type="text"
-        className="w-full bg-chart-1/5 border border-chart-1/40 rounded px-1.5 py-0.5 text-[11px] text-chart-1 font-semibold outline-none"
-        value={local}
-        onChange={e => setLocal(e.target.value)}
-        onBlur={() => { onChange(local); setEditing(false); }}
-        onKeyDown={e => { if (e.key === "Enter") { onChange(local); setEditing(false); } if (e.key === "Escape") setEditing(false); }}
-      />
-    );
-  }
-
+function SCell({ value, bold }: { value: number; bold?: boolean }) {
   return (
-    <div
-      onClick={() => { setLocal(value); setEditing(true); }}
-      className="text-[11px] tabular-nums cursor-pointer rounded px-1.5 py-0.5 text-chart-1 font-semibold hover:bg-chart-1/5 transition-colors truncate"
-    >
-      {value || "—"}
-    </div>
-  );
-}
-
-/* ── Static number cell ── */
-function SCell({ value, bold, negative }: { value: number; bold?: boolean; negative?: boolean }) {
-  return (
-    <div className={`text-right text-[11px] tabular-nums px-1.5 py-0.5 ${bold ? "font-bold" : ""} ${negative && value < 0 ? "text-destructive" : ""}`}>
+    <div className={`${cellBase} ${calcIdle} ${bold ? "font-semibold text-foreground" : ""}`}>
       {fmt(value)}
     </div>
   );
 }
 
-/* ── Override cell: editable, blank clears override back to computed ── */
 function OCell({ value, isOverride, onChange }: { value: number; isOverride: boolean; onChange: (v: number | null) => void }) {
   const [editing, setEditing] = useState(false);
   const [local, setLocal] = useState("");
-
   const commit = () => {
     const trimmed = local.trim();
     onChange(trimmed === "" ? null : Number(trimmed) || 0);
     setEditing(false);
   };
-
   if (editing) {
     return (
       <input
-        autoFocus
-        type="number"
-        placeholder="auto"
-        className="w-full bg-chart-1/5 border border-chart-1/40 rounded px-1.5 py-0.5 text-[11px] tabular-nums text-right text-chart-1 font-semibold outline-none"
+        autoFocus type="number" placeholder="auto"
+        className={`${cellBase} bg-muted/60 ring-1 ring-primary/40`}
         value={local}
         onChange={e => setLocal(e.target.value)}
         onBlur={commit}
@@ -121,113 +105,87 @@ function OCell({ value, isOverride, onChange }: { value: number; isOverride: boo
       />
     );
   }
-
   return (
     <div
+      role="button" tabIndex={0}
       onClick={() => { setLocal(isOverride ? String(value) : ""); setEditing(true); }}
+      onKeyDown={e => { if (e.key === "Enter") { setLocal(isOverride ? String(value) : ""); setEditing(true); } }}
       title={isOverride ? "Manual override — clear field to revert to auto-calculated" : "Auto-calculated — click to override"}
-      className={`text-right text-[11px] tabular-nums cursor-pointer rounded px-1.5 py-0.5 hover:bg-chart-1/5 transition-colors ${isOverride ? "text-chart-1 font-semibold underline decoration-dotted" : ""}`}
+      className={`${cellBase} ${isOverride ? "text-foreground font-medium underline decoration-dotted decoration-primary/60 underline-offset-4 hover:bg-muted/50" : `${calcIdle} hover:bg-muted/50 cursor-text`}`}
     >
       {fmt(value)}
     </div>
   );
 }
 
-/* ── MTD Schedule sub-view ── */
-function MTDScheduleView({ employeeId, shifts, month, year }: { employeeId: string; shifts: HRShift[]; month: number; year: number }) {
-  const monthShifts = useMemo(() => {
-    return shifts.filter(s => {
-      if (s.employee_id !== employeeId) return false;
-      const d = new Date(s.shift_date);
-      return d.getMonth() + 1 === month && d.getFullYear() === year;
-    }).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
-  }, [shifts, employeeId, month, year]);
-
-  const totalHours = monthShifts.reduce((s, sh) => {
-    const [sh1, sm1] = sh.start_time.split(":").map(Number);
-    const [sh2, sm2] = sh.end_time.split(":").map(Number);
-    let hrs = (sh2 * 60 + sm2 - sh1 * 60 - sm1 - (sh.break_minutes || 0)) / 60;
-    if (hrs < 0) hrs += 24;
-    return s + hrs;
-  }, 0);
-
-  const labels: Record<string, string> = {
-    regular: "Work", al: "AL", sh: "SH", ph: "PH", sick_no_pay: "Sick (NP)", no_pay: "No Pay", off: "OFF", rest: "Rest", training: "Training",
-  };
-
+/* ── Bank/Account popover per row ── */
+function BankPopover({
+  bank, account, onChange,
+}: {
+  bank: string; account: string;
+  onChange: (patch: { bank?: string; account?: string }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [b, setB] = useState(bank);
+  const [a, setA] = useState(account);
+  const hasValue = !!(bank || account);
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">MTD Schedule — {MONTHS_SHORT[month - 1]} {year}</h4>
-        <Badge variant="secondary">{totalHours.toFixed(1)} hrs total</Badge>
-      </div>
-      {monthShifts.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4 text-center">No shifts scheduled</p>
-      ) : (
-        <div className="border border-border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader><TableRow>
-              <TableHead className="text-xs">Date</TableHead>
-              <TableHead className="text-xs">Day</TableHead>
-              <TableHead className="text-xs">Type</TableHead>
-              <TableHead className="text-xs">Start</TableHead>
-              <TableHead className="text-xs">End</TableHead>
-              <TableHead className="text-xs">Break</TableHead>
-              <TableHead className="text-xs text-right">Hours</TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              {monthShifts.map(sh => {
-                const d = new Date(sh.shift_date);
-                const [sh1, sm1] = sh.start_time.split(":").map(Number);
-                const [sh2, sm2] = sh.end_time.split(":").map(Number);
-                let hrs = (sh2 * 60 + sm2 - sh1 * 60 - sm1 - (sh.break_minutes || 0)) / 60;
-                if (hrs < 0) hrs += 24;
-                const isLeave = ["al", "sh", "ph", "sick_no_pay", "no_pay", "off", "rest"].includes(sh.shift_type || "regular");
-                return (
-                  <TableRow key={sh.id} className={isLeave ? "bg-muted/30" : ""}>
-                    <TableCell className="text-xs py-1.5">{sh.shift_date}</TableCell>
-                    <TableCell className="text-xs py-1.5">{d.toLocaleDateString("en-US", { weekday: "short" })}</TableCell>
-                    <TableCell className="text-xs py-1.5"><Badge variant={isLeave ? "outline" : "secondary"} className="text-[10px]">{labels[sh.shift_type || "regular"] || sh.shift_type}</Badge></TableCell>
-                    <TableCell className="text-xs py-1.5">{sh.start_time?.slice(0, 5)}</TableCell>
-                    <TableCell className="text-xs py-1.5">{sh.end_time?.slice(0, 5)}</TableCell>
-                    <TableCell className="text-xs py-1.5">{sh.break_minutes || 0}m</TableCell>
-                    <TableCell className="text-xs py-1.5 text-right font-medium">{hrs.toFixed(1)}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) { setB(bank); setA(account); } }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex items-center justify-center h-6 w-6 rounded hover:bg-muted/60 ${hasValue ? "text-primary" : "text-muted-foreground/60"}`}
+          title={hasValue ? `${bank || "—"} · ${account || "—"}` : "Set bank & account"}
+        >
+          <Landmark className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-3" align="end">
+        <div className="space-y-2">
+          <div>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Bank</Label>
+            <Input value={b} onChange={e => setB(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Account</Label>
+            <Input value={a} onChange={e => setA(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="flex justify-end gap-1 pt-1">
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" className="h-7 text-xs" onClick={() => { onChange({ bank: b, account: a }); setOpen(false); }}>Save</Button>
+          </div>
         </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
 /* ════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════ */
-export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
+export function PayrollTab({ payroll, employees, shifts: _shifts, onSave }: Props) {
   const now = new Date();
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [saving, setSaving] = useState(false);
-  // (Legacy per-row detail modal removed — click the employee name to open the profile.)
   const [edits, setEdits] = useState<Record<string, Record<string, number | string | null>>>({});
+  const [manuallyAdded, setManuallyAdded] = useState<Set<string>>(new Set());
+  const [importOpen, setImportOpen] = useState(false);
 
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
   const activeEmployees = useMemo(
-    () => employees.filter(e => ["active", "on_leave"].includes(e.status)).sort((a, b) => {
+    () => employees.filter(e => ["active", "on_leave"].includes(e.status) || manuallyAdded.has(e.id)).sort((a, b) => {
       const va = a.venue || "ZZZ"; const vb = b.venue || "ZZZ";
       if (va !== vb) return va.localeCompare(vb);
       return a.sort_order - b.sort_order;
     }),
-    [employees]
+    [employees, manuallyAdded],
   );
 
   const filtered = useMemo(
     () => payroll.filter(p => p.year === filterYear && p.month === filterMonth),
-    [payroll, filterYear, filterMonth]
+    [payroll, filterYear, filterMonth],
   );
 
   const payrollMap = useMemo(() => {
@@ -313,7 +271,6 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   const prevMonth = () => { if (filterMonth === 1) { setFilterMonth(12); setFilterYear(y => y - 1); } else setFilterMonth(m => m - 1); };
   const nextMonth = () => { if (filterMonth === 12) { setFilterMonth(1); setFilterYear(y => y + 1); } else setFilterMonth(m => m + 1); };
 
-  // Aggregates
   const venueSubtotals = useMemo(() => {
     const st: Record<string, { baseSalary: number; earnedSalary: number; adjustments: number; grossPay: number; mpfEE: number; mpfER: number; totalMPF: number; netPay: number; totalCost: number }> = {};
     Object.entries(venueGroups).forEach(([venue, emps]) => {
@@ -337,7 +294,6 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
   }, [filtered]);
 
   const avgSalary = grandTotal.headcount > 0 ? grandTotal.grossPay / grandTotal.headcount : 0;
-
   const hasAnyEdits = Object.keys(edits).length > 0;
 
   const saveAll = async () => {
@@ -372,29 +328,60 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
     } else {
       toast({ title: "Accrual posted", description: `${(data as any)?.entries_created ?? 0} journal entries created. Flowed to Trial Balance, P&L & Balance Sheet.` });
     }
-    // Refresh page payroll data
     window.dispatchEvent(new Event("hr-data-refresh"));
   };
 
-  const hdr = "bg-foreground text-background text-[11px] font-bold uppercase tracking-wider px-3 py-1.5";
-  const th = "text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap border-b border-border";
-  const thP = "px-2 py-2"; // padding for th
-  const td = "text-[11px] tabular-nums whitespace-nowrap px-2 py-1.5 border-b border-border/40";
-  const calc = "bg-muted/40"; // calculated column bg
+  const applyImport = (imported: PayrollImportApplyPayload[]) => {
+    setEdits(prev => {
+      const next = { ...prev };
+      for (const row of imported) {
+        next[row.employee_id] = {
+          ...next[row.employee_id],
+          forecast_base_salary: row.basic_salary,
+          days_hours: row.days_or_hours,
+          al_days: row.al_days,
+          npl_days: row.npl_days,
+        };
+      }
+      return next;
+    });
+    setManuallyAdded(prev => {
+      const next = new Set(prev);
+      for (const row of imported) next.add(row.employee_id);
+      return next;
+    });
+  };
 
-  let rowNum = 0;
+  const currentEmployeeIds = useMemo(() => new Set(activeEmployees.map(e => e.id)), [activeEmployees]);
+
+  /* ── Column cluster boundaries ─────────────────────────
+     Cluster 1: No, Name, Dept/Venue, Position, Type  (indices 0-4)
+     Cluster 2: Basic, Days/Hrs, Earned, AL, NPL, Adj, Gross (5-11)
+     Cluster 3: MPF EE, MPF ER, Total MPF (12-14)
+     Cluster 4: Net Pay, Total Cost (15-16)
+     Cluster 5: Bank chip (17)
+  ─────────────────────────────────────────────────────── */
+  const clusterEnd = "border-r border-border";       // divider between clusters
+  const rowBorder = "border-b border-border/40";      // hairline row separator
+  const stickyCol0 = "sticky left-0 z-[1] bg-background";
+  const stickyCol1 = "sticky left-[42px] z-[1] bg-background";
+  const stickyColH0 = "sticky left-0 z-[2] bg-background";
+  const stickyColH1 = "sticky left-[42px] z-[2] bg-background";
 
   return (
-    <div className="space-y-4">
-      {/* ── Period nav ── */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* ── Period nav + actions ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <span className="text-xs font-semibold text-muted-foreground mr-1">Period</span>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-          <span className="text-base font-display font-bold min-w-[160px] text-center">{MONTHS[filterMonth - 1]} {filterYear}</span>
+          <span className="text-base font-display font-semibold min-w-[160px] text-center">{MONTHS[filterMonth - 1]} {filterYear}</span>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setImportOpen(true)} className="h-7 text-xs gap-1">
+            <Sparkles className="h-3.5 w-3.5" /> Import / Scan
+          </Button>
           {hasAnyEdits && (
             <Button size="sm" onClick={saveAll} disabled={saving} className="h-7 text-xs gap-1">
               <Save className="h-3.5 w-3.5" /> Save All Changes
@@ -414,8 +401,8 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
           </Button>
           {accrualPosted && (
             <a
-              href={`/finance/journal?source=payroll_accrual&period=${filterYear}-${String(filterMonth).padStart(2,"0")}`}
-              className="inline-flex items-center gap-1 rounded border border-primary/30 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+              href={`/finance/journal?source=payroll_accrual&period=${filterYear}-${String(filterMonth).padStart(2, "0")}`}
+              className="inline-flex items-center gap-1 rounded border border-primary/30 px-2 py-1 text-[11px] text-primary hover:bg-primary/10"
               title="View accrual entries in the general journal"
             >
               <BookOpen className="h-3 w-3" /> View accrual JE
@@ -425,304 +412,215 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
       </div>
 
       {/* ── Summary cards ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Payroll Summary */}
-        <div className="border border-border rounded-md overflow-hidden">
-          <div className={hdr}>Payroll Summary</div>
-          <div className="grid grid-cols-4 divide-x divide-border border-b border-border">
-            {[
-              ["Total Headcount", String(grandTotal.headcount)],
-              ["Avg Salary", `$${fmt(avgSalary)}`],
-              ["MPF Rate", `${(MPF_RATE * 100).toFixed(0)}%`],
-              ["Days in Month", String(daysInMonth)],
-            ].map(([label, val]) => (
-              <div key={label} className="px-3 py-2">
-                <div className="text-[10px] text-muted-foreground">{label}</div>
-                <div className="text-sm font-bold">{val}</div>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-4 divide-x divide-border">
-            {[
-              ["Total Gross Pay", `$${fmt(grandTotal.grossPay)}`],
-              ["Total Net Pay", `$${fmt(grandTotal.netPay)}`],
-              ["Total MPF (ER)", `$${fmt(grandTotal.mpfER)}`],
-              ["Status", payStatus],
-            ].map(([label, val]) => (
-              <div key={label} className="px-3 py-2">
-                <div className="text-[10px] text-muted-foreground">{label}</div>
-                {label === "Status" ? (
-                  <Badge variant={val === "Paid" ? "default" : "outline"} className="text-[10px] mt-0.5">{val}</Badge>
-                ) : (
-                  <div className="text-sm font-bold">{val}</div>
-                )}
-              </div>
-            ))}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="card-glass rounded-xl p-4">
+          <SectionLabel>Payroll Summary</SectionLabel>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+            <Stat label="Headcount" value={String(grandTotal.headcount)} />
+            <Stat label="Avg salary" value={`HK$ ${fmt(avgSalary)}`} />
+            <Stat label="MPF rate" value={`${(MPF_RATE * 100).toFixed(0)}%`} />
+            <Stat label="Days in month" value={String(daysInMonth)} />
+            <Stat label="Total gross" value={`HK$ ${fmt(grandTotal.grossPay)}`} strong />
+            <Stat label="Total net" value={`HK$ ${fmt(grandTotal.netPay)}`} strong />
+            <Stat label="Total MPF (ER)" value={`HK$ ${fmt(grandTotal.mpfER)}`} />
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</div>
+              <Badge variant={payStatus === "Paid" ? "default" : "outline"} className="text-[10px] mt-1">{payStatus}</Badge>
+            </div>
           </div>
         </div>
-        {/* MPF & Venue breakdown */}
-        <div className="border border-border rounded-md overflow-hidden">
-          <div className={hdr}>MPF & Payment Details</div>
-          <div className="grid grid-cols-4 divide-x divide-border border-b border-border">
-            {[
-              ["MPF Cap", `$${fmt(MPF_CAP)}`],
-              ["Total MPF (EE)", `$${fmt(grandTotal.mpfEE)}`],
-              ["Total MPF (ER)", `$${fmt(grandTotal.mpfER)}`],
-              ["Total Cost", `$${fmt(grandTotal.totalCost)}`],
-            ].map(([label, val]) => (
-              <div key={label} className="px-3 py-2">
-                <div className="text-[10px] text-muted-foreground">{label}</div>
-                <div className="text-sm font-bold">{val}</div>
-              </div>
-            ))}
+        <div className="card-glass rounded-xl p-4">
+          <SectionLabel>MPF & Venue Breakdown</SectionLabel>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+            <Stat label="MPF cap" value={`HK$ ${fmt(MPF_CAP)}`} />
+            <Stat label="Total MPF (EE)" value={`HK$ ${fmt(grandTotal.mpfEE)}`} />
+            <Stat label="Total MPF (ER)" value={`HK$ ${fmt(grandTotal.mpfER)}`} />
+            <Stat label="Total cost" value={`HK$ ${fmt(grandTotal.totalCost)}`} strong />
           </div>
-          <div className="flex divide-x divide-border">
-            {Object.entries(venueSubtotals).map(([venue, sub]) => (
-              <div key={venue} className="px-3 py-2 flex-1">
-                <div className="text-[10px] text-muted-foreground">{venue}</div>
-                <div className="text-sm font-bold">${fmt(sub.grossPay)}</div>
-              </div>
-            ))}
-          </div>
+          {Object.keys(venueSubtotals).length > 0 && (
+            <div className="mt-4 pt-3 border-t border-border/60 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+              {Object.entries(venueSubtotals).map(([venue, sub]) => (
+                <Stat key={venue} label={venue} value={`HK$ ${fmt(sub.grossPay)}`} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Labor Cost % of Revenue by venue for this payroll month */}
       <PayrollLaborCostCard year={filterYear} month={filterMonth} />
 
-      {/* ── Mobile card list (small screens only) ── */}
-      <div className="sm:hidden space-y-2">
-        <div className={hdr}>Employee Payroll</div>
-        {activeEmployees.map((emp) => {
-          const r = getRowData(emp);
-          return (
-            <Link
-              key={emp.id}
-              to={`/hr/employees/${emp.id}`}
-              className="block rounded-md border border-border/60 bg-card p-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">
-                    {emp.last_name}, {emp.first_name}
+      {/* ── Mobile card list ── */}
+      <div className="sm:hidden space-y-4">
+        <SectionLabel>Employee Payroll</SectionLabel>
+        <div className="space-y-2">
+          {activeEmployees.map((emp) => {
+            const r = getRowData(emp);
+            return (
+              <Link
+                key={emp.id}
+                to={`/hr/employees/${emp.id}`}
+                className="block rounded-lg border border-border/60 bg-card p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">{emp.last_name}, {emp.first_name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{emp.venue || "—"} · {emp.job_title || "—"}</div>
                   </div>
-                  <div className="text-[10px] text-muted-foreground truncate">
-                    {emp.venue || "—"} · {emp.job_title || "—"}
+                  <div className="text-right text-xs tabular-nums">
+                    <div className="font-semibold">HK$ {fmt(r.netPay)}</div>
+                    <div className="text-[10px] text-muted-foreground">Net pay</div>
                   </div>
                 </div>
-                <div className="text-right text-xs tabular-nums">
-                  <div className="font-bold">${fmt(r.netPay)}</div>
-                  <div className="text-[10px] text-muted-foreground">Net pay</div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
+                  <div><div>Gross</div><div className="text-foreground tabular-nums">{fmt(r.grossPay)}</div></div>
+                  <div><div>MPF (EE)</div><div className="text-foreground tabular-nums">{fmt(r.mpfEE)}</div></div>
+                  <div><div>Total cost</div><div className="text-foreground tabular-nums">{fmt(r.totalCost)}</div></div>
                 </div>
-              </div>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] text-muted-foreground">
-                <div>
-                  <div>Gross</div>
-                  <div className="text-foreground tabular-nums">${fmt(r.grossPay)}</div>
-                </div>
-                <div>
-                  <div>MPF (EE)</div>
-                  <div className="text-foreground tabular-nums">${fmt(r.mpfEE)}</div>
-                </div>
-                <div>
-                  <div>Total cost</div>
-                  <div className="text-foreground tabular-nums">${fmt(r.totalCost)}</div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Employee Payroll Table (sm+) ── */}
-      <div className="border border-border rounded-md overflow-hidden hidden sm:block">
-        <div className={hdr}>Employee Payroll</div>
-        <div className="overflow-x-auto">
+      <div className="hidden sm:block">
+        <SectionLabel>Employee Payroll</SectionLabel>
+        <div className="rounded-xl border border-border overflow-hidden bg-background">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[12px]">
+              <thead className="sticky top-0 z-[3] bg-background">
+                <tr className="border-b border-border">
+                  <Th className={`${stickyColH0} w-[42px] text-center`}>#</Th>
+                  <Th className={`${stickyColH1} min-w-[160px] text-left`}>Employee</Th>
+                  <Th className="min-w-[100px] text-left">Dept · Venue</Th>
+                  <Th className="min-w-[110px] text-left">Position</Th>
+                  <Th className={`w-[52px] text-center ${clusterEnd}`}>Type</Th>
 
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-muted/60">
-                <th className={`${th} ${thP} text-center w-9`}>No</th>
-                <th className={`${th} ${thP} text-left min-w-[130px]`}>Employee Name</th>
-                <th className={`${th} ${thP} text-left min-w-[80px]`}>Dept</th>
-                <th className={`${th} ${thP} text-left min-w-[90px]`}>Position</th>
-                <th className={`${th} ${thP} text-center w-10`}>Type</th>
-                <th className={`${th} ${thP} text-right min-w-[85px]`}>Basic Salary</th>
-                <th className={`${th} ${thP} text-right w-16`}>Days/Hrs</th>
-                <th className={`${th} ${thP} text-right min-w-[90px] ${calc}`}>Earned Salary</th>
-                <th className={`${th} ${thP} text-right w-14`}>AL Days</th>
-                <th className={`${th} ${thP} text-right w-14`}>NPL Days</th>
-                <th className={`${th} ${thP} text-right min-w-[80px] ${calc}`}>Adjustments</th>
-                <th className={`${th} ${thP} text-right min-w-[90px] ${calc}`}>Gross Pay</th>
-                <th className={`${th} ${thP} text-right min-w-[75px]`}>MPF (EE)</th>
-                <th className={`${th} ${thP} text-right min-w-[75px]`}>MPF (ER)</th>
-                <th className={`${th} ${thP} text-right min-w-[75px] ${calc}`}>Total MPF</th>
-                <th className={`${th} ${thP} text-right min-w-[90px]`}>Net Pay</th>
-                <th className={`${th} ${thP} text-left min-w-[80px]`}>Bank</th>
-                <th className={`${th} ${thP} text-left min-w-[120px]`}>Account</th>
-                <th className={`${th} ${thP} text-right min-w-[90px]`}>Total Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(venueGroups).map(([venue, emps]) => (
-                <>
-                  {emps.map((emp) => {
-                    rowNum++;
-                    const row = getRowData(emp);
-                    const hasEdits = !!edits[emp.id];
-                    const type = emp.employment_type === "full_time" ? "FT" : emp.employment_type === "part_time" ? "PT" : "C";
-                    return (
-                      <tr key={emp.id} className={`hover:bg-muted/20 ${hasEdits ? "bg-chart-1/[0.03]" : ""}`}>
-                        <td className={`${td} text-center text-muted-foreground text-[10px]`}>{rowNum}</td>
-                        <td className={`${td} font-medium`}>
-                          <Link to={`/hr/employees/${emp.id}`} className="hover:text-primary hover:underline">
-                            {emp.last_name}, {emp.first_name}
-                          </Link>
-                        </td>
-                        <td className={`${td} text-muted-foreground`}>{venue}</td>
-                        <td className={`${td} text-muted-foreground`}>{emp.job_title || "—"}</td>
-                        <td className={`${td} text-center font-medium`}>{type}</td>
-                        <td className={td}><ECell value={row.baseSalary} onChange={v => setEdit(emp.id, "forecast_base_salary", v)} /></td>
-                        <td className={td}><ECell value={row.daysHours} onChange={v => setEdit(emp.id, "days_hours", v)} /></td>
-                        <td className={`${td} ${calc}`}><OCell value={row.earnedSalary} isOverride={row.earnedOverride != null} onChange={v => setEdit(emp.id, "earned_salary_override", v)} /></td>
-                        <td className={td}><ECell value={row.alDays} onChange={v => setEdit(emp.id, "al_days", v)} /></td>
-                        <td className={td}><ECell value={row.nplDays} onChange={v => setEdit(emp.id, "npl_days", v)} /></td>
-                        <td className={`${td} ${calc}`}><OCell value={row.adjustments} isOverride={row.adjOverride != null} onChange={v => setEdit(emp.id, "adjustments_override", v)} /></td>
-                        <td className={`${td} ${calc}`}><SCell value={row.grossPay} /></td>
-                        <td className={td}><OCell value={row.mpfEE} isOverride={row.mpfEEOverride != null} onChange={v => setEdit(emp.id, "mpf_employee_override", v)} /></td>
-                        <td className={td}><OCell value={row.mpfER} isOverride={row.mpfEROverride != null} onChange={v => setEdit(emp.id, "mpf_employer_override", v)} /></td>
-                        <td className={`${td} ${calc}`}><SCell value={row.totalMPF} /></td>
-                        <td className={`${td} font-bold`}><SCell value={row.netPay} bold /></td>
-                        <td className={td}><ETextCell value={row.bank} onChange={v => setEdit(emp.id, "bank", v)} /></td>
-                        <td className={td}><ETextCell value={row.account} onChange={v => setEdit(emp.id, "account", v)} /></td>
-                        <td className={`${td} font-bold`}><SCell value={row.totalCost} bold /></td>
-                      </tr>
-                    );
-                  })}
-                  {/* Venue subtotal */}
-                  <tr key={`sub-${venue}`} className="bg-muted/70 border-b border-border">
-                    <td className={td} />
-                    <td colSpan={4} className={`${td} font-bold text-xs`}>{venue} Subtotal</td>
-                    <td className={`${td} text-right font-bold`}>{fmt(venueSubtotals[venue]?.baseSalary)}</td>
-                    <td className={td} />
-                    <td className={`${td} text-right font-bold ${calc}`}>{fmt(venueSubtotals[venue]?.earnedSalary)}</td>
-                    <td className={td} />
-                    <td className={td} />
-                    <td className={`${td} text-right font-bold ${calc}`}>{fmt(venueSubtotals[venue]?.adjustments)}</td>
-                    <td className={`${td} text-right font-bold ${calc}`}>{fmt(venueSubtotals[venue]?.grossPay)}</td>
-                    <td className={`${td} text-right font-bold`}>{fmt(venueSubtotals[venue]?.mpfEE)}</td>
-                    <td className={`${td} text-right font-bold`}>{fmt(venueSubtotals[venue]?.mpfER)}</td>
-                    <td className={`${td} text-right font-bold ${calc}`}>{fmt(venueSubtotals[venue]?.totalMPF)}</td>
-                    <td className={`${td} text-right font-bold`}>{fmt(venueSubtotals[venue]?.netPay)}</td>
-                    <td colSpan={2} className={td} />
-                    <td className={`${td} text-right font-bold`}>{fmt(venueSubtotals[venue]?.totalCost)}</td>
-                  </tr>
-                  <tr key={`sp-${venue}`}><td colSpan={19} className="h-1 bg-background" /></tr>
-                </>
-              ))}
-              {/* Grand total */}
-              <tr className="bg-foreground text-background">
-                <td className={`${td} border-0`} />
-                <td colSpan={4} className={`${td} border-0 font-bold text-background text-xs`}>GRAND TOTAL</td>
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.baseSalary)}</td>
-                <td className={`${td} border-0`} />
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.earnedSalary)}</td>
-                <td className={`${td} border-0`} />
-                <td className={`${td} border-0`} />
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.adjustments)}</td>
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.grossPay)}</td>
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.mpfEE)}</td>
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.mpfER)}</td>
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.totalMPF)}</td>
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.netPay)}</td>
-                <td colSpan={2} className={`${td} border-0`} />
-                <td className={`${td} border-0 text-right font-bold text-background`}>{fmt(grandTotal.totalCost)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  <Th className="min-w-[90px] text-right">Basic</Th>
+                  <Th className="w-[72px] text-right">Days/Hrs</Th>
+                  <Th className="min-w-[92px] text-right">Earned</Th>
+                  <Th className="w-[60px] text-right">AL</Th>
+                  <Th className="w-[60px] text-right">NPL</Th>
+                  <Th className="min-w-[86px] text-right">Adj</Th>
+                  <Th className={`min-w-[96px] text-right ${clusterEnd}`}>Gross</Th>
 
-      {/* ── Legend ── */}
-      <div className="border border-border rounded-md overflow-hidden">
-        <div className={hdr}>Input Legend</div>
-        <div className="p-3 text-[11px] text-muted-foreground grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="mb-2"><span className="text-chart-1 font-semibold">Blue text</span> = Editable &nbsp;|&nbsp; <span className="bg-muted/40 px-1 rounded">Gray bg</span> = Calculated</p>
-            <p className="font-semibold text-foreground mb-1">Key Inputs:</p>
-            <ul className="list-disc list-inside space-y-0.5">
-              <li>Basic Salary — Monthly salary (FT), hourly rate (PT)</li>
-              <li>Days/Hours — Working days (FT), hours worked (PT)</li>
-              <li>AL Days — Annual leave days taken</li>
-              <li>NPL Days — No-pay leave / sick leave days</li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-semibold text-foreground mb-1">Formulas:</p>
-            <ul className="list-disc list-inside space-y-0.5">
-              <li>Earned Salary: FT = Basic Salary, PT = Rate × Hours</li>
-              <li>Adjustments: Basic Salary ÷ Days in Month × (AL − NPL)</li>
-              <li>Gross Pay: Earned Salary + Adjustments</li>
-              <li>MPF (EE/ER): MIN(Cap, Gross Pay × 5%)</li>
-              <li>Net Pay: Gross Pay − MPF (EE)</li>
-              <li>Total Cost: Gross Pay + MPF (ER)</li>
-            </ul>
+                  <Th className="min-w-[80px] text-right">MPF EE</Th>
+                  <Th className="min-w-[80px] text-right">MPF ER</Th>
+                  <Th className={`min-w-[84px] text-right ${clusterEnd}`}>Total MPF</Th>
+
+                  <Th className="min-w-[96px] text-right">Net Pay</Th>
+                  <Th className={`min-w-[96px] text-right ${clusterEnd}`}>Total Cost</Th>
+
+                  <Th className="w-[38px] text-center"><span className="sr-only">Bank</span></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => { let rowNum = 0; return Object.entries(venueGroups).map(([venue, emps]) => (
+                  <VenueGroup
+                    key={venue}
+                    venue={venue}
+                    emps={emps}
+                    startNum={rowNum}
+                    onIncrement={(n) => { rowNum += n; }}
+                    getRowData={getRowData}
+                    setEdit={setEdit}
+                    edits={edits}
+                    subtotal={venueSubtotals[venue]}
+                    stickyCol0={stickyCol0}
+                    stickyCol1={stickyCol1}
+                    clusterEnd={clusterEnd}
+                    rowBorder={rowBorder}
+                  />
+                )); })()}
+
+                {/* Add-employee row */}
+                <tr>
+                  <td colSpan={18} className="px-2 py-3">
+                    <AddEmployeeRow
+                      employees={employees}
+                      excludeIds={currentEmployeeIds}
+                      onAdd={(id) => setManuallyAdded(prev => { const next = new Set(prev); next.add(id); return next; })}
+                    />
+                  </td>
+                </tr>
+
+                {/* Grand total */}
+                <tr className="bg-primary/5 border-t-2 border-primary/30">
+                  <td className={`${stickyCol0} bg-primary/5 px-2 py-2`} />
+                  <td colSpan={4} className={`px-2 py-2 text-[11px] uppercase tracking-[0.12em] font-semibold text-foreground ${clusterEnd}`}>Grand Total</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.baseSalary)}</td>
+                  <td />
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.earnedSalary)}</td>
+                  <td /><td />
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.adjustments)}</td>
+                  <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(grandTotal.grossPay)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.mpfEE)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.mpfER)}</td>
+                  <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(grandTotal.totalMPF)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.netPay)}</td>
+                  <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(grandTotal.totalCost)}</td>
+                  <td />
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
       {/* ── Payment Batches panel ── */}
       {batches.length > 0 && (
-        <div className="border border-border rounded-md overflow-hidden">
-          <div className={hdr}>Payment Batches — {MONTHS[filterMonth - 1]} {filterYear}</div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">Date</TableHead>
-                <TableHead className="text-xs">Kind</TableHead>
-                <TableHead className="text-xs">Method</TableHead>
-                <TableHead className="text-xs text-right">Amount</TableHead>
-                <TableHead className="text-xs text-center">Employees</TableHead>
-                <TableHead className="text-xs">Status</TableHead>
-                <TableHead className="text-xs">Bank txn</TableHead>
-                <TableHead className="text-xs"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {batches.map((b) => {
-                const lc = batchLines.filter((l) => l.batch_id === b.id).length;
-                return (
-                  <TableRow key={b.id}>
-                    <TableCell className="text-xs">{b.payment_date}</TableCell>
-                    <TableCell className="text-xs uppercase">{b.payment_kind}</TableCell>
-                    <TableCell className="text-xs">{b.payment_method}</TableCell>
-                    <TableCell className="text-xs text-right tabular-nums font-medium">{fmt(Number(b.total_amount))}</TableCell>
-                    <TableCell className="text-xs text-center">{lc}</TableCell>
-                    <TableCell><Badge variant={b.status === "posted" ? "default" : b.status === "void" ? "outline" : "secondary"} className="text-[10px]">{b.status}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{b.bank_transaction_id ? "matched" : "—"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        {b.journal_entry_id && (
-                          <a
-                            href={`/finance/journal?entry=${b.journal_entry_id}`}
-                            className="text-[10px] text-primary hover:underline"
-                            title="View journal entry"
-                          >
-                            JE
-                          </a>
-                        )}
-                        {b.status === "posted" && (
-                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => voidBatch(b.id)}>
-                            <X className="h-3 w-3 mr-1" /> Void
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        <div>
+          <SectionLabel>Payment Batches — {MONTHS[filterMonth - 1]} {filterYear}</SectionLabel>
+          <div className="rounded-xl border border-border overflow-hidden bg-background">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Kind</TableHead>
+                  <TableHead className="text-xs">Method</TableHead>
+                  <TableHead className="text-xs text-right">Amount</TableHead>
+                  <TableHead className="text-xs text-center">Employees</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Bank txn</TableHead>
+                  <TableHead className="text-xs"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {batches.map((b) => {
+                  const lc = batchLines.filter((l) => l.batch_id === b.id).length;
+                  return (
+                    <TableRow key={b.id}>
+                      <TableCell className="text-xs">{b.payment_date}</TableCell>
+                      <TableCell className="text-xs uppercase">{b.payment_kind}</TableCell>
+                      <TableCell className="text-xs">{b.payment_method}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums font-medium">{fmt(Number(b.total_amount))}</TableCell>
+                      <TableCell className="text-xs text-center">{lc}</TableCell>
+                      <TableCell><Badge variant={b.status === "posted" ? "default" : b.status === "void" ? "outline" : "secondary"} className="text-[10px]">{b.status}</Badge></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{b.bank_transaction_id ? "matched" : "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          {b.journal_entry_id && (
+                            <a
+                              href={`/finance/journal?entry=${b.journal_entry_id}`}
+                              className="text-[10px] text-primary hover:underline"
+                              title="View journal entry"
+                            >
+                              JE
+                            </a>
+                          )}
+                          {b.status === "posted" && (
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => voidBatch(b.id)}>
+                              <X className="h-3 w-3 mr-1" /> Void
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
@@ -736,6 +634,139 @@ export function PayrollTab({ payroll, employees, shifts, onSave }: Props) {
         onPosted={() => { reloadBatches(); window.dispatchEvent(new Event("hr-data-refresh")); }}
       />
 
+      <PayrollImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        employees={employees}
+        onApply={applyImport}
+      />
+
+      {/* Bank/account are editable per row via the Landmark icon on the far right of each row. */}
+      {/* Row hover reveals subtle affordance; override values are underlined with a dotted primary rule. */}
+    </div>
+  );
+}
+
+/* ── Helper subcomponents ─────────────────────────────── */
+
+function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <th className={`text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground px-2 py-2 whitespace-nowrap border-b border-border ${className}`}>
+      {children}
+    </th>
+  );
+}
+
+function Stat({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">{label}</div>
+      <div className={`tabular-nums truncate ${strong ? "text-base font-semibold text-foreground" : "text-sm font-medium text-foreground"}`}>{value}</div>
+    </div>
+  );
+}
+
+function VenueGroup({
+  venue, emps, startNum, onIncrement, getRowData, setEdit, edits, subtotal,
+  stickyCol0, stickyCol1, clusterEnd, rowBorder,
+}: any) {
+  return (
+    <>
+      {/* Slim venue header row */}
+      <tr>
+        <td colSpan={18} className="px-2 pt-4 pb-1 border-b border-border/40">
+          <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">{venue}</span>
+        </td>
+      </tr>
+      {emps.map((emp: HREmployee, i: number) => {
+        const rowNum = startNum + i + 1;
+        const row = getRowData(emp);
+        const hasEdits = !!edits[emp.id];
+        const type = emp.employment_type === "full_time" ? "FT" : emp.employment_type === "part_time" ? "PT" : "C";
+        const rowBg = hasEdits ? "bg-primary/[0.04]" : "";
+        return (
+          <tr key={emp.id} className={`group ${rowBorder} hover:bg-muted/30 ${rowBg}`}>
+            <td className={`${stickyCol0} ${rowBg || "bg-background group-hover:bg-muted/30"} px-2 py-2 text-center text-muted-foreground text-[11px]`}>{rowNum}</td>
+            <td className={`${stickyCol1} ${rowBg || "bg-background group-hover:bg-muted/30"} px-2 py-2 font-medium whitespace-nowrap`}>
+              <Link to={`/hr/employees/${emp.id}`} className="hover:text-primary hover:underline">
+                {emp.last_name}, {emp.first_name}
+              </Link>
+            </td>
+            <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">{venue}</td>
+            <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">{emp.job_title || "—"}</td>
+            <td className={`px-2 py-2 text-center text-[11px] font-medium ${clusterEnd}`}>{type}</td>
+
+            <td className="px-1 py-1"><ECell value={row.baseSalary} onChange={v => setEdit(emp.id, "forecast_base_salary", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.daysHours} onChange={v => setEdit(emp.id, "days_hours", v)} /></td>
+            <td className="px-1 py-1"><OCell value={row.earnedSalary} isOverride={row.earnedOverride != null} onChange={v => setEdit(emp.id, "earned_salary_override", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.alDays} onChange={v => setEdit(emp.id, "al_days", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.nplDays} onChange={v => setEdit(emp.id, "npl_days", v)} /></td>
+            <td className="px-1 py-1"><OCell value={row.adjustments} isOverride={row.adjOverride != null} onChange={v => setEdit(emp.id, "adjustments_override", v)} /></td>
+            <td className={`px-1 py-1 ${clusterEnd}`}><SCell value={row.grossPay} bold /></td>
+
+            <td className="px-1 py-1"><OCell value={row.mpfEE} isOverride={row.mpfEEOverride != null} onChange={v => setEdit(emp.id, "mpf_employee_override", v)} /></td>
+            <td className="px-1 py-1"><OCell value={row.mpfER} isOverride={row.mpfEROverride != null} onChange={v => setEdit(emp.id, "mpf_employer_override", v)} /></td>
+            <td className={`px-1 py-1 ${clusterEnd}`}><SCell value={row.totalMPF} /></td>
+
+            <td className="px-1 py-1"><SCell value={row.netPay} bold /></td>
+            <td className={`px-1 py-1 ${clusterEnd}`}><SCell value={row.totalCost} bold /></td>
+
+            <td className="px-1 py-1 text-center">
+              <BankPopover
+                bank={row.bank}
+                account={row.account}
+                onChange={(patch) => {
+                  if (patch.bank !== undefined) setEdit(emp.id, "bank", patch.bank);
+                  if (patch.account !== undefined) setEdit(emp.id, "account", patch.account);
+                }}
+              />
+            </td>
+          </tr>
+        );
+      })}
+      {/* Venue subtotal */}
+      <tr className="bg-muted/40 border-t border-border/60">
+        <td className={`${stickyCol0} bg-muted/40 px-2 py-2`} />
+        <td colSpan={4} className={`px-2 py-2 text-[11px] uppercase tracking-[0.1em] font-semibold text-muted-foreground ${clusterEnd}`}>{venue} subtotal</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.baseSalary || 0)}</td>
+        <td />
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.earnedSalary || 0)}</td>
+        <td /><td />
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.adjustments || 0)}</td>
+        <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.grossPay || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.mpfEE || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.mpfER || 0)}</td>
+        <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.totalMPF || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.netPay || 0)}</td>
+        <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.totalCost || 0)}</td>
+        <td />
+      </tr>
+      {(() => { onIncrement(emps.length); return null; })()}
+    </>
+  );
+}
+
+function AddEmployeeRow({
+  employees, excludeIds, onAdd,
+}: {
+  employees: HREmployee[];
+  excludeIds: Set<string>;
+  onAdd: (id: string) => void;
+}) {
+  const [pending, setPending] = useState("");
+  return (
+    <div className="flex items-center gap-2">
+      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Add employee to run</span>
+      <div className="w-[280px]">
+        <EmployeePicker
+          employees={employees}
+          value={pending}
+          onChange={(id) => { onAdd(id); setPending(""); }}
+          excludeIds={excludeIds}
+          placeholder="Search employee…"
+        />
+      </div>
     </div>
   );
 }
