@@ -515,23 +515,29 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave }: Prop
                 </tr>
               </thead>
               <tbody>
-                {(() => { let rowNum = 0; return Object.entries(venueGroups).map(([venue, emps]) => (
-                  <VenueGroup
-                    key={venue}
-                    venue={venue}
-                    emps={emps}
-                    startNum={rowNum}
-                    onIncrement={(n) => { rowNum += n; }}
-                    getRowData={getRowData}
-                    setEdit={setEdit}
-                    edits={edits}
-                    subtotal={venueSubtotals[venue]}
-                    stickyCol0={stickyCol0}
-                    stickyCol1={stickyCol1}
-                    clusterEnd={clusterEnd}
-                    rowBorder={rowBorder}
-                  />
-                )); })()}
+                {(() => {
+                  let rowNum = 0;
+                  return Object.entries(venueGroups).map(([venue, emps]) => {
+                    const startNum = rowNum;
+                    rowNum += emps.length;
+                    return (
+                      <VenueGroup
+                        key={venue}
+                        venue={venue}
+                        emps={emps}
+                        startNum={startNum}
+                        getRowData={getRowData}
+                        setEdit={setEdit}
+                        edits={edits}
+                        subtotal={venueSubtotals[venue]}
+                        stickyCol0={stickyCol0}
+                        stickyCol1={stickyCol1}
+                        clusterEnd={clusterEnd}
+                        rowBorder={rowBorder}
+                      />
+                    );
+                  });
+                })()}
 
                 {/* Add-employee row */}
                 <tr>
