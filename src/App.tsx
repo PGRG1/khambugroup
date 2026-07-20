@@ -341,6 +341,7 @@ function App() {
                 <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
                 <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
+                <Route path="/hr/payroll/payables" element={<AdminRoute><HRPayrollPayables /></AdminRoute>} />
 
 
                 <Route path="/expenses" element={<AdminRoute><ExpensesOverview /></AdminRoute>} />
