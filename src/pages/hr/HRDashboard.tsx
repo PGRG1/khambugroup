@@ -219,66 +219,66 @@ export default function HRDashboard() {
                   Labor cost % of revenue · {new Date(year, month - 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}
                 </div>
               </div>
-            <TooltipProvider delayDuration={100}>
-              {laborLoading ? (
-                <TableSkeleton rows={4} cols={3} />
-              ) : laborRows.length === 0 ? (
-                <EmptyState title="No data for this month" description="Post payroll accruals and sync sales to see this KPI." />
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="text-xs text-muted-foreground">
-                    <tr>
-                      <th className="text-left font-medium py-1">Venue</th>
-                      <th className="text-right font-medium py-1">Revenue</th>
-                      <th className="text-right font-medium py-1">Labor</th>
-                      <th className="text-right font-medium py-1">Labor %</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/40">
-                    {laborRows.map((r) => {
-                      const isUnassigned = r.venue === "Unassigned";
-                      const available = laborPctAvailable(r.labor_cost_pct, r.labor_cost);
-                      return (
-                        <tr key={r.venue} className={isUnassigned ? "bg-muted/30" : undefined}>
-                          <td className="py-1.5">
-                            {isUnassigned ? (
+              <TooltipProvider delayDuration={100}>
+                {laborLoading ? (
+                  <TableSkeleton rows={4} cols={3} />
+                ) : laborRows.length === 0 ? (
+                  <EmptyState title="No data for this month" description="Post payroll accruals and sync sales to see this KPI." />
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="text-xs text-muted-foreground">
+                      <tr>
+                        <th className="text-left font-medium py-1">Venue</th>
+                        <th className="text-right font-medium py-1">Revenue</th>
+                        <th className="text-right font-medium py-1">Labor</th>
+                        <th className="text-right font-medium py-1">Labor %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40">
+                      {laborRows.map((r) => {
+                        const isUnassigned = r.venue === "Unassigned";
+                        const available = laborPctAvailable(r.labor_cost_pct, r.labor_cost);
+                        return (
+                          <tr key={r.venue} className={isUnassigned ? "bg-muted/30" : undefined}>
+                            <td className="py-1.5">
+                              {isUnassigned ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground border-dashed cursor-help">
+                                      Unassigned — no venue set
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right">
+                                    <p>Employees in this bucket have no venue assigned yet.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                r.venue
+                              )}
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums">{fmtHKWhole(Number(r.revenue))}</td>
+                            <td className="py-1.5 text-right tabular-nums">{fmtHKWhole(Number(r.labor_cost))}</td>
+                            <td className="py-1.5 text-right tabular-nums font-medium">
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground border-dashed cursor-help">
-                                    Unassigned — no venue set
-                                  </Badge>
+                                  <span className={`cursor-help ${!available ? "text-muted-foreground" : ""}`}>
+                                    {available ? `${Number(r.labor_cost_pct).toFixed(1)}%` : "—"}
+                                  </span>
                                 </TooltipTrigger>
-                                <TooltipContent side="right">
-                                  <p>Employees in this bucket have no venue assigned yet.</p>
-                                </TooltipContent>
+                                {!available && (
+                                  <TooltipContent side="left">
+                                    <p>No payroll recorded for this period</p>
+                                  </TooltipContent>
+                                )}
                               </Tooltip>
-                            ) : (
-                              r.venue
-                            )}
-                          </td>
-                          <td className="py-1.5 text-right tabular-nums">{fmtHKWhole(Number(r.revenue))}</td>
-                          <td className="py-1.5 text-right tabular-nums">{fmtHKWhole(Number(r.labor_cost))}</td>
-                          <td className="py-1.5 text-right tabular-nums font-medium">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className={`cursor-help ${!available ? "text-muted-foreground" : ""}`}>
-                                  {available ? `${Number(r.labor_cost_pct).toFixed(1)}%` : "—"}
-                                </span>
-                              </TooltipTrigger>
-                              {!available && (
-                                <TooltipContent side="left">
-                                  <p>No payroll recorded for this period</p>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </TooltipProvider>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </TooltipProvider>
             </Card>
 
             {/* Pending approvals */}
