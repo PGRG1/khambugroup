@@ -329,10 +329,16 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   }, [filtered]);
 
   const avgSalary = grandTotal.headcount > 0 ? grandTotal.grossPay / grandTotal.headcount : 0;
-  const hasAnyEdits = Object.keys(edits).length > 0;
+  const periodPrefix = `${filterYear}-${filterMonth}:`;
+  const hasAnyEdits = useMemo(
+    () => Object.keys(edits).some(k => k.startsWith(periodPrefix)),
+    [edits, periodPrefix],
+  );
 
   const saveAll = async () => {
-    const empIds = Object.keys(edits);
+    const empIds = Object.keys(edits)
+      .filter(k => k.startsWith(periodPrefix))
+      .map(k => k.slice(periodPrefix.length));
     for (const empId of empIds) {
       const emp = employees.find(e => e.id === empId);
       if (emp) await saveRow(emp);
