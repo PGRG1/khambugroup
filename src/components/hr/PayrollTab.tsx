@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ interface Props {
   shifts: HRShift[];
   departments: { id: string; name: string; is_active: boolean }[];
   onSave: (p: Partial<HRPayroll>) => Promise<boolean>;
+  onSaveBatch?: (rows: Partial<HRPayroll>[]) => Promise<{ ok: boolean; error?: string }>;
   onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
   initialYear?: number;
   initialMonth?: number;
@@ -172,7 +173,7 @@ function BankPopover({
 /* ════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════ */
-export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
+export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSaveBatch, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
   const now = new Date();
   const [filterYear, setFilterYear] = useState(initialYear ?? now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(initialMonth ?? (now.getMonth() + 1));
@@ -310,11 +311,10 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     };
   }, [payrollMap, edits, daysInMonth, filterYear, filterMonth]);
 
-  const saveRow = async (emp: HREmployee, silent?: boolean) => {
+  const buildPayload = (emp: HREmployee): Partial<HRPayroll> => {
     const row = getRowData(emp);
     const p = row.payrollRecord;
-    setSaving(true);
-    const ok = await onSave({
+    return {
       ...(p?.id ? { id: p.id } : {}),
       employee_id: emp.id, year: filterYear, month: filterMonth,
       forecast_base_salary: row.baseSalary, forecast_allowances: row.daysHours,
@@ -331,7 +331,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
       adjustments_override: row.adjOverride,
       mpf_employee_override: row.mpfEEOverride,
       mpf_employer_override: row.mpfEROverride,
-    } as any);
+    } as any;
+  };
+
+  const saveRow = async (emp: HREmployee, silent?: boolean) => {
+    setSaving(true);
+    const ok = await onSave(buildPayload(emp));
     if (ok) {
       if (!silent) toast({ title: "Saved" });
       setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; });
@@ -396,27 +401,70 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     const empIds = Object.keys(edits)
       .filter(k => k.startsWith(periodPrefix))
       .map(k => k.slice(periodPrefix.length));
-    let succeeded = 0;
-    let failed = 0;
+    if (!empIds.length) return;
+    const rows: Partial<HRPayroll>[] = [];
+    const validEmpIds: string[] = [];
     for (const empId of empIds) {
       const emp = employees.find(e => e.id === empId);
-      if (!emp) {
-        failed++;
-        continue;
-      }
-      const ok = await saveRow(emp, true);
-      if (ok) succeeded++;
-      else failed++;
+      if (!emp) continue;
+      rows.push(buildPayload(emp));
+      validEmpIds.push(empId);
     }
-    if (failed === 0) {
-      toast({ title: `Saved ${succeeded} ${succeeded === 1 ? "record" : "records"}` });
-    } else {
-      toast({
-        title: `Saved ${succeeded} of ${succeeded + failed} records — ${failed} failed`,
-        variant: "destructive",
-      });
+    if (!rows.length) {
+      toast({ title: "Nothing to save", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      let result: { ok: boolean; error?: string };
+      if (onSaveBatch) {
+        result = await onSaveBatch(rows);
+      } else {
+        // Fallback: sequential (shouldn't happen since HRPayroll wires onSaveBatch)
+        let allOk = true; let firstErr: string | undefined;
+        for (const emp of validEmpIds.map(id => employees.find(e => e.id === id)!)) {
+          const ok = await onSave(buildPayload(emp));
+          if (!ok) { allOk = false; firstErr = firstErr ?? "Save failed"; break; }
+        }
+        result = allOk ? { ok: true } : { ok: false, error: firstErr };
+      }
+      if (result.ok) {
+        setEdits(prev => {
+          const next = { ...prev };
+          for (const empId of validEmpIds) delete next[editKey(filterYear, filterMonth, empId)];
+          return next;
+        });
+        setManuallyAdded(prev => {
+          const next = new Set(prev);
+          for (const empId of validEmpIds) next.delete(editKey(filterYear, filterMonth, empId));
+          return next;
+        });
+        toast({ title: `Saved ${rows.length} ${rows.length === 1 ? "record" : "records"}` });
+      } else {
+        toast({
+          title: "Save failed",
+          description: result.error || "No changes were saved. Your edits are still here — try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setSaving(false);
     }
   };
+
+  // Warn on tab close/reload when there are unsaved edits or an in-flight save.
+  useEffect(() => {
+    const hasPending = Object.keys(edits).length > 0;
+    if (!saving && !hasPending) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [edits, saving]);
+
 
   const [posting, setPosting] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);

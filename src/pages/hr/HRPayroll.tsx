@@ -41,6 +41,7 @@ export default function HRPayroll() {
           shifts={hr.shifts}
           departments={hr.departments}
           onSave={hr.upsertPayroll}
+          onSaveBatch={hr.upsertPayrollBatch}
           onCreateEmployee={hr.createEmployee}
           initialYear={initialYear}
           initialMonth={initialMonth}
