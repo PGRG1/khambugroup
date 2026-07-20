@@ -15,6 +15,7 @@ export interface HRDepartment {
 
 export interface HREmployee {
   id: string;
+  employee_code: string | null;
   user_id: string | null;
   first_name: string;
   last_name: string;
