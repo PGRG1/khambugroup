@@ -10,6 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import type { HRPayroll, HREmployee } from "@/hooks/useHRData";
 import { usePayrollPaymentBatches } from "@/hooks/usePayrollPaymentBatches";
+import { useVenues } from "@/hooks/useVenues";
+
+const UNASSIGNED = "Unassigned";
 
 type Kind = "salary" | "mpf";
 type Method = "bank_transfer" | "cash" | "other";
@@ -43,6 +46,28 @@ export function PayrollPaymentDialog({ open, onOpenChange, year, month, payroll,
   const [bankTxns, setBankTxns] = useState<BankTxn[]>([]);
 
   const { createAndPost } = usePayrollPaymentBatches(year, month);
+  const { venues } = useVenues();
+  const venueById = useMemo(() => {
+    const m = new Map<string, string>();
+    venues.forEach(v => m.set(v.id, v.name));
+    return m;
+  }, [venues]);
+  const venueOrder = useMemo(() => {
+    const o = new Map<string, number>();
+    venues.forEach((v, i) => o.set(v.name, i));
+    return o;
+  }, [venues]);
+  const resolveVenue = (emp: HREmployee): string => {
+    const vid = (emp as any).venue_id as string | null | undefined;
+    if (vid && venueById.has(vid)) return venueById.get(vid)!;
+    const legacy = (emp.venue || "").trim();
+    if (legacy && venueOrder.has(legacy)) return legacy;
+    return UNASSIGNED;
+  };
+  const venueRank = (name: string): number => {
+    if (name === UNASSIGNED) return Number.MAX_SAFE_INTEGER;
+    return venueOrder.has(name) ? venueOrder.get(name)! : Number.MAX_SAFE_INTEGER - 1;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -72,13 +97,15 @@ export function PayrollPaymentDialog({ open, onOpenChange, year, month, payroll,
       const owed = kind === "salary"
         ? Math.max(0, net - Number(p.salary_paid_amount || 0))
         : Math.max(0, totalMpf - Number(p.mpf_paid_amount || 0));
-      return { p, emp, owed, gross, net, totalMpf };
+      const venueName = emp ? resolveVenue(emp) : UNASSIGNED;
+      return { p, emp, owed, gross, net, totalMpf, venueName };
     }).filter((r) => r.emp).sort((a, b) => {
-      const va = a.emp!.venue || "ZZZ"; const vb = b.emp!.venue || "ZZZ";
-      if (va !== vb) return va.localeCompare(vb);
+      const ra = venueRank(a.venueName); const rb = venueRank(b.venueName);
+      if (ra !== rb) return ra - rb;
+      if (a.venueName !== b.venueName) return a.venueName.localeCompare(b.venueName);
       return (a.emp!.first_name || "").localeCompare(b.emp!.first_name || "");
     });
-  }, [payroll, employees, kind]);
+  }, [payroll, employees, kind, venueById, venueOrder]);
 
   const total = useMemo(() => rows.filter((r) => selected[r.p.id]).reduce((s, r) => s + r.owed, 0), [rows, selected]);
   const allSelected = rows.length > 0 && rows.every((r) => selected[r.p.id] || r.owed === 0);
@@ -181,8 +208,13 @@ export function PayrollPaymentDialog({ open, onOpenChange, year, month, payroll,
                     return (
                       <TableRow key={r.p.id} className={r.owed === 0 ? "opacity-50" : ""}>
                         <TableCell><Checkbox disabled={r.owed === 0} checked={!!selected[r.p.id]} onCheckedChange={(c) => setSelected((s) => ({ ...s, [r.p.id]: !!c }))} /></TableCell>
-                        <TableCell className="font-medium">{r.emp!.first_name} {r.emp!.last_name}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.emp!.venue || "—"}</TableCell>
+                        <TableCell className="font-medium">
+                          <span>{r.emp!.first_name} {r.emp!.last_name}</span>
+                          {!["active", "on_leave"].includes(r.emp!.status) && (
+                            <span className="ml-1.5 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-muted-foreground font-normal align-middle">inactive</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{r.venueName}</TableCell>
                         <TableCell className="text-right tabular-nums">{fmt(ref)}</TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">{fmt(paid)}</TableCell>
                         <TableCell className="text-right tabular-nums font-bold">{fmt(r.owed)}</TableCell>

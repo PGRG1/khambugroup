@@ -206,18 +206,29 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
 
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
+  const filtered = useMemo(
+    () => payroll.filter(p => p.year === filterYear && p.month === filterMonth),
+    [payroll, filterYear, filterMonth],
+  );
+
+  const periodPayrollEmpIds = useMemo(
+    () => new Set(filtered.map(p => p.employee_id)),
+    [filtered],
+  );
+
+  const isActiveStatus = (s: string) => ["active", "on_leave"].includes(s);
+
   const activeEmployees = useMemo(
-    () => employees.filter(e => ["active", "on_leave"].includes(e.status) || manuallyAdded.has(editKey(filterYear, filterMonth, e.id))).sort((a, b) => {
+    () => employees.filter(e =>
+      isActiveStatus(e.status)
+      || manuallyAdded.has(editKey(filterYear, filterMonth, e.id))
+      || periodPayrollEmpIds.has(e.id)
+    ).sort((a, b) => {
       const va = resolveVenue(a); const vb = resolveVenue(b);
       if (va !== vb) return venueRank(va) - venueRank(vb);
       return a.sort_order - b.sort_order;
     }),
-    [employees, manuallyAdded, resolveVenue, venueRank, filterYear, filterMonth],
-  );
-
-  const filtered = useMemo(
-    () => payroll.filter(p => p.year === filterYear && p.month === filterMonth),
-    [payroll, filterYear, filterMonth],
+    [employees, manuallyAdded, periodPayrollEmpIds, resolveVenue, venueRank, filterYear, filterMonth],
   );
 
   const payrollMap = useMemo(() => {
@@ -566,7 +577,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
               >
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{emp.last_name}, {emp.first_name}</div>
+                    <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+                      <span className="truncate">{emp.last_name}, {emp.first_name}</span>
+                      {!isActiveStatus(emp.status) && (
+                        <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-muted-foreground font-normal">inactive</span>
+                      )}
+                    </div>
                     <div className="text-[11px] text-muted-foreground truncate">{resolveVenue(emp)} · {emp.job_title || "—"}</div>
                   </div>
                   <div className="text-right text-xs tabular-nums">
@@ -812,6 +828,9 @@ function VenueGroup({
               <Link to={`/hr/employees/${emp.id}`} className="hover:text-primary hover:underline">
                 {emp.last_name}, {emp.first_name}
               </Link>
+              {!["active", "on_leave"].includes(emp.status) && (
+                <span className="ml-1.5 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-muted-foreground font-normal align-middle">inactive</span>
+              )}
             </td>
             <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">{venue}</td>
             <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">{emp.job_title || "—"}</td>
