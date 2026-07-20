@@ -311,11 +311,10 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
     };
   }, [payrollMap, edits, daysInMonth, filterYear, filterMonth]);
 
-  const saveRow = async (emp: HREmployee, silent?: boolean) => {
+  const buildPayload = (emp: HREmployee): Partial<HRPayroll> => {
     const row = getRowData(emp);
     const p = row.payrollRecord;
-    setSaving(true);
-    const ok = await onSave({
+    return {
       ...(p?.id ? { id: p.id } : {}),
       employee_id: emp.id, year: filterYear, month: filterMonth,
       forecast_base_salary: row.baseSalary, forecast_allowances: row.daysHours,
@@ -332,7 +331,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
       adjustments_override: row.adjOverride,
       mpf_employee_override: row.mpfEEOverride,
       mpf_employer_override: row.mpfEROverride,
-    } as any);
+    } as any;
+  };
+
+  const saveRow = async (emp: HREmployee, silent?: boolean) => {
+    setSaving(true);
+    const ok = await onSave(buildPayload(emp));
     if (ok) {
       if (!silent) toast({ title: "Saved" });
       setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; });
