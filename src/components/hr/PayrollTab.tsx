@@ -795,7 +795,7 @@ function VenueGroup({
     <>
       {/* Slim venue header row */}
       <tr>
-        <td colSpan={18} className="px-2 pt-4 pb-1 border-b border-border/40">
+        <td colSpan={21} className="px-2 pt-4 pb-1 border-b border-border/40">
           <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">{venue}</span>
         </td>
       </tr>
