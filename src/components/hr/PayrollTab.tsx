@@ -820,11 +820,14 @@ function VenueGroup({
             <td className="px-1 py-1"><ECell value={row.baseSalary} onChange={v => setEdit(emp.id, "forecast_base_salary", v)} /></td>
             <td className="px-1 py-1"><ECell value={row.daysHours} onChange={v => setEdit(emp.id, "days_hours", v)} /></td>
             <td className="px-1 py-1"><OCell value={row.earnedSalary} isOverride={row.earnedOverride != null} onChange={v => setEdit(emp.id, "earned_salary_override", v)} /></td>
-            <td className="px-1 py-1"><ECell value={row.alDays} onChange={v => setEdit(emp.id, "al_days", v)} /></td>
-            <td className="px-1 py-1"><ECell value={row.nplDays} onChange={v => setEdit(emp.id, "npl_days", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.overtime} onChange={v => setEdit(emp.id, "actual_overtime", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.bonus} onChange={v => setEdit(emp.id, "actual_bonus", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.alPay} onChange={v => setEdit(emp.id, "annual_leave_pay", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.npDed} onChange={v => setEdit(emp.id, "unpaid_leave_deduction", v)} /></td>
             <td className="px-1 py-1"><OCell value={row.adjustments} isOverride={row.adjOverride != null} onChange={v => setEdit(emp.id, "adjustments_override", v)} /></td>
             <td className={`px-1 py-1 ${clusterEnd}`}><SCell value={row.grossPay} bold /></td>
 
+            <td className="px-1 py-1"><ECell value={row.otherDed} onChange={v => setEdit(emp.id, "other_deductions", v)} /></td>
             <td className="px-1 py-1"><OCell value={row.mpfEE} isOverride={row.mpfEEOverride != null} onChange={v => setEdit(emp.id, "mpf_employee_override", v)} /></td>
             <td className="px-1 py-1"><OCell value={row.mpfER} isOverride={row.mpfEROverride != null} onChange={v => setEdit(emp.id, "mpf_employer_override", v)} /></td>
             <td className={`px-1 py-1 ${clusterEnd}`}><SCell value={row.totalMPF} /></td>
