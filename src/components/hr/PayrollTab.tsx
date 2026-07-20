@@ -205,12 +205,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
   const activeEmployees = useMemo(
-    () => employees.filter(e => ["active", "on_leave"].includes(e.status) || manuallyAdded.has(e.id)).sort((a, b) => {
+    () => employees.filter(e => ["active", "on_leave"].includes(e.status) || manuallyAdded.has(editKey(filterYear, filterMonth, e.id))).sort((a, b) => {
       const va = resolveVenue(a); const vb = resolveVenue(b);
       if (va !== vb) return venueRank(va) - venueRank(vb);
       return a.sort_order - b.sort_order;
     }),
-    [employees, manuallyAdded, resolveVenue, venueRank],
+    [employees, manuallyAdded, resolveVenue, venueRank, filterYear, filterMonth],
   );
 
   const filtered = useMemo(
