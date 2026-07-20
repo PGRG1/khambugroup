@@ -437,12 +437,15 @@ function ReviewTableRow({
         <Popover open={createOpen} onOpenChange={setCreateOpen}>
           <PopoverAnchor asChild>
             <div>
-            employees={employees}
-            value={row.matched_employee_id}
-            onChange={(id) => onChange({ matched_employee_id: id })}
-            onRequestCreate={() => setCreateOpen(true)}
-            compact
-          />
+              <EmployeePicker
+                employees={employees}
+                value={row.matched_employee_id}
+                onChange={(id) => onChange({ matched_employee_id: id })}
+                onRequestCreate={() => setCreateOpen(true)}
+                compact
+              />
+            </div>
+          </PopoverAnchor>
           <PopoverContent className="w-[360px] p-0" align="start" side="bottom">
             <InlineCreateEmployee
               rawName={row.raw_name}
