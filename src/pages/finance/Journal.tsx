@@ -53,18 +53,56 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function Journal() {
+  const [searchParams] = useSearchParams();
+  const initialSource = searchParams.get("source");
+  const initialPeriod = searchParams.get("period"); // YYYY-MM
+  const initialEntry = searchParams.get("entry");
+
   const today = new Date();
   const defaultFrom = `${today.getFullYear()}-01-01`;
-  const [fromDate, setFromDate] = useState(defaultFrom);
-  const [toDate, setToDate] = useState("");
-  const [sourceType, setSourceType] = useState("all");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const periodBounds = (() => {
+    if (!initialPeriod || !/^\d{4}-\d{2}$/.test(initialPeriod)) return null;
+    const [ys, ms] = initialPeriod.split("-").map(Number);
+    const last = new Date(ys, ms, 0).getDate();
+    return {
+      from: `${initialPeriod}-01`,
+      to: `${initialPeriod}-${String(last).padStart(2, "0")}`,
+    };
+  })();
+
+  const [fromDate, setFromDate] = useState(periodBounds?.from ?? defaultFrom);
+  const [toDate, setToDate] = useState(periodBounds?.to ?? "");
+  const [sourceType, setSourceType] = useState(initialSource || "all");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(initialEntry ? [initialEntry] : []));
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(initialEntry);
+  const entryRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const { entries, lines, loading, createManualEntry, updateEntry, restoreAutoEntry, voidEntry, rebuildFromOperations } =
     useJournal({ fromDate: fromDate || undefined, toDate: toDate || undefined, sourceType });
   const { items: accounts } = useChartOfAccounts();
   const lastAutoRebuild = useLastAutoRebuild();
+
+  // If the deep-linked entry falls outside the current filter, widen the window
+  // to include its entry_date so it renders.
+  useEffect(() => {
+    if (!initialEntry || loading) return;
+    const target = entries.find((e) => e.id === initialEntry);
+    if (!target) return;
+    const d = target.entry_date;
+    if (d && fromDate && d < fromDate) setFromDate(d);
+    if (d && toDate && d > toDate) setToDate(d);
+  }, [initialEntry, loading, entries, fromDate, toDate]);
+
+  // Scroll to and briefly highlight the deep-linked entry once rendered.
+  useEffect(() => {
+    if (!initialEntry || loading) return;
+    const el = entryRefs.current[initialEntry];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setHighlightId(null), 2500);
+    return () => clearTimeout(t);
+  }, [initialEntry, loading, entries]);
 
   const linesByEntry = useMemo(() => {
     const m = new Map<string, typeof lines>();
