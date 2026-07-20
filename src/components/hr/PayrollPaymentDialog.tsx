@@ -46,6 +46,28 @@ export function PayrollPaymentDialog({ open, onOpenChange, year, month, payroll,
   const [bankTxns, setBankTxns] = useState<BankTxn[]>([]);
 
   const { createAndPost } = usePayrollPaymentBatches(year, month);
+  const { venues } = useVenues();
+  const venueById = useMemo(() => {
+    const m = new Map<string, string>();
+    venues.forEach(v => m.set(v.id, v.name));
+    return m;
+  }, [venues]);
+  const venueOrder = useMemo(() => {
+    const o = new Map<string, number>();
+    venues.forEach((v, i) => o.set(v.name, i));
+    return o;
+  }, [venues]);
+  const resolveVenue = (emp: HREmployee): string => {
+    const vid = (emp as any).venue_id as string | null | undefined;
+    if (vid && venueById.has(vid)) return venueById.get(vid)!;
+    const legacy = (emp.venue || "").trim();
+    if (legacy && venueOrder.has(legacy)) return legacy;
+    return UNASSIGNED;
+  };
+  const venueRank = (name: string): number => {
+    if (name === UNASSIGNED) return Number.MAX_SAFE_INTEGER;
+    return venueOrder.has(name) ? venueOrder.get(name)! : Number.MAX_SAFE_INTEGER - 1;
+  };
 
   useEffect(() => {
     if (!open) return;
