@@ -10,6 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import type { HRPayroll, HREmployee } from "@/hooks/useHRData";
 import { usePayrollPaymentBatches } from "@/hooks/usePayrollPaymentBatches";
+import { useVenues } from "@/hooks/useVenues";
+
+const UNASSIGNED = "Unassigned";
 
 type Kind = "salary" | "mpf";
 type Method = "bank_transfer" | "cash" | "other";
