@@ -828,6 +828,9 @@ function VenueGroup({
               <Link to={`/hr/employees/${emp.id}`} className="hover:text-primary hover:underline">
                 {emp.last_name}, {emp.first_name}
               </Link>
+              {!["active", "on_leave"].includes(emp.status) && (
+                <span className="ml-1.5 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-muted-foreground font-normal align-middle">inactive</span>
+              )}
             </td>
             <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">{venue}</td>
             <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">{emp.job_title || "—"}</td>
