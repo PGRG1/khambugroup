@@ -855,9 +855,13 @@ function VenueGroup({
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.baseSalary || 0)}</td>
         <td />
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.earnedSalary || 0)}</td>
-        <td /><td />
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.overtime || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.bonus || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.alPay || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.npDed || 0)}</td>
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.adjustments || 0)}</td>
         <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.grossPay || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.otherDed || 0)}</td>
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.mpfEE || 0)}</td>
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.mpfER || 0)}</td>
         <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.totalMPF || 0)}</td>
