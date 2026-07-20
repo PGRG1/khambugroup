@@ -173,8 +173,10 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [saving, setSaving] = useState(false);
+  // edits keyed by `${year}-${month}:${employeeId}` so pending edits stay scoped to their period
   const [edits, setEdits] = useState<Record<string, Record<string, number | string | null>>>({});
   const [manuallyAdded, setManuallyAdded] = useState<Set<string>>(new Set());
+  const editKey = (year: number, month: number, empId: string) => `${year}-${month}:${empId}`;
   const [importOpen, setImportOpen] = useState(false);
 
   const { venues } = useVenues();
