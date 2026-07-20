@@ -27,6 +27,8 @@ interface Props {
   departments: { id: string; name: string; is_active: boolean }[];
   onSave: (p: Partial<HRPayroll>) => Promise<boolean>;
   onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
+  initialYear?: number;
+  initialMonth?: number;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -170,10 +172,10 @@ function BankPopover({
 /* ════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════ */
-export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, departments, onCreateEmployee }: Props) {
+export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
   const now = new Date();
-  const [filterYear, setFilterYear] = useState(now.getFullYear());
-  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(initialYear ?? now.getFullYear());
+  const [filterMonth, setFilterMonth] = useState(initialMonth ?? (now.getMonth() + 1));
   const [saving, setSaving] = useState(false);
   // edits keyed by `${year}-${month}:${employeeId}` so pending edits stay scoped to their period
   const [edits, setEdits] = useState<Record<string, Record<string, number | string | null>>>({});

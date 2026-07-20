@@ -116,6 +116,7 @@ import HROrgChart from "./pages/hr/HROrgChart";
 import HRSchedule from "./pages/hr/HRSchedule";
 import HRLeave from "./pages/hr/HRLeave";
 import HRPayroll from "./pages/hr/HRPayroll";
+import HRPayrollPayables from "./pages/hr/HRPayrollPayables";
 
 import ExpensesOverview from "./pages/expenses/Overview";
 import ExpenseBillsPage from "./pages/expenses/ExpenseBills";
@@ -340,6 +341,7 @@ function App() {
                 <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
                 <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
+                <Route path="/hr/payroll/payables" element={<AdminRoute><HRPayrollPayables /></AdminRoute>} />
 
 
                 <Route path="/expenses" element={<AdminRoute><ExpensesOverview /></AdminRoute>} />
