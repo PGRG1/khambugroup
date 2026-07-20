@@ -15,14 +15,20 @@ const buildSystemPrompt = (employees: EmployeeHint[]) => `You extract FINAL PAYR
 
 Each row corresponds to one employee's payroll for the period. Report ONLY the figures actually printed on the document — do NOT compute, derive, or reconcile any value. What's on the sheet is authoritative.
 
+Understand the three amount tiers, and map them correctly EVEN WHEN the sheet uses different column labels:
+- BASE (base_salary): the agreed / contracted monthly salary — the fixed figure per the employment contract. Some sheets label it "Salary", "Basic", "Basic Salary", "Contract Salary".
+- GROSS (gross_pay): what the employee actually EARNED this period — Base adjusted for reality (unpaid leave, proration for new joiners/leavers, overtime, allowances, bonuses), BEFORE any MPF or deduction is taken. Some sheets label it "Gross", "Gross Pay", "Total Earnings", "Earned", "Payable Gross". If a distinct gross/earned figure is printed, extract it. If the sheet only prints Base and no separate gross column, return 0 for gross_pay.
+- NET (net_pay): the final take-home = Gross − MPF(employee) − other deductions. Some sheets label it "Net", "Net Pay", "Take Home", "Payable", "Actual Payment". This is the bottom-line authoritative figure.
+
 Fields to extract per row:
-- raw_name: the person's name as it appears in the document (verbatim).
-- matched_employee_id: the id from the employee roster below that best matches raw_name (case-insensitive, tolerate initials, reversed order Last/First, minor typos). If no confident match, "".
-- base_salary: the basic/base salary figure shown on the sheet. Number. 0 if not present.
-- mpf_employee: the employee MPF contribution shown. Number. 0 if not present.
-- mpf_employer: the employer MPF contribution shown. Number. 0 if not present.
-- net_pay: the net pay (take-home) figure shown. Number. 0 if not present.
-- gross_pay: the gross pay figure shown, if the sheet prints one. Number. 0 if not present (optional).
+- raw_name: person's name verbatim.
+- matched_employee_id: id from roster below best matching raw_name (case-insensitive, tolerate initials, reversed Last/First, minor typos). "" if no confident match.
+- base_salary: number. 0 if not present.
+- gross_pay: number. 0 if no distinct gross/earned figure is printed.
+- mpf_employee: employee MPF contribution shown. Number. 0 if not present.
+- mpf_employer: employer MPF contribution shown. Number. 0 if not present.
+- other_deductions: sum of any named non-MPF deduction lines shown (advance recovery, loan deduction, salary advance, staff meal deduction, etc.). Number. 0 if none.
+- net_pay: number. 0 if not present.
 - confidence: "high" | "medium" | "low".
 - source_hint: short origin note ("Excel row 4", "PDF page 2", "image 1").
 
@@ -43,10 +49,11 @@ Return ONLY valid JSON:
       "raw_name": "string",
       "matched_employee_id": "one of the ids above, or ''",
       "base_salary": number,
+      "gross_pay": number,
       "mpf_employee": number,
       "mpf_employer": number,
+      "other_deductions": number,
       "net_pay": number,
-      "gross_pay": number,
       "confidence": "high | medium | low",
       "source_hint": "string"
     }
@@ -54,6 +61,7 @@ Return ONLY valid JSON:
 }
 
 If nothing extractable, return {"rows": []}.`;
+
 
 const XLSX_MIMES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
