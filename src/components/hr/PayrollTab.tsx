@@ -26,6 +26,7 @@ interface Props {
   shifts: HRShift[];
   departments: { id: string; name: string; is_active: boolean }[];
   onSave: (p: Partial<HRPayroll>) => Promise<boolean>;
+  onSaveBatch?: (rows: Partial<HRPayroll>[]) => Promise<{ ok: boolean; error?: string }>;
   onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
   initialYear?: number;
   initialMonth?: number;
