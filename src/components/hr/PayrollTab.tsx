@@ -50,6 +50,8 @@ function SectionLabel({ children, right }: { children: React.ReactNode; right?: 
 }
 
 /* ── Cell styling helpers ─────────────────────────────── */
+const NO_SPINNER =
+  "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none";
 const cellBase =
   "block w-full text-right text-[12px] tabular-nums px-2 py-1 rounded-sm outline-none transition-colors";
 const editableIdle = "cursor-text hover:bg-muted/50 focus:bg-muted/60 focus:ring-1 focus:ring-primary/40 focus:border-b focus:border-primary";
@@ -62,7 +64,7 @@ function ECell({ value, onChange }: { value: number; onChange: (v: number) => vo
     return (
       <input
         autoFocus type="number"
-        className={`${cellBase} bg-muted/60 ring-1 ring-primary/40`}
+        className={`${cellBase} bg-muted/60 ring-1 ring-primary/40 ${NO_SPINNER}`}
         value={local}
         onChange={e => setLocal(e.target.value)}
         onBlur={() => { onChange(Number(local) || 0); setEditing(false); }}
@@ -102,7 +104,7 @@ function OCell({ value, isOverride, onChange }: { value: number; isOverride: boo
     return (
       <input
         autoFocus type="number" placeholder="auto"
-        className={`${cellBase} bg-muted/60 ring-1 ring-primary/40`}
+        className={`${cellBase} bg-muted/60 ring-1 ring-primary/40 ${NO_SPINNER}`}
         value={local}
         onChange={e => setLocal(e.target.value)}
         onBlur={commit}
@@ -254,15 +256,22 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
       ? (e.earned_salary_override === "" ? null : Number(e.earned_salary_override))
       : (p?.earned_salary_override ?? null);
     const earnedSalary = earnedOverride != null ? earnedOverride : computedEarned;
-    const alDays = e.al_days != null ? Number(e.al_days) : n(p?.annual_leave_pay);
-    const nplDays = e.npl_days != null ? Number(e.npl_days) : n(p?.unpaid_leave_deduction);
-    const dailyRate = isFT && daysInMonth > 0 ? baseSalary / daysInMonth : 0;
-    const computedAdj = isFT ? dailyRate * (alDays - nplDays) : 0;
+
+    // New: OT, Bonus, AL, NP are all $ amounts feeding Gross directly.
+    // Adjustments is now a pure one-off residual — no more auto AL/NPL derivation.
+    const overtime = e.actual_overtime != null ? Number(e.actual_overtime) : n((p as any)?.actual_overtime);
+    const bonus = e.actual_bonus != null ? Number(e.actual_bonus) : n((p as any)?.actual_bonus);
+    const alPay = e.annual_leave_pay != null ? Number(e.annual_leave_pay) : n(p?.annual_leave_pay);
+    const npDed = e.unpaid_leave_deduction != null ? Number(e.unpaid_leave_deduction) : n(p?.unpaid_leave_deduction);
+    const otherDed = e.other_deductions != null ? Number(e.other_deductions) : n((p as any)?.other_deductions);
+
     const adjOverride = e.adjustments_override !== undefined
       ? (e.adjustments_override === "" ? null : Number(e.adjustments_override))
       : (p?.adjustments_override ?? null);
-    const adjustments = adjOverride != null ? adjOverride : computedAdj;
-    const grossPay = earnedSalary + adjustments;
+    const adjustments = adjOverride != null ? adjOverride : 0;
+
+    // Gross = Base(earned) + OT + Bonus + AL − NP + Adj
+    const grossPay = earnedSalary + overtime + bonus + alPay - npDed + adjustments;
     const computedMpfEE = Math.min(MPF_CAP, grossPay * MPF_RATE);
     const computedMpfER = Math.min(MPF_CAP, grossPay * MPF_RATE);
     const mpfEEOverride = e.mpf_employee_override !== undefined
@@ -274,11 +283,18 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     const mpfEE = mpfEEOverride != null ? mpfEEOverride : computedMpfEE;
     const mpfER = mpfEROverride != null ? mpfEROverride : computedMpfER;
     const totalMPF = mpfEE + mpfER;
-    const netPay = grossPay - mpfEE;
+    // Net = Gross − MPF(EE) − Other Deductions
+    const netPay = grossPay - mpfEE - otherDed;
     const bank = e.bank != null ? String(e.bank) : (p?.payment_method || "");
     const account = e.account != null ? String(e.account) : (p?.notes || "");
     const totalCost = grossPay + mpfER;
-    return { baseSalary, daysHours, earnedSalary, alDays, nplDays, adjustments, grossPay, mpfEE, mpfER, totalMPF, netPay, bank, account, totalCost, payrollRecord: p, earnedOverride, adjOverride, mpfEEOverride, mpfEROverride };
+    return {
+      baseSalary, daysHours, earnedSalary,
+      overtime, bonus, alPay, npDed, otherDed,
+      adjustments, grossPay, mpfEE, mpfER, totalMPF, netPay,
+      bank, account, totalCost,
+      payrollRecord: p, earnedOverride, adjOverride, mpfEEOverride, mpfEROverride,
+    };
   }, [payrollMap, edits, daysInMonth, filterYear, filterMonth]);
 
   const saveRow = async (emp: HREmployee) => {
@@ -289,16 +305,20 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
       ...(p?.id ? { id: p.id } : {}),
       employee_id: emp.id, year: filterYear, month: filterMonth,
       forecast_base_salary: row.baseSalary, forecast_allowances: row.daysHours,
-      annual_leave_pay: row.alDays, unpaid_leave_deduction: row.nplDays,
+      actual_overtime: row.overtime,
+      actual_bonus: row.bonus,
+      annual_leave_pay: row.alPay,
+      unpaid_leave_deduction: row.npDed,
+      other_deductions: row.otherDed,
       gross_salary: row.grossPay, mpf_employee: row.mpfEE, mpf_employer: row.mpfER,
-      mpf_payment_amount: row.totalMPF, net_salary: row.netPay, total_deductions: row.mpfEE,
+      mpf_payment_amount: row.totalMPF, net_salary: row.netPay, total_deductions: row.mpfEE + row.otherDed,
       payment_method: row.bank || "bank_transfer", notes: row.account,
       payment_status: p?.payment_status || "draft",
       earned_salary_override: row.earnedOverride,
       adjustments_override: row.adjOverride,
       mpf_employee_override: row.mpfEEOverride,
       mpf_employer_override: row.mpfEROverride,
-    });
+    } as any);
     if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; }); }
     setSaving(false);
   };
@@ -307,21 +327,41 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   const nextMonth = () => { if (filterMonth === 12) { setFilterMonth(1); setFilterYear(y => y + 1); } else setFilterMonth(m => m + 1); };
 
   const venueSubtotals = useMemo(() => {
-    const st: Record<string, { baseSalary: number; earnedSalary: number; adjustments: number; grossPay: number; mpfEE: number; mpfER: number; totalMPF: number; netPay: number; totalCost: number }> = {};
+    const st: Record<string, {
+      baseSalary: number; earnedSalary: number; overtime: number; bonus: number; alPay: number; npDed: number;
+      otherDed: number; adjustments: number; grossPay: number; mpfEE: number; mpfER: number; totalMPF: number;
+      netPay: number; totalCost: number;
+    }> = {};
     Object.entries(venueGroups).forEach(([venue, emps]) => {
-      const sub = { baseSalary: 0, earnedSalary: 0, adjustments: 0, grossPay: 0, mpfEE: 0, mpfER: 0, totalMPF: 0, netPay: 0, totalCost: 0 };
-      emps.forEach(emp => { const r = getRowData(emp); sub.baseSalary += r.baseSalary; sub.earnedSalary += r.earnedSalary; sub.adjustments += r.adjustments; sub.grossPay += r.grossPay; sub.mpfEE += r.mpfEE; sub.mpfER += r.mpfER; sub.totalMPF += r.totalMPF; sub.netPay += r.netPay; sub.totalCost += r.totalCost; });
+      const sub = { baseSalary: 0, earnedSalary: 0, overtime: 0, bonus: 0, alPay: 0, npDed: 0, otherDed: 0, adjustments: 0, grossPay: 0, mpfEE: 0, mpfER: 0, totalMPF: 0, netPay: 0, totalCost: 0 };
+      emps.forEach(emp => {
+        const r = getRowData(emp);
+        sub.baseSalary += r.baseSalary; sub.earnedSalary += r.earnedSalary;
+        sub.overtime += r.overtime; sub.bonus += r.bonus;
+        sub.alPay += r.alPay; sub.npDed += r.npDed; sub.otherDed += r.otherDed;
+        sub.adjustments += r.adjustments; sub.grossPay += r.grossPay;
+        sub.mpfEE += r.mpfEE; sub.mpfER += r.mpfER; sub.totalMPF += r.totalMPF;
+        sub.netPay += r.netPay; sub.totalCost += r.totalCost;
+      });
       st[venue] = sub;
     });
     return st;
   }, [venueGroups, getRowData]);
 
   const grandTotal = useMemo(() => {
-    const gt = { baseSalary: 0, earnedSalary: 0, adjustments: 0, grossPay: 0, mpfEE: 0, mpfER: 0, totalMPF: 0, netPay: 0, totalCost: 0, headcount: 0 };
-    Object.values(venueSubtotals).forEach(sub => { gt.baseSalary += sub.baseSalary; gt.earnedSalary += sub.earnedSalary; gt.adjustments += sub.adjustments; gt.grossPay += sub.grossPay; gt.mpfEE += sub.mpfEE; gt.mpfER += sub.mpfER; gt.totalMPF += sub.totalMPF; gt.netPay += sub.netPay; gt.totalCost += sub.totalCost; });
+    const gt = { baseSalary: 0, earnedSalary: 0, overtime: 0, bonus: 0, alPay: 0, npDed: 0, otherDed: 0, adjustments: 0, grossPay: 0, mpfEE: 0, mpfER: 0, totalMPF: 0, netPay: 0, totalCost: 0, headcount: 0 };
+    Object.values(venueSubtotals).forEach(sub => {
+      gt.baseSalary += sub.baseSalary; gt.earnedSalary += sub.earnedSalary;
+      gt.overtime += sub.overtime; gt.bonus += sub.bonus;
+      gt.alPay += sub.alPay; gt.npDed += sub.npDed; gt.otherDed += sub.otherDed;
+      gt.adjustments += sub.adjustments; gt.grossPay += sub.grossPay;
+      gt.mpfEE += sub.mpfEE; gt.mpfER += sub.mpfER; gt.totalMPF += sub.totalMPF;
+      gt.netPay += sub.netPay; gt.totalCost += sub.totalCost;
+    });
     activeEmployees.forEach(emp => { const r = getRowData(emp); if (r.baseSalary > 0) gt.headcount++; });
     return gt;
   }, [venueSubtotals, activeEmployees, getRowData]);
+
 
   const payStatus = useMemo(() => {
     const s = filtered.map(p => p.payment_status);
@@ -378,13 +418,22 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     setEdits(prev => {
       const next = { ...prev };
       for (const row of imported) {
-        const adjustment =
-          (row.net_pay + row.mpf_employee + (row.other_deductions || 0)) - row.base_salary;
+        // New composition. Gross = Base + OT + Bonus + AL − NP + Adj; Net = Gross − MPF(EE) − Other Ded.
+        // Solve for Adj such that Net matches the scanned figure — any remaining gap goes into Adjustments.
+        const expectedNet =
+          row.base_salary + row.overtime_pay + row.actual_bonus + row.annual_leave_pay -
+          row.unpaid_leave_deduction - row.mpf_employee - (row.other_deductions || 0);
+        const adjustment = row.net_pay > 0 ? row.net_pay - expectedNet : 0;
         const k = editKey(row.year, row.month, row.employee_id);
         next[k] = {
           ...next[k],
           forecast_base_salary: row.base_salary,
           earned_salary_override: row.base_salary,
+          actual_overtime: row.overtime_pay,
+          actual_bonus: row.actual_bonus,
+          annual_leave_pay: row.annual_leave_pay,
+          unpaid_leave_deduction: row.unpaid_leave_deduction,
+          other_deductions: row.other_deductions || 0,
           adjustments_override: Number(adjustment.toFixed(2)),
           mpf_employee_override: row.mpf_employee,
           mpf_employer_override: row.mpf_employer,
@@ -553,11 +602,14 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
                   <Th className="min-w-[90px] text-right">Basic</Th>
                   <Th className="w-[72px] text-right">Days/Hrs</Th>
                   <Th className="min-w-[92px] text-right">Earned</Th>
-                  <Th className="w-[60px] text-right">AL</Th>
-                  <Th className="w-[60px] text-right">NPL</Th>
+                  <Th className="w-[70px] text-right">OT</Th>
+                  <Th className="w-[76px] text-right">Bonus</Th>
+                  <Th className="w-[66px] text-right">AL/PH</Th>
+                  <Th className="w-[66px] text-right">NP</Th>
                   <Th className="min-w-[86px] text-right">Adj</Th>
                   <Th className={`min-w-[96px] text-right ${clusterEnd}`}>Gross</Th>
 
+                  <Th className="min-w-[82px] text-right">Other Ded.</Th>
                   <Th className="min-w-[80px] text-right">MPF EE</Th>
                   <Th className="min-w-[80px] text-right">MPF ER</Th>
                   <Th className={`min-w-[84px] text-right ${clusterEnd}`}>Total MPF</Th>
@@ -595,7 +647,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
 
                 {/* Add-employee row */}
                 <tr>
-                  <td colSpan={18} className="px-2 py-3">
+                  <td colSpan={21} className="px-2 py-3">
                     <AddEmployeeRow
                       employees={employees}
                       excludeIds={currentEmployeeIds}
@@ -611,9 +663,13 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.baseSalary)}</td>
                   <td />
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.earnedSalary)}</td>
-                  <td /><td />
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.overtime)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.bonus)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.alPay)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.npDed)}</td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.adjustments)}</td>
                   <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(grandTotal.grossPay)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.otherDed)}</td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.mpfEE)}</td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.mpfER)}</td>
                   <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(grandTotal.totalMPF)}</td>
@@ -739,7 +795,7 @@ function VenueGroup({
     <>
       {/* Slim venue header row */}
       <tr>
-        <td colSpan={18} className="px-2 pt-4 pb-1 border-b border-border/40">
+        <td colSpan={21} className="px-2 pt-4 pb-1 border-b border-border/40">
           <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">{venue}</span>
         </td>
       </tr>
@@ -764,11 +820,14 @@ function VenueGroup({
             <td className="px-1 py-1"><ECell value={row.baseSalary} onChange={v => setEdit(emp.id, "forecast_base_salary", v)} /></td>
             <td className="px-1 py-1"><ECell value={row.daysHours} onChange={v => setEdit(emp.id, "days_hours", v)} /></td>
             <td className="px-1 py-1"><OCell value={row.earnedSalary} isOverride={row.earnedOverride != null} onChange={v => setEdit(emp.id, "earned_salary_override", v)} /></td>
-            <td className="px-1 py-1"><ECell value={row.alDays} onChange={v => setEdit(emp.id, "al_days", v)} /></td>
-            <td className="px-1 py-1"><ECell value={row.nplDays} onChange={v => setEdit(emp.id, "npl_days", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.overtime} onChange={v => setEdit(emp.id, "actual_overtime", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.bonus} onChange={v => setEdit(emp.id, "actual_bonus", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.alPay} onChange={v => setEdit(emp.id, "annual_leave_pay", v)} /></td>
+            <td className="px-1 py-1"><ECell value={row.npDed} onChange={v => setEdit(emp.id, "unpaid_leave_deduction", v)} /></td>
             <td className="px-1 py-1"><OCell value={row.adjustments} isOverride={row.adjOverride != null} onChange={v => setEdit(emp.id, "adjustments_override", v)} /></td>
             <td className={`px-1 py-1 ${clusterEnd}`}><SCell value={row.grossPay} bold /></td>
 
+            <td className="px-1 py-1"><ECell value={row.otherDed} onChange={v => setEdit(emp.id, "other_deductions", v)} /></td>
             <td className="px-1 py-1"><OCell value={row.mpfEE} isOverride={row.mpfEEOverride != null} onChange={v => setEdit(emp.id, "mpf_employee_override", v)} /></td>
             <td className="px-1 py-1"><OCell value={row.mpfER} isOverride={row.mpfEROverride != null} onChange={v => setEdit(emp.id, "mpf_employer_override", v)} /></td>
             <td className={`px-1 py-1 ${clusterEnd}`}><SCell value={row.totalMPF} /></td>
@@ -796,9 +855,13 @@ function VenueGroup({
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.baseSalary || 0)}</td>
         <td />
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.earnedSalary || 0)}</td>
-        <td /><td />
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.overtime || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.bonus || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.alPay || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.npDed || 0)}</td>
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.adjustments || 0)}</td>
         <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.grossPay || 0)}</td>
+        <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.otherDed || 0)}</td>
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.mpfEE || 0)}</td>
         <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(subtotal?.mpfER || 0)}</td>
         <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(subtotal?.totalMPF || 0)}</td>

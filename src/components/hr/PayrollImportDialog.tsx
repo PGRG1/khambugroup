@@ -36,13 +36,20 @@ type ExtractedRow = {
   matched_employee_id: string;
   base_salary: number;
   gross_pay: number;
+  /** null = label present on sheet but number unreadable — reviewer must fill in. */
+  overtime_pay: number | null;
+  actual_bonus: number | null;
+  annual_leave_pay: number | null;
+  unpaid_leave_deduction: number | null;
   mpf_employee: number;
   mpf_employer: number;
   other_deductions: number;
   net_pay: number;
+  unparsed_fields?: string[];
   expected_net?: number;
   reconciles?: boolean;
   computed_adjustment?: number;
+  needs_review?: boolean;
   confidence: "high" | "medium" | "low";
   source_hint: string;
 };
@@ -54,12 +61,19 @@ export type PayrollImportApplyPayload = {
   year: number;
   month: number;
   base_salary: number;
-  gross_pay: number;
+  overtime_pay: number;
+  actual_bonus: number;
+  annual_leave_pay: number;
+  unpaid_leave_deduction: number;
   mpf_employee: number;
   mpf_employer: number;
   other_deductions: number;
   net_pay: number;
 };
+
+/** Class that strips the browser's native number spinner controls. */
+const NO_SPINNER =
+  "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none";
 
 
 type SimpleDept = { id: string; name: string; is_active: boolean };
@@ -188,17 +202,15 @@ export default function PayrollImportDialog({
         setScanning(false);
         return;
       }
-      // Pre-fill gross_pay when the sheet didn't print one, using base + implied adjustment
-      // so the Gross column is never blank.
-      const withDefaults = extracted.map((r, i) => {
-        const grossFallback = r.gross_pay > 0
-          ? r.gross_pay
-          : Number((r.base_salary + (r.computed_adjustment ?? 0)).toFixed(2));
-        return { ...r, gross_pay: grossFallback, _id: `r${i}-${Date.now()}` };
-      });
-      setRows(withDefaults);
+      // Give each row an id — do NOT invent numbers for smudged fields.
+      const withIds: ReviewRow[] = extracted.map((r, i) => ({ ...r, _id: `r${i}-${Date.now()}` }));
+      setRows(withIds);
       if (Array.isArray(data.warnings)) for (const w of data.warnings) toast.warning(w);
-      toast.success(`AI extracted ${extracted.length} row${extracted.length === 1 ? "" : "s"}. Review before applying.`);
+      const needing = withIds.filter(r => (r.unparsed_fields?.length ?? 0) > 0).length;
+      toast.success(
+        `AI extracted ${extracted.length} row${extracted.length === 1 ? "" : "s"}. Review before applying.` +
+        (needing > 0 ? ` ${needing} row${needing === 1 ? "" : "s"} need manual review.` : "")
+      );
       setStep("review");
     } catch (e: any) {
       toast.error("Extraction failed: " + (e?.message || e));
@@ -224,7 +236,10 @@ export default function PayrollImportDialog({
         year: periodYear,
         month: periodMonth,
         base_salary: r.base_salary,
-        gross_pay: r.gross_pay,
+        overtime_pay: r.overtime_pay ?? 0,
+        actual_bonus: r.actual_bonus ?? 0,
+        annual_leave_pay: r.annual_leave_pay ?? 0,
+        unpaid_leave_deduction: r.unpaid_leave_deduction ?? 0,
         mpf_employee: r.mpf_employee,
         mpf_employer: r.mpf_employer,
         other_deductions: r.other_deductions || 0,
@@ -418,13 +433,16 @@ function ReviewTable({
           <tr className="border-b border-border/50">
             <th className="w-8 px-2 py-2 text-left"></th>
             <th className="px-2 py-2 text-left min-w-[220px]">Employee</th>
-            <th className="px-2 py-2 text-right w-[92px]">Base</th>
-            <th className="px-2 py-2 text-right w-[92px]">Gross</th>
-            <th className="px-2 py-2 text-right w-[92px]">MPF (EE)</th>
-            <th className="px-2 py-2 text-right w-[92px]">MPF (ER)</th>
-            <th className="px-2 py-2 text-right w-[92px]">Other Ded.</th>
-            <th className="px-2 py-2 text-right w-[92px]">Net</th>
-            <th className="px-2 py-2 text-right w-[110px]">Reconcile</th>
+            <th className="px-2 py-2 text-right w-[86px]">Base</th>
+            <th className="px-2 py-2 text-right w-[80px]">OT</th>
+            <th className="px-2 py-2 text-right w-[80px]">Bonus</th>
+            <th className="px-2 py-2 text-right w-[80px]">AL/PH</th>
+            <th className="px-2 py-2 text-right w-[80px]">NP</th>
+            <th className="px-2 py-2 text-right w-[86px]">MPF (EE)</th>
+            <th className="px-2 py-2 text-right w-[86px]">MPF (ER)</th>
+            <th className="px-2 py-2 text-right w-[86px]">Other Ded.</th>
+            <th className="px-2 py-2 text-right w-[86px]">Net</th>
+            <th className="px-2 py-2 text-right w-[120px]">Reconcile</th>
             <th className="w-8 px-1 py-2"></th>
           </tr>
         </thead>
@@ -462,20 +480,33 @@ function ReviewTableRow({
   const selected = employees.find((e) => e.id === row.matched_employee_id);
   const matched = !!row.matched_employee_id;
 
-  const gross = row.gross_pay > 0 ? row.gross_pay : row.base_salary;
-  const expected = gross - row.mpf_employee - (row.other_deductions || 0);
-  const diff = row.net_pay - expected;
-  const ties = row.net_pay > 0 && Math.abs(diff) < 1;
+  // New Gross formula: Base + OT + Bonus + AL − NP + Adjustments
+  // Reconciliation: any residual between scanned Net and computed becomes Adjustments.
+  const ot = row.overtime_pay ?? 0;
+  const bn = row.actual_bonus ?? 0;
+  const al = row.annual_leave_pay ?? 0;
+  const np = row.unpaid_leave_deduction ?? 0;
+  const expectedNet = row.base_salary + ot + bn + al - np - row.mpf_employee - (row.other_deductions || 0);
+  const diff = row.net_pay - expectedNet;
+  const unparsed = row.unparsed_fields ?? [];
+  const hasUnparsed = unparsed.length > 0;
+  const ties = row.net_pay > 0 && Math.abs(diff) < 1 && !hasUnparsed;
 
-  const rowTint = matched ? "hover:bg-muted/30" : "bg-amber-500/[0.06] hover:bg-amber-500/[0.1]";
+  const rowTint = !matched
+    ? "bg-amber-500/[0.06] hover:bg-amber-500/[0.1]"
+    : hasUnparsed
+      ? "bg-amber-500/[0.04] hover:bg-amber-500/[0.08]"
+      : "hover:bg-muted/30";
 
   return (
     <tr className={"border-b border-border/40 last:border-b-0 " + rowTint}>
       <td className="px-2 py-1.5 align-middle">
-        {matched ? (
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-        ) : (
+        {!matched ? (
           <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+        ) : hasUnparsed ? (
+          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+        ) : (
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
         )}
       </td>
       <td className="px-2 py-1.5 align-middle">
@@ -521,7 +552,26 @@ function ReviewTableRow({
         </div>
       </td>
       <TableNumCell value={row.base_salary} onChange={(v) => onChange({ base_salary: v })} />
-      <TableNumCell value={row.gross_pay} onChange={(v) => onChange({ gross_pay: v })} />
+      <TableNumCell
+        value={row.overtime_pay}
+        needsReview={unparsed.includes("overtime_pay")}
+        onChange={(v) => onChange({ overtime_pay: v, unparsed_fields: unparsed.filter(f => f !== "overtime_pay") })}
+      />
+      <TableNumCell
+        value={row.actual_bonus}
+        needsReview={unparsed.includes("actual_bonus")}
+        onChange={(v) => onChange({ actual_bonus: v, unparsed_fields: unparsed.filter(f => f !== "actual_bonus") })}
+      />
+      <TableNumCell
+        value={row.annual_leave_pay}
+        needsReview={unparsed.includes("annual_leave_pay")}
+        onChange={(v) => onChange({ annual_leave_pay: v, unparsed_fields: unparsed.filter(f => f !== "annual_leave_pay") })}
+      />
+      <TableNumCell
+        value={row.unpaid_leave_deduction}
+        needsReview={unparsed.includes("unpaid_leave_deduction")}
+        onChange={(v) => onChange({ unpaid_leave_deduction: v, unparsed_fields: unparsed.filter(f => f !== "unpaid_leave_deduction") })}
+      />
       <TableNumCell value={row.mpf_employee} onChange={(v) => onChange({ mpf_employee: v })} />
       <TableNumCell value={row.mpf_employer} onChange={(v) => onChange({ mpf_employer: v })} />
       <TableNumCell value={row.other_deductions || 0} onChange={(v) => onChange({ other_deductions: v })} />
@@ -534,7 +584,11 @@ function ReviewTableRow({
         ) : (
           <span
             className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-500"
-            title="Doesn't tie to Net — applied as-is, gap shows in Adjustments"
+            title={
+              hasUnparsed
+                ? `Needs review: ${unparsed.join(", ")}`
+                : "Doesn't tie to Net — residual will post as Adjustments"
+            }
           >
             <AlertCircle className="h-3 w-3" />
             {diff > 0 ? "+" : "−"}
@@ -551,15 +605,27 @@ function ReviewTableRow({
   );
 }
 
-function TableNumCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function TableNumCell({
+  value,
+  onChange,
+  needsReview = false,
+}: {
+  value: number | null;
+  onChange: (v: number) => void;
+  needsReview?: boolean;
+}) {
   return (
     <td className="px-1 py-1 align-middle">
       <Input
         type="number"
         step="0.01"
-        value={value || ""}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="h-7 px-1.5 text-right text-[12px] tabular-nums"
+        value={value ?? ""}
+        placeholder={needsReview ? "?" : ""}
+        onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value) || 0)}
+        className={
+          "h-7 px-1.5 text-right text-[12px] tabular-nums " + NO_SPINNER +
+          (needsReview ? " border-amber-500/60 placeholder:text-amber-600 placeholder:font-semibold" : "")
+        }
       />
     </td>
   );
@@ -575,6 +641,7 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
         type="number" step="0.01"
         value={value || ""}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
+        className={NO_SPINNER}
       />
     </div>
   );
