@@ -406,7 +406,7 @@ function ReviewRowCard({
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
         <div className="sm:col-span-2">
           <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Employee {row.raw_name && <span className="normal-case text-muted-foreground/80">· from doc: "{row.raw_name}"</span>}
@@ -437,13 +437,37 @@ function ReviewRowCard({
           )}
         </div>
         <NumField label="Base" value={row.base_salary} onChange={(v) => onChange({ base_salary: v })} />
+        <NumField label="Gross" value={row.gross_pay} onChange={(v) => onChange({ gross_pay: v })} />
         <NumField label="MPF (EE)" value={row.mpf_employee} onChange={(v) => onChange({ mpf_employee: v })} />
         <NumField label="MPF (ER)" value={row.mpf_employer} onChange={(v) => onChange({ mpf_employer: v })} />
+        <NumField label="Other Ded." value={row.other_deductions || 0} onChange={(v) => onChange({ other_deductions: v })} />
         <NumField label="Net" value={row.net_pay} onChange={(v) => onChange({ net_pay: v })} />
       </div>
+      <ReconciliationNote row={row} />
     </div>
   );
 }
+
+function ReconciliationNote({ row }: { row: ReviewRow }) {
+  const gross = row.gross_pay > 0 ? row.gross_pay : row.base_salary;
+  const expected = gross - row.mpf_employee - (row.other_deductions || 0);
+  const diff = row.net_pay - expected;
+  if (row.net_pay <= 0) return null;
+  if (Math.abs(diff) < 1) {
+    return (
+      <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-500 inline-flex items-center gap-1">
+        <CheckCircle2 className="h-3 w-3" /> Gross − MPF(EE) − Other Ded. ties to Net.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-500 inline-flex items-center gap-1">
+      <AlertCircle className="h-3 w-3" />
+      Base+Gross math doesn't tie to Net (off by HK${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}). Applied as-is — the gap will show in the Adjustments column.
+    </div>
+  );
+}
+
 
 function NumField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
