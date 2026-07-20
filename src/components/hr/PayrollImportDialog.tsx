@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +51,8 @@ type ReviewRow = ExtractedRow & { _id: string };
 
 export type PayrollImportApplyPayload = {
   employee_id: string;
+  year: number;
+  month: number;
   base_salary: number;
   gross_pay: number;
   mpf_employee: number;
@@ -101,8 +103,11 @@ function nameSimilarity(a: string, b: string): number {
   return hit / Math.max(at.size, bt.size);
 }
 
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
 export default function PayrollImportDialog({
   open, onOpenChange, employees, onApply, onCreateEmployee, departments, venues,
+  targetYear, targetMonth,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -111,6 +116,8 @@ export default function PayrollImportDialog({
   onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
   departments: SimpleDept[];
   venues: SimpleVenue[];
+  targetYear: number;
+  targetMonth: number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<"upload" | "review">("upload");
@@ -119,6 +126,11 @@ export default function PayrollImportDialog({
   const [scanning, setScanning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [rows, setRows] = useState<ReviewRow[]>([]);
+  const [periodYear, setPeriodYear] = useState<number>(targetYear);
+  const [periodMonth, setPeriodMonth] = useState<number>(targetMonth);
+
+  // Re-sync when caller opens the dialog for a different period.
+  useEffect(() => { if (open) { setPeriodYear(targetYear); setPeriodMonth(targetMonth); } }, [open, targetYear, targetMonth]);
 
   const reset = () => {
     setStep("upload"); setFiles([]); setPreviews([]); setScanning(false); setRows([]);
@@ -209,6 +221,8 @@ export default function PayrollImportDialog({
     for (const r of valid) {
       map.set(r.matched_employee_id, {
         employee_id: r.matched_employee_id,
+        year: periodYear,
+        month: periodMonth,
         base_salary: r.base_salary,
         gross_pay: r.gross_pay,
         mpf_employee: r.mpf_employee,
@@ -242,6 +256,30 @@ export default function PayrollImportDialog({
 
         {step === "upload" && (
           <div className="space-y-4 overflow-y-auto">
+            {/* Compact target-period picker — pre-filled with the table's current period, editable. */}
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+              <Label className="text-xs font-semibold text-muted-foreground mr-1">Applying to</Label>
+              <Select value={String(periodMonth)} onValueChange={(v) => setPeriodMonth(Number(v))}>
+                <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MONTH_NAMES.map((n, i) => (
+                    <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(periodYear)} onValueChange={(v) => setPeriodYear(Number(v))}>
+                <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 7 }, (_, i) => targetYear - 3 + i).map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                Scanned figures will land in this period only.
+              </span>
+            </div>
+
             <div
               onDragOver={(e) => { e.preventDefault(); if (!scanning) setDragging(true); }}
               onDragLeave={(e) => { e.preventDefault(); setDragging(false); }}
@@ -305,6 +343,13 @@ export default function PayrollImportDialog({
 
         {step === "review" && (
           <div className="overflow-y-auto space-y-2">
+            <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-1.5">
+              <div className="text-xs text-muted-foreground">
+                Applying to: <span className="font-semibold text-foreground">{MONTH_NAMES[periodMonth - 1]} {periodYear}</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground">Go back to change the period.</div>
+            </div>
+
             {rows.length === 0 ? (
               <div className="text-center text-sm text-muted-foreground py-8">
                 All rows removed. Go back to upload another document.

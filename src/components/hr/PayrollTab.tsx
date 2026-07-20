@@ -173,8 +173,10 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [saving, setSaving] = useState(false);
+  // edits keyed by `${year}-${month}:${employeeId}` so pending edits stay scoped to their period
   const [edits, setEdits] = useState<Record<string, Record<string, number | string | null>>>({});
   const [manuallyAdded, setManuallyAdded] = useState<Set<string>>(new Set());
+  const editKey = (year: number, month: number, empId: string) => `${year}-${month}:${empId}`;
   const [importOpen, setImportOpen] = useState(false);
 
   const { venues } = useVenues();
@@ -203,12 +205,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
   const activeEmployees = useMemo(
-    () => employees.filter(e => ["active", "on_leave"].includes(e.status) || manuallyAdded.has(e.id)).sort((a, b) => {
+    () => employees.filter(e => ["active", "on_leave"].includes(e.status) || manuallyAdded.has(editKey(filterYear, filterMonth, e.id))).sort((a, b) => {
       const va = resolveVenue(a); const vb = resolveVenue(b);
       if (va !== vb) return venueRank(va) - venueRank(vb);
       return a.sort_order - b.sort_order;
     }),
-    [employees, manuallyAdded, resolveVenue, venueRank],
+    [employees, manuallyAdded, resolveVenue, venueRank, filterYear, filterMonth],
   );
 
   const filtered = useMemo(
@@ -237,12 +239,13 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   }, [activeEmployees, resolveVenue, venueRank]);
 
   const setEdit = (empId: string, field: string, value: number | string | null) => {
-    setEdits(prev => ({ ...prev, [empId]: { ...prev[empId], [field]: value as any } }));
+    const k = editKey(filterYear, filterMonth, empId);
+    setEdits(prev => ({ ...prev, [k]: { ...prev[k], [field]: value as any } }));
   };
 
   const getRowData = useCallback((emp: HREmployee) => {
     const p = payrollMap[emp.id];
-    const e = edits[emp.id] || {};
+    const e = edits[editKey(filterYear, filterMonth, emp.id)] || {};
     const baseSalary = e.forecast_base_salary != null ? Number(e.forecast_base_salary) : n(p?.forecast_base_salary);
     const daysHours = e.days_hours != null ? Number(e.days_hours) : (p ? n(p.forecast_allowances) || daysInMonth : daysInMonth);
     const isFT = emp.employment_type === "full_time";
@@ -276,7 +279,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     const account = e.account != null ? String(e.account) : (p?.notes || "");
     const totalCost = grossPay + mpfER;
     return { baseSalary, daysHours, earnedSalary, alDays, nplDays, adjustments, grossPay, mpfEE, mpfER, totalMPF, netPay, bank, account, totalCost, payrollRecord: p, earnedOverride, adjOverride, mpfEEOverride, mpfEROverride };
-  }, [payrollMap, edits, daysInMonth]);
+  }, [payrollMap, edits, daysInMonth, filterYear, filterMonth]);
 
   const saveRow = async (emp: HREmployee) => {
     const row = getRowData(emp);
@@ -296,7 +299,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
       mpf_employee_override: row.mpfEEOverride,
       mpf_employer_override: row.mpfEROverride,
     });
-    if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[emp.id]; return next; }); }
+    if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; }); }
     setSaving(false);
   };
 
@@ -326,10 +329,16 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   }, [filtered]);
 
   const avgSalary = grandTotal.headcount > 0 ? grandTotal.grossPay / grandTotal.headcount : 0;
-  const hasAnyEdits = Object.keys(edits).length > 0;
+  const periodPrefix = `${filterYear}-${filterMonth}:`;
+  const hasAnyEdits = useMemo(
+    () => Object.keys(edits).some(k => k.startsWith(periodPrefix)),
+    [edits, periodPrefix],
+  );
 
   const saveAll = async () => {
-    const empIds = Object.keys(edits);
+    const empIds = Object.keys(edits)
+      .filter(k => k.startsWith(periodPrefix))
+      .map(k => k.slice(periodPrefix.length));
     for (const empId of empIds) {
       const emp = employees.find(e => e.id === empId);
       if (emp) await saveRow(emp);
@@ -364,17 +373,16 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   };
 
   const applyImport = (imported: PayrollImportApplyPayload[]) => {
+    if (imported.length === 0) return;
+    // Every row carries its own year/month from the dialog; scope edits to that period, not the currently-viewed one.
     setEdits(prev => {
       const next = { ...prev };
       for (const row of imported) {
-        // Reconcile Base → Gross → Net using the document's Net as the authoritative bottom line.
-        // adjustments_override = (Net + MPF(EE) + Other Deductions) − Base
-        // guarantees the table's Gross = Base + Adjustments and Net = Gross − MPF(EE) reproduce
-        // the document's Net exactly, with any Base→Gross gap visible in the Adj column.
         const adjustment =
           (row.net_pay + row.mpf_employee + (row.other_deductions || 0)) - row.base_salary;
-        next[row.employee_id] = {
-          ...next[row.employee_id],
+        const k = editKey(row.year, row.month, row.employee_id);
+        next[k] = {
+          ...next[k],
           forecast_base_salary: row.base_salary,
           earned_salary_override: row.base_salary,
           adjustments_override: Number(adjustment.toFixed(2)),
@@ -386,9 +394,15 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     });
     setManuallyAdded(prev => {
       const next = new Set(prev);
-      for (const row of imported) next.add(row.employee_id);
+      for (const row of imported) next.add(editKey(row.year, row.month, row.employee_id));
       return next;
     });
+    // Navigate the table to the imported period so the user sees what they just applied.
+    const first = imported[0];
+    if (first.year !== filterYear || first.month !== filterMonth) {
+      setFilterYear(first.year);
+      setFilterMonth(first.month);
+    }
   };
 
 
@@ -568,7 +582,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
                         startNum={startNum}
                         getRowData={getRowData}
                         setEdit={setEdit}
-                        edits={edits}
+                        hasEditFor={(empId: string) => !!edits[editKey(filterYear, filterMonth, empId)]}
                         subtotal={venueSubtotals[venue]}
                         stickyCol0={stickyCol0}
                         stickyCol1={stickyCol1}
@@ -688,6 +702,8 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
         venues={venues}
         onCreateEmployee={onCreateEmployee}
         onApply={applyImport}
+        targetYear={filterYear}
+        targetMonth={filterMonth}
       />
 
       {/* Bank/account are editable per row via the Landmark icon on the far right of each row. */}
@@ -716,7 +732,7 @@ function Stat({ label, value, strong }: { label: string; value: string; strong?:
 }
 
 function VenueGroup({
-  venue, emps, startNum, getRowData, setEdit, edits, subtotal,
+  venue, emps, startNum, getRowData, setEdit, hasEditFor, subtotal,
   stickyCol0, stickyCol1, clusterEnd, rowBorder,
 }: any) {
   return (
@@ -730,7 +746,7 @@ function VenueGroup({
       {emps.map((emp: HREmployee, i: number) => {
         const rowNum = startNum + i + 1;
         const row = getRowData(emp);
-        const hasEdits = !!edits[emp.id];
+        const hasEdits = hasEditFor(emp.id);
         const type = emp.employment_type === "full_time" ? "FT" : emp.employment_type === "part_time" ? "PT" : "C";
         const rowBg = hasEdits ? "bg-primary/[0.04]" : "";
         return (
