@@ -299,7 +299,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
       mpf_employee_override: row.mpfEEOverride,
       mpf_employer_override: row.mpfEROverride,
     });
-    if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[emp.id]; return next; }); }
+    if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; }); }
     setSaving(false);
   };
 
