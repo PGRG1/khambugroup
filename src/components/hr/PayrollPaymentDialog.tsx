@@ -97,13 +97,15 @@ export function PayrollPaymentDialog({ open, onOpenChange, year, month, payroll,
       const owed = kind === "salary"
         ? Math.max(0, net - Number(p.salary_paid_amount || 0))
         : Math.max(0, totalMpf - Number(p.mpf_paid_amount || 0));
-      return { p, emp, owed, gross, net, totalMpf };
+      const venueName = emp ? resolveVenue(emp) : UNASSIGNED;
+      return { p, emp, owed, gross, net, totalMpf, venueName };
     }).filter((r) => r.emp).sort((a, b) => {
-      const va = a.emp!.venue || "ZZZ"; const vb = b.emp!.venue || "ZZZ";
-      if (va !== vb) return va.localeCompare(vb);
+      const ra = venueRank(a.venueName); const rb = venueRank(b.venueName);
+      if (ra !== rb) return ra - rb;
+      if (a.venueName !== b.venueName) return a.venueName.localeCompare(b.venueName);
       return (a.emp!.first_name || "").localeCompare(b.emp!.first_name || "");
     });
-  }, [payroll, employees, kind]);
+  }, [payroll, employees, kind, venueById, venueOrder]);
 
   const total = useMemo(() => rows.filter((r) => selected[r.p.id]).reduce((s, r) => s + r.owed, 0), [rows, selected]);
   const allSelected = rows.length > 0 && rows.every((r) => selected[r.p.id] || r.owed === 0);
