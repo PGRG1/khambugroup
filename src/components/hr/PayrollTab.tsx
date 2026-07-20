@@ -582,7 +582,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
                         startNum={startNum}
                         getRowData={getRowData}
                         setEdit={setEdit}
-                        edits={edits}
+                        hasEditFor={(empId: string) => !!edits[editKey(filterYear, filterMonth, empId)]}
                         subtotal={venueSubtotals[venue]}
                         stickyCol0={stickyCol0}
                         stickyCol1={stickyCol1}
