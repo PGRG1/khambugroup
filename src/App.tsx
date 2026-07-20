@@ -116,6 +116,7 @@ import HROrgChart from "./pages/hr/HROrgChart";
 import HRSchedule from "./pages/hr/HRSchedule";
 import HRLeave from "./pages/hr/HRLeave";
 import HRPayroll from "./pages/hr/HRPayroll";
+import HRPayrollPayables from "./pages/hr/HRPayrollPayables";
 
 import ExpensesOverview from "./pages/expenses/Overview";
 import ExpenseBillsPage from "./pages/expenses/ExpenseBills";
