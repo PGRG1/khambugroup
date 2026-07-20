@@ -431,7 +431,7 @@ export function useHRData() {
     departments, employees, leaveTypes, leaveRequests, leaveBalances,
     shifts, attendance, payroll, holidays, leaveLedger, loading,
     upsertDepartment, upsertEmployee, createEmployee, upsertLeaveType, upsertLeaveRequest,
-    upsertLeaveBalance, upsertShift, upsertAttendance, upsertPayroll,
+    upsertLeaveBalance, upsertShift, upsertAttendance, upsertPayroll, upsertPayrollBatch,
     upsertLeaveLedger, deleteLeaveLedger, deleteRecord, refetch: fetchAll,
   };
 }
