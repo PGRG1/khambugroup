@@ -1,0 +1,1 @@
+ALTER FUNCTION public.block_retired_sales_source() SET search_path = public;
