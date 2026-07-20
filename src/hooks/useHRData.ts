@@ -289,6 +289,21 @@ export function useHRData() {
     return true;
   };
 
+  const createEmployee = async (emp: Partial<HREmployee>): Promise<HREmployee | null> => {
+    if (!tenantId) return null;
+    const payload = { ...emp };
+    delete (payload as any).department;
+    delete (payload as any).id;
+    const { data, error } = await supabase
+      .from("hr_employees")
+      .insert({ ...payload, tenant_id: tenantId } as any)
+      .select("*, department:hr_departments(*)")
+      .single();
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return null; }
+    await fetchEmployees();
+    return data as any;
+  };
+
   const upsertLeaveType = async (lt: Partial<HRLeaveType>) => {
     if (!tenantId) return false;
     const { error } = lt.id
