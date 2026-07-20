@@ -15,28 +15,37 @@ const buildSystemPrompt = (employees: EmployeeHint[]) => `You extract FINAL PAYR
 
 Each row corresponds to one employee's payroll for the period. Report ONLY the figures actually printed on the document — do NOT compute, derive, or reconcile any value. What's on the sheet is authoritative.
 
-Understand the three amount tiers, and map them correctly EVEN WHEN the sheet uses different column labels:
-- BASE (base_salary): the agreed / contracted monthly salary — the fixed figure per the employment contract. Some sheets label it "Salary", "Basic", "Basic Salary", "Contract Salary".
-- GROSS (gross_pay): what the employee actually EARNED this period — Base adjusted for reality (unpaid leave, proration for new joiners/leavers, overtime, allowances, bonuses), BEFORE any MPF or deduction is taken. Some sheets label it "Gross", "Gross Pay", "Total Earnings", "Earned", "Payable Gross". If a distinct gross/earned figure is printed, extract it. If the sheet only prints Base and no separate gross column, return 0 for gross_pay.
-- NET (net_pay): the final take-home = Gross − MPF(employee) − other deductions. Some sheets label it "Net", "Net Pay", "Take Home", "Payable", "Actual Payment". This is the bottom-line authoritative figure.
+Understand the three amount tiers:
+- BASE (base_salary): the agreed / contracted monthly salary — the fixed figure per the employment contract. Labels: "Salary", "Basic", "Basic Salary", "Contract Salary".
+- GROSS (gross_pay): what the employee actually EARNED this period — Base adjusted for reality, BEFORE any MPF or deduction. Labels: "Gross", "Gross Pay", "Total Earnings", "Earned", "Payable Gross". If a distinct gross figure is printed, extract it. Otherwise return 0.
+- NET (net_pay): final take-home. Labels: "Net", "Net Pay", "Take Home", "Payable", "Actual Payment".
 
-Fields to extract per row:
+EARNINGS COMPONENTS — extract each as its OWN field, never fold them into other fields:
+- overtime_pay: OT/overtime amount. Labels: "OT", "Overtime", "O.T.", "OT Pay".
+- actual_bonus: bonus/commission amount. Labels: "Bonus", "Commission", "Discretionary Bonus", "Performance Bonus", "Sales Bonus", "13th Month".
+- annual_leave_pay: Annual Leave / Public Holiday pay (ADDS to pay). Labels: "AL", "AL/PH", "A/L", "Annual Leave", "Annual Leave Pay", "Public Holiday", "PH", "PH Pay", "Statutory Holiday".
+- unpaid_leave_deduction: Unpaid / No-Pay Leave deduction (SUBTRACTS from pay — always return a positive number; the sign is applied by the consumer). Labels: "NP", "NPL", "No Pay Leave", "No-Pay Leave", "Unpaid Leave", "U/L", "Unpaid Leave Deduction".
+
+DEDUCTIONS:
+- mpf_employee: employee MPF contribution. 0 if not present.
+- mpf_employer: employer MPF contribution. 0 if not present.
+- other_deductions: sum of any named non-MPF deduction lines (advance recovery, loan, salary advance, staff meal, uniform, etc.). Do NOT include NP here — NP has its own field. 0 if none.
+
+UNPARSEABLE FIGURES — critical:
+If you can SEE a labeled row but the adjacent NUMBER is unreadable/smudged/ambiguous, do NOT default that field to 0. Instead:
+- Set the field to null.
+- Add the field name to the "unparsed_fields" array on that row.
+This lets the human reviewer catch it. A missing label (field is genuinely not on the sheet) is different — return 0 for that.
+
+MATCHING:
 - raw_name: person's name verbatim.
 - matched_employee_id: id from roster below best matching raw_name (case-insensitive, tolerate initials, reversed Last/First, minor typos). "" if no confident match.
-- base_salary: number. 0 if not present.
-- gross_pay: number. 0 if no distinct gross/earned figure is printed.
-- mpf_employee: employee MPF contribution shown. Number. 0 if not present.
-- mpf_employer: employer MPF contribution shown. Number. 0 if not present.
-- other_deductions: sum of any named non-MPF deduction lines shown (advance recovery, loan deduction, salary advance, staff meal deduction, etc.). Number. 0 if none.
-- net_pay: number. 0 if not present.
-- confidence: "high" | "medium" | "low".
-- source_hint: short origin note ("Excel row 4", "PDF page 2", "image 1").
 
 Rules:
 - All output text in English.
 - Read every number digit by digit. Never invent a value. Never calculate — copy what is printed.
 - One row per distinct employee entry. Do NOT emit totals/subtotals rows.
-- If a field is missing on the sheet, return 0 (numbers) or "" (strings). Do not guess.
+- If a field is missing entirely on the sheet, return 0. Only use null when the label is present but the number is unreadable.
 
 Employee roster (id | last_name, first_name | type):
 ${employees.map(e => `${e.id} | ${e.last_name}, ${e.first_name} | ${e.employment_type}`).join("\n") || "(none provided)"}
@@ -50,10 +59,15 @@ Return ONLY valid JSON:
       "matched_employee_id": "one of the ids above, or ''",
       "base_salary": number,
       "gross_pay": number,
+      "overtime_pay": number | null,
+      "actual_bonus": number | null,
+      "annual_leave_pay": number | null,
+      "unpaid_leave_deduction": number | null,
       "mpf_employee": number,
       "mpf_employer": number,
       "other_deductions": number,
       "net_pay": number,
+      "unparsed_fields": ["string"],
       "confidence": "high | medium | low",
       "source_hint": "string"
     }
@@ -100,6 +114,18 @@ async function fileToPromptBlocks(f: FileEntry): Promise<{ blocks: any[]; warnin
     }
   }
   return { blocks: [], warning: `Unsupported file type: ${f.mimeType} (${label})` };
+}
+
+/** Return a finite number, or `null` if the value is null/undefined/NaN. */
+function nullableNum(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+/** Coerce to a finite number (0 fallback). Use only for fields where "0" and "missing" mean the same thing (base, mpf, net). */
+function num(v: unknown): number {
+  const n = Number(v || 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 Deno.serve(async (req) => {
@@ -180,29 +206,61 @@ Deno.serve(async (req) => {
     const validIds = new Set(employees.map(e => e.id));
     const rows = (Array.isArray(parsed.rows) ? parsed.rows : []).map((r: any) => {
       const mid = String(r.matched_employee_id || "").trim();
-      const base_salary = Number(r.base_salary || 0);
-      const gross_pay = Number(r.gross_pay || 0);
-      const mpf_employee = Number(r.mpf_employee || 0);
-      const mpf_employer = Number(r.mpf_employer || 0);
-      const other_deductions = Number(r.other_deductions || 0);
-      const net_pay = Number(r.net_pay || 0);
-      const expected_net = (gross_pay > 0 ? gross_pay : base_salary) - mpf_employee - other_deductions;
-      const reconciles = net_pay > 0 && Math.abs(expected_net - net_pay) < 1;
+
+      const base_salary = num(r.base_salary);
+      const gross_pay = num(r.gross_pay);
+      const mpf_employee = num(r.mpf_employee);
+      const mpf_employer = num(r.mpf_employer);
+      const other_deductions = num(r.other_deductions);
+      const net_pay = num(r.net_pay);
+
+      // Component earnings: null = smudged/unreadable label. Treat null as 0 in the
+      // reconciliation math but keep the null in the payload for the reviewer.
+      const overtime_pay = nullableNum(r.overtime_pay);
+      const actual_bonus = nullableNum(r.actual_bonus);
+      const annual_leave_pay = nullableNum(r.annual_leave_pay);
+      const unpaid_leave_deduction = nullableNum(r.unpaid_leave_deduction);
+
+      const unparsed_fields: string[] = Array.isArray(r.unparsed_fields)
+        ? r.unparsed_fields.filter((f: any) => typeof f === "string")
+        : [];
+
+      // New Gross composition:
+      //   Gross = Base + OT + Bonus + AL/PH − NP + Adjustments
+      // Reconciliation residual (= "Adjustments"):
+      //   adj = Net − (Base + OT + Bonus + AL − NP − MPF_EE − Other_Ded)
+      const ot0 = overtime_pay ?? 0;
+      const bn0 = actual_bonus ?? 0;
+      const al0 = annual_leave_pay ?? 0;
+      const np0 = unpaid_leave_deduction ?? 0;
+      const expected_net = base_salary + ot0 + bn0 + al0 - np0 - mpf_employee - other_deductions;
       const computed_adjustment = net_pay > 0
-        ? (net_pay + mpf_employee + other_deductions) - base_salary
+        ? net_pay - expected_net
         : 0;
+      // Green tick only when scanned Net matches components with ZERO residual adjustment
+      // AND no fields needed manual review.
+      const reconciles = net_pay > 0
+        && Math.abs(computed_adjustment) < 1
+        && unparsed_fields.length === 0;
+
       return {
         raw_name: String(r.raw_name || "").trim(),
         matched_employee_id: validIds.has(mid) ? mid : "",
         base_salary,
         gross_pay,
+        overtime_pay,
+        actual_bonus,
+        annual_leave_pay,
+        unpaid_leave_deduction,
         mpf_employee,
         mpf_employer,
         other_deductions,
         net_pay,
+        unparsed_fields,
         expected_net: Number(expected_net.toFixed(2)),
         reconciles,
         computed_adjustment: Number(computed_adjustment.toFixed(2)),
+        needs_review: unparsed_fields.length > 0,
         confidence: (["high", "medium", "low"].includes(r.confidence) ? r.confidence : "low") as string,
         source_hint: String(r.source_hint || "").trim(),
       };
