@@ -367,10 +367,17 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     setEdits(prev => {
       const next = { ...prev };
       for (const row of imported) {
-        // Scanned figures are authoritative — write straight through, do NOT recompute.
+        // Reconcile Base → Gross → Net using the document's Net as the authoritative bottom line.
+        // adjustments_override = (Net + MPF(EE) + Other Deductions) − Base
+        // guarantees the table's Gross = Base + Adjustments and Net = Gross − MPF(EE) reproduce
+        // the document's Net exactly, with any Base→Gross gap visible in the Adj column.
+        const adjustment =
+          (row.net_pay + row.mpf_employee + (row.other_deductions || 0)) - row.base_salary;
         next[row.employee_id] = {
           ...next[row.employee_id],
           forecast_base_salary: row.base_salary,
+          earned_salary_override: row.base_salary,
+          adjustments_override: Number(adjustment.toFixed(2)),
           mpf_employee_override: row.mpf_employee,
           mpf_employer_override: row.mpf_employer,
         };
@@ -383,6 +390,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
       return next;
     });
   };
+
 
   const currentEmployeeIds = useMemo(() => new Set(activeEmployees.map(e => e.id)), [activeEmployees]);
 
