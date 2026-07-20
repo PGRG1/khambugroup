@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { fmtHKWhole } from "@/components/expenses/shared";
 import { TrendingUp } from "lucide-react";
+
+function pctAvailable(pct: number | null, labor: number) {
+  return pct != null && Number(labor || 0) > 0;
+}
 
 interface Props {
   year: number;
