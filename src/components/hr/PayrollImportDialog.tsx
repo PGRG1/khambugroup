@@ -130,7 +130,7 @@ export default function PayrollImportDialog({
   const [periodMonth, setPeriodMonth] = useState<number>(targetMonth);
 
   // Re-sync when caller opens the dialog for a different period.
-  useMemo(() => { if (open) { setPeriodYear(targetYear); setPeriodMonth(targetMonth); } return null; }, [open, targetYear, targetMonth]);
+  useEffect(() => { if (open) { setPeriodYear(targetYear); setPeriodMonth(targetMonth); } }, [open, targetYear, targetMonth]);
 
   const reset = () => {
     setStep("upload"); setFiles([]); setPreviews([]); setScanning(false); setRows([]);
