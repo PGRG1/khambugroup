@@ -180,7 +180,7 @@ const hrItems: Item[] = [
   { title: "Leave Management", url: "/hr/leave" },
   { title: "Payroll", url: "/hr/payroll" },
   { title: "Payroll Payables", url: "/hr/payroll/payables" },
-  { title: "Org Chart", url: "/hr/org-chart" },
+  
 ];
 
 const kpiItems: Item[] = [

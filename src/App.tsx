@@ -112,7 +112,7 @@ import PettyCashClassificationsPage from "./pages/petty-cash/PettyCashClassifica
 import HREmployees from "./pages/hr/HREmployees";
 import HREmployeeProfile from "./pages/hr/HREmployeeProfile";
 import HRDashboard from "./pages/hr/HRDashboard";
-import HROrgChart from "./pages/hr/HROrgChart";
+
 import HRSchedule from "./pages/hr/HRSchedule";
 import HRLeave from "./pages/hr/HRLeave";
 import HRPayroll from "./pages/hr/HRPayroll";
@@ -337,7 +337,7 @@ function App() {
                 <Route path="/hr" element={<AdminRoute><HRDashboard /></AdminRoute>} />
                 <Route path="/hr/employees" element={<AdminRoute><HREmployees /></AdminRoute>} />
                 <Route path="/hr/employees/:id" element={<AdminRoute><HREmployeeProfile /></AdminRoute>} />
-                <Route path="/hr/org-chart" element={<AdminRoute><HROrgChart /></AdminRoute>} />
+                
                 <Route path="/hr/schedule" element={<AdminRoute><HRSchedule /></AdminRoute>} />
                 <Route path="/hr/leave" element={<AdminRoute><HRLeave /></AdminRoute>} />
                 <Route path="/hr/payroll" element={<AdminRoute><HRPayroll /></AdminRoute>} />
