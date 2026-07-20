@@ -602,11 +602,14 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
                   <Th className="min-w-[90px] text-right">Basic</Th>
                   <Th className="w-[72px] text-right">Days/Hrs</Th>
                   <Th className="min-w-[92px] text-right">Earned</Th>
-                  <Th className="w-[60px] text-right">AL</Th>
-                  <Th className="w-[60px] text-right">NPL</Th>
+                  <Th className="w-[70px] text-right">OT</Th>
+                  <Th className="w-[76px] text-right">Bonus</Th>
+                  <Th className="w-[66px] text-right">AL/PH</Th>
+                  <Th className="w-[66px] text-right">NP</Th>
                   <Th className="min-w-[86px] text-right">Adj</Th>
                   <Th className={`min-w-[96px] text-right ${clusterEnd}`}>Gross</Th>
 
+                  <Th className="min-w-[82px] text-right">Other Ded.</Th>
                   <Th className="min-w-[80px] text-right">MPF EE</Th>
                   <Th className="min-w-[80px] text-right">MPF ER</Th>
                   <Th className={`min-w-[84px] text-right ${clusterEnd}`}>Total MPF</Th>
