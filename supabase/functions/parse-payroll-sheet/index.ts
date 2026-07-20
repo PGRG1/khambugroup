@@ -180,18 +180,34 @@ Deno.serve(async (req) => {
     const validIds = new Set(employees.map(e => e.id));
     const rows = (Array.isArray(parsed.rows) ? parsed.rows : []).map((r: any) => {
       const mid = String(r.matched_employee_id || "").trim();
+      const base_salary = Number(r.base_salary || 0);
+      const gross_pay = Number(r.gross_pay || 0);
+      const mpf_employee = Number(r.mpf_employee || 0);
+      const mpf_employer = Number(r.mpf_employer || 0);
+      const other_deductions = Number(r.other_deductions || 0);
+      const net_pay = Number(r.net_pay || 0);
+      const expected_net = (gross_pay > 0 ? gross_pay : base_salary) - mpf_employee - other_deductions;
+      const reconciles = net_pay > 0 && Math.abs(expected_net - net_pay) < 1;
+      const computed_adjustment = net_pay > 0
+        ? (net_pay + mpf_employee + other_deductions) - base_salary
+        : 0;
       return {
         raw_name: String(r.raw_name || "").trim(),
         matched_employee_id: validIds.has(mid) ? mid : "",
-        base_salary: Number(r.base_salary || 0),
-        mpf_employee: Number(r.mpf_employee || 0),
-        mpf_employer: Number(r.mpf_employer || 0),
-        net_pay: Number(r.net_pay || 0),
-        gross_pay: Number(r.gross_pay || 0),
+        base_salary,
+        gross_pay,
+        mpf_employee,
+        mpf_employer,
+        other_deductions,
+        net_pay,
+        expected_net: Number(expected_net.toFixed(2)),
+        reconciles,
+        computed_adjustment: Number(computed_adjustment.toFixed(2)),
         confidence: (["high", "medium", "low"].includes(r.confidence) ? r.confidence : "low") as string,
         source_hint: String(r.source_hint || "").trim(),
       };
     }).filter((r: any) => r.raw_name || r.base_salary > 0 || r.net_pay > 0);
+
 
     return new Response(JSON.stringify({ success: true, rows, warnings }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
