@@ -106,9 +106,16 @@ export function PayrollLaborCostCard({ year, month }: Props) {
                 <div key={r.venue} className="flex items-center gap-3 text-xs">
                   <div className={`w-24 truncate font-medium ${isUnassigned ? "text-muted-foreground" : ""}`}>
                     {isUnassigned ? (
-                      <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground border-dashed">
-                        Unassigned
-                      </Badge>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground border-dashed cursor-help">
+                            Unassigned
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>Unassigned — no venue set</p>
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
                       r.venue
                     )}
