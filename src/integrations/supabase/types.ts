@@ -3207,6 +3207,32 @@ export type Database = {
           },
         ]
       }
+      hr_employee_code_seq: {
+        Row: {
+          last_seq: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          last_seq?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          last_seq?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_employee_code_seq_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_employee_history: {
         Row: {
           change_type: string
@@ -3273,6 +3299,7 @@ export type Database = {
           email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
+          employee_code: string | null
           employment_type: string
           end_date: string | null
           first_name: string
@@ -3299,6 +3326,7 @@ export type Database = {
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
+          employee_code?: string | null
           employment_type?: string
           end_date?: string | null
           first_name: string
@@ -3325,6 +3353,7 @@ export type Database = {
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
+          employee_code?: string | null
           employment_type?: string
           end_date?: string | null
           first_name?: string
