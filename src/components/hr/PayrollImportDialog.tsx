@@ -355,10 +355,56 @@ export default function PayrollImportDialog({
   );
 }
 
-function ReviewRowCard({
-  idx, row, employees, departments, venues, onChange, onRemove, onCreateEmployee,
+function ReviewTable({
+  rows, employees, departments, venues, onCreateEmployee, onChangeRow, onRemoveRow,
 }: {
-  idx: number;
+  rows: ReviewRow[];
+  employees: HREmployee[];
+  departments: SimpleDept[];
+  venues: SimpleVenue[];
+  onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
+  onChangeRow: (id: string, patch: Partial<ReviewRow>) => void;
+  onRemoveRow: (id: string) => void;
+}) {
+  return (
+    <div className="overflow-x-auto border border-border/50 rounded-md">
+      <table className="w-full text-[12px] tabular-nums">
+        <thead className="bg-muted/40 text-muted-foreground uppercase tracking-wider text-[10px]">
+          <tr className="border-b border-border/50">
+            <th className="w-8 px-2 py-2 text-left"></th>
+            <th className="px-2 py-2 text-left min-w-[220px]">Employee</th>
+            <th className="px-2 py-2 text-right w-[92px]">Base</th>
+            <th className="px-2 py-2 text-right w-[92px]">Gross</th>
+            <th className="px-2 py-2 text-right w-[92px]">MPF (EE)</th>
+            <th className="px-2 py-2 text-right w-[92px]">MPF (ER)</th>
+            <th className="px-2 py-2 text-right w-[92px]">Other Ded.</th>
+            <th className="px-2 py-2 text-right w-[92px]">Net</th>
+            <th className="px-2 py-2 text-right w-[110px]">Reconcile</th>
+            <th className="w-8 px-1 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <ReviewTableRow
+              key={r._id}
+              row={r}
+              employees={employees}
+              departments={departments}
+              venues={venues}
+              onCreateEmployee={onCreateEmployee}
+              onChange={(patch) => onChangeRow(r._id, patch)}
+              onRemove={() => onRemoveRow(r._id)}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReviewTableRow({
+  row, employees, departments, venues, onChange, onRemove, onCreateEmployee,
+}: {
   row: ReviewRow;
   employees: HREmployee[];
   departments: SimpleDept[];
@@ -368,50 +414,36 @@ function ReviewRowCard({
   onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
 }) {
   const [createOpen, setCreateOpen] = useState(false);
-  const border =
-    row.matched_employee_id
-      ? "border-border/60 bg-muted/20"
-      : "border-amber-500/40 bg-amber-500/5";
-
   const selected = employees.find((e) => e.id === row.matched_employee_id);
+  const matched = !!row.matched_employee_id;
+
+  const gross = row.gross_pay > 0 ? row.gross_pay : row.base_salary;
+  const expected = gross - row.mpf_employee - (row.other_deductions || 0);
+  const diff = row.net_pay - expected;
+  const ties = row.net_pay > 0 && Math.abs(diff) < 1;
+
+  const rowTint = matched ? "hover:bg-muted/30" : "bg-amber-500/[0.06] hover:bg-amber-500/[0.1]";
 
   return (
-    <div className={"border rounded-lg p-3 " + border}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">Row {idx + 1}</span>
-          {row.source_hint && <span className="text-[11px] text-muted-foreground">· {row.source_hint}</span>}
-          <ConfidencePill confidence={row.confidence} />
-          {!row.matched_employee_id && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-500">
-              <AlertCircle className="h-3 w-3" /> Unmatched — pick employee
-            </span>
-          )}
-          {row.matched_employee_id && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-primary">
-              <CheckCircle2 className="h-3 w-3" /> Matched
-              {selected?.employee_code && (
-                <span className="font-mono text-muted-foreground">· {selected.employee_code}</span>
-              )}
-            </span>
-          )}
-        </div>
-        <Button size="sm" variant="ghost" onClick={onRemove}>
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
-        <div className="sm:col-span-2">
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Employee {row.raw_name && <span className="normal-case text-muted-foreground/80">· from doc: "{row.raw_name}"</span>}
-          </Label>
+    <tr className={"border-b border-border/40 last:border-b-0 " + rowTint}>
+      <td className="px-2 py-1.5 align-middle">
+        {matched ? (
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+        ) : (
+          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+        )}
+      </td>
+      <td className="px-2 py-1.5 align-middle">
+        <Popover open={createOpen} onOpenChange={setCreateOpen}>
+          <PopoverTrigger asChild><span /></PopoverTrigger>
           <EmployeePicker
             employees={employees}
             value={row.matched_employee_id}
             onChange={(id) => onChange({ matched_employee_id: id })}
             onRequestCreate={() => setCreateOpen(true)}
+            compact
           />
-          {createOpen && (
+          <PopoverContent className="w-[360px] p-0" align="start" side="bottom">
             <InlineCreateEmployee
               rawName={row.raw_name}
               employees={employees}
@@ -428,39 +460,63 @@ function ReviewRowCard({
                 }
               }}
             />
-          )}
+          </PopoverContent>
+        </Popover>
+        <div className="mt-0.5 text-[10.5px] text-muted-foreground truncate">
+          {matched
+            ? (selected?.employee_code
+                ? <span className="font-mono">{selected.employee_code}</span>
+                : <span className="italic">no code</span>)
+            : (row.raw_name
+                ? <span>from doc: <span className="text-foreground/70">{row.raw_name}</span></span>
+                : <span>—</span>)}
         </div>
-        <NumField label="Base" value={row.base_salary} onChange={(v) => onChange({ base_salary: v })} />
-        <NumField label="Gross" value={row.gross_pay} onChange={(v) => onChange({ gross_pay: v })} />
-        <NumField label="MPF (EE)" value={row.mpf_employee} onChange={(v) => onChange({ mpf_employee: v })} />
-        <NumField label="MPF (ER)" value={row.mpf_employer} onChange={(v) => onChange({ mpf_employer: v })} />
-        <NumField label="Other Ded." value={row.other_deductions || 0} onChange={(v) => onChange({ other_deductions: v })} />
-        <NumField label="Net" value={row.net_pay} onChange={(v) => onChange({ net_pay: v })} />
-      </div>
-      <ReconciliationNote row={row} />
-    </div>
+      </td>
+      <TableNumCell value={row.base_salary} onChange={(v) => onChange({ base_salary: v })} />
+      <TableNumCell value={row.gross_pay} onChange={(v) => onChange({ gross_pay: v })} />
+      <TableNumCell value={row.mpf_employee} onChange={(v) => onChange({ mpf_employee: v })} />
+      <TableNumCell value={row.mpf_employer} onChange={(v) => onChange({ mpf_employer: v })} />
+      <TableNumCell value={row.other_deductions || 0} onChange={(v) => onChange({ other_deductions: v })} />
+      <TableNumCell value={row.net_pay} onChange={(v) => onChange({ net_pay: v })} />
+      <td className="px-2 py-1.5 align-middle text-right">
+        {row.net_pay <= 0 ? (
+          <span className="text-muted-foreground">—</span>
+        ) : ties ? (
+          <CheckCircle2 className="inline h-3.5 w-3.5 text-emerald-500" />
+        ) : (
+          <span
+            className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-500"
+            title="Doesn't tie to Net — applied as-is, gap shows in Adjustments"
+          >
+            <AlertCircle className="h-3 w-3" />
+            {diff > 0 ? "+" : "−"}
+            {Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        )}
+      </td>
+      <td className="px-1 py-1.5 align-middle text-right">
+        <Button size="sm" variant="ghost" onClick={onRemove} className="h-6 w-6 p-0">
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </td>
+    </tr>
   );
 }
 
-function ReconciliationNote({ row }: { row: ReviewRow }) {
-  const gross = row.gross_pay > 0 ? row.gross_pay : row.base_salary;
-  const expected = gross - row.mpf_employee - (row.other_deductions || 0);
-  const diff = row.net_pay - expected;
-  if (row.net_pay <= 0) return null;
-  if (Math.abs(diff) < 1) {
-    return (
-      <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-500 inline-flex items-center gap-1">
-        <CheckCircle2 className="h-3 w-3" /> Gross − MPF(EE) − Other Ded. ties to Net.
-      </div>
-    );
-  }
+function TableNumCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-500 inline-flex items-center gap-1">
-      <AlertCircle className="h-3 w-3" />
-      Base+Gross math doesn't tie to Net (off by HK${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}). Applied as-is — the gap will show in the Adjustments column.
-    </div>
+    <td className="px-1 py-1 align-middle">
+      <Input
+        type="number"
+        step="0.01"
+        value={value || ""}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        className="h-7 px-1.5 text-right text-[12px] tabular-nums"
+      />
+    </td>
   );
 }
+
 
 
 function NumField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
