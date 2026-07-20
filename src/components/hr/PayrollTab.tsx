@@ -239,12 +239,13 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   }, [activeEmployees, resolveVenue, venueRank]);
 
   const setEdit = (empId: string, field: string, value: number | string | null) => {
-    setEdits(prev => ({ ...prev, [empId]: { ...prev[empId], [field]: value as any } }));
+    const k = editKey(filterYear, filterMonth, empId);
+    setEdits(prev => ({ ...prev, [k]: { ...prev[k], [field]: value as any } }));
   };
 
   const getRowData = useCallback((emp: HREmployee) => {
     const p = payrollMap[emp.id];
-    const e = edits[emp.id] || {};
+    const e = edits[editKey(filterYear, filterMonth, emp.id)] || {};
     const baseSalary = e.forecast_base_salary != null ? Number(e.forecast_base_salary) : n(p?.forecast_base_salary);
     const daysHours = e.days_hours != null ? Number(e.days_hours) : (p ? n(p.forecast_allowances) || daysInMonth : daysInMonth);
     const isFT = emp.employment_type === "full_time";
