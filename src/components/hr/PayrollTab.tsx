@@ -373,17 +373,16 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
   };
 
   const applyImport = (imported: PayrollImportApplyPayload[]) => {
+    if (imported.length === 0) return;
+    // Every row carries its own year/month from the dialog; scope edits to that period, not the currently-viewed one.
     setEdits(prev => {
       const next = { ...prev };
       for (const row of imported) {
-        // Reconcile Base → Gross → Net using the document's Net as the authoritative bottom line.
-        // adjustments_override = (Net + MPF(EE) + Other Deductions) − Base
-        // guarantees the table's Gross = Base + Adjustments and Net = Gross − MPF(EE) reproduce
-        // the document's Net exactly, with any Base→Gross gap visible in the Adj column.
         const adjustment =
           (row.net_pay + row.mpf_employee + (row.other_deductions || 0)) - row.base_salary;
-        next[row.employee_id] = {
-          ...next[row.employee_id],
+        const k = editKey(row.year, row.month, row.employee_id);
+        next[k] = {
+          ...next[k],
           forecast_base_salary: row.base_salary,
           earned_salary_override: row.base_salary,
           adjustments_override: Number(adjustment.toFixed(2)),
@@ -395,9 +394,15 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     });
     setManuallyAdded(prev => {
       const next = new Set(prev);
-      for (const row of imported) next.add(row.employee_id);
+      for (const row of imported) next.add(editKey(row.year, row.month, row.employee_id));
       return next;
     });
+    // Navigate the table to the imported period so the user sees what they just applied.
+    const first = imported[0];
+    if (first.year !== filterYear || first.month !== filterMonth) {
+      setFilterYear(first.year);
+      setFilterMonth(first.month);
+    }
   };
 
 
