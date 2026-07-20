@@ -396,9 +396,25 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     const empIds = Object.keys(edits)
       .filter(k => k.startsWith(periodPrefix))
       .map(k => k.slice(periodPrefix.length));
+    let succeeded = 0;
+    let failed = 0;
     for (const empId of empIds) {
       const emp = employees.find(e => e.id === empId);
-      if (emp) await saveRow(emp);
+      if (!emp) {
+        failed++;
+        continue;
+      }
+      const ok = await saveRow(emp, true);
+      if (ok) succeeded++;
+      else failed++;
+    }
+    if (failed === 0) {
+      toast({ title: `Saved ${succeeded} ${succeeded === 1 ? "record" : "records"}` });
+    } else {
+      toast({
+        title: `Saved ${succeeded} of ${succeeded + failed} records — ${failed} failed`,
+        variant: "destructive",
+      });
     }
   };
 
