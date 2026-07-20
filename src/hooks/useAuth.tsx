@@ -107,10 +107,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!session?.user) {
       setIsAdmin(false);
+      setRoleLoading(false);
       return;
     }
 
     let cancelled = false;
+    setRoleLoading(true);
     supabase
       .from("user_roles")
       .select("role")
@@ -119,6 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .then(({ data, error }) => {
         if (!cancelled) {
           setIsAdmin(!error && !!(data && data.length > 0));
+          setRoleLoading(false);
         }
       });
 
@@ -134,10 +137,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch {}
     setSession(null);
     setIsAdmin(false);
+    setRoleLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, isAdmin, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, isAdmin, loading, roleLoading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
