@@ -279,7 +279,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     const account = e.account != null ? String(e.account) : (p?.notes || "");
     const totalCost = grossPay + mpfER;
     return { baseSalary, daysHours, earnedSalary, alDays, nplDays, adjustments, grossPay, mpfEE, mpfER, totalMPF, netPay, bank, account, totalCost, payrollRecord: p, earnedOverride, adjOverride, mpfEEOverride, mpfEROverride };
-  }, [payrollMap, edits, daysInMonth]);
+  }, [payrollMap, edits, daysInMonth, filterYear, filterMonth]);
 
   const saveRow = async (emp: HREmployee) => {
     const row = getRowData(emp);
