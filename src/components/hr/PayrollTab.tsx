@@ -647,7 +647,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
 
                 {/* Add-employee row */}
                 <tr>
-                  <td colSpan={18} className="px-2 py-3">
+                  <td colSpan={21} className="px-2 py-3">
                     <AddEmployeeRow
                       employees={employees}
                       excludeIds={currentEmployeeIds}
@@ -663,9 +663,13 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.baseSalary)}</td>
                   <td />
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.earnedSalary)}</td>
-                  <td /><td />
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.overtime)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.bonus)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.alPay)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.npDed)}</td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.adjustments)}</td>
                   <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(grandTotal.grossPay)}</td>
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.otherDed)}</td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.mpfEE)}</td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(grandTotal.mpfER)}</td>
                   <td className={`px-2 py-2 text-right font-semibold tabular-nums ${clusterEnd}`}>{fmt(grandTotal.totalMPF)}</td>
