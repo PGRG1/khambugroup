@@ -160,6 +160,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
           <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-border">
+                <th className="text-left px-4 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ID</th>
                 <th className="text-left px-4 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Name</th>
                 <th className="text-left px-4 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Job Title</th>
                 <th className="text-left px-4 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Department</th>
@@ -172,7 +173,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted-foreground py-12">No employees found</td>
+                  <td colSpan={8} className="text-center text-muted-foreground py-12">No employees found</td>
                 </tr>
               ) : filtered.map((emp, idx) => (
                 <tr
@@ -180,6 +181,7 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
                   className={`cursor-pointer transition-colors hover:bg-accent/10 ${idx !== filtered.length - 1 ? "border-b border-border/50" : ""}`}
                   onClick={() => navigate(`/hr/employees/${emp.id}`)}
                 >
+                  <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{emp.employee_code || "—"}</td>
                   <td className="px-4 py-2 font-medium text-foreground">{emp.first_name} {emp.last_name}</td>
                   <td className="px-4 py-2 text-muted-foreground">{emp.job_title || "—"}</td>
                   <td className="px-4 py-2 text-muted-foreground">{emp.department?.name || "—"}</td>
@@ -212,7 +214,14 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
       {/* Employee Detail Modal — Details only */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingEmployee?.id ? "Edit Employee" : "Add Employee"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingEmployee?.id ? "Edit Employee" : "Add Employee"}</DialogTitle>
+            {editingEmployee?.id && (editingEmployee as any).employee_code && (
+              <p className="text-xs font-mono text-muted-foreground pt-1">
+                Employee ID: <span className="text-foreground">{(editingEmployee as any).employee_code}</span>
+              </p>
+            )}
+          </DialogHeader>
           {editingEmployee && (
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-2 gap-3">

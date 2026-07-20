@@ -24,7 +24,9 @@ export default function HRPayroll() {
           payroll={hr.payroll}
           employees={hr.employees}
           shifts={hr.shifts}
+          departments={hr.departments}
           onSave={hr.upsertPayroll}
+          onCreateEmployee={hr.createEmployee}
         />
       )}
     </div>

@@ -15,6 +15,7 @@ export interface HRDepartment {
 
 export interface HREmployee {
   id: string;
+  employee_code: string | null;
   user_id: string | null;
   first_name: string;
   last_name: string;
@@ -288,6 +289,21 @@ export function useHRData() {
     return true;
   };
 
+  const createEmployee = async (emp: Partial<HREmployee>): Promise<HREmployee | null> => {
+    if (!tenantId) return null;
+    const payload = { ...emp };
+    delete (payload as any).department;
+    delete (payload as any).id;
+    const { data, error } = await supabase
+      .from("hr_employees")
+      .insert({ ...payload, tenant_id: tenantId } as any)
+      .select("*, department:hr_departments(*)")
+      .single();
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return null; }
+    await fetchEmployees();
+    return data as any;
+  };
+
   const upsertLeaveType = async (lt: Partial<HRLeaveType>) => {
     if (!tenantId) return false;
     const { error } = lt.id
@@ -388,7 +404,7 @@ export function useHRData() {
   return {
     departments, employees, leaveTypes, leaveRequests, leaveBalances,
     shifts, attendance, payroll, holidays, leaveLedger, loading,
-    upsertDepartment, upsertEmployee, upsertLeaveType, upsertLeaveRequest,
+    upsertDepartment, upsertEmployee, createEmployee, upsertLeaveType, upsertLeaveRequest,
     upsertLeaveBalance, upsertShift, upsertAttendance, upsertPayroll,
     upsertLeaveLedger, deleteLeaveLedger, deleteRecord, refetch: fetchAll,
   };

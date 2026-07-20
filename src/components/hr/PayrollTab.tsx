@@ -24,7 +24,9 @@ interface Props {
   payroll: HRPayroll[];
   employees: HREmployee[];
   shifts: HRShift[];
+  departments: { id: string; name: string; is_active: boolean }[];
   onSave: (p: Partial<HRPayroll>) => Promise<boolean>;
+  onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -166,7 +168,7 @@ function BankPopover({
 /* ════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════ */
-export function PayrollTab({ payroll, employees, shifts: _shifts, onSave }: Props) {
+export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, departments, onCreateEmployee }: Props) {
   const now = new Date();
   const [filterYear, setFilterYear] = useState(now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
@@ -674,6 +676,9 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave }: Prop
         open={importOpen}
         onOpenChange={setImportOpen}
         employees={employees}
+        departments={departments}
+        venues={venues}
+        onCreateEmployee={onCreateEmployee}
         onApply={applyImport}
       />
 
