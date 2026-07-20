@@ -173,7 +173,7 @@ function BankPopover({
 /* ════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════ */
-export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
+export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSaveBatch, departments, onCreateEmployee, initialYear, initialMonth }: Props) {
   const now = new Date();
   const [filterYear, setFilterYear] = useState(initialYear ?? now.getFullYear());
   const [filterMonth, setFilterMonth] = useState(initialMonth ?? (now.getMonth() + 1));
