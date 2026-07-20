@@ -221,6 +221,8 @@ export default function PayrollImportDialog({
     for (const r of valid) {
       map.set(r.matched_employee_id, {
         employee_id: r.matched_employee_id,
+        year: periodYear,
+        month: periodMonth,
         base_salary: r.base_salary,
         gross_pay: r.gross_pay,
         mpf_employee: r.mpf_employee,
