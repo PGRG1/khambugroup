@@ -375,6 +375,32 @@ export function useHRData() {
     return true;
   };
 
+  const upsertPayrollBatch = async (
+    rows: Partial<HRPayroll>[],
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!tenantId) return { ok: false, error: "No tenant" };
+    if (!rows.length) return { ok: true };
+    const clean = rows.map((r) => {
+      const c: any = { ...r, tenant_id: tenantId };
+      delete c.employee;
+      return c;
+    });
+    const updates = clean.filter((r) => !!r.id);
+    const inserts = clean.filter((r) => !r.id);
+    if (updates.length) {
+      const { error } = await supabase
+        .from("hr_payroll")
+        .upsert(updates as any, { onConflict: "id" });
+      if (error) return { ok: false, error: error.message };
+    }
+    if (inserts.length) {
+      const { error } = await supabase.from("hr_payroll").insert(inserts as any);
+      if (error) return { ok: false, error: error.message };
+    }
+    await fetchPayroll();
+    return { ok: true };
+  };
+
   const upsertLeaveLedger = async (entry: Partial<HRLeaveLedger>) => {
     if (!tenantId) return false;
     const { error } = entry.id
