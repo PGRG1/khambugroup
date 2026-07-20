@@ -310,7 +310,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     };
   }, [payrollMap, edits, daysInMonth, filterYear, filterMonth]);
 
-  const saveRow = async (emp: HREmployee) => {
+  const saveRow = async (emp: HREmployee, silent?: boolean) => {
     const row = getRowData(emp);
     const p = row.payrollRecord;
     setSaving(true);
@@ -332,8 +332,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
       mpf_employee_override: row.mpfEEOverride,
       mpf_employer_override: row.mpfEROverride,
     } as any);
-    if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; }); }
+    if (ok) {
+      if (!silent) toast({ title: "Saved" });
+      setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; });
+    }
     setSaving(false);
+    return ok;
   };
 
   const prevMonth = () => { if (filterMonth === 1) { setFilterMonth(12); setFilterYear(y => y - 1); } else setFilterMonth(m => m - 1); };
