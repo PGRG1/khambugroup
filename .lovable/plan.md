@@ -1,145 +1,114 @@
+# Setup-driven Account Mapping — Investigation & Plan
 
-# Venue Cost Allocation — Management-Accounting Overlay
+## 1. Current state
 
-## Guiding principle
+### `account_mapping_rules` schema
+Columns: `id, tenant_id, rule_type text, match_key text (NOT NULL, "" = default), account_id uuid, notes, created_at, updated_at`. Unique on `(tenant_id, rule_type, match_key)`. No provenance / "manually overridden" flag today.
 
-One real transaction = one real posting. The allocation is a **read-side slicing layer** used only by venue-level reports (venue P&L, PayrollTab subtotals, labor-cost-%, venue spend). Journals, TB, BS, entity P&L, payroll accrual, and bill posting are **not touched**.
+### Rules currently in use (KHAMBU tenant)
+Grouped by consumer expectation:
 
-## 1. Data model
+| rule_type | match_key format | count | consumer expects |
+|---|---|---|---|
+| `sales_revenue` | venue name | 5 | per-venue |
+| `service_charge` | venue name | 5 | per-venue |
+| `sales_discount` | venue name | 5 | per-venue |
+| `tips_payable` | venue name | 5 | per-venue |
+| `cash_on_hand` | venue name | 5 | per-venue (with fallbacks: `cash_clearing`/venue, then `sales_payment_method`/`cash__venue`, then COA code 1020) |
+| `payment_settlement_clearing` | venue name | 4 | per-venue (no fallback → sales fall to `suspense` if missing) |
+| `sales_payment_method` | `method__venue` (also legacy bare `cash`) | 29 | per (method, venue) — LEGACY: not read by current rebuild path except as fallback for cash |
+| `suspense` | `__default__` (any) | 1 | single tenant default |
+| `accounts_payable` | "" | 1 | single default |
+| `procurement_category` | `financial_treatment__level1_category` | 6 | per-classification, joined via COALESCE(pm.default_coa_account_id, amr.account_id) |
+| `invoice_discount`, `invoice_refund` | "" | 1 each | single default |
+| `payment_method_cash` | payment_method key (cash/cheque/bank_transfer/…) | 4 | invoice/payroll cash-side |
+| `payroll_salary_expense`, `payroll_mpf_expense`, `salary_payable`, `mpf_payable`, `opening_equity`, `sales_cash` | "" | 1 each | single default |
+| `bank_txn_type` | txn type (`bank_fee`) | 1 | classifier |
 
-### 1.1 Reusable profile (recommended — supports both named profile AND inline custom)
+Additional rule_types the current rebuild function looks up but that don't have rows yet: `cash_payment_clearing`, `processor_fee_default`, `bank_transfer_fee_default`, `bank_payment_clearing` (method key), `processor_fee`, `cash_clearing`.
 
-```
-venue_allocation_profiles
-  id uuid pk
-  tenant_id uuid  (RLS)
-  name text            -- e.g. "Shared FOH — 40/30/20/10", "Even split", "By seats"
-  method text          -- 'manual_percent' | 'even' | 'by_seats' | 'by_headcount' | 'by_revenue'
-  is_active bool
-  is_default bool      -- one default per tenant (used as fallback)
-  notes text
-  created_at / updated_at
-  UNIQUE (tenant_id, name)
+### Consumers
+All consumers are **DB functions** (no edge function or client reads `account_mapping_rules` for posting). Client references are only in `useAccountMapping` (admin CRUD) and `AccountingMappingSummary` / `useUnmappedVenues` (display).
+Primary consumer: `_rebuild_journal_from_operations_impl` (migration `20260711040711…`). Also: procurement/invoice posting, expense-bill posting, payroll posting, opening balances, reconciliation classifier. `cascade_venue_rename` rewrites `match_key` when a venue is renamed.
 
-venue_allocation_profile_lines
-  id uuid pk
-  tenant_id uuid
-  profile_id uuid fk -> venue_allocation_profiles on delete cascade
-  venue_id uuid fk -> venues
-  percent numeric(7,4)   -- 0..100, only meaningful when method='manual_percent'
-  UNIQUE (profile_id, venue_id)
-  CHECK sum(percent)=100 enforced by trigger for method='manual_percent'
-```
+### Setup sources of truth (to generate FROM)
+- **Venues**: `venues (tenant_id, name, is_active, sort_order)` — canonical list per tenant. `match_key` uses venue **name** (not id) — cascade already handles renames.
+- **Payment methods**: **no dedicated table**. Enumerated in `RULE_TYPES` UI (`useAccountMapping.ts`) and hard-coded across the app (`AccountingMappingSummary.PAYMENT_METHODS`: cash, visa, mastercard, amex, union_pay, jcb, alipay, wechat, payme). No `enabled` flag anywhere. **Gap** — see §"Decisions needed".
+- **Chart of Accounts**: `chart_of_accounts (code, name, account_type, normal_side, is_cash, is_active, cash_flow_category, tenant_id)`. **No `role` / `semantic_key` column exists.** Only structural fields (`account_type`, `is_cash`). Today the connection between a rule and its account is entirely human-picked. This is the crux issue.
 
-For `method` values other than `manual_percent`, weights are derived at read time (even = 1/N over active venues; by_seats reads `venues.seats`; by_headcount from `hr_employees` home venue counts; by_revenue from `v_pl` revenue for the period). This lets one profile stay correct as the business changes without editing lines each month.
+## 2. Proposed generation model
 
-**Custom inline splits**: supported by allowing a record (employee row or bill) to point to `profile_id = NULL` **and** carry its own `venue_allocation_overrides` rows (same shape as profile_lines but keyed on the owning record). The read view picks override rows first, else the profile, else 100% to the record's home venue (safe fallback = no change vs today).
+### 2a. Give COA accounts a semantic role
+Add `chart_of_accounts.account_role text` (nullable, indexed). It tags accounts with generator-known roles:
 
-```
-venue_allocation_overrides
-  id uuid pk
-  tenant_id uuid
-  owner_type text      -- 'employee' | 'expense_bill'
-  owner_id uuid
-  venue_id uuid
-  percent numeric(7,4)
-  UNIQUE (owner_type, owner_id, venue_id)
-```
+- Scalar roles (one per tenant): `suspense`, `accounts_payable`, `salary_payable`, `mpf_payable`, `payroll_salary_expense`, `payroll_mpf_expense`, `opening_equity`, `invoice_discount`, `invoice_refund`, `cash_payment_clearing`, `bank_transfer_fee_default`, `processor_fee_default`.
+- Per-venue roles (one per venue): `sales_revenue`, `service_charge`, `sales_discount`, `tips_payable`, `cash_on_hand`, `payment_settlement_clearing`. Linked with an additional nullable `venue_id uuid` FK on `chart_of_accounts` — one row per (role, venue).
+- Per-payment-method role: `merchant_receivable` with `payment_method text` on the COA row (visa → 1220, mastercard → 1220, …). Used later if we split clearing per method; today rebuild uses one clearing per venue so this stays informational.
 
-### 1.2 Employees
+Alternative rejected: code-prefix conventions (4xxx → sales). Too brittle across tenants that may reorder the COA.
 
-Add to `hr_employees`:
-- `cost_allocation_profile_id uuid null` — optional named profile.
-- `cost_allocation_mode text default 'home_venue'` — `'home_venue' | 'profile' | 'custom'`.
+### 2b. Generator rules (per `rule_type`)
+Given tenant venues V (active) + payment methods M (from a new `enabled_payment_methods` config, §"Decisions needed") + COA tagged with roles:
 
-Keep `venue_id` as the primary/home venue (HR directory, scheduling, payroll grouping today). Cost splitting is orthogonal and only read by reporting queries.
+| rule_type | generated key(s) | account resolved by |
+|---|---|---|
+| `sales_revenue`/`service_charge`/`sales_discount`/`tips_payable`/`cash_on_hand`/`payment_settlement_clearing` | one row per venue name in V | COA where `account_role=<rule>` AND `venue_id = v.id` |
+| `sales_payment_method` | `method__venue` per (M × V) | COA where `account_role='merchant_receivable' AND payment_method=method`, or fall back to per-venue `payment_settlement_clearing` (matches current rebuild behavior) |
+| `payment_method_cash` | one row per M where method is cash-like (cash/cheque/bank_transfer) | COA scalar role `cash_payment_clearing` |
+| scalar rule_types | single row, match_key="" | COA row with matching `account_role` |
+| `procurement_category` | one row per (financial_treatment × level1_category) actually used by `product_master` | **not generatable** — needs human pick; keep manual, flag missing combos as "unmapped" in the sync review |
+| `bank_txn_type` | leave manual; managed by reconciliation rules feature |
 
-Payroll rows (`hr_payroll`) need no schema change — the split is derived from the employee's mode/profile/overrides at report time, keyed on the payroll `year/month`.
+If a role has no tagged COA account, the generator emits a **"missing role"** finding — it never invents/guesses an account.
 
-### 1.3 Expense bills
+### 2c. Automatic vs button — recommendation: **manual Sync with a diff preview**
 
-Add to `expense_bills`:
-- `cost_allocation_profile_id uuid null`
-- `cost_allocation_mode text default 'manual'` — `'manual' | 'profile' | 'custom'`
+Trigger auto-regen on venue/COA changes is tempting but risky: silent regeneration could clobber a hand-tuned mapping mid-quarter and change what the rebuild posts on the next tick.
 
-Keep `expense_bill_allocations` exactly as-is (it stores category/account line items for the GL). Two options for the venue split, pick **A**:
+**Recommended flow** on `Finance → Chart of Accounts → Account Mappings`:
+1. "Sync mappings from setup" button runs a **dry-run** RPC `preview_mapping_sync(tenant_id) → jsonb` returning three buckets:
+   - **To add** (setup expects a rule that doesn't exist)
+   - **To retarget** (rule exists but points at a different account than the tagged COA account — only shown for rules whose provenance is `generated`)
+   - **Orphan** (rule references a venue/method no longer in setup)
+   - **Blocked** (missing role tag on COA — human must tag first)
+2. Admin reviews and clicks Apply → `apply_mapping_sync(tenant_id, jsonb)` performs the diff transactionally, writes a `ledger_audit_log` entry, and enqueues a `pending_rebuilds` row.
+3. Lightweight auto-trigger: on `INSERT` of a venue, auto-add the generated rules for that venue only (never touches existing rules). On venue soft-delete (`is_active=false`), mark related rules as orphan candidates for next Sync — do **not** delete.
 
-- **A (recommended, no schema churn):** venue split is a **separate** overlay computed at read time from the profile/overrides against the bill's `total_amount`. `expense_bill_allocations.venue` remains a manual per-line optional tag, unchanged. Journal posting is unchanged.
-- B: auto-populate `expense_bill_allocations.venue` per line from the profile. Rejected — mixes GL data with a management overlay and complicates reversal.
+### 2d. Preserving manual overrides
+Add `account_mapping_rules.provenance text` (nullable) with values:
+- `generated` — created by Sync; Sync may retarget or delete.
+- `manual` — hand-set; Sync **never** overwrites; only shows an advisory diff if it disagrees with the tagged role.
 
-UI: in the Bill editor, a "Venue cost split" section shows the effective split (profile or custom) alongside GL allocations; no impact on posting.
+Migration: mark every existing row `manual` (see §3). Also add `account_mapping_rules.locked boolean default false` so an admin can promote a `generated` row to protected without changing provenance semantics.
 
-## 2. Effective-split read layer (single source of truth)
+## 3. Migration & safety
 
-New DB view — **the** canonical resolver used everywhere:
+### 3a. Migration steps (non-destructive)
+1. Add columns: `chart_of_accounts.account_role`, `chart_of_accounts.venue_id`, `chart_of_accounts.payment_method`; `account_mapping_rules.provenance`, `account_mapping_rules.locked`.
+2. **Backfill role tags for KHAMBU** by matching existing rules → their pointed-at COA account. For each rule, set `chart_of_accounts.account_role/venue_id/payment_method` to the values implied by the rule that already targets it. Because the KHAMBU rules are correct today (after the recent cleanup), this makes the tagged COA a mirror of today's mapping.
+3. Mark every existing `account_mapping_rules` row as `provenance='manual'` — Sync will not touch them until an admin flips them to `generated` (or wipes them).
+4. Ship the generator + preview + apply RPCs but do NOT auto-run on migrate. First run is admin-initiated in the UI.
+5. Add missing payment-methods table (see decisions). Until then, generator reads the hard-coded list.
 
-```
-v_venue_cost_allocation(owner_type, owner_id, tenant_id, venue_id, percent)
-```
+### 3b. Verification before we trust the switch
+- On the KHAMBU tenant, run `preview_mapping_sync` after backfill: **expect zero "to retarget" rows** for any rule where the pointed-at account already has a role tag. Any diff = a role tag was wrong, fix in step 2 before proceeding.
+- Snapshot `journal_lines` for the last 90 days to a temp table. Run `rebuild_journal_from_operations` before and after enabling the new flow. Compare `SUM(debit), SUM(credit)` grouped by `(source_type, entry_date, account_id)` — must be identical.
+- Fill Hanabi's missing `payment_settlement_clearing` gap via Sync (this is one of the concrete bugs the user cited) and re-run the diff.
 
-Resolution order per (owner_type, owner_id):
-1. `venue_allocation_overrides` rows if any → use directly.
-2. else if `cost_allocation_mode='profile'` and profile set → expand profile (manual_percent from lines; even/by_seats/by_headcount/by_revenue computed).
-3. else 100% to the owner's home venue (`hr_employees.venue_id` / `expense_bills.venue_id`), falling back to 'Unassigned' when null.
+### 3c. Risk list
+- **Wrong role tag → wrong retarget.** If backfill assigns the wrong role to an account, next Sync could silently retarget a generated rule. Mitigated by: initial provenance=`manual` on all rules (Sync no-op until human opts in), audit log on every apply.
+- **`match_key` format drift.** `sales_payment_method` uses `method__venue`; consumer expects that exact separator. Generator must produce the identical string.
+- **Venue rename.** Existing `cascade_venue_rename` rewrites match_key. Generator uses venue name too, so behavior stays consistent — but if we later switch generator to venue **id**, we must update the consumer and the cascade in the same change.
+- **Legacy bare-key rules** (e.g. `sales_payment_method` `cash`, or the historical bare `visa`) — Sync's "orphan" bucket will flag them so the admin can prune them explicitly.
+- **`procurement_category`** is not generatable — the UI must keep manual editing for it.
+- **Multiple tenants** — KHAMBU test-tenant `52cd684c…` has only 5 rules and no chart of accounts entries tagged. Sync there will report "blocked: no roles tagged" and do nothing, which is correct.
 
-Percentages guaranteed to sum to 100 per owner. This guarantees venue splits sum back to entity totals — **no double counting, no leakage**.
+## 4. Decisions I need from you before building
 
-## 3. Reporting touch-points
+1. **`account_role` on chart_of_accounts** — OK to add role/venue_id/payment_method columns, or do you want a separate `chart_of_accounts_roles` table? (Simpler = add columns.)
+2. **Payment methods source of truth** — today it's a hard-coded list. Options: (a) keep hard-coded and generate from it, (b) add a `payment_methods (tenant_id, key, label, is_enabled, is_cash_like)` config table now. Recommend (b) because "adding a payment method" is exactly the setup change that should ripple into mappings.
+3. **Cash mapping model** — today `cash_on_hand`/venue is the primary. Do we keep that OR switch fully to `sales_payment_method` `cash__venue`? Recommend keeping current model to keep the rebuild function untouched.
+4. **Sync on venue add: auto-add rules for that venue silently, or always require button?** Recommend silent add (only additive, never mutative), matching how new-venue setup already scaffolds records elsewhere.
+5. **Who can run Sync?** Platform-admin only, or any tenant admin? (Affects the RPC's SECURITY DEFINER + role checks.)
 
-### Must change (DB view layer)
-
-- **`v_labor_cost_by_venue_month`** — rewrite to join `hr_payroll` × `v_venue_cost_allocation(owner_type='employee')` and multiply `(gross + mpf_employer) * percent/100` before grouping by venue. Revenue side unchanged. Fixes labor-cost-% correctness at the source so every consumer benefits.
-- **New `v_venue_expense_month`** — `expense_bills` (posted only) × `v_venue_cost_allocation(owner_type='expense_bill')` × `total_amount * percent/100`, grouped by tenant/venue/year/month/category. Used by venue P&L and Spend Summary venue breakdowns.
-- **New `v_pl_by_venue`** (optional but recommended) — union of: revenue from `v_pl` (already venue-tagged via journal_lines.venue), labor from the new labor view, expenses from the new expense view, other GL lines fall through with their existing venue tag or 'Unassigned'. Entity totals equal `v_pl` totals by construction.
-
-### Consumers that automatically become correct once views change
-
-- `PayrollLaborCostCard` (already reads `v_labor_cost_by_venue_month`).
-- `HRDashboard` labor block (same view).
-- Any future Venue P&L page.
-
-### Must change (component-level)
-
-- **`PayrollTab` venue subtotals** — today groups a whole payroll row under `venue_id`. Change to: for each payroll row, expand via allocation and add fractional amounts into per-venue subtotals. Cluster header still shows the employee's home venue for readability; a small "split" chip appears next to shared employees. Grand total unchanged. Payroll save/post RPCs untouched.
-- **`SpendSummary.tsx`** venue breakdown — switch its per-venue aggregation from `expense_bill_allocations.venue` free-text to the new `v_venue_expense_month` view (or resolver util) so utility bills split correctly. Category totals unchanged in aggregate.
-- **`Approvals.tsx`** — no math change; optionally show the effective split preview in the readiness panel.
-
-### Stays presentation-only (no DB work)
-
-- Bill editor "Venue split preview" panel.
-- Employee editor "Cost allocation" panel (profile picker + custom overrides editor).
-- New tenant-scoped **Profiles admin page** under Admin → Master Data ("Venue allocation profiles").
-
-## 4. Explicitly UNTOUCHED
-
-- `post_payroll_accrual`, payroll settlement, `hr_payroll_payment_batches` — no change.
-- `reverse_and_regenerate_sales_journal`, `post_expense_bill`, `reverse_expense_bill` — no change.
-- `journal_entries` / `journal_lines` — no change (still one line per real posting).
-- `v_pl` (entity), Trial Balance, Balance Sheet, entity P&L page — no change.
-- `expense_bill_allocations` structure and GL semantics — no change.
-
-## 5. Risks & mitigations
-
-| Risk | Mitigation |
-|---|---|
-| Splits don't sum to 100 | Trigger on `venue_allocation_profile_lines` and `venue_allocation_overrides` enforces sum=100 for manual_percent; derived methods normalize in the view. |
-| Double counting | All venue reports read the resolver view; entity totals always equal `SUM(percent)=100 × amount`. Add a Vitest for `SUM(venue_amount) = payroll_row_amount` and `= bill_total`. |
-| Legacy free-text `venue` on old expense_bill_allocations lines | Ignored by the new view; kept for backward reads only. Migration note, no data change. |
-| Derived methods (by_revenue/by_headcount) with zero denominators | Fallback to even split, flagged in view with a `basis` column so UI can warn. |
-| Historical months change when profile edited | Profiles are effective-dated (`effective_from`, `effective_to`) OR snapshotted onto payroll month at post time. Recommend effective-dated columns on `venue_allocation_profile_lines` to keep past months stable; add in same migration. |
-
-## 6. Rollout order (build phase, once approved)
-
-1. Migration: profiles + lines + overrides + employee/bill columns + effective dating + sum triggers + GRANTs + RLS.
-2. Migration: `v_venue_cost_allocation` + rewrite `v_labor_cost_by_venue_month` + new `v_venue_expense_month` (+ optional `v_pl_by_venue`).
-3. Admin UI: Profiles CRUD page.
-4. Employee editor + Bill editor: profile picker + custom overrides + effective-split preview.
-5. `PayrollTab` subtotal expansion + shared-employee chip.
-6. `SpendSummary` venue breakdown switch to new view.
-7. Reconciliation test: for every tenant/month, sum of venue slices == entity total (payroll and expenses).
-
-## 7. Open questions for you
-
-1. Effective-dating on profile lines (my recommendation) vs snapshot-at-post — pick one so historical months don't drift.
-2. Should `by_revenue` use trailing-3-month revenue or same-month revenue? Same-month is simpler; trailing avoids circularity with labor-cost-%.
-3. For utility bills spanning a service period crossing months, split by the profile of the bill_date only, or prorate across months? (Current bills don't prorate across months anywhere else, so I'd keep bill_date only.)
+No files will be changed until you approve this plan and answer the 5 decisions above.
