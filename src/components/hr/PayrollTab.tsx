@@ -577,7 +577,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
               >
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{emp.last_name}, {emp.first_name}</div>
+                    <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+                      <span className="truncate">{emp.last_name}, {emp.first_name}</span>
+                      {!isActiveStatus(emp.status) && (
+                        <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-muted-foreground font-normal">inactive</span>
+                      )}
+                    </div>
                     <div className="text-[11px] text-muted-foreground truncate">{resolveVenue(emp)} · {emp.job_title || "—"}</div>
                   </div>
                   <div className="text-right text-xs tabular-nums">
