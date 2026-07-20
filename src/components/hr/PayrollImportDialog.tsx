@@ -51,6 +51,8 @@ type ReviewRow = ExtractedRow & { _id: string };
 
 export type PayrollImportApplyPayload = {
   employee_id: string;
+  year: number;
+  month: number;
   base_salary: number;
   gross_pay: number;
   mpf_employee: number;
