@@ -35,10 +35,14 @@ type ExtractedRow = {
   raw_name: string;
   matched_employee_id: string;
   base_salary: number;
+  gross_pay: number;
   mpf_employee: number;
   mpf_employer: number;
+  other_deductions: number;
   net_pay: number;
-  gross_pay: number;
+  expected_net?: number;
+  reconciles?: boolean;
+  computed_adjustment?: number;
   confidence: "high" | "medium" | "low";
   source_hint: string;
 };
@@ -48,11 +52,13 @@ type ReviewRow = ExtractedRow & { _id: string };
 export type PayrollImportApplyPayload = {
   employee_id: string;
   base_salary: number;
+  gross_pay: number;
   mpf_employee: number;
   mpf_employer: number;
+  other_deductions: number;
   net_pay: number;
-  gross_pay: number;
 };
+
 
 type SimpleDept = { id: string; name: string; is_active: boolean };
 type SimpleVenue = { id: string; name: string; is_active: boolean };
