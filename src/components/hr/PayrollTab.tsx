@@ -730,7 +730,7 @@ function Stat({ label, value, strong }: { label: string; value: string; strong?:
 }
 
 function VenueGroup({
-  venue, emps, startNum, getRowData, setEdit, edits, subtotal,
+  venue, emps, startNum, getRowData, setEdit, hasEditFor, subtotal,
   stickyCol0, stickyCol1, clusterEnd, rowBorder,
 }: any) {
   return (
@@ -744,7 +744,7 @@ function VenueGroup({
       {emps.map((emp: HREmployee, i: number) => {
         const rowNum = startNum + i + 1;
         const row = getRowData(emp);
-        const hasEdits = !!edits[emp.id];
+        const hasEdits = hasEditFor(emp.id);
         const type = emp.employment_type === "full_time" ? "FT" : emp.employment_type === "part_time" ? "PT" : "C";
         const rowBg = hasEdits ? "bg-primary/[0.04]" : "";
         return (
