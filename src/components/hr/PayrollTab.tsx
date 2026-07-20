@@ -676,6 +676,9 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
         open={importOpen}
         onOpenChange={setImportOpen}
         employees={employees}
+        departments={departments}
+        venues={venues}
+        onCreateEmployee={onCreateEmployee}
         onApply={applyImport}
       />
 
