@@ -35,10 +35,14 @@ type ExtractedRow = {
   raw_name: string;
   matched_employee_id: string;
   base_salary: number;
+  gross_pay: number;
   mpf_employee: number;
   mpf_employer: number;
+  other_deductions: number;
   net_pay: number;
-  gross_pay: number;
+  expected_net?: number;
+  reconciles?: boolean;
+  computed_adjustment?: number;
   confidence: "high" | "medium" | "low";
   source_hint: string;
 };
@@ -48,11 +52,13 @@ type ReviewRow = ExtractedRow & { _id: string };
 export type PayrollImportApplyPayload = {
   employee_id: string;
   base_salary: number;
+  gross_pay: number;
   mpf_employee: number;
   mpf_employer: number;
+  other_deductions: number;
   net_pay: number;
-  gross_pay: number;
 };
+
 
 type SimpleDept = { id: string; name: string; is_active: boolean };
 type SimpleVenue = { id: string; name: string; is_active: boolean };
@@ -170,7 +176,15 @@ export default function PayrollImportDialog({
         setScanning(false);
         return;
       }
-      setRows(extracted.map((r, i) => ({ ...r, _id: `r${i}-${Date.now()}` })));
+      // Pre-fill gross_pay when the sheet didn't print one, using base + implied adjustment
+      // so the Gross column is never blank.
+      const withDefaults = extracted.map((r, i) => {
+        const grossFallback = r.gross_pay > 0
+          ? r.gross_pay
+          : Number((r.base_salary + (r.computed_adjustment ?? 0)).toFixed(2));
+        return { ...r, gross_pay: grossFallback, _id: `r${i}-${Date.now()}` };
+      });
+      setRows(withDefaults);
       if (Array.isArray(data.warnings)) for (const w of data.warnings) toast.warning(w);
       toast.success(`AI extracted ${extracted.length} row${extracted.length === 1 ? "" : "s"}. Review before applying.`);
       setStep("review");
@@ -196,16 +210,18 @@ export default function PayrollImportDialog({
       map.set(r.matched_employee_id, {
         employee_id: r.matched_employee_id,
         base_salary: r.base_salary,
+        gross_pay: r.gross_pay,
         mpf_employee: r.mpf_employee,
         mpf_employer: r.mpf_employer,
+        other_deductions: r.other_deductions || 0,
         net_pay: r.net_pay,
-        gross_pay: r.gross_pay,
       });
     }
     onApply(Array.from(map.values()));
     toast.success(`Applied ${map.size} row${map.size === 1 ? "" : "s"} to the payroll table. Review and Save.`);
     close(false);
   };
+
 
   const matchedCount = rows.filter(r => r.matched_employee_id).length;
 
@@ -390,7 +406,7 @@ function ReviewRowCard({
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
         <div className="sm:col-span-2">
           <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Employee {row.raw_name && <span className="normal-case text-muted-foreground/80">· from doc: "{row.raw_name}"</span>}
@@ -421,13 +437,37 @@ function ReviewRowCard({
           )}
         </div>
         <NumField label="Base" value={row.base_salary} onChange={(v) => onChange({ base_salary: v })} />
+        <NumField label="Gross" value={row.gross_pay} onChange={(v) => onChange({ gross_pay: v })} />
         <NumField label="MPF (EE)" value={row.mpf_employee} onChange={(v) => onChange({ mpf_employee: v })} />
         <NumField label="MPF (ER)" value={row.mpf_employer} onChange={(v) => onChange({ mpf_employer: v })} />
+        <NumField label="Other Ded." value={row.other_deductions || 0} onChange={(v) => onChange({ other_deductions: v })} />
         <NumField label="Net" value={row.net_pay} onChange={(v) => onChange({ net_pay: v })} />
       </div>
+      <ReconciliationNote row={row} />
     </div>
   );
 }
+
+function ReconciliationNote({ row }: { row: ReviewRow }) {
+  const gross = row.gross_pay > 0 ? row.gross_pay : row.base_salary;
+  const expected = gross - row.mpf_employee - (row.other_deductions || 0);
+  const diff = row.net_pay - expected;
+  if (row.net_pay <= 0) return null;
+  if (Math.abs(diff) < 1) {
+    return (
+      <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-500 inline-flex items-center gap-1">
+        <CheckCircle2 className="h-3 w-3" /> Gross − MPF(EE) − Other Ded. ties to Net.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-500 inline-flex items-center gap-1">
+      <AlertCircle className="h-3 w-3" />
+      Base+Gross math doesn't tie to Net (off by HK${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}). Applied as-is — the gap will show in the Adjustments column.
+    </div>
+  );
+}
+
 
 function NumField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
