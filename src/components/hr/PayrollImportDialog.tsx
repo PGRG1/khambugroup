@@ -54,12 +54,15 @@ export type PayrollImportApplyPayload = {
 };
 
 export default function PayrollImportDialog({
-  open, onOpenChange, employees, onApply,
+  open, onOpenChange, employees, onApply, onCreateEmployee, departments, venues,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   employees: HREmployee[];
   onApply: (rows: PayrollImportApplyPayload[]) => void;
+  onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
+  departments: { id: string; name: string; is_active: boolean }[];
+  venues: { id: string; name: string; is_active: boolean }[];
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<"upload" | "review">("upload");
