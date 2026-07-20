@@ -310,21 +310,15 @@ export default function PayrollImportDialog({
                 All rows removed. Go back to upload another document.
               </div>
             ) : (
-              <div className="space-y-2">
-                {rows.map((r, idx) => (
-                  <ReviewRowCard
-                    key={r._id}
-                    idx={idx}
-                    row={r}
-                    employees={employees}
-                    departments={departments}
-                    venues={venues}
-                    onCreateEmployee={onCreateEmployee}
-                    onChange={(patch) => updateRow(r._id, patch)}
-                    onRemove={() => removeRow(r._id)}
-                  />
-                ))}
-              </div>
+              <ReviewTable
+                rows={rows}
+                employees={employees}
+                departments={departments}
+                venues={venues}
+                onCreateEmployee={onCreateEmployee}
+                onChangeRow={updateRow}
+                onRemoveRow={removeRow}
+              />
             )}
             {rows.length > 0 && (
               <div className="text-xs text-muted-foreground pt-2 border-t border-border/40">
