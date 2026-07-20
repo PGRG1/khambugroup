@@ -208,8 +208,13 @@ export function PayrollPaymentDialog({ open, onOpenChange, year, month, payroll,
                     return (
                       <TableRow key={r.p.id} className={r.owed === 0 ? "opacity-50" : ""}>
                         <TableCell><Checkbox disabled={r.owed === 0} checked={!!selected[r.p.id]} onCheckedChange={(c) => setSelected((s) => ({ ...s, [r.p.id]: !!c }))} /></TableCell>
-                        <TableCell className="font-medium">{r.emp!.first_name} {r.emp!.last_name}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.emp!.venue || "—"}</TableCell>
+                        <TableCell className="font-medium">
+                          <span>{r.emp!.first_name} {r.emp!.last_name}</span>
+                          {!["active", "on_leave"].includes(r.emp!.status) && (
+                            <span className="ml-1.5 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/60 bg-muted/40 text-muted-foreground font-normal align-middle">inactive</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{r.venueName}</TableCell>
                         <TableCell className="text-right tabular-nums">{fmt(ref)}</TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">{fmt(paid)}</TableCell>
                         <TableCell className="text-right tabular-nums font-bold">{fmt(r.owed)}</TableCell>
