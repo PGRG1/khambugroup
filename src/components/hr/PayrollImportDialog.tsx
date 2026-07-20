@@ -343,6 +343,13 @@ export default function PayrollImportDialog({
 
         {step === "review" && (
           <div className="overflow-y-auto space-y-2">
+            <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-1.5">
+              <div className="text-xs text-muted-foreground">
+                Applying to: <span className="font-semibold text-foreground">{MONTH_NAMES[periodMonth - 1]} {periodYear}</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground">Go back to change the period.</div>
+            </div>
+
             {rows.length === 0 ? (
               <div className="text-center text-sm text-muted-foreground py-8">
                 All rows removed. Go back to upload another document.
