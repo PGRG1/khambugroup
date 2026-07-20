@@ -237,7 +237,15 @@ export default function Journal() {
               const canEdit = e.status === "posted";
               return (
                 <React.Fragment key={e.id}>
-                  <TableRow className={cn("cursor-pointer", isVoid && "opacity-60")} onClick={() => toggle(e.id)}>
+                  <TableRow
+                    ref={(el) => { entryRefs.current[e.id] = el; }}
+                    className={cn(
+                      "cursor-pointer transition-colors",
+                      isVoid && "opacity-60",
+                      highlightId === e.id && "bg-primary/10 animate-pulse",
+                    )}
+                    onClick={() => toggle(e.id)}
+                  >
                     <TableCell>{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
                     <TableCell className={cn("text-xs whitespace-nowrap", isVoid && "line-through")}>{fmtDate(e.entry_date)}</TableCell>
                     <TableCell>
