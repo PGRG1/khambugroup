@@ -8,6 +8,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   PageHeader,
   KpiGrid,
   KpiCard,
@@ -17,6 +23,10 @@ import {
   fmtDate,
 } from "@/components/expenses/shared";
 import { Users, CalendarCheck2, ClipboardCheck, AlertTriangle, ArrowRight } from "lucide-react";
+
+function laborPctAvailable(pct: number | null, labor: number) {
+  return pct != null && Number(labor || 0) > 0;
+}
 
 function ymOfDate(d: string | Date) {
   const dt = typeof d === "string" ? new Date(d) : d;
