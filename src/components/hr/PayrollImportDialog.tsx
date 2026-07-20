@@ -256,6 +256,30 @@ export default function PayrollImportDialog({
 
         {step === "upload" && (
           <div className="space-y-4 overflow-y-auto">
+            {/* Compact target-period picker — pre-filled with the table's current period, editable. */}
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+              <Label className="text-xs font-semibold text-muted-foreground mr-1">Applying to</Label>
+              <Select value={String(periodMonth)} onValueChange={(v) => setPeriodMonth(Number(v))}>
+                <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MONTH_NAMES.map((n, i) => (
+                    <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(periodYear)} onValueChange={(v) => setPeriodYear(Number(v))}>
+                <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 7 }, (_, i) => targetYear - 3 + i).map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                Scanned figures will land in this period only.
+              </span>
+            </div>
+
             <div
               onDragOver={(e) => { e.preventDefault(); if (!scanning) setDragging(true); }}
               onDragLeave={(e) => { e.preventDefault(); setDragging(false); }}
