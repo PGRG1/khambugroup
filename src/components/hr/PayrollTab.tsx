@@ -702,6 +702,8 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
         venues={venues}
         onCreateEmployee={onCreateEmployee}
         onApply={applyImport}
+        targetYear={filterYear}
+        targetMonth={filterMonth}
       />
 
       {/* Bank/account are editable per row via the Landmark icon on the far right of each row. */}
