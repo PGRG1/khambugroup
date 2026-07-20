@@ -174,7 +174,7 @@ const pettyCashMaster: Item[] = [
 ];
 
 const hrItems: Item[] = [
-  { title: "Dashboard", url: "/hr" },
+  { title: "Dashboard", url: "/hr", end: true },
   { title: "Employee Directory", url: "/hr/employees" },
   { title: "Schedule", url: "/hr/schedule" },
   { title: "Leave Management", url: "/hr/leave" },
