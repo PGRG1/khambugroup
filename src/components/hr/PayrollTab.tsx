@@ -206,18 +206,29 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
 
   const daysInMonth = new Date(filterYear, filterMonth, 0).getDate();
 
+  const filtered = useMemo(
+    () => payroll.filter(p => p.year === filterYear && p.month === filterMonth),
+    [payroll, filterYear, filterMonth],
+  );
+
+  const periodPayrollEmpIds = useMemo(
+    () => new Set(filtered.map(p => p.employee_id)),
+    [filtered],
+  );
+
+  const isActiveStatus = (s: string) => ["active", "on_leave"].includes(s);
+
   const activeEmployees = useMemo(
-    () => employees.filter(e => ["active", "on_leave"].includes(e.status) || manuallyAdded.has(editKey(filterYear, filterMonth, e.id))).sort((a, b) => {
+    () => employees.filter(e =>
+      isActiveStatus(e.status)
+      || manuallyAdded.has(editKey(filterYear, filterMonth, e.id))
+      || periodPayrollEmpIds.has(e.id)
+    ).sort((a, b) => {
       const va = resolveVenue(a); const vb = resolveVenue(b);
       if (va !== vb) return venueRank(va) - venueRank(vb);
       return a.sort_order - b.sort_order;
     }),
-    [employees, manuallyAdded, resolveVenue, venueRank, filterYear, filterMonth],
-  );
-
-  const filtered = useMemo(
-    () => payroll.filter(p => p.year === filterYear && p.month === filterMonth),
-    [payroll, filterYear, filterMonth],
+    [employees, manuallyAdded, periodPayrollEmpIds, resolveVenue, venueRank, filterYear, filterMonth],
   );
 
   const payrollMap = useMemo(() => {
