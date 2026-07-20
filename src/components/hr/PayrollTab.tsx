@@ -24,7 +24,9 @@ interface Props {
   payroll: HRPayroll[];
   employees: HREmployee[];
   shifts: HRShift[];
+  departments: { id: string; name: string; is_active: boolean }[];
   onSave: (p: Partial<HRPayroll>) => Promise<boolean>;
+  onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
