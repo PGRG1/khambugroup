@@ -147,13 +147,13 @@ const pageKeyMap: Record<string, string> = {
 };
 
 const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; pageKey?: string }) => {
-  const { session, loading, isAdmin, user } = useAuth();
+  const { session, loading, roleLoading, isAdmin, user } = useAuth();
   const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
   const { previewUserId, isPreviewActive } = usePreviewMode();
   const effectiveUserId = isPreviewActive && isAdmin ? previewUserId : user?.id;
   const { canAccessPage, loading: permLoading } = useUserPermissions(effectiveUserId || undefined);
 
-  if (loading || permLoading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (loading || roleLoading || permLoading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
   if (!session) return <Navigate to="/auth" replace />;
 
   // Platform admin with no entered client → belongs on the platform plane.
@@ -173,9 +173,9 @@ const ProtectedRoute = ({ children, pageKey }: { children: React.ReactNode; page
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading, isAdmin } = useAuth();
+  const { session, loading, roleLoading, isAdmin } = useAuth();
   const { isPlatformAdmin, loading: platLoading } = usePlatformAdmin();
-  if (loading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  if (loading || roleLoading || platLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
   if (!session) return <Navigate to="/auth" replace />;
   if (isPlatformAdmin && typeof window !== "undefined" && !localStorage.getItem("khambu.enteredTenantId")) {
     return <Navigate to="/platform/clients" replace />;
