@@ -103,8 +103,11 @@ function nameSimilarity(a: string, b: string): number {
   return hit / Math.max(at.size, bt.size);
 }
 
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
 export default function PayrollImportDialog({
   open, onOpenChange, employees, onApply, onCreateEmployee, departments, venues,
+  targetYear, targetMonth,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -113,6 +116,8 @@ export default function PayrollImportDialog({
   onCreateEmployee: (emp: Partial<HREmployee>) => Promise<HREmployee | null>;
   departments: SimpleDept[];
   venues: SimpleVenue[];
+  targetYear: number;
+  targetMonth: number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<"upload" | "review">("upload");
@@ -121,6 +126,11 @@ export default function PayrollImportDialog({
   const [scanning, setScanning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [rows, setRows] = useState<ReviewRow[]>([]);
+  const [periodYear, setPeriodYear] = useState<number>(targetYear);
+  const [periodMonth, setPeriodMonth] = useState<number>(targetMonth);
+
+  // Re-sync when caller opens the dialog for a different period.
+  useMemo(() => { if (open) { setPeriodYear(targetYear); setPeriodMonth(targetMonth); } return null; }, [open, targetYear, targetMonth]);
 
   const reset = () => {
     setStep("upload"); setFiles([]); setPreviews([]); setScanning(false); setRows([]);
