@@ -533,7 +533,7 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
 }
 
 export function EmployeePicker({
-  employees, value, onChange, placeholder = "Select employee…", excludeIds, onRequestCreate,
+  employees, value, onChange, placeholder = "Select employee…", excludeIds, onRequestCreate, compact,
 }: {
   employees: HREmployee[];
   value: string;
@@ -541,6 +541,7 @@ export function EmployeePicker({
   placeholder?: string;
   excludeIds?: Set<string>;
   onRequestCreate?: () => void;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const list = useMemo(
@@ -559,7 +560,7 @@ export function EmployeePicker({
         <Button
           variant="outline"
           role="combobox"
-          className="w-full justify-between font-normal h-9"
+          className={"w-full justify-between font-normal " + (compact ? "h-8 text-[12px] px-2" : "h-9")}
         >
           <span className="truncate">
             {selected ? `${selected.last_name}, ${selected.first_name}` : <span className="text-muted-foreground">{placeholder}</span>}
