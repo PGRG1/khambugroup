@@ -435,8 +435,8 @@ function ReviewTableRow({
       </td>
       <td className="px-2 py-1.5 align-middle">
         <Popover open={createOpen} onOpenChange={setCreateOpen}>
-          <PopoverTrigger asChild><span /></PopoverTrigger>
-          <EmployeePicker
+          <PopoverAnchor asChild>
+            <div>
             employees={employees}
             value={row.matched_employee_id}
             onChange={(id) => onChange({ matched_employee_id: id })}
