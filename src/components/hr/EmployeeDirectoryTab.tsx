@@ -214,7 +214,14 @@ export function EmployeeDirectoryTab({ employees, departments, onSave }: Props) 
       {/* Employee Detail Modal — Details only */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingEmployee?.id ? "Edit Employee" : "Add Employee"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingEmployee?.id ? "Edit Employee" : "Add Employee"}</DialogTitle>
+            {editingEmployee?.id && (editingEmployee as any).employee_code && (
+              <p className="text-xs font-mono text-muted-foreground pt-1">
+                Employee ID: <span className="text-foreground">{(editingEmployee as any).employee_code}</span>
+              </p>
+            )}
+          </DialogHeader>
           {editingEmployee && (
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-2 gap-3">
