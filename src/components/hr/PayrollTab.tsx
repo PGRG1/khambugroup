@@ -401,27 +401,70 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, onSave
     const empIds = Object.keys(edits)
       .filter(k => k.startsWith(periodPrefix))
       .map(k => k.slice(periodPrefix.length));
-    let succeeded = 0;
-    let failed = 0;
+    if (!empIds.length) return;
+    const rows: Partial<HRPayroll>[] = [];
+    const validEmpIds: string[] = [];
     for (const empId of empIds) {
       const emp = employees.find(e => e.id === empId);
-      if (!emp) {
-        failed++;
-        continue;
-      }
-      const ok = await saveRow(emp, true);
-      if (ok) succeeded++;
-      else failed++;
+      if (!emp) continue;
+      rows.push(buildPayload(emp));
+      validEmpIds.push(empId);
     }
-    if (failed === 0) {
-      toast({ title: `Saved ${succeeded} ${succeeded === 1 ? "record" : "records"}` });
-    } else {
-      toast({
-        title: `Saved ${succeeded} of ${succeeded + failed} records — ${failed} failed`,
-        variant: "destructive",
-      });
+    if (!rows.length) {
+      toast({ title: "Nothing to save", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      let result: { ok: boolean; error?: string };
+      if (onSaveBatch) {
+        result = await onSaveBatch(rows);
+      } else {
+        // Fallback: sequential (shouldn't happen since HRPayroll wires onSaveBatch)
+        let allOk = true; let firstErr: string | undefined;
+        for (const emp of validEmpIds.map(id => employees.find(e => e.id === id)!)) {
+          const ok = await onSave(buildPayload(emp));
+          if (!ok) { allOk = false; firstErr = firstErr ?? "Save failed"; break; }
+        }
+        result = allOk ? { ok: true } : { ok: false, error: firstErr };
+      }
+      if (result.ok) {
+        setEdits(prev => {
+          const next = { ...prev };
+          for (const empId of validEmpIds) delete next[editKey(filterYear, filterMonth, empId)];
+          return next;
+        });
+        setManuallyAdded(prev => {
+          const next = new Set(prev);
+          for (const empId of validEmpIds) next.delete(editKey(filterYear, filterMonth, empId));
+          return next;
+        });
+        toast({ title: `Saved ${rows.length} ${rows.length === 1 ? "record" : "records"}` });
+      } else {
+        toast({
+          title: "Save failed",
+          description: result.error || "No changes were saved. Your edits are still here — try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setSaving(false);
     }
   };
+
+  // Warn on tab close/reload when there are unsaved edits or an in-flight save.
+  useEffect(() => {
+    const hasPending = Object.keys(edits).length > 0;
+    if (!saving && !hasPending) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [edits, saving]);
+
 
   const [posting, setPosting] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
