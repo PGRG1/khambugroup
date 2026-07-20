@@ -310,7 +310,7 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     };
   }, [payrollMap, edits, daysInMonth, filterYear, filterMonth]);
 
-  const saveRow = async (emp: HREmployee) => {
+  const saveRow = async (emp: HREmployee, silent?: boolean) => {
     const row = getRowData(emp);
     const p = row.payrollRecord;
     setSaving(true);
@@ -332,8 +332,12 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
       mpf_employee_override: row.mpfEEOverride,
       mpf_employer_override: row.mpfEROverride,
     } as any);
-    if (ok) { toast({ title: "Saved" }); setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; }); }
+    if (ok) {
+      if (!silent) toast({ title: "Saved" });
+      setEdits(prev => { const next = { ...prev }; delete next[editKey(filterYear, filterMonth, emp.id)]; return next; });
+    }
     setSaving(false);
+    return ok;
   };
 
   const prevMonth = () => { if (filterMonth === 1) { setFilterMonth(12); setFilterYear(y => y - 1); } else setFilterMonth(m => m - 1); };
@@ -392,9 +396,25 @@ export function PayrollTab({ payroll, employees, shifts: _shifts, onSave, depart
     const empIds = Object.keys(edits)
       .filter(k => k.startsWith(periodPrefix))
       .map(k => k.slice(periodPrefix.length));
+    let succeeded = 0;
+    let failed = 0;
     for (const empId of empIds) {
       const emp = employees.find(e => e.id === empId);
-      if (emp) await saveRow(emp);
+      if (!emp) {
+        failed++;
+        continue;
+      }
+      const ok = await saveRow(emp, true);
+      if (ok) succeeded++;
+      else failed++;
+    }
+    if (failed === 0) {
+      toast({ title: `Saved ${succeeded} ${succeeded === 1 ? "record" : "records"}` });
+    } else {
+      toast({
+        title: `Saved ${succeeded} of ${succeeded + failed} records — ${failed} failed`,
+        variant: "destructive",
+      });
     }
   };
 
