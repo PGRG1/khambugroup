@@ -147,6 +147,22 @@ export default function BillsExpenses() {
     })();
   }, [tenantId]);
 
+  // Load supplier accounts whenever selected vendor changes in the editor.
+  useEffect(() => {
+    if (!tenantId || !header.supplier_id) { setSupplierAccounts([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("supplier_accounts")
+        .select("id, account_number, label, default_venue_id, default_gl_account_id, is_active")
+        .eq("tenant_id", tenantId)
+        .eq("supplier_id", header.supplier_id)
+        .order("account_number");
+      if (!cancelled) setSupplierAccounts((data || []) as any[]);
+    })();
+    return () => { cancelled = true; };
+  }, [tenantId, header.supplier_id]);
+
   // Pre-fill from another page (e.g. bank-detected expense) — open editor with hint.
   useEffect(() => {
     if (!prefill) return;
