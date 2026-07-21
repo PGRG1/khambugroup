@@ -164,15 +164,33 @@ export default function LedgerPL() {
     return new Set(allVenues.filter((v) => v.organization_id === orgId).map((v) => v.name));
   }, [orgId, allVenues]);
 
+  // Names of venues that belong to OTHER organizations — these are the only
+  // venue tags we can positively attribute away from the selected org. Every
+  // other bucket (NULL/"Unassigned", typos, uppercase variants, multi-venue
+  // strings) stays in the consolidated org total instead of being silently
+  // dropped by an exact-name filter.
+  const otherOrgVenueNames = useMemo<Set<string>>(() => {
+    if (!orgId) return new Set();
+    return new Set(allVenues.filter((v) => v.organization_id !== orgId).map((v) => v.name));
+  }, [orgId, allVenues]);
+
   const venuesForColumns = useMemo(
     () => (orgVenueNames ? venues.filter((n) => orgVenueNames.has(n)) : venues),
     [venues, orgVenueNames],
   );
 
-  // When an org is selected, "consolidated" means sum over its venues only,
-  // not the raw __total__ (which includes all venues in the ledger).
-  const sumVenues = (acctMap: Map<string, number>, venueList: string[]): number =>
-    venueList.reduce((s, v) => s + (acctMap.get(v) || 0), 0);
+  // Consolidated total for org scope: start from __total__ (which includes
+  // every bucket, including "Unassigned") and subtract only buckets owned by
+  // other organizations.
+  const orgConsolidated = (acctMap: Map<string, number>): number => {
+    let total = acctMap.get("__total__") || 0;
+    if (otherOrgVenueNames.size === 0) return total;
+    for (const [k, v] of acctMap) {
+      if (k === "__total__") continue;
+      if (otherOrgVenueNames.has(k)) total -= v;
+    }
+    return total;
+  };
 
   const getAmount = (acct: ChartAccount, periodId: string, venue: string | null): number => {
     const periodMap = data.get(periodId);
@@ -190,7 +208,7 @@ export default function LedgerPL() {
       if (venue !== null) {
         total += acctMap.get(venue) || 0;
       } else if (orgVenueNames) {
-        total += sumVenues(acctMap, venuesForColumns);
+        total += orgConsolidated(acctMap);
       } else {
         total += acctMap.get("__total__") || 0;
       }
@@ -209,7 +227,7 @@ export default function LedgerPL() {
       if (venue !== null) {
         total += acctMap.get(venue) || 0;
       } else if (orgVenueNames) {
-        total += sumVenues(acctMap, venuesForColumns);
+        total += orgConsolidated(acctMap);
       } else {
         total += acctMap.get("__total__") || 0;
       }
