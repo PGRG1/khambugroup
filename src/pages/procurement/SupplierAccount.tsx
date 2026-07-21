@@ -365,7 +365,7 @@ export default function SupplierAccountPage() {
         credit: 0,
       });
     });
-    refundLines.forEach((l) => {
+    scopedRefundLines.forEach((l) => {
       const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
       entries.push({
         id: `ref-${l.id}`,
