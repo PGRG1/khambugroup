@@ -728,7 +728,14 @@ export default function VendorDirectory({
                       className="cursor-pointer hover:bg-muted/30 transition-colors"
                     >
                       <TableCell className="py-3">
-                        <div className="font-medium text-sm text-foreground">{v.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-sm text-foreground">{v.name}</div>
+                          {(accountCounts[v.id] || 0) > 1 && (
+                            <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">
+                              {accountCounts[v.id]} accounts
+                            </span>
+                          )}
+                        </div>
                         {v.code ? (
                           <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
                             {v.code}
