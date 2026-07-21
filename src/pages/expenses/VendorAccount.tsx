@@ -159,11 +159,19 @@ export default function ExpenseVendorAccountPage() {
         <KCard label="Open bills" value={String(totals.openN)} tone="sky" />
       </div>
 
+      <SupplierAccountsSection
+        supplierId={vendorId}
+        selectedAccountId={selectedAccountId}
+        onSelect={setSelectedAccountId}
+        billCounts={billCounts}
+        onChanged={() => setReloadKey((k) => k + 1)}
+      />
+
       <Tabs defaultValue="statement">
         <TabsList>
           <TabsTrigger value="statement">Statement</TabsTrigger>
           <TabsTrigger value="bills">Bills ({activeBills.length})</TabsTrigger>
-          <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
+          <TabsTrigger value="payments">Payments ({scopedPayments.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="statement">
