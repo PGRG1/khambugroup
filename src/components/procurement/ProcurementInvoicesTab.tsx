@@ -1084,6 +1084,37 @@ export default function ProcurementInvoicesTab() {
               </Select>
             </div>
             <div>
+              <Label className="text-xs">Supplier account</Label>
+              <Select
+                value={((editForm as any).supplier_account_id as string | null) || "__none__"}
+                disabled={!editForm.supplier_id || supplierAccounts.length === 0}
+                onValueChange={(v) => {
+                  if (v === "__none__") { setEditForm((f) => ({ ...(f as any), supplier_account_id: null })); return; }
+                  const sa = supplierAccounts.find((x) => x.id === v);
+                  setEditForm((f) => {
+                    const next: any = { ...(f as any), supplier_account_id: v };
+                    if (sa?.default_venue_id) {
+                      const ven = dbVenues.find((x) => x.id === sa.default_venue_id);
+                      if (ven && ven.is_active) next.venue = ven.name;
+                    }
+                    return next;
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={editForm.supplier_id ? (supplierAccounts.length === 0 ? "No accounts for this supplier" : "Select account") : "Pick supplier first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— None —</SelectItem>
+                  {supplierAccounts.map((sa) => (
+                    <SelectItem key={sa.id} value={sa.id}>
+                      {sa.account_number}{sa.label ? ` · ${sa.label}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-xs">Invoice #</Label>
               <Input value={editForm.invoice_number || ""} onChange={(e) => setEditForm((form) => ({ ...form, invoice_number: e.target.value }))} />
             </div>
