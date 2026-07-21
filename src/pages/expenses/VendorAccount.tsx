@@ -56,7 +56,7 @@ export default function ExpenseVendorAccountPage() {
       setLoading(true);
       const [{ data: v }, { data: b }, { data: p }] = await Promise.all([
         (supabase as any).from("suppliers").select("id, name").eq("id", vendorId).eq("tenant_id", tenantId).maybeSingle(),
-        (supabase as any).from("expense_bills").select("id, bill_number, bill_date, due_date, total_amount, paid_amount, approval_status, payment_status, venue, notes").eq("tenant_id", tenantId).eq("supplier_id", vendorId).order("bill_date", { ascending: false }),
+        (supabase as any).from("expense_bills").select("id, bill_number, bill_date, due_date, total_amount, paid_amount, approval_status, payment_status, venue, notes, supplier_account_id").eq("tenant_id", tenantId).eq("supplier_id", vendorId).order("bill_date", { ascending: false }),
         (supabase as any).from("expense_bill_payments").select("id, bill_id, payment_date, amount, payment_method, reference, notes").eq("tenant_id", tenantId),
       ]);
       if (cancelled) return;
