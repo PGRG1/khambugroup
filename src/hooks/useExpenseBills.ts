@@ -37,6 +37,7 @@ function showApprovalGateToast(e: any) {
 export interface ExpenseBill {
   id: string;
   supplier_id: string | null;
+  supplier_account_id: string | null;
   vendor_name: string | null;
   bill_number: string | null;
   bill_date: string;
