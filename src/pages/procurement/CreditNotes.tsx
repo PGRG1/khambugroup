@@ -133,6 +133,7 @@ export default function CreditNotes() {
         last_paid_from_account_id: null,
         last_paid_from_account_name: null,
         file_url: null,
+        supplier_account_id: null,
       }));
 
       const linkedIds = cns.map((c: any) => c.source_invoice_id).filter(Boolean);
