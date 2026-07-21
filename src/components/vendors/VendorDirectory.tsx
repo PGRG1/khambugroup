@@ -57,6 +57,7 @@ import {
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 
 type SortDir = "asc" | "desc";
 
@@ -201,6 +202,9 @@ export default function VendorDirectory({
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [usage, setUsage] = useState<Record<string, number>>({});
+  const [accountCounts, setAccountCounts] = useState<Record<string, number>>({}); // supplier_id -> # accounts
+  const [accountBillCounts, setAccountBillCounts] = useState<Record<string, number>>({}); // supplier_account_id -> # bills+invoices
+  const [accountsReloadKey, setAccountsReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -221,21 +225,31 @@ export default function VendorDirectory({
   const load = async () => {
     if (!tenantId) return;
     setLoading(true);
-    const [v, b, i] = await Promise.all([
+    const [v, b, i, sa] = await Promise.all([
       supabase.from("suppliers").select("*").eq("tenant_id", tenantId).order("name"),
-      supabase.from("expense_bills").select("supplier_id").eq("tenant_id", tenantId),
-      supabase.from("invoices").select("supplier_id").eq("tenant_id", tenantId),
+      supabase.from("expense_bills").select("supplier_id, supplier_account_id").eq("tenant_id", tenantId),
+      supabase.from("invoices").select("supplier_id, supplier_account_id").eq("tenant_id", tenantId),
+      (supabase as any).from("supplier_accounts").select("id, supplier_id").eq("tenant_id", tenantId),
     ]);
     if (v.error) toast.error("Failed to load vendors");
     setVendors(((v.data as unknown) as Vendor[]) || []);
     const counts: Record<string, number> = {};
+    const acctBills: Record<string, number> = {};
     for (const r of ((b.data as any[]) || [])) {
       if (r.supplier_id) counts[r.supplier_id] = (counts[r.supplier_id] || 0) + 1;
+      if (r.supplier_account_id) acctBills[r.supplier_account_id] = (acctBills[r.supplier_account_id] || 0) + 1;
     }
     for (const r of ((i.data as any[]) || [])) {
       if (r.supplier_id) counts[r.supplier_id] = (counts[r.supplier_id] || 0) + 1;
+      if (r.supplier_account_id) acctBills[r.supplier_account_id] = (acctBills[r.supplier_account_id] || 0) + 1;
     }
     setUsage(counts);
+    setAccountBillCounts(acctBills);
+    const acctCounts: Record<string, number> = {};
+    for (const r of ((sa.data as any[]) || [])) {
+      if (r.supplier_id) acctCounts[r.supplier_id] = (acctCounts[r.supplier_id] || 0) + 1;
+    }
+    setAccountCounts(acctCounts);
     setLoading(false);
   };
 
@@ -714,7 +728,14 @@ export default function VendorDirectory({
                       className="cursor-pointer hover:bg-muted/30 transition-colors"
                     >
                       <TableCell className="py-3">
-                        <div className="font-medium text-sm text-foreground">{v.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-sm text-foreground">{v.name}</div>
+                          {(accountCounts[v.id] || 0) > 1 && (
+                            <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">
+                              {accountCounts[v.id]} accounts
+                            </span>
+                          )}
+                        </div>
                         {v.code ? (
                           <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
                             {v.code}
@@ -862,6 +883,23 @@ export default function VendorDirectory({
                 />
               </div>
             </div>
+
+            {editingId && (
+              <div className="space-y-2 pt-1">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  For vendors with more than one account (e.g. multiple meters or premises), add them below. The single &ldquo;Account number&rdquo; above is a legacy shortcut for vendors with just one.
+                </p>
+                <SupplierAccountsSection
+                  key={`${editingId}-${accountsReloadKey}`}
+                  supplierId={editingId}
+                  selectedAccountId={null}
+                  onSelect={() => {}}
+                  billCounts={accountBillCounts}
+                  onChanged={() => setAccountsReloadKey((k) => k + 1)}
+                />
+              </div>
+            )}
+
 
             <div className="space-y-1.5">
               <Label className="text-xs">Notes</Label>
