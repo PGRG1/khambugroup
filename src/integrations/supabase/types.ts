@@ -7111,6 +7111,246 @@ export type Database = {
           },
         ]
       }
+      prepaid_schedule_lines: {
+        Row: {
+          created_at: string
+          id: string
+          journal_entry_id: string | null
+          period: string
+          planned_amount: number
+          posted_at: string | null
+          schedule_id: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          period: string
+          planned_amount: number
+          posted_at?: string | null
+          schedule_id: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          period?: string
+          planned_amount?: number
+          posted_at?: string | null
+          schedule_id?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prepaid_schedule_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedule_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedule_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedule_lines_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "prepaid_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedule_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prepaid_schedules: {
+        Row: {
+          amount_recognized: number
+          amount_remaining: number
+          created_at: string
+          description: string
+          expense_account_id: string
+          id: string
+          initial_journal_entry_id: string | null
+          method: string
+          num_periods: number
+          prepaid_account_id: string
+          source_bill_id: string | null
+          start_period: string
+          status: string
+          supplier_account_id: string | null
+          supplier_id: string | null
+          tenant_id: string
+          total_amount: number
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          amount_recognized?: number
+          amount_remaining?: number
+          created_at?: string
+          description?: string
+          expense_account_id: string
+          id?: string
+          initial_journal_entry_id?: string | null
+          method?: string
+          num_periods: number
+          prepaid_account_id: string
+          source_bill_id?: string | null
+          start_period: string
+          status?: string
+          supplier_account_id?: string | null
+          supplier_id?: string | null
+          tenant_id: string
+          total_amount: number
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          amount_recognized?: number
+          amount_remaining?: number
+          created_at?: string
+          description?: string
+          expense_account_id?: string
+          id?: string
+          initial_journal_entry_id?: string | null
+          method?: string
+          num_periods?: number
+          prepaid_account_id?: string
+          source_bill_id?: string | null
+          start_period?: string
+          status?: string
+          supplier_account_id?: string | null
+          supplier_id?: string | null
+          tenant_id?: string
+          total_amount?: number
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prepaid_schedules_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_initial_journal_entry_id_fkey"
+            columns: ["initial_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_initial_journal_entry_id_fkey"
+            columns: ["initial_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_initial_journal_entry_id_fkey"
+            columns: ["initial_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_prepaid_account_id_fkey"
+            columns: ["prepaid_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_prepaid_account_id_fkey"
+            columns: ["prepaid_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_prepaid_account_id_fkey"
+            columns: ["prepaid_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_prepaid_account_id_fkey"
+            columns: ["prepaid_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_source_bill_id_fkey"
+            columns: ["source_bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_schedules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_categories: {
         Row: {
           created_at: string
@@ -10123,6 +10363,23 @@ export type Database = {
         }
         Returns: string
       }
+      create_prepaid_schedule: {
+        Args: {
+          p_description: string
+          p_expense_account_id: string
+          p_method?: string
+          p_num_periods: number
+          p_prepaid_account_id: string
+          p_source_bill_id: string
+          p_start_period: string
+          p_supplier_account_id: string
+          p_supplier_id: string
+          p_tenant_id: string
+          p_total_amount: number
+          p_venue_id: string
+        }
+        Returns: string
+      }
       current_user_tenant_id: { Args: never; Returns: string }
       ensure_revenue_manager_target_lines_month: {
         Args: {
@@ -10315,6 +10572,7 @@ export type Database = {
         Args: { p_batch_id: string }
         Returns: Json
       }
+      post_prepaid_line: { Args: { p_line_id: string }; Returns: string }
       post_vendor_statement: {
         Args: { p_statement_id: string }
         Returns: string
@@ -10344,6 +10602,13 @@ export type Database = {
         Returns: Json
       }
       reverse_expense_bill: { Args: { p_bill_id: string }; Returns: Json }
+      run_prepaid_recognition: {
+        Args: { p_as_of?: string }
+        Returns: {
+          journal_entry_id: string
+          line_id: string
+        }[]
+      }
       sync_grn_from_invoice: {
         Args: { _invoice_id: string; _tenant_id: string }
         Returns: Json
