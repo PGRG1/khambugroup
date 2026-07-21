@@ -161,6 +161,7 @@ export function useExpenseBills() {
 
         const headerPayload: any = {
           supplier_id: header.supplier_id || null,
+          supplier_account_id: (header as any).supplier_account_id || null,
           vendor_name: header.vendor_name || null,
           bill_number: header.bill_number || null,
           bill_date: header.bill_date,
