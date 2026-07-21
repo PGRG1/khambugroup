@@ -378,7 +378,7 @@ export default function SupplierAccountPage() {
         credit: Math.abs(total),
       });
     });
-    depositLines.forEach((l) => {
+    scopedDepositLines.forEach((l) => {
       const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
       if (total >= 0) entries.push({
         id: `dep-${l.id}`,
