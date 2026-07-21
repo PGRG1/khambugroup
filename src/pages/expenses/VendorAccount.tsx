@@ -68,7 +68,20 @@ export default function ExpenseVendorAccountPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [tenantId, vendorId]);
+  }, [tenantId, vendorId, reloadKey]);
+
+  const billCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const b of bills) {
+      if (b.supplier_account_id) m[b.supplier_account_id] = (m[b.supplier_account_id] || 0) + 1;
+    }
+    return m;
+  }, [bills]);
+
+  const scopedBills = useMemo(
+    () => (selectedAccountId ? bills.filter((b) => b.supplier_account_id === selectedAccountId) : bills),
+    [bills, selectedAccountId],
+  );
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
