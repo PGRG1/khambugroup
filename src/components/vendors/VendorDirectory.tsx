@@ -57,6 +57,7 @@ import {
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 
 type SortDir = "asc" | "desc";
 
