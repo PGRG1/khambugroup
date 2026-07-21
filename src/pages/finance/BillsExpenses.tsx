@@ -163,6 +163,74 @@ export default function BillsExpenses() {
     return () => { cancelled = true; };
   }, [tenantId, header.supplier_id]);
 
+  // Normalizer used to match a scanned account_number against supplier_accounts.
+  const normAcct = (s: string | null | undefined) => (s || "").replace(/\s+/g, "").toLowerCase();
+
+  // Extracted-but-unlinked account number from the scanner, held so we can
+  // (a) auto-link once supplier_accounts loads, or (b) show a banner.
+  const extractedAcctNumber: string | null =
+    ((header as any)?.meta?.account_number as string | null | undefined) || null;
+
+  // Auto-link scanned account_number → supplier_accounts, then apply defaults
+  // only if they aren't already filled from the scan.
+  useEffect(() => {
+    if (!header.supplier_id || !extractedAcctNumber) return;
+    if ((header as any).supplier_account_id) return;
+    if (supplierAccounts.length === 0) return;
+    const target = normAcct(extractedAcctNumber);
+    const match = supplierAccounts.find((sa) => normAcct(sa.account_number) === target);
+    if (!match) return;
+    setHeader((h) => {
+      const next: any = { ...h, supplier_account_id: match.id };
+      if (!h.venue_id && match.default_venue_id) {
+        const ven = venues.find((x) => x.id === match.default_venue_id);
+        if (ven) { next.venue_id = ven.id; next.venue = ven.name; }
+      }
+      return next;
+    });
+    if (match.default_gl_account_id) {
+      setAllocations((prev) => {
+        if (!prev.length) return prev;
+        const first = prev[0];
+        if (first.account_id) return prev;
+        const copy = prev.slice();
+        copy[0] = { ...first, account_id: match.default_gl_account_id };
+        return copy;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplierAccounts, extractedAcctNumber, header.supplier_id]);
+
+  // Banner: scanned an account number but no matching supplier_accounts row.
+  const [creatingAcct, setCreatingAcct] = useState(false);
+  const scannedAcctHasMatch = useMemo(() => {
+    if (!extractedAcctNumber) return true;
+    const target = normAcct(extractedAcctNumber);
+    return supplierAccounts.some((sa) => normAcct(sa.account_number) === target);
+  }, [supplierAccounts, extractedAcctNumber]);
+  const showCreateAcctBanner =
+    !!extractedAcctNumber && !!header.supplier_id && !(header as any).supplier_account_id && !scannedAcctHasMatch;
+
+  const createSupplierAccountFromScan = async () => {
+    if (!tenantId || !header.supplier_id || !extractedAcctNumber) return;
+    setCreatingAcct(true);
+    const { data, error } = await (supabase as any)
+      .from("supplier_accounts")
+      .insert({
+        tenant_id: tenantId,
+        supplier_id: header.supplier_id,
+        account_number: extractedAcctNumber,
+        is_active: true,
+      })
+      .select("id, account_number, label, default_venue_id, default_gl_account_id, is_active")
+      .single();
+    setCreatingAcct(false);
+    if (error) { toast.error(error.message || "Could not create account"); return; }
+    setSupplierAccounts((prev) => [...prev, data]);
+    setHeader((h) => ({ ...h, supplier_account_id: data.id } as any));
+    toast.success(`Supplier account ${data.account_number} created and linked.`);
+  };
+
   // Pre-fill from another page (e.g. bank-detected expense) — open editor with hint.
   useEffect(() => {
     if (!prefill) return;
@@ -737,6 +805,16 @@ export default function BillsExpenses() {
                     </SelectContent>
                   </Select>
                 </div>
+                {showCreateAcctBanner && (
+                  <div className="md:col-span-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs flex items-center justify-between gap-3">
+                    <span>
+                      Detected account <span className="font-mono font-medium">{extractedAcctNumber}</span> on the scan — no matching supplier account for this vendor.
+                    </span>
+                    <Button size="sm" variant="outline" onClick={createSupplierAccountFromScan} disabled={creatingAcct}>
+                      {creatingAcct ? "Creating…" : `Create account ${extractedAcctNumber}`}
+                    </Button>
+                  </div>
+                )}
                 <div>
                   <Label>Vendor name (override)</Label>
                   <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
