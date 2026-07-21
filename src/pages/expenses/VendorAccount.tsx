@@ -91,7 +91,11 @@ export default function ExpenseVendorAccountPage() {
     return m;
   }, [payments]);
 
-  const activeBills = useMemo(() => bills.filter((b) => b.approval_status !== "voided" && b.approval_status !== "reversed" && b.approval_status !== "draft"), [bills]);
+  const activeBills = useMemo(() => scopedBills.filter((b) => b.approval_status !== "voided" && b.approval_status !== "reversed" && b.approval_status !== "draft"), [scopedBills]);
+  const scopedPayments = useMemo(() => {
+    const ids = new Set(scopedBills.map((b) => b.id));
+    return payments.filter((p) => ids.has(p.bill_id));
+  }, [scopedBills, payments]);
 
   const totals = useMemo(() => {
     let billed = 0, paid = 0, outstanding = 0, overdue = 0, openN = 0;
