@@ -225,21 +225,31 @@ export default function VendorDirectory({
   const load = async () => {
     if (!tenantId) return;
     setLoading(true);
-    const [v, b, i] = await Promise.all([
+    const [v, b, i, sa] = await Promise.all([
       supabase.from("suppliers").select("*").eq("tenant_id", tenantId).order("name"),
-      supabase.from("expense_bills").select("supplier_id").eq("tenant_id", tenantId),
-      supabase.from("invoices").select("supplier_id").eq("tenant_id", tenantId),
+      supabase.from("expense_bills").select("supplier_id, supplier_account_id").eq("tenant_id", tenantId),
+      supabase.from("invoices").select("supplier_id, supplier_account_id").eq("tenant_id", tenantId),
+      (supabase as any).from("supplier_accounts").select("id, supplier_id").eq("tenant_id", tenantId),
     ]);
     if (v.error) toast.error("Failed to load vendors");
     setVendors(((v.data as unknown) as Vendor[]) || []);
     const counts: Record<string, number> = {};
+    const acctBills: Record<string, number> = {};
     for (const r of ((b.data as any[]) || [])) {
       if (r.supplier_id) counts[r.supplier_id] = (counts[r.supplier_id] || 0) + 1;
+      if (r.supplier_account_id) acctBills[r.supplier_account_id] = (acctBills[r.supplier_account_id] || 0) + 1;
     }
     for (const r of ((i.data as any[]) || [])) {
       if (r.supplier_id) counts[r.supplier_id] = (counts[r.supplier_id] || 0) + 1;
+      if (r.supplier_account_id) acctBills[r.supplier_account_id] = (acctBills[r.supplier_account_id] || 0) + 1;
     }
     setUsage(counts);
+    setAccountBillCounts(acctBills);
+    const acctCounts: Record<string, number> = {};
+    for (const r of ((sa.data as any[]) || [])) {
+      if (r.supplier_id) acctCounts[r.supplier_id] = (acctCounts[r.supplier_id] || 0) + 1;
+    }
+    setAccountCounts(acctCounts);
     setLoading(false);
   };
 
