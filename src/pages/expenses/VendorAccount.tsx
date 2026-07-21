@@ -123,7 +123,7 @@ export default function ExpenseVendorAccountPage() {
         credit: 0,
       });
     }
-    for (const p of payments) {
+    for (const p of scopedPayments) {
       entries.push({
         id: `pay-${p.id}`,
         date: p.payment_date,
@@ -137,7 +137,7 @@ export default function ExpenseVendorAccountPage() {
     const sorted = entries.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     let bal = 0;
     return sorted.map((e) => { bal = bal + (e.debit || 0) - (e.credit || 0); return { ...e, balance: bal }; });
-  }, [activeBills, payments]);
+  }, [activeBills, scopedPayments]);
 
   return (
     <div className="p-6 space-y-6">
