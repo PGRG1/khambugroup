@@ -202,6 +202,9 @@ export default function VendorDirectory({
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [usage, setUsage] = useState<Record<string, number>>({});
+  const [accountCounts, setAccountCounts] = useState<Record<string, number>>({}); // supplier_id -> # accounts
+  const [accountBillCounts, setAccountBillCounts] = useState<Record<string, number>>({}); // supplier_account_id -> # bills+invoices
+  const [accountsReloadKey, setAccountsReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
