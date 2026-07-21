@@ -1,86 +1,85 @@
-# Payroll → Journal Posting: Current Logic & Proposed Minimal Change
 
-## 1. Current accrual posting logic
+# Diagnosis — Ledger P&L rendering bug
 
-**`rebuild_payroll_accrual(p_year, p_month)`**
-Voids all `journal_entries` referenced by `hr_payroll.accrual_journal_entry_id` for the period, clears the FK back to NULL, then calls `post_payroll_accrual`. No line-level logic of its own.
+## 1. What renders the P&L and what it reads
 
-**`post_payroll_accrual(p_year, p_month)`**
-- Bails out if any row already has an `accrual_journal_entry_id` for the period (returns `already_posted`).
-- Accrual date = last day of the month.
-- Resolves accounts from `account_mapping_rules`:
-  - `salary_payable` / `mpf_payable` (global, `match_key=''`) → falls back to CoA codes `2040` / `2030`.
-  - Per-venue `payroll_salary_expense` / `payroll_mpf_expense` → global default → CoA `6010` / `6020`.
-  - Suspense = CoA `1900` (for rounding Δ).
-- Aggregates `hr_payroll` **by venue** (from `hr_employees.venue`, `(unassigned)` bucket for blanks):
+- **Page**: `src/pages/finance/LedgerPL.tsx`
+- **Data hook**: `src/hooks/useLedgerPL.ts`
+- **Data source**: direct queries against `journal_entries` + `journal_lines` (via `fetchAllRows`), plus `chart_of_accounts`. It does **not** read `v_trial_balance` or any view/RPC.
+- Aggregation shape (line 101 of the hook):
+  `Map<periodId, Map<accountId, Map<venue | "__total__", amount>>>`
+  Every line contributes to both its `venue` bucket (or `"Unassigned"` when `venue IS NULL`) and to `"__total__"`.
 
-  ```sql
-  gross = SUM( COALESCE(actual_total, gross_salary, 0) )
-  mpf_e = SUM( COALESCE(mpf_employee, LEAST(gross*0.05, 1500)) )
-  mpf_r = SUM( COALESCE(mpf_employer, LEAST(gross*0.05, 1500)) )
-  ```
+## 2. `is_active` filtering
 
-- Writes **one journal entry per venue** (`source_type='payroll_accrual'`, `source_id='YYYY-MM|<venue>'`) with up to four lines:
+- `buildTree` in `LedgerPL.tsx` (line 52) filters accounts to `account_type === section && is_active`.
+- The recently deactivated accounts (6100 empty Rent decoy, 1220–1280 empty card-brand merchant receivables) are asset accounts or an empty opex account. None held live P&L balances. Deactivating them **cannot** hide opex/cogs balances.
+- New parent 1100 and children 1110/1120 are `asset` — never reach the P&L section builder (which filters by P&L account_type first).
 
-  ```text
-  Dr  Salaries Expense (6010, venue)   gross          "Gross salary"
-  Dr  MPF Expense      (6020, venue)   mpf_r          "MPF employer"
-      Cr  Salary Payable (2040)             gross - mpf_e   "Net salary payable"
-      Cr  MPF Payable   (2030)              mpf_e + mpf_r   "MPF payable"
-  + Suspense Δ line if rounding imbalance ≠ 0.
-  ```
+## 3. Parent/child grouping
 
-- Marks entries `posted`, stamps `hr_payroll.accrual_journal_entry_id`, writes an audit-log row.
+- `buildTree` groups children under parents **within the same account_type**. Accounts whose `parent_id` points outside the section are re-rooted (lines 87–94). `getAmount` (line 177) rolls children up into their parent by walking `accounts` and matching `parent_id`.
+- No opex/cogs accounts have `parent_id` set, so the new AR parent/child structure does **not** affect P&L grouping. Not the cause.
 
-**`post_payroll_batch(p_batch_id)`** (the payment side used by `usePayrollPaymentBatches`)
-Reads `hr_payroll_payment_batches` and writes a simple two-line entry:
+## 4. Why opex/cogs disappear — the real bug
 
-```text
-Dr  Salary Payable  OR  MPF Payable     b.total_amount   "Payroll liability cleared"
-    Cr  Bank / Cash                     b.total_amount   "Bank outflow"
+`LedgerPL.tsx` auto-selects the first organization on mount (lines 156–159):
+
+```
+if (!orgId && organizations.length > 0) setOrgId(organizations[0].id);
 ```
 
-Bank account resolved from `bank_accounts.linked_gl_account_id`, else `payment_method_cash|<method>` mapping. Also updates `bank_transactions` if matched.
+Once `orgId` is set, `venuesForColumns` becomes the exact set of `venues.name` rows belonging to that org (lines 162–170). Then `getAmount` and `sectionTotal` compute the consolidated total as:
 
-*(There is also an older `post_payroll_payment_batch` variant with the same shape — same payable→cash pair, `total = SUM(hr_payroll_payment_batch_lines.amount)`. It never reads earnings components; it only touches the payable and cash accounts.)*
-
-## 2. Does the accrual read AL/PH, NP, and Bonus today?
-
-**No — not directly.** It reads exactly two amount fields per payroll row:
-
-- `COALESCE(actual_total, gross_salary, 0)` → treated as Gross expense
-- `mpf_employee`, `mpf_employer` (with a 5% / $1,500 fallback)
-
-It does **not** reference `annual_leave_pay`, `unpaid_leave_deduction`, `actual_bonus`, `overtime_pay`, `adjustments_override`, or `other_deductions`.
-
-**Implication for the new formula.** Journal Gross will match payslip Gross **only if** the app-layer save of `hr_payroll` already writes the composed Gross (Base + OT + Bonus + AL/PH − NP + Adjustments) into `actual_total` or `gross_salary`. If Bonus / AL / NP live only in their own columns and the write path forgets to fold them into `actual_total`, the ledger will silently under- or over-book labor expense. This is the risk we need to close in the same change.
-
-## 3. Proposed minimal edit (do not apply yet)
-
-**Scope:** `post_payroll_accrual` only. `rebuild_payroll_accrual`, `post_payroll_batch`, and `post_payroll_payment_batch` stay untouched — the payment side works off `total_amount` / batch-line sums, which are independent of Gross composition.
-
-**A. Compute Gross from components inside the SQL aggregation** so the ledger no longer depends on the app populating `actual_total` correctly. Replace the aggregation with:
-
-```sql
-gross = SUM(
-  COALESCE(p.forecast_base_salary, p.base_salary, 0)
-+ COALESCE(p.overtime_pay, 0)
-+ COALESCE(p.actual_bonus, 0)
-+ COALESCE(p.annual_leave_pay, 0)
-- COALESCE(p.unpaid_leave_deduction, 0)
-+ COALESCE(p.adjustments_override, 0)
-)
+```
+sumVenues(acctMap, venuesForColumns)   // only sums keys that EXACTLY match a venue row
 ```
 
-Keep MPF aggregation as-is (respecting overrides where already resolved on the row).
+instead of `acctMap.get("__total__")`. **Any journal line whose `venue` string isn't an exact match for a venue row in the selected org is silently excluded.**
 
-**B. Keep the same 4-line entry shape** — AL/PH and Bonus flow into the existing Salaries Expense debit, NP reduces it. No new GL accounts, no new mappings, no per-component breakout lines. Memo on the debit line stays `"Gross salary"` (single line preserves current reporting/reconciliation views).
+I confirmed against the database — for KHAMBU (venues: Arca, Assembly, Caliente, Hanabi), current posted lines include venue values that will be dropped:
 
-**C. Rounding & suspense** — unchanged. The existing Δ-to-1900 guard already covers any component-level rounding drift.
+| account_type | venue value | lines | net |
+|---|---|---:|---:|
+| opex | `NULL` (→ "Unassigned") | 65 | **2,363,914.92** |
+| cogs | `ASSEMBLY` (uppercase) | 34 | 15,884.00 |
+| cogs | `Caliante` (typo) | 15 | 819.40 |
+| cogs | `Caliente and Hanabi` | 29 | 27,255.00 |
+| cogs | `CALIENTE AND HANABI` | 1 | 2,592.00 |
+| cogs | `CALIENTE KITCHEN` | 1 | 700.00 |
+| revenue | `NULL` (ARCA, → "Unassigned") | 6 | **-420,000.00** |
 
-**Payment-side impact check.** `post_payroll_batch` / `post_payroll_payment_batch` clear `salary_payable` / `mpf_payable` by `batch.total_amount`, which is derived from `hr_payroll_payment_batch_lines.amount` (Net figures written by the app when batching). They never recompute Gross. **No change needed there**, provided the app continues to write batch-line amounts equal to (Gross − MPF EE − Other Deductions). Flagging: if the app currently derives batch-line amounts from `net_salary`, confirm `net_salary` is recomputed under the new formula before this change ships — otherwise Net paid ≠ payable cleared.
+That's why:
+- **Opex looks empty / heavily reduced**: 2.36M of opex is tagged with `venue = NULL` (bill postings without a venue split), so it disappears the moment KHAMBU is auto-selected.
+- **ARCA revenue doesn't appear**: all 6 new manual JE lines were posted with `venue = NULL` (correct for group-level revenue), so `venuesForColumns` never picks them up.
+- **Small cogs discrepancies vs trial balance**: uppercase / typo / multi-venue tags are dropped too (~47K).
 
-**Migration note.** Because the change lives entirely inside `post_payroll_accrual`, existing posted entries are unaffected. To realign historical months, users run the existing "Rebuild from operations" (`rebuild_payroll_accrual`) per period — it voids and reposts using the new formula.
+Trial balance sums every line regardless of venue, so it stays correct — this is a display-layer filter bug, not data loss.
 
-## Deliverable of the follow-up build
-One `CREATE OR REPLACE FUNCTION public.post_payroll_accrual(...)` migration containing only the aggregation-expression change described in §3A. No schema changes, no mapping-rule changes, no UI changes.
+## 5. Why the recent DB changes made it visible now
+
+The bug has existed since the org filter was introduced. It was hidden because most historical opex/revenue happened to be tagged with venues that match the KHAMBU venue names verbatim. The new ARCA manual accruals (correctly posted with `venue = NULL` for a group-level revenue share) were the first postings that made a whole account vanish from the screen, prompting the review — which then also surfaced the pre-existing 2.36M of null-venue opex.
+
+## Proposed fix (do not apply until approved)
+
+Scope: `src/pages/finance/LedgerPL.tsx` only. No DB change, no touching journal data, no touching `useLedgerPL`.
+
+Change the org-scoped consolidated sum from **"only include venues in this org"** to **"exclude venues that belong to a different org"**. Concretely:
+
+1. Derive `otherOrgVenueNames = Set<string>` of venue names owned by any org other than the selected one (from `useVenues`).
+2. Replace the `sumVenues(acctMap, venuesForColumns)` branch inside `getAmount` and `sectionTotal` with:
+   ```
+   let total = acctMap.get("__total__") || 0;
+   for (const [k, v] of acctMap) {
+     if (k === "__total__") continue;
+     if (otherOrgVenueNames.has(k)) total -= v;
+   }
+   ```
+   Effect: NULL venues ("Unassigned"), typos, uppercase variants, and multi-venue labels stay in the current org's total. Only lines that can be positively attributed to a different org are excluded.
+3. Per-venue drilldown (`perVenue = true`) is unchanged — it still lists each org venue column plus a "Total" column that now also uses the corrected consolidated math.
+4. CSV/PDF exports are unaffected because they both go through the same `getAmount` / `sectionTotal`.
+
+Follow-up (separate, not part of this fix):
+- The stray venue tags (`ASSEMBLY`, `Caliante`, `Caliente and Hanabi`, `CALIENTE KITCHEN`) are real data hygiene issues in `journal_lines.venue`. They should be normalized in a later data-cleanup migration so the per-venue view is accurate, but they don't need to block this display fix.
+
+Waiting for approval before touching any code.
