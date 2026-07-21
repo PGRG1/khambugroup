@@ -516,6 +516,14 @@ export default function SupplierAccountPage() {
         </div>
       </div>
 
+      <SupplierAccountsSection
+        supplierId={supplierId}
+        selectedAccountId={selectedAccountId}
+        onSelect={setSelectedAccountId}
+        billCounts={billCountsByAccount}
+        onChanged={() => setRefreshKey((k) => k + 1)}
+      />
+
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <KCard label="Outstanding" value={fmtMoney(outstanding)} tone={outstanding > 0 ? "amber" : "default"} />
         <KCard label="Overdue" value={fmtMoney(overdue)} tone="red" />
