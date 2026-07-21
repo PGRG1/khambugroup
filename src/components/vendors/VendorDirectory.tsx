@@ -884,6 +884,23 @@ export default function VendorDirectory({
               </div>
             </div>
 
+            {editingId && (
+              <div className="space-y-2 pt-1">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  For vendors with more than one account (e.g. multiple meters or premises), add them below. The single &ldquo;Account number&rdquo; above is a legacy shortcut for vendors with just one.
+                </p>
+                <SupplierAccountsSection
+                  key={`${editingId}-${accountsReloadKey}`}
+                  supplierId={editingId}
+                  selectedAccountId={null}
+                  onSelect={() => {}}
+                  billCounts={accountBillCounts}
+                  onChanged={() => setAccountsReloadKey((k) => k + 1)}
+                />
+              </div>
+            )}
+
+
             <div className="space-y-1.5">
               <Label className="text-xs">Notes</Label>
               <Textarea
