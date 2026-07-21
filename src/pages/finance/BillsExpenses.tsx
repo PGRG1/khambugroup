@@ -805,6 +805,16 @@ export default function BillsExpenses() {
                     </SelectContent>
                   </Select>
                 </div>
+                {showCreateAcctBanner && (
+                  <div className="md:col-span-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs flex items-center justify-between gap-3">
+                    <span>
+                      Detected account <span className="font-mono font-medium">{extractedAcctNumber}</span> on the scan — no matching supplier account for this vendor.
+                    </span>
+                    <Button size="sm" variant="outline" onClick={createSupplierAccountFromScan} disabled={creatingAcct}>
+                      {creatingAcct ? "Creating…" : `Create account ${extractedAcctNumber}`}
+                    </Button>
+                  </div>
+                )}
                 <div>
                   <Label>Vendor name (override)</Label>
                   <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
