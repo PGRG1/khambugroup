@@ -220,6 +220,24 @@ export default function ProcurementInvoicesTab() {
   const [invoiceVarianceMap, setInvoiceVarianceMap] = useState<Record<string, boolean>>({});
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
+  const [supplierAccounts, setSupplierAccounts] = useState<Array<{ id: string; account_number: string; label: string | null; default_venue_id: string | null }>>([]);
+
+  useEffect(() => {
+    const sid = editForm.supplier_id || selectedInvoice?.supplier_id;
+    if (!editing || !tenantId || !sid) { setSupplierAccounts([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("supplier_accounts")
+        .select("id, account_number, label, default_venue_id")
+        .eq("tenant_id", tenantId)
+        .eq("supplier_id", sid)
+        .eq("is_active", true)
+        .order("account_number");
+      if (!cancelled) setSupplierAccounts((data || []) as any[]);
+    })();
+    return () => { cancelled = true; };
+  }, [editing, tenantId, editForm.supplier_id, selectedInvoice?.supplier_id]);
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
@@ -595,6 +613,7 @@ export default function ProcurementInvoicesTab() {
 
     setEditForm({
       supplier_id: selectedInvoice.supplier_id,
+      supplier_account_id: (selectedInvoice as any).supplier_account_id ?? null,
       invoice_number: selectedInvoice.invoice_number,
       invoice_date: selectedInvoice.invoice_date,
       due_date: selectedInvoice.due_date,
@@ -1060,6 +1079,37 @@ export default function ProcurementInvoicesTab() {
                 <SelectContent>
                   {editSupplierOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Supplier account</Label>
+              <Select
+                value={((editForm as any).supplier_account_id as string | null) || "__none__"}
+                disabled={!editForm.supplier_id || supplierAccounts.length === 0}
+                onValueChange={(v) => {
+                  if (v === "__none__") { setEditForm((f) => ({ ...(f as any), supplier_account_id: null })); return; }
+                  const sa = supplierAccounts.find((x) => x.id === v);
+                  setEditForm((f) => {
+                    const next: any = { ...(f as any), supplier_account_id: v };
+                    if (sa?.default_venue_id) {
+                      const ven = dbVenues.find((x) => x.id === sa.default_venue_id);
+                      if (ven && ven.is_active) next.venue = ven.name;
+                    }
+                    return next;
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={editForm.supplier_id ? (supplierAccounts.length === 0 ? "No accounts for this supplier" : "Select account") : "Pick supplier first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— None —</SelectItem>
+                  {supplierAccounts.map((sa) => (
+                    <SelectItem key={sa.id} value={sa.id}>
+                      {sa.account_number}{sa.label ? ` · ${sa.label}` : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

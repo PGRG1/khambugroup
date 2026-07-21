@@ -4715,6 +4715,7 @@ export type Database = {
           scheduled_payment_date: string | null
           status: string
           subtotal: number
+          supplier_account_id: string | null
           supplier_id: string
           tax_amount: number
           tenant_id: string
@@ -4764,6 +4765,7 @@ export type Database = {
           scheduled_payment_date?: string | null
           status?: string
           subtotal?: number
+          supplier_account_id?: string | null
           supplier_id: string
           tax_amount?: number
           tenant_id?: string
@@ -4813,6 +4815,7 @@ export type Database = {
           scheduled_payment_date?: string | null
           status?: string
           subtotal?: number
+          supplier_account_id?: string | null
           supplier_id?: string
           tax_amount?: number
           tenant_id?: string
@@ -4832,6 +4835,13 @@ export type Database = {
             columns: ["grn_id"]
             isOneToOne: false
             referencedRelation: "goods_received_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_supplier_account_id_fkey"
+            columns: ["supplier_account_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_accounts"
             referencedColumns: ["id"]
           },
           {

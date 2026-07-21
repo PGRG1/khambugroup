@@ -26,6 +26,7 @@ export type APInvoice = {
   last_paid_from_account_id: string | null;
   last_paid_from_account_name: string | null;
   file_url: string | null;
+  supplier_account_id: string | null;
 };
 
 export type APSupplierSummary = {
@@ -126,7 +127,7 @@ export function usePayables() {
       // Approved invoices only
       const rawInvoices = await fetchAllRows(
         "invoices",
-        "id, invoice_date, due_date, invoice_number, supplier_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
+        "id, invoice_date, due_date, invoice_number, supplier_id, supplier_account_id, venue, total_amount, amount_paid, remaining_balance, payment_status, payment_method, status, review_status, bank_match_status, scheduled_payment_date, exception_note, file_url, suppliers(name)",
         undefined,
         tenantId,
       );
@@ -290,6 +291,7 @@ export function usePayables() {
             ? `${(lastBank as any).bank_name} ${(lastBank as any).account_number_last4 ? "•••" + (lastBank as any).account_number_last4 : ""}`.trim()
             : null,
           file_url: i.file_url || null,
+          supplier_account_id: i.supplier_account_id || null,
         };
       });
       list.sort((a, b) => b.age_days - a.age_days);

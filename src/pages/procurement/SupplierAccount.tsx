@@ -21,6 +21,7 @@ import { RecordPaymentDialog } from "@/components/finance/payables/RecordPayment
 import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNoteDialog";
 import { ExerciseCreditDialog } from "@/components/procurement/ExerciseCreditDialog";
 import { AddChargeDialog } from "@/components/procurement/AddChargeDialog";
+import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -109,6 +110,7 @@ export default function SupplierAccountPage() {
   const [products, setProducts] = useState<{ id: string; name: string; internal_sku: string | null }[]>([]);
   const [period, setPeriod] = useState("all");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   // Dialog state
   const [payInvoice, setPayInvoice] = useState<APInvoice | null>(null);
@@ -118,22 +120,61 @@ export default function SupplierAccountPage() {
   const [addChargeOpen, setAddChargeOpen] = useState(false);
   const [addDealOpen, setAddDealOpen] = useState(false);
 
-  const supplierInvoices = useMemo(
+  const allSupplierInvoices = useMemo(
     () => invoices.filter((i) => i.supplier_id === supplierId),
     [invoices, supplierId]
   );
-  const supplierCNs = useMemo(
+  const supplierInvoices = useMemo(
+    () => (selectedAccountId
+      ? allSupplierInvoices.filter((i) => (i as any).supplier_account_id === selectedAccountId)
+      : allSupplierInvoices),
+    [allSupplierInvoices, selectedAccountId]
+  );
+  const invoiceAccountMap = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const i of allSupplierInvoices) m.set(i.id, (i as any).supplier_account_id || null);
+    return m;
+  }, [allSupplierInvoices]);
+  const billCountsByAccount = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const i of allSupplierInvoices) {
+      const aid = (i as any).supplier_account_id as string | null;
+      if (aid) m[aid] = (m[aid] || 0) + 1;
+    }
+    return m;
+  }, [allSupplierInvoices]);
+  const allSupplierCNs = useMemo(
     () => creditNotes.filter((cn) => cn.supplier_id === supplierId),
     [creditNotes, supplierId]
   );
-  const supplierAvailableCNs = useMemo(
-    () => creditNotesAvailable.filter((cn) => cn.supplier_id === supplierId),
-    [creditNotesAvailable, supplierId]
+  const supplierCNs = useMemo(
+    () => (selectedAccountId
+      ? allSupplierCNs.filter((cn) => cn.source_invoice_id && invoiceAccountMap.get(cn.source_invoice_id) === selectedAccountId)
+      : allSupplierCNs),
+    [allSupplierCNs, selectedAccountId, invoiceAccountMap]
   );
-  const supplierPayments = useMemo(
+  const supplierAvailableCNs = useMemo(
+    () => {
+      const base = creditNotesAvailable.filter((cn) => cn.supplier_id === supplierId);
+      return selectedAccountId
+        ? base.filter((cn) => cn.source_invoice_id && invoiceAccountMap.get(cn.source_invoice_id) === selectedAccountId)
+        : base;
+    },
+    [creditNotesAvailable, supplierId, selectedAccountId, invoiceAccountMap]
+  );
+  const allSupplierPayments = useMemo(
     () => payments.filter((p) => p.supplier_id === supplierId),
     [payments, supplierId]
   );
+  const supplierPayments = useMemo(() => {
+    if (!selectedAccountId) return allSupplierPayments;
+    const paymentIdsForAccount = new Set(
+      allocs
+        .filter((a) => a.invoice_id && invoiceAccountMap.get(a.invoice_id) === selectedAccountId)
+        .map((a) => a.payment_id)
+    );
+    return allSupplierPayments.filter((p) => paymentIdsForAccount.has(p.id));
+  }, [allSupplierPayments, allocs, selectedAccountId, invoiceAccountMap]);
 
   // Load supplier + tenant-scoped joined data
   useEffect(() => {
@@ -236,14 +277,27 @@ export default function SupplierAccountPage() {
     return s;
   }, [supplierPayments, allocSumByPayment]);
 
+  const scopedRefundLines = useMemo(
+    () => (selectedAccountId
+      ? refundLines.filter((l: any) => invoiceAccountMap.get(l.invoice_id) === selectedAccountId)
+      : refundLines),
+    [refundLines, selectedAccountId, invoiceAccountMap]
+  );
+  const scopedDepositLines = useMemo(
+    () => (selectedAccountId
+      ? depositLines.filter((l: any) => invoiceAccountMap.get(l.invoice_id) === selectedAccountId)
+      : depositLines),
+    [depositLines, selectedAccountId, invoiceAccountMap]
+  );
+
   const depositsOutstanding = useMemo(() => {
     let paid = 0, returned = 0;
-    for (const l of depositLines) {
+    for (const l of scopedDepositLines) {
       const t = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
       if (t >= 0) paid += t; else returned += Math.abs(t);
     }
     return paid - returned;
-  }, [depositLines]);
+  }, [scopedDepositLines]);
 
   // Ledger build
   type Entry = { id: string; date: string; type: LedgerType; reference: string; description: string; venue: string; debit: number; credit: number; balance?: number };
@@ -311,7 +365,7 @@ export default function SupplierAccountPage() {
         credit: 0,
       });
     });
-    refundLines.forEach((l) => {
+    scopedRefundLines.forEach((l) => {
       const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
       entries.push({
         id: `ref-${l.id}`,
@@ -324,7 +378,7 @@ export default function SupplierAccountPage() {
         credit: Math.abs(total),
       });
     });
-    depositLines.forEach((l) => {
+    scopedDepositLines.forEach((l) => {
       const total = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
       if (total >= 0) entries.push({
         id: `dep-${l.id}`,
@@ -358,7 +412,7 @@ export default function SupplierAccountPage() {
       balance = balance + (e.debit || 0) - (e.credit || 0);
       return { ...e, balance };
     });
-  }, [supplierInvoices, supplierPayments, supplierCNs, refundLines, depositLines, openingBalances]);
+  }, [supplierInvoices, supplierPayments, supplierCNs, scopedRefundLines, scopedDepositLines, openingBalances]);
 
   const filteredLedger = useMemo(() => {
     const start = periodStart(period);
@@ -461,6 +515,14 @@ export default function SupplierAccountPage() {
           </div>
         </div>
       </div>
+
+      <SupplierAccountsSection
+        supplierId={supplierId}
+        selectedAccountId={selectedAccountId}
+        onSelect={setSelectedAccountId}
+        billCounts={billCountsByAccount}
+        onChanged={() => setRefreshKey((k) => k + 1)}
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <KCard label="Outstanding" value={fmtMoney(outstanding)} tone={outstanding > 0 ? "amber" : "default"} />
