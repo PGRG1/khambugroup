@@ -110,6 +110,7 @@ export default function SupplierAccountPage() {
   const [products, setProducts] = useState<{ id: string; name: string; internal_sku: string | null }[]>([]);
   const [period, setPeriod] = useState("all");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   // Dialog state
   const [payInvoice, setPayInvoice] = useState<APInvoice | null>(null);
