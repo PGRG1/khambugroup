@@ -291,6 +291,7 @@ export function usePayables() {
             ? `${(lastBank as any).bank_name} ${(lastBank as any).account_number_last4 ? "•••" + (lastBank as any).account_number_last4 : ""}`.trim()
             : null,
           file_url: i.file_url || null,
+          supplier_account_id: i.supplier_account_id || null,
         };
       });
       list.sort((a, b) => b.age_days - a.age_days);
