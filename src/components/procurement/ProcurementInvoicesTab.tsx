@@ -220,6 +220,24 @@ export default function ProcurementInvoicesTab() {
   const [invoiceVarianceMap, setInvoiceVarianceMap] = useState<Record<string, boolean>>({});
   const [updatingMasterIdx, setUpdatingMasterIdx] = useState<number | null>(null);
   const [activeDeals, setActiveDeals] = useState<SupplierDeal[]>([]);
+  const [supplierAccounts, setSupplierAccounts] = useState<Array<{ id: string; account_number: string; label: string | null; default_venue_id: string | null }>>([]);
+
+  useEffect(() => {
+    const sid = editForm.supplier_id || selectedInvoice?.supplier_id;
+    if (!editing || !tenantId || !sid) { setSupplierAccounts([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("supplier_accounts")
+        .select("id, account_number, label, default_venue_id")
+        .eq("tenant_id", tenantId)
+        .eq("supplier_id", sid)
+        .eq("is_active", true)
+        .order("account_number");
+      if (!cancelled) setSupplierAccounts((data || []) as any[]);
+    })();
+    return () => { cancelled = true; };
+  }, [editing, tenantId, editForm.supplier_id, selectedInvoice?.supplier_id]);
 
   const batchFileRef = useRef<{ size: number; url: string; name: string } | null>(null);
 
