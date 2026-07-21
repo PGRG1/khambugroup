@@ -277,14 +277,27 @@ export default function SupplierAccountPage() {
     return s;
   }, [supplierPayments, allocSumByPayment]);
 
+  const scopedRefundLines = useMemo(
+    () => (selectedAccountId
+      ? refundLines.filter((l: any) => invoiceAccountMap.get(l.invoice_id) === selectedAccountId)
+      : refundLines),
+    [refundLines, selectedAccountId, invoiceAccountMap]
+  );
+  const scopedDepositLines = useMemo(
+    () => (selectedAccountId
+      ? depositLines.filter((l: any) => invoiceAccountMap.get(l.invoice_id) === selectedAccountId)
+      : depositLines),
+    [depositLines, selectedAccountId, invoiceAccountMap]
+  );
+
   const depositsOutstanding = useMemo(() => {
     let paid = 0, returned = 0;
-    for (const l of depositLines) {
+    for (const l of scopedDepositLines) {
       const t = Number(l.total) || (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
       if (t >= 0) paid += t; else returned += Math.abs(t);
     }
     return paid - returned;
-  }, [depositLines]);
+  }, [scopedDepositLines]);
 
   // Ledger build
   type Entry = { id: string; date: string; type: LedgerType; reference: string; description: string; venue: string; debit: number; credit: number; balance?: number };
