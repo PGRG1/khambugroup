@@ -613,6 +613,7 @@ export default function ProcurementInvoicesTab() {
 
     setEditForm({
       supplier_id: selectedInvoice.supplier_id,
+      supplier_account_id: (selectedInvoice as any).supplier_account_id ?? null,
       invoice_number: selectedInvoice.invoice_number,
       invoice_date: selectedInvoice.invoice_date,
       due_date: selectedInvoice.due_date,
