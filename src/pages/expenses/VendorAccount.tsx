@@ -35,7 +35,7 @@ function KCard({ label, value, tone = "default", sub }: { label: string; value: 
   );
 }
 
-type Bill = { id: string; bill_number: string | null; bill_date: string | null; due_date: string | null; total_amount: number | null; paid_amount: number | null; approval_status: string | null; payment_status: string | null; venue: string | null; notes: string | null };
+type Bill = { id: string; bill_number: string | null; bill_date: string | null; due_date: string | null; total_amount: number | null; paid_amount: number | null; approval_status: string | null; payment_status: string | null; venue: string | null; notes: string | null; supplier_account_id: string | null };
 type Payment = { id: string; bill_id: string; payment_date: string | null; amount: number | null; payment_method: string | null; reference: string | null; notes: string | null };
 
 export default function ExpenseVendorAccountPage() {
