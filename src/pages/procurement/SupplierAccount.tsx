@@ -412,7 +412,7 @@ export default function SupplierAccountPage() {
       balance = balance + (e.debit || 0) - (e.credit || 0);
       return { ...e, balance };
     });
-  }, [supplierInvoices, supplierPayments, supplierCNs, refundLines, depositLines, openingBalances]);
+  }, [supplierInvoices, supplierPayments, supplierCNs, scopedRefundLines, scopedDepositLines, openingBalances]);
 
   const filteredLedger = useMemo(() => {
     const start = periodStart(period);
