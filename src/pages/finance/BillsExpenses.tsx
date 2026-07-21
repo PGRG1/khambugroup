@@ -693,6 +693,50 @@ export default function BillsExpenses() {
                   </Select>
                 </div>
                 <div>
+                  <Label>Supplier account</Label>
+                  <Select
+                    value={(header as any).supplier_account_id || "__none__"}
+                    disabled={!header.supplier_id || supplierAccounts.length === 0}
+                    onValueChange={(v) => {
+                      if (v === "__none__") {
+                        setHeader((h) => ({ ...h, supplier_account_id: null } as any));
+                        return;
+                      }
+                      const sa = supplierAccounts.find((x) => x.id === v);
+                      setHeader((h) => {
+                        const next: any = { ...h, supplier_account_id: v };
+                        if (sa?.default_venue_id) {
+                          const ven = venues.find((x) => x.id === sa.default_venue_id);
+                          if (ven) { next.venue_id = ven.id; next.venue = ven.name; }
+                        }
+                        if (sa?.default_gl_account_id) {
+                          // Default GL applies to the first allocation line if it's empty.
+                          setAllocations((prev) => {
+                            if (!prev.length) return prev;
+                            const first = prev[0];
+                            if (first.account_id) return prev;
+                            const copy = prev.slice();
+                            copy[0] = { ...first, account_id: sa.default_gl_account_id };
+                            return copy;
+                          });
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={header.supplier_id ? (supplierAccounts.length === 0 ? "No accounts for this vendor" : "Select account") : "Pick vendor first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {supplierAccounts.map((sa) => (
+                        <SelectItem key={sa.id} value={sa.id}>
+                          {sa.account_number}{sa.label ? ` · ${sa.label}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                <div>
                   <Label>Vendor name (override)</Label>
                   <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
                   {showInlineCreateVendor && (
