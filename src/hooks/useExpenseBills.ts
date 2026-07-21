@@ -37,6 +37,7 @@ function showApprovalGateToast(e: any) {
 export interface ExpenseBill {
   id: string;
   supplier_id: string | null;
+  supplier_account_id: string | null;
   vendor_name: string | null;
   bill_number: string | null;
   bill_date: string;
@@ -160,6 +161,7 @@ export function useExpenseBills() {
 
         const headerPayload: any = {
           supplier_id: header.supplier_id || null,
+          supplier_account_id: (header as any).supplier_account_id || null,
           vendor_name: header.vendor_name || null,
           bill_number: header.bill_number || null,
           bill_date: header.bill_date,

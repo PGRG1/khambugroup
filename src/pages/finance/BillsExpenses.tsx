@@ -104,6 +104,7 @@ export default function BillsExpenses() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [supplierAccounts, setSupplierAccounts] = useState<Array<{ id: string; account_number: string; label: string | null; default_venue_id: string | null; default_gl_account_id: string | null; is_active: boolean }>>([]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -145,6 +146,22 @@ export default function BillsExpenses() {
       setCategories((c.data || []) as Category[]);
     })();
   }, [tenantId]);
+
+  // Load supplier accounts whenever selected vendor changes in the editor.
+  useEffect(() => {
+    if (!tenantId || !header.supplier_id) { setSupplierAccounts([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("supplier_accounts")
+        .select("id, account_number, label, default_venue_id, default_gl_account_id, is_active")
+        .eq("tenant_id", tenantId)
+        .eq("supplier_id", header.supplier_id)
+        .order("account_number");
+      if (!cancelled) setSupplierAccounts((data || []) as any[]);
+    })();
+    return () => { cancelled = true; };
+  }, [tenantId, header.supplier_id]);
 
   // Pre-fill from another page (e.g. bank-detected expense) — open editor with hint.
   useEffect(() => {
@@ -672,6 +689,51 @@ export default function BillsExpenses() {
                     <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
                     <SelectContent>
                       {suppliers.filter(s => s.id).map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Supplier account</Label>
+                  <Select
+                    value={(header as any).supplier_account_id || "__none__"}
+                    disabled={!header.supplier_id || supplierAccounts.length === 0}
+                    onValueChange={(v) => {
+                      if (v === "__none__") {
+                        setHeader((h) => ({ ...h, supplier_account_id: null } as any));
+                        return;
+                      }
+                      const sa = supplierAccounts.find((x) => x.id === v);
+                      setHeader((h) => {
+                        const next: any = { ...h, supplier_account_id: v };
+                        if (sa?.default_venue_id) {
+                          const ven = venues.find((x) => x.id === sa.default_venue_id);
+                          if (ven) { next.venue_id = ven.id; next.venue = ven.name; }
+                        }
+                        if (sa?.default_gl_account_id) {
+                          // Default GL applies to the first allocation line if it's empty.
+                          setAllocations((prev) => {
+                            if (!prev.length) return prev;
+                            const first = prev[0];
+                            if (first.account_id) return prev;
+                            const copy = prev.slice();
+                            copy[0] = { ...first, account_id: sa.default_gl_account_id };
+                            return copy;
+                          });
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={header.supplier_id ? (supplierAccounts.length === 0 ? "No accounts for this vendor" : "Select account") : "Pick vendor first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {supplierAccounts.map((sa) => (
+                        <SelectItem key={sa.id} value={sa.id}>
+                          {sa.account_number}{sa.label ? ` · ${sa.label}` : ""}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

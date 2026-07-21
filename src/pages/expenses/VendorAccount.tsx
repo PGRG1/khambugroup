@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
+import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -35,7 +36,7 @@ function KCard({ label, value, tone = "default", sub }: { label: string; value: 
   );
 }
 
-type Bill = { id: string; bill_number: string | null; bill_date: string | null; due_date: string | null; total_amount: number | null; paid_amount: number | null; approval_status: string | null; payment_status: string | null; venue: string | null; notes: string | null };
+type Bill = { id: string; bill_number: string | null; bill_date: string | null; due_date: string | null; total_amount: number | null; paid_amount: number | null; approval_status: string | null; payment_status: string | null; venue: string | null; notes: string | null; supplier_account_id: string | null };
 type Payment = { id: string; bill_id: string; payment_date: string | null; amount: number | null; payment_method: string | null; reference: string | null; notes: string | null };
 
 export default function ExpenseVendorAccountPage() {
@@ -45,6 +46,8 @@ export default function ExpenseVendorAccountPage() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!tenantId || !vendorId) return;
@@ -53,7 +56,7 @@ export default function ExpenseVendorAccountPage() {
       setLoading(true);
       const [{ data: v }, { data: b }, { data: p }] = await Promise.all([
         (supabase as any).from("suppliers").select("id, name").eq("id", vendorId).eq("tenant_id", tenantId).maybeSingle(),
-        (supabase as any).from("expense_bills").select("id, bill_number, bill_date, due_date, total_amount, paid_amount, approval_status, payment_status, venue, notes").eq("tenant_id", tenantId).eq("supplier_id", vendorId).order("bill_date", { ascending: false }),
+        (supabase as any).from("expense_bills").select("id, bill_number, bill_date, due_date, total_amount, paid_amount, approval_status, payment_status, venue, notes, supplier_account_id").eq("tenant_id", tenantId).eq("supplier_id", vendorId).order("bill_date", { ascending: false }),
         (supabase as any).from("expense_bill_payments").select("id, bill_id, payment_date, amount, payment_method, reference, notes").eq("tenant_id", tenantId),
       ]);
       if (cancelled) return;
@@ -65,7 +68,20 @@ export default function ExpenseVendorAccountPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [tenantId, vendorId]);
+  }, [tenantId, vendorId, reloadKey]);
+
+  const billCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const b of bills) {
+      if (b.supplier_account_id) m[b.supplier_account_id] = (m[b.supplier_account_id] || 0) + 1;
+    }
+    return m;
+  }, [bills]);
+
+  const scopedBills = useMemo(
+    () => (selectedAccountId ? bills.filter((b) => b.supplier_account_id === selectedAccountId) : bills),
+    [bills, selectedAccountId],
+  );
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -75,7 +91,11 @@ export default function ExpenseVendorAccountPage() {
     return m;
   }, [payments]);
 
-  const activeBills = useMemo(() => bills.filter((b) => b.approval_status !== "voided" && b.approval_status !== "reversed" && b.approval_status !== "draft"), [bills]);
+  const activeBills = useMemo(() => scopedBills.filter((b) => b.approval_status !== "voided" && b.approval_status !== "reversed" && b.approval_status !== "draft"), [scopedBills]);
+  const scopedPayments = useMemo(() => {
+    const ids = new Set(scopedBills.map((b) => b.id));
+    return payments.filter((p) => ids.has(p.bill_id));
+  }, [scopedBills, payments]);
 
   const totals = useMemo(() => {
     let billed = 0, paid = 0, outstanding = 0, overdue = 0, openN = 0;
@@ -103,7 +123,7 @@ export default function ExpenseVendorAccountPage() {
         credit: 0,
       });
     }
-    for (const p of payments) {
+    for (const p of scopedPayments) {
       entries.push({
         id: `pay-${p.id}`,
         date: p.payment_date,
@@ -117,7 +137,7 @@ export default function ExpenseVendorAccountPage() {
     const sorted = entries.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     let bal = 0;
     return sorted.map((e) => { bal = bal + (e.debit || 0) - (e.credit || 0); return { ...e, balance: bal }; });
-  }, [activeBills, payments]);
+  }, [activeBills, scopedPayments]);
 
   return (
     <div className="p-6 space-y-6">
@@ -139,11 +159,19 @@ export default function ExpenseVendorAccountPage() {
         <KCard label="Open bills" value={String(totals.openN)} tone="sky" />
       </div>
 
+      <SupplierAccountsSection
+        supplierId={vendorId}
+        selectedAccountId={selectedAccountId}
+        onSelect={setSelectedAccountId}
+        billCounts={billCounts}
+        onChanged={() => setReloadKey((k) => k + 1)}
+      />
+
       <Tabs defaultValue="statement">
         <TabsList>
           <TabsTrigger value="statement">Statement</TabsTrigger>
           <TabsTrigger value="bills">Bills ({activeBills.length})</TabsTrigger>
-          <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
+          <TabsTrigger value="payments">Payments ({scopedPayments.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="statement">
@@ -235,7 +263,7 @@ export default function ExpenseVendorAccountPage() {
         <TabsContent value="payments">
           <Card className="card-glass">
             <CardContent className="p-5">
-              {payments.length === 0 ? <div className="text-sm text-muted-foreground">No payments.</div> : (
+              {scopedPayments.length === 0 ? <div className="text-sm text-muted-foreground">No payments.</div> : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -248,7 +276,7 @@ export default function ExpenseVendorAccountPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {payments.slice().sort((a, b) => (b.payment_date || "").localeCompare(a.payment_date || "")).map((p) => (
+                      {scopedPayments.slice().sort((a, b) => (b.payment_date || "").localeCompare(a.payment_date || "")).map((p) => (
                         <tr key={p.id} className="border-b border-border/40">
                           <td className="py-2 pr-4">{fmtDate(p.payment_date)}</td>
                           <td className="py-2 pr-4">{p.payment_method || "—"}</td>
