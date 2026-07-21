@@ -736,6 +736,7 @@ export default function BillsExpenses() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
                 <div>
                   <Label>Vendor name (override)</Label>
                   <Input value={header.vendor_name || ""} onChange={(e) => setHeader({ ...header, vendor_name: e.target.value })} placeholder="Optional" />
