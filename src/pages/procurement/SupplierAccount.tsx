@@ -21,6 +21,7 @@ import { RecordPaymentDialog } from "@/components/finance/payables/RecordPayment
 import { BookCreditNoteDialog } from "@/components/finance/payables/BookCreditNoteDialog";
 import { ExerciseCreditDialog } from "@/components/procurement/ExerciseCreditDialog";
 import { AddChargeDialog } from "@/components/procurement/AddChargeDialog";
+import SupplierAccountsSection from "@/components/expenses/SupplierAccountsSection";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtMoney = (n: number) => `HK$ ${(Number(n) || 0).toLocaleString("en-HK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
