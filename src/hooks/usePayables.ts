@@ -26,6 +26,7 @@ export type APInvoice = {
   last_paid_from_account_id: string | null;
   last_paid_from_account_name: string | null;
   file_url: string | null;
+  supplier_account_id: string | null;
 };
 
 export type APSupplierSummary = {
