@@ -2109,6 +2109,7 @@ export type Database = {
           source_type: string
           statement_total: number | null
           subtotal: number
+          supplier_account_id: string | null
           supplier_id: string | null
           tax_amount: number
           tenant_id: string
@@ -2156,6 +2157,7 @@ export type Database = {
           source_type?: string
           statement_total?: number | null
           subtotal?: number
+          supplier_account_id?: string | null
           supplier_id?: string | null
           tax_amount?: number
           tenant_id?: string
@@ -2203,6 +2205,7 @@ export type Database = {
           source_type?: string
           statement_total?: number | null
           subtotal?: number
+          supplier_account_id?: string | null
           supplier_id?: string | null
           tax_amount?: number
           tenant_id?: string
@@ -2239,6 +2242,13 @@ export type Database = {
             columns: ["recurring_rule_id"]
             isOneToOne: false
             referencedRelation: "expense_recurring_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_bills_supplier_account_id_fkey"
+            columns: ["supplier_account_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -2691,6 +2701,7 @@ export type Database = {
           statement_date: string
           statement_number: string | null
           status: string
+          supplier_account_id: string | null
           supplier_id: string | null
           tenant_id: string
           updated_at: string
@@ -2721,6 +2732,7 @@ export type Database = {
           statement_date: string
           statement_number?: string | null
           status?: string
+          supplier_account_id?: string | null
           supplier_id?: string | null
           tenant_id?: string
           updated_at?: string
@@ -2751,6 +2763,7 @@ export type Database = {
           statement_date?: string
           statement_number?: string | null
           status?: string
+          supplier_account_id?: string | null
           supplier_id?: string | null
           tenant_id?: string
           updated_at?: string
@@ -2759,6 +2772,13 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "expense_vendor_statements_supplier_account_id_fkey"
+            columns: ["supplier_account_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "expense_vendor_statements_supplier_id_fkey"
             columns: ["supplier_id"]
@@ -8620,6 +8640,91 @@ export type Database = {
           venue?: string
         }
         Relationships: []
+      }
+      supplier_accounts: {
+        Row: {
+          account_number: string
+          created_at: string
+          default_gl_account_id: string | null
+          default_venue_id: string | null
+          id: string
+          is_active: boolean
+          label: string | null
+          notes: string | null
+          supplier_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_number: string
+          created_at?: string
+          default_gl_account_id?: string | null
+          default_venue_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          notes?: string | null
+          supplier_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string
+          created_at?: string
+          default_gl_account_id?: string | null
+          default_venue_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          notes?: string | null
+          supplier_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_accounts_default_gl_account_id_fkey"
+            columns: ["default_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_accounts_default_gl_account_id_fkey"
+            columns: ["default_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "supplier_accounts_default_gl_account_id_fkey"
+            columns: ["default_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "supplier_accounts_default_gl_account_id_fkey"
+            columns: ["default_gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "supplier_accounts_default_venue_id_fkey"
+            columns: ["default_venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_accounts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplier_item_mappings: {
         Row: {
