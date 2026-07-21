@@ -54,6 +54,7 @@ export interface Invoice {
   id: string;
   supplier_id: string;
   supplier_name?: string;
+  supplier_account_id?: string | null;
   venue: string;
   invoice_number: string;
   invoice_date: string;
