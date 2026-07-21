@@ -263,7 +263,7 @@ export default function ExpenseVendorAccountPage() {
         <TabsContent value="payments">
           <Card className="card-glass">
             <CardContent className="p-5">
-              {payments.length === 0 ? <div className="text-sm text-muted-foreground">No payments.</div> : (
+              {scopedPayments.length === 0 ? <div className="text-sm text-muted-foreground">No payments.</div> : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -276,7 +276,7 @@ export default function ExpenseVendorAccountPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {payments.slice().sort((a, b) => (b.payment_date || "").localeCompare(a.payment_date || "")).map((p) => (
+                      {scopedPayments.slice().sort((a, b) => (b.payment_date || "").localeCompare(a.payment_date || "")).map((p) => (
                         <tr key={p.id} className="border-b border-border/40">
                           <td className="py-2 pr-4">{fmtDate(p.payment_date)}</td>
                           <td className="py-2 pr-4">{p.payment_method || "—"}</td>
