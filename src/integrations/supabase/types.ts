@@ -1786,49 +1786,67 @@ export type Database = {
         Row: {
           account_id: string | null
           amount: number
+          asset_category: string | null
+          asset_name: string | null
           bill_id: string
+          capitalize: boolean
           created_at: string
           department: string | null
           expense_category: string | null
           id: string
+          in_service_date: string | null
           line_no: number
           notes: string | null
+          salvage_value: number
           tax_amount: number
           tax_treatment: string
           tenant_id: string
           updated_at: string
+          useful_life_months: number | null
           venue: string | null
         }
         Insert: {
           account_id?: string | null
           amount?: number
+          asset_category?: string | null
+          asset_name?: string | null
           bill_id: string
+          capitalize?: boolean
           created_at?: string
           department?: string | null
           expense_category?: string | null
           id?: string
+          in_service_date?: string | null
           line_no?: number
           notes?: string | null
+          salvage_value?: number
           tax_amount?: number
           tax_treatment?: string
           tenant_id?: string
           updated_at?: string
+          useful_life_months?: number | null
           venue?: string | null
         }
         Update: {
           account_id?: string | null
           amount?: number
+          asset_category?: string | null
+          asset_name?: string | null
           bill_id?: string
+          capitalize?: boolean
           created_at?: string
           department?: string | null
           expense_category?: string | null
           id?: string
+          in_service_date?: string | null
           line_no?: number
           notes?: string | null
+          salvage_value?: number
           tax_amount?: number
           tax_treatment?: string
           tenant_id?: string
           updated_at?: string
+          useful_life_months?: number | null
           venue?: string | null
         }
         Relationships: [
@@ -2795,6 +2813,330 @@ export type Database = {
           },
           {
             foreignKeyName: "expense_vendor_statements_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixed_asset_depreciation_schedule: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          journal_entry_id: string | null
+          period_month: number
+          period_year: number
+          posted_amount: number
+          posted_at: string | null
+          scheduled_amount: number
+          sequence_no: number
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          period_month: number
+          period_year: number
+          posted_amount?: number
+          posted_at?: string | null
+          scheduled_amount: number
+          sequence_no: number
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          period_month?: number
+          period_year?: number
+          posted_amount?: number
+          posted_at?: string | null
+          scheduled_amount?: number
+          sequence_no?: number
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixed_asset_depreciation_schedule_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "fixed_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_asset_depreciation_schedule_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_asset_depreciation_schedule_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "fixed_asset_depreciation_schedule_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "fixed_asset_depreciation_schedule_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixed_assets: {
+        Row: {
+          accumulated_depr_account_id: string
+          amount_depreciated: number
+          amount_remaining: number
+          asset_account_id: string
+          asset_tag: string | null
+          category: string
+          cost: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          disposal_date: string | null
+          disposal_journal_entry_id: string | null
+          disposal_proceeds: number | null
+          expense_account_id: string
+          id: string
+          in_service_date: string
+          method: string
+          name: string
+          notes: string | null
+          purchase_date: string
+          salvage_value: number
+          source_allocation_id: string | null
+          source_bill_id: string | null
+          status: string
+          supplier_id: string | null
+          tenant_id: string
+          updated_at: string
+          useful_life_months: number
+          venue: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          accumulated_depr_account_id: string
+          amount_depreciated?: number
+          amount_remaining?: number
+          asset_account_id: string
+          asset_tag?: string | null
+          category: string
+          cost: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          disposal_date?: string | null
+          disposal_journal_entry_id?: string | null
+          disposal_proceeds?: number | null
+          expense_account_id: string
+          id?: string
+          in_service_date: string
+          method?: string
+          name: string
+          notes?: string | null
+          purchase_date: string
+          salvage_value?: number
+          source_allocation_id?: string | null
+          source_bill_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          useful_life_months: number
+          venue?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          accumulated_depr_account_id?: string
+          amount_depreciated?: number
+          amount_remaining?: number
+          asset_account_id?: string
+          asset_tag?: string | null
+          category?: string
+          cost?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          disposal_date?: string | null
+          disposal_journal_entry_id?: string | null
+          disposal_proceeds?: number | null
+          expense_account_id?: string
+          id?: string
+          in_service_date?: string
+          method?: string
+          name?: string
+          notes?: string | null
+          purchase_date?: string
+          salvage_value?: number
+          source_allocation_id?: string | null
+          source_bill_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          useful_life_months?: number
+          venue?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixed_assets_accumulated_depr_account_id_fkey"
+            columns: ["accumulated_depr_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_accumulated_depr_account_id_fkey"
+            columns: ["accumulated_depr_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_accumulated_depr_account_id_fkey"
+            columns: ["accumulated_depr_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_accumulated_depr_account_id_fkey"
+            columns: ["accumulated_depr_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_disposal_journal_entry_id_fkey"
+            columns: ["disposal_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_disposal_journal_entry_id_fkey"
+            columns: ["disposal_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_cash_movements"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_disposal_journal_entry_id_fkey"
+            columns: ["disposal_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_general_ledger"
+            referencedColumns: ["entry_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_balance_sheet"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_pl"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "v_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_source_allocation_id_fkey"
+            columns: ["source_allocation_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bill_allocations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_source_bill_id_fkey"
+            columns: ["source_bill_id"]
+            isOneToOne: false
+            referencedRelation: "expense_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -10349,6 +10691,10 @@ export type Database = {
         }
         Returns: string
       }
+      capitalize_bill_allocation: {
+        Args: { p_allocation_id: string }
+        Returns: string
+      }
       compute_ai_rule_key: {
         Args: { _action: Json; _pattern: Json }
         Returns: string
@@ -10381,6 +10727,15 @@ export type Database = {
         Returns: string
       }
       current_user_tenant_id: { Args: never; Returns: string }
+      dispose_fixed_asset: {
+        Args: {
+          p_asset_id: string
+          p_disposal_date: string
+          p_memo?: string
+          p_proceeds: number
+        }
+        Returns: string
+      }
       ensure_revenue_manager_target_lines_month: {
         Args: {
           p_month: number
@@ -10557,6 +10912,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      post_depreciation_period: {
+        Args: { p_month: number; p_tenant_id: string; p_year: number }
+        Returns: string[]
+      }
       post_expense_bill: { Args: { p_bill_id: string }; Returns: string }
       post_expense_bill_payment: {
         Args: { p_payment_id: string }
@@ -10576,6 +10935,20 @@ export type Database = {
       post_vendor_statement: {
         Args: { p_statement_id: string }
         Returns: string
+      }
+      preview_depreciation_period: {
+        Args: { p_month: number; p_tenant_id: string; p_year: number }
+        Returns: {
+          accumulated_depr_account_id: string
+          already_posted: boolean
+          asset_id: string
+          asset_name: string
+          category: string
+          expense_account_id: string
+          scheduled_amount: number
+          venue: string
+          venue_id: string
+        }[]
       }
       rebuild_journal_from_operations: {
         Args: { p_tenant_id: string }
