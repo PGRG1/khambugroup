@@ -171,6 +171,58 @@ ${pmLines}`;
     });
 
     // --- FIRST PASS: Extract data ---
+    // Use forced tool-calling so the model can never reply with prose/markdown
+    // (the previous free-text JSON mode intermittently returned an empty or
+    // non-invoice object, which surfaced in the UI as a blank scanned invoice).
+    const EXTRACT_TOOL = {
+      type: "function",
+      function: {
+        name: "report_invoices",
+        description: "Return every invoice found in the document.",
+        parameters: {
+          type: "object",
+          required: ["invoices"],
+          properties: {
+            invoices: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["supplier_name", "invoice_number", "invoice_date", "line_items"],
+                properties: {
+                  supplier_name: { type: "string" },
+                  invoice_number: { type: "string" },
+                  invoice_date: { type: "string" },
+                  due_date: { type: "string" },
+                  venue: { type: "string" },
+                  total_amount: { type: "number" },
+                  notes: { type: "string" },
+                  line_items: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      required: ["description", "quantity", "unit_price", "total"],
+                      properties: {
+                        item_code: { type: "string" },
+                        description: { type: "string" },
+                        pack_size: { type: "string" },
+                        quantity: { type: "number" },
+                        unit: { type: "string" },
+                        weight: { type: ["number", "null"] },
+                        unit_price: { type: "number" },
+                        discount: { type: "number" },
+                        total: { type: "number" },
+                        matched_sku: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
     const extractionBody = JSON.stringify({
       model: "google/gemini-2.5-flash",
       max_tokens: 32000,
@@ -178,7 +230,10 @@ ${pmLines}`;
         { role: "system", content: fullSystemPrompt },
         { role: "user", content: userContent },
       ],
+      tools: [EXTRACT_TOOL],
+      tool_choice: { type: "function", function: { name: "report_invoices" } },
     });
+
 
     const MAX_RETRIES = 3;
     let extractedData: any = null;
