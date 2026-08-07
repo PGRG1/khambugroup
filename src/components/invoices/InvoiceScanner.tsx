@@ -48,7 +48,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Info } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
