@@ -49,6 +49,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Info, Sparkles } from "lucide-react";
+import QuickAddProductPopover from "./QuickAddProductPopover";
+import QuickAddBulkDialog from "./QuickAddBulkDialog";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -161,6 +163,8 @@ interface ScannedInvoice {
 interface InvoiceScannerProps {
   suppliers: Supplier[];
   productMaster?: ProductMasterEntry[];
+  /** Called after a Quick Add so the parent can refetch the Product Master. */
+  onProductMasterChanged?: () => void | Promise<void>;
   onSave: (invoice: {
     supplier_id: string;
     venue: string;
@@ -246,7 +250,7 @@ function computeReceivingTint(line: ScannedLineItem): { bg: string; border: stri
   return { bg: "rgba(251, 191, 36, 0.10)", border: "rgba(251, 191, 36, 0.35)" };
 }
 
-const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: InvoiceScannerProps) => {
+const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSave, onClose, userId }: InvoiceScannerProps) => {
   const [dragging, setDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [invoices, setInvoices] = useState<ScannedInvoice[]>([]);
@@ -1032,6 +1036,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   // ---- Fuzzy "did you mean?" suggestions ----
   const [aiMatchingIdx, setAiMatchingIdx] = useState<number | null>(null);
   const [aiMatchingAll, setAiMatchingAll] = useState(false);
+  const [bulkQuickAddOpen, setBulkQuickAddOpen] = useState(false);
 
   const applySuggestion = (i: number, candidate: FuzzyCandidate) => {
     selectProduct(i, candidate.entry as ProductMasterEntry);
@@ -1572,6 +1577,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
   const hasSkuMismatches = current?.line_items.some(l => l.sku_mismatch) || false;
   const unmatchedItems = current?.line_items.filter(l => l.unmatched) || [];
   const hasUnmatchedItems = unmatchedItems.length > 0;
+  const unmatchedBulkLines = (current?.line_items || [])
+    .map((l, idx) => ({ line: l, idx }))
+    .filter(({ line }) => line.unmatched && (line.description || "").trim())
+    .map(({ line, idx }) => ({
+      index: idx,
+      item_code: line.item_code,
+      description: line.description,
+      unit: line.unit,
+      unit_price: line.unit_price,
+    }));
   const priceChangedItems = current?.line_items.filter(l => l.price_changed) || [];
   const hasPriceChanges = priceChangedItems.length > 0;
   const blockingCount = (current?.review_blocking?.length || 0)
@@ -1959,12 +1974,31 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
             {hasUnmatchedItems && (
-              <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
-                {aiMatchingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
-                Resolve {unmatchedItems.length} unmatched with AI
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
+                  {aiMatchingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                  Resolve {unmatchedItems.length} unmatched with AI
+                </Button>
+                {unmatchedBulkLines.length > 0 && (
+                  <Button size="sm" variant="outline" onClick={() => setBulkQuickAddOpen(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Quick add {unmatchedBulkLines.length} to master
+                  </Button>
+                )}
+              </div>
             )}
           </div>
+
+          <QuickAddBulkDialog
+            open={bulkQuickAddOpen}
+            onOpenChange={setBulkQuickAddOpen}
+            lines={unmatchedBulkLines}
+            products={(productMaster || []) as any}
+            supplierName={current?.supplier_name}
+            onCreated={(lineIndex, entry) => selectProduct(lineIndex, entry as ProductMasterEntry)}
+            onRefresh={onProductMasterChanged}
+          />
+
 
 
           {missingDeals.length > 0 && (
@@ -2160,14 +2194,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           multiline
                         />
                         {line.unmatched && (line.description || "").trim() && (
-                          <ProductSuggestionChip
-                            candidates={line.suggestions || []}
-                            source={line.suggestion_source || "local"}
-                            onApply={(c) => applySuggestion(i, c)}
-                            onAskAi={() => askAiForLine(i)}
-                            aiLoading={aiMatchingIdx === i || aiMatchingAll}
-                          />
+                          <div className="flex flex-wrap items-center gap-1">
+                            <ProductSuggestionChip
+                              candidates={line.suggestions || []}
+                              source={line.suggestion_source || "local"}
+                              onApply={(c) => applySuggestion(i, c)}
+                              onAskAi={() => askAiForLine(i)}
+                              aiLoading={aiMatchingIdx === i || aiMatchingAll}
+                            />
+                            <QuickAddProductPopover
+                              products={(productMaster || []) as any}
+                              supplierName={current?.supplier_name}
+                              line={{
+                                item_code: line.item_code,
+                                description: line.description,
+                                unit: line.unit,
+                                unit_price: line.unit_price,
+                              }}
+                              onCreated={(entry) => selectProduct(i, entry as ProductMasterEntry)}
+                              onRefresh={onProductMasterChanged}
+                            />
+                          </div>
                         )}
+
                         {line.auto_matched && (
                           <div className="mt-1 text-[11px] text-muted-foreground">
                             Auto-matched{line.auto_match_score != null ? ` (${Math.round(line.auto_match_score * 100)}%)` : ""} — change above if wrong

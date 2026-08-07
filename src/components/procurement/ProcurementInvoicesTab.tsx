@@ -1718,6 +1718,7 @@ export default function ProcurementInvoicesTab() {
         <InvoiceScanner
           suppliers={suppliers}
           productMaster={productMaster}
+          onProductMasterChanged={loadProductMaster}
           onSave={async (inv, lines, files) => {
             let fileUrl: string | null = null;
             let fileName: string | null = null;

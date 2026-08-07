@@ -660,10 +660,12 @@ export default function ProductMasterTab() {
         const mapped = flatRows.filter(r => r.mapping_status === "Mapped").length;
         const unmapped = flatRows.filter(r => r.mapping_status === "Unmapped").length;
         const inactive = flatRows.filter(r => r.status !== "Active").length;
-        const chips: { label: string; count: number; tone: "neutral"|"success"|"danger"; active: boolean; onClick: () => void }[] = [
+        const drafts = flatRows.filter(r => r.status === "Draft").length;
+        const chips: { label: string; count: number; tone: "neutral"|"success"|"danger"|"warn"; active: boolean; onClick: () => void }[] = [
           { label: "Total items", count: total, tone: "neutral", active: mappingFilter === "all" && statusFilter === "all", onClick: () => { setMappingFilter("all"); setStatusFilter("all"); } },
           { label: "Mapped", count: mapped, tone: "success", active: mappingFilter === "Mapped", onClick: () => setMappingFilter(mappingFilter === "Mapped" ? "all" : "Mapped") },
           { label: "Unmapped", count: unmapped, tone: "danger", active: mappingFilter === "Unmapped", onClick: () => setMappingFilter(mappingFilter === "Unmapped" ? "all" : "Unmapped") },
+          { label: "Needs setup", count: drafts, tone: "warn", active: statusFilter === "Draft", onClick: () => setStatusFilter(statusFilter === "Draft" ? "all" : "Draft") },
           { label: "Inactive", count: inactive, tone: "neutral", active: statusFilter === "Inactive", onClick: () => setStatusFilter(statusFilter === "Inactive" ? "all" : "Inactive") },
         ];
         return (
@@ -775,6 +777,7 @@ export default function ProductMasterTab() {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="Draft">Draft (needs setup)</SelectItem>
               <SelectItem value="Inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
