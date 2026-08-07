@@ -368,8 +368,9 @@ ${pmLines}`;
     if (!extractedData) {
       console.error("All retries failed. Last error:", lastError);
       return new Response(
-        JSON.stringify({ success: false, error: "Could not extract invoice data after multiple attempts. Please try again or use a clearer image." }),
+        JSON.stringify({ success: false, error: `No invoice data could be read from this document after ${MAX_RETRIES} attempts. Please re-scan, or upload a clearer/higher-resolution image. (${lastError})` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+
       );
     }
 
