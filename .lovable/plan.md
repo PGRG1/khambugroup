@@ -9,8 +9,12 @@ This is the opposite side of the earlier fix: scanned text must be preserved as 
 ## The fix
 
 1. **Linked lines display the master's supplier product name.** When a line has a `product_master_id`, the External Name cell shows the linked entry's `supplier_product_name` (falling back to the internal product name if the supplier name is blank). Same for External SKU: show the master's `external_sku` when linked.
-2. **Scanned text stays as evidence, not as display.** `scanned_description` / `scanned_item_code` remain immutable and are still what matching scores against. The invoice wording is shown as small muted sub-text under the cell ("Invoice: HOEGAARDEN - 20L KEG Ref No. 6B15") plus a tooltip, so nothing is lost and mismatches stay visible.
-3. **Drop the "Name differs" hold for wording-only differences.** Because the cell now shows the canonical name, the amber "Name differs" marker only appears when the scanned text genuinely conflicts with the master (conflicting brand/size tokens), not when it is simply longer or contains a supplier reference number. Size/unit conflicts still block auto-link exactly as they do today.
+2. **Confidence decides how the name is adopted.** The match score against the scanned text drives three bands:
+   - **High confidence (auto-link band, raw name score at or above the auto-link threshold, no size/unit/brand conflict):** the master name replaces the cell text silently, invoice wording kept as sub-text.
+   - **Medium confidence (suggest band, e.g. the 82% Hoegaarden case):** the line still links when you accept the suggestion, and adopting the master name is part of accepting it — the chip reads "Use master name (82%)" so the swap is an explicit, one-click confirmation rather than a silent rewrite.
+   - **Low confidence (below the suggest band):** no link, no name substitution; the scanned text stands as today.
+3. **"Name differs" only fires on real conflicts.** Because the cell now shows the canonical name, the amber marker appears only when the scanned text conflicts with the master on size, unit, pack count, or identifying brand tokens — not when the invoice wording is merely longer or carries a supplier reference number. Conflicts still block auto-link exactly as they do today, and the confidence percentage is still scored against the scanned text so it can never be self-referential.
+
 4. **Unlinked lines are unchanged.** They keep showing scanned text, editable, with Did you mean / Ask AI / Quick add.
 5. **Unlink restores the scanned text** into the cell, as it does today.
 6. **Save path writes the canonical name.** Lines saved with a link store the master supplier product name and external SKU; the scanned wording is kept only as evidence on the line, so downstream invoice records, GRNs, and pricing views stay consistent.
