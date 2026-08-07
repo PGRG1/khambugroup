@@ -36,7 +36,7 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
   const top = candidates[0];
   const rest = candidates.slice(1);
   const label = (c: FuzzyCandidate) =>
-    c.entry.internal_product_name || c.entry.supplier_product_name || c.entry.internal_sku;
+    c.entry.supplier_product_name || c.entry.internal_product_name || c.entry.internal_sku;
   const confidence = (c: FuzzyCandidate) => c.rawNameScore;
 
   return (
@@ -46,13 +46,14 @@ export default function ProductSuggestionChip({ candidates, onApply, onAskAi, ai
         <button
           type="button"
           onClick={() => onApply(top)}
-          title={top.reasons.join(", ")}
+          title={`Link and use the master name "${label(top)}" — ${top.reasons.join(", ")}`}
           className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary hover:bg-primary/20"
         >
           <Check className="h-3 w-3" />
           {label(top)}
           <span className="font-mono opacity-70">{Math.round(confidence(top) * 100)}%</span>
         </button>
+        <span className="text-muted-foreground">use master name</span>
         {rest.length > 0 && (
           <button
             type="button"

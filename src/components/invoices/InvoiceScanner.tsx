@@ -429,6 +429,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       ...line,
       scanned_item_code: line.scanned_item_code ?? line.item_code,
       scanned_description: line.scanned_description ?? line.description,
+      // Items master is the source of truth for the external identity of a linked line.
+      description: entry.supplier_product_name || entry.internal_product_name || line.description,
+      item_code: entry.external_sku ?? line.item_code,
       matched_sku: entry.internal_sku,
       matched_internal_name: entry.internal_product_name || "",
       matched_stock_uom: entry.stock_uom || "",
@@ -584,6 +587,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
       return {
         ...workingLine,
+        description: resolved.supplier_product_name || resolved.internal_product_name || workingLine.description,
+        item_code: (resolved as any).external_sku ?? workingLine.item_code,
         matched_sku: resolved.internal_sku,
         sku_mismatch: skuMismatch,
         unmatched: false,
@@ -1015,6 +1020,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         ...currentLine,
         scanned_item_code: currentLine.scanned_item_code ?? currentLine.item_code,
         scanned_description: currentLine.scanned_description ?? currentLine.description,
+        // Items master is the source of truth once the line is linked.
+        description: product.supplier_product_name || product.internal_product_name || currentLine.description,
+        item_code: product.external_sku ?? currentLine.item_code,
         matched_sku: product.internal_sku,
         matched_internal_name: product.internal_product_name || "",
         matched_stock_uom: product.stock_uom || "",
@@ -2148,14 +2156,19 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                   const effReason = qtyDiff === 0 ? "matched" : (line.receiving_reason || "");
                   const reasonMissing = qtyDiff !== 0 && !effReason;
                   const noteRequired = effReason === "other" && !(line.receiving_note || "").trim();
-                   const linkedNameScore = line.product_master_id && line.scanned_description
+                   // Score the linked master against the immutable scanned text.
+                   // Only real conflicts (size / unit / pack / brand) raise a flag —
+                   // longer supplier wording or a reference number is not a conflict.
+                   const linkedMatch = line.product_master_id && line.scanned_description
                      ? scoreCandidates(
                          { description: line.scanned_description },
                          (productMaster || []).filter((product) => product.id === line.product_master_id),
                          current.supplier_name,
                          1,
-                       )[0]?.rawNameScore ?? 0
-                     : 1;
+                       )[0]
+                     : undefined;
+                   const linkedConflict = linkedMatch?.blockingReasons?.[0];
+                   
                   return (
                     <tr
                       key={i}
@@ -2225,10 +2238,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                         <div className="whitespace-normal break-words text-xs min-h-[32px] px-2 py-1.5 bg-muted/50 rounded-md border border-input text-foreground">
                           {line.matched_internal_name || <span className="text-muted-foreground">—</span>}
                         </div>
-                        {line.matched_internal_name && line.scanned_description && linkedNameScore < FUZZY.SUGGEST &&
-                          normalizeText(line.matched_internal_name) !== normalizeText(line.scanned_description) && (
+                        {line.matched_internal_name && line.scanned_description && linkedConflict && (
                           <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-warning" title={`Scanned: ${line.scanned_description}`}>
-                            <AlertTriangle className="h-3 w-3" /> Name differs
+                            <AlertTriangle className="h-3 w-3" /> {linkedConflict}
                           </div>
                         )}
                       </td>
@@ -2263,6 +2275,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                           currentSupplier={current?.supplier_name}
                           multiline
                         />
+                        {!line.unmatched && line.scanned_description &&
+                          normalizeText(line.scanned_description) !== normalizeText(line.description) && (
+                          <div
+                            className="mt-1 text-[10px] text-muted-foreground truncate"
+                            title={`Invoice wording: ${line.scanned_description}`}
+                          >
+                            Invoice: {line.scanned_description}
+                          </div>
+                        )}
                         {line.unmatched && (line.description || "").trim() && (
                           <div className="flex flex-wrap items-center gap-1">
                             <ProductSuggestionChip
