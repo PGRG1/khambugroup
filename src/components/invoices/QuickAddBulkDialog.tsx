@@ -276,12 +276,19 @@ export default function QuickAddBulkDialog({
                     </span>
                   ) : (
                     <Input
-                      className="h-7 w-32 text-[11px] font-mono"
+                      className={cn(
+                        "h-7 w-32 text-[11px] font-mono",
+                        conflicts[l.index] && "border-destructive focus-visible:ring-destructive",
+                      )}
                       value={plan.internalSku}
-                      onChange={(e) => setPlan(l.index, { internalSku: e.target.value })}
+                      onChange={(e) => setPlan(l.index, { internalSku: e.target.value.toUpperCase() })}
                     />
                   )}
                 </div>
+                {plan.mode === "new" && conflicts[l.index] && (
+                  <div className="text-[11px] text-destructive">{conflicts[l.index]}</div>
+                )}
+
               </div>
             );
           })}
