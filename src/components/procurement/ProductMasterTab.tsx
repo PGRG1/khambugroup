@@ -777,6 +777,7 @@ export default function ProductMasterTab() {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="Draft">Draft (needs setup)</SelectItem>
               <SelectItem value="Inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
