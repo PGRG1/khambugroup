@@ -182,7 +182,7 @@ export default function QuickAddBulkDialog({
 
         const sku = plan.internalSku.trim();
         const name = (l.description || "").trim();
-        if (!sku || !name) continue;
+        if (!sku || !name || conflicts[l.index]) continue;
 
         const { data: existing } = await supabase
           .from("product_master" as any)
@@ -191,12 +191,15 @@ export default function QuickAddBulkDialog({
           .eq("internal_sku", sku)
           .limit(1);
 
-        let productId: string;
-        let pmName = name;
         if (existing && (existing as any[]).length > 0) {
-          productId = (existing as any[])[0].id;
-          pmName = (existing as any[])[0].internal_product_name || name;
-        } else {
+          toast.error(`Internal SKU ${sku} is already in use — skipped that line.`);
+          continue;
+        }
+
+        let productId: string;
+        const pmName = name;
+        {
+
           const { data, error } = await supabase
             .from("product_master" as any)
             .insert({
