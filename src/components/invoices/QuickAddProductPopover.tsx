@@ -207,7 +207,11 @@ export default function QuickAddProductPopover({
           toast.error("Internal SKU and name are required.");
           return;
         }
-        // Existing internal SKU → attach as a supplier entry instead of duplicating.
+        if (skuConflict) {
+          toast.error(`Internal SKU ${sku} is already used by ${skuConflict.internal_product_name}.`);
+          return;
+        }
+        // Server-side guard: the SKU may exist outside the loaded product list.
         const { data: existing } = await supabase
           .from("product_master" as any)
           .select("id, internal_sku, internal_product_name")
@@ -215,12 +219,21 @@ export default function QuickAddProductPopover({
           .eq("internal_sku", sku)
           .limit(1);
 
+        if (existing && (existing as any[]).length > 0) {
+          const hit = (existing as any[])[0];
+          toast.error(
+            `Internal SKU ${sku} is already in use by ${hit.internal_product_name || "another product"} — pick it under "New supplier for existing" or change the SKU.`,
+          );
+          setMode("existing");
+          setPickedId(hit.id);
+          setPickerQuery(hit.internal_sku || "");
+          return;
+        }
+
         let productId: string;
         let pmName = internalName.trim();
-        if (existing && (existing as any[]).length > 0) {
-          productId = (existing as any[])[0].id;
-          pmName = (existing as any[])[0].internal_product_name || pmName;
-        } else {
+        {
+
           const { data, error } = await supabase
             .from("product_master" as any)
             .insert({
