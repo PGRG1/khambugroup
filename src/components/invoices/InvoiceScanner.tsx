@@ -587,6 +587,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
 
       return {
         ...workingLine,
+        description: resolved.supplier_product_name || resolved.internal_product_name || workingLine.description,
+        item_code: (resolved as any).external_sku ?? workingLine.item_code,
         matched_sku: resolved.internal_sku,
         sku_mismatch: skuMismatch,
         unmatched: false,
