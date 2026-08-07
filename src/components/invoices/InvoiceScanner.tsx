@@ -1956,7 +1956,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
 
           {/* Line Items table */}
-          <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
+            {hasUnmatchedItems && (
+              <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
+                {aiMatchingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                Resolve {unmatchedItems.length} unmatched with AI
+              </Button>
+            )}
+          </div>
+
 
           {missingDeals.length > 0 && (
             <div className="space-y-1.5">
