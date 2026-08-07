@@ -747,8 +747,8 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             return {
               item_code: itemCode,
               description: li?.description || "",
-              scanned_item_code: itemCode,
-              scanned_description: li?.description || "",
+              scanned_item_code: li?.scanned_item_code ?? itemCode,
+              scanned_description: li?.scanned_description ?? li?.description ?? "",
               pack_size: li?.pack_size || "",
               quantity: String(li?.quantity ?? "1"),
               unit: li?.unit || "",
