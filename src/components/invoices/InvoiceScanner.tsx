@@ -24,6 +24,9 @@ import { Badge } from "@/components/ui/badge";
 import { Supplier } from "@/hooks/useInvoiceData";
 import { compressImageFile } from "@/utils/imageCompression";
 import { resolveProductMatch, resolveExactMatch } from "@/utils/productMasterResolver";
+import { scoreCandidates, classifyCandidates, FUZZY, type FuzzyCandidate } from "@/utils/productFuzzyMatch";
+import ProductSuggestionChip from "./ProductSuggestionChip";
+
 import { getRoundingMode, formatLineTotal, roundLineTotal, aggregateTotal, recalcAllDiscounts, normalizeDiscountMode, type RoundingMode, type DiscountMode } from "@/utils/invoiceRounding";
 import { useProductMaster } from "@/hooks/useProductMaster";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
@@ -45,7 +48,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Info } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -86,6 +89,13 @@ interface ScannedLineItem {
   receiving_note?: string;
   sku_mismatch?: boolean;
   unmatched?: boolean;
+  /** Fuzzy "did you mean?" candidates, best first (only when unmatched). */
+  suggestions?: FuzzyCandidate[];
+  suggestion_source?: "local" | "ai";
+  /** True when the fuzzy layer linked this line automatically (>= 92% score). */
+  auto_matched?: boolean;
+  auto_match_score?: number;
+
   price_changed?: boolean;
   pm_unit_price?: number;
   accepted_price?: string;
@@ -395,6 +405,45 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     };
   }, []);
 
+  /** Apply a Product Master entry onto a line (used by the fuzzy auto-link path). */
+  const linkEntryToLine = useCallback((line: ScannedLineItem, entry: ProductMasterEntry, score?: number): ScannedLineItem => {
+    const scannedPrice = parseFloat(line.unit_price) || 0;
+    const pmPrice = entry.purchase_unit_cost ?? 0;
+    const masterPrice = pmPrice > 0 ? pmPrice : undefined;
+    const existingAcc = parseFloat(line.accepted_price || "");
+    const acceptedPrice = Number.isFinite(existingAcc) && (line.accepted_price || "").trim() !== ""
+      ? line.accepted_price!
+      : (masterPrice != null ? String(masterPrice) : "");
+    const accNum = parseFloat(acceptedPrice);
+    const isFreeUnit = scannedPrice === 0 && (parseFloat(line.quantity) || 0) > 0;
+    return {
+      ...line,
+      item_code: entry.external_sku || line.item_code || "",
+      description: entry.supplier_product_name || entry.internal_product_name || line.description,
+      matched_sku: entry.internal_sku,
+      matched_internal_name: entry.internal_product_name || "",
+      matched_stock_uom: entry.stock_uom || "",
+      matched_purchase_uom: entry.purchase_unit || "",
+      matched_stock_qty_ratio: entry.stock_qty ?? 1,
+      unmatched: false,
+      sku_mismatch: false,
+      price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
+      pm_unit_price: masterPrice,
+      product_master_id: entry.id,
+      supplier_entry_id: (entry as any).supplier_entry_id ?? line.supplier_entry_id ?? null,
+      master_price: masterPrice,
+      accepted_price: acceptedPrice,
+      price_disputed: !isFreeUnit && Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(scannedPrice * 100),
+      is_free_unit_line: isFreeUnit,
+      suggestions: undefined,
+      suggestion_source: undefined,
+      auto_matched: score != null,
+      auto_match_score: score,
+      review_status: "matched",
+      review_blocking: [],
+    };
+  }, []);
+
   const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
     if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
     return lines.map(line => {
@@ -410,6 +459,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         (workingLine.review_blocking || []).some((msg) => msg.toLowerCase().startsWith("matched_sku:"));
 
       if (reviewerRequiresManualAction) {
+        // Never auto-link these, but still offer "did you mean?" candidates.
+        const cands = scoreCandidates(
+          { itemCode: workingLine.item_code, description: workingLine.description },
+          pm,
+          supplierName,
+        );
+        const cls = classifyCandidates(cands);
         return {
           ...workingLine,
           matched_sku: "",
@@ -421,6 +477,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           unmatched: true,
           price_changed: false,
           pm_unit_price: undefined,
+          suggestions: cls.suggestions,
+          suggestion_source: "local",
+          auto_matched: false,
         };
       }
 
@@ -450,8 +509,35 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       }
 
       if (!resolved) {
-        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_sku: "", matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1, product_master_id: null, master_price: undefined, accepted_price: workingLine.accepted_price ?? "" };
+        // No exact match — fall back to the fuzzy layer.
+        const cands = scoreCandidates(
+          { itemCode: workingLine.item_code, description: workingLine.description },
+          pm,
+          supplierName,
+        );
+        const cls = classifyCandidates(cands);
+        if (cls.action === "auto_link" && cls.top) {
+          return linkEntryToLine(workingLine, cls.top.entry as ProductMasterEntry, cls.top.score);
+        }
+        return {
+          ...workingLine,
+          sku_mismatch: false,
+          unmatched: true,
+          price_changed: false,
+          matched_sku: "",
+          matched_internal_name: "",
+          matched_stock_uom: "",
+          matched_purchase_uom: "",
+          matched_stock_qty_ratio: 1,
+          product_master_id: null,
+          master_price: undefined,
+          accepted_price: workingLine.accepted_price ?? "",
+          suggestions: cls.suggestions,
+          suggestion_source: "local",
+          auto_matched: false,
+        };
       }
+
 
       // SKU mismatch check
       const scannedCode = (workingLine.item_code || "").trim().toLowerCase();
@@ -503,9 +589,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         accepted_price: acceptedPrice,
         price_disputed: priceDisputed,
         is_free_unit_line: isFreeUnit,
+        suggestions: undefined,
+        suggestion_source: undefined,
+        auto_matched: false,
       };
     });
-  }, []);
+  }, [linkEntryToLine]);
+
 
   const processFile = useCallback(async (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
@@ -930,11 +1020,125 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         deal_id: scannedPrice === 0 ? (findDealForProduct(activeDeals, product.id)?.id ?? null) : currentLine.deal_id ?? null,
         review_status: "matched",
         review_blocking: [],
+        suggestions: undefined,
+        suggestion_source: undefined,
+        auto_matched: false,
       };
       copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
       return copy;
     });
   };
+
+  // ---- Fuzzy "did you mean?" suggestions ----
+  const [aiMatchingIdx, setAiMatchingIdx] = useState<number | null>(null);
+  const [aiMatchingAll, setAiMatchingAll] = useState(false);
+
+  const applySuggestion = (i: number, candidate: FuzzyCandidate) => {
+    selectProduct(i, candidate.entry as ProductMasterEntry);
+  };
+
+  /** Ask the AI to match the given line indexes against a shortlist of candidates. */
+  const askAiToMatch = useCallback(async (indexes: number[]) => {
+    const inv = invoices[currentIdx];
+    if (!inv || indexes.length === 0 || !productMaster?.length) return;
+    const supplierName = inv.supplier_name;
+
+    // Shortlist candidates per line, then merge into one candidate pool.
+    const pool = new Map<string, ProductMasterEntry>();
+    const items = indexes.map((idx) => {
+      const l = inv.line_items[idx];
+      scoreCandidates({ itemCode: l.item_code, description: l.description }, productMaster, supplierName, FUZZY.AI_SHORTLIST)
+        .forEach((c) => pool.set(c.entry.internal_sku + "|" + (c.entry.supplier_entry_id || c.entry.id), c.entry as ProductMasterEntry));
+      return {
+        source_index: idx,
+        description: l.description,
+        item_code: l.item_code,
+        pack_size: l.pack_size,
+        unit: l.unit,
+        unit_price: l.unit_price,
+        supplier_name: supplierName,
+      };
+    });
+
+    const candidates = Array.from(pool.values()).map((p) => ({
+      id: p.id,
+      internal_sku: p.internal_sku,
+      internal_product_name: p.internal_product_name,
+      supplier_product_name: p.supplier_product_name,
+      item_code: p.external_sku,
+      supplier: p.supplier,
+      pack_size_norm: p.purchase_unit,
+      unit_norm: p.stock_uom,
+    }));
+    if (candidates.length === 0) {
+      toast({ title: "No candidates", description: "Nothing similar exists in the Product Master yet.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-classify", {
+        body: {
+          op: "suggest_batch",
+          domain: "procurement",
+          workflow: "line_to_product",
+          tenant_id: tenantId,
+          items,
+          context: { candidates, supplier_name: supplierName },
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+
+      const results: any[] = (data as any)?.results ?? [];
+      setInvoices((prev) => {
+        const copy = [...prev];
+        const lines = [...copy[currentIdx].line_items];
+        let hits = 0;
+        results.forEach((r, batchIdx) => {
+          if (!r) return;
+          const lineIdx = indexes[Number(r.line_index ?? batchIdx)];
+          if (lineIdx == null || !lines[lineIdx]) return;
+          const s = r.suggestion || {};
+          const entry =
+            productMaster.find((p) => p.id === s.product_master_id) ||
+            productMaster.find((p) => p.internal_sku && p.internal_sku === s.internal_sku);
+          if (!entry) return;
+          hits++;
+          lines[lineIdx] = {
+            ...lines[lineIdx],
+            suggestions: [{ entry, score: Number(r.confidence ?? s.confidence ?? 0.7), reasons: [s.needs_review_reason || "AI match"] }],
+            suggestion_source: "ai",
+          };
+        });
+        if (hits === 0) toast({ title: "No AI match", description: "The AI couldn't confidently match these lines." });
+        copy[currentIdx] = { ...copy[currentIdx], line_items: lines };
+        return copy;
+      });
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      if (msg.includes("rate_limited")) toast({ title: "AI busy", description: "Rate limit reached, try again shortly.", variant: "destructive" });
+      else if (msg.includes("payment_required")) toast({ title: "AI credits exhausted", description: "Add credits to continue.", variant: "destructive" });
+      else toast({ title: "AI error", description: msg, variant: "destructive" });
+    }
+  }, [invoices, currentIdx, productMaster, tenantId]);
+
+  const askAiForLine = async (i: number) => {
+    setAiMatchingIdx(i);
+    try { await askAiToMatch([i]); } finally { setAiMatchingIdx(null); }
+  };
+
+  const resolveAllWithAi = async () => {
+    const inv = invoices[currentIdx];
+    if (!inv) return;
+    const idxs = inv.line_items
+      .map((l, i) => ({ l, i }))
+      .filter(({ l }) => l.unmatched && (l.description || "").trim())
+      .map(({ i }) => i);
+    if (idxs.length === 0) return;
+    setAiMatchingAll(true);
+    try { await askAiToMatch(idxs); } finally { setAiMatchingAll(false); }
+  };
+
 
   // Editable Accepted Price (Items Master baseline)
   const updateLineAcceptedPrice = (i: number, value: string) => {
@@ -1752,7 +1956,16 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
 
 
           {/* Line Items table */}
-          <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">Line Items ({current.line_items.length})</h4>
+            {hasUnmatchedItems && (
+              <Button size="sm" variant="outline" onClick={resolveAllWithAi} disabled={aiMatchingAll}>
+                {aiMatchingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                Resolve {unmatchedItems.length} unmatched with AI
+              </Button>
+            )}
+          </div>
+
 
           {missingDeals.length > 0 && (
             <div className="space-y-1.5">
@@ -1946,7 +2159,22 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           currentSupplier={current?.supplier_name}
                           multiline
                         />
+                        {line.unmatched && (line.description || "").trim() && (
+                          <ProductSuggestionChip
+                            candidates={line.suggestions || []}
+                            source={line.suggestion_source || "local"}
+                            onApply={(c) => applySuggestion(i, c)}
+                            onAskAi={() => askAiForLine(i)}
+                            aiLoading={aiMatchingIdx === i || aiMatchingAll}
+                          />
+                        )}
+                        {line.auto_matched && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            Auto-matched{line.auto_match_score != null ? ` (${Math.round(line.auto_match_score * 100)}%)` : ""} — change above if wrong
+                          </div>
+                        )}
                       </td>
+
 
 
                       {/* Purchase UOM - read-only from PM */}
