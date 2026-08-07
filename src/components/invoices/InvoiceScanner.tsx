@@ -89,6 +89,13 @@ interface ScannedLineItem {
   receiving_note?: string;
   sku_mismatch?: boolean;
   unmatched?: boolean;
+  /** Fuzzy "did you mean?" candidates, best first (only when unmatched). */
+  suggestions?: FuzzyCandidate[];
+  suggestion_source?: "local" | "ai";
+  /** True when the fuzzy layer linked this line automatically (>= 92% score). */
+  auto_matched?: boolean;
+  auto_match_score?: number;
+
   price_changed?: boolean;
   pm_unit_price?: number;
   accepted_price?: string;
