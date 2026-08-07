@@ -2275,6 +2275,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                           currentSupplier={current?.supplier_name}
                           multiline
                         />
+                        {!line.unmatched && line.scanned_description &&
+                          normalizeText(line.scanned_description) !== normalizeText(line.description) && (
+                          <div
+                            className="mt-1 text-[10px] text-muted-foreground truncate"
+                            title={`Invoice wording: ${line.scanned_description}`}
+                          >
+                            Invoice: {line.scanned_description}
+                          </div>
+                        )}
                         {line.unmatched && (line.description || "").trim() && (
                           <div className="flex flex-wrap items-center gap-1">
                             <ProductSuggestionChip
