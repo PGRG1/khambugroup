@@ -2168,7 +2168,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                        )[0]
                      : undefined;
                    const linkedConflict = linkedMatch?.blockingReasons?.[0];
-                   const linkedNameScore = linkedMatch?.rawNameScore ?? 1;
+                   
                   return (
                     <tr
                       key={i}
