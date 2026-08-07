@@ -429,6 +429,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       ...line,
       scanned_item_code: line.scanned_item_code ?? line.item_code,
       scanned_description: line.scanned_description ?? line.description,
+      // Items master is the source of truth for the external identity of a linked line.
+      description: entry.supplier_product_name || entry.internal_product_name || line.description,
+      item_code: entry.external_sku ?? line.item_code,
       matched_sku: entry.internal_sku,
       matched_internal_name: entry.internal_product_name || "",
       matched_stock_uom: entry.stock_uom || "",
