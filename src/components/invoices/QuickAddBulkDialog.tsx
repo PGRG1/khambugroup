@@ -85,6 +85,40 @@ export default function QuickAddBulkDialog({
   const setPlan = (idx: number, patch: Partial<RowPlan>) =>
     setPlans((p) => ({ ...p, [idx]: { ...p[idx], ...patch } }));
 
+  /** internal_sku (lowercased) -> product name, for conflict flagging. */
+  const skuOwners = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of products) {
+      const k = (p.internal_sku || "").trim().toLowerCase();
+      if (k && !m.has(k)) m.set(k, p.internal_product_name || "another product");
+    }
+    return m;
+  }, [products]);
+
+  const conflicts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const l of lines) {
+      const plan = plans[l.index];
+      if (!plan || plan.mode !== "new") continue;
+      const k = plan.internalSku.trim().toLowerCase();
+      if (k) counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    const out: Record<number, string> = {};
+    for (const l of lines) {
+      const plan = plans[l.index];
+      if (!plan || plan.mode !== "new") continue;
+      const k = plan.internalSku.trim().toLowerCase();
+      if (!k) { out[l.index] = "Internal SKU is required."; continue; }
+      const owner = skuOwners.get(k);
+      if (owner) out[l.index] = `SKU already in use by ${owner}.`;
+      else if ((counts.get(k) || 0) > 1) out[l.index] = "SKU duplicated on another line.";
+    }
+    return out;
+  }, [lines, plans, skuOwners]);
+
+  const hasConflicts = Object.keys(conflicts).length > 0;
+
+
   const insertSupplierEntry = async (productMasterId: string, l: BulkLine): Promise<QuickAddEntry | null> => {
     const { data, error } = await supabase
       .from("product_suppliers" as any)
@@ -148,7 +182,7 @@ export default function QuickAddBulkDialog({
 
         const sku = plan.internalSku.trim();
         const name = (l.description || "").trim();
-        if (!sku || !name) continue;
+        if (!sku || !name || conflicts[l.index]) continue;
 
         const { data: existing } = await supabase
           .from("product_master" as any)
@@ -157,12 +191,15 @@ export default function QuickAddBulkDialog({
           .eq("internal_sku", sku)
           .limit(1);
 
-        let productId: string;
-        let pmName = name;
         if (existing && (existing as any[]).length > 0) {
-          productId = (existing as any[])[0].id;
-          pmName = (existing as any[])[0].internal_product_name || name;
-        } else {
+          toast.error(`Internal SKU ${sku} is already in use — skipped that line.`);
+          continue;
+        }
+
+        let productId: string;
+        const pmName = name;
+        {
+
           const { data, error } = await supabase
             .from("product_master" as any)
             .insert({
@@ -242,12 +279,19 @@ export default function QuickAddBulkDialog({
                     </span>
                   ) : (
                     <Input
-                      className="h-7 w-32 text-[11px] font-mono"
+                      className={cn(
+                        "h-7 w-32 text-[11px] font-mono",
+                        conflicts[l.index] && "border-destructive focus-visible:ring-destructive",
+                      )}
                       value={plan.internalSku}
-                      onChange={(e) => setPlan(l.index, { internalSku: e.target.value })}
+                      onChange={(e) => setPlan(l.index, { internalSku: e.target.value.toUpperCase() })}
                     />
                   )}
                 </div>
+                {plan.mode === "new" && conflicts[l.index] && (
+                  <div className="text-[11px] text-destructive">{conflicts[l.index]}</div>
+                )}
+
               </div>
             );
           })}
@@ -255,7 +299,7 @@ export default function QuickAddBulkDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={confirmAll} disabled={saving || !tenantId}>
+          <Button onClick={confirmAll} disabled={saving || !tenantId || hasConflicts}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add & link all"}
           </Button>
         </DialogFooter>

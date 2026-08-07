@@ -87,6 +87,7 @@ export default function QuickAddProductPopover({
   const [pickerQuery, setPickerQuery] = useState("");
   const [internalName, setInternalName] = useState(line.description || "");
   const [internalSku, setInternalSku] = useState("");
+  const [skuOverridden, setSkuOverridden] = useState(false);
   const [externalSku, setExternalSku] = useState(line.item_code || "");
   const [externalName, setExternalName] = useState(line.description || "");
   const [purchaseUnit, setPurchaseUnit] = useState(line.unit || "");
@@ -100,6 +101,7 @@ export default function QuickAddProductPopover({
       setPickerQuery("");
       setInternalName(line.description || "");
       setInternalSku(nextQuickSku(products));
+      setSkuOverridden(false);
       setExternalSku(line.item_code || "");
       setExternalName(line.description || "");
       setPurchaseUnit(line.unit || "");
@@ -108,6 +110,13 @@ export default function QuickAddProductPopover({
   };
 
   const picked = uniqueProducts.find((p) => p.id === pickedId);
+
+  /** Existing product that already owns the typed internal SKU. */
+  const skuConflict = useMemo(() => {
+    const sku = internalSku.trim().toLowerCase();
+    if (mode !== "new" || !sku) return undefined;
+    return uniqueProducts.find((p) => (p.internal_sku || "").trim().toLowerCase() === sku);
+  }, [mode, internalSku, uniqueProducts]);
 
   const filteredPicker = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
@@ -120,6 +129,7 @@ export default function QuickAddProductPopover({
       : uniqueProducts;
     return base.slice(0, 40);
   }, [uniqueProducts, pickerQuery]);
+
 
   /** Existing supplier entry for the picked product + this supplier + this external SKU. */
   const duplicateEntry = useMemo(() => {
@@ -197,7 +207,11 @@ export default function QuickAddProductPopover({
           toast.error("Internal SKU and name are required.");
           return;
         }
-        // Existing internal SKU → attach as a supplier entry instead of duplicating.
+        if (skuConflict) {
+          toast.error(`Internal SKU ${sku} is already used by ${skuConflict.internal_product_name}.`);
+          return;
+        }
+        // Server-side guard: the SKU may exist outside the loaded product list.
         const { data: existing } = await supabase
           .from("product_master" as any)
           .select("id, internal_sku, internal_product_name")
@@ -205,12 +219,21 @@ export default function QuickAddProductPopover({
           .eq("internal_sku", sku)
           .limit(1);
 
+        if (existing && (existing as any[]).length > 0) {
+          const hit = (existing as any[])[0];
+          toast.error(
+            `Internal SKU ${sku} is already in use by ${hit.internal_product_name || "another product"} — pick it under "New supplier for existing" or change the SKU.`,
+          );
+          setMode("existing");
+          setPickedId(hit.id);
+          setPickerQuery(hit.internal_sku || "");
+          return;
+        }
+
         let productId: string;
         let pmName = internalName.trim();
-        if (existing && (existing as any[]).length > 0) {
-          productId = (existing as any[])[0].id;
-          pmName = (existing as any[])[0].internal_product_name || pmName;
-        } else {
+        {
+
           const { data, error } = await supabase
             .from("product_master" as any)
             .insert({
@@ -310,14 +333,57 @@ export default function QuickAddProductPopover({
               <Input className="h-8 text-xs" value={internalName} onChange={(e) => setInternalName(e.target.value)} />
             </div>
             <div>
-              <Label className="text-[11px]">Internal SKU</Label>
-              <Input className="h-8 text-xs font-mono" value={internalSku} onChange={(e) => setInternalSku(e.target.value)} />
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px]">Internal SKU</Label>
+                <button
+                  type="button"
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                  onClick={() => {
+                    if (skuOverridden) {
+                      setInternalSku(nextQuickSku(products));
+                      setSkuOverridden(false);
+                    } else {
+                      setSkuOverridden(true);
+                    }
+                  }}
+                >
+                  {skuOverridden ? "Auto" : "Override"}
+                </button>
+              </div>
+              <Input
+                className={cn(
+                  "h-8 text-xs font-mono",
+                  skuConflict && "border-destructive focus-visible:ring-destructive",
+                )}
+                value={internalSku}
+                readOnly={!skuOverridden}
+                onChange={(e) => setInternalSku(e.target.value.toUpperCase())}
+              />
             </div>
             <div>
               <Label className="text-[11px]">Supplier</Label>
               <Input className="h-8 text-xs" value={supplierName || ""} disabled />
             </div>
+            {skuConflict && (
+              <div className="col-span-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive space-y-1">
+                <div>
+                  SKU already in use by <span className="font-medium">{skuConflict.internal_product_name}</span>.
+                </div>
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    setMode("existing");
+                    setPickedId(skuConflict.id);
+                    setPickerQuery(skuConflict.internal_sku || "");
+                  }}
+                >
+                  Add this supplier to that product instead
+                </button>
+              </div>
+            )}
           </div>
+
         )}
 
         <div className="grid grid-cols-2 gap-2">
@@ -354,7 +420,7 @@ export default function QuickAddProductPopover({
           <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button size="sm" onClick={confirm} disabled={saving || !tenantId}>
+          <Button size="sm" onClick={confirm} disabled={saving || !tenantId || !!skuConflict}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add & link"}
           </Button>
         </div>
