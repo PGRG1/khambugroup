@@ -1036,6 +1036,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
   // ---- Fuzzy "did you mean?" suggestions ----
   const [aiMatchingIdx, setAiMatchingIdx] = useState<number | null>(null);
   const [aiMatchingAll, setAiMatchingAll] = useState(false);
+  const [bulkQuickAddOpen, setBulkQuickAddOpen] = useState(false);
 
   const applySuggestion = (i: number, candidate: FuzzyCandidate) => {
     selectProduct(i, candidate.entry as ProductMasterEntry);
