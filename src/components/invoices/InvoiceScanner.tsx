@@ -2357,14 +2357,15 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                 const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                 const invoiced = parseFloat(recalc.perLine[i].total) || 0;
                 invRaw.push(invoiced);
-                const accPrice = parseFloat(l.accepted_price || "");
-                let accLine: number;
-                if (Number.isFinite(accPrice)) {
-                  accLine = accPrice * a;
-                } else {
-                  accLine = q > 0 ? invoiced * (a / q) : 0;
-                }
-                accRaw.push(accLine);
+                 const accPrice = parseFloat(l.accepted_price || "");
+                 const invPrice = parseFloat(l.unit_price) || 0;
+                 // Mirror the per-row calculation: scale the invoiced amount by the
+                 // accepted price/qty ratio. Zero-priced lines (free deal units)
+                 // contribute nothing, even if an accepted price was auto-filled.
+                 const grossInv = invPrice * q;
+                 const grossAcc = (Number.isFinite(accPrice) && accPrice > 0 ? accPrice : invPrice) * a;
+                 const accLine = grossInv > 0 ? invoiced * (grossAcc / grossInv) : (q > 0 ? invoiced * (a / q) : 0);
+                 accRaw.push(accLine);
               });
               // Apply per-supplier rounding rule so subtotals match the Suppliers & Vendors logic.
               const invSub = aggregateTotal(invRaw, currentMode);
