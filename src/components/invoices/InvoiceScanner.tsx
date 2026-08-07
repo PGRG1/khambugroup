@@ -2160,14 +2160,29 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                           multiline
                         />
                         {line.unmatched && (line.description || "").trim() && (
-                          <ProductSuggestionChip
-                            candidates={line.suggestions || []}
-                            source={line.suggestion_source || "local"}
-                            onApply={(c) => applySuggestion(i, c)}
-                            onAskAi={() => askAiForLine(i)}
-                            aiLoading={aiMatchingIdx === i || aiMatchingAll}
-                          />
+                          <div className="flex flex-wrap items-center gap-1">
+                            <ProductSuggestionChip
+                              candidates={line.suggestions || []}
+                              source={line.suggestion_source || "local"}
+                              onApply={(c) => applySuggestion(i, c)}
+                              onAskAi={() => askAiForLine(i)}
+                              aiLoading={aiMatchingIdx === i || aiMatchingAll}
+                            />
+                            <QuickAddProductPopover
+                              products={(productMaster || []) as any}
+                              supplierName={current?.supplier_name}
+                              line={{
+                                item_code: line.item_code,
+                                description: line.description,
+                                unit: line.unit,
+                                unit_price: line.unit_price,
+                              }}
+                              onCreated={(entry) => selectProduct(i, entry as ProductMasterEntry)}
+                              onRefresh={onProductMasterChanged}
+                            />
+                          </div>
                         )}
+
                         {line.auto_matched && (
                           <div className="mt-1 text-[11px] text-muted-foreground">
                             Auto-matched{line.auto_match_score != null ? ` (${Math.round(line.auto_match_score * 100)}%)` : ""} — change above if wrong
