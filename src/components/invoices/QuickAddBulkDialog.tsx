@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "sonner";
-import { scoreCandidates } from "@/utils/productFuzzyMatch";
+import { FUZZY, scoreCandidates } from "@/utils/productFuzzyMatch";
 import { cn } from "@/lib/utils";
 import type { QuickAddEntry } from "./QuickAddProductPopover";
 
@@ -60,12 +60,15 @@ export default function QuickAddBulkDialog({
     let n = 0;
     const map: Record<number, RowPlan> = {};
     for (const l of lines) {
-      const cand = scoreCandidates(
+      const top = scoreCandidates(
         { itemCode: l.item_code, description: l.description },
         products as any,
         supplierName,
         1,
-      )[0]?.entry as QuickAddEntry | undefined;
+      )[0];
+      const cand = top && top.rawNameScore >= FUZZY.SUGGEST && top.blockingReasons.length === 0
+        ? top.entry as QuickAddEntry
+        : undefined;
       n += 1;
       map[l.index] = {
         mode: cand ? "existing" : "new",

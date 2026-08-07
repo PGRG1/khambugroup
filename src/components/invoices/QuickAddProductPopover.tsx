@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenant } from "@/hooks/useActiveTenant";
 import { toast } from "sonner";
-import { scoreCandidates } from "@/utils/productFuzzyMatch";
+import { FUZZY, scoreCandidates } from "@/utils/productFuzzyMatch";
 import { cn } from "@/lib/utils";
 
 export interface QuickAddEntry {
@@ -76,7 +76,10 @@ export default function QuickAddProductPopover({
       supplierName,
       1,
     );
-    return cands[0]?.entry as QuickAddEntry | undefined;
+    const top = cands[0];
+    return top && top.rawNameScore >= FUZZY.SUGGEST && top.blockingReasons.length === 0
+      ? top.entry as QuickAddEntry
+      : undefined;
   }, [products, line.item_code, line.description, supplierName]);
 
   const [mode, setMode] = useState<"existing" | "new">(bestCandidate ? "existing" : "new");
