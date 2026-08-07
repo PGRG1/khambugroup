@@ -13,7 +13,6 @@ import { AppLayout } from "@/components/AppLayout";
 import { PlatformLayout } from "@/components/platform/PlatformLayout";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { PreviewBanner } from "@/components/access-control/PreviewBanner";
-import { ClientContextBar } from "@/components/access-control/ClientContextBar";
 import { CrossTabTenantGuard } from "@/components/access-control/CrossTabTenantGuard";
 import Assistant from "./pages/Assistant";
 import Index from "./pages/Index";
@@ -216,7 +215,6 @@ function App() {
               <Toaster />
               <Sonner />
               <PreviewBanner />
-              <ClientContextBar />
               <CrossTabTenantGuard />
               <Routes>
                 <Route path="/auth" element={<Auth />} />
