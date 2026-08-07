@@ -149,6 +149,7 @@ interface ScannedInvoice {
   due_date: string;
   notes: string;
   invoice_status: string;
+  status_manually_selected?: boolean;
   invoice_discount: string;
   invoice_discount_type: "discount" | "refund";
   invoice_discount_mode?: DiscountMode;
@@ -878,6 +879,21 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       const inv = invoices[targetIdx];
       recheckDuplicate(targetIdx, value, inv?.supplier_id || "");
     }
+  };
+
+  const updateInvoiceStatus = (value: string) => {
+    const targetIdx = currentIdx;
+    setInvoices((prev) => {
+      const copy = [...prev];
+      const invoice = copy[targetIdx];
+      if (!invoice) return prev;
+      copy[targetIdx] = {
+        ...invoice,
+        invoice_status: value,
+        status_manually_selected: true,
+      };
+      return copy;
+    });
   };
 
   const handleSupplierChange = (value: string) => {
@@ -1675,10 +1691,12 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
     return { disputedLines, missingReason, missingNote, hasDispute: disputedLines > 0 };
   }, [current?.line_items]);
 
-  // Auto-flip Status to "disputed" when any line has a qty difference; restore on resolve.
+  // Suggest "disputed" when a variance first appears, but never overwrite a
+  // status the user explicitly selected.
   const prevStatusBeforeDisputeRef = useRef<string | null>(null);
   useEffect(() => {
     if (!current) return;
+    if (current.status_manually_selected) return;
     if (disputeStats.hasDispute) {
       if (current.invoice_status !== "disputed") {
         prevStatusBeforeDisputeRef.current = current.invoice_status || "outstanding";
@@ -1690,12 +1708,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
       updateField("invoice_status", restore);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [disputeStats.hasDispute, currentIdx]);
+  }, [disputeStats.hasDispute, currentIdx, current?.status_manually_selected]);
 
-  // Disputed invoices can still be saved — we only require a reason/note so the
-  // discrepancy is documented for follow-up. The dispute itself does not block.
-  const receivingBlocksApproval =
-    disputeStats.missingReason > 0 || disputeStats.missingNote > 0;
+  const isSavingAsDisputed = current?.invoice_status === "disputed";
+  // Reasons are mandatory only when the user chooses to save as disputed.
+  const receivingBlocksApproval = isSavingAsDisputed && (
+    disputeStats.missingReason > 0 || disputeStats.missingNote > 0
+  );
 
   const addFilesToPending = useCallback((files: File[]) => {
     setPendingFiles((prev) => [...prev, ...files]);
@@ -1989,7 +2008,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
             </div>
             <div>
               <Label className="text-xs">Status</Label>
-              <Select value={current.invoice_status} onValueChange={(v) => updateField("invoice_status", v)}>
+              <Select value={current.invoice_status} onValueChange={updateInvoiceStatus}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -2003,7 +2022,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
               {disputeStats.hasDispute && (
                 <div className="mt-1 flex items-start gap-1 text-[11px] text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span>Quantity differences logged — set a reason for each line so the dispute can be followed up after saving.</span>
+                  <span>
+                    {isSavingAsDisputed
+                      ? "Quantity differences logged — set a reason for each line so the dispute can be followed up after saving."
+                      : `Quantity differences remain logged; the selected ${current.invoice_status.replaceAll("_", " ")} status will be respected.`}
+                  </span>
                 </div>
               )}
             </div>
@@ -2842,11 +2865,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                         ? `Resolve ${blockingCount} blocking issue${blockingCount > 1 ? "s" : ""} first (or use Override)`
                         : hasUnmatchedItems
                         ? "Match all items first"
-                        : disputeStats.missingReason > 0
+                        : isSavingAsDisputed && disputeStats.missingReason > 0
                         ? "Select a reason for every disputed line"
-                        : disputeStats.missingNote > 0
+                        : isSavingAsDisputed && disputeStats.missingNote > 0
                         ? "Add a note for every line where Reason is Other"
-                        : disputeStats.hasDispute
+                        : isSavingAsDisputed && disputeStats.hasDispute
                         ? "Save invoice with logged dispute for follow-up"
                         : "Approve and save invoice"
                     }
@@ -2856,7 +2879,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                       ? "Duplicate"
                       : hasBlockingIssues
                       ? `Resolve ${blockingCount} Blocking`
-                      : disputeStats.hasDispute
+                      : isSavingAsDisputed && disputeStats.hasDispute
                       ? `Save with ${disputeStats.disputedLines} Disputed`
                       : "Approve & Save"}
                   </Button>
