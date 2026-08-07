@@ -2025,7 +2025,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
                   <span>
                     {isSavingAsDisputed
                       ? "Quantity differences logged — set a reason for each line so the dispute can be followed up after saving."
-                      : `Quantity differences remain logged; the selected ${current.invoice_status.replaceAll("_", " ")} status will be respected.`}
+                      : `Quantity differences remain logged; the selected ${current.invoice_status.replace(/_/g, " ")} status will be respected.`}
                   </span>
                 </div>
               )}
