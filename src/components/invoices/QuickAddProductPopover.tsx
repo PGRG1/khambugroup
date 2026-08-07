@@ -87,6 +87,7 @@ export default function QuickAddProductPopover({
   const [pickerQuery, setPickerQuery] = useState("");
   const [internalName, setInternalName] = useState(line.description || "");
   const [internalSku, setInternalSku] = useState("");
+  const [skuOverridden, setSkuOverridden] = useState(false);
   const [externalSku, setExternalSku] = useState(line.item_code || "");
   const [externalName, setExternalName] = useState(line.description || "");
   const [purchaseUnit, setPurchaseUnit] = useState(line.unit || "");
@@ -100,6 +101,7 @@ export default function QuickAddProductPopover({
       setPickerQuery("");
       setInternalName(line.description || "");
       setInternalSku(nextQuickSku(products));
+      setSkuOverridden(false);
       setExternalSku(line.item_code || "");
       setExternalName(line.description || "");
       setPurchaseUnit(line.unit || "");
@@ -108,6 +110,13 @@ export default function QuickAddProductPopover({
   };
 
   const picked = uniqueProducts.find((p) => p.id === pickedId);
+
+  /** Existing product that already owns the typed internal SKU. */
+  const skuConflict = useMemo(() => {
+    const sku = internalSku.trim().toLowerCase();
+    if (mode !== "new" || !sku) return undefined;
+    return uniqueProducts.find((p) => (p.internal_sku || "").trim().toLowerCase() === sku);
+  }, [mode, internalSku, uniqueProducts]);
 
   const filteredPicker = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
@@ -120,6 +129,7 @@ export default function QuickAddProductPopover({
       : uniqueProducts;
     return base.slice(0, 40);
   }, [uniqueProducts, pickerQuery]);
+
 
   /** Existing supplier entry for the picked product + this supplier + this external SKU. */
   const duplicateEntry = useMemo(() => {
