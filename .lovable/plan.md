@@ -1,42 +1,24 @@
-# Fix invoice deal pricing and subtotal reconciliation
+# External Name should come from the items master once a line is linked
 
-## Confirmed problem
+## The issue
 
-- The scanner currently classifies a line as a free deal unit primarily from `unit_price === 0` plus a positive quantity. A failed or missing price extraction can therefore be mislabeled as a deal.
-- The “Zero — unlinked” state in the screenshot means the row has no verified supplier deal. It should not be silently accepted as a valid free unit.
-- Setting purchase cost to zero is valid only when the source invoice genuinely shows a free line. Deal detection must never overwrite or infer the invoice price solely from a zero value.
-- Accepted amount and subtotal formulas are repeated in the scan review and saved-invoice editor. Although the earlier phantom master-price contribution was patched, duplicated formulas leave the two paths vulnerable to diverging again.
+The External Name cell always shows the raw scanned text from the invoice (`description`), even after the line is linked to a product. In your screenshot the same product appears twice with different invoice wording ("HOEGAARDEN - 20L KEG Ref No. 6B15" vs the deposit line), and the confidence chip reports "Name differs" because it is comparing master wording against invoice wording. Saved invoice lines therefore carry supplier-specific OCR wording instead of the canonical supplier product name, so the same product reads differently across invoices.
 
-## Changes
+This is the opposite side of the earlier fix: scanned text must be preserved as evidence, but it should not be what the cell displays or what gets saved once a link exists.
 
-1. **Make free-unit detection evidence-based**
-   - Preserve the scanned purchase cost exactly as extracted or manually entered.
-   - Mark a row as a confirmed deal line only when it has a matching active supplier deal and the invoice contains the corresponding paid product quantity.
-   - Treat a zero-priced row without that evidence as an unresolved price, not a deal; show it as a blocking review issue instead of “Zero — unlinked.”
-   - Re-evaluate the deal state when supplier, product link, quantity, or purchase cost changes.
+## The fix
 
-2. **Centralize invoice and accepted amount math**
-   - Add one shared calculation utility used by both `InvoiceScanner.tsx` and `ProcurementInvoicesTab.tsx`.
-   - Confirmed free units contribute exactly `0` to both invoiced and accepted subtotals, regardless of the product-master price.
-   - Paid lines use invoice price for invoiced value and accepted price/quantity for accepted value, with discounts and supplier rounding applied consistently.
-   - Use rounded currency values when comparing subtotals so harmless floating-point residue never creates a dispute.
+1. **Linked lines display the master's supplier product name.** When a line has a `product_master_id`, the External Name cell shows the linked entry's `supplier_product_name` (falling back to the internal product name if the supplier name is blank). Same for External SKU: show the master's `external_sku` when linked.
+2. **Scanned text stays as evidence, not as display.** `scanned_description` / `scanned_item_code` remain immutable and are still what matching scores against. The invoice wording is shown as small muted sub-text under the cell ("Invoice: HOEGAARDEN - 20L KEG Ref No. 6B15") plus a tooltip, so nothing is lost and mismatches stay visible.
+3. **Drop the "Name differs" hold for wording-only differences.** Because the cell now shows the canonical name, the amber "Name differs" marker only appears when the scanned text genuinely conflicts with the master (conflicting brand/size tokens), not when it is simply longer or contains a supplier reference number. Size/unit conflicts still block auto-link exactly as they do today.
+4. **Unlinked lines are unchanged.** They keep showing scanned text, editable, with Did you mean / Ask AI / Quick add.
+5. **Unlink restores the scanned text** into the cell, as it does today.
+6. **Save path writes the canonical name.** Lines saved with a link store the master supplier product name and external SKU; the scanned wording is kept only as evidence on the line, so downstream invoice records, GRNs, and pricing views stay consistent.
 
-3. **Clarify the review UI**
-   - Keep `0` visible in Purchase Cost for a verified free unit and identify the linked deal.
-   - Replace “Zero — unlinked” with an explicit unresolved-price warning and require correction or verified deal linkage before approval.
-   - Ensure the row amount, footer subtotal, dispute indicator, and document reconciliation all use the same calculation result.
+## Technical notes
 
-4. **Protect saved data**
-   - Persist `is_free_unit_line` and `deal_id` only for verified deal rows.
-   - Do not alter existing product-master purchase cost when processing a free unit.
-   - Apply the same validation when editing an already saved invoice.
-
-5. **Regression coverage**
-   - Test a valid buy-X-get-Y-free invoice: free row remains zero and both subtotals match.
-   - Test an OCR-missed price: zero unlinked row blocks approval and is not classified as a deal.
-   - Test a free row whose product master has a non-zero cost: master cost never enters accepted subtotal.
-   - Test discounts, accepted-quantity differences, supplier rounding modes, and scan/editor parity.
-
-## Scope
-
-Frontend calculation, validation, and tests only. No changes to accounting postings, product-master prices, or existing invoice balances.
+- `src/components/invoices/InvoiceScanner.tsx`: in `linkEntryToLine` and `selectProduct`, set `description` / `item_code` to the entry's `supplier_product_name` / `external_sku` while leaving `scanned_*` untouched; render invoice wording as sub-text when it differs. Keep all scoring inputs on `scanned_*`.
+- Same treatment for the auto-link path in `flagLineItemIssues` so scan-time links behave identically.
+- `src/components/procurement/ProcurementInvoicesTab.tsx`: the manual invoice editor uses the same select handler — apply the same canonicalisation there so both entry points agree.
+- Matching utilities (`productFuzzyMatch.ts`, `productMasterResolver.ts`) unchanged except relaxing the wording-only "name differs" hold; conflict detection for size/unit/brand stays.
+- No database or edge-function changes; existing saved invoices are untouched.
