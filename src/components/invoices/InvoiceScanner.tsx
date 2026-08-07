@@ -519,9 +519,6 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
         // Product Master is the source of truth for External SKU.
         // When the matched supplier-scoped PM entry has empty external_sku,
         // force the line's item_code to empty (e.g. Ming Kee has no SKUs).
-        const matchSupplierOk = supplierName && resolved.supplier &&
-          normalizeSupplierName(resolved.supplier) === normalizeSupplierName(supplierName);
-        void matchSupplierOk;
       }
 
       if (!resolved) {
@@ -963,7 +960,7 @@ const InvoiceScanner = ({ suppliers, productMaster, onProductMasterChanged, onSa
           line.receiving_reason = "";
         }
       }
-      if (["unit_price", "matched_sku", "quantity"].includes(field)) {
+      if (["item_code", "description", "unit_price", "matched_sku", "quantity"].includes(field)) {
         const flagged = flagLineItemIssues([line], productMaster, copy[currentIdx].supplier_name);
         lines[i] = flagged[0];
         // Re-link deal for newly-detected free unit

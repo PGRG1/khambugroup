@@ -15,7 +15,7 @@ export const FUZZY = {
   /** At or above this we show a "Did you mean …?" suggestion. */
   SUGGEST: 0.6,
   /** Top-2 within this gap = ambiguous, worth asking the AI. */
-  AMBIGUOUS_GAP: 0.03,
+  AMBIGUOUS_GAP: 0.08,
   /** Name evidence required before any ranking bonuses may auto-link. */
   AUTO_LINK_NAME: 0.92,
   /** How many candidates we keep per line. */

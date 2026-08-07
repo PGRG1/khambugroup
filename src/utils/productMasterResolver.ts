@@ -221,7 +221,7 @@ export function resolveExactMatch(
   const code = (itemCode || "").trim().toLowerCase();
   const desc = (description || "").trim().toLowerCase();
 
-  if (code) {
+  if (code && isUsableIdentifier(code)) {
     if (invoiceSupplier) {
       const m = products.find(
         p => (p.external_sku || "").trim().toLowerCase() === code && supplierMatch(p.supplier, invoiceSupplier)
