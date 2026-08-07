@@ -54,8 +54,9 @@ const stem = (w: string): string => {
   if (w.length <= 3) return w;
   if (w.endsWith("ies")) return w.slice(0, -3) + "y";
   if (w.endsWith("oes")) return w.slice(0, -2);
-
+  if (w.endsWith("ses") || w.endsWith("xes") || w.endsWith("zes") || w.endsWith("ches") || w.endsWith("shes"))
     return w.slice(0, -2);
+
   if (w.endsWith("s") && !w.endsWith("ss")) return w.slice(0, -1);
   return w;
 };
