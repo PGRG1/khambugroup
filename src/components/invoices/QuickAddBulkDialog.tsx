@@ -85,6 +85,40 @@ export default function QuickAddBulkDialog({
   const setPlan = (idx: number, patch: Partial<RowPlan>) =>
     setPlans((p) => ({ ...p, [idx]: { ...p[idx], ...patch } }));
 
+  /** internal_sku (lowercased) -> product name, for conflict flagging. */
+  const skuOwners = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of products) {
+      const k = (p.internal_sku || "").trim().toLowerCase();
+      if (k && !m.has(k)) m.set(k, p.internal_product_name || "another product");
+    }
+    return m;
+  }, [products]);
+
+  const conflicts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const l of lines) {
+      const plan = plans[l.index];
+      if (!plan || plan.mode !== "new") continue;
+      const k = plan.internalSku.trim().toLowerCase();
+      if (k) counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    const out: Record<number, string> = {};
+    for (const l of lines) {
+      const plan = plans[l.index];
+      if (!plan || plan.mode !== "new") continue;
+      const k = plan.internalSku.trim().toLowerCase();
+      if (!k) { out[l.index] = "Internal SKU is required."; continue; }
+      const owner = skuOwners.get(k);
+      if (owner) out[l.index] = `SKU already in use by ${owner}.`;
+      else if ((counts.get(k) || 0) > 1) out[l.index] = "SKU duplicated on another line.";
+    }
+    return out;
+  }, [lines, plans, skuOwners]);
+
+  const hasConflicts = Object.keys(conflicts).length > 0;
+
+
   const insertSupplierEntry = async (productMasterId: string, l: BulkLine): Promise<QuickAddEntry | null> => {
     const { data, error } = await supabase
       .from("product_suppliers" as any)
