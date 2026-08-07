@@ -1,4 +1,4 @@
-# Fix wrong invoice-line matches (e.g. McCormick Vodka → Bols Blue Curacao)
+# Fix wrong invoice-line matching system-wide
 
 ## What is going wrong
 
@@ -11,7 +11,7 @@ Whenever a line gets linked — by exact SKU, by fuzzy auto-link, or by you pick
 - *Exact SKU path*: `resolveExactMatch` links purely on external SKU equality, with no check that the names have anything in common. A short or generic code on the invoice (or a supplier SKU reused/mis-keyed in the master) links to a completely unrelated product.
 - *Fuzzy auto-link path*: auto-link fires at score ≥ 0.92, but the score includes a +0.10 same-supplier boost, +0.06 pack-size boost and +0.05 SKU bonus. A raw name similarity of ~0.80 — two different spirits from the same supplier — can clear the bar and link silently.
 
-The confirmed cause of the display in your screenshot is defect 1. Which of the two link paths produced the underlying bad match on that particular line is not yet confirmed; step 1 below makes that visible in the UI from now on.
+This is therefore not a special-case correction for McCormick or Bols. The fix will apply to every scanned invoice line and every product in the master. The confirmed cause of the misleading display is defect 1. Which link path produced any individual bad match is not currently retained; the changes below make the source and evidence visible going forward.
 
 ## The fix
 
@@ -20,24 +20,43 @@ The confirmed cause of the display in your screenshot is defect 1. Which of the 
 - Stop overwriting `description` / `item_code` in all three link paths. The scanned text stays in the External Name / External SKU cells; the master product appears in the Internal SKU / Internal Name cells, which is where it belongs.
 - When the linked master name differs materially from the scanned text, show a small amber "name differs" marker on the row with the master name in a tooltip, plus an **Unlink** action that clears the link and restores the row to unmatched.
 
-### 2. Sanity-gate the exact-SKU match
-Before accepting a SKU-only match, require a minimum name agreement between the scanned description and the candidate's supplier/internal name. If the SKU matches but the names are unrelated, do not auto-link: mark the row as a *possible match* with the candidate shown as a suggestion, so you confirm it in one click.
+### 2. Sanity-gate every exact-match path
+Before accepting an external-SKU or supplier-product match, require minimum agreement between the scanned description and the candidate's supplier/internal name. If the identifier matches but the names are unrelated, do not auto-link: mark the row as a *possible match* with the candidate shown as a suggestion, so you confirm it in one click.
 - Skip the gate when the scanned line has no usable description.
 - Codes shorter than 4 characters never link on their own.
 
 ### 3. Tighten fuzzy auto-link
 - Auto-link only when the **raw name score** (before supplier / size / SKU bonuses) clears the bar — bonuses may break ties and rank, but may not by themselves promote a line to auto-link.
-- Block auto-link when pack-size tokens conflict (100ml vs 70cl), and when the top two candidates are close.
+- Treat brand/product tokens as essential evidence rather than allowing generic words such as product type, country, or package wording to dominate the score.
+- Block auto-link on conflicts in pack size, unit, pack count, or clearly different identifying name/brand tokens (for example 100ml vs 70cl, bottle vs case, or McCormick vs Bols).
+- Require a clear confidence margin over the second-best candidate; a high top score is not sufficient when another candidate is nearly tied.
 - Everything else becomes a suggestion chip, exactly as it does today.
 
 ### 4. Make the confidence honest
 Score the chip against the **scanned** text, never against the already-substituted master name, so a self-referential 100% can no longer appear.
 
+### 5. Make uncertain matching safe and fast
+- Keep the highest-ranked candidate as **Did you mean?** when it is plausible but not safe enough to auto-link.
+- Show the reason a match was held back, such as “size differs”, “name differs”, or “close alternatives”.
+- Keep one-click accept, product search, Quick Add, and Unlink available from the same row so stricter matching does not recreate the long workflow.
+- Apply the same decision rules after extraction, rescanning, product-master refreshes, and manual unlinking so no alternate UI path can silently bypass the safeguards.
+
+### 6. Add regression coverage for classes of mismatch
+Add focused tests around the matching utilities rather than tests for one named product:
+- unrelated products sharing a supplier or generic category words;
+- exact/reused external SKU with conflicting names;
+- same product with harmless punctuation, abbreviation, word-order, or plural differences;
+- conflicting size, unit, and pack count;
+- close top-two candidates;
+- missing descriptions and short codes;
+- correct high-confidence matches that should still auto-link.
+
 ## Technical notes
 
-- `src/utils/productFuzzyMatch.ts`: return the raw name component alongside the boosted score; add a size-conflict flag; use raw score in `classifyCandidates` for the auto-link decision.
-- `src/utils/productMasterResolver.ts`: add the name-agreement gate and minimum code length to `resolveExactMatch`; return a `weak: true` signal instead of a hard match when the gate fails.
-- `src/components/invoices/InvoiceScanner.tsx`: add `scanned_description` / `scanned_item_code` to the line type and set them at extraction; remove the description/item_code overwrites at lines 426, 580 and 1008-1009; score suggestions from the scanned fields; add the "name differs" marker and Unlink action.
+- `src/utils/productFuzzyMatch.ts`: separate raw semantic confidence from ranking bonuses; expose conflict and ambiguity reasons; use only safe evidence in `classifyCandidates` for auto-linking.
+- `src/utils/productMasterResolver.ts`: apply the name-agreement and code-quality gate to identifier-based resolution; downgrade unsafe exact matches to suggestions instead of hard links.
+- `src/components/invoices/InvoiceScanner.tsx`: add immutable `scanned_description` / `scanned_item_code` values at extraction; remove every description/item-code overwrite; score from scanned values; show mismatch reasons and Unlink; route every automatic matching entry point through the same classifier.
+- Matching utility tests: cover mismatch categories and valid variants so future threshold changes cannot silently reintroduce false auto-links.
 - `ProcurementInvoicesTab.tsx` save path unchanged — it already saves `product_master_id` / `supplier_entry_id`.
 
 No database or edge-function changes. Existing saved invoices are untouched.
