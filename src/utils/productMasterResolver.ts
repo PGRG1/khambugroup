@@ -34,6 +34,29 @@ const supplierMatch = (a?: string, b?: string) => {
   return na === nb || na.includes(nb) || nb.includes(na);
 };
 
+const meaningfulTokens = (value: string) => new Set(
+  norm(value)
+    .split(" ")
+    .filter((token) => token.length > 2 && !/^\d/.test(token) && !["the", "and", "with", "bottle", "pack", "case"].includes(token)),
+);
+
+const namesAgree = (description: string, candidate: PMEntry) => {
+  const desc = norm(description);
+  if (!desc) return true;
+  const names = [candidate.supplier_product_name, candidate.internal_product_name].map(norm).filter(Boolean);
+  return names.some((name) => {
+    if (name === desc || name.includes(desc) || desc.includes(name)) return true;
+    const left = meaningfulTokens(desc);
+    const right = meaningfulTokens(name);
+    if (!left.size || !right.size) return false;
+    let shared = 0;
+    left.forEach((token) => { if (right.has(token)) shared += 1; });
+    return shared / Math.min(left.size, right.size) >= 0.6;
+  });
+};
+
+const isUsableIdentifier = (code: string) => code.replace(/[^a-z0-9]/g, "").length >= 4;
+
 /**
  * Find the best PM entry for a line item.
  *
@@ -66,7 +89,7 @@ export function resolveProductMatch(
   const desc = (description || "").trim().toLowerCase();
 
   // === PRIORITY 1: Exact External SKU ===
-  if (code) {
+  if (code && isUsableIdentifier(code)) {
     if (invoiceSupplier) {
       const skuSupplierMatch = products.find(
         p => (p.external_sku || "").trim().toLowerCase() === code && supplierMatch(p.supplier, invoiceSupplier)
@@ -203,11 +226,11 @@ export function resolveExactMatch(
       const m = products.find(
         p => (p.external_sku || "").trim().toLowerCase() === code && supplierMatch(p.supplier, invoiceSupplier)
       );
-      if (m) return m;
+      if (m && namesAgree(desc, m)) return m;
       // supplier known — do not return a different-supplier row
     } else {
       const m = products.find(p => (p.external_sku || "").trim().toLowerCase() === code);
-      if (m) return m;
+      if (m && namesAgree(desc, m)) return m;
     }
   }
 

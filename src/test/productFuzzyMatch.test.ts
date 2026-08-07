@@ -57,4 +57,34 @@ describe("classifyCandidates", () => {
     const res = classifyCandidates(scoreCandidates({ description: "Strawberry (250g)" }, products, "Fresh Co"));
     expect(res.action).toBe("auto_link");
   });
+
+  it("does not auto-link unrelated products because of supplier or SKU bonuses", () => {
+    const spirits = [
+      pm({ internal_sku: "BOLS", external_sku: "100", internal_product_name: "Bols Blue Curacao 70CL", supplier_product_name: "Bols Blue Curacao 70CL", supplier: "Drinks Co" }),
+    ];
+    const result = classifyCandidates(scoreCandidates(
+      { itemCode: "100", description: "MCCORMICK VODKA 100ml" },
+      spirits,
+      "Drinks Co",
+    ));
+    expect(result.action).not.toBe("auto_link");
+    expect(result.top?.rawNameScore).toBeLessThan(FUZZY.AUTO_LINK_NAME);
+  });
+
+  it("blocks auto-link when pack sizes conflict", () => {
+    const variants = [pm({ internal_sku: "VODKA-70", internal_product_name: "McCormick Vodka 70CL", supplier_product_name: "McCormick Vodka 70CL", supplier: "Drinks Co" })];
+    const result = classifyCandidates(scoreCandidates({ description: "McCormick Vodka 100ml" }, variants, "Drinks Co"));
+    expect(result.action).not.toBe("auto_link");
+    expect(result.top?.blockingReasons).toContain("size differs");
+  });
+
+  it("does not auto-link close alternatives", () => {
+    const variants = [
+      pm({ internal_sku: "A", internal_product_name: "Stella Artois Bottle 330ml", supplier_product_name: "Stella Artois Bottle 330ml" }),
+      pm({ internal_sku: "B", internal_product_name: "Stella Artois Bottles 330ml", supplier_product_name: "Stella Artois Bottles 330ml" }),
+    ];
+    const result = classifyCandidates(scoreCandidates({ description: "Stella Artois Bottle 330ml" }, variants));
+    expect(result.ambiguous).toBe(true);
+    expect(result.action).toBe("suggest");
+  });
 });

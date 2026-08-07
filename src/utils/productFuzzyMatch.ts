@@ -16,6 +16,8 @@ export const FUZZY = {
   SUGGEST: 0.6,
   /** Top-2 within this gap = ambiguous, worth asking the AI. */
   AMBIGUOUS_GAP: 0.03,
+  /** Name evidence required before any ranking bonuses may auto-link. */
+  AUTO_LINK_NAME: 0.92,
   /** How many candidates we keep per line. */
   MAX_SUGGESTIONS: 3,
   /** How many candidates we shortlist for the AI fallback. */
@@ -24,11 +26,18 @@ export const FUZZY = {
 
 export interface FuzzyCandidate {
   entry: PMEntry;
+  /** Final score used only to rank suggestions. */
   score: number;
+  /** Name-only confidence, before supplier / code / pack bonuses. */
+  rawNameScore: number;
   reasons: string[];
+  blockingReasons: string[];
 }
 
-const STOPWORDS = new Set(["the", "a", "an", "of", "and", "with", "fresh", "pcs", "pc"]);
+const STOPWORDS = new Set([
+  "the", "a", "an", "of", "and", "with", "fresh", "pcs", "pc", "product",
+  "bottle", "btl", "pack", "case", "box", "imported", "origin", "country",
+]);
 
 export const normalizeText = (v: string | undefined | null): string =>
   (v || "")
@@ -98,15 +107,28 @@ const trigramSim = (a: string, b: string): number => {
   return (2 * inter) / (ta.size + tb.size);
 };
 
-/** Extract size tokens like "125g", "250 ml", "1kg". */
+/** Extract normalized quantity tokens so 1L equals 1000ml but conflicts with 70cl. */
 const sizeTokens = (v: string): string[] => {
   const out: string[] = [];
-  const re = /(\d+(?:\.\d+)?)\s*(kg|g|ml|l|lb|oz|pcs?|pack|btl|bottle)\b/gi;
+  const re = /(\d+(?:\.\d+)?)\s*(kg|g|cl|ml|l|lb|oz|pcs?|pack|btl|bottle)\b/gi;
   let m: RegExpExecArray | null;
   const s = (v || "").toLowerCase();
-  while ((m = re.exec(s))) out.push(`${parseFloat(m[1])}${m[2].replace(/s$/, "")}`);
+  while ((m = re.exec(s))) {
+    const value = parseFloat(m[1]);
+    const unit = m[2].replace(/s$/, "");
+    if (unit === "l") out.push(`${value * 1000}ml`);
+    else if (unit === "cl") out.push(`${value * 10}ml`);
+    else if (unit === "kg") out.push(`${value * 1000}g`);
+    else if (unit === "bottle" || unit === "btl") out.push(`${value}btl`);
+    else out.push(`${value}${unit}`);
+  }
+  const packCount = /\b(\d+)\s*[x×]\s*\d/i.exec(s);
+  if (packCount) out.push(`${parseInt(packCount[1], 10)}packcount`);
   return out;
 };
+
+const hasSizeConflict = (line: string[], candidate: string[]) =>
+  line.length > 0 && candidate.length > 0 && !line.some((token) => candidate.includes(token));
 
 const textScore = (query: string, target: string): number => {
   if (!query || !target) return 0;
@@ -146,57 +168,66 @@ export function scoreCandidates(
   const scored: FuzzyCandidate[] = [];
   for (const p of products) {
     const reasons: string[] = [];
-    let best = 0;
+    const blockingReasons: string[] = [];
+    let rawNameScore = 0;
+    let rankingScore = 0;
 
     if (desc) {
       const sSupplierName = textScore(desc, p.supplier_product_name || "");
       const sInternalName = textScore(desc, p.internal_product_name || "");
       if (sSupplierName >= sInternalName) {
-        best = sSupplierName;
+        rawNameScore = sSupplierName;
         if (sSupplierName > 0) reasons.push("name similar to supplier name");
       } else {
-        best = sInternalName;
+        rawNameScore = sInternalName;
         if (sInternalName > 0) reasons.push("name similar to internal name");
       }
+      rankingScore = rawNameScore;
     }
 
     if (code) {
       const sCode = textScore(code, p.external_sku || "");
-      if (sCode > best) {
-        best = sCode;
-        reasons.length = 0;
+      if (!desc && sCode > rankingScore) {
+        rankingScore = sCode;
         reasons.push("code similar to external SKU");
       } else if (sCode > 0.8) {
-        best = Math.min(1, best + 0.05);
+        rankingScore = Math.min(1, rankingScore + 0.05);
         reasons.push("code also similar");
       }
     }
 
-    if (best <= 0) continue;
+    if (rankingScore <= 0) continue;
 
     // Size token agreement (125G vs 125g)
     if (lineSizes.length) {
       const candSizes = sizeTokens(`${p.supplier_product_name || ""} ${p.internal_product_name || ""}`);
       if (candSizes.length) {
         if (lineSizes.some((s) => candSizes.includes(s))) {
-          best = Math.min(1, best + 0.06);
+          rankingScore = Math.min(1, rankingScore + 0.06);
           reasons.push("pack size matches");
-        } else {
-          best = Math.max(0, best - 0.05);
+        } else if (hasSizeConflict(lineSizes, candSizes)) {
+          rankingScore = Math.max(0, rankingScore - 0.12);
           reasons.push("pack size differs");
+          blockingReasons.push("size differs");
         }
       }
     }
 
     // Same-supplier boost so a same-supplier 0.80 beats another supplier's 0.85
     if (invoiceSupplier && supplierMatch(p.supplier, invoiceSupplier)) {
-      best = Math.min(1, best + 0.1);
+      rankingScore = Math.min(1, rankingScore + 0.1);
       reasons.push("same supplier");
     } else if (invoiceSupplier && p.supplier) {
-      best = Math.max(0, best - 0.05);
+      rankingScore = Math.max(0, rankingScore - 0.05);
     }
 
-    scored.push({ entry: p, score: Math.round(best * 1000) / 1000, reasons });
+    scored.push({
+      entry: p,
+      score: Math.round(rankingScore * 1000) / 1000,
+      rawNameScore: Math.round(rawNameScore * 1000) / 1000,
+      reasons,
+      blockingReasons,
+    });
   }
 
   scored.sort((a, b) => b.score - a.score);
@@ -227,6 +258,11 @@ export function classifyCandidates(candidates: FuzzyCandidate[]): {
   const suggestions = candidates.slice(0, FUZZY.MAX_SUGGESTIONS);
 
   if (!top || top.score < FUZZY.SUGGEST) return { action: "ask_ai", top, suggestions: [], ambiguous };
-  if (top.score >= FUZZY.AUTO_LINK && !ambiguous) return { action: "auto_link", top, suggestions, ambiguous };
+  if (
+    top.score >= FUZZY.AUTO_LINK &&
+    top.rawNameScore >= FUZZY.AUTO_LINK_NAME &&
+    top.blockingReasons.length === 0 &&
+    !ambiguous
+  ) return { action: "auto_link", top, suggestions, ambiguous };
   return { action: "suggest", top, suggestions, ambiguous };
 }
