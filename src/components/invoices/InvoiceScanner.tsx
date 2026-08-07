@@ -1822,7 +1822,11 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
                     const q = parseFloat(l.quantity) || 0;
                     const a = parseFloat(l.accepted_qty ?? l.quantity ?? "0") || 0;
                     const invoiced = parseFloat(recalc.perLine[i].total) || 0;
-                    const accepted = q > 0 ? invoiced * (a / q) : 0;
+                    const accPrice = parseFloat(l.accepted_price || "");
+                    const invPrice = parseFloat(l.unit_price) || 0;
+                    const grossInv = invPrice * q;
+                    const grossAcc = (Number.isFinite(accPrice) && accPrice > 0 ? accPrice : invPrice) * a;
+                    const accepted = grossInv > 0 ? invoiced * (grossAcc / grossInv) : (q > 0 ? invoiced * (a / q) : 0);
                     return { invoiced, accepted };
                   });
                   return current.line_items.map((line, i) => {
