@@ -405,6 +405,45 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
     };
   }, []);
 
+  /** Apply a Product Master entry onto a line (used by the fuzzy auto-link path). */
+  const linkEntryToLine = useCallback((line: ScannedLineItem, entry: ProductMasterEntry, score?: number): ScannedLineItem => {
+    const scannedPrice = parseFloat(line.unit_price) || 0;
+    const pmPrice = entry.purchase_unit_cost ?? 0;
+    const masterPrice = pmPrice > 0 ? pmPrice : undefined;
+    const existingAcc = parseFloat(line.accepted_price || "");
+    const acceptedPrice = Number.isFinite(existingAcc) && (line.accepted_price || "").trim() !== ""
+      ? line.accepted_price!
+      : (masterPrice != null ? String(masterPrice) : "");
+    const accNum = parseFloat(acceptedPrice);
+    const isFreeUnit = scannedPrice === 0 && (parseFloat(line.quantity) || 0) > 0;
+    return {
+      ...line,
+      item_code: entry.external_sku || line.item_code || "",
+      description: entry.supplier_product_name || entry.internal_product_name || line.description,
+      matched_sku: entry.internal_sku,
+      matched_internal_name: entry.internal_product_name || "",
+      matched_stock_uom: entry.stock_uom || "",
+      matched_purchase_uom: entry.purchase_unit || "",
+      matched_stock_qty_ratio: entry.stock_qty ?? 1,
+      unmatched: false,
+      sku_mismatch: false,
+      price_changed: pmPrice > 0 && Math.abs(scannedPrice - pmPrice) > 0.01,
+      pm_unit_price: masterPrice,
+      product_master_id: entry.id,
+      supplier_entry_id: (entry as any).supplier_entry_id ?? line.supplier_entry_id ?? null,
+      master_price: masterPrice,
+      accepted_price: acceptedPrice,
+      price_disputed: !isFreeUnit && Number.isFinite(accNum) && Math.round(accNum * 100) !== Math.round(scannedPrice * 100),
+      is_free_unit_line: isFreeUnit,
+      suggestions: undefined,
+      suggestion_source: undefined,
+      auto_matched: score != null,
+      auto_match_score: score,
+      review_status: "matched",
+      review_blocking: [],
+    };
+  }, []);
+
   const flagLineItemIssues = useCallback((lines: ScannedLineItem[], pm: ProductMasterEntry[] | undefined, supplierName?: string): ScannedLineItem[] => {
     if (!pm) return lines.map(line => ({ ...line, unmatched: true }));
     return lines.map(line => {
@@ -420,6 +459,13 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
         (workingLine.review_blocking || []).some((msg) => msg.toLowerCase().startsWith("matched_sku:"));
 
       if (reviewerRequiresManualAction) {
+        // Never auto-link these, but still offer "did you mean?" candidates.
+        const cands = scoreCandidates(
+          { itemCode: workingLine.item_code, description: workingLine.description },
+          pm,
+          supplierName,
+        );
+        const cls = classifyCandidates(cands);
         return {
           ...workingLine,
           matched_sku: "",
@@ -431,6 +477,9 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
           unmatched: true,
           price_changed: false,
           pm_unit_price: undefined,
+          suggestions: cls.suggestions,
+          suggestion_source: "local",
+          auto_matched: false,
         };
       }
 
@@ -460,8 +509,35 @@ const InvoiceScanner = ({ suppliers, productMaster, onSave, onClose, userId }: I
       }
 
       if (!resolved) {
-        return { ...workingLine, sku_mismatch: false, unmatched: true, price_changed: false, matched_sku: "", matched_internal_name: "", matched_stock_uom: "", matched_purchase_uom: "", matched_stock_qty_ratio: 1, product_master_id: null, master_price: undefined, accepted_price: workingLine.accepted_price ?? "" };
+        // No exact match — fall back to the fuzzy layer.
+        const cands = scoreCandidates(
+          { itemCode: workingLine.item_code, description: workingLine.description },
+          pm,
+          supplierName,
+        );
+        const cls = classifyCandidates(cands);
+        if (cls.action === "auto_link" && cls.top) {
+          return linkEntryToLine(workingLine, cls.top.entry as ProductMasterEntry, cls.top.score);
+        }
+        return {
+          ...workingLine,
+          sku_mismatch: false,
+          unmatched: true,
+          price_changed: false,
+          matched_sku: "",
+          matched_internal_name: "",
+          matched_stock_uom: "",
+          matched_purchase_uom: "",
+          matched_stock_qty_ratio: 1,
+          product_master_id: null,
+          master_price: undefined,
+          accepted_price: workingLine.accepted_price ?? "",
+          suggestions: cls.suggestions,
+          suggestion_source: "local",
+          auto_matched: false,
+        };
       }
+
 
       // SKU mismatch check
       const scannedCode = (workingLine.item_code || "").trim().toLowerCase();
