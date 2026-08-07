@@ -4,7 +4,24 @@ Let an unmatched scanned line become a real Product Master item in one click, wi
 
 ## The flow
 
-On any unmatched line in the scanner (next to the existing "Did you mean?" suggestion chip) add a **+ Quick add** button. It opens a small popover pre-filled from the scanned line:
+On any unmatched line in the scanner (next to the existing "Did you mean?" suggestion chip) add a **+ Quick add** button. The popover opens with two modes, because a scanned line is either a genuinely new product or the same product bought from a new supplier.
+
+### Mode A — New supplier for an existing product (default when a likely match exists)
+
+The case where you already stock Stella from supplier X and start buying it from supplier Y: the internal SKU and internal name stay exactly the same, only the supplier-side data is new.
+
+The popover opens on this mode whenever the fuzzy matcher finds a candidate, showing "Looks like you already have this — **Stella Artois (BEV-0042)**" with a searchable product picker to change the pick. Fields:
+
+- Existing product (picker; internal SKU + internal name shown read-only once chosen)
+- Supplier (locked to the invoice supplier)
+- External SKU / external name (from the scanned line)
+- Purchase UOM + unit cost (from the scanned line)
+
+Confirm creates **only** a `product_suppliers` row against the chosen `product_master_id`. Nothing on the shared product is overwritten — categories, financial treatment and GL account are inherited, so this item is immediately fully set up and does **not** land in the "Needs setup" list.
+
+### Mode B — Brand new product
+
+Used when nothing matches, or when you switch modes manually. Pre-filled from the scanned line:
 
 - Internal name (defaults to the scanned description)
 - Internal SKU (auto-generated, e.g. `QA-0001`, editable)
@@ -16,9 +33,12 @@ Confirm creates:
 - one `product_master` row (status `Draft`, no categories, no financial treatment, no GL account)
 - one `product_suppliers` row linking it to this invoice's supplier
 
-The line is then immediately linked to the new product, exactly as if it had been matched — no re-scan, no page change.
+If the typed internal SKU already exists, the popover switches itself to Mode A against that product rather than creating a duplicate.
 
-A **Quick add all unmatched** button sits next to the existing "Resolve unmatched with AI" button, creating one draft product per remaining unmatched line in a single review list.
+In both modes the line is immediately linked to the resulting supplier entry, exactly as if it had been matched — no re-scan, no page change.
+
+A **Quick add all unmatched** button sits next to the existing "Resolve unmatched with AI" button. It opens one review list where each line is pre-set to Mode A (with its best candidate) or Mode B, so you can eyeball the split and confirm in one go.
+
 
 ## Where you follow up later
 
