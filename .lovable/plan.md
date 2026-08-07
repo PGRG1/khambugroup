@@ -16,8 +16,8 @@ This is the opposite side of the earlier fix: scanned text must be preserved as 
 3. **"Name differs" only fires on real conflicts.** Because the cell now shows the canonical name, the amber marker appears only when the scanned text conflicts with the master on size, unit, pack count, or identifying brand tokens — not when the invoice wording is merely longer or carries a supplier reference number. Conflicts still block auto-link exactly as they do today, and the confidence percentage is still scored against the scanned text so it can never be self-referential.
 4. **Scanned text stays as evidence, not as display.** `scanned_description` / `scanned_item_code` remain immutable and are what every score is computed from. The invoice wording appears as small muted sub-text under the cell ("Invoice: HOEGAARDEN - 20L KEG Ref No. 6B15") plus a tooltip, so nothing is lost.
 5. **Unlinked lines are unchanged.** They keep showing scanned text, editable, with Did you mean / Ask AI / Quick add.
-5. **Unlink restores the scanned text** into the cell, as it does today.
-6. **Save path writes the canonical name.** Lines saved with a link store the master supplier product name and external SKU; the scanned wording is kept only as evidence on the line, so downstream invoice records, GRNs, and pricing views stay consistent.
+6. **Unlink restores the scanned text** into the cell, as it does today.
+7. **Save path writes the canonical name.** Lines saved with a link store the master supplier product name and external SKU; the scanned wording is kept only as evidence on the line, so downstream invoice records, GRNs, and pricing views stay consistent.
 
 ## Technical notes
 
